@@ -1,13 +1,24 @@
+import { Route, Routes } from 'react-router-dom'
+import { Layout } from './components/Layout'
+import { CookiePolicyPage } from './views/CookiePolicyPage'
+import { LandingPage } from './views/LandingPage'
+import { NotFoundPage } from './views/NotFoundPage'
+import { PrivacyPolicyPage } from './views/PrivacyPolicyPage'
+import { RefundPolicyPage } from './views/RefundPolicyPage'
+import { TermsOfServicePage } from './views/TermsOfServicePage'
+
 function App() {
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-2 bg-white text-center dark:bg-neutral-950">
-      <h1 className="text-3xl font-semibold text-neutral-900 dark:text-neutral-50">
-        SilhouFit
-      </h1>
-      <p className="text-neutral-500 dark:text-neutral-400">
-        Frontend environment ready — React, TypeScript, Vite, Tailwind CSS.
-      </p>
-    </main>
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<LandingPage />} />
+        <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="terms-of-service" element={<TermsOfServicePage />} />
+        <Route path="refund-policy" element={<RefundPolicyPage />} />
+        <Route path="cookie-policy" element={<CookiePolicyPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   )
 }
 
