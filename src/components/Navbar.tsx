@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useMagnetic } from '../hooks/useMagnetic'
+import { SilhouetteMark } from './landing/SilhouetteMark'
 import { ThemeToggle } from './ThemeToggle'
 
 const NAV_LINKS = [
@@ -11,8 +13,38 @@ const NAV_LINKS = [
 
 export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [solid, setSolid] = useState(false)
+  const [activeHref, setActiveHref] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const magnetic = useMagnetic<HTMLAnchorElement>()
+
+  useEffect(() => {
+    function onScroll() {
+      setSolid(window.scrollY > 24)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    const sections = NAV_LINKS.map((link) =>
+      document.getElementById(link.href.split('#')[1]),
+    ).filter((el): el is HTMLElement => el !== null)
+    if (sections.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) setActiveHref(`/#${entry.target.id}`)
+        }
+      },
+      { rootMargin: '-45% 0px -50% 0px' },
+    )
+    sections.forEach((section) => observer.observe(section))
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -49,93 +81,108 @@ export function Navbar() {
   }, [menuOpen])
 
   return (
-    <header className="glass sticky top-0 z-40 border-b">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+    <header
+      className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
+        solid
+          ? 'border-b border-ink/10 bg-bone/85 backdrop-blur-md dark:border-white/10 dark:bg-ink/85'
+          : 'border-b border-transparent'
+      }`}
+    >
+      <nav
+        aria-label="Primary"
+        className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5"
+      >
         <Link
           to="/"
-          className="font-display text-xl font-semibold text-ink dark:text-bone"
+          className="group flex items-center gap-3"
           onClick={() => setMenuOpen(false)}
         >
-          SilhouFit
+          <SilhouetteMark className="h-8 w-6 text-ink dark:text-bone" />
+          <span className="leading-none">
+            <span className="font-display block text-[17px] font-bold tracking-[-0.02em] text-ink dark:text-bone">
+              SilhouFit
+            </span>
+            <span className="font-ui block text-[9px] tracking-[0.22em] text-ink/50 uppercase transition-colors group-hover:text-bronze dark:text-bone/50 dark:group-hover:text-bronze-light">
+              Omnichannel apparel
+            </span>
+          </span>
         </Link>
 
-        <nav
-          aria-label="Primary"
-          className="hidden items-center gap-8 md:flex"
-        >
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium text-ink/80 decoration-garnet decoration-2 underline-offset-4 hover:text-ink hover:underline dark:text-bone/80 dark:hover:text-bone"
-            >
-              {link.label}
-            </a>
-          ))}
-        </nav>
+        <div className="hidden items-center gap-8 lg:flex">
+          {NAV_LINKS.map((link) => {
+            const isActive = activeHref === link.href
+            return (
+              <a
+                key={link.href}
+                href={link.href}
+                aria-current={isActive ? 'true' : undefined}
+                className={`font-ui relative text-[11px] tracking-[0.16em] uppercase transition-colors ${
+                  isActive
+                    ? 'text-ink dark:text-bone'
+                    : 'text-ink/55 hover:text-ink dark:text-bone/55 dark:hover:text-bone'
+                }`}
+              >
+                {link.label}
+                <span
+                  className={`absolute -bottom-2 left-0 h-px bg-bronze transition-[width,opacity] duration-500 ease-out dark:bg-bronze-light ${
+                    isActive ? 'w-full opacity-100' : 'w-0 opacity-0'
+                  }`}
+                />
+              </a>
+            )
+          })}
 
-        <div className="hidden items-center gap-4 md:flex">
           <ThemeToggle />
+
           <a
+            ref={magnetic.ref}
             href="/#contact"
-            className="rounded-sm bg-ink px-4 py-2 text-sm font-semibold text-bone hover:bg-garnet dark:bg-bone dark:text-ink dark:hover:bg-garnet-light dark:hover:text-ink"
+            onPointerMove={magnetic.handlePointerMove}
+            onPointerLeave={magnetic.handlePointerLeave}
+            className="pill bg-ink font-medium text-bone hover:bg-bronze dark:bg-bone dark:text-ink dark:hover:bg-bronze-light"
           >
             Talk to us
           </a>
         </div>
 
-        <div className="flex items-center gap-3 md:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           <ThemeToggle />
           <button
             ref={menuButtonRef}
             type="button"
+            onClick={() => setMenuOpen((open) => !open)}
             aria-expanded={menuOpen}
             aria-controls="mobile-menu"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-10 w-10 items-center justify-center rounded-sm border border-ink/15 dark:border-white/15"
+            className="pill glass-btn glass text-ink dark:text-bone"
           >
-            <span className="relative block h-3 w-5" aria-hidden="true">
-              <span
-                className={`absolute left-0 top-0 block h-0.5 w-5 bg-ink transition-transform duration-150 dark:bg-bone ${
-                  menuOpen ? 'translate-y-1.5 rotate-45' : ''
-                }`}
-              />
-              <span
-                className={`absolute left-0 bottom-0 block h-0.5 w-5 bg-ink transition-transform duration-150 dark:bg-bone ${
-                  menuOpen ? '-translate-y-1.5 -rotate-45' : ''
-                }`}
-              />
-            </span>
+            {menuOpen ? 'Close' : 'Menu'}
           </button>
         </div>
-      </div>
+      </nav>
 
       {menuOpen && (
         <div
           id="mobile-menu"
           ref={menuRef}
-          className="glass border-t md:hidden"
+          className="border-t border-ink/10 bg-bone px-6 pt-4 pb-8 lg:hidden dark:border-white/10 dark:bg-ink"
         >
-          <nav aria-label="Mobile" className="flex flex-col px-6 py-4">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={() => setMenuOpen(false)}
-                className="border-b border-ink/10 py-3 text-base font-medium text-ink dark:border-white/10 dark:text-bone"
-              >
-                {link.label}
-              </a>
-            ))}
+          {NAV_LINKS.map((link) => (
             <a
-              href="/#contact"
+              key={link.href}
+              href={link.href}
               onClick={() => setMenuOpen(false)}
-              className="mt-4 rounded-sm bg-ink px-4 py-3 text-center text-sm font-semibold text-bone dark:bg-bone dark:text-ink"
+              className="font-display block border-b border-ink/10 py-4 text-2xl font-semibold tracking-[-0.02em] text-ink dark:border-white/10 dark:text-bone"
             >
-              Talk to us
+              {link.label}
             </a>
-          </nav>
+          ))}
+          <a
+            href="/#contact"
+            onClick={() => setMenuOpen(false)}
+            className="pill mt-6 bg-ink font-medium text-bone dark:bg-bone dark:text-ink"
+          >
+            Talk to us
+          </a>
         </div>
       )}
     </header>

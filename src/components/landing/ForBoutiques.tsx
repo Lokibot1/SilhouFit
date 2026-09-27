@@ -1,14 +1,12 @@
 import { DashboardMock } from './DashboardMock'
+import { ParallaxSection } from './ParallaxSection'
 
 export function ForBoutiques() {
   return (
-    <section
-      id="boutiques"
-      className="measure-field scroll-mt-20 bg-bone-soft dark:bg-ink-soft"
-    >
+    <ParallaxSection id="boutiques" image="/images/boutique-rack.jpg" speed={0.1}>
       <div className="mx-auto grid max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-2">
-        <div className="max-w-xl">
-          <h2 className="font-display text-3xl font-semibold text-ink dark:text-bone">
+        <div className="glass-solid max-w-xl rounded-2xl p-8">
+          <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-ink dark:text-bone">
             A dashboard for the owner, not just the shopper
           </h2>
           <p className="mt-6 text-base leading-relaxed text-ink/70 dark:text-bone/75">
@@ -28,6 +26,6 @@ export function ForBoutiques() {
           <DashboardMock />
         </div>
       </div>
-    </section>
+    </ParallaxSection>
   )
 }

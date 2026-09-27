@@ -1,52 +1,72 @@
+import { ParallaxSection } from './ParallaxSection'
+
 const CAPABILITIES = [
   {
     term: 'Inventory that matches in real time',
     detail:
       'Stock changes at the register update the storefront immediately, and the reverse. One inventory count, not two ledgers to reconcile by hand.',
+    span: 'lg:col-span-2',
+  },
+  {
+    term: 'A profile that remembers sizing',
+    detail:
+      'Purchase history, wishlist items, and sizing preferences are stored once and used everywhere the shopper appears.',
+    span: 'lg:col-span-1',
+    image: '/images/measuring-tape.jpg',
   },
   {
     term: 'One cart, either channel',
     detail:
       'Add items online or in the store and check out with Buy Online, Pick Up In-Store. The cart follows the shopper across channels.',
-  },
-  {
-    term: 'A profile that remembers sizing',
-    detail:
-      'Purchase history, wishlist items, and sizing preferences are stored once and used everywhere the shopper appears, in the store or on the site.',
+    span: 'lg:col-span-1',
   },
   {
     term: 'Garment models managed by staff',
     detail:
       'Boutique staff upload and scale 3D garment models from the admin dashboard and link them to the matching product listing, no separate 3D pipeline needed.',
+    span: 'lg:col-span-2',
   },
 ]
 
 export function Capabilities() {
   return (
-    <section
+    <ParallaxSection
       id="capabilities"
-      className="measure-field scroll-mt-20 bg-bone dark:bg-ink"
+      image="/images/boutique-rack.jpg"
+      scrimClassName="bg-bone/65 dark:bg-ink/65"
     >
       <div className="mx-auto max-w-6xl px-6 py-24">
-        <h2 className="font-display max-w-md text-3xl font-semibold text-ink dark:text-bone">
+        <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-ink drop-shadow-sm dark:text-bone">
           What the store side handles
         </h2>
-        <dl className="mt-12 border-t border-ink/15 dark:border-white/15">
+
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {CAPABILITIES.map((item) => (
             <div
               key={item.term}
-              className="grid gap-3 border-b border-ink/15 py-8 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] sm:gap-10 dark:border-white/15"
+              className={`btn-lift glass flex flex-col overflow-hidden rounded-2xl ${item.span ?? ''}`}
             >
-              <dt className="text-lg font-semibold text-ink dark:text-bone">
-                {item.term}
-              </dt>
-              <dd className="text-base leading-relaxed text-ink/70 dark:text-bone/75">
-                {item.detail}
-              </dd>
+              {item.image && (
+                <img
+                  src={item.image}
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  className="h-36 w-full object-cover"
+                />
+              )}
+              <div className="flex flex-1 flex-col p-7">
+                <h3 className="display text-2xl text-ink sm:text-[1.75rem] dark:text-bone">
+                  {item.term}
+                </h3>
+                <p className="mt-3 text-base leading-relaxed text-ink/70 dark:text-bone/75">
+                  {item.detail}
+                </p>
+              </div>
             </div>
           ))}
-        </dl>
+        </div>
       </div>
-    </section>
+    </ParallaxSection>
   )
 }
