@@ -1,5 +1,8 @@
+import { motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { useScrollSpy } from '../../hooks/useScrollSpy'
+import { Reveal } from '../../motion/Reveal'
+import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { ParallaxSection } from './ParallaxSection'
 
 const STEPS = [
@@ -84,10 +87,15 @@ export function HowItWorks() {
       scrimClassName="bg-bone/65 dark:bg-ink/65"
     >
       <div className="mx-auto max-w-6xl px-6 py-24">
-        <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-ink drop-shadow-sm dark:text-bone">
-          From browsing to pickup
-        </h2>
+        <Reveal>
+          <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-ink drop-shadow-sm dark:text-bone">
+            From browsing to pickup
+          </h2>
+        </Reveal>
 
+        {/* No per-row entrance here. This section's motion is the scroll
+            position itself choosing a step, and a fifth copy of the page's
+            reveal would bury that. */}
         <ol className="mt-14 border-t border-ink/15 dark:border-white/15">
           {STEPS.map((step, index) => {
             const isActive = index === effectiveIndex
@@ -99,8 +107,18 @@ export function HowItWorks() {
                 ref={setItemRef(index)}
                 onMouseEnter={() => setHoverIndex(index)}
                 onMouseLeave={() => setHoverIndex(null)}
-                className="border-b border-ink/15 py-8 dark:border-white/15"
+                className="relative border-b border-ink/15 py-8 dark:border-white/15"
               >
+                {/* The step's own rule extends across as it takes focus: the
+                    same travelling measure-edge the headings use, borrowed by
+                    a line that was already in the layout. */}
+                <motion.span
+                  aria-hidden="true"
+                  initial={false}
+                  animate={{ scaleX: isActive ? 1 : 0 }}
+                  transition={{ duration: DURATION.shift, ease: EASE_OUT }}
+                  className="absolute -bottom-px left-0 h-px w-full origin-left bg-bronze dark:bg-bronze-light"
+                />
                 <h3 className="contents">
                   <button
                     type="button"

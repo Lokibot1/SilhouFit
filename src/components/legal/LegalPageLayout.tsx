@@ -19,7 +19,7 @@ export function LegalPageLayout({
 
   return (
     <div className="relative overflow-hidden bg-bone-soft pt-32 pb-16 dark:bg-ink-soft">
-      <TexturedBackdrop image="/images/fabric-texture.jpg" speed={0.05} />
+      <TexturedBackdrop image="/images/fabric-texture.jpg" speed={0.18} />
       <article className="glass-solid relative mx-auto max-w-2xl rounded-2xl px-6 py-14 sm:px-12">
         <h1 className="display text-[clamp(2rem,4vw,3rem)] text-ink dark:text-bone">
           {title}

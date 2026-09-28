@@ -5,7 +5,7 @@ import { useParallax } from '../hooks/useParallax'
 // buffer sized as a percentage of a short section could be outrun by a tall
 // viewport. A flat buffer always covers the bounded travel + zoom, so the
 // image never runs out of coverage and reveals the flat fallback behind it.
-const BUFFER_PX = 240
+const BUFFER_PX = 320
 
 export function TexturedBackdrop({
   image,

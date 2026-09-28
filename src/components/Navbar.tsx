@@ -1,6 +1,13 @@
+import {
+  AnimatePresence,
+  motion,
+  useMotionValueEvent,
+  useScroll,
+} from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMagnetic } from '../hooks/useMagnetic'
+import { DURATION, EASE_OUT } from '../motion/tokens'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -19,14 +26,8 @@ export function Navbar() {
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const magnetic = useMagnetic<HTMLAnchorElement>()
 
-  useEffect(() => {
-    function onScroll() {
-      setSolid(window.scrollY > 24)
-    }
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  const { scrollY, scrollYProgress } = useScroll()
+  useMotionValueEvent(scrollY, 'change', (value) => setSolid(value > 24))
 
   useEffect(() => {
     const sections = NAV_LINKS.map((link) =>
@@ -90,7 +91,9 @@ export function Navbar() {
     >
       <nav
         aria-label="Primary"
-        className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5"
+        className={`mx-auto flex max-w-6xl items-center justify-between px-6 transition-[padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          solid ? 'py-3' : 'py-5'
+        }`}
       >
         <Link
           to="/"
@@ -160,31 +163,45 @@ export function Navbar() {
         </div>
       </nav>
 
-      {menuOpen && (
-        <div
-          id="mobile-menu"
-          ref={menuRef}
-          className="border-t border-ink/10 bg-bone px-6 pt-4 pb-8 lg:hidden dark:border-white/10 dark:bg-ink"
-        >
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              onClick={() => setMenuOpen(false)}
-              className="font-display block border-b border-ink/10 py-4 text-2xl font-semibold tracking-[-0.02em] text-ink dark:border-white/10 dark:text-bone"
-            >
-              {link.label}
-            </a>
-          ))}
-          <a
-            href="/#contact"
-            onClick={() => setMenuOpen(false)}
-            className="pill mt-6 bg-ink font-medium text-bone dark:bg-bone dark:text-ink"
+      <motion.div
+        aria-hidden="true"
+        style={{ scaleX: scrollYProgress }}
+        className="absolute inset-x-0 bottom-0 h-px origin-left bg-bronze dark:bg-bronze-light"
+      />
+
+      <AnimatePresence initial={false}>
+        {menuOpen && (
+          <motion.div
+            id="mobile-menu"
+            ref={menuRef}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: DURATION.state, ease: EASE_OUT }}
+            className="overflow-hidden border-t border-ink/10 bg-bone lg:hidden dark:border-white/10 dark:bg-ink"
           >
-            Talk to us
-          </a>
-        </div>
-      )}
+            <div className="px-6 pt-4 pb-8">
+              {NAV_LINKS.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="font-display block border-b border-ink/10 py-4 text-2xl font-semibold tracking-[-0.02em] text-ink dark:border-white/10 dark:text-bone"
+                >
+                  {link.label}
+                </a>
+              ))}
+              <a
+                href="/#contact"
+                onClick={() => setMenuOpen(false)}
+                className="pill mt-6 bg-ink font-medium text-bone dark:bg-bone dark:text-ink"
+              >
+                Talk to us
+              </a>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   )
 }

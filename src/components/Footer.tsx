@@ -1,3 +1,5 @@
+import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 
@@ -39,10 +41,30 @@ function BackToTop() {
 
 export function Footer() {
   const year = new Date().getFullYear()
+  const footerRef = useRef<HTMLElement>(null)
+  const reduced = useReducedMotion()
+
+  const { scrollYProgress } = useScroll({
+    target: footerRef,
+    offset: ['start end', 'end end'],
+  })
+  // The figure from the hero card, arriving at the bottom of the page still
+  // settling. It is the one element that moves across a section boundary, so
+  // the page closes on the mark it opened with rather than on a flat panel.
+  const markY = useTransform(scrollYProgress, [0, 1], [reduced ? 0 : -90, 0])
 
   return (
-    <footer className="relative overflow-hidden bg-bone-soft dark:bg-ink-soft">
-      <SilhouetteMark className="pointer-events-none absolute -right-24 -top-16 h-[36rem] w-[28rem] text-ink/[0.05] dark:text-bone/[0.06]" />
+    <footer
+      ref={footerRef}
+      className="relative overflow-hidden bg-bone-soft dark:bg-ink-soft"
+    >
+      <motion.div
+        aria-hidden="true"
+        style={{ y: markY }}
+        className="pointer-events-none absolute -top-16 -right-24 will-change-transform"
+      >
+        <SilhouetteMark className="h-[36rem] w-[28rem] text-ink/[0.05] dark:text-bone/[0.06]" />
+      </motion.div>
 
       <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-28">
         <div className="grid gap-16 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">

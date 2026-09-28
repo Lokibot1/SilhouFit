@@ -1,39 +1,108 @@
+import {
+  useMotionValue,
+  useMotionValueEvent,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+} from 'motion/react'
+import { useRef, useState } from 'react'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
+import { Reveal, RevealWords } from '../../motion/Reveal'
+import { SPRING } from '../../motion/tokens'
+import { ARAcquisition } from './ARAcquisition'
 import { ARPipeline } from './ARPipeline'
-import { ParallaxSection } from './ParallaxSection'
+import { TexturedBackdrop } from '../TexturedBackdrop'
+
+const STAGE_CAPTIONS = [
+  'The camera finds the body and pulls focus.',
+  'Pose tracking locks onto the joints it needs.',
+  'The scaled garment renders over the video.',
+]
 
 export function ARFitting() {
+  const sectionRef = useRef<HTMLElement>(null)
+  const reduced = useReducedMotion()
+  const canPin = useMediaQuery('(min-width: 1024px)')
+  const isPinned = !reduced && canPin
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start start', 'end end'],
+  })
+  const scrubbed = useSpring(scrollYProgress, SPRING.scrub)
+  // Held at the end of the sequence, so the unpinned page shows the fully
+  // acquired figure rather than an empty frame waiting for a scroll that will
+  // never drive it. Same JSX, no second static copy of the diagram.
+  const settled = useMotionValue(1)
+  const progress = isPinned ? scrubbed : settled
+
+  const [stage, setStage] = useState(isPinned ? 0 : 2)
+  useMotionValueEvent(progress, 'change', (value) => {
+    setStage(value < 0.3 ? 0 : value < 0.62 ? 1 : 2)
+  })
+
   return (
-    <ParallaxSection id="ar-fitting" image="/images/fabric-texture.jpg">
-      <div className="mx-auto grid max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-2">
-        <div className="order-2 lg:order-1">
-          <div className="glass rounded-2xl p-8">
-            <ARPipeline />
-            <p className="font-ui mt-6 text-center text-sm text-ink/60 dark:text-bone/65">
-              Hover a stage to see it respond
-            </p>
+    <section
+      id="ar-fitting"
+      ref={sectionRef}
+      className={
+        isPinned
+          ? 'relative h-[260svh] scroll-mt-28'
+          : 'relative scroll-mt-28 overflow-hidden bg-bone-soft dark:bg-ink-soft'
+      }
+    >
+      <div
+        className={
+          isPinned
+            ? 'sticky top-0 flex h-svh items-center overflow-hidden bg-bone-soft dark:bg-ink-soft'
+            : 'relative'
+        }
+      >
+        <TexturedBackdrop image="/images/fabric-texture.jpg" />
+
+        <div className="relative mx-auto grid w-full max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-2">
+          <div className="order-2 lg:order-1">
+            <div className="glass rounded-2xl p-8">
+              <ARPipeline activeIndex={stage} />
+              <div className="mt-8 border-t border-ink/10 pt-8 dark:border-white/10">
+                <ARAcquisition progress={progress} />
+              </div>
+              <p
+                className="font-ui mt-6 min-h-[2.5rem] text-center text-sm text-ink/60 dark:text-bone/65"
+                aria-live="off"
+              >
+                {STAGE_CAPTIONS[stage]}
+              </p>
+            </div>
+          </div>
+
+          {/* Deliberately stationary while the figure is acquired beside it.
+              The prose is the claim; the diagram is the evidence moving. */}
+          <div className="glass-solid order-1 max-w-xl rounded-2xl p-8 lg:order-2">
+            <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-ink dark:text-bone">
+              <RevealWords text="One camera is enough." />
+            </h2>
+            <Reveal delay={0.18}>
+              <p className="mt-6 text-base leading-relaxed text-ink/70 dark:text-bone/75">
+                The fitting module runs entirely in the browser. Pose tracking
+                reads body landmarks from the camera feed on the shopper&apos;s
+                own device, and a scaled 3D garment model renders over the video
+                in real time. The same code path works on a laptop&apos;s
+                built-in camera, a desktop with a webcam, or a larger screen with
+                a webcam attached.
+              </p>
+            </Reveal>
+            <Reveal delay={0.26}>
+              <p className="mt-4 text-base leading-relaxed text-ink/70 dark:text-bone/75">
+                No dedicated kiosk hardware, headset, or app install. Trying the
+                fitting module on a shopper&apos;s own phone at home is under
+                consideration for a later version and is not part of the current
+                build.
+              </p>
+            </Reveal>
           </div>
         </div>
-
-        <div className="glass-solid order-1 max-w-xl rounded-2xl p-8 lg:order-2">
-          <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-ink dark:text-bone">
-            One camera is enough.
-          </h2>
-          <p className="mt-6 text-base leading-relaxed text-ink/70 dark:text-bone/75">
-            The fitting module runs entirely in the browser. Pose tracking
-            reads body landmarks from the camera feed on the shopper&apos;s
-            own device, and a scaled 3D garment model renders over the video
-            in real time. The same code path works on a laptop&apos;s
-            built-in camera, a desktop with a webcam, or a larger screen with
-            a webcam attached.
-          </p>
-          <p className="mt-4 text-base leading-relaxed text-ink/70 dark:text-bone/75">
-            No dedicated kiosk hardware, headset, or app install. Trying the
-            fitting module on a shopper&apos;s own phone at home is under
-            consideration for a later version and is not part of the current
-            build.
-          </p>
-        </div>
       </div>
-    </ParallaxSection>
+    </section>
   )
 }
