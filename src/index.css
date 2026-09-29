@@ -444,47 +444,259 @@
   }
 }
 
-/* One orb that becomes either mark: a bite slides over it for the moon and
-   away for the sun, while the rays retract into the middle. */
-.theme-icon .bite,
-.theme-icon .rays,
-.theme-icon .orb {
-  transition:
-    transform 550ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 350ms ease;
-  transform-origin: 12px 12px;
+/* The page-wide theme swap: a circular reveal expanding from the toggle,
+   driven by the View Transitions API. Coordinates and end-radius are set as
+   inline custom properties on <html> by ThemeContext right before it calls
+   startViewTransition; the defaults below only cover the (unreachable in
+   practice) case where they weren't set. Browsers without View Transitions
+   fall back to an instant swap -- no polyfill, no layout-wide transition
+   property that would also slow down unrelated hover states. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 
-.theme-icon .bite {
-  transform: translate(9px, -9px);
+::view-transition-new(root) {
+  clip-path: circle(
+    0% at var(--theme-toggle-x, 50%) var(--theme-toggle-y, 50%)
+  );
+  animation: theme-reveal 650ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.theme-icon .rays {
-  opacity: 1;
-  transform: scale(1);
+@keyframes theme-reveal {
+  to {
+    clip-path: circle(
+      var(--theme-toggle-radius, 75vmax) at var(--theme-toggle-x, 50%)
+        var(--theme-toggle-y, 50%)
+    );
+  }
 }
 
-.theme-icon .orb {
-  transform: scale(1);
+/* Sky toggle. Its own light/night palette is fixed -- the raw carbon/silver
+   ramp, never the semantic --chrome tokens -- because the checked state
+   already *is* the theme; reading it back through tokens that also flip
+   with .dark would double-apply the swap. One base font-size flattens the
+   whole em scale so nested measurements stay proportional without
+   compounding through the tree. */
+.sky-toggle {
+  --toggle-size: 11px;
+  --container-width: 5.625em;
+  --container-height: 2.5em;
+  --container-radius: 6.25em;
+  --container-light-bg: #9aa2ae;
+  --container-night-bg: var(--color-carbon-900);
+  --circle-container-diameter: 3.375em;
+  --sun-moon-diameter: 2.125em;
+  --sun-bg: var(--color-silver-50);
+  --moon-bg: var(--color-silver-200);
+  --spot-color: #9aa2ae;
+  --rim-shade: #6b7280;
+  --stars-color: #fff;
+  --clouds-color: var(--color-silver-50);
+  --back-clouds-color: var(--color-silver-200);
+  --transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  --circle-transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  cursor: pointer;
 }
 
-.dark .theme-icon .bite {
-  transform: translate(-4px, 1px);
+.sky-toggle,
+.sky-toggle *,
+.sky-toggle *::before,
+.sky-toggle *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-size: var(--toggle-size);
 }
 
-.dark .theme-icon .rays {
-  opacity: 0;
-  transform: scale(0.35);
+.sky-toggle__checkbox {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-.dark .theme-icon .orb {
-  transform: scale(1.28);
+.sky-toggle__checkbox:focus-visible + .sky-toggle__container {
+  outline: 2px solid var(--chrome-strong);
+  outline-offset: 3px;
+}
+
+.sky-toggle__container {
+  width: var(--container-width);
+  height: var(--container-height);
+  background-color: var(--container-light-bg);
+  border-radius: var(--container-radius);
+  overflow: hidden;
+  position: relative;
+  box-shadow:
+    0em -0.062em 0.062em rgb(0 0 0 / 0.25),
+    0em 0.062em 0.125em rgb(255 255 255 / 0.94);
+  transition: var(--transition);
+}
+
+.sky-toggle__container::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  box-shadow: 0em 0.05em 0.187em rgb(0 0 0 / 0.25) inset;
+  border-radius: var(--container-radius);
+}
+
+.sky-toggle__circle-container {
+  width: var(--circle-container-diameter);
+  height: var(--circle-container-diameter);
+  background-color: rgb(255 255 255 / 0.1);
+  position: absolute;
+  left: calc((var(--circle-container-diameter) - var(--container-height)) / 2 * -1);
+  top: calc((var(--circle-container-diameter) - var(--container-height)) / 2 * -1);
+  border-radius: var(--container-radius);
+  box-shadow:
+    inset 0 0 0 3.375em rgb(255 255 255 / 0.1),
+    0 0 0 0.625em rgb(255 255 255 / 0.1),
+    0 0 0 1.25em rgb(255 255 255 / 0.1);
+  display: flex;
+  transition: var(--circle-transition);
+  pointer-events: none;
+}
+
+.sky-toggle__sun-moon-container {
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  width: var(--sun-moon-diameter);
+  height: var(--sun-moon-diameter);
+  margin: auto;
+  border-radius: var(--container-radius);
+  background-color: var(--sun-bg);
+  box-shadow:
+    0.062em 0.062em 0.062em 0em rgb(255 255 255 / 0.61) inset,
+    0em -0.062em 0.062em 0em var(--rim-shade) inset;
+  filter: drop-shadow(0.062em 0.125em 0.125em rgb(0 0 0 / 0.25))
+    drop-shadow(0em 0.062em 0.125em rgb(0 0 0 / 0.25));
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.sky-toggle__moon {
+  transform: translateX(100%);
+  width: 100%;
+  height: 100%;
+  background-color: var(--moon-bg);
+  border-radius: inherit;
+  box-shadow:
+    0.062em 0.062em 0.062em 0em rgb(255 255 255 / 0.61) inset,
+    0em -0.062em 0.062em 0em var(--rim-shade) inset;
+  transition: var(--transition);
+  position: relative;
+}
+
+.sky-toggle__spot {
+  position: absolute;
+  top: 0.75em;
+  left: 0.312em;
+  width: 0.75em;
+  height: 0.75em;
+  border-radius: var(--container-radius);
+  background-color: var(--spot-color);
+  box-shadow: 0em 0.0312em 0.062em rgb(0 0 0 / 0.25) inset;
+}
+
+.sky-toggle__spot:nth-of-type(2) {
+  width: 0.375em;
+  height: 0.375em;
+  top: 0.937em;
+  left: 1.375em;
+}
+
+.sky-toggle__spot:nth-last-of-type(3) {
+  width: 0.25em;
+  height: 0.25em;
+  top: 0.312em;
+  left: 0.812em;
+}
+
+.sky-toggle__clouds {
+  width: 1.25em;
+  height: 1.25em;
+  background-color: var(--clouds-color);
+  border-radius: var(--container-radius);
+  position: absolute;
+  bottom: -0.625em;
+  left: 0.312em;
+  box-shadow:
+    0.937em 0.312em var(--clouds-color),
+    -0.312em -0.312em var(--back-clouds-color),
+    1.437em 0.375em var(--clouds-color),
+    0.5em -0.125em var(--back-clouds-color),
+    2.187em 0 var(--clouds-color),
+    1.25em -0.062em var(--back-clouds-color),
+    2.937em 0.312em var(--clouds-color),
+    2em -0.312em var(--back-clouds-color),
+    3.625em -0.062em var(--clouds-color),
+    2.625em 0em var(--back-clouds-color),
+    4.5em -0.312em var(--clouds-color),
+    3.375em -0.437em var(--back-clouds-color),
+    4.625em -1.75em 0 0.437em var(--clouds-color),
+    4em -0.625em var(--back-clouds-color),
+    4.125em -2.125em 0 0.437em var(--back-clouds-color);
+  transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sky-toggle__stars-container {
+  position: absolute;
+  color: var(--stars-color);
+  top: -100%;
+  left: 0.312em;
+  width: 2.75em;
+  height: auto;
+  transition: var(--transition);
+}
+
+.sky-toggle__checkbox:checked + .sky-toggle__container {
+  background-color: var(--container-night-bg);
+}
+
+.sky-toggle__checkbox:checked + .sky-toggle__container .sky-toggle__circle-container {
+  left: calc(100% - ((var(--circle-container-diameter) - var(--container-height)) / 2 * -1) - var(--circle-container-diameter));
+}
+
+.sky-toggle__checkbox:checked + .sky-toggle__container .sky-toggle__circle-container:hover {
+  left: calc(100% - ((var(--circle-container-diameter) - var(--container-height)) / 2 * -1) - var(--circle-container-diameter) - 0.187em);
+}
+
+.sky-toggle__circle-container:hover {
+  left: calc(
+    (var(--circle-container-diameter) - var(--container-height)) / 2 * -1 +
+      0.187em
+  );
+}
+
+.sky-toggle__checkbox:checked + .sky-toggle__container .sky-toggle__moon {
+  transform: translate(0);
+}
+
+.sky-toggle__checkbox:checked + .sky-toggle__container .sky-toggle__clouds {
+  bottom: -4.062em;
+}
+
+.sky-toggle__checkbox:checked + .sky-toggle__container .sky-toggle__stars-container {
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-icon .bite,
-  .theme-icon .rays,
-  .theme-icon .orb {
+  .sky-toggle__container,
+  .sky-toggle__container::before,
+  .sky-toggle__circle-container,
+  .sky-toggle__sun-moon-container,
+  .sky-toggle__moon,
+  .sky-toggle__clouds,
+  .sky-toggle__stars-container {
     transition: none;
   }
 }
