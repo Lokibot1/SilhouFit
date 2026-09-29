@@ -84,11 +84,11 @@ export function HowItWorks() {
     <ParallaxSection
       id="how-it-works"
       image="/images/fabric-texture.jpg"
-      scrimClassName="bg-bone/65 dark:bg-ink/65"
+      scrimClassName="veil-strong"
     >
       <div className="mx-auto max-w-6xl px-6 py-24">
         <Reveal>
-          <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-ink drop-shadow-sm dark:text-bone">
+          <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-fg drop-shadow-sm">
             From browsing to pickup
           </h2>
         </Reveal>
@@ -96,7 +96,7 @@ export function HowItWorks() {
         {/* No per-row entrance here. This section's motion is the scroll
             position itself choosing a step, and a fifth copy of the page's
             reveal would bury that. */}
-        <ol className="mt-14 border-t border-ink/15 dark:border-white/15">
+        <ol className="mt-14 border-t border-line">
           {STEPS.map((step, index) => {
             const isActive = index === effectiveIndex
 
@@ -107,7 +107,7 @@ export function HowItWorks() {
                 ref={setItemRef(index)}
                 onMouseEnter={() => setHoverIndex(index)}
                 onMouseLeave={() => setHoverIndex(null)}
-                className="relative border-b border-ink/15 py-8 dark:border-white/15"
+                className="relative border-b border-line py-8"
               >
                 {/* The step's own rule extends across as it takes focus: the
                     same travelling measure-edge the headings use, borrowed by
@@ -117,7 +117,7 @@ export function HowItWorks() {
                   initial={false}
                   animate={{ scaleX: isActive ? 1 : 0 }}
                   transition={{ duration: DURATION.shift, ease: EASE_OUT }}
-                  className="absolute -bottom-px left-0 h-px w-full origin-left bg-bronze dark:bg-bronze-light"
+                  className="chrome-fill absolute -bottom-px left-0 h-px w-full origin-left"
                 />
                 <h3 className="contents">
                   <button
@@ -131,8 +131,8 @@ export function HowItWorks() {
                     <span
                       className={`font-mono text-sm tabular-nums transition-colors duration-500 ${
                         isActive
-                          ? 'text-bronze-deep dark:text-bronze-light'
-                          : 'text-ink/35 dark:text-bone/35'
+                          ? 'text-chrome-strong'
+                          : 'text-fg/35'
                       }`}
                       aria-hidden="true"
                     >
@@ -141,19 +141,19 @@ export function HowItWorks() {
                     <span
                       className={`display text-[clamp(1.5rem,3vw,2.25rem)] transition-colors duration-500 ${
                         isActive
-                          ? 'text-ink dark:text-bone'
-                          : 'text-ink/40 dark:text-bone/40'
+                          ? 'text-fg'
+                          : 'text-fg/40'
                       }`}
                     >
                       {step.title}
                     </span>
-                    <span className="font-ui col-start-2 text-sm text-ink/50 sm:col-start-3 sm:row-start-1 sm:justify-self-end dark:text-bone/50">
+                    <span className="font-ui col-start-2 text-sm text-fg-muted sm:col-start-3 sm:row-start-1 sm:justify-self-end">
                       {step.tag}
                     </span>
                   </button>
                 </h3>
                 <AccordionBody isOpen={isActive}>
-                  <p className="max-w-2xl text-base leading-relaxed text-ink/70 dark:text-bone/75">
+                  <p className="max-w-2xl text-base leading-relaxed text-fg-muted">
                     {step.detail}
                   </p>
                 </AccordionBody>

@@ -64,7 +64,7 @@ export function RefundPolicyPage() {
           Contact the boutique directly, or write to{' '}
           <a
             href="mailto:team@silhoufit.dev"
-            className="underline decoration-bronze decoration-2 underline-offset-2"
+            className="underline decoration-chrome-strong decoration-2 underline-offset-2"
           >
             team@silhoufit.dev
           </a>{' '}

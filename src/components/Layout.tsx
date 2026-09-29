@@ -22,7 +22,7 @@ export function Layout() {
   }, [pathname, hash, navigationType])
 
   return (
-    <div className="min-h-svh bg-bone text-ink dark:bg-ink dark:text-bone">
+    <div className="min-h-svh bg-canvas text-fg">
       <SkipLink />
       <Navbar />
       <main id="main-content">

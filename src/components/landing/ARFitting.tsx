@@ -48,13 +48,13 @@ export function ARFitting() {
       className={
         isPinned
           ? 'relative h-[260svh] scroll-mt-28'
-          : 'relative scroll-mt-28 overflow-hidden bg-bone-soft dark:bg-ink-soft'
+          : 'relative scroll-mt-28 overflow-hidden bg-canvas-sub'
       }
     >
       <div
         className={
           isPinned
-            ? 'sticky top-0 flex h-svh items-center overflow-hidden bg-bone-soft dark:bg-ink-soft'
+            ? 'sticky top-0 flex h-svh items-center overflow-hidden bg-canvas-sub'
             : 'relative'
         }
       >
@@ -64,11 +64,11 @@ export function ARFitting() {
           <div className="order-2 lg:order-1">
             <div className="glass rounded-2xl p-8">
               <ARPipeline activeIndex={stage} />
-              <div className="mt-8 border-t border-ink/10 pt-8 dark:border-white/10">
+              <div className="mt-8 border-t border-line pt-8">
                 <ARAcquisition progress={progress} />
               </div>
               <p
-                className="font-ui mt-6 min-h-[2.5rem] text-center text-sm text-ink/60 dark:text-bone/65"
+                className="font-ui mt-6 min-h-[2.5rem] text-center text-sm text-fg/60"
                 aria-live="off"
               >
                 {STAGE_CAPTIONS[stage]}
@@ -79,11 +79,11 @@ export function ARFitting() {
           {/* Deliberately stationary while the figure is acquired beside it.
               The prose is the claim; the diagram is the evidence moving. */}
           <div className="glass-solid order-1 max-w-xl rounded-2xl p-8 lg:order-2">
-            <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-ink dark:text-bone">
+            <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-fg">
               <RevealWords text="One camera is enough." />
             </h2>
             <Reveal delay={0.18}>
-              <p className="mt-6 text-base leading-relaxed text-ink/70 dark:text-bone/75">
+              <p className="mt-6 text-base leading-relaxed text-fg-muted">
                 The fitting module runs entirely in the browser. Pose tracking
                 reads body landmarks from the camera feed on the shopper&apos;s
                 own device, and a scaled 3D garment model renders over the video
@@ -93,7 +93,7 @@ export function ARFitting() {
               </p>
             </Reveal>
             <Reveal delay={0.26}>
-              <p className="mt-4 text-base leading-relaxed text-ink/70 dark:text-bone/75">
+              <p className="mt-4 text-base leading-relaxed text-fg-muted">
                 No dedicated kiosk hardware, headset, or app install. Trying the
                 fitting module on a shopper&apos;s own phone at home is under
                 consideration for a later version and is not part of the current

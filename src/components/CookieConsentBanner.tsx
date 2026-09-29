@@ -13,12 +13,12 @@ export function CookieConsentBanner() {
         aria-label="Cookie notice"
         className="glass glass-float mx-auto flex max-w-3xl flex-col gap-4 rounded-2xl px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
       >
-        <p className="max-w-xl text-sm leading-relaxed text-ink/80 dark:text-bone/80">
+        <p className="max-w-xl text-sm leading-relaxed text-fg-muted">
           We store your theme and cookie choice in your browser. No
           analytics or advertising cookies are set. See the{' '}
           <Link
             to="/cookie-policy"
-            className="underline decoration-bronze decoration-2 underline-offset-2 hover:text-bronze dark:hover:text-bronze-light"
+            className="underline decoration-chrome-strong decoration-2 underline-offset-2 hover:text-chrome-strong"
           >
             cookie policy
           </Link>{' '}
@@ -28,14 +28,14 @@ export function CookieConsentBanner() {
           <button
             type="button"
             onClick={reject}
-            className="btn-lift glass glass-btn font-ui rounded-full px-4 py-2 text-sm font-semibold text-ink hover:text-bronze dark:text-bone dark:hover:text-bronze-light"
+            className="btn-lift glass glass-btn font-ui rounded-full px-4 py-2 text-sm font-semibold text-fg hover:text-chrome-strong"
           >
             Reject
           </button>
           <button
             type="button"
             onClick={accept}
-            className="btn-lift font-ui rounded-full border-2 border-ink bg-ink px-4 py-2 text-sm font-semibold text-bone hover:border-bronze hover:bg-bronze dark:border-bone dark:bg-bone dark:text-ink dark:hover:border-bronze-light dark:hover:bg-bronze-light"
+            className="btn-lift font-ui rounded-full border-2 border-fg bg-fg px-4 py-2 text-sm font-semibold text-canvas hover:border-chrome-strong hover:bg-chrome-strong"
           >
             Accept
           </button>

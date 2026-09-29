@@ -42,11 +42,11 @@ export function ForBoutiques() {
           style={{ y: copyY }}
           className="glass-solid max-w-xl rounded-2xl p-8"
         >
-          <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-ink dark:text-bone">
+          <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-fg">
             <Reveal as="span">A dashboard for the owner, not just the shopper</Reveal>
           </h2>
           <Reveal delay={0.14}>
-            <p className="mt-6 text-base leading-relaxed text-ink/70 dark:text-bone/75">
+            <p className="mt-6 text-base leading-relaxed text-fg-muted">
               The admin side surfaces sales performance, inventory turnover,
               and revenue trends pulled from both channels. It also tracks how
               often a virtual fitting session leads to a purchase, so a store
@@ -54,7 +54,7 @@ export function ForBoutiques() {
             </p>
           </Reveal>
           <Reveal delay={0.22}>
-            <p className="mt-4 text-base leading-relaxed text-ink/70 dark:text-bone/75">
+            <p className="mt-4 text-base leading-relaxed text-fg-muted">
               The system is being evaluated against the ISO 25010 quality
               model with boutique managers and shoppers, covering
               functionality, usability, and reliability.

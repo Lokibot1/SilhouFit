@@ -10,7 +10,7 @@ const BUFFER_PX = 320
 export function TexturedBackdrop({
   image,
   speed = 0.15,
-  scrimClassName = 'bg-bone/40 dark:bg-ink/50',
+  scrimClassName = 'veil',
 }: {
   image: string
   speed?: number
@@ -28,7 +28,7 @@ export function TexturedBackdrop({
       <img
         src={image}
         alt=""
-        className="h-full w-full object-cover"
+        className="photo-mono h-full w-full object-cover"
         loading="lazy"
       />
       <div className={`absolute inset-0 ${scrimClassName}`} />

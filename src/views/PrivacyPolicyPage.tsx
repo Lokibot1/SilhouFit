@@ -65,7 +65,7 @@ export function PrivacyPolicyPage() {
           personal data, and request a copy of it, by writing to{' '}
           <a
             href="mailto:team@silhoufit.dev"
-            className="underline decoration-bronze decoration-2 underline-offset-2"
+            className="underline decoration-chrome-strong decoration-2 underline-offset-2"
           >
             team@silhoufit.dev
           </a>

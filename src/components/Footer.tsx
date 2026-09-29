@@ -17,17 +17,23 @@ const LEGAL_LINKS = [
   { label: 'Cookie policy', to: '/cookie-policy' },
 ]
 
+const LINK_CLASS =
+  'group relative inline-flex text-base text-fg/80 transition-colors duration-200 hover:text-fg'
+
+const LINK_UNDERLINE =
+  'pointer-events-none absolute inset-x-0 -bottom-0.5 h-px origin-left scale-x-0 bg-current/50 transition-transform duration-300 ease-out group-hover:scale-x-100 group-focus-visible:scale-x-100'
+
 function BackToTop() {
   return (
     <button
       type="button"
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      className="glass glass-btn font-ui flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-ink hover:text-bronze dark:text-bone dark:hover:text-bronze-light"
+      className="glass-clear glass-btn btn-lift font-ui flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-fg hover:text-chrome-strong"
     >
       Back to top
       <svg
         viewBox="0 0 16 16"
-        className="h-3.5 w-3.5"
+        className="h-3 w-3"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"
@@ -56,59 +62,63 @@ export function Footer() {
   return (
     <footer
       ref={footerRef}
-      className="relative overflow-hidden bg-bone-soft dark:bg-ink-soft"
+      className="relative overflow-hidden bg-canvas-sub"
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_18%_0%,rgb(var(--glass-tint)/0.05),transparent)]"
+      />
+
       <motion.div
         aria-hidden="true"
         style={{ y: markY }}
-        className="pointer-events-none absolute -top-16 -right-24 will-change-transform"
+        className="pointer-events-none absolute -top-16 -right-20 hidden will-change-transform sm:-top-20 sm:-right-28 sm:block lg:-top-24 lg:-right-32"
       >
-        <SilhouetteMark className="h-[36rem] w-[28rem] text-ink/[0.05] dark:text-bone/[0.06]" />
+        <SilhouetteMark className="h-[28rem] w-[22rem] text-fg/[0.05] sm:h-[36rem] sm:w-[28rem] lg:h-[42rem] lg:w-[34rem]" />
       </motion.div>
 
-      <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-28">
-        <div className="grid gap-16 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
+      <div className="relative mx-auto max-w-6xl px-6 py-16 sm:py-20 lg:py-24">
+        <div className="grid grid-cols-1 gap-y-12 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-14 lg:grid-cols-[1.4fr_0.85fr_0.85fr_0.85fr] lg:gap-x-10 lg:gap-y-0">
           <div>
-            <SilhouetteMark className="h-14 w-11 text-bronze-deep dark:text-bronze-light" />
-            <span className="display mt-4 block text-[clamp(2rem,4.5vw,3.5rem)] text-ink dark:text-bone">
+            <SilhouetteMark className="h-10 w-8 text-chrome-strong" />
+            <span className="display mt-3 block text-[1.75rem] text-fg sm:text-3xl">
               SilhouFit
             </span>
-            <p className="mt-4 max-w-sm text-base leading-relaxed text-ink/60 dark:text-bone/60">
+            <p className="mt-3 max-w-[26ch] text-sm leading-relaxed text-fg-muted">
               Omnichannel store platform with browser-based AR fitting and
               retail analytics. A capstone project, not a live storefront.
             </p>
           </div>
 
           <div>
-            <span className="font-ui text-xs font-semibold tracking-[0.08em] text-ink/45 uppercase dark:text-bone/45">
+            <span className="font-ui block text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
               Contact
             </span>
             <a
               href="mailto:team@silhoufit.dev"
-              className="font-ui mt-4 block text-base text-ink hover:text-bronze dark:text-bone dark:hover:text-bronze-light"
+              className={`${LINK_CLASS} font-ui mt-3 hover:text-chrome-strong`}
             >
               team@silhoufit.dev
+              <span aria-hidden="true" className={LINK_UNDERLINE} />
             </a>
-            <p className="font-ui mt-2 text-sm text-bronze-deep dark:text-bronze-light">
+            <p className="font-ui mt-3 text-sm text-chrome-strong">
               Capstone project
             </p>
-            <p className="mt-1 text-sm text-ink/55 dark:text-bone/55">
+            <p className="mt-1 text-sm text-fg-muted">
               BS Information Technology, Quezon City University
             </p>
           </div>
 
           <div>
-            <span className="font-ui text-xs font-semibold tracking-[0.08em] text-ink/45 uppercase dark:text-bone/45">
+            <span className="font-ui text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
               Project
             </span>
-            <ul className="mt-4 space-y-3">
+            <ul className="mt-3 space-y-2.5">
               {PROJECT_LINKS.map((link) => (
                 <li key={link.href}>
-                  <a
-                    href={link.href}
-                    className="font-ui text-base text-ink/75 hover:text-bronze dark:text-bone/75 dark:hover:text-bronze-light"
-                  >
+                  <a href={link.href} className={`${LINK_CLASS} font-ui`}>
                     {link.label}
+                    <span aria-hidden="true" className={LINK_UNDERLINE} />
                   </a>
                 </li>
               ))}
@@ -116,17 +126,15 @@ export function Footer() {
           </div>
 
           <div>
-            <span className="font-ui text-xs font-semibold tracking-[0.08em] text-ink/45 uppercase dark:text-bone/45">
+            <span className="font-ui text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
               Legal
             </span>
-            <ul className="mt-4 space-y-3">
+            <ul className="mt-3 space-y-2.5">
               {LEGAL_LINKS.map((link) => (
                 <li key={link.to}>
-                  <Link
-                    to={link.to}
-                    className="font-ui text-base text-ink/75 hover:text-bronze dark:text-bone/75 dark:hover:text-bronze-light"
-                  >
+                  <Link to={link.to} className={`${LINK_CLASS} font-ui`}>
                     {link.label}
+                    <span aria-hidden="true" className={LINK_UNDERLINE} />
                   </Link>
                 </li>
               ))}
@@ -134,8 +142,8 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-16 flex flex-col gap-6 border-t border-ink/15 pt-8 sm:flex-row sm:items-center sm:justify-between dark:border-white/15">
-          <p className="font-ui text-sm text-ink/55 dark:text-bone/55">
+        <div className="mt-12 flex flex-col gap-4 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="font-ui text-xs text-fg-muted">
             &copy; {year} SilhouFit. A Quezon City University BS Information
             Technology capstone project.
           </p>

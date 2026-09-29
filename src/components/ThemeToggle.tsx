@@ -21,7 +21,7 @@ export function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="glass-btn flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink dark:text-bone"
+      className="glass-btn flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-fg"
     >
       <svg viewBox="0 0 24 24" className="theme-icon h-4 w-4" aria-hidden="true">
         <mask id="silhoufit-moon-bite">

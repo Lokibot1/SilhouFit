@@ -27,16 +27,16 @@ function Row({
 
   return (
     <div className="group">
-      <div className="font-ui flex items-baseline justify-between gap-4 text-sm text-ink/70 transition-colors duration-150 group-hover:text-bronze-deep dark:text-bone/75 dark:group-hover:text-bronze-light">
+      <div className="font-ui flex items-baseline justify-between gap-4 text-sm text-fg-muted transition-colors duration-150 group-hover:text-chrome-strong">
         <span>{row.label}</span>
         <span className="font-mono text-xs tabular-nums">
           <motion.span>{reading}</motion.span>%
         </span>
       </div>
-      <div className="mt-2 h-2 rounded-sm bg-ink/10 dark:bg-white/10">
+      <div className="mt-2 h-2 rounded-sm bg-fg/10">
         <motion.div
           style={{ scaleX: fill }}
-          className="h-2 w-full origin-left rounded-sm bg-ink transition-colors duration-150 group-hover:bg-bronze dark:bg-bone dark:group-hover:bg-bronze-light"
+          className="h-2 w-full origin-left rounded-sm bg-fg transition-colors duration-150 group-hover:bg-chrome"
         />
       </div>
     </div>
@@ -46,8 +46,8 @@ function Row({
 export function DashboardMock({ progress }: { progress: MotionValue<number> }) {
   return (
     <div>
-      <div className="flex items-center justify-between border-b border-ink/10 pb-4 dark:border-white/10">
-        <span className="font-ui text-sm font-semibold text-ink dark:text-bone">
+      <div className="flex items-center justify-between border-b border-line pb-4">
+        <span className="font-ui text-sm font-semibold text-fg">
           Dashboard preview
         </span>
       </div>
@@ -56,7 +56,7 @@ export function DashboardMock({ progress }: { progress: MotionValue<number> }) {
           <Row key={row.label} row={row} index={index} progress={progress} />
         ))}
       </div>
-      <p className="mt-6 text-xs text-ink/50 dark:text-bone/50">
+      <p className="mt-6 text-xs text-fg-muted">
         Illustrative layout, not live data.
       </p>
     </div>

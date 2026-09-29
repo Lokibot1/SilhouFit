@@ -21,7 +21,7 @@ export function ParallaxSection({
   return (
     <section
       id={id}
-      className={`scroll-mt-28 relative overflow-hidden bg-bone-soft dark:bg-ink-soft ${className}`}
+      className={`scroll-mt-28 relative overflow-hidden bg-canvas-sub ${className}`}
     >
       <TexturedBackdrop image={image} speed={speed} scrimClassName={scrimClassName} />
       <div className="relative">{children}</div>

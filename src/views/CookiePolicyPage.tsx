@@ -28,19 +28,19 @@ export function CookiePolicyPage() {
           boutiques and shoppers are on it.
         </p>
         <p>
-          <span className="font-semibold text-ink dark:text-bone">
+          <span className="font-semibold text-fg">
             Strictly necessary.
           </span>{' '}
           Keeping you signed in and remembering the contents of your cart.
         </p>
         <p>
-          <span className="font-semibold text-ink dark:text-bone">
+          <span className="font-semibold text-fg">
             Functional.
           </span>{' '}
           Remembering preferences such as size and theme.
         </p>
         <p>
-          <span className="font-semibold text-ink dark:text-bone">
+          <span className="font-semibold text-fg">
             Analytics.
           </span>{' '}
           Aggregated, non-identifying usage data used to improve the

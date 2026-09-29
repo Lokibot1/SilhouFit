@@ -23,12 +23,12 @@ export function ARPipeline({ activeIndex }: { activeIndex?: number }) {
             <button
               type="button"
               aria-current={isActive ? 'step' : undefined}
-              className={`flex flex-col items-center gap-3 rounded-xl px-2 py-2 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-110 hover:text-bronze-deep focus-visible:scale-110 focus-visible:text-bronze-deep dark:hover:text-bronze-light dark:focus-visible:text-bronze-light ${
+              className={`flex flex-col items-center gap-3 rounded-xl px-2 py-2 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-110 hover:text-chrome-strong focus-visible:scale-110 focus-visible:text-chrome-strong ${
                 isActive
-                  ? 'scale-110 text-bronze-deep dark:text-bronze-light'
+                  ? 'scale-110 text-chrome-strong'
                   : isDone
-                    ? 'text-ink/50 dark:text-bone/50'
-                    : 'text-ink/70 dark:text-bone/70'
+                    ? 'text-fg-muted'
+                    : 'text-fg-muted'
               }`}
             >
               <stage.Icon className="h-12 w-12 sm:h-14 sm:w-14" />
@@ -42,8 +42,8 @@ export function ARPipeline({ activeIndex }: { activeIndex?: number }) {
                 viewBox="0 0 40 16"
                 className={`h-4 w-8 shrink-0 transition-colors duration-300 sm:w-10 ${
                   activeIndex !== undefined && index < activeIndex
-                    ? 'text-bronze-deep dark:text-bronze-light'
-                    : 'text-ink/30 dark:text-bone/30'
+                    ? 'text-chrome-strong'
+                    : 'text-fg/30'
                 }`}
                 fill="none"
                 stroke="currentColor"

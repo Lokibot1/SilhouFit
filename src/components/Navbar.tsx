@@ -85,7 +85,7 @@ export function Navbar() {
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
         solid
-          ? 'border-b border-ink/10 bg-bone/85 backdrop-blur-md dark:border-white/10 dark:bg-ink/85'
+          ? 'border-b border-line bg-canvas/85 backdrop-blur-md'
           : 'border-b border-transparent'
       }`}
     >
@@ -100,12 +100,12 @@ export function Navbar() {
           className="group flex items-center gap-3"
           onClick={() => setMenuOpen(false)}
         >
-          <SilhouetteMark className="h-8 w-6 text-ink dark:text-bone" />
+          <SilhouetteMark className="h-8 w-6 text-fg" />
           <span className="leading-none">
-            <span className="font-display block text-[17px] font-bold tracking-[-0.02em] text-ink dark:text-bone">
+            <span className="font-display block text-[17px] font-bold tracking-[-0.02em] text-fg">
               SilhouFit
             </span>
-            <span className="font-ui block text-[9px] tracking-[0.22em] text-ink/50 uppercase transition-colors group-hover:text-bronze dark:text-bone/50 dark:group-hover:text-bronze-light">
+            <span className="font-ui block text-[9px] tracking-[0.22em] text-fg-muted uppercase transition-colors group-hover:text-chrome-strong">
               Omnichannel apparel
             </span>
           </span>
@@ -121,13 +121,13 @@ export function Navbar() {
                 aria-current={isActive ? 'true' : undefined}
                 className={`font-ui relative text-[11px] tracking-[0.16em] uppercase transition-colors ${
                   isActive
-                    ? 'text-ink dark:text-bone'
-                    : 'text-ink/55 hover:text-ink dark:text-bone/55 dark:hover:text-bone'
+                    ? 'text-fg'
+                    : 'text-fg-muted hover:text-fg'
                 }`}
               >
                 {link.label}
                 <span
-                  className={`absolute -bottom-2 left-0 h-px bg-bronze transition-[width,opacity] duration-500 ease-out dark:bg-bronze-light ${
+                  className={`chrome-fill absolute -bottom-2 left-0 h-px transition-[width,opacity] duration-500 ease-out ${
                     isActive ? 'w-full opacity-100' : 'w-0 opacity-0'
                   }`}
                 />
@@ -142,7 +142,7 @@ export function Navbar() {
             href="/#contact"
             onPointerMove={magnetic.handlePointerMove}
             onPointerLeave={magnetic.handlePointerLeave}
-            className="pill bg-ink font-medium text-bone hover:bg-bronze dark:bg-bone dark:text-ink dark:hover:bg-bronze-light"
+            className="pill bg-fg font-medium text-canvas hover:bg-chrome-strong"
           >
             Talk to us
           </a>
@@ -156,7 +156,7 @@ export function Navbar() {
             onClick={() => setMenuOpen((open) => !open)}
             aria-expanded={menuOpen}
             aria-controls="mobile-menu"
-            className="pill glass-btn glass text-ink dark:text-bone"
+            className="pill glass-btn glass text-fg"
           >
             {menuOpen ? 'Close' : 'Menu'}
           </button>
@@ -166,7 +166,7 @@ export function Navbar() {
       <motion.div
         aria-hidden="true"
         style={{ scaleX: scrollYProgress }}
-        className="absolute inset-x-0 bottom-0 h-px origin-left bg-bronze dark:bg-bronze-light"
+        className="chrome-fill absolute inset-x-0 bottom-0 h-px origin-left"
       />
 
       <AnimatePresence initial={false}>
@@ -178,7 +178,7 @@ export function Navbar() {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: DURATION.state, ease: EASE_OUT }}
-            className="overflow-hidden border-t border-ink/10 bg-bone lg:hidden dark:border-white/10 dark:bg-ink"
+            className="overflow-hidden border-t border-line bg-canvas lg:hidden"
           >
             <div className="px-6 pt-4 pb-8">
               {NAV_LINKS.map((link) => (
@@ -186,7 +186,7 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMenuOpen(false)}
-                  className="font-display block border-b border-ink/10 py-4 text-2xl font-semibold tracking-[-0.02em] text-ink dark:border-white/10 dark:text-bone"
+                  className="font-display block border-b border-line py-4 text-2xl font-semibold tracking-[-0.02em] text-fg"
                 >
                   {link.label}
                 </a>
@@ -194,7 +194,7 @@ export function Navbar() {
               <a
                 href="/#contact"
                 onClick={() => setMenuOpen(false)}
-                className="pill mt-6 bg-ink font-medium text-bone dark:bg-bone dark:text-ink"
+                className="pill mt-6 bg-fg font-medium text-canvas"
               >
                 Talk to us
               </a>

@@ -7,15 +7,113 @@
   --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --font-ui: "Kumbh Sans", ui-sans-serif, system-ui, sans-serif;
 
-  --color-ink: #14120f;
-  --color-ink-soft: #1d1a16;
-  --color-ink-line: #322c24;
-  --color-bone: #eeece7;
-  --color-bone-soft: #e2ded4;
-  --color-bone-line: #cec7b7;
-  --color-bronze: #ab8552;
-  --color-bronze-light: #d1b083;
-  --color-bronze-deep: #8a6a3c;
+  /* Raw ramps, cool-neutral throughout. A warm grey reads as beige the moment
+     it sits next to polished metal, and that is the difference between a
+     monochrome identity and a washed-out one. Neither end is pure: #000 and
+     #fff kill the tonal room that makes the surfaces feel layered. */
+  --color-carbon-950: #0c0d10;
+  --color-carbon-900: #14161a;
+  --color-carbon-800: #1b1e24;
+  --color-carbon-700: #262b33;
+  --color-silver-50: #f3f4f6;
+  --color-silver-100: #e9ebef;
+  --color-silver-200: #dcdfe5;
+  --color-silver-300: #cbd1d9;
+
+  /* Semantic roles. These resolve through :root / .dark below, so a component
+     names the role once -- text-fg, bg-canvas, border-line -- and never carries
+     a dark: variant just to restate a colour. */
+  --color-canvas: var(--canvas);
+  --color-canvas-sub: var(--canvas-sub);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-chrome: var(--chrome);
+  --color-chrome-strong: var(--chrome-strong);
+  --color-chrome-bright: var(--chrome-bright);
+}
+
+:root {
+  --canvas: #f3f4f6;
+  --canvas-sub: #e9ebef;
+  --fg: #14171c;
+  --fg-muted: #4a515c;
+  --line: rgb(20 23 28 / 0.14);
+  --line-strong: rgb(20 23 28 / 0.26);
+
+  /* Chrome carries three values, not one. A single flat silver is just grey;
+     metal reads as metal only when a bright and a shaded tone alternate across
+     the same surface. `--chrome` fills, `--chrome-strong` is the contrast-safe
+     tone for accent text, `--chrome-shade` is the dark band in the gradient. */
+  --chrome: #8b93a0;
+  --chrome-strong: #5c6470;
+  --chrome-shade: #9aa2ae;
+  --chrome-bright: #ffffff;
+
+  /* Glass is poured from a tint plus a set of alphas, so one rule set serves
+     both themes and the light/dark pair can never drift apart. */
+  --glass-tint: 252 253 255;
+  --glass-edge: 255 255 255;
+  --glass-fill: 0.42;
+  --glass-fill-clear: 0.16;
+  --glass-fill-lens: 0.1;
+  --glass-fill-solid: 0.84;
+  --glass-edge-a: 0.7;
+  --glass-hi: 0.75;
+  --glass-blur: 36px;
+
+  --photo-sat: 0.4;
+
+  --veil: 243 244 246;
+  --veil-a: 0.58;
+  --veil-a-strong: 0.8;
+
+  --scrim: 243 244 246;
+  --scrim-top: 0.6;
+  --scrim-bottom: 0.46;
+
+  --shadow-key: 20 23 28;
+  --shadow-a: 0.18;
+  --shadow-b: 0.3;
+}
+
+.dark {
+  --canvas: #0c0d10;
+  --canvas-sub: #14161a;
+  --fg: #eef0f3;
+  --fg-muted: #b3bac5;
+  --line: rgb(255 255 255 / 0.1);
+  --line-strong: rgb(255 255 255 / 0.2);
+
+  --chrome: #c3cad4;
+  --chrome-strong: #d7dde5;
+  --chrome-shade: #6b7280;
+  --chrome-bright: #ffffff;
+
+  --glass-tint: 26 29 35;
+  --glass-edge: 255 255 255;
+  --glass-fill: 0.46;
+  --glass-fill-clear: 0.18;
+  --glass-fill-lens: 0.12;
+  --glass-fill-solid: 0.82;
+  --glass-edge-a: 0.13;
+  --glass-hi: 0.09;
+  --glass-blur: 36px;
+
+  --photo-sat: 0.35;
+
+  --veil: 9 10 13;
+  --veil-a: 0.6;
+  --veil-a-strong: 0.78;
+
+  --scrim: 8 9 12;
+  --scrim-top: 0.66;
+  --scrim-bottom: 0.5;
+
+  --shadow-key: 0 0 0;
+  --shadow-a: 0.5;
+  --shadow-b: 0.65;
 }
 
 @layer base {
@@ -43,76 +141,58 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-bronze);
+    outline: 2px solid var(--chrome-strong);
     outline-offset: 2px;
     border-radius: 2px;
   }
 }
 
 @layer utilities {
-  /* Elevation 1: base glass surface — translucent, blurred, softly bordered */
+  /* Elevation 1: base glass surface. One definition, both themes -- the tint
+     and the alphas flip, the structure does not. */
   .glass {
-    background-color: color-mix(in srgb, var(--color-bone) 30%, transparent);
-    border: 1px solid color-mix(in srgb, white 50%, transparent);
-    backdrop-filter: blur(36px) saturate(160%);
-    -webkit-backdrop-filter: blur(36px) saturate(160%);
+    background-color: rgb(var(--glass-tint) / var(--glass-fill));
+    border: 1px solid rgb(var(--glass-edge) / var(--glass-edge-a));
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
     box-shadow:
-      0 18px 36px -18px rgba(0, 0, 0, 0.3),
-      inset 0 1px 1px color-mix(in srgb, white 60%, transparent);
+      0 18px 36px -18px rgb(var(--shadow-key) / var(--shadow-b)),
+      inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
   }
 
-  .dark .glass {
-    background-color: color-mix(in srgb, var(--color-ink) 34%, transparent);
-    border: 1px solid color-mix(in srgb, white 15%, transparent);
-    box-shadow:
-      0 18px 36px -18px rgba(0, 0, 0, 0.6),
-      inset 0 1px 1px color-mix(in srgb, white 9%, transparent);
-  }
-
-  /* Elevation 1, lighter pour. The hero card is the only surface floating over
-     photography rather than over a flat section, so it carries less fill and
-     roughly half the blur: enough to read the fitting room through it, not so
-     little that it stops being a pane. The border and inset highlight are
-     raised to compensate -- with less fill doing the work, the edge is what
-     keeps the card separated from the image. */
+  /* Elevation 1, lighter pour, for surfaces floating over photography rather
+     than over a flat section: less fill and less blur, so the image reads
+     through. The edge is raised to compensate -- with the fill doing less
+     work, the border is what keeps the card separated from the picture. */
   .glass-clear {
-    background-color: color-mix(in srgb, var(--color-bone) 10%, transparent);
-    border: 1px solid color-mix(in srgb, white 62%, transparent);
-    backdrop-filter: blur(14px) saturate(185%);
-    -webkit-backdrop-filter: blur(14px) saturate(185%);
+    background-color: rgb(var(--glass-tint) / var(--glass-fill-clear));
+    border: 1px solid rgb(var(--glass-edge) / calc(var(--glass-edge-a) * 0.9));
+    backdrop-filter: blur(14px) saturate(170%);
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
     box-shadow:
-      0 18px 36px -18px rgba(0, 0, 0, 0.3),
-      inset 0 1px 1px color-mix(in srgb, white 70%, transparent);
-  }
-
-  .dark .glass-clear {
-    background-color: color-mix(in srgb, var(--color-ink) 13%, transparent);
-    border: 1px solid color-mix(in srgb, white 20%, transparent);
-    box-shadow:
-      0 18px 36px -18px rgba(0, 0, 0, 0.6),
-      inset 0 1px 1px color-mix(in srgb, white 10%, transparent);
+      0 18px 36px -18px rgb(var(--shadow-key) / var(--shadow-b)),
+      inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
   }
 
   /* The fitting preview is a viewfinder, not a panel: the feed behind it has to
      stay legible as a scene -- a face still a face. So it takes only a touch of
-     blur, and the readability is bought back where it is actually needed. The
-     gradient is dense behind the header and the chip row and clears completely
-     through the middle third, which is how a camera UI floats its controls over
-     a live image. A uniform fill heavy enough for the text would have smeared
-     the subject, which is the one thing this card exists to show. */
+     blur, and the readability is bought back where it is actually needed. */
   .glass-lens {
     position: relative;
-    background-color: color-mix(in srgb, var(--color-bone) 8%, transparent);
-    border: 1px solid color-mix(in srgb, white 55%, transparent);
+    background-color: rgb(var(--glass-tint) / var(--glass-fill-lens));
+    border: 1px solid rgb(var(--glass-edge) / calc(var(--glass-edge-a) * 0.8));
     backdrop-filter: blur(3px) saturate(118%);
     -webkit-backdrop-filter: blur(3px) saturate(118%);
     box-shadow:
-      0 18px 36px -18px rgba(0, 0, 0, 0.3),
-      inset 0 1px 1px color-mix(in srgb, white 65%, transparent);
+      0 18px 36px -18px rgb(var(--shadow-key) / var(--shadow-b)),
+      inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
   }
 
-  /* Negative z-index keeps the scrim above the card's own fill but under its
-     text, so no wrapper element or stacking fix is needed in the markup.
+  /* Dense behind the header and the chip row, fully clear through the middle
+     third -- how a camera UI floats controls over a live image. A uniform fill
+     heavy enough for the text would have smeared the subject, which is the one
+     thing this card exists to show. Negative z-index keeps the scrim above the
+     card's own fill but under its text, so the markup needs no wrapper;
      backdrop-filter already makes the card a stacking context. */
   .glass-lens::before {
     content: "";
@@ -123,83 +203,129 @@
     pointer-events: none;
     background: linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--color-bone) 60%, transparent) 0%,
-      color-mix(in srgb, var(--color-bone) 22%, transparent) 15%,
+      rgb(var(--scrim) / var(--scrim-top)) 0%,
+      rgb(var(--scrim) / calc(var(--scrim-top) * 0.37)) 15%,
       transparent 28%,
       transparent 70%,
-      color-mix(in srgb, var(--color-bone) 18%, transparent) 86%,
-      color-mix(in srgb, var(--color-bone) 46%, transparent) 100%
-    );
-  }
-
-  .dark .glass-lens {
-    background-color: color-mix(in srgb, var(--color-ink) 10%, transparent);
-    border: 1px solid color-mix(in srgb, white 18%, transparent);
-    box-shadow:
-      0 18px 36px -18px rgba(0, 0, 0, 0.6),
-      inset 0 1px 1px color-mix(in srgb, white 9%, transparent);
-  }
-
-  .dark .glass-lens::before {
-    background: linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--color-ink) 66%, transparent) 0%,
-      color-mix(in srgb, var(--color-ink) 26%, transparent) 15%,
-      transparent 28%,
-      transparent 70%,
-      color-mix(in srgb, var(--color-ink) 22%, transparent) 86%,
-      color-mix(in srgb, var(--color-ink) 50%, transparent) 100%
+      rgb(var(--scrim) / calc(var(--scrim-bottom) * 0.39)) 86%,
+      rgb(var(--scrim) / var(--scrim-bottom)) 100%
     );
   }
 
   .glass-solid {
-    background-color: color-mix(in srgb, var(--color-bone) 80%, transparent);
-    border: 1px solid color-mix(in srgb, white 50%, transparent);
-    backdrop-filter: blur(36px) saturate(160%);
-    -webkit-backdrop-filter: blur(36px) saturate(160%);
+    background-color: rgb(var(--glass-tint) / var(--glass-fill-solid));
+    border: 1px solid rgb(var(--glass-edge) / var(--glass-edge-a));
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
     box-shadow:
-      0 18px 36px -18px rgba(0, 0, 0, 0.3),
-      inset 0 1px 1px color-mix(in srgb, white 60%, transparent);
-  }
-
-  .dark .glass-solid {
-    background-color: color-mix(in srgb, var(--color-ink-soft) 76%, transparent);
-    border: 1px solid color-mix(in srgb, white 15%, transparent);
-    box-shadow:
-      0 18px 36px -18px rgba(0, 0, 0, 0.6),
-      inset 0 1px 1px color-mix(in srgb, white 9%, transparent);
+      0 18px 36px -18px rgb(var(--shadow-key) / var(--shadow-b)),
+      inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
   }
 
   /* Elevation 2: floating chrome — sticky/fixed pieces that sit above the page */
   .glass-float {
     box-shadow:
-      0 40px 64px -28px rgba(0, 0, 0, 0.38),
-      0 10px 24px -10px rgba(0, 0, 0, 0.22),
-      inset 0 1px 1px color-mix(in srgb, white 60%, transparent);
+      0 40px 64px -28px rgb(var(--shadow-key) / calc(var(--shadow-b) + 0.08)),
+      0 10px 24px -10px rgb(var(--shadow-key) / var(--shadow-a)),
+      inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
   }
 
-  .dark .glass-float {
-    box-shadow:
-      0 40px 64px -28px rgba(0, 0, 0, 0.75),
-      0 10px 24px -10px rgba(0, 0, 0, 0.5),
-      inset 0 1px 1px color-mix(in srgb, white 9%, transparent);
-  }
-
-  /* Elevation 0: chips/badges nested inside a glass surface — sit flush, not floating */
+  /* Elevation 0: chips/badges nested inside a glass surface — sit flush */
   .glass-chip {
-    box-shadow: 0 2px 6px -3px rgba(0, 0, 0, 0.18);
-  }
-
-  .dark .glass-chip {
-    box-shadow: 0 2px 6px -3px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 2px 6px -3px rgb(var(--shadow-key) / calc(var(--shadow-a) + 0.1));
   }
 
   .glass-btn {
-    border: 1px solid color-mix(in srgb, var(--color-ink) 22%, transparent);
+    border: 1px solid var(--line-strong);
   }
 
-  .dark .glass-btn {
-    border: 1px solid color-mix(in srgb, white 24%, transparent);
+  /* A polished hairline. Metal is alternating bright and shaded bands, so the
+     gradient flips between them rather than fading one silver into another --
+     a single tone would only ever read as a grey border. The mask punches out
+     the middle so the gradient survives border-radius, which border-image
+     cannot do. Used sparingly: this is the luxury accent, not the surface. */
+  .chrome-edge {
+    position: relative;
+  }
+
+  .chrome-edge::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    opacity: 0.85;
+    background: linear-gradient(
+      135deg,
+      var(--chrome-bright) 0%,
+      var(--chrome-shade) 15%,
+      var(--chrome-bright) 31%,
+      var(--chrome-shade) 47%,
+      var(--chrome) 64%,
+      var(--chrome-bright) 82%,
+      var(--chrome-shade) 100%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  /* When the chrome ring is present it *is* the edge. Leaving the glass border
+     underneath would declare the same edge twice and read as a ghost outline. */
+  .glass:where(.chrome-edge),
+  .glass-clear:where(.chrome-edge),
+  .glass-lens:where(.chrome-edge),
+  .glass-solid:where(.chrome-edge) {
+    border-color: transparent;
+  }
+
+  /* Photography is part of the colour system, not an exception to it: a warm
+     frame reads as a stray hue the moment the surfaces around it go cool. Held
+     back rather than stripped, so the garments keep some life -- one variable,
+     easy to dial either way. */
+  .photo-mono {
+    filter: saturate(var(--photo-sat)) contrast(1.04);
+  }
+
+  /* The wash that sits between a photograph and the text laid over it. */
+  .veil {
+    background-color: rgb(var(--veil) / var(--veil-a));
+  }
+
+  .veil-strong {
+    background-color: rgb(var(--veil) / var(--veil-a-strong));
+  }
+
+  /* A divider that catches light along its length instead of sitting flat. */
+  .chrome-rule {
+    background-image: linear-gradient(
+      to right,
+      transparent 0%,
+      var(--chrome) 12%,
+      var(--chrome-bright) 38%,
+      var(--chrome) 62%,
+      var(--chrome-shade) 84%,
+      transparent 100%
+    );
+  }
+
+  /* Same metal, running along a filled bar rather than a hairline. */
+  .chrome-fill {
+    background-image: linear-gradient(
+      to right,
+      var(--chrome-shade) 0%,
+      var(--chrome) 28%,
+      var(--chrome-bright) 52%,
+      var(--chrome) 74%,
+      var(--chrome-shade) 100%
+    );
   }
 
   .btn-lift {
@@ -213,7 +339,7 @@
 
   .btn-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 32px -14px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 14px 32px -14px rgb(var(--shadow-key) / calc(var(--shadow-b) + 0.1));
   }
 
   .btn-lift:active {
@@ -259,8 +385,8 @@
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: -0.03em;
-    line-height: 0.95;
     text-wrap: balance;
+    line-height: 0.95;
   }
 }
 
@@ -316,26 +442,21 @@
 }
 
 /* Browser surfaces: the parts of the page no stylesheet drew. Selection, the
-   scrollbar and underline offset all ship with defaults belonging to no
-   palette, and reading them back in bone/ink/bronze is what makes the page
-   feel built rather than assembled. */
+   scrollbar and the underline offset ship with defaults belonging to no
+   palette, and reading them back in the page's own metal is what makes it feel
+   built rather than assembled. */
 ::selection {
-  background-color: color-mix(in srgb, var(--color-bronze) 30%, transparent);
-  color: var(--color-ink);
-}
-
-.dark ::selection {
-  background-color: color-mix(in srgb, var(--color-bronze-light) 28%, transparent);
-  color: var(--color-bone);
+  background-color: color-mix(in srgb, var(--chrome) 42%, transparent);
+  color: var(--fg);
 }
 
 html {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-bone-line) transparent;
+  scrollbar-color: var(--color-silver-300) transparent;
 }
 
 html.dark {
-  scrollbar-color: var(--color-ink-line) transparent;
+  scrollbar-color: var(--color-carbon-700) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -348,18 +469,17 @@ html.dark {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--color-bone-line);
-  border: 3px solid var(--color-bone);
+  background-color: var(--color-silver-300);
+  border: 3px solid var(--canvas);
   border-radius: 9999px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background-color: var(--color-ink-line);
-  border-color: var(--color-ink);
+  background-color: var(--color-carbon-700);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-bronze);
+  background-color: var(--chrome);
 }
 
 a {

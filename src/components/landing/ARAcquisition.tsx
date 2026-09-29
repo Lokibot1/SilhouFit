@@ -168,7 +168,7 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
-        className="text-bronze-deep dark:text-bronze-light"
+        className="text-chrome-strong"
       >
         <path d="M10 28V14h14M176 14h14v14M190 192v14h-14M24 206H10v-14" />
       </motion.g>
@@ -182,21 +182,21 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
             y2="0"
             stroke="currentColor"
             strokeWidth="1"
-            className="text-bronze-deep dark:text-bronze-light"
+            className="text-chrome-strong"
           />
         </motion.g>
       </motion.g>
 
       <motion.g
         style={{ filter: figureFilter, opacity: figureOpacity }}
-        className="text-ink/70 dark:text-bone/70"
+        className="text-fg-muted"
       >
         <path d={FIGURE} stroke="currentColor" strokeWidth="1.5" />
       </motion.g>
 
       <motion.path
         d={GARMENT}
-        className="text-bronze-deep dark:text-bronze-light"
+        className="text-chrome-strong"
         stroke="currentColor"
         strokeWidth="1.5"
         pathLength={1}
@@ -205,12 +205,12 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
       />
       <motion.path
         d={GARMENT}
-        className="text-bronze dark:text-bronze-light"
+        className="text-chrome-strong"
         fill="currentColor"
         style={{ opacity: garmentFill }}
       />
 
-      <g className="text-bronze-deep dark:text-bronze-light">
+      <g className="text-chrome-strong">
         {BONES.map(([from, to], index) => (
           <Bone
             key={`${from}-${to}`}

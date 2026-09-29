@@ -102,14 +102,14 @@ function CardBody({ item }: { item: Capability }) {
           alt=""
           aria-hidden="true"
           loading="lazy"
-          className="h-36 w-full shrink-0 object-cover"
+          className="photo-mono h-36 w-full shrink-0 object-cover"
         />
       )}
       <div className="flex flex-1 flex-col p-7">
-        <h3 className="display text-2xl text-ink sm:text-[1.75rem] dark:text-bone">
+        <h3 className="display text-2xl text-fg sm:text-[1.75rem]">
           {item.term}
         </h3>
-        <p className="mt-3 text-base leading-relaxed text-ink/80 dark:text-bone/80">
+        <p className="mt-3 text-base leading-relaxed text-fg-muted">
           {item.detail}
         </p>
       </div>
@@ -211,7 +211,7 @@ function HorizontalTrack() {
       // one -- PACE then stretches that budget far enough for the dwells.
       style={{ height: `calc(100svh + ${Math.round(distance * PACE)}px)` }}
     >
-      <div className="sticky top-0 flex h-svh flex-col justify-center overflow-hidden bg-bone-soft dark:bg-ink-soft">
+      <div className="sticky top-0 flex h-svh flex-col justify-center overflow-hidden bg-canvas-sub">
         <motion.div
           aria-hidden="true"
           style={{ x: backdropX }}
@@ -221,15 +221,15 @@ function HorizontalTrack() {
             src="/images/boutique-rack.jpg"
             alt=""
             loading="lazy"
-            className="h-full w-full object-cover"
+            className="photo-mono h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-bone/65 dark:bg-ink/65" />
+          <div className="absolute inset-0 veil-strong" />
         </motion.div>
 
         <div className="relative">
           <div className="mx-auto w-full max-w-6xl px-6">
             <Reveal>
-              <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-ink drop-shadow-sm dark:text-bone">
+              <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-fg drop-shadow-sm">
                 {HEADING}
               </h2>
             </Reveal>
@@ -262,11 +262,11 @@ function HorizontalTrack() {
           <div className="mx-auto mt-12 w-full max-w-6xl px-6">
             <div
               aria-hidden="true"
-              className="h-px w-full max-w-xs bg-ink/15 dark:bg-white/15"
+              className="h-px w-full max-w-xs bg-fg/15"
             >
               <motion.div
                 style={{ scaleX: railScale }}
-                className="h-px w-full origin-left bg-bronze dark:bg-bronze-light"
+                className="chrome-fill h-px w-full origin-left"
               />
             </div>
           </div>
@@ -282,11 +282,11 @@ function StackedGrid() {
     <ParallaxSection
       id="capabilities"
       image="/images/boutique-rack.jpg"
-      scrimClassName="bg-bone/65 dark:bg-ink/65"
+      scrimClassName="veil-strong"
     >
       <div className="mx-auto max-w-6xl px-6 py-24">
         <Reveal>
-          <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-ink drop-shadow-sm dark:text-bone">
+          <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-fg drop-shadow-sm">
             {HEADING}
           </h2>
         </Reveal>

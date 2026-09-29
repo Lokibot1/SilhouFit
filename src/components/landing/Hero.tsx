@@ -53,23 +53,23 @@ export function Hero() {
           <img
             src="/images/hero-fitting-room.jpg"
             alt=""
-            className="h-full w-full object-cover"
+            className="photo-mono h-full w-full object-cover"
           />
         </div>
       </motion.div>
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-bone/40 dark:bg-ink/60"
+        className="absolute inset-0 veil"
       />
       <motion.div
         aria-hidden="true"
         style={{ opacity: veilOpacity }}
-        className="absolute inset-0 bg-bone-soft dark:bg-ink-soft"
+        className="absolute inset-0 bg-canvas-sub"
       />
 
       <div className="relative mx-auto grid w-full max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-[1.1fr_0.9fr]">
         <motion.div style={{ y: copyY, opacity: copyOpacity }}>
-          <h1 className="display text-[clamp(2.75rem,6.5vw,5.5rem)] text-ink drop-shadow-sm dark:text-bone">
+          <h1 className="display text-[clamp(2.75rem,6.5vw,5.5rem)] text-fg drop-shadow-sm">
             {/* Line by line, so the measure passes over the claim twice rather
                 than lifting both lines as one block. */}
             <Reveal as="span">Try the fit.</Reveal>
@@ -78,7 +78,7 @@ export function Hero() {
             </Reveal>
           </h1>
           <Reveal delay={0.26}>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink/80 drop-shadow-sm dark:text-bone/85">
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-fg drop-shadow-sm">
               Preview how a garment sits on your own body, right in the
               browser. No headset, no kiosk, just the camera you already have.
             </p>
@@ -87,20 +87,20 @@ export function Hero() {
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <a
                 href="/#ar-fitting"
-                className="btn-lift font-ui rounded-full border-2 border-ink bg-ink px-6 py-3 text-sm font-semibold text-bone hover:border-bronze hover:bg-bronze dark:border-bone dark:bg-bone dark:text-ink dark:hover:border-bronze-light dark:hover:bg-bronze-light"
+                className="btn-lift font-ui rounded-full border-2 border-fg bg-fg px-6 py-3 text-sm font-semibold text-canvas hover:border-chrome-strong hover:bg-chrome-strong"
               >
                 See the AR fitting flow
               </a>
               <a
                 href="/#boutiques"
-                className="btn-lift glass glass-btn font-ui rounded-full px-6 py-3 text-sm font-semibold text-ink hover:text-bronze dark:text-bone dark:hover:text-bronze-light"
+                className="btn-lift glass glass-btn font-ui rounded-full px-6 py-3 text-sm font-semibold text-fg hover:text-chrome-strong"
               >
                 For boutique owners
               </a>
             </div>
           </Reveal>
           <Reveal delay={0.44}>
-            <p className="mt-8 max-w-xl text-sm text-ink/70 drop-shadow-sm dark:text-bone/70">
+            <p className="mt-8 max-w-xl text-sm text-fg-muted drop-shadow-sm">
               Built as a Bachelor of Science in Information Technology capstone
               project. Currently a working prototype, not a live storefront.
             </p>
@@ -118,22 +118,22 @@ export function Hero() {
         >
           <div
             ref={tilt.ref}
-            className="glass-lens glass-float rounded-2xl p-6 transition-transform duration-300 ease-out"
+            className="glass-lens glass-float chrome-edge rounded-2xl p-6 transition-transform duration-300 ease-out"
           >
-            <div className="flex items-center justify-between border-b border-ink/20 pb-4 dark:border-white/25">
-              <span className="font-ui text-sm font-semibold text-ink dark:text-bone">
+            <div className="flex items-center justify-between border-b border-line-strong pb-4">
+              <span className="font-ui text-sm font-semibold text-fg">
                 Fitting preview
               </span>
-              <span className="glass-chip font-ui rounded-full border border-ink/25 bg-bone/60 px-3 py-1 text-xs font-medium text-ink dark:border-white/20 dark:bg-ink/60 dark:text-bone">
+              <span className="glass-chip font-ui rounded-full border border-line-strong bg-canvas/60 px-3 py-1 text-xs font-medium text-fg">
                 Camera on
               </span>
             </div>
-            <SilhouetteMark className="mx-auto mt-4 h-56 w-44 text-ink/80 [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.35))] dark:text-bone/85" />
+            <SilhouetteMark className="mx-auto mt-4 h-56 w-44 text-fg-muted [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.35))]" />
             <div className="mt-4 flex gap-3">
-              <span className="glass-chip font-ui rounded-full border border-ink/20 bg-bone/60 px-3 py-1.5 text-sm font-medium text-ink dark:border-white/15 dark:bg-ink/60 dark:text-bone">
+              <span className="glass-chip font-ui rounded-full border border-line-strong bg-canvas/60 px-3 py-1.5 text-sm font-medium text-fg">
                 Size M
               </span>
-              <span className="glass-chip font-ui rounded-full border border-ink/20 bg-bone/60 px-3 py-1.5 text-sm font-medium text-ink dark:border-white/15 dark:bg-ink/60 dark:text-bone">
+              <span className="glass-chip font-ui rounded-full border border-line-strong bg-canvas/60 px-3 py-1.5 text-sm font-medium text-fg">
                 Regular fit
               </span>
             </div>
