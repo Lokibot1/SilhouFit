@@ -123,6 +123,7 @@
 
   body {
     font-family: var(--font-sans);
+    background-color: var(--canvas);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -387,6 +388,59 @@
     letter-spacing: -0.03em;
     text-wrap: balance;
     line-height: 0.95;
+  }
+
+  /* The boot intro is a fixed brand moment, not a themed surface: it always
+     reads as polished chrome on near-black, independent of the site's own
+     light/dark toggle, so the values here are literal rather than the
+     semantic --chrome tokens (which flip with .dark). */
+  .intro-chrome-text {
+    background-image: linear-gradient(
+      100deg,
+      #6b7280 0%,
+      #9aa2ae 18%,
+      #ffffff 42%,
+      #d7dde5 58%,
+      #8b93a0 78%,
+      #ffffff 100%
+    );
+    background-size: 240% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: intro-sheen 3.6s linear infinite;
+  }
+
+  .intro-chrome-fill {
+    background-image: linear-gradient(
+      to right,
+      #6b7280 0%,
+      #9aa2ae 28%,
+      #ffffff 52%,
+      #9aa2ae 74%,
+      #6b7280 100%
+    );
+  }
+
+  /* A single pre-rendered grain tile, held at near-zero opacity -- texture,
+     not effect. */
+  .intro-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+  }
+}
+
+@keyframes intro-sheen {
+  to {
+    background-position: -240% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-chrome-text {
+    animation: none;
   }
 }
 
