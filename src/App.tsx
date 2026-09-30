@@ -1,6 +1,7 @@
 import { AnimatePresence } from 'motion/react'
 import { useState } from 'react'
 import { Route, Routes } from 'react-router-dom'
+import { CometCursor } from './components/CometCursor'
 import { IntroLoader } from './components/IntroLoader'
 import { Layout } from './components/Layout'
 import { AboutPage } from './views/AboutPage'
@@ -23,6 +24,7 @@ function App() {
 
   return (
     <>
+      <CometCursor />
       <AnimatePresence>
         {!introDone && (
           <IntroLoader key="intro" onFinished={() => setIntroDone(true)} />

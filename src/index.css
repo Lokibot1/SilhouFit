@@ -794,3 +794,11 @@ html.dark {
 a {
   text-underline-offset: 0.2em;
 }
+
+/* The comet is the pointer while it runs (mouse only, motion allowed), so the
+   native cursor is hidden everywhere -- including links and buttons, whose
+   own cursor rules would otherwise win. */
+html.comet-active,
+html.comet-active * {
+  cursor: none !important;
+}
