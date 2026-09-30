@@ -1,18 +1,24 @@
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
-import { useRef } from 'react'
+import { lazy, Suspense, useRef } from 'react'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useMouseParallax } from '../../hooks/useMouseParallax'
-import { useTilt } from '../../hooks/useTilt'
+import { useTypewriter } from '../../hooks/useTypewriter'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { Reveal } from '../../motion/Reveal'
-import { SilhouetteMark } from './SilhouetteMark'
+import { HeroSky } from './HeroSky'
+
+const ChromeBust = lazy(() =>
+  import('./ChromeBust').then((m) => ({ default: m.ChromeBust })),
+)
+
+const HEADLINE = 'Try the fit.\nBefore it ships.'
 
 export function Hero() {
   const sectionRef = useRef<HTMLElement>(null)
-  const tilt = useTilt<HTMLDivElement>(5)
   const mouse = useMouseParallax<HTMLDivElement>(18)
   const reduced = useReducedMotion()
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const { displayed, done } = useTypewriter(HEADLINE, { instant: !!reduced })
 
   // Progress across the hero's own exit, not the whole page: 0 while it fills
   // the viewport, 1 once it has scrolled entirely past the top.
@@ -22,7 +28,7 @@ export function Hero() {
   })
 
   // Three layers leaving at three speeds. The room pushes in, the copy lifts
-  // out ahead of it, and the fitting card -- the nearest object -- travels
+  // out ahead of it, and the chrome figure -- the nearest object -- travels
   // furthest, which is what sells the depth.
   const depth = reduced ? 0 : isDesktop ? 1 : 0.45
   const roomScale = useTransform(scrollYProgress, [0, 1], [1, 1 + 0.14 * depth])
@@ -31,13 +37,13 @@ export function Hero() {
   // the hero dissolves into Capabilities rather than sliding off it.
   const veilOpacity = useTransform(scrollYProgress, [0.25, 1], [0, reduced ? 0 : 0.6])
   const copyY = useTransform(scrollYProgress, [0, 1], [0, -70 * depth])
-  const cardY = useTransform(scrollYProgress, [0, 1], [0, -150 * depth])
+  const figureY = useTransform(scrollYProgress, [0, 1], [0, -150 * depth])
   const copyOpacity = useTransform(scrollYProgress, [0, 0.72], [1, reduced ? 1 : 0])
 
   return (
     <section
       ref={sectionRef}
-      className="relative flex min-h-svh items-center overflow-hidden"
+      className="relative flex min-h-svh flex-col overflow-hidden lg:flex-row lg:items-center"
       onMouseMove={mouse.handleMouseMove}
       onMouseLeave={mouse.handleMouseLeave}
     >
@@ -50,32 +56,60 @@ export function Hero() {
           ref={mouse.ref}
           className="hero-parallax-image h-full w-full transition-transform duration-300 ease-out"
         >
-          <img
-            src="/images/hero-fitting-room.jpg"
-            alt=""
-            className="photo-mono h-full w-full object-cover"
-          />
+          <HeroSky />
         </div>
       </motion.div>
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 veil"
-      />
       <motion.div
         aria-hidden="true"
         style={{ opacity: veilOpacity }}
         className="absolute inset-0 bg-canvas-sub"
       />
 
+      {/* The figure spans the whole hero behind the copy, crown near the top
+          and body running off the bottom edge, its arms free to pass under
+          the text. Below lg it drops under the copy instead, where a phone's
+          narrow column would leave the text sitting on chrome. */}
+      <motion.div
+        initial={reduced ? { opacity: 0 } : { opacity: 0, y: 40, scale: 0.96 }}
+        animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: DURATION.entrance, ease: EASE_OUT, delay: 0.3 }}
+        // In flow below lg, lifting the canvas would open a gap under it; on
+        // desktop it runs 160px past the hero's bottom (clipped by the section)
+        // so the full 150px lift never exposes its edge.
+        style={{ y: reduced || !isDesktop ? undefined : figureY }}
+        className="relative order-last h-[70svh] w-full lg:absolute lg:inset-x-0 lg:top-0 lg:-bottom-40 lg:order-none lg:h-auto"
+      >
+        {/* three.js is only fetched for this figure, so it is split out of
+            the main bundle; the box above holds the space while it loads. */}
+        {/* Sits behind the head and travels with the figure. */}
+        <div
+          aria-hidden="true"
+          className="hero-halo absolute top-[30%] left-1/2 size-[min(90vw,680px)] -translate-x-1/2 -translate-y-1/2 lg:left-[65%]"
+        />
+        <Suspense fallback={null}>
+          <ChromeBust className="relative h-full w-full" />
+        </Suspense>
+      </motion.div>
+
       <div className="relative mx-auto grid w-full max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-[1.1fr_0.9fr]">
         <motion.div style={{ y: copyY, opacity: copyOpacity }}>
-          <h1 className="display text-[clamp(2.75rem,6.5vw,5.5rem)] text-fg drop-shadow-sm">
-            {/* Line by line, so the measure passes over the claim twice rather
-                than lifting both lines as one block. */}
-            <Reveal as="span">Try the fit.</Reveal>
-            <Reveal as="span" delay={0.12}>
-              Before it ships.
-            </Reveal>
+          {/* The untyped remainder stays in the flow, invisible, so the block
+              is its full height and wraps the same from the first character:
+              nothing below the headline shifts while it types. The cursor is
+              zero-width for the same reason. */}
+          <h1
+            aria-label={HEADLINE.replace('\n', ' ')}
+            className="display whitespace-pre-line text-[clamp(2.75rem,6.5vw,5.5rem)] text-fg drop-shadow-sm"
+          >
+            <span aria-hidden="true">
+              {displayed}
+              {!done && (
+                <span className="relative inline-block h-[0.9em] w-0 align-middle">
+                  <span className="animate-blink absolute inset-y-0 left-[2px] w-[3px] bg-fg" />
+                </span>
+              )}
+              <span className="invisible">{HEADLINE.slice(displayed.length)}</span>
+            </span>
           </h1>
           <Reveal delay={0.26}>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-fg drop-shadow-sm">
@@ -83,61 +117,12 @@ export function Hero() {
               browser. No headset, no kiosk, just the camera you already have.
             </p>
           </Reveal>
-          <Reveal delay={0.36}>
-            <div className="mt-10 flex flex-wrap items-center gap-4">
-              <a
-                href="/#ar-fitting"
-                className="btn-lift font-ui rounded-full border-2 border-fg bg-fg px-6 py-3 text-sm font-semibold text-canvas hover:border-chrome-strong hover:bg-chrome-strong"
-              >
-                See the AR fitting flow
-              </a>
-              <a
-                href="/#boutiques"
-                className="btn-lift glass glass-btn font-ui rounded-full px-6 py-3 text-sm font-semibold text-fg hover:text-chrome-strong"
-              >
-                For boutique owners
-              </a>
-            </div>
-          </Reveal>
           <Reveal delay={0.44}>
             <p className="mt-8 max-w-xl text-sm text-fg-muted drop-shadow-sm">
               Built as a Bachelor of Science in Information Technology capstone
               project. Currently a working prototype, not a live storefront.
             </p>
           </Reveal>
-        </motion.div>
-
-        <motion.div
-          initial={reduced ? { opacity: 0 } : { opacity: 0, y: 40, scale: 0.96 }}
-          animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: DURATION.entrance, ease: EASE_OUT, delay: 0.3 }}
-          style={{ y: reduced ? undefined : cardY }}
-          className="relative mx-auto w-full max-w-sm justify-self-center [perspective:1000px] lg:justify-self-end"
-          onMouseMove={tilt.handleMouseMove}
-          onMouseLeave={tilt.handleMouseLeave}
-        >
-          <div
-            ref={tilt.ref}
-            className="glass-lens glass-float chrome-edge rounded-2xl p-6 transition-transform duration-300 ease-out"
-          >
-            <div className="flex items-center justify-between border-b border-line-strong pb-4">
-              <span className="font-ui text-sm font-semibold text-fg">
-                Fitting preview
-              </span>
-              <span className="glass-chip font-ui rounded-full border border-line-strong bg-canvas/60 px-3 py-1 text-xs font-medium text-fg">
-                Camera on
-              </span>
-            </div>
-            <SilhouetteMark className="mx-auto mt-4 h-56 w-44 text-fg-muted [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.35))]" />
-            <div className="mt-4 flex gap-3">
-              <span className="glass-chip font-ui rounded-full border border-line-strong bg-canvas/60 px-3 py-1.5 text-sm font-medium text-fg">
-                Size M
-              </span>
-              <span className="glass-chip font-ui rounded-full border border-line-strong bg-canvas/60 px-3 py-1.5 text-sm font-medium text-fg">
-                Regular fit
-              </span>
-            </div>
-          </div>
         </motion.div>
       </div>
     </section>

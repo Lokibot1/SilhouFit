@@ -146,6 +146,24 @@ export function Footer() {
           <p className="font-ui text-xs text-fg-muted">
             &copy; {year} SilhouFit. A Quezon City University BS Information
             Technology capstone project.
+            {/* Required by the model's CC BY 4.0 licence. */}
+            <span className="mt-1 block">
+              Hero 3D model:{' '}
+              <a
+                href="https://sketchfab.com/3d-models/human-body-f022e4a3641943328b2fbfdf0f7c3e1e"
+                className="underline hover:text-fg"
+              >
+                &ldquo;HUMAN_BODY&rdquo; by vistaalienprime
+              </a>
+              , licensed under{' '}
+              <a
+                href="https://creativecommons.org/licenses/by/4.0/"
+                className="underline hover:text-fg"
+              >
+                CC BY 4.0
+              </a>
+              , recoloured and cropped.
+            </span>
           </p>
           <BackToTop />
         </div>

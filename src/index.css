@@ -65,6 +65,8 @@
 
   --photo-sat: 0.4;
 
+  --halo-a: 0.95;
+
   --veil: 243 244 246;
   --veil-a: 0.58;
   --veil-a-strong: 0.8;
@@ -102,6 +104,8 @@
   --glass-blur: 36px;
 
   --photo-sat: 0.35;
+
+  --halo-a: 0.28;
 
   --veil: 9 10 13;
   --veil-a: 0.6;
@@ -326,6 +330,26 @@
       var(--chrome-bright) 52%,
       var(--chrome) 74%,
       var(--chrome-shade) 100%
+    );
+  }
+
+  .animate-blink {
+    animation: blink 1s step-end infinite;
+  }
+
+  .animate-twinkle {
+    animation: twinkle 4s ease-in-out infinite;
+  }
+
+  /* The light behind the hero figure's head. On the night sky it is the glow
+     a chrome body throws into the dark; on the silver sky, a brighter pool
+     in the paler field -- one shape, two strengths. */
+  .hero-halo {
+    background: radial-gradient(
+      circle,
+      rgb(255 255 255 / var(--halo-a)) 0%,
+      rgb(255 255 255 / calc(var(--halo-a) * 0.35)) 35%,
+      transparent 68%
     );
   }
 
@@ -698,6 +722,26 @@
   .sky-toggle__clouds,
   .sky-toggle__stars-container {
     transition: none;
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
   }
 }
 
