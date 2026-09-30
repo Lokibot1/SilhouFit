@@ -118,9 +118,9 @@ export function Navbar() {
             // Section links light up by scroll position; page links by route.
             const isActive = activeHref === link.href || pathname === link.href
             return (
-              <a
+              <Link
                 key={link.href}
-                href={link.href}
+                to={link.href}
                 aria-current={isActive ? 'true' : undefined}
                 className={`font-ui relative text-[11px] tracking-[0.16em] uppercase transition-colors ${
                   isActive
@@ -134,21 +134,21 @@ export function Navbar() {
                     isActive ? 'w-full opacity-100' : 'w-0 opacity-0'
                   }`}
                 />
-              </a>
+              </Link>
             )
           })}
 
           <ThemeToggle />
 
-          <a
+          <Link
             ref={magnetic.ref}
-            href="/#contact"
+            to="/#contact"
             onPointerMove={magnetic.handlePointerMove}
             onPointerLeave={magnetic.handlePointerLeave}
             className="pill bg-fg font-medium text-canvas hover:bg-chrome-strong"
           >
             Talk to us
-          </a>
+          </Link>
         </div>
 
         <div className="flex items-center gap-2 lg:hidden">
@@ -185,22 +185,22 @@ export function Navbar() {
           >
             <div className="px-6 pt-4 pb-8">
               {NAV_LINKS.map((link) => (
-                <a
+                <Link
                   key={link.href}
-                  href={link.href}
+                  to={link.href}
                   onClick={() => setMenuOpen(false)}
                   className="font-display block border-b border-line py-4 text-2xl font-semibold tracking-[-0.02em] text-fg"
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
-              <a
-                href="/#contact"
+              <Link
+                to="/#contact"
                 onClick={() => setMenuOpen(false)}
                 className="pill mt-6 bg-fg font-medium text-canvas"
               >
                 Talk to us
-              </a>
+              </Link>
             </div>
           </motion.div>
         )}

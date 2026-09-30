@@ -1,6 +1,6 @@
 import { AnimatePresence } from 'motion/react'
 import { useState } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import { CometCursor } from './components/CometCursor'
 import { IntroLoader } from './components/IntroLoader'
 import { Layout } from './components/Layout'
@@ -20,7 +20,13 @@ function prefersReducedMotion() {
 }
 
 function App() {
-  const [introDone, setIntroDone] = useState(prefersReducedMotion())
+  // The intro is the landing page's opening, not the site's loading bar: it
+  // plays only when the visit begins on the home page. A page opened directly
+  // -- a 404, an about link, a policy -- goes straight to its content, and so
+  // does every in-app navigation, which never reloads the app in the first
+  // place. Initial state only; later route changes never bring it back.
+  const { pathname } = useLocation()
+  const [introDone, setIntroDone] = useState(prefersReducedMotion() || pathname !== '/')
 
   return (
     <>

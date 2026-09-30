@@ -103,10 +103,10 @@ export function Footer() {
             <ul className="mt-3 space-y-2.5">
               {PROJECT_LINKS.map((link) => (
                 <li key={link.href}>
-                  <a href={link.href} className={`${LINK_CLASS} font-ui`}>
+                  <Link to={link.href} className={`${LINK_CLASS} font-ui`}>
                     {link.label}
                     <span aria-hidden="true" className={LINK_UNDERLINE} />
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
