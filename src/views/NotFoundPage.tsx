@@ -1,13 +1,11 @@
 import { Link } from 'react-router-dom'
-import { TexturedBackdrop } from '../components/TexturedBackdrop'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export function NotFoundPage() {
   useDocumentTitle('Page not found — SilhouFit')
 
   return (
-    <div className="relative flex min-h-[60vh] items-center overflow-hidden bg-canvas-sub px-6 py-32">
-      <TexturedBackdrop image="/images/fabric-texture.jpg" speed={0.05} />
+    <div className="relative flex min-h-[60vh] items-center px-6 py-32">
       <div className="glass-solid relative mx-auto max-w-2xl rounded-2xl p-10">
         <span className="font-mono text-sm tabular-nums text-fg-muted">
           404

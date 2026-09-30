@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useScrollSpy } from '../../hooks/useScrollSpy'
 import { Reveal } from '../../motion/Reveal'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
-import { ParallaxSection } from './ParallaxSection'
 
 const STEPS = [
   {
@@ -81,11 +80,7 @@ export function HowItWorks() {
   }
 
   return (
-    <ParallaxSection
-      id="how-it-works"
-      image="/images/fabric-texture.jpg"
-      scrimClassName="veil-strong"
-    >
+    <section id="how-it-works" className="relative scroll-mt-28">
       <div className="mx-auto max-w-6xl px-6 py-24">
         <Reveal>
           <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-fg drop-shadow-sm">
@@ -162,6 +157,6 @@ export function HowItWorks() {
           })}
         </ol>
       </div>
-    </ParallaxSection>
+    </section>
   )
 }

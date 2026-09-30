@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
-import { TexturedBackdrop } from '../TexturedBackdrop'
 
 interface LegalPageLayoutProps {
   title: string
@@ -18,8 +17,7 @@ export function LegalPageLayout({
   useDocumentTitle(`${title} — SilhouFit`)
 
   return (
-    <div className="relative overflow-hidden bg-canvas-sub pt-32 pb-16">
-      <TexturedBackdrop image="/images/fabric-texture.jpg" speed={0.18} />
+    <div className="relative pt-32 pb-16">
       <article className="glass-solid relative mx-auto max-w-2xl rounded-2xl px-6 py-14 sm:px-12">
         <h1 className="display text-[clamp(2rem,4vw,3rem)] text-fg">
           {title}

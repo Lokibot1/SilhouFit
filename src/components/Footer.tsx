@@ -1,13 +1,17 @@
-import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
-import { useRef } from 'react'
+import { lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 
+// three.js is fetched for the rack only when the footer renders.
+const ClothingRack = lazy(() =>
+  import('./ClothingRack').then((m) => ({ default: m.ClothingRack })),
+)
+
 const PROJECT_LINKS = [
-  { label: 'Capabilities', href: '/#capabilities' },
+  { label: 'Capabilities', href: '/about#capabilities' },
   { label: 'AR fitting', href: '/#ar-fitting' },
-  { label: 'How it works', href: '/#how-it-works' },
-  { label: 'For boutiques', href: '/#boutiques' },
+  { label: 'How it works', href: '/about#how-it-works' },
+  { label: 'For boutiques', href: '/about#boutiques' },
 ]
 
 const LEGAL_LINKS = [
@@ -47,37 +51,20 @@ function BackToTop() {
 
 export function Footer() {
   const year = new Date().getFullYear()
-  const footerRef = useRef<HTMLElement>(null)
-  const reduced = useReducedMotion()
 
-  const { scrollYProgress } = useScroll({
-    target: footerRef,
-    offset: ['start end', 'end end'],
-  })
-  // The figure from the hero card, arriving at the bottom of the page still
-  // settling. It is the one element that moves across a section boundary, so
-  // the page closes on the mark it opened with rather than on a flat panel.
-  const markY = useTransform(scrollYProgress, [0, 1], [reduced ? 0 : -90, 0])
-
+  // One composition, not a card above a picture: the rack is the footer's
+  // own ground. Its canvas is pinned to the bottom and reaches up behind the
+  // lower half of the content -- transparent, so the links and the rail share
+  // one sky -- and the garments run off the bottom edge of the page.
   return (
-    <footer
-      ref={footerRef}
-      className="relative overflow-hidden bg-canvas-sub"
-    >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_18%_0%,rgb(var(--glass-tint)/0.05),transparent)]"
-      />
+    <footer className="relative overflow-hidden">
+      <Suspense fallback={null}>
+        <ClothingRack className="absolute inset-x-0 bottom-0 h-[calc(clamp(18rem,52svh,34rem)+14rem)]" />
+      </Suspense>
 
-      <motion.div
-        aria-hidden="true"
-        style={{ y: markY }}
-        className="pointer-events-none absolute -top-16 -right-20 hidden will-change-transform sm:-top-20 sm:-right-28 sm:block lg:-top-24 lg:-right-32"
-      >
-        <SilhouetteMark className="h-[28rem] w-[22rem] text-fg/[0.05] sm:h-[36rem] sm:w-[28rem] lg:h-[42rem] lg:w-[34rem]" />
-      </motion.div>
-
-      <div className="relative mx-auto max-w-6xl px-6 py-16 sm:py-20 lg:py-24">
+      {/* Bottom padding is the rack's own stage: the rail and garments below
+          the content, with nothing in between but sky. */}
+      <div className="relative mx-auto max-w-6xl px-6 pt-24 pb-[clamp(18rem,52svh,34rem)]">
         <div className="grid grid-cols-1 gap-y-12 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-14 lg:grid-cols-[1.4fr_0.85fr_0.85fr_0.85fr] lg:gap-x-10 lg:gap-y-0">
           <div>
             <SilhouetteMark className="h-10 w-8 text-chrome-strong" />

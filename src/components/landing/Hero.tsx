@@ -1,11 +1,9 @@
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { lazy, Suspense, useRef } from 'react'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
-import { useMouseParallax } from '../../hooks/useMouseParallax'
 import { useTypewriter } from '../../hooks/useTypewriter'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { Reveal } from '../../motion/Reveal'
-import { HeroSky } from './HeroSky'
 
 const ChromeBust = lazy(() =>
   import('./ChromeBust').then((m) => ({ default: m.ChromeBust })),
@@ -15,7 +13,6 @@ const HEADLINE = 'Try the fit.\nBefore it ships.'
 
 export function Hero() {
   const sectionRef = useRef<HTMLElement>(null)
-  const mouse = useMouseParallax<HTMLDivElement>(18)
   const reduced = useReducedMotion()
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const { displayed, done } = useTypewriter(HEADLINE, { instant: !!reduced })
@@ -27,15 +24,10 @@ export function Hero() {
     offset: ['start start', 'end start'],
   })
 
-  // Three layers leaving at three speeds. The room pushes in, the copy lifts
-  // out ahead of it, and the chrome figure -- the nearest object -- travels
-  // furthest, which is what sells the depth.
+  // Two layers leaving at two speeds over the fixed sky: the copy lifts out,
+  // and the chrome figure -- the nearest object -- travels furthest, which is
+  // what sells the depth.
   const depth = reduced ? 0 : isDesktop ? 1 : 0.45
-  const roomScale = useTransform(scrollYProgress, [0, 1], [1, 1 + 0.14 * depth])
-  // Not the scrim's own opacity -- that is already at 1 and CSS clamps it. A
-  // separate veil in the *next* section's surface colour fades up instead, so
-  // the hero dissolves into Capabilities rather than sliding off it.
-  const veilOpacity = useTransform(scrollYProgress, [0.25, 1], [0, reduced ? 0 : 0.6])
   const copyY = useTransform(scrollYProgress, [0, 1], [0, -70 * depth])
   const figureY = useTransform(scrollYProgress, [0, 1], [0, -150 * depth])
   const copyOpacity = useTransform(scrollYProgress, [0, 0.72], [1, reduced ? 1 : 0])
@@ -44,27 +36,7 @@ export function Hero() {
     <section
       ref={sectionRef}
       className="relative flex min-h-svh flex-col overflow-hidden lg:flex-row lg:items-center"
-      onMouseMove={mouse.handleMouseMove}
-      onMouseLeave={mouse.handleMouseLeave}
     >
-      <motion.div
-        aria-hidden="true"
-        style={{ scale: roomScale }}
-        className="absolute inset-[-8%] will-change-transform"
-      >
-        <div
-          ref={mouse.ref}
-          className="hero-parallax-image h-full w-full transition-transform duration-300 ease-out"
-        >
-          <HeroSky />
-        </div>
-      </motion.div>
-      <motion.div
-        aria-hidden="true"
-        style={{ opacity: veilOpacity }}
-        className="absolute inset-0 bg-canvas-sub"
-      />
-
       {/* The figure spans the whole hero behind the copy, crown near the top
           and body running off the bottom edge, its arms free to pass under
           the text. Below lg it drops under the copy instead, where a phone's
@@ -87,7 +59,10 @@ export function Hero() {
           className="hero-halo absolute top-[30%] left-1/2 size-[min(90vw,680px)] -translate-x-1/2 -translate-y-1/2 lg:left-[65%]"
         />
         <Suspense fallback={null}>
-          <ChromeBust className="relative h-full w-full" />
+          {/* The hero ends mid-chest on the same sky the next section
+              continues on, so the figure fades out before that edge rather
+              than being sliced by it. */}
+          <ChromeBust className="relative h-full w-full mask-[linear-gradient(to_bottom,black_62%,transparent_84%)]" />
         </Suspense>
       </motion.div>
 

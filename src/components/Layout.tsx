@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
 import { CookieConsentBanner } from './CookieConsentBanner'
 import { Footer } from './Footer'
 import { Navbar } from './Navbar'
+import { SiteSky } from './Sky'
 import { SkipLink } from './SkipLink'
 
 export function Layout() {
@@ -22,7 +23,8 @@ export function Layout() {
   }, [pathname, hash, navigationType])
 
   return (
-    <div className="min-h-svh bg-canvas text-fg">
+    <div className="min-h-svh text-fg">
+      <SiteSky />
       <SkipLink />
       <Navbar />
       <main id="main-content">

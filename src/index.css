@@ -57,7 +57,6 @@
   --glass-edge: 255 255 255;
   --glass-fill: 0.42;
   --glass-fill-clear: 0.16;
-  --glass-fill-lens: 0.1;
   --glass-fill-solid: 0.84;
   --glass-edge-a: 0.7;
   --glass-hi: 0.75;
@@ -66,14 +65,6 @@
   --photo-sat: 0.4;
 
   --halo-a: 0.95;
-
-  --veil: 243 244 246;
-  --veil-a: 0.58;
-  --veil-a-strong: 0.8;
-
-  --scrim: 243 244 246;
-  --scrim-top: 0.6;
-  --scrim-bottom: 0.46;
 
   --shadow-key: 20 23 28;
   --shadow-a: 0.18;
@@ -97,7 +88,6 @@
   --glass-edge: 255 255 255;
   --glass-fill: 0.46;
   --glass-fill-clear: 0.18;
-  --glass-fill-lens: 0.12;
   --glass-fill-solid: 0.82;
   --glass-edge-a: 0.13;
   --glass-hi: 0.09;
@@ -106,14 +96,6 @@
   --photo-sat: 0.35;
 
   --halo-a: 0.28;
-
-  --veil: 9 10 13;
-  --veil-a: 0.6;
-  --veil-a-strong: 0.78;
-
-  --scrim: 8 9 12;
-  --scrim-top: 0.66;
-  --scrim-bottom: 0.5;
 
   --shadow-key: 0 0 0;
   --shadow-a: 0.5;
@@ -177,44 +159,6 @@
     box-shadow:
       0 18px 36px -18px rgb(var(--shadow-key) / var(--shadow-b)),
       inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
-  }
-
-  /* The fitting preview is a viewfinder, not a panel: the feed behind it has to
-     stay legible as a scene -- a face still a face. So it takes only a touch of
-     blur, and the readability is bought back where it is actually needed. */
-  .glass-lens {
-    position: relative;
-    background-color: rgb(var(--glass-tint) / var(--glass-fill-lens));
-    border: 1px solid rgb(var(--glass-edge) / calc(var(--glass-edge-a) * 0.8));
-    backdrop-filter: blur(3px) saturate(118%);
-    -webkit-backdrop-filter: blur(3px) saturate(118%);
-    box-shadow:
-      0 18px 36px -18px rgb(var(--shadow-key) / var(--shadow-b)),
-      inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
-  }
-
-  /* Dense behind the header and the chip row, fully clear through the middle
-     third -- how a camera UI floats controls over a live image. A uniform fill
-     heavy enough for the text would have smeared the subject, which is the one
-     thing this card exists to show. Negative z-index keeps the scrim above the
-     card's own fill but under its text, so the markup needs no wrapper;
-     backdrop-filter already makes the card a stacking context. */
-  .glass-lens::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    pointer-events: none;
-    background: linear-gradient(
-      to bottom,
-      rgb(var(--scrim) / var(--scrim-top)) 0%,
-      rgb(var(--scrim) / calc(var(--scrim-top) * 0.37)) 15%,
-      transparent 28%,
-      transparent 70%,
-      rgb(var(--scrim) / calc(var(--scrim-bottom) * 0.39)) 86%,
-      rgb(var(--scrim) / var(--scrim-bottom)) 100%
-    );
   }
 
   .glass-solid {
@@ -286,7 +230,6 @@
      underneath would declare the same edge twice and read as a ghost outline. */
   .glass:where(.chrome-edge),
   .glass-clear:where(.chrome-edge),
-  .glass-lens:where(.chrome-edge),
   .glass-solid:where(.chrome-edge) {
     border-color: transparent;
   }
@@ -297,15 +240,6 @@
      easy to dial either way. */
   .photo-mono {
     filter: saturate(var(--photo-sat)) contrast(1.04);
-  }
-
-  /* The wash that sits between a photograph and the text laid over it. */
-  .veil {
-    background-color: rgb(var(--veil) / var(--veil-a));
-  }
-
-  .veil-strong {
-    background-color: rgb(var(--veil) / var(--veil-a-strong));
   }
 
   /* A divider that catches light along its length instead of sitting flat. */
@@ -397,10 +331,6 @@
   .group:hover .flow-line,
   .group:focus-within .flow-line {
     animation: flow 900ms linear infinite;
-  }
-
-  .hero-parallax-image {
-    transform: translate3d(var(--parallax-x, 0px), var(--parallax-y, 0px), 0);
   }
 
   /* Every heading and title reaches for this: League Spartan, heavy, tight

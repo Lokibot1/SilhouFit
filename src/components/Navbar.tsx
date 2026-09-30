@@ -5,17 +5,16 @@ import {
   useScroll,
 } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useMagnetic } from '../hooks/useMagnetic'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 import { ThemeToggle } from './ThemeToggle'
 
 const NAV_LINKS = [
-  { label: 'Capabilities', href: '/#capabilities' },
+  { label: 'Gallery', href: '/#gallery' },
   { label: 'AR fitting', href: '/#ar-fitting' },
-  { label: 'How it works', href: '/#how-it-works' },
-  { label: 'For boutiques', href: '/#boutiques' },
+  { label: 'About', href: '/about' },
 ]
 
 export function Navbar() {
@@ -25,20 +24,23 @@ export function Navbar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const magnetic = useMagnetic<HTMLAnchorElement>()
+  const { pathname } = useLocation()
 
   const { scrollY, scrollYProgress } = useScroll()
   useMotionValueEvent(scrollY, 'change', (value) => setSolid(value > 24))
 
   useEffect(() => {
-    const sections = NAV_LINKS.map((link) =>
-      document.getElementById(link.href.split('#')[1]),
-    ).filter((el): el is HTMLElement => el !== null)
+    const sections = NAV_LINKS.filter((link) => link.href.includes('#'))
+      .map((link) => document.getElementById(link.href.split('#')[1]))
+      .filter((el): el is HTMLElement => el !== null)
     if (sections.length === 0) return
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) setActiveHref(`/#${entry.target.id}`)
+          if (!entry.isIntersecting) continue
+          const link = NAV_LINKS.find((l) => l.href.endsWith(`#${entry.target.id}`))
+          if (link) setActiveHref(link.href)
         }
       },
       { rootMargin: '-45% 0px -50% 0px' },
@@ -113,7 +115,8 @@ export function Navbar() {
 
         <div className="hidden items-center gap-8 lg:flex">
           {NAV_LINKS.map((link) => {
-            const isActive = activeHref === link.href
+            // Section links light up by scroll position; page links by route.
+            const isActive = activeHref === link.href || pathname === link.href
             return (
               <a
                 key={link.href}

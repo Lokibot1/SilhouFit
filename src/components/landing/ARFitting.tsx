@@ -11,7 +11,6 @@ import { Reveal, RevealWords } from '../../motion/Reveal'
 import { SPRING } from '../../motion/tokens'
 import { ARAcquisition } from './ARAcquisition'
 import { ARPipeline } from './ARPipeline'
-import { TexturedBackdrop } from '../TexturedBackdrop'
 
 const STAGE_CAPTIONS = [
   'The camera finds the body and pulls focus.',
@@ -48,18 +47,16 @@ export function ARFitting() {
       className={
         isPinned
           ? 'relative h-[260svh] scroll-mt-28'
-          : 'relative scroll-mt-28 overflow-hidden bg-canvas-sub'
+          : 'relative scroll-mt-28'
       }
     >
       <div
         className={
           isPinned
-            ? 'sticky top-0 flex h-svh items-center overflow-hidden bg-canvas-sub'
+            ? 'sticky top-0 flex h-svh items-center'
             : 'relative'
         }
       >
-        <TexturedBackdrop image="/images/fabric-texture.jpg" />
-
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-2">
           <div className="order-2 lg:order-1">
             <div className="glass rounded-2xl p-8">

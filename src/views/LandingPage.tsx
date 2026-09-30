@@ -1,9 +1,7 @@
 import { ARFitting } from '../components/landing/ARFitting'
-import { Capabilities } from '../components/landing/Capabilities'
 import { Contact } from '../components/landing/Contact'
-import { ForBoutiques } from '../components/landing/ForBoutiques'
+import { Gallery } from '../components/landing/Gallery'
 import { Hero } from '../components/landing/Hero'
-import { HowItWorks } from '../components/landing/HowItWorks'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export function LandingPage() {
@@ -14,10 +12,8 @@ export function LandingPage() {
   return (
     <>
       <Hero />
-      <Capabilities />
+      <Gallery />
       <ARFitting />
-      <HowItWorks />
-      <ForBoutiques />
       <Contact />
     </>
   )

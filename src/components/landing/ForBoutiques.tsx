@@ -11,7 +11,6 @@ import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { Reveal } from '../../motion/Reveal'
 import { SPRING } from '../../motion/tokens'
 import { DashboardMock } from './DashboardMock'
-import { ParallaxSection } from './ParallaxSection'
 
 export function ForBoutiques() {
   const sectionRef = useRef<HTMLDivElement>(null)
@@ -33,7 +32,7 @@ export function ForBoutiques() {
   const panelY = useTransform(scrubbed, [0, 1], [-drift * 1.6, drift * 1.6])
 
   return (
-    <ParallaxSection id="boutiques" image="/images/boutique-rack.jpg" speed={0.1}>
+    <section id="boutiques" className="relative scroll-mt-28">
       <div
         ref={sectionRef}
         className="mx-auto grid max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-2"
@@ -69,6 +68,6 @@ export function ForBoutiques() {
           <DashboardMock progress={progress} />
         </motion.div>
       </div>
-    </ParallaxSection>
+    </section>
   )
 }

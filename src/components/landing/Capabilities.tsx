@@ -10,7 +10,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { Reveal } from '../../motion/Reveal'
 import { SPRING } from '../../motion/tokens'
-import { ParallaxSection } from './ParallaxSection'
 
 const CAPABILITIES = [
   {
@@ -193,12 +192,11 @@ function HorizontalTrack() {
   const settled = useTransform(progress, timeline.input, timeline.output)
   const x = useTransform(settled, [0, 1], [0, -distance])
 
-  // These two stay on raw scroll rather than the paused value. Scrolling during
+  // The rail stays on raw scroll rather than the paused value. Scrolling during
   // a card's dwell would otherwise produce no visible response at all, and a
   // pinned section that swallows input feels broken rather than composed: the
-  // rail keeps reporting progress and the backdrop keeps drifting, so the frame
-  // stays alive while the card it is holding does not move.
-  const backdropX = useTransform(progress, [0, 1], [0, -distance * 0.12])
+  // rail keeps reporting progress, so the frame stays alive while the card it
+  // is holding does not move.
   const railScale = useTransform(progress, [0, 1], [0, 1])
 
   return (
@@ -211,21 +209,7 @@ function HorizontalTrack() {
       // one -- PACE then stretches that budget far enough for the dwells.
       style={{ height: `calc(100svh + ${Math.round(distance * PACE)}px)` }}
     >
-      <div className="sticky top-0 flex h-svh flex-col justify-center overflow-hidden bg-canvas-sub">
-        <motion.div
-          aria-hidden="true"
-          style={{ x: backdropX }}
-          className="absolute inset-y-0 -inset-x-[14%] will-change-transform"
-        >
-          <img
-            src="/images/boutique-rack.jpg"
-            alt=""
-            loading="lazy"
-            className="photo-mono h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 veil-strong" />
-        </motion.div>
-
+      <div className="sticky top-0 flex h-svh flex-col justify-center overflow-hidden">
         <div className="relative">
           <div className="mx-auto w-full max-w-6xl px-6">
             <Reveal>
@@ -279,11 +263,7 @@ function HorizontalTrack() {
 /** The vertical composition: narrow screens, and anyone who asked for less. */
 function StackedGrid() {
   return (
-    <ParallaxSection
-      id="capabilities"
-      image="/images/boutique-rack.jpg"
-      scrimClassName="veil-strong"
-    >
+    <section id="capabilities" className="relative scroll-mt-28">
       <div className="mx-auto max-w-6xl px-6 py-24">
         <Reveal>
           <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-fg drop-shadow-sm">
@@ -302,7 +282,7 @@ function StackedGrid() {
           ))}
         </div>
       </div>
-    </ParallaxSection>
+    </section>
   )
 }
 

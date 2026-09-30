@@ -1,5 +1,4 @@
 import { Reveal } from '../../motion/Reveal'
-import { ParallaxSection } from './ParallaxSection'
 
 /**
  * The stillest section on the page, on purpose. After a pinned track and a
@@ -8,7 +7,7 @@ import { ParallaxSection } from './ParallaxSection'
  */
 export function Contact() {
   return (
-    <ParallaxSection id="contact" image="/images/boutique-rack.jpg" speed={0.08}>
+    <section id="contact" className="relative scroll-mt-28">
       <div className="mx-auto max-w-6xl px-6 py-24">
         <div className="glass-solid rounded-2xl px-8 py-12 sm:px-12">
           <div className="max-w-xl">
@@ -33,6 +32,6 @@ export function Contact() {
           </div>
         </div>
       </div>
-    </ParallaxSection>
+    </section>
   )
 }

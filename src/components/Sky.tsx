@@ -1,12 +1,12 @@
 import { useLayoutEffect, useRef } from 'react'
-import { useTheme } from '../../contexts/ThemeContext'
+import { useTheme } from '../contexts/ThemeContext'
 
 // The sky is a fixed composition that flips between a night and a negative
 // "day" print, so it takes literal values from the raw carbon/silver ramp
 // rather than the semantic tokens -- same reasoning as the sky toggle.
 const PALETTE = {
-  dark: { top: '#0a0b0e', bottom: '#111318', ink: '236 240 246', band: '200 210 225', bandA: 0.12 },
-  light: { top: '#f3f4f6', bottom: '#e4e7ec', ink: '20 23 28', band: '92 100 112', bandA: 0.09 },
+  dark: { bg: '#0a0b0e', ink: '236 240 246', band: '200 210 225', bandA: 0.12 },
+  light: { bg: '#f3f4f6', ink: '20 23 28', band: '92 100 112', bandA: 0.09 },
 } as const
 
 // Seeded, so every redraw -- resize, theme swap -- lays out the same sky.
@@ -38,10 +38,7 @@ function draw(canvas: HTMLCanvasElement, theme: 'light' | 'dark') {
   ctx.scale(dpr, dpr)
 
   const p = PALETTE[theme]
-  const sky = ctx.createLinearGradient(0, 0, 0, h)
-  sky.addColorStop(0, p.top)
-  sky.addColorStop(1, p.bottom)
-  ctx.fillStyle = sky
+  ctx.fillStyle = p.bg
   ctx.fillRect(0, 0, w, h)
 
   // The band runs corner to corner, top right to bottom left.
@@ -110,12 +107,12 @@ const TWINKLES = (() => {
 })()
 
 /**
- * The hero's backdrop: a night sky with a galactic band crossing it, echoing
- * the chrome figure's "silver surfer" read. In light mode the same sky prints
- * as a negative -- graphite stars on silver -- so the composition holds while
- * the palette flips.
+ * A night sky with a galactic band crossing it, echoing the hero's chrome
+ * figure. In light mode the same sky prints as a negative -- graphite stars on
+ * silver -- so the composition holds while the palette flips. Fills its
+ * positioned parent.
  */
-export function HeroSky() {
+export function Sky() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { theme } = useTheme()
 
@@ -148,6 +145,20 @@ export function HeroSky() {
           }}
         />
       ))}
+    </div>
+  )
+}
+
+/**
+ * The one sky behind the whole site. Fixed to the viewport and drawn once, so
+ * every page and section scrolls over the same continuous field instead of
+ * each restarting its own. Sized to the large viewport (`lvh`) so a phone's
+ * collapsing address bar never forces a redraw mid-scroll.
+ */
+export function SiteSky() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-lvh">
+      <Sky />
     </div>
   )
 }

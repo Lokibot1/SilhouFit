@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { IntroLoader } from './components/IntroLoader'
 import { Layout } from './components/Layout'
+import { AboutPage } from './views/AboutPage'
 import { CookiePolicyPage } from './views/CookiePolicyPage'
 import { LandingPage } from './views/LandingPage'
 import { NotFoundPage } from './views/NotFoundPage'
@@ -32,6 +33,7 @@ function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<LandingPage />} />
+            <Route path="about" element={<AboutPage />} />
             <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="terms-of-service" element={<TermsOfServicePage />} />
             <Route path="refund-policy" element={<RefundPolicyPage />} />
