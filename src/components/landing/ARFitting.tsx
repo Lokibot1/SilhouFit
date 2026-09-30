@@ -5,12 +5,16 @@ import {
   useScroll,
   useSpring,
 } from 'motion/react'
-import { useRef, useState } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { Reveal, RevealWords } from '../../motion/Reveal'
 import { SPRING } from '../../motion/tokens'
-import { ARAcquisition } from './ARAcquisition'
 import { ARPipeline } from './ARPipeline'
+
+// three.js is fetched for the fitting view on its own, off the main bundle.
+const ARAcquisition = lazy(() =>
+  import('./ARAcquisition').then((m) => ({ default: m.ARAcquisition })),
+)
 
 const STAGE_CAPTIONS = [
   'The camera finds the body and pulls focus.',
@@ -59,10 +63,12 @@ export function ARFitting() {
       >
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-2">
           <div className="order-2 lg:order-1">
-            <div className="glass rounded-2xl p-8">
+            <div className="glass-panel rounded-2xl p-8">
               <ARPipeline activeIndex={stage} />
               <div className="mt-8 border-t border-line pt-8">
-                <ARAcquisition progress={progress} />
+                <Suspense fallback={<div className="h-72 sm:h-80" />}>
+                  <ARAcquisition progress={progress} />
+                </Suspense>
               </div>
               <p
                 className="font-ui mt-6 min-h-[2.5rem] text-center text-sm text-fg/60"
@@ -75,7 +81,7 @@ export function ARFitting() {
 
           {/* Deliberately stationary while the figure is acquired beside it.
               The prose is the claim; the diagram is the evidence moving. */}
-          <div className="glass-solid order-1 max-w-xl rounded-2xl p-8 lg:order-2">
+          <div className="glass-panel order-1 max-w-xl rounded-2xl p-8 lg:order-2">
             <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-fg">
               <RevealWords text="One camera is enough." />
             </h2>

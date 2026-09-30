@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import bodyUrl from '../../assets/human_body.glb?url'
+import { addStudio, createChromeMaterial, cropFromTop, loadBodyGeometry } from './chromeBody'
 import { SilhouetteMark } from './SilhouetteMark'
 
 // A tailor's mannequin, chest to crown, as (half-width, height, half-depth)
@@ -119,39 +117,6 @@ function addHeadTurn(material: THREE.Material, headRot: THREE.Matrix3, neck: Nec
 }
 
 /**
- * Keep only the triangles lying wholly in the top MESH_FRACTION of a standing
- * figure, with the bounding box set to the framed BUST_FRACTION. The model's
- * own colours are dropped too: the chrome is the material.
- */
-function cropToBust(source: THREE.BufferGeometry) {
-  source.computeBoundingBox()
-  const { min, max } = source.boundingBox!
-  const height = max.y - min.y
-  const cut = max.y - height * MESH_FRACTION
-  const pos = source.attributes.position
-  const src = source.index
-  const count = src ? src.count : pos.count
-  const kept: number[] = []
-  for (let i = 0; i < count; i += 3) {
-    const tri = [0, 1, 2].map((k) => (src ? src.getX(i + k) : i + k))
-    if (tri.every((v) => pos.getY(v) > cut)) kept.push(...tri)
-  }
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', pos)
-  if (source.attributes.normal) geometry.setAttribute('normal', source.attributes.normal)
-  geometry.setIndex(kept)
-  if (!source.attributes.normal) geometry.computeVertexNormals()
-  // The bounding box must describe the bust, not the whole body whose
-  // vertices are still in the buffer, or the framing would fit the legs.
-  const box = new THREE.Box3()
-  const v = new THREE.Vector3()
-  for (const i of kept) box.expandByPoint(v.fromBufferAttribute(pos, i))
-  box.min.y = max.y - height * BUST_FRACTION
-  geometry.boundingBox = box
-  return { geometry, height }
-}
-
-/**
  * The hero's figure: a polished chrome bust whose head turns to watch the
  * cursor, the torso following only a little.
  * Chrome is almost entirely reflection, so the environment map does the work --
@@ -173,26 +138,15 @@ export function ChromeBust({ className = '' }: { className?: string }) {
       return
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.domElement.setAttribute('aria-hidden', 'true')
     host.appendChild(renderer.domElement)
 
     const scene = new THREE.Scene()
-    const pmrem = new THREE.PMREMGenerator(renderer)
-    const envMap = pmrem.fromScene(new RoomEnvironment(), 0.03).texture
-    scene.environment = envMap
-    pmrem.dispose()
+    const envMap = addStudio(renderer, scene)
 
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100)
 
-    const material = new THREE.MeshPhysicalMaterial({
-      color: 0xe4e8ee,
-      metalness: 1,
-      roughness: 0.06,
-      clearcoat: 1,
-      clearcoatRoughness: 0.04,
-    })
+    const material = createChromeMaterial()
     // The pointer turns this pivot; whichever figure ends up in it -- the
     // scanned body or the fallback -- is centred on the pivot's axis.
     const pivot = new THREE.Group()
@@ -205,12 +159,6 @@ export function ChromeBust({ className = '' }: { className?: string }) {
     let neck: Neck | undefined
 
     const render = () => renderer.render(scene, camera)
-
-    const key = new THREE.DirectionalLight(0xffffff, 2.2)
-    key.position.set(3, 4, 5)
-    const rim = new THREE.DirectionalLight(0xdfe6ff, 1.6)
-    rim.position.set(-4, 2, -3)
-    scene.add(key, rim)
 
     // A portrait crop: the crown just under the top edge and the body running
     // off the bottom, arms free to reach past the sides. On a wide canvas the
@@ -245,25 +193,17 @@ export function ChromeBust({ className = '' }: { className?: string }) {
 
     renderer.domElement.style.opacity = '0'
     renderer.domElement.style.transition = 'opacity 0.7s ease'
-    new GLTFLoader().load(
-      bodyUrl,
-      (gltf) => {
-        gltf.scene.updateMatrixWorld(true)
-        let mesh: THREE.Mesh | undefined
-        gltf.scene.traverse((o) => {
-          if (!mesh && (o as THREE.Mesh).isMesh) mesh = o as THREE.Mesh
-        })
-        if (!mesh) return show(buildBust(), FALLBACK_NECK)
-        const geo = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld)
-        mesh.geometry.dispose()
-        const bust = cropToBust(geo)
+    let disposed = false
+    loadBodyGeometry().then(
+      (geo) => {
+        if (disposed) return
+        const bust = cropFromTop(geo, MESH_FRACTION, BUST_FRACTION)
         show(
           bust.geometry,
           { chin: -bust.height * CHIN_FRACTION, collar: -bust.height * COLLAR_FRACTION },
         )
       },
-      undefined,
-      () => show(buildBust(), FALLBACK_NECK),
+      () => !disposed && show(buildBust(), FALLBACK_NECK),
     )
 
     const resize = () => {
@@ -324,6 +264,7 @@ export function ChromeBust({ className = '' }: { className?: string }) {
     if (!reduced) window.addEventListener('pointermove', onPointerMove)
 
     return () => {
+      disposed = true
       cancelAnimationFrame(frame)
       inView.disconnect()
       resizeObserver.disconnect()

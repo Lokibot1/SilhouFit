@@ -58,6 +58,9 @@
   --glass-fill: 0.42;
   --glass-fill-clear: 0.16;
   --glass-fill-solid: 0.84;
+  --glass-fill-panel: 0.3;
+  --glass-lift: 1.04;
+  --glass-ring-hi: 0.95;
   --glass-edge-a: 0.7;
   --glass-hi: 0.75;
   --glass-blur: 36px;
@@ -89,6 +92,9 @@
   --glass-fill: 0.46;
   --glass-fill-clear: 0.18;
   --glass-fill-solid: 0.82;
+  --glass-fill-panel: 0.3;
+  --glass-lift: 1.9;
+  --glass-ring-hi: 0.42;
   --glass-edge-a: 0.13;
   --glass-hi: 0.09;
   --glass-blur: 36px;
@@ -169,6 +175,69 @@
     box-shadow:
       0 18px 36px -18px rgb(var(--shadow-key) / var(--shadow-b)),
       inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
+  }
+
+  /* Liquid glass. On a near-black sky a dark fill alone just reads as a
+     black box, so the material shows itself through light instead:
+     - the backdrop is blurred AND brightened, so the stars behind diffuse
+       into visible soft points -- proof the pane is transparent;
+     - a luminous edge ring, bright where light catches the top-left corner
+       and falling away along the sides (::before, masked to 1px);
+     - inset light along the inner top edge and a dark lip along the bottom,
+       which is how thick glass bends light at its rim;
+     - one soft specular sheen across the upper corner, silver-tinted.
+     The fill stays dense enough that body text keeps full contrast. */
+  .glass-panel {
+    position: relative;
+    isolation: isolate;
+    background:
+      radial-gradient(
+        120% 70% at 0% 0%,
+        rgb(var(--glass-edge) / calc(var(--glass-hi) * 0.9)) 0%,
+        transparent 55%
+      ),
+      linear-gradient(
+        180deg,
+        rgb(var(--glass-tint) / calc(var(--glass-fill-panel) * 0.8)) 0%,
+        rgb(var(--glass-tint) / var(--glass-fill-panel)) 100%
+      );
+    border: 1px solid transparent;
+    backdrop-filter: blur(18px) saturate(170%) brightness(var(--glass-lift));
+    -webkit-backdrop-filter: blur(18px) saturate(170%) brightness(var(--glass-lift));
+    box-shadow:
+      inset 0 1px 0 rgb(var(--glass-edge) / calc(var(--glass-hi) * 2.4)),
+      inset 0 22px 36px -28px rgb(var(--glass-edge) / calc(var(--glass-hi) * 1.6)),
+      inset 0 -1px 0 rgb(var(--shadow-key) / 0.35),
+      inset 0 -26px 40px -34px rgb(var(--shadow-key) / 0.4),
+      0 44px 80px -44px rgb(var(--shadow-key) / calc(var(--shadow-b) + 0.1)),
+      0 16px 32px -22px rgb(var(--shadow-key) / var(--shadow-a));
+  }
+
+  .glass-panel::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      145deg,
+      rgb(var(--glass-edge) / var(--glass-ring-hi)) 0%,
+      rgb(var(--glass-edge) / calc(var(--glass-ring-hi) * 0.25)) 22%,
+      var(--chrome-shade) 50%,
+      rgb(var(--glass-edge) / calc(var(--glass-ring-hi) * 0.15)) 72%,
+      rgb(var(--glass-edge) / calc(var(--glass-ring-hi) * 0.6)) 100%
+    );
+    opacity: 0.7;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
   }
 
   /* Elevation 2: floating chrome — sticky/fixed pieces that sit above the page */
