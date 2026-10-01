@@ -802,3 +802,60 @@ html.comet-active,
 html.comet-active * {
   cursor: none !important;
 }
+
+/* 404 scene: distant light and the rack's slow drift. Both are barely there
+   on purpose; reduced motion stills them via the global rule above. */
+.nebula {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.55;
+  animation: nebula-drift 48s ease-in-out infinite alternate;
+}
+
+.nebula-a {
+  top: -12%;
+  right: 4%;
+  width: 52vw;
+  height: 46vw;
+  background: radial-gradient(circle, rgb(70 88 150 / 0.4), transparent 68%);
+}
+
+.nebula-b {
+  bottom: -18%;
+  left: -8%;
+  width: 56vw;
+  height: 44vw;
+  background: radial-gradient(circle, rgb(88 70 140 / 0.28), transparent 68%);
+  animation-duration: 62s;
+  animation-direction: alternate-reverse;
+}
+
+.nebula-c {
+  top: 30%;
+  left: 38%;
+  width: 34vw;
+  height: 28vw;
+  background: radial-gradient(circle, rgb(120 140 190 / 0.16), transparent 68%);
+  animation-duration: 75s;
+}
+
+@keyframes nebula-drift {
+  to {
+    transform: translate3d(3vw, 2vw, 0) scale(1.08);
+  }
+}
+
+.rack-drift {
+  animation: rack-drift 14s ease-in-out infinite;
+}
+
+@keyframes rack-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-1.6deg);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0) rotate(-0.6deg);
+  }
+}

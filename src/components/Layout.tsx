@@ -10,7 +10,7 @@ import { SkipLink } from './SkipLink'
 // links to the old anchors still land where the content now lives.
 const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
 
-export function Layout() {
+export function Layout({ hideFooter = false }: { hideFooter?: boolean }) {
   const { pathname, hash, key } = useLocation()
   const navigationType = useNavigationType()
 
@@ -42,7 +42,7 @@ export function Layout() {
       <main id="main-content">
         <Outlet />
       </main>
-      <Footer />
+      {!hideFooter && <Footer />}
       <CookieConsentBanner />
     </div>
   )

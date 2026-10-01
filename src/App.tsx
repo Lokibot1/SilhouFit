@@ -46,6 +46,8 @@ function App() {
             <Route path="terms-of-service" element={<TermsOfServicePage />} />
             <Route path="refund-policy" element={<RefundPolicyPage />} />
             <Route path="cookie-policy" element={<CookiePolicyPage />} />
+          </Route>
+          <Route element={<Layout hideFooter />}>
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
