@@ -2,7 +2,13 @@ import type { MotionValue } from 'motion/react'
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { addStudio, createChromeMaterial, cropFromTop, loadBodyGeometry } from './chromeBody'
+import {
+  addStudio,
+  createChromeMaterial,
+  cropFromTop,
+  loadBodyGeometry,
+  releaseRenderer,
+} from './chromeBody'
 
 /**
  * The page's authored moment: scroll position runs the fitting pipeline the
@@ -223,6 +229,7 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
     const fabric = createFabric(reveal)
     const geometries: THREE.BufferGeometry[] = []
     const landmarks = JOINTS.map(() => new THREE.Vector3())
+    const v = new THREE.Vector3()
     const projected = JOINTS.map(() => ({ x: 0, y: 0 }))
     let height = 0
     let collarY = 0
@@ -264,7 +271,6 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
       // Pose stage: landmarks tracked on the figure as it turns, locking on
       // in sequence from the head down.
       pivot.updateMatrixWorld()
-      const v = new THREE.Vector3()
       landmarks.forEach((point, i) => {
         v.copy(point).applyMatrix4(pivot.matrixWorld).project(camera)
         projected[i].x = ((v.x + 1) / 2) * w
@@ -337,10 +343,10 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
     let raf = 0
     const clock = new THREE.Clock()
     const tick = () => {
+      raf = requestAnimationFrame(tick)
       // A slow idle turn, so the garment reads as a 3D fit, not a decal.
       pivot.rotation.y = Math.sin(clock.getElapsedTime() * 0.45) * 0.35
       draw()
-      raf = requestAnimationFrame(tick)
     }
     // Reduced motion: no turn, and a redraw only when the scroll moves it.
     const unsubscribe = reduced ? progress.on('change', draw) : () => {}
@@ -360,8 +366,7 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
       chrome.dispose()
       fabric.dispose()
       envMap.dispose()
-      renderer.dispose()
-      canvas.remove()
+      releaseRenderer(renderer)
     }
   }, [progress])
 

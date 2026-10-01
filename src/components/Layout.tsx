@@ -10,7 +10,7 @@ import { SkipLink } from './SkipLink'
 // links to the old anchors still land where the content now lives.
 const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
 
-export function Layout({ hideFooter = false }: { hideFooter?: boolean }) {
+export function Layout({ bare = false }: { bare?: boolean }) {
   const { pathname, hash, key } = useLocation()
   const navigationType = useNavigationType()
 
@@ -38,11 +38,11 @@ export function Layout({ hideFooter = false }: { hideFooter?: boolean }) {
     <div className="min-h-svh text-fg">
       <SiteSky />
       <SkipLink />
-      <Navbar />
+      {!bare && <Navbar />}
       <main id="main-content">
         <Outlet />
       </main>
-      {!hideFooter && <Footer />}
+      {!bare && <Footer />}
       <CookieConsentBanner />
     </div>
   )

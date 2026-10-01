@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
+import { NearViewport } from './NearViewport'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 
 // three.js is fetched for the rack only when the footer renders.
@@ -58,9 +59,11 @@ export function Footer() {
   // one sky -- and the garments run off the bottom edge of the page.
   return (
     <footer className="relative overflow-hidden">
-      <Suspense fallback={null}>
-        <ClothingRack className="absolute inset-x-0 bottom-0 h-[calc(clamp(18rem,52svh,34rem)+14rem)]" />
-      </Suspense>
+      <NearViewport className="absolute inset-x-0 bottom-0 h-[calc(clamp(18rem,52svh,34rem)+14rem)]">
+        <Suspense fallback={null}>
+          <ClothingRack className="h-full w-full" />
+        </Suspense>
+      </NearViewport>
 
       {/* Bottom padding is the rack's own stage: the rail and garments below
           the content, with nothing in between but sky. */}

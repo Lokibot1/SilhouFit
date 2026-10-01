@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { addStudio, createChromeMaterial, cropFromTop, loadBodyGeometry } from './chromeBody'
+import {
+  addStudio,
+  createChromeMaterial,
+  cropFromTop,
+  loadBodyGeometry,
+  releaseRenderer,
+} from './chromeBody'
 import { SilhouetteMark } from './SilhouetteMark'
 
 // A tailor's mannequin, chest to crown, as (half-width, height, half-depth)
@@ -156,6 +162,7 @@ export function ChromeBust({ className = '' }: { className?: string }) {
     const headRot = new THREE.Matrix3()
     const headEuler = new THREE.Euler(0, 0, 0, 'YXZ')
     const headPoint = new THREE.Vector3()
+    const headMatrix = new THREE.Matrix4()
     let neck: Neck | undefined
 
     const render = () => renderer.render(scene, camera)
@@ -233,6 +240,7 @@ export function ChromeBust({ className = '' }: { className?: string }) {
     let frame = 0
     const clock = new THREE.Clock()
     const tick = () => {
+      frame = requestAnimationFrame(tick)
       const t = clock.getElapsedTime()
       let lookX = 0
       let lookY = 0
@@ -250,9 +258,8 @@ export function ChromeBust({ className = '' }: { className?: string }) {
       pivot.rotation.y += (bodyYaw - pivot.rotation.y) * 0.05
       headEuler.y += (lookX * 0.55 - headEuler.y) * 0.08
       headEuler.x += (-lookY * 0.35 - headEuler.x) * 0.08
-      headRot.setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(headEuler))
+      headRot.setFromMatrix4(headMatrix.makeRotationFromEuler(headEuler))
       render()
-      frame = requestAnimationFrame(tick)
     }
 
     // Only spend frames while the hero is on screen.
@@ -272,8 +279,7 @@ export function ChromeBust({ className = '' }: { className?: string }) {
       geometry?.dispose()
       material.dispose()
       envMap.dispose()
-      renderer.dispose()
-      renderer.domElement.remove()
+      releaseRenderer(renderer)
     }
   }, [])
 

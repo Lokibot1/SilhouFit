@@ -1,7 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
-import { SpaceScene } from '../components/SpaceScene'
-import { useTheme } from '../contexts/ThemeContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 // three.js is fetched for the rack only on this page.
@@ -11,23 +9,10 @@ const ClothingRack = lazy(() =>
 
 export function NotFoundPage() {
   useDocumentTitle('404: Out of stock, out of orbit — SilhouFit')
-  const { theme } = useTheme()
-
-  // The scene is always night, so the nav and footer above it must read as
-  // night too. A passive effect runs after the theme provider's layout effect,
-  // so the class is re-applied if the visitor flips the toggle here.
-  useEffect(() => {
-    const root = document.documentElement
-    root.classList.add('dark')
-    return () => {
-      root.classList.toggle('dark', theme === 'dark')
-    }
-  }, [theme])
 
   return (
     <>
-      <SpaceScene />
-      <section className="relative flex h-svh flex-col overflow-hidden pt-20">
+      <section className="relative flex h-svh flex-col overflow-hidden">
         <div className="relative z-10 flex min-h-0 flex-1 items-center px-6">
           <div className="mx-auto w-full max-w-6xl">
             <div className="max-w-3xl">

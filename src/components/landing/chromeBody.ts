@@ -68,6 +68,18 @@ export function cropFromTop(
   return { geometry, height }
 }
 
+/**
+ * Dispose a renderer AND hand its GPU context back. `dispose()` alone frees
+ * the resources but leaves the context alive until garbage collection, and
+ * browsers allow only ~16 live: navigating between pages would otherwise pile
+ * them up until the oldest are killed and canvases go blank or the tab hangs.
+ */
+export function releaseRenderer(renderer: THREE.WebGLRenderer) {
+  renderer.dispose()
+  renderer.forceContextLoss()
+  renderer.domElement.remove()
+}
+
 /** Polished chrome. Almost all reflection, so the environment does the work. */
 export function createChromeMaterial() {
   return new THREE.MeshPhysicalMaterial({

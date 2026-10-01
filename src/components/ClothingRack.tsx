@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
+import { releaseRenderer } from './landing/chromeBody'
 
 // The model, pre-cut offline to the top of the rack (rail, hangers, upper
 // garments) and simplified. In its own units the rail runs x -0.55..0.55 at
@@ -272,8 +273,7 @@ export function ClothingRack({ className = '' }: { className?: string }) {
       window.removeEventListener('pointermove', onMove)
       disposables.forEach((d) => d.dispose())
       envMap.dispose()
-      renderer.dispose()
-      renderer.domElement.remove()
+      releaseRenderer(renderer)
     }
   }, [])
 

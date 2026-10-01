@@ -4,6 +4,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useTypewriter } from '../../hooks/useTypewriter'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { Reveal } from '../../motion/Reveal'
+import { NearViewport } from '../NearViewport'
 
 const ChromeBust = lazy(() =>
   import('./ChromeBust').then((m) => ({ default: m.ChromeBust })),
@@ -58,12 +59,14 @@ export function Hero() {
           aria-hidden="true"
           className="hero-halo absolute top-[30%] left-1/2 size-[min(90vw,680px)] -translate-x-1/2 -translate-y-1/2 lg:left-[65%]"
         />
-        <Suspense fallback={null}>
-          {/* The hero ends mid-chest on the same sky the next section
-              continues on, so the figure fades out before that edge rather
-              than being sliced by it. */}
-          <ChromeBust className="relative h-full w-full mask-[linear-gradient(to_bottom,black_62%,transparent_84%)]" />
-        </Suspense>
+        <NearViewport className="relative h-full w-full">
+          <Suspense fallback={null}>
+            {/* The hero ends mid-chest on the same sky the next section
+                continues on, so the figure fades out before that edge rather
+                than being sliced by it. */}
+            <ChromeBust className="relative h-full w-full mask-[linear-gradient(to_bottom,black_62%,transparent_84%)]" />
+          </Suspense>
+        </NearViewport>
       </motion.div>
 
       <div className="relative mx-auto grid w-full max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-[1.1fr_0.9fr]">

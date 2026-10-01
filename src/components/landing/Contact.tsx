@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Reveal } from '../../motion/Reveal'
+import { NearViewport } from '../NearViewport'
 
 // The hero's figure, fetched with three.js only when this section renders.
 const ChromeBust = lazy(() =>
@@ -46,9 +47,11 @@ export function Contact() {
             aria-hidden="true"
             className="pointer-events-none absolute -top-52 right-[3%] hidden h-[27.5rem] w-[30rem] lg:block"
           >
-            <Suspense fallback={null}>
-              <ChromeBust className="h-full w-full mask-[radial-gradient(ellipse_50%_62%_at_50%_34%,black_62%,transparent_100%)]" />
-            </Suspense>
+            <NearViewport className="h-full w-full">
+              <Suspense fallback={null}>
+                <ChromeBust className="h-full w-full mask-[radial-gradient(ellipse_50%_62%_at_50%_34%,black_62%,transparent_100%)]" />
+              </Suspense>
+            </NearViewport>
           </div>
         </div>
       </div>

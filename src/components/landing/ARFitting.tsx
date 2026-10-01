@@ -9,6 +9,7 @@ import { lazy, Suspense, useRef, useState } from 'react'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { Reveal, RevealWords } from '../../motion/Reveal'
 import { SPRING } from '../../motion/tokens'
+import { NearViewport } from '../NearViewport'
 import { ARPipeline } from './ARPipeline'
 
 // three.js is fetched for the fitting view on its own, off the main bundle.
@@ -66,9 +67,11 @@ export function ARFitting() {
             <div className="glass-panel rounded-2xl p-8">
               <ARPipeline activeIndex={stage} />
               <div className="mt-8 border-t border-line pt-8">
-                <Suspense fallback={<div className="h-72 sm:h-80" />}>
-                  <ARAcquisition progress={progress} />
-                </Suspense>
+                <NearViewport className="h-72 sm:h-80">
+                  <Suspense fallback={null}>
+                    <ARAcquisition progress={progress} />
+                  </Suspense>
+                </NearViewport>
               </div>
               <p
                 className="font-ui mt-6 min-h-[2.5rem] text-center text-sm text-fg/60"
