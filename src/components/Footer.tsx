@@ -23,7 +23,7 @@ const LEGAL_LINKS = [
 ]
 
 const LINK_CLASS =
-  'group relative inline-flex text-base text-fg/80 transition-colors duration-200 hover:text-fg'
+  'tap group relative inline-flex text-base text-fg/80 transition-colors duration-200 hover:text-fg'
 
 const LINK_UNDERLINE =
   'pointer-events-none absolute inset-x-0 -bottom-0.5 h-px origin-left scale-x-0 bg-current/50 transition-transform duration-300 ease-out group-hover:scale-x-100 group-focus-visible:scale-x-100'
@@ -33,7 +33,7 @@ function BackToTop() {
     <button
       type="button"
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      className="glass-clear glass-btn btn-lift font-ui flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-fg hover:text-chrome-strong"
+      className="tap glass-clear glass-btn btn-lift font-ui flex items-center self-start sm:self-auto gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-fg hover:text-chrome-strong"
     >
       Back to top
       <svg
@@ -68,8 +68,8 @@ export function Footer() {
       {/* Bottom padding is the rack's own stage: the rail and garments below
           the content, with nothing in between but sky. */}
       <div className="relative mx-auto max-w-6xl px-6 pt-24 pb-[clamp(18rem,52svh,34rem)]">
-        <div className="grid grid-cols-1 gap-y-12 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-14 lg:grid-cols-[1.4fr_0.85fr_0.85fr_0.85fr] lg:gap-x-10 lg:gap-y-0">
-          <div>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 sm:gap-x-10 sm:gap-y-12 lg:grid-cols-[1.4fr_0.85fr_0.85fr_0.85fr] lg:gap-y-0">
+          <div className="col-span-2 sm:col-span-3 lg:col-span-1">
             <SilhouetteMark className="h-10 w-8 text-chrome-strong" />
             <span className="display mt-3 block text-[1.75rem] text-fg sm:text-3xl">
               SilhouFit
@@ -80,7 +80,7 @@ export function Footer() {
             </p>
           </div>
 
-          <div>
+          <div className="col-span-2 sm:col-span-1">
             <span className="font-ui block text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
               Contact
             </span>
@@ -100,7 +100,7 @@ export function Footer() {
           </div>
 
           <div>
-            <span className="font-ui text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
+            <span className="font-ui block text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
               Project
             </span>
             <ul className="mt-3 space-y-2.5">
@@ -116,7 +116,7 @@ export function Footer() {
           </div>
 
           <div>
-            <span className="font-ui text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
+            <span className="font-ui block text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
               Legal
             </span>
             <ul className="mt-3 space-y-2.5">

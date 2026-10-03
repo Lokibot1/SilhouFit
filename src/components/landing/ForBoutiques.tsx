@@ -39,7 +39,7 @@ export function ForBoutiques() {
       >
         <motion.div
           style={{ y: copyY }}
-          className="glass-solid max-w-xl rounded-2xl p-8"
+          className="glass-card glass-elevated max-w-xl rounded-2xl p-8"
         >
           <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-fg">
             <Reveal as="span">A dashboard for the owner, not just the shopper</Reveal>
@@ -63,7 +63,7 @@ export function ForBoutiques() {
 
         <motion.div
           style={{ y: panelY }}
-          className="glass mx-auto w-full max-w-sm rounded-2xl p-8"
+          className="glass-card mx-auto w-full max-w-sm rounded-2xl p-8"
         >
           <DashboardMock progress={progress} />
         </motion.div>

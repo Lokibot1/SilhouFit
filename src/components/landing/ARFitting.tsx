@@ -5,7 +5,7 @@ import {
   useScroll,
   useSpring,
 } from 'motion/react'
-import { lazy, Suspense, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { Reveal, RevealWords } from '../../motion/Reveal'
 import { SPRING } from '../../motion/tokens'
@@ -16,6 +16,9 @@ import { ARPipeline } from './ARPipeline'
 const ARAcquisition = lazy(() =>
   import('./ARAcquisition').then((m) => ({ default: m.ARAcquisition })),
 )
+
+// Distance from the viewport top at which the diagram sticks; clears the navbar.
+const PIN_TOP = 96
 
 const STAGE_CAPTIONS = [
   'The camera finds the body and pulls focus.',
@@ -34,13 +37,46 @@ export function ARFitting() {
     offset: ['start start', 'end end'],
   })
   const scrubbed = useSpring(scrollYProgress, SPRING.scrub)
-  // Held at the end of the sequence, so the unpinned page shows the fully
+
+  // Below the pin breakpoint the text panel scrolls normally and only the
+  // diagram is held: a tall wrapper with the panel sticky inside it, and the
+  // sequence runs across the wrapper's spare height, so the page does not move
+  // on until the fit is acquired.
+  const pinnedSmall = !reduced && !canPin
+  const diagramRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  // Measured live on every scroll rather than with useScroll's cached offsets,
+  // which go stale when images above this section finish loading and push it
+  // down the page.
+  const diagramProgress = useMotionValue(0)
+  useEffect(() => {
+    if (!pinnedSmall) return
+    const update = () => {
+      const wrapper = diagramRef.current?.getBoundingClientRect()
+      const panel = panelRef.current
+      if (!wrapper || !panel) return
+      const travel = wrapper.height - panel.offsetHeight
+      diagramProgress.set(
+        Math.min(1, Math.max(0, (PIN_TOP - wrapper.top) / travel)),
+      )
+    }
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [pinnedSmall, diagramProgress])
+  const scrubbedDiagram = useSpring(diagramProgress, SPRING.scrub)
+
+  // Reduced motion holds the end of the sequence, so the page shows the fully
   // acquired figure rather than an empty frame waiting for a scroll that will
   // never drive it. Same JSX, no second static copy of the diagram.
   const settled = useMotionValue(1)
-  const progress = isPinned ? scrubbed : settled
+  const progress = reduced ? settled : isPinned ? scrubbed : scrubbedDiagram
 
-  const [stage, setStage] = useState(isPinned ? 0 : 2)
+  const [stage, setStage] = useState(reduced ? 2 : 0)
   useMotionValueEvent(progress, 'change', (value) => {
     setStage(value < 0.3 ? 0 : value < 0.62 ? 1 : 2)
   })
@@ -63,8 +99,12 @@ export function ARFitting() {
         }
       >
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-2">
-          <div className="order-2 lg:order-1">
-            <div className="glass-panel rounded-2xl p-8">
+          <div
+            ref={diagramRef}
+            className={`order-2 lg:order-1 ${pinnedSmall ? 'h-[220svh] lg:h-auto' : ''}`}
+          >
+            <div ref={panelRef} className={pinnedSmall ? 'sticky top-24' : ''}>
+            <div className="glass-card glass-elevated rounded-2xl p-5 sm:p-8">
               <ARPipeline activeIndex={stage} />
               <div className="mt-8 border-t border-line pt-8">
                 <NearViewport className="h-72 sm:h-80">
@@ -80,11 +120,12 @@ export function ARFitting() {
                 {STAGE_CAPTIONS[stage]}
               </p>
             </div>
+            </div>
           </div>
 
           {/* Deliberately stationary while the figure is acquired beside it.
               The prose is the claim; the diagram is the evidence moving. */}
-          <div className="glass-panel order-1 max-w-xl rounded-2xl p-8 lg:order-2">
+          <div className="glass-card order-1 max-w-xl rounded-2xl p-5 sm:p-8 lg:order-2">
             <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-fg">
               <RevealWords text="One camera is enough." />
             </h2>

@@ -17,7 +17,7 @@ export function Contact() {
     <section id="contact" className="relative scroll-mt-28">
       <div className="relative mx-auto max-w-6xl px-6 py-24 lg:pt-60">
         <div className="relative">
-          <div className="glass-panel rounded-2xl px-8 py-12 sm:px-12">
+          <div className="glass-card glass-elevated rounded-2xl px-8 py-12 sm:px-12">
             <div className="max-w-xl">
               <Reveal>
                 <h2 className="display text-[clamp(2rem,4.5vw,3.75rem)] text-fg">

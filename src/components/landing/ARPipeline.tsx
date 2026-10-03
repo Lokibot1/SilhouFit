@@ -13,17 +13,17 @@ const STAGES = [
  */
 export function ARPipeline({ activeIndex }: { activeIndex?: number }) {
   return (
-    <div className="group flex items-center justify-center gap-2 sm:gap-4">
+    <div className="group flex items-center justify-center gap-1 sm:gap-4">
       {STAGES.map((stage, index) => {
         const isActive = activeIndex === index
         const isDone = activeIndex !== undefined && index < activeIndex
 
         return (
-          <div key={stage.label} className="flex items-center gap-2 sm:gap-4">
+          <div key={stage.label} className="flex min-w-0 items-center gap-1 sm:gap-4">
             <button
               type="button"
               aria-current={isActive ? 'step' : undefined}
-              className={`flex flex-col items-center gap-3 rounded-xl px-2 py-2 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-110 hover:text-chrome-strong focus-visible:scale-110 focus-visible:text-chrome-strong ${
+              className={`flex min-w-0 flex-col items-center gap-2 rounded-xl px-1 py-2 sm:gap-3 sm:px-2 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-110 hover:text-chrome-strong focus-visible:scale-110 focus-visible:text-chrome-strong ${
                 isActive
                   ? 'scale-110 text-chrome-strong'
                   : isDone
@@ -31,8 +31,8 @@ export function ARPipeline({ activeIndex }: { activeIndex?: number }) {
                     : 'text-fg-muted'
               }`}
             >
-              <stage.Icon className="h-12 w-12 sm:h-14 sm:w-14" />
-              <span className="font-ui text-xs font-medium sm:text-sm">
+              <stage.Icon className="h-10 w-10 sm:h-14 sm:w-14" />
+              <span className="font-ui text-center text-xs leading-tight font-medium sm:text-sm">
                 {stage.label}
               </span>
             </button>
@@ -40,7 +40,7 @@ export function ARPipeline({ activeIndex }: { activeIndex?: number }) {
             {index < STAGES.length - 1 && (
               <svg
                 viewBox="0 0 40 16"
-                className={`h-4 w-8 shrink-0 transition-colors duration-300 sm:w-10 ${
+                className={`h-4 w-5 shrink-0 transition-colors duration-300 sm:w-10 ${
                   activeIndex !== undefined && index < activeIndex
                     ? 'text-chrome-strong'
                     : 'text-fg/30'

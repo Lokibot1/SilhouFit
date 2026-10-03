@@ -99,7 +99,7 @@ export function Navbar() {
       >
         <Link
           to="/"
-          className="group flex items-center gap-3"
+          className="tap group flex items-center gap-3"
           onClick={() => setMenuOpen(false)}
         >
           <SilhouetteMark className="h-8 w-6 text-fg" />

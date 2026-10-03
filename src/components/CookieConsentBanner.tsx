@@ -11,7 +11,7 @@ export function CookieConsentBanner() {
       <div
         role="region"
         aria-label="Cookie notice"
-        className="glass glass-float mx-auto flex max-w-3xl flex-col gap-4 rounded-2xl px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+        className="glass-card glass-floating [--g-fill:0.72] mx-auto flex max-w-3xl flex-col gap-4 rounded-2xl px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
       >
         <p className="max-w-xl text-sm leading-relaxed text-fg-muted">
           We store your theme and cookie choice in your browser. No
@@ -28,14 +28,14 @@ export function CookieConsentBanner() {
           <button
             type="button"
             onClick={reject}
-            className="btn-lift glass glass-btn font-ui rounded-full px-4 py-2 text-sm font-semibold text-fg hover:text-chrome-strong"
+            className="tap btn-lift justify-center bg-fg/5 hover:bg-fg/10 glass-btn font-ui rounded-full px-4 py-2 text-sm font-semibold text-fg hover:text-chrome-strong"
           >
             Reject
           </button>
           <button
             type="button"
             onClick={accept}
-            className="btn-lift font-ui rounded-full border-2 border-fg bg-fg px-4 py-2 text-sm font-semibold text-canvas hover:border-chrome-strong hover:bg-chrome-strong"
+            className="tap btn-lift justify-center font-ui rounded-full border-2 border-fg bg-fg px-4 py-2 text-sm font-semibold text-canvas hover:border-chrome-strong hover:bg-chrome-strong"
           >
             Accept
           </button>

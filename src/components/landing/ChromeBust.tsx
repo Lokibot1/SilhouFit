@@ -171,13 +171,18 @@ export function ChromeBust({ className = '' }: { className?: string }) {
     // off the bottom, arms free to reach past the sides. On a wide canvas the
     // figure is set right of centre, leaving the left for the copy it passes
     // under; the camera slides left rather than the figure moving, so the
-    // figure still turns about its own axis.
+    // figure still turns about its own axis. In a narrow column beside the
+    // copy, the arm span sets the zoom instead, so nothing is cut by the edge.
     const frameFigure = () => {
       if (!size.y) return
       const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
-      const view = size.y * 0.8
-      const centerY = view * 0.06 - view / 2
-      const shiftX = camera.aspect > 1 ? view * camera.aspect * 0.18 : 0
+      const tall = size.y * 0.8
+      const wide = camera.aspect > 1
+      const view = wide ? tall : Math.max(tall, (size.x * 0.78) / camera.aspect)
+      // When width governs, the spare height goes above the crown so the body
+      // still runs off the bottom edge.
+      const centerY = view * 0.06 - view / 2 + (view - tall) * 0.2
+      const shiftX = wide ? view * camera.aspect * 0.18 : 0
       camera.position.set(-shiftX, centerY, view / 2 / tan + size.z / 2)
       camera.lookAt(-shiftX, centerY, 0)
     }

@@ -55,6 +55,7 @@
      both themes and the light/dark pair can never drift apart. */
   --glass-tint: 252 253 255;
   --glass-edge: 255 255 255;
+  --glass-ring-mid: var(--chrome-shade);
   --glass-fill: 0.42;
   --glass-fill-clear: 0.16;
   --glass-fill-solid: 0.84;
@@ -87,16 +88,17 @@
   --chrome-shade: #6b7280;
   --chrome-bright: #ffffff;
 
-  --glass-tint: 26 29 35;
+  --glass-tint: 6 8 12;
   --glass-edge: 255 255 255;
   --glass-fill: 0.46;
   --glass-fill-clear: 0.18;
   --glass-fill-solid: 0.82;
-  --glass-fill-panel: 0.3;
-  --glass-lift: 1.9;
-  --glass-ring-hi: 0.42;
+  --glass-fill-panel: 0.26;
+  --glass-lift: 1.2;
+  --glass-ring-hi: 0.3;
+  --glass-ring-mid: rgb(255 255 255 / 0.08);
   --glass-edge-a: 0.13;
-  --glass-hi: 0.09;
+  --glass-hi: 0.05;
   --glass-blur: 36px;
 
   --photo-sat: 0.35;
@@ -167,57 +169,81 @@
       inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
   }
 
-  .glass-solid {
-    background-color: rgb(var(--glass-tint) / var(--glass-fill-solid));
-    border: 1px solid rgb(var(--glass-edge) / var(--glass-edge-a));
-    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-    box-shadow:
-      0 18px 36px -18px rgb(var(--shadow-key) / var(--shadow-b)),
-      inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
+  /* ---- Liquid glass cards -------------------------------------------------
+     One material, three depths. Every card is `glass-card`; the depth classes
+     below only change its tokens, so they can never drift into separate
+     looks. Layers, back to front:
+       backdrop   blurred and brightened, so the stars behind diffuse into soft
+                  points -- the proof the pane is transparent
+       fill       a vertical gradient of tint, dense enough that text keeps
+                  full contrast
+       sheen      (::after) a silver specular pool in the upper corner plus a
+                  soft diagonal reflection that drifts as the card scrolls
+       edge       (::before) a 1px chrome ring, bright where light catches the
+                  top-left and falling away along the sides
+       rim        inset light along the top, a dark lip along the bottom: how
+                  thick glass bends light at its edge
+       shadow     the pane lifting off the sky
+     Tune the whole system from the --g-* tokens below. */
+  @property --g-ring {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 0.7;
   }
 
-  /* Liquid glass. On a near-black sky a dark fill alone just reads as a
-     black box, so the material shows itself through light instead:
-     - the backdrop is blurred AND brightened, so the stars behind diffuse
-       into visible soft points -- proof the pane is transparent;
-     - a luminous edge ring, bright where light catches the top-left corner
-       and falling away along the sides (::before, masked to 1px);
-     - inset light along the inner top edge and a dark lip along the bottom,
-       which is how thick glass bends light at its rim;
-     - one soft specular sheen across the upper corner, silver-tinted.
-     The fill stays dense enough that body text keeps full contrast. */
-  .glass-panel {
+  @property --g-sheen {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 0.9;
+  }
+
+  .glass-card {
+    /* Depth tokens: the tiers override these. */
+    --g-fill: var(--glass-fill-panel);
+    --g-blur: 18px;
+    --g-sat: 170%;
+    --g-lift: var(--glass-lift);
+    --g-hi: var(--glass-hi);
+    --g-depth: 1;
+    --g-ring: 0.7;
+    --g-sheen: 0.9;
+    /* Device scalars: phones trade transparency for legibility and cost. */
+    --g-fill-k: 1;
+    --g-blur-k: 1;
+
     position: relative;
     isolation: isolate;
-    background:
-      radial-gradient(
-        120% 70% at 0% 0%,
-        rgb(var(--glass-edge) / calc(var(--glass-hi) * 0.9)) 0%,
-        transparent 55%
-      ),
-      linear-gradient(
-        180deg,
-        rgb(var(--glass-tint) / calc(var(--glass-fill-panel) * 0.8)) 0%,
-        rgb(var(--glass-tint) / var(--glass-fill-panel)) 100%
-      );
+    background: linear-gradient(
+      180deg,
+      rgb(var(--glass-tint) / calc(var(--g-fill) * var(--g-fill-k) * 0.8)) 0%,
+      rgb(var(--glass-tint) / calc(var(--g-fill) * var(--g-fill-k))) 100%
+    );
     border: 1px solid transparent;
-    backdrop-filter: blur(18px) saturate(170%) brightness(var(--glass-lift));
-    -webkit-backdrop-filter: blur(18px) saturate(170%) brightness(var(--glass-lift));
+    backdrop-filter: blur(calc(var(--g-blur) * var(--g-blur-k))) saturate(var(--g-sat))
+      brightness(var(--g-lift));
+    -webkit-backdrop-filter: blur(calc(var(--g-blur) * var(--g-blur-k)))
+      saturate(var(--g-sat)) brightness(var(--g-lift));
     box-shadow:
-      inset 0 1px 0 rgb(var(--glass-edge) / calc(var(--glass-hi) * 2.4)),
-      inset 0 22px 36px -28px rgb(var(--glass-edge) / calc(var(--glass-hi) * 1.6)),
+      inset 0 1px 0 rgb(var(--glass-edge) / calc(var(--g-hi) * 2.4)),
+      inset 0 22px 36px -28px rgb(var(--glass-edge) / calc(var(--g-hi) * 1.6)),
       inset 0 -1px 0 rgb(var(--shadow-key) / 0.35),
       inset 0 -26px 40px -34px rgb(var(--shadow-key) / 0.4),
-      0 44px 80px -44px rgb(var(--shadow-key) / calc(var(--shadow-b) + 0.1)),
-      0 16px 32px -22px rgb(var(--shadow-key) / var(--shadow-a));
+      0 44px 80px -44px rgb(var(--shadow-key) / calc((var(--shadow-b) + 0.1) * var(--g-depth))),
+      0 16px 32px -22px rgb(var(--shadow-key) / calc(var(--shadow-a) * var(--g-depth)));
+    transition:
+      --g-ring 300ms ease,
+      --g-sheen 300ms ease,
+      transform 250ms ease,
+      box-shadow 250ms ease;
   }
 
-  .glass-panel::before {
+  /* The chrome edge. Above the content so it also frames photographs that run
+     to the card's edge; 1px wide, so it never touches text. */
+  .glass-card::before {
     content: "";
     position: absolute;
-    inset: -1px;
-    z-index: -1;
+    inset: 0;
+    z-index: 1;
     border-radius: inherit;
     padding: 1px;
     pointer-events: none;
@@ -225,11 +251,11 @@
       145deg,
       rgb(var(--glass-edge) / var(--glass-ring-hi)) 0%,
       rgb(var(--glass-edge) / calc(var(--glass-ring-hi) * 0.25)) 22%,
-      var(--chrome-shade) 50%,
+      var(--glass-ring-mid) 50%,
       rgb(var(--glass-edge) / calc(var(--glass-ring-hi) * 0.15)) 72%,
       rgb(var(--glass-edge) / calc(var(--glass-ring-hi) * 0.6)) 100%
     );
-    opacity: 0.7;
+    opacity: var(--g-ring);
     -webkit-mask:
       linear-gradient(#000 0 0) content-box,
       linear-gradient(#000 0 0);
@@ -240,12 +266,108 @@
     mask-composite: exclude;
   }
 
-  /* Elevation 2: floating chrome — sticky/fixed pieces that sit above the page */
-  .glass-float {
-    box-shadow:
-      0 40px 64px -28px rgb(var(--shadow-key) / calc(var(--shadow-b) + 0.08)),
-      0 10px 24px -10px rgb(var(--shadow-key) / var(--shadow-a)),
-      inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
+  /* The surface light, under the content: a silver pool in the upper corner
+     and a soft diagonal reflection band. */
+  .glass-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        120% 70% at 0% 0%,
+        rgb(var(--glass-edge) / calc(var(--g-hi) * var(--g-sheen))) 0%,
+        transparent 55%
+      ),
+      linear-gradient(
+        115deg,
+        transparent 36%,
+        rgb(var(--glass-edge) / calc(var(--g-hi) * 0.4)) 50%,
+        transparent 64%
+      );
+    background-size: 100% 100%, 260% 100%;
+    background-position: 0 0, 100% 0;
+    background-repeat: no-repeat;
+  }
+
+  /* The reflection slides across the pane as the card travels through the
+     viewport. Pure CSS, tied to scroll position, so it costs no script. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .glass-card::after {
+        animation: glass-reflect linear both;
+        animation-timeline: view();
+      }
+    }
+  }
+
+  @keyframes glass-reflect {
+    from {
+      background-position: 0 0, 100% 0;
+    }
+    to {
+      background-position: 0 0, 0% 0;
+    }
+  }
+
+  /* Standard is the base. Elevated: the card that matters on its page --
+     denser, a brighter edge, a deeper shadow. */
+  .glass-elevated {
+    --g-fill: calc(var(--glass-fill-panel) * 1.35);
+    --g-blur: 22px;
+    --g-hi: calc(var(--glass-hi) * 1.25);
+    --g-depth: 1.3;
+    --g-ring: 0.9;
+    --g-sheen: 1.1;
+  }
+
+  /* Floating: sits above everything and lets the most through -- more
+     translucent, more blur, the strongest edge and reflection. */
+  .glass-floating {
+    --g-fill: calc(var(--glass-fill-panel) * 0.75);
+    --g-blur: 26px;
+    --g-lift: calc(var(--glass-lift) * 1.05);
+    --g-hi: calc(var(--glass-hi) * 1.1);
+    --g-depth: 1.6;
+    --g-ring: 1;
+    --g-sheen: 1.4;
+  }
+
+  /* Long-form reading: near-opaque fill and a small blur, so a tall pane never
+     pays for a large backdrop and the text always has a calm ground. */
+  .glass-dense {
+    --g-fill: 0.86;
+    --g-blur: 10px;
+  }
+
+  /* A card that responds to the pointer: the edge and sheen brighten and it
+     rises 2px. Only for cards that are meant to feel touchable. */
+  .glass-interactive:hover {
+    --g-ring: 1;
+    --g-sheen: 1.5;
+    transform: translateY(-2px);
+  }
+
+  @media (max-width: 639px) {
+    .glass-card {
+      --g-fill-k: 1.3;
+      --g-blur-k: 0.7;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .glass-card {
+      --g-fill-k: 2.4;
+      --g-blur-k: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .glass-interactive:hover {
+      transform: none;
+    }
   }
 
   /* Elevation 0: chips/badges nested inside a glass surface — sit flush */
@@ -298,8 +420,7 @@
   /* When the chrome ring is present it *is* the edge. Leaving the glass border
      underneath would declare the same edge twice and read as a ghost outline. */
   .glass:where(.chrome-edge),
-  .glass-clear:where(.chrome-edge),
-  .glass-solid:where(.chrome-edge) {
+  .glass-clear:where(.chrome-edge) {
     border-color: transparent;
   }
 
@@ -390,6 +511,14 @@
     a.pill,
     button.pill {
       min-height: 44px;
+    }
+
+    /* Inline links and small buttons keep their look but get a 44px hit box. */
+    .tap {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      min-width: 44px;
     }
   }
 
@@ -521,7 +650,17 @@
   --transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   --circle-transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
+  position: relative;
   cursor: pointer;
+}
+
+/* Taller touch target than the 27px track, without changing its look. */
+@media (pointer: coarse) {
+  .sky-toggle::after {
+    content: "";
+    position: absolute;
+    inset: -9px -4px;
+  }
 }
 
 .sky-toggle,

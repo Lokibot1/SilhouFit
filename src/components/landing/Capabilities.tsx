@@ -146,7 +146,7 @@ function TrackCard({
       // shrink-0 is load-bearing: as flex items these would otherwise compress
       // to fit the pane, the track would measure no overflow, and the section
       // would size itself to exactly one viewport and never pin.
-      className={`btn-lift glass-clear flex h-full shrink-0 flex-col overflow-hidden rounded-2xl ${
+      className={`glass-card glass-interactive flex h-full shrink-0 flex-col overflow-hidden rounded-2xl ${
         item.wide ? 'w-[34rem]' : 'w-[23rem]'
       }`}
     >
@@ -275,7 +275,7 @@ function StackedGrid() {
           {CAPABILITIES.map((item) => (
             <div
               key={item.term}
-              className={`btn-lift glass-clear flex flex-col overflow-hidden rounded-2xl ${item.span}`}
+              className={`glass-card glass-interactive flex flex-col overflow-hidden rounded-2xl ${item.span}`}
             >
               <CardBody item={item} />
             </div>
