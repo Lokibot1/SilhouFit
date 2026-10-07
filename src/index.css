@@ -28,6 +28,8 @@
   --color-chrome: var(--chrome);
   --color-chrome-strong: var(--chrome-strong);
   --color-chrome-bright: var(--chrome-bright);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
 }
 
 :root {
@@ -37,6 +39,8 @@
   --fg-muted: #4a515c;
   --line: rgb(20 23 28 / 0.14);
   --line-strong: rgb(20 23 28 / 0.26);
+  --danger: #b42318;
+  --success: #0f7a43;
 
   /* Chrome needs bright and shaded tones to read as metal: `--chrome` fills, `--chrome-strong`
      is contrast-safe accent text, `--chrome-shade` the dark band. */
@@ -75,6 +79,8 @@
   --fg-muted: #b3bac5;
   --line: rgb(255 255 255 / 0.1);
   --line-strong: rgb(255 255 255 / 0.2);
+  --danger: #ff8a80;
+  --success: #6ee7a0;
 
   --chrome: #c3cad4;
   --chrome-strong: #d7dde5;
@@ -543,6 +549,191 @@
   }
 }
 
+/* ---- Form fields -----------------------------------------------------------
+   Outlined floating label. The outline is a fieldset whose legend opens a real gap in the
+   border (so nothing needs a solid background over glass); legend width follows the
+   floated state, driven by the input's :focus / :placeholder-shown, with no script. */
+@layer components {
+  .field {
+    --field-h: 44px;
+  }
+
+  .field__box {
+    position: relative;
+  }
+
+  .field__input {
+    display: block;
+    width: 100%;
+    height: var(--field-h);
+    padding: 0 44px 0 var(--field-pad-l, 42px);
+    border: 0;
+    border-radius: 12px;
+    background-color: rgb(var(--glass-tint) / 0.35);
+    color: var(--fg);
+    font-size: 16px;
+    outline: none;
+  }
+
+  .field__input::placeholder {
+    color: transparent;
+  }
+
+  /* Edge draws its own reveal/clear buttons; the field has a custom toggle. */
+  .field__input::-ms-reveal,
+  .field__input::-ms-clear {
+    display: none;
+  }
+
+  /* Autofill paints its own background; keep the field on-theme in both modes. */
+  .field__input:-webkit-autofill {
+    -webkit-text-fill-color: var(--fg);
+    caret-color: var(--fg);
+    box-shadow: 0 0 0 100px rgb(var(--glass-tint) / 0.92) inset;
+  }
+
+  .field__icon {
+    position: absolute;
+    left: 14px;
+    top: calc((var(--field-h) - 16px) / 2);
+    pointer-events: none;
+    color: var(--fg-muted);
+    transition: color 200ms ease;
+  }
+
+  .field--plain {
+    --field-pad-l: 14px;
+  }
+
+  .field--prefix {
+    --field-pad-l: 102px;
+  }
+
+  .field__prefix {
+    position: absolute;
+    left: 6px;
+    top: calc((var(--field-h) - 32px) / 2);
+  }
+
+  .field__outline {
+    position: absolute;
+    inset: -8px 0 0 0;
+    min-width: 0;
+    margin: 0;
+    padding: 0 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    pointer-events: none;
+    transition: border-color 200ms ease;
+  }
+
+  .field__outline legend {
+    float: unset;
+    width: auto;
+    max-width: 0.01px;
+    height: 16px;
+    padding: 0;
+    overflow: hidden;
+    visibility: hidden;
+    white-space: nowrap;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: max-width 200ms ease;
+  }
+
+  .field__outline legend span {
+    display: inline-block;
+    padding: 0 6px;
+  }
+
+  .field__label {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    max-width: calc(100% - var(--field-pad-l, 42px) - 12px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+    color: var(--fg-muted);
+    font-size: 16px;
+    transform: translate(var(--field-pad-l, 42px), -50%);
+    transition:
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      font-size 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 200ms ease;
+  }
+
+  .field__input:is(:focus, :not(:placeholder-shown), :-webkit-autofill) ~ .field__label {
+    max-width: calc(100% - 38px);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transform: translate(19px, calc(-50% - var(--field-h) / 2));
+  }
+
+  .field__input:is(:focus, :not(:placeholder-shown), :-webkit-autofill) ~ .field__outline legend {
+    max-width: 100%;
+  }
+
+  .field__box:hover .field__outline {
+    border-color: var(--fg-muted);
+  }
+
+  .field__input:focus ~ .field__outline {
+    border-color: var(--chrome-strong);
+    border-width: 2px;
+  }
+
+  .field__input:focus ~ .field__label,
+  .field__input:focus ~ .field__icon {
+    color: var(--chrome-strong);
+  }
+
+  [data-invalid] .field__input ~ .field__outline {
+    border-color: var(--danger);
+  }
+
+  [data-invalid] .field__input ~ .field__label {
+    color: var(--danger);
+  }
+
+  /* Sits in the corner below the text line (centred in 44px), clear of the 44px action padding. */
+  .field__counter {
+    position: absolute;
+    right: 10px;
+    bottom: 3px;
+    pointer-events: none;
+    color: var(--fg-muted);
+    opacity: 0.85;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .field__action {
+    position: absolute;
+    right: 0;
+    top: calc((var(--field-h) - 44px) / 2);
+    display: flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: var(--fg-muted);
+    transition: color 200ms ease;
+  }
+
+  .field__action:hover {
+    color: var(--fg);
+  }
+}
+
 /* Theme swap: circular reveal from the toggle via View Transitions. ThemeContext sets the
    coordinates inline; the defaults only cover the unset case. */
 ::view-transition-old(root),
@@ -570,7 +761,7 @@
 /* Sky toggle: fixed raw carbon/silver palette (semantic tokens would double-apply the swap);
    one base font-size keeps the em scale proportional. */
 .sky-toggle {
-  --toggle-size: 11px;
+  --toggle-size: 8px;
   --container-width: 5.625em;
   --container-height: 2.5em;
   --container-radius: 6.25em;
@@ -592,13 +783,11 @@
   cursor: pointer;
 }
 
-/* Taller touch target than the 27px track, without changing its look. */
-@media (pointer: coarse) {
-  .sky-toggle::after {
-    content: "";
-    position: absolute;
-    inset: -9px -4px;
-  }
+/* 44px-tall touch target around the 20px track, without changing its look. */
+.sky-toggle::after {
+  content: "";
+  position: absolute;
+  inset: -12px 0;
 }
 
 .sky-toggle,
@@ -869,7 +1058,7 @@ a {
   text-underline-offset: 0.2em;
 }
 
-/* Native cursor hidden while the comet runs, including on links and buttons. */
+/* Native cursor hidden only while the comet runs (landing page); CometCursor toggles the class. */
 html.comet-active,
 html.comet-active * {
   cursor: none !important;

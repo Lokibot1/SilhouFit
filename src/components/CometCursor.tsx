@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 
 type RGB = string
@@ -393,4 +394,9 @@ export function CometCursor() {
       className="pointer-events-none fixed inset-0 z-100 h-screen w-screen"
     />
   )
+}
+
+/** The comet is a landing-page flourish; leaving "/" unmounts it, which restores the native cursor. */
+export function LandingCometCursor() {
+  return useLocation().pathname === '/' ? <CometCursor /> : null
 }

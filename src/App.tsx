@@ -1,8 +1,9 @@
 import { AnimatePresence } from 'motion/react'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
-import { CometCursor } from './components/CometCursor'
+import { LandingCometCursor } from './components/CometCursor'
 import { IntroLoader } from './components/IntroLoader'
+import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { Layout } from './components/Layout'
 import { AboutPage } from './views/AboutPage'
 import { CookiePolicyPage } from './views/CookiePolicyPage'
@@ -12,6 +13,10 @@ import { PrivacyPolicyPage } from './views/PrivacyPolicyPage'
 import { RefundPolicyPage } from './views/RefundPolicyPage'
 import { TermsOfServicePage } from './views/TermsOfServicePage'
 
+const SignUpPage = lazy(() =>
+  import('./views/SignUpPage').then((m) => ({ default: m.SignUpPage })),
+)
+
 function prefersReducedMotion() {
   return (
     typeof window !== 'undefined' &&
@@ -20,13 +25,12 @@ function prefersReducedMotion() {
 }
 
 function App() {
-  // The intro plays only when the visit begins on the home page.
   const { pathname } = useLocation()
   const [introDone, setIntroDone] = useState(prefersReducedMotion() || pathname !== '/')
 
   return (
     <>
-      <CometCursor />
+      <LandingCometCursor />
       <AnimatePresence>
         {!introDone && (
           <IntroLoader key="intro" onFinished={() => setIntroDone(true)} />
@@ -38,6 +42,14 @@ function App() {
           <Route element={<Layout />}>
             <Route index element={<LandingPage />} />
             <Route path="about" element={<AboutPage />} />
+            <Route
+              path="signup"
+              element={
+                <Suspense fallback={<SignUpSkeleton />}>
+                  <SignUpPage />
+                </Suspense>
+              }
+            />
             <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="terms-of-service" element={<TermsOfServicePage />} />
             <Route path="refund-policy" element={<RefundPolicyPage />} />

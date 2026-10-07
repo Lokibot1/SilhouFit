@@ -5,6 +5,8 @@ import { Footer } from './Footer'
 import { Navbar } from './Navbar'
 import { SiteSky } from './Sky'
 import { SkipLink } from './SkipLink'
+import { ToastProvider } from './toast/ToastProvider'
+import { isAuthPath } from '../utils/authRoutes'
 
 // Sections moved to /about; old anchors still land on them.
 const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
@@ -32,15 +34,17 @@ export function Layout({ bare = false }: { bare?: boolean }) {
   }
 
   return (
-    <div className="min-h-svh text-fg">
-      <SiteSky />
-      <SkipLink />
-      {!bare && <Navbar />}
-      <main id="main-content">
-        <Outlet />
-      </main>
-      {!bare && <Footer />}
-      <CookieConsentBanner />
-    </div>
+    <ToastProvider>
+      <div className="min-h-svh text-fg">
+        <SiteSky />
+        <SkipLink />
+        {!bare && <Navbar />}
+        <main id="main-content">
+          <Outlet />
+        </main>
+        {!bare && !isAuthPath(pathname) && <Footer />}
+        <CookieConsentBanner />
+      </div>
+    </ToastProvider>
   )
 }
