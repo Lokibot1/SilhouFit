@@ -53,10 +53,7 @@ function BackToTop() {
 export function Footer() {
   const year = new Date().getFullYear()
 
-  // One composition, not a card above a picture: the rack is the footer's
-  // own ground. Its canvas is pinned to the bottom and reaches up behind the
-  // lower half of the content -- transparent, so the links and the rail share
-  // one sky -- and the garments run off the bottom edge of the page.
+  // The rack is the footer's own ground: canvas pinned to the bottom, behind the lower content.
   return (
     <footer className="relative overflow-hidden">
       <NearViewport className="absolute inset-x-0 bottom-0 h-[calc(clamp(18rem,52svh,34rem)+14rem)]">
@@ -65,8 +62,6 @@ export function Footer() {
         </Suspense>
       </NearViewport>
 
-      {/* Bottom padding is the rack's own stage: the rail and garments below
-          the content, with nothing in between but sky. */}
       <div className="relative mx-auto max-w-6xl px-6 pt-24 pb-[clamp(18rem,52svh,34rem)]">
         <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 sm:gap-x-10 sm:gap-y-12 lg:grid-cols-[1.4fr_0.85fr_0.85fr_0.85fr] lg:gap-y-0">
           <div className="col-span-2 sm:col-span-3 lg:col-span-1">

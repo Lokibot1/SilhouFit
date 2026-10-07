@@ -17,7 +17,6 @@ const ARAcquisition = lazy(() =>
   import('./ARAcquisition').then((m) => ({ default: m.ARAcquisition })),
 )
 
-// Distance from the viewport top at which the diagram sticks; clears the navbar.
 const PIN_TOP = 96
 
 const STAGE_CAPTIONS = [
@@ -38,16 +37,11 @@ export function ARFitting() {
   })
   const scrubbed = useSpring(scrollYProgress, SPRING.scrub)
 
-  // Below the pin breakpoint the text panel scrolls normally and only the
-  // diagram is held: a tall wrapper with the panel sticky inside it, and the
-  // sequence runs across the wrapper's spare height, so the page does not move
-  // on until the fit is acquired.
+  // Below the pin breakpoint only the diagram is held: a sticky panel in a tall wrapper.
   const pinnedSmall = !reduced && !canPin
   const diagramRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  // Measured live on every scroll rather than with useScroll's cached offsets,
-  // which go stale when images above this section finish loading and push it
-  // down the page.
+  // Measured live: useScroll's cached offsets go stale when images above finish loading.
   const diagramProgress = useMotionValue(0)
   useEffect(() => {
     if (!pinnedSmall) return
@@ -70,9 +64,7 @@ export function ARFitting() {
   }, [pinnedSmall, diagramProgress])
   const scrubbedDiagram = useSpring(diagramProgress, SPRING.scrub)
 
-  // Reduced motion holds the end of the sequence, so the page shows the fully
-  // acquired figure rather than an empty frame waiting for a scroll that will
-  // never drive it. Same JSX, no second static copy of the diagram.
+  // Reduced motion holds the end of the sequence so the acquired figure shows.
   const settled = useMotionValue(1)
   const progress = reduced ? settled : isPinned ? scrubbed : scrubbedDiagram
 
@@ -123,8 +115,6 @@ export function ARFitting() {
             </div>
           </div>
 
-          {/* Deliberately stationary while the figure is acquired beside it.
-              The prose is the claim; the diagram is the evidence moving. */}
           <div className="glass-card order-1 max-w-xl rounded-2xl p-5 sm:p-8 lg:order-2">
             <h2 className="display text-[clamp(1.75rem,4vw,3rem)] text-fg">
               <RevealWords text="One camera is enough." />

@@ -20,11 +20,7 @@ function prefersReducedMotion() {
 }
 
 function App() {
-  // The intro is the landing page's opening, not the site's loading bar: it
-  // plays only when the visit begins on the home page. A page opened directly
-  // -- a 404, an about link, a policy -- goes straight to its content, and so
-  // does every in-app navigation, which never reloads the app in the first
-  // place. Initial state only; later route changes never bring it back.
+  // The intro plays only when the visit begins on the home page.
   const { pathname } = useLocation()
   const [introDone, setIntroDone] = useState(prefersReducedMotion() || pathname !== '/')
 

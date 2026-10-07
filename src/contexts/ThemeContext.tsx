@@ -30,10 +30,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
-  // A layout effect (not a passive one) so the class flips synchronously
-  // inside flushSync below -- the View Transition's "after" snapshot is
-  // taken the instant that callback returns, and a passive effect wouldn't
-  // have run yet.
+  // Layout effect so the class flips inside flushSync, before the View Transition snapshot.
   useLayoutEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     localStorage.setItem(STORAGE_KEY, theme)

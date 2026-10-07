@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react'
 
-/**
- * Types `text` out one character at a time. With `instant` (reduced motion) it
- * returns the full string on the first render, so nothing is ever mid-word for
- * a visitor who asked for stillness.
- */
+/** Types `text` per character; `instant` returns it whole on the first render. */
 export function useTypewriter(
   text: string,
   { speed = 38, startDelay = 600, instant = false } = {},

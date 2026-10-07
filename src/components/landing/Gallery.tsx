@@ -4,9 +4,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery'
 
 type Piece = { src: string; alt: string; position: string }
 
-// Product photography from Unsplash (free under the Unsplash License). The
-// trailing comment on each is the photo's Unsplash ID, for provenance.
-// Ordered so no two neighbours are the same kind of garment.
+// Unsplash License; each trailing comment is the photo ID.
 const PIECES: Piece[] = [
   { src: 'white-polo', alt: 'White polo shirt on a wooden hanger', position: '50% 40%' }, // F5i3PZXYkvY
   { src: 'blazer', alt: 'Black blazer hanging on a rustic fence', position: '50% 45%' }, // VsCBt8j-qg4
@@ -28,13 +26,10 @@ const PIECES: Piece[] = [
   { src: 'folded-jeans', alt: 'Folded jeans stacked on a boot', position: '50% 40%' }, // Arxc2ZOfGRU
 ]
 
-// Controlled variation. Each list cycles at its own length, so the pattern
-// only repeats every few dozen tiles -- enough rhythm to feel authored, never
-// enough to feel like a grid.
+// Each list cycles at its own length, so the pattern rarely repeats.
 const ASPECTS = ['3 / 4', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '5 / 6', '4 / 5']
 const WIDTHS = ['100%', '82%', '92%', '76%', '88%']
 const GAPS = ['7vh', '12vh', '5vh', '15vh', '9vh', '11vh']
-// Where each column starts, and how fast it drifts against the scroll.
 const COLUMN_START = ['0vh', '16vh', '6vh', '24vh']
 const COLUMN_DRIFT = [0, -0.07, 0.05, -0.04]
 
@@ -54,15 +49,7 @@ function docTop(el: HTMLElement) {
   return top
 }
 
-/**
- * An editorial archive that unfolds with the scroll, over the site's sky.
- * Columns drift at slightly different
- * rates and every tile scales in from below and back out through the top,
- * each on its own offset so the wall flows instead of pulsing in unison.
- *
- * Everything is derived from the scroll position in a rAF loop -- no timed
- * animation -- so the motion is always exactly where the scroll puts it.
- */
+/** Editorial archive driven by scroll position in a rAF loop. */
 export function Gallery() {
   const reduced = useReducedMotion()
   const isLg = useMediaQuery('(min-width: 1024px)')
@@ -111,8 +98,7 @@ export function Gallery() {
 
       cards.forEach((card, i) => {
         const p = (centers[i] + shifts[i % columnCount] - y) / vh
-        // A per-tile nudge to the enter/exit thresholds (±0.06 of the
-        // viewport): neighbours reach full size at slightly different moments.
+        // Per-tile nudge (±0.06 of the viewport) to the enter/exit thresholds.
         const j = (((i * 37) % 13) / 12 - 0.5) * 0.12
         const enter = smoothstep((1.1 + j - p) / 0.4)
         const exit = smoothstep((p + 0.1 + j) / 0.4)
@@ -185,8 +171,6 @@ export function Gallery() {
                 {items.map(({ piece, i }, row) => (
                   <figure
                     key={i}
-                    // The caption scales with its image, so the two never
-                    // drift apart as the tile grows and shrinks.
                     ref={(el) => {
                       if (el) cardRefs.current[i] = el
                     }}

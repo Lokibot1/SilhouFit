@@ -10,38 +10,27 @@ import {
   releaseRenderer,
 } from './chromeBody'
 
-/**
- * The page's authored moment: scroll position runs the fitting pipeline the
- * product is built on, on the hero's own chrome body. A camera frame finds the
- * figure and pulls focus, pose landmarks lock onto its joints, then a garment
- * is rendered onto it from the collar down.
- */
+/** Scroll-driven fitting pipeline on the hero's chrome body. */
 
-// Where each stage owns the scroll. The overlaps are deliberate: one stage is
-// still settling as the next begins, which is what makes it read as a single
-// continuous acquisition instead of three slides.
+// Where each stage owns the scroll; the overlaps are deliberate.
 const CAMERA = [0, 0.3]
 const POSE = [0.28, 0.64]
 const GARMENT_RANGE = [0.62, 0.95]
 
-// Anatomy of the scanned body, measured from the model: x in model units,
-// f as a fraction of standing height down from the crown.
+// Body anatomy from the model: x in model units, f as a fraction of height down from the crown.
 const COLLAR_F = 0.135
 const HEM_F = 0.46
 const TORSO_HALF = 0.47
 const SHOULDER = { x: 0.55, f: 0.19 }
 const ELBOW = { x: 1.12, f: 0.31 }
-// How far down the upper arm the sleeve reaches, shoulder = 0, elbow = 1.
 const SLEEVE = 0.5
-// How loosely the garment sits off the skin, in model units (~1.5 cm).
+// Garment ease off the skin, in model units (~1.5 cm).
 const EASE = 0.04
 
-// Framed from the crown to mid-thigh; the mesh runs a little further so the
-// fade at the bottom never shows a cut.
+// Framed crown to mid-thigh; the mesh runs further so the bottom fade shows no cut.
 const FRAME_F = 0.6
 const MESH_F = 0.66
 
-// Head downward, which is the order the landmarks lock on in.
 const JOINTS: [number, number][] = [
   [0, 0.06],
   [0, 0.13],
@@ -81,11 +70,7 @@ function ramp(p: number, at: number[], to: number[]) {
   return to[to.length - 1]
 }
 
-/**
- * A tee cut from the body's own surface -- torso from collar to hem, sleeves
- * to mid upper arm -- then relaxed and eased off the skin, so it drapes over
- * the figure instead of reading as body paint or a flat overlay.
- */
+/** Tee cut from the body's surface, relaxed and eased off the skin. */
 function buildGarment(body: THREE.BufferGeometry, top: number, height: number) {
   const pos = body.attributes.position
   const index = body.index!
@@ -113,8 +98,7 @@ function buildGarment(body: THREE.BufferGeometry, top: number, height: number) {
   const garment = mergeVertices(soup, 1e-4)
   soup.dispose()
 
-  // Taubin smoothing: irons the muscle definition out of the cloth without
-  // shrinking it the way plain averaging would.
+  // Taubin smoothing: removes muscle definition without shrinking the cloth.
   const p = garment.attributes.position.array as Float32Array
   const tris = garment.index!.array
   const n = p.length / 3
@@ -155,11 +139,7 @@ function buildGarment(body: THREE.BufferGeometry, top: number, height: number) {
   return garment
 }
 
-/**
- * Brushed cotton that is printed on from the top: everything above the
- * reveal line is fabric, nothing below it is drawn, and a bright seam rides
- * the line itself -- the render catching up with the body.
- */
+/** Fabric above the reveal line, a bright seam on it, nothing below. */
 function createFabric(reveal: { value: number }) {
   const material = new THREE.MeshPhysicalMaterial({
     color: 0x2b3038,
@@ -253,7 +233,6 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
       if (!ready || !w) return
       const p = progress.get()
 
-      // Camera stage: the frame pulls focus on the figure.
       const blur = ramp(p, [0.02, CAMERA[1]], [7, 0])
       canvas.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : ''
       canvas.style.opacity = String(ramp(p, [0, 0.12], [0.25, 1]))
@@ -261,15 +240,12 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
       scanRef.current?.setAttribute('transform', `translate(0 ${ramp(p, CAMERA, [-10, h]).toFixed(1)})`)
       scanRef.current?.style.setProperty('opacity', String(ramp(p, [0, 0.06, CAMERA[1] - 0.06, CAMERA[1]], [0, 1, 1, 0])))
 
-      // Garment stage: collar to hem, eased so it slows into the hem.
       const t = clamp01((p - GARMENT_RANGE[0]) / (GARMENT_RANGE[1] - GARMENT_RANGE[0]))
       const eased = t * t * (3 - 2 * t)
       reveal.value = t <= 0 ? collarY + 1 : collarY + 0.05 + (hemY - 0.2 - collarY - 0.05) * eased
 
       renderer.render(scene, camera)
 
-      // Pose stage: landmarks tracked on the figure as it turns, locking on
-      // in sequence from the head down.
       pivot.updateMatrixWorld()
       landmarks.forEach((point, i) => {
         v.copy(point).applyMatrix4(pivot.matrixWorld).project(camera)
@@ -304,8 +280,6 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
-      // Viewfinder: four corners, not a full box, so it frames the subject
-      // the way a camera does and leaves the figure unenclosed.
       const m = 10
       const l = 18
       cornersRef.current?.setAttribute(
@@ -324,7 +298,6 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
       const { geometry: body, height: bodyHeight } = cropFromTop(geo, MESH_F, FRAME_F)
       const top = body.boundingBox!.max.y
       const garment = buildGarment(geo, top, bodyHeight)
-      // Crown at y = 0, centred on the turning axis; the garment moves with it.
       const center = body.boundingBox!.getCenter(new THREE.Vector3())
       body.translate(-center.x, -top, -center.z)
       garment.translate(-center.x, -top, -center.z)
@@ -344,7 +317,6 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
     const clock = new THREE.Clock()
     const tick = () => {
       raf = requestAnimationFrame(tick)
-      // A slow idle turn, so the garment reads as a 3D fit, not a decal.
       pivot.rotation.y = Math.sin(clock.getElapsedTime() * 0.45) * 0.35
       draw()
     }
@@ -386,9 +358,7 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
           style={{ opacity: 'var(--frame-a, 0)' }}
         />
         <line ref={scanRef} x1="14" y1="0" x2="14" y2="0" stroke="currentColor" strokeWidth="1" style={{ opacity: 0 }} />
-        {/* Tracking overlay: fixed white with a dark halo, not a theme token --
-            it sits on chrome, which is the same in both themes, and a grey
-            landmark on grey metal disappears. */}
+        {/* Fixed white with a dark halo: it sits on chrome, which is the same in both themes. */}
         <g className="text-[#f3f4f6] filter-[drop-shadow(0_0_1px_rgb(0_0_0/0.9))_drop-shadow(0_0_3px_rgb(0_0_0/0.45))]">
           {BONES.map((_, i) => (
             <line

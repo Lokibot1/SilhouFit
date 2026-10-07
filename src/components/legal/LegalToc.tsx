@@ -3,19 +3,12 @@ import { useEffect, useState } from 'react'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { headingId } from '../../utils/headingId'
 
-/**
- * A floating glass index of the page's sections. The active marker is one
- * element that slides between entries, so following the reader reads as a
- * single indicator travelling rather than links lighting up one by one.
- */
 export function LegalToc({ headings }: { headings: string[] }) {
   const [active, setActive] = useState(headings[0] ?? '')
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        // The section crossing the upper-middle band of the viewport is the
-        // one being read.
         for (const entry of entries) {
           if (entry.isIntersecting) setActive(entry.target.getAttribute('data-heading') ?? '')
         }
@@ -30,8 +23,7 @@ export function LegalToc({ headings }: { headings: string[] }) {
   }, [headings])
 
   return (
-    // The sticky sits on a plain wrapper: .glass-card sets its own position,
-    // which would override it.
+    // Sticky on a plain wrapper: .glass-card sets its own position.
     <div className="sticky top-28 hidden self-start xl:block">
     <nav
       aria-label="On this page"

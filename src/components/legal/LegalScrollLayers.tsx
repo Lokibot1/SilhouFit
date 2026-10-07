@@ -10,8 +10,7 @@ import { useState } from 'react'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 
-// Seeded by hand rather than Math.random, so the sky is the same on every
-// visit and across re-renders.
+// Seeded by hand so the sky is the same across visits and re-renders.
 function layer(seed: number, count: number) {
   let s = seed
   const next = () => {
@@ -24,9 +23,7 @@ function layer(seed: number, count: number) {
   }))
 }
 
-// Far to near: the nearer the layer, the larger and brighter its stars and the
-// further it travels over the whole page. Travel is in px across the full
-// scroll, so a long page and a short one drift by the same small amount.
+// Far to near: nearer layers have larger, brighter stars and travel further (px over the full scroll).
 const LAYERS = [
   { stars: layer(11, 22), size: 1, opacity: 0.28, travel: -36 },
   { stars: layer(23, 14), size: 1.5, opacity: 0.4, travel: -90 },
@@ -35,13 +32,7 @@ const LAYERS = [
 
 const SPARE = 200
 
-/**
- * Extra star layers over the site sky that drift at three different rates as
- * the document scrolls. Fixed and transform-only, so scrolling never triggers
- * layout or paint, and it stays out of the way of the text: the stars are tiny
- * and faint. Phones get the two farther layers, reduced motion gets none of
- * the drift.
- */
+/** Extra star layers drifting at three rates; transform-only. Phones get two, reduced motion none. */
 export function LegalParallaxSky() {
   const reduced = useReducedMotion()
   const isPhone = !useMediaQuery('(min-width: 768px)')

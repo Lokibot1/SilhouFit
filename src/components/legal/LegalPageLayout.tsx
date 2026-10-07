@@ -34,8 +34,6 @@ export function LegalPageLayout({
 }: LegalPageLayoutProps) {
   useDocumentTitle(`${title} — SilhouFit`)
 
-  // The index is built from the sections themselves, so it can never drift
-  // from the page it describes.
   const headings = useMemo(
     () =>
       Children.toArray(children).flatMap((child) =>
@@ -82,10 +80,7 @@ export function LegalSection({
 }) {
   const ref = useRef<HTMLElement>(null)
   const reduced = useReducedMotion()
-  // "Arrived" means in view or already scrolled past. Counting only the
-  // former would leave every section skipped by a jump (the index, a #hash
-  // link) invisible for good, and an IntersectionObserver never reports a
-  // section a jump went straight over, so the position is checked on scroll.
+  // "Arrived" means in view or scrolled past; an IntersectionObserver misses sections a jump skipped, so check on scroll.
   const [inView, setInView] = useState(false)
   useEffect(() => {
     function check() {
@@ -99,17 +94,12 @@ export function LegalSection({
     return () => window.removeEventListener('scroll', check)
   }, [])
 
-  // The heading drifts a few pixels against the body as the section passes:
-  // enough to read as a separate layer, too little to ever touch the text
-  // below it (the gap is 12px).
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start end', 'end start'],
   })
   const headingY = useTransform(scrollYProgress, [0, 1], [6, -6])
 
-  // One arrival per section, not per paragraph. Transform and opacity only, so
-  // nothing around it moves. Reduced motion keeps the fade and drops the lift.
   return (
     <motion.section
       ref={ref}
@@ -132,7 +122,6 @@ export function LegalSection({
       >
         {heading}
       </motion.h2>
-      {/* A chrome rule that draws in as the section arrives. */}
       <motion.span
         aria-hidden="true"
         initial={{ scaleX: 0 }}

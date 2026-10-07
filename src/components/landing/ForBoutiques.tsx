@@ -25,8 +25,6 @@ export function ForBoutiques() {
   const settled = useMotionValue(1)
   const progress = reduced ? settled : scrubbed
 
-  // The prose and the panel drift against each other as the section passes:
-  // a small, opposed offset is what gives two columns a front and a back.
   const drift = reduced ? 0 : isDesktop ? 28 : 12
   const copyY = useTransform(scrubbed, [0, 1], [drift, -drift])
   const panelY = useTransform(scrubbed, [0, 1], [-drift * 1.6, drift * 1.6])

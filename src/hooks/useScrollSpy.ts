@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-/**
- * Tracks which of `count` registered items sits closest to the viewport
- * center, so a list can auto-expand the item currently in focus as the
- * page scrolls.
- */
+/** Tracks which of `count` items sits closest to the viewport centre. */
 export function useScrollSpy(count: number) {
   const itemRefs = useRef<(HTMLElement | null)[]>([])
   const [activeIndex, setActiveIndex] = useState(0)

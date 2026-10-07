@@ -6,8 +6,7 @@ import { Navbar } from './Navbar'
 import { SiteSky } from './Sky'
 import { SkipLink } from './SkipLink'
 
-// Sections that moved from the landing page to /about. Bookmarks and shared
-// links to the old anchors still land where the content now lives.
+// Sections moved to /about; old anchors still land on them.
 const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
 
 export function Layout({ bare = false }: { bare?: boolean }) {
@@ -16,8 +15,7 @@ export function Layout({ bare = false }: { bare?: boolean }) {
 
   useEffect(() => {
     if (hash) {
-      // getElementById, not querySelector: a hand-typed hash such as "#1 2"
-      // is an invalid selector and would throw.
+      // getElementById: a hand-typed hash such as "#1 2" is an invalid selector.
       const target = document.getElementById(decodeURIComponent(hash.slice(1)))
       target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
@@ -26,8 +24,7 @@ export function Layout({ bare = false }: { bare?: boolean }) {
     if (navigationType !== 'POP') {
       window.scrollTo(0, 0)
     }
-    // `key` changes on every navigation, so choosing the same section twice
-    // scrolls back to it instead of doing nothing.
+    // `key` changes per navigation, so choosing the same section twice rescrolls.
   }, [pathname, hash, key, navigationType])
 
   if (pathname === '/' && MOVED_TO_ABOUT.includes(hash)) {

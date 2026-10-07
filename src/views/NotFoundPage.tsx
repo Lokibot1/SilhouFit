@@ -36,12 +36,7 @@ export function NotFoundPage() {
           </div>
         </div>
 
-        {/* The rail runs wider than the screen, drifting like it was cut loose.
-            --w is the rail's width and --h its box, capped to a share of the
-            viewport height so the whole scene fits one screen. The canvas is
-            shifted up so the rail sits near the top of the box and the
-            garments fill the rest. It sways when the cursor brushes it, so
-            say so. */}
+        {/* Rail wider than the screen; --w is its width, --h its box height, capped so the scene fits one screen. */}
         <div
           aria-hidden="true"
           className="pointer-events-none relative h-(--h) shrink-0 overflow-hidden [--w:250vw] [--h:min(calc(var(--w)*0.15),38svh)] mask-[linear-gradient(to_bottom,black_65%,transparent_100%)] sm:[--w:140vw] lg:[--w:130vw] [@media(max-height:480px)]:[--h:18svh]"

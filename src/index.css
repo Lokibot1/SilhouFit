@@ -7,10 +7,8 @@
   --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --font-ui: "Kumbh Sans", ui-sans-serif, system-ui, sans-serif;
 
-  /* Raw ramps, cool-neutral throughout. A warm grey reads as beige the moment
-     it sits next to polished metal, and that is the difference between a
-     monochrome identity and a washed-out one. Neither end is pure: #000 and
-     #fff kill the tonal room that makes the surfaces feel layered. */
+  /* Raw ramps, cool-neutral: warm grey reads as beige beside metal. No pure #000/#fff,
+     which kill tonal room. */
   --color-carbon-950: #0c0d10;
   --color-carbon-900: #14161a;
   --color-carbon-800: #1b1e24;
@@ -20,9 +18,7 @@
   --color-silver-200: #dcdfe5;
   --color-silver-300: #cbd1d9;
 
-  /* Semantic roles. These resolve through :root / .dark below, so a component
-     names the role once -- text-fg, bg-canvas, border-line -- and never carries
-     a dark: variant just to restate a colour. */
+  /* Semantic roles: components name the role and never need a dark: variant. */
   --color-canvas: var(--canvas);
   --color-canvas-sub: var(--canvas-sub);
   --color-fg: var(--fg);
@@ -42,17 +38,14 @@
   --line: rgb(20 23 28 / 0.14);
   --line-strong: rgb(20 23 28 / 0.26);
 
-  /* Chrome carries three values, not one. A single flat silver is just grey;
-     metal reads as metal only when a bright and a shaded tone alternate across
-     the same surface. `--chrome` fills, `--chrome-strong` is the contrast-safe
-     tone for accent text, `--chrome-shade` is the dark band in the gradient. */
+  /* Chrome needs bright and shaded tones to read as metal: `--chrome` fills, `--chrome-strong`
+     is contrast-safe accent text, `--chrome-shade` the dark band. */
   --chrome: #8b93a0;
   --chrome-strong: #5c6470;
   --chrome-shade: #9aa2ae;
   --chrome-bright: #ffffff;
 
-  /* Glass is poured from a tint plus a set of alphas, so one rule set serves
-     both themes and the light/dark pair can never drift apart. */
+  /* Glass is poured from a tint plus alphas, so one rule set serves both themes. */
   --glass-tint: 252 253 255;
   --glass-edge: 255 255 255;
   --glass-ring-mid: var(--chrome-shade);
@@ -143,8 +136,6 @@
 }
 
 @layer utilities {
-  /* Elevation 1: base glass surface. One definition, both themes -- the tint
-     and the alphas flip, the structure does not. */
   .glass {
     background-color: rgb(var(--glass-tint) / var(--glass-fill));
     border: 1px solid rgb(var(--glass-edge) / var(--glass-edge-a));
@@ -155,10 +146,7 @@
       inset 0 1px 1px rgb(var(--glass-edge) / var(--glass-hi));
   }
 
-  /* Elevation 1, lighter pour, for surfaces floating over photography rather
-     than over a flat section: less fill and less blur, so the image reads
-     through. The edge is raised to compensate -- with the fill doing less
-     work, the border is what keeps the card separated from the picture. */
+  /* Elevation 1, lighter: less fill and blur for surfaces over photography; edge raised to compensate. */
   .glass-clear {
     background-color: rgb(var(--glass-tint) / var(--glass-fill-clear));
     border: 1px solid rgb(var(--glass-edge) / calc(var(--glass-edge-a) * 0.9));
@@ -170,21 +158,9 @@
   }
 
   /* ---- Liquid glass cards -------------------------------------------------
-     One material, three depths. Every card is `glass-card`; the depth classes
-     below only change its tokens, so they can never drift into separate
-     looks. Layers, back to front:
-       backdrop   blurred and brightened, so the stars behind diffuse into soft
-                  points -- the proof the pane is transparent
-       fill       a vertical gradient of tint, dense enough that text keeps
-                  full contrast
-       sheen      (::after) a silver specular pool in the upper corner plus a
-                  soft diagonal reflection that drifts as the card scrolls
-       edge       (::before) a 1px chrome ring, bright where light catches the
-                  top-left and falling away along the sides
-       rim        inset light along the top, a dark lip along the bottom: how
-                  thick glass bends light at its edge
-       shadow     the pane lifting off the sky
-     Tune the whole system from the --g-* tokens below. */
+     One material, three depths: depth classes only change tokens. Layers back to front:
+     backdrop blur, gradient fill, ::after sheen, ::before chrome edge, inset rim, shadow.
+     Tune from the --g-* tokens below. */
   @property --g-ring {
     syntax: "<number>";
     inherits: false;
@@ -198,7 +174,6 @@
   }
 
   .glass-card {
-    /* Depth tokens: the tiers override these. */
     --g-fill: var(--glass-fill-panel);
     --g-blur: 18px;
     --g-sat: 170%;
@@ -237,8 +212,7 @@
       box-shadow 250ms ease;
   }
 
-  /* The chrome edge. Above the content so it also frames photographs that run
-     to the card's edge; 1px wide, so it never touches text. */
+  /* Chrome edge, above content so it frames full-bleed photos; 1px so it never touches text. */
   .glass-card::before {
     content: "";
     position: absolute;
@@ -266,8 +240,6 @@
     mask-composite: exclude;
   }
 
-  /* The surface light, under the content: a silver pool in the upper corner
-     and a soft diagonal reflection band. */
   .glass-card::after {
     content: "";
     position: absolute;
@@ -292,8 +264,7 @@
     background-repeat: no-repeat;
   }
 
-  /* The reflection slides across the pane as the card travels through the
-     viewport. Pure CSS, tied to scroll position, so it costs no script. */
+  /* Reflection slides with scroll position; pure CSS. */
   @supports (animation-timeline: view()) {
     @media (prefers-reduced-motion: no-preference) {
       .glass-card::after {
@@ -312,8 +283,6 @@
     }
   }
 
-  /* Standard is the base. Elevated: the card that matters on its page --
-     denser, a brighter edge, a deeper shadow. */
   .glass-elevated {
     --g-fill: calc(var(--glass-fill-panel) * 1.35);
     --g-blur: 22px;
@@ -323,8 +292,6 @@
     --g-sheen: 1.1;
   }
 
-  /* Floating: sits above everything and lets the most through -- more
-     translucent, more blur, the strongest edge and reflection. */
   .glass-floating {
     --g-fill: calc(var(--glass-fill-panel) * 0.75);
     --g-blur: 26px;
@@ -335,15 +302,12 @@
     --g-sheen: 1.4;
   }
 
-  /* Long-form reading: near-opaque fill and a small blur, so a tall pane never
-     pays for a large backdrop and the text always has a calm ground. */
+  /* Long-form reading: near-opaque with a small blur, so tall panes stay cheap. */
   .glass-dense {
     --g-fill: 0.86;
     --g-blur: 10px;
   }
 
-  /* A card that responds to the pointer: the edge and sheen brighten and it
-     rises 2px. Only for cards that are meant to feel touchable. */
   .glass-interactive:hover {
     --g-ring: 1;
     --g-sheen: 1.5;
@@ -370,7 +334,7 @@
     }
   }
 
-  /* Elevation 0: chips/badges nested inside a glass surface — sit flush */
+  /* Elevation 0: chips and badges nested in glass, flush */
   .glass-chip {
     box-shadow: 0 2px 6px -3px rgb(var(--shadow-key) / calc(var(--shadow-a) + 0.1));
   }
@@ -379,11 +343,8 @@
     border: 1px solid var(--line-strong);
   }
 
-  /* A polished hairline. Metal is alternating bright and shaded bands, so the
-     gradient flips between them rather than fading one silver into another --
-     a single tone would only ever read as a grey border. The mask punches out
-     the middle so the gradient survives border-radius, which border-image
-     cannot do. Used sparingly: this is the luxury accent, not the surface. */
+  /* Polished hairline: the gradient alternates bright and shaded bands, and the mask keeps it
+     within border-radius. Use sparingly. */
   .chrome-edge {
     position: relative;
   }
@@ -417,22 +378,17 @@
     mask-composite: exclude;
   }
 
-  /* When the chrome ring is present it *is* the edge. Leaving the glass border
-     underneath would declare the same edge twice and read as a ghost outline. */
+  /* The chrome ring is the edge; dropping the glass border avoids a ghost outline. */
   .glass:where(.chrome-edge),
   .glass-clear:where(.chrome-edge) {
     border-color: transparent;
   }
 
-  /* Photography is part of the colour system, not an exception to it: a warm
-     frame reads as a stray hue the moment the surfaces around it go cool. Held
-     back rather than stripped, so the garments keep some life -- one variable,
-     easy to dial either way. */
+  /* Photography is held back toward the cool palette, not stripped; one variable to dial. */
   .photo-mono {
     filter: saturate(var(--photo-sat)) contrast(1.04);
   }
 
-  /* A divider that catches light along its length instead of sitting flat. */
   .chrome-rule {
     background-image: linear-gradient(
       to right,
@@ -445,7 +401,6 @@
     );
   }
 
-  /* Same metal, running along a filled bar rather than a hairline. */
   .chrome-fill {
     background-image: linear-gradient(
       to right,
@@ -465,9 +420,7 @@
     animation: twinkle 4s ease-in-out infinite;
   }
 
-  /* The light behind the hero figure's head. On the night sky it is the glow
-     a chrome body throws into the dark; on the silver sky, a brighter pool
-     in the paler field -- one shape, two strengths. */
+  /* Glow behind the hero figure's head: stronger on the silver sky. */
   .hero-halo {
     background: radial-gradient(
       circle,
@@ -531,9 +484,7 @@
     animation: flow 900ms linear infinite;
   }
 
-  /* Every heading and title reaches for this: League Spartan, heavy, tight
-     tracking and leading, wrapped to a balanced measure. Font size is set
-     per call site since a hero line and a card title never share a scale. */
+  /* Headings: League Spartan, heavy, tight; font size is set per call site. */
   .display {
     font-family: var(--font-display);
     font-weight: 700;
@@ -542,10 +493,7 @@
     line-height: 0.95;
   }
 
-  /* The boot intro is a fixed brand moment, not a themed surface: it always
-     reads as polished chrome on near-black, independent of the site's own
-     light/dark toggle, so the values here are literal rather than the
-     semantic --chrome tokens (which flip with .dark). */
+  /* Boot intro: literal chrome-on-black values, independent of the theme toggle. */
   .intro-chrome-text {
     background-image: linear-gradient(
       100deg,
@@ -574,8 +522,7 @@
     );
   }
 
-  /* A single pre-rendered grain tile, held at near-zero opacity -- texture,
-     not effect. */
+  /* Pre-rendered grain tile at near-zero opacity. */
   .intro-grain {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     background-size: 160px 160px;
@@ -596,13 +543,8 @@
   }
 }
 
-/* The page-wide theme swap: a circular reveal expanding from the toggle,
-   driven by the View Transitions API. Coordinates and end-radius are set as
-   inline custom properties on <html> by ThemeContext right before it calls
-   startViewTransition; the defaults below only cover the (unreachable in
-   practice) case where they weren't set. Browsers without View Transitions
-   fall back to an instant swap -- no polyfill, no layout-wide transition
-   property that would also slow down unrelated hover states. */
+/* Theme swap: circular reveal from the toggle via View Transitions. ThemeContext sets the
+   coordinates inline; the defaults only cover the unset case. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -625,12 +567,8 @@
   }
 }
 
-/* Sky toggle. Its own light/night palette is fixed -- the raw carbon/silver
-   ramp, never the semantic --chrome tokens -- because the checked state
-   already *is* the theme; reading it back through tokens that also flip
-   with .dark would double-apply the swap. One base font-size flattens the
-   whole em scale so nested measurements stay proportional without
-   compounding through the tree. */
+/* Sky toggle: fixed raw carbon/silver palette (semantic tokens would double-apply the swap);
+   one base font-size keeps the em scale proportional. */
 .sky-toggle {
   --toggle-size: 11px;
   --container-width: 5.625em;
@@ -889,10 +827,7 @@
   }
 }
 
-/* Browser surfaces: the parts of the page no stylesheet drew. Selection, the
-   scrollbar and the underline offset ship with defaults belonging to no
-   palette, and reading them back in the page's own metal is what makes it feel
-   built rather than assembled. */
+/* Browser surfaces: selection, scrollbar and underline offset in the page's metal. */
 ::selection {
   background-color: color-mix(in srgb, var(--chrome) 42%, transparent);
   color: var(--fg);
@@ -934,9 +869,7 @@ a {
   text-underline-offset: 0.2em;
 }
 
-/* The comet is the pointer while it runs (mouse only, motion allowed), so the
-   native cursor is hidden everywhere -- including links and buttons, whose
-   own cursor rules would otherwise win. */
+/* Native cursor hidden while the comet runs, including on links and buttons. */
 html.comet-active,
 html.comet-active * {
   cursor: none !important;

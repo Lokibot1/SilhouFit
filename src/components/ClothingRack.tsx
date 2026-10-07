@@ -5,32 +5,22 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { releaseRenderer } from './landing/chromeBody'
 
-// The model, pre-cut offline to the top of the rack (rail, hangers, upper
-// garments) and simplified. In its own units the rail runs x -0.55..0.55 at
-// y ~0.29, and the cut sits at y 0.12, below the frame.
+// Model pre-cut to the top of the rack: rail at y ~0.29, cut at y 0.12.
 const MODEL_URL = '/models/clothing-rack.glb'
 const RAIL_Y = 0.287
-// The rail tube's underside is at ~0.286; below it only the hook shafts run
-// down to the hanger bodies (~0.279). The swing hinges there, inside the
-// shafts: nothing above PIVOT_Y moves at all, so the rail stays rigid, and
-// the hanger reaches full swing by FULL_Y.
+// The swing hinges inside the hook shafts, so the rail stays rigid; full swing by FULL_Y.
 const PIVOT_Y = 0.281
 const FULL_Y = 0.266
 const BOTTOM_Y = 0.14
-// Where the rail sits in the canvas, from the top.
 const RAIL_AT = 0.42
 
-// The rail is split into this many pendulums, about one per garment, so a
-// shirt swings as a piece and only blends with its neighbours at the edges.
+// One pendulum per garment, so a shirt swings as a piece.
 const BINS = 28
 const X0 = -0.56
 const DX = 1.12 / (BINS - 1)
-// Depth below the rail over which the swing reaches full strength.
 const DROP = 0.16
 
-// K sets the swing (~1 Hz), C how fast it settles, COUPLE how strongly each
-// stretch of rail drags its neighbours, IMPULSE how much of the hand's speed
-// (model units per second) becomes spin, REACH how wide a hand is.
+// K: swing (~1 Hz), C: settling, COUPLE: neighbour drag, IMPULSE: hand speed to spin, REACH: hand width.
 const K = 36
 const C = 2.4
 const COUPLE = 30
@@ -38,13 +28,7 @@ const IMPULSE = 0.55
 const REACH = 0.05
 const MAX_ANGLE = 0.09
 
-/**
- * Bends the rack without separating it into pieces. Each vertex below the
- * hooks swings about the hinge line directly above it, by the angle of the
- * pendulum at its x -- blended between neighbouring pendulums. Nothing above
- * the hinge moves, so the rail is rigid. The hem also trails a little by the
- * swing's speed, which is what reads as cloth.
- */
+/** Swings each vertex below the hooks about its hinge; the rail stays rigid. */
 function addSway(material: THREE.Material, angles: Float32Array, spins: Float32Array) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uAngle = { value: angles }
@@ -92,10 +76,7 @@ function addSway(material: THREE.Material, angles: Float32Array, spins: Float32A
   }
 }
 
-/**
- * The footer's clothing rail, in 3D, that sways when a hand brushes past it.
- * Only renders while something is moving: a still rack costs nothing.
- */
+/** The footer's clothing rail, swaying when a hand brushes it. */
 export function ClothingRack({ className = '' }: { className?: string }) {
   const hostRef = useRef<HTMLDivElement>(null)
 
@@ -127,11 +108,10 @@ export function ClothingRack({ className = '' }: { className?: string }) {
     const spins = new Float32Array(BINS)
     const disposables: { dispose(): void }[] = []
     let ready = false
-    // A load that finishes after unmount must not touch the disposed renderer.
+    // Ignore a load that finishes after unmount.
     let disposed = false
 
-    // Crop the view, not the model: the bottom edge sits above the model's
-    // cut, and the rail at RAIL_AT from the top whatever the canvas shape.
+    // Crop the view, not the model, so the rail sits at RAIL_AT from the top.
     const frame = () => {
       const top = (RAIL_Y - RAIL_AT * BOTTOM_Y) / (1 - RAIL_AT)
       const height = top - BOTTOM_Y
@@ -163,7 +143,7 @@ export function ClothingRack({ className = '' }: { className?: string }) {
         if (!mesh.isMesh) return
         const material = mesh.material as THREE.Material
         addSway(material, angles, spins)
-        // The sway moves vertices past the model's static bounds.
+        // The sway moves vertices past the static bounds.
         mesh.frustumCulled = false
         disposables.push(mesh.geometry, material)
         for (const value of Object.values(material)) {
@@ -211,8 +191,7 @@ export function ClothingRack({ className = '' }: { className?: string }) {
       raf = requestAnimationFrame(step)
     }
 
-    // Listen on the window, not the canvas: the footer's links overlap the
-    // top of this canvas and would otherwise swallow the pointer.
+    // Window listener: the footer's links overlap the canvas and would swallow the pointer.
     const ray = new THREE.Raycaster()
     const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
     const ndc = new THREE.Vector2()
@@ -230,7 +209,6 @@ export function ClothingRack({ className = '' }: { className?: string }) {
       )
       ray.setFromCamera(ndc, camera)
       if (!ray.ray.intersectPlane(plane, hit)) return
-      // Only a hand among the garments moves them, not one above the rail.
       if (hit.y > RAIL_Y || hit.y < BOTTOM_Y) {
         prev = null
         return
@@ -248,8 +226,7 @@ export function ClothingRack({ className = '' }: { className?: string }) {
       prev = { x: hit.x, t: e.timeStamp }
     }
 
-    // One soft ripple the first time the rack comes into view, so it is
-    // clear it can be touched.
+    // One ripple on first view to show it can be touched.
     const intro = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting || !ready) return

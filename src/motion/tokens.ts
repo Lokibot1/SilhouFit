@@ -1,7 +1,4 @@
-/**
- * The one place motion is tuned. Sections compose these values; they never
- * invent their own curves, or the page stops reading as a single system.
- */
+/** The one place motion is tuned. */
 
 /** Confident arrival: quick departure, long settle. Every entrance uses it. */
 export const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
@@ -28,10 +25,7 @@ export const SPRING = {
   scrub: { stiffness: 90, damping: 26, mass: 0.4 },
 } as const
 
-/**
- * Sibling stagger, and the cap on a whole run. Four cards that take a full
- * second to arrive have stopped being motion and become a wait.
- */
+/** Sibling stagger, and the cap on a whole run. */
 const STAGGER = 0.06
 const STAGGER_CAP = 0.24
 

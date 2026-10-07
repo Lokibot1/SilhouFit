@@ -6,11 +6,6 @@ const STAGES = [
   { Icon: ScreenIcon, label: 'Garment render' },
 ]
 
-/**
- * Doubles as the readout for the pinned acquisition: `activeIndex` is the stage
- * the scroll position has reached, so the diagram reports where the figure is
- * in the pipeline instead of sitting there as a static illustration.
- */
 export function ARPipeline({ activeIndex }: { activeIndex?: number }) {
   return (
     <div className="group flex items-center justify-center gap-1 sm:gap-4">

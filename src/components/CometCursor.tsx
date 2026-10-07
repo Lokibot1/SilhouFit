@@ -3,10 +3,7 @@ import { useTheme } from '../contexts/ThemeContext'
 
 type RGB = string
 
-// Literal values, not the semantic tokens: the comet has to hold contrast over
-// every surface the page has -- sky, chrome, white and black buttons. Dark
-// mode is light added to the page; light mode is the same comet in graphite.
-// Either way the nucleus carries a hairline in the opposite tone.
+// Literal values, not semantic tokens: the comet must hold contrast over every surface.
 const PALETTE = {
   dark: {
     blend: 'lighter' as GlobalCompositeOperation,
@@ -28,17 +25,12 @@ const PALETTE = {
   },
 }
 
-// The tail is two chains of points that each follow the one ahead with some
-// lag -- inertia, not a history of positions -- so it curves and swings like
-// a body in motion and draws itself back into the head when the cursor rests.
-// The ion tail is stiffer-lagged, so it runs longer and straighter, and the
-// two part slightly on a curve, as in a real comet.
+// Tail: chains of points that each lag the one ahead (inertia, not position history).
 const LINKS = 22
 const DUST_FOLLOW = 0.42
 const ION_FOLLOW = 0.3
 const HEAD = 3.2
 
-// Click: the head compresses, then goes.
 const COMPRESS_MS = 70
 const BURST_MS = 900
 
@@ -55,10 +47,6 @@ function smooth(t: number) {
   return c * c * (3 - 2 * c)
 }
 
-/**
- * A closed ribbon along the chain: `w0` wide at the head to `w1` at the end.
- * Normals come from the neighbours, so the ribbon bends with the chain.
- */
 function ribbon(ctx: CanvasRenderingContext2D, pts: P[], w0: number, w1: number) {
   const n = pts.length
   const left: P[] = []
@@ -76,8 +64,6 @@ function ribbon(ctx: CanvasRenderingContext2D, pts: P[], w0: number, w1: number)
       ny = tx / len
     }
     const t = i / (n - 1)
-    // Fans out of the coma, widest a third of the way down, then thins away
-    // to nothing -- the classic comet silhouette.
     const w = (w0 + (w1 - w0) * t) * (1 - t) ** 0.8
     left.push({ x: pts[i].x + nx * w, y: pts[i].y + ny * w })
     right.push({ x: pts[i].x - nx * w, y: pts[i].y - ny * w })
@@ -89,15 +75,7 @@ function ribbon(ctx: CanvasRenderingContext2D, pts: P[], w0: number, w1: number)
   ctx.closePath()
 }
 
-/**
- * The site's pointer: a small comet -- white-hot chrome nucleus, a silvery
- * dust tail and a cool ion tail trailing on inertia -- which, on click,
- * compresses and goes supernova: flash, core, rings, fragments, streaks,
- * and a glow that dissolves rather than stops.
- *
- * One fixed canvas over the page, pointer-events off, drawn from a rAF loop
- * that sleeps whenever nothing is moving.
- */
+/** Comet pointer that goes supernova on click. One fixed canvas; the rAF loop sleeps when idle. */
 export function CometCursor() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { theme } = useTheme()
@@ -162,8 +140,6 @@ export function CometCursor() {
       const b = chain[chain.length - 1]
       if (Math.hypot(a.x - b.x, a.y - b.y) < 3) return
       const g = ctx.createLinearGradient(a.x, a.y, b.x, b.y)
-      // Brightness varies down the tail, drifting slowly, so it reads as
-      // glowing gas rather than a painted stroke.
       const stops = [1, 0.72, 0.46, 0.26, 0.12, 0.04, 0]
       stops.forEach((base, j) => {
         const flicker = j === 0 || j === stops.length - 1 ? 1 : 0.82 + 0.18 * Math.sin(now * 0.004 + j * 1.9)
@@ -185,7 +161,6 @@ export function CometCursor() {
 
       const slack = follow(dust, DUST_FOLLOW, dt) + follow(ion, ION_FOLLOW, dt)
 
-      // Presses: the head compresses, then the burst fires where it was.
       let squeeze = 0
       for (let i = presses.length - 1; i >= 0; i--) {
         const pr = presses[i]
@@ -203,7 +178,6 @@ export function CometCursor() {
         tail(dust, p.dust, 2.6, 18, 0.55, now)
       }
 
-      // Soft glow of each burst, under everything else it throws out.
       for (let i = bursts.length - 1; i >= 0; i--) {
         const b = bursts[i]
         b.age += dt
@@ -225,7 +199,6 @@ export function CometCursor() {
         ctx.arc(b.x, b.y, R, 0, Math.PI * 2)
         ctx.fill()
 
-        // Two rings: the blast front, and a fainter violet echo behind it.
         const rings: [number, number, RGB, number][] = [
           [0, 88, p.burst[1], 1.3],
           [70, 58, p.burst[3], 0.9],
@@ -241,7 +214,6 @@ export function CometCursor() {
           ctx.stroke()
         }
 
-        // The bright core of the blast.
         const ct = b.age / 260
         if (ct < 1) {
           ctx.fillStyle = `rgb(${p.burst[0]} / ${(1 - ct).toFixed(3)})`
@@ -251,7 +223,6 @@ export function CometCursor() {
         }
       }
 
-      // Fragments and streaks, dragged to rest and dissolved.
       for (let i = sparks.length - 1; i >= 0; i--) {
         const s = sparks[i]
         s.age += dt
@@ -286,7 +257,6 @@ export function CometCursor() {
       if (head.visible) {
         const r = HEAD * (1 + head.hover * 0.45) * (1 - squeeze * 0.45) * (1 + flash * 0.9)
 
-        // Coma: a tight white bloom inside a wider cool haze.
         const R = r * 6 + flash * 26
         const g = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, R)
         g.addColorStop(0, `rgb(${p.glow[0]} / ${(0.55 + squeeze * 0.3 + flash * 0.3).toFixed(3)})`)
@@ -298,8 +268,6 @@ export function CometCursor() {
         ctx.arc(head.x, head.y, R, 0, Math.PI * 2)
         ctx.fill()
 
-        // Nucleus: chrome, lit from the upper left, with the opposite-tone
-        // rim that keeps it legible over any surface.
         ctx.globalCompositeOperation = 'source-over'
         const c = ctx.createRadialGradient(head.x - r * 0.4, head.y - r * 0.4, 0, head.x, head.y, r)
         c.addColorStop(0, p.core[0])
@@ -320,12 +288,10 @@ export function CometCursor() {
       if (busy) {
         raf = requestAnimationFrame(draw)
       } else {
-        // The frame just drawn -- a resting head, tail drawn in -- stays.
         running = false
       }
     }
 
-    // The supernova proper, fired once the head has compressed.
     function fire(x: number, y: number, p: (typeof PALETTE)['dark']) {
       flash = 1
       bursts.push({ x, y, age: 0 })
@@ -340,7 +306,6 @@ export function CometCursor() {
           streak: false,
         })
       }
-      // A few long, fast streaks: the energetic ejecta.
       for (let i = 0; i < 7; i++) {
         const a = Math.random() * Math.PI * 2
         const v = 0.55 + Math.random() * 0.35
@@ -368,15 +333,13 @@ export function CometCursor() {
       head.x = e.clientX
       head.y = e.clientY
       if (!head.visible) {
-        // Arriving from off-screen: start collapsed on the head, no streak
-        // across the page from wherever the chains were left.
+        // Arriving from off-screen: start collapsed on the head, no streak.
         for (const pt of [...dust, ...ion]) {
           pt.x = head.x
           pt.y = head.y
         }
         head.visible = true
       } else {
-        // A few faint motes shed off the tail at speed.
         const dx = head.x - px
         const dy = head.y - py
         const speed = Math.hypot(dx, dy)

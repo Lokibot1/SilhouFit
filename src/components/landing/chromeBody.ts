@@ -3,17 +3,11 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import bodyUrl from '../../assets/human_body.glb?url'
 
-/**
- * The chrome figure, shared by the hero bust and the AR fitting card: one
- * download, one material, one lighting rig, so the two read as the same body.
- */
+/** Chrome figure shared by the hero and AR fitting: one download, material and lighting rig. */
 
 let bodyPromise: Promise<THREE.BufferGeometry> | undefined
 
-/**
- * The scanned body as a single geometry in world space (y up, feet at 0).
- * Loaded once per page; every caller gets its own copy to crop and move.
- */
+/** Scanned body as one world-space geometry (y up, feet at 0); each caller gets its own copy. */
 export function loadBodyGeometry() {
   bodyPromise ??= new GLTFLoader().loadAsync(bodyUrl).then((gltf) => {
     gltf.scene.updateMatrixWorld(true)
@@ -31,11 +25,7 @@ export function loadBodyGeometry() {
   return bodyPromise.then((geometry) => geometry.clone())
 }
 
-/**
- * Keep only the triangles lying wholly in the top `meshFraction` of a
- * standing figure, with the bounding box set to the framed `frameFraction`.
- * The model's own colours are dropped too: the chrome is the material.
- */
+/** Keeps triangles wholly in the top `meshFraction`, with bounds set to `frameFraction`. Drops model colours. */
 export function cropFromTop(
   source: THREE.BufferGeometry,
   meshFraction: number,
@@ -58,8 +48,7 @@ export function cropFromTop(
   if (source.attributes.normal) geometry.setAttribute('normal', source.attributes.normal)
   geometry.setIndex(kept)
   if (!source.attributes.normal) geometry.computeVertexNormals()
-  // The bounding box must describe the framed part, not the whole body whose
-  // vertices are still in the buffer, or the framing would fit the legs.
+  // Bounds describe the framed part, or framing would fit the legs.
   const box = new THREE.Box3()
   const v = new THREE.Vector3()
   for (const i of kept) box.expandByPoint(v.fromBufferAttribute(pos, i))
@@ -68,12 +57,7 @@ export function cropFromTop(
   return { geometry, height }
 }
 
-/**
- * Dispose a renderer AND hand its GPU context back. `dispose()` alone frees
- * the resources but leaves the context alive until garbage collection, and
- * browsers allow only ~16 live: navigating between pages would otherwise pile
- * them up until the oldest are killed and canvases go blank or the tab hangs.
- */
+/** Dispose a renderer and release its GPU context; browsers allow only ~16 live. */
 export function releaseRenderer(renderer: THREE.WebGLRenderer) {
   renderer.dispose()
   renderer.forceContextLoss()
@@ -91,11 +75,7 @@ export function createChromeMaterial() {
   })
 }
 
-/**
- * The studio the chrome reflects: a room environment plus a key and a cool
- * rim for the hard glints along the shoulders. Returns the environment map
- * for the caller to dispose.
- */
+/** The studio the chrome reflects: room environment plus key and rim lights. Returns the env map to dispose. */
 export function addStudio(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.outputColorSpace = THREE.SRGBColorSpace

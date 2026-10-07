@@ -1,15 +1,13 @@
 import { useLayoutEffect, useRef } from 'react'
 import { useTheme } from '../contexts/ThemeContext'
 
-// The sky is a fixed composition that flips between a night and a negative
-// "day" print, so it takes literal values from the raw carbon/silver ramp
-// rather than the semantic tokens -- same reasoning as the sky toggle.
+// Literal carbon/silver values, not semantic tokens, same as the sky toggle.
 const PALETTE = {
   dark: { bg: '#0a0b0e', ink: '236 240 246', band: '200 210 225', bandA: 0.12 },
   light: { bg: '#f3f4f6', ink: '20 23 28', band: '92 100 112', bandA: 0.09 },
 } as const
 
-// Seeded, so every redraw -- resize, theme swap -- lays out the same sky.
+// Seeded so every redraw lays out the same sky.
 function rng(seed: number) {
   return () => {
     seed |= 0
@@ -20,8 +18,7 @@ function rng(seed: number) {
   }
 }
 
-// Box-Muller: most of the dust hugs the band's spine, thinning out to its
-// edges, which is what makes it read as a galaxy and not a stripe of noise.
+// Box-Muller: dust hugs the band's spine.
 function gaussian(rand: () => number) {
   return Math.sqrt(-2 * Math.log(rand() || 1e-9)) * Math.cos(2 * Math.PI * rand())
 }
@@ -41,7 +38,6 @@ function draw(canvas: HTMLCanvasElement, theme: 'light' | 'dark') {
   ctx.fillStyle = p.bg
   ctx.fillRect(0, 0, w, h)
 
-  // The band runs corner to corner, top right to bottom left.
   const from = { x: w * 0.68, y: -h * 0.05 }
   const to = { x: w * 0.3, y: h * 1.05 }
   const angle = Math.atan2(to.y - from.y, to.x - from.x)
@@ -71,7 +67,6 @@ function draw(canvas: HTMLCanvasElement, theme: 'light' | 'dark') {
     ctx.fill()
   }
 
-  // Star dust along the band.
   const cos = Math.cos(angle)
   const sin = Math.sin(angle)
   for (let i = 0; i < 2600 * area; i++) {
@@ -85,16 +80,13 @@ function draw(canvas: HTMLCanvasElement, theme: 'light' | 'dark') {
     )
   }
 
-  // The open field: mostly faint, a few bright, like a real exposure.
   for (let i = 0; i < 520 * area; i++) {
     const b = rand() ** 3
     dot(rand() * w, rand() * h, 0.35 + b * 1.1, 0.2 + b * 0.8)
   }
 }
 
-// A handful of brighter stars that twinkle, as DOM dots so the canvas is only
-// ever painted once per resize or theme change -- the chrome figure above it
-// already spends the frame budget.
+// Twinkling stars are DOM dots so the canvas paints once per resize or theme change.
 const TWINKLES = (() => {
   const rand = rng(21)
   return Array.from({ length: 26 }, () => ({
@@ -106,19 +98,11 @@ const TWINKLES = (() => {
   }))
 })()
 
-/**
- * A night sky with a galactic band crossing it, echoing the hero's chrome
- * figure. In light mode the same sky prints as a negative -- graphite stars on
- * silver -- so the composition holds while the palette flips. Fills its
- * positioned parent.
- */
 export function Sky() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { theme } = useTheme()
 
-  // A layout effect so the repaint lands inside the theme toggle's
-  // flushSync: the view transition's "after" snapshot must already hold the
-  // new sky, or it would reveal the old one and then pop.
+  // Layout effect so the repaint lands inside the theme toggle's flushSync.
   useLayoutEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -149,12 +133,7 @@ export function Sky() {
   )
 }
 
-/**
- * The one sky behind the whole site. Fixed to the viewport and drawn once, so
- * every page and section scrolls over the same continuous field instead of
- * each restarting its own. Sized to the large viewport (`lvh`) so a phone's
- * collapsing address bar never forces a redraw mid-scroll.
- */
+/** The one fixed sky behind the site; `lvh` avoids redraws as a phone's address bar collapses. */
 export function SiteSky() {
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-lvh">

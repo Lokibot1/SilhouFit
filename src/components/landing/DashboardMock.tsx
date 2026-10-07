@@ -6,11 +6,6 @@ const ROWS = [
   { label: 'Fitting to checkout', value: 38 },
 ]
 
-/**
- * Each row fills under scroll control rather than arriving pre-drawn, so the
- * panel reads as a dashboard resolving its figures -- the one thing a static
- * mock of an analytics view cannot convey.
- */
 function Row({
   row,
   index,
@@ -20,7 +15,6 @@ function Row({
   index: number
   progress: MotionValue<number>
 }) {
-  // Rows resolve in sequence inside the section's own traversal, top down.
   const start = 0.1 + index * 0.12
   const fill = useTransform(progress, [start, start + 0.3], [0, row.value / 100])
   const reading = useTransform(fill, (value) => Math.round(value * 100))

@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
-/**
- * Mounts its children only while the box is within about a screen of the
- * viewport. WebGL scenes inside it are created on approach and torn down once
- * far away, so a long page never holds more than a couple of GPU contexts --
- * and the ones below the fold cost nothing until they are needed.
- */
+/** Mounts children only within about a screen of the viewport, capping live GPU contexts. */
 export function NearViewport({
   children,
   className,

@@ -115,7 +115,6 @@ export function Navbar() {
 
         <div className="hidden items-center gap-8 lg:flex">
           {NAV_LINKS.map((link) => {
-            // Section links light up by scroll position; page links by route.
             const isActive = activeHref === link.href || pathname === link.href
             return (
               <Link

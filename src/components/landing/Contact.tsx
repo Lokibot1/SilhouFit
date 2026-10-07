@@ -7,11 +7,6 @@ const ChromeBust = lazy(() =>
   import('./ChromeBust').then((m) => ({ default: m.ChromeBust })),
 )
 
-/**
- * The stillest section on the page, on purpose. After a pinned track and a
- * scrubbed acquisition sequence, the place where the visitor is asked to act
- * holds steady -- the contrast is what makes the rest read as deliberate.
- */
 export function Contact() {
   return (
     <section id="contact" className="relative scroll-mt-28">
@@ -39,10 +34,7 @@ export function Contact() {
               </a>
             </div>
           </div>
-          {/* The hero's chrome figure stands in front of the card, head and
-              shoulders rising clear of its top edge, the chest fading out as
-              it settles onto the glass. After the card in the markup, so it
-              paints above it. */}
+          {/* Paints above the card (later in the markup), fading out onto the glass. */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -top-52 right-[3%] hidden h-[27.5rem] w-[30rem] lg:block"

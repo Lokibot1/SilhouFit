@@ -88,9 +88,6 @@ export function HowItWorks() {
           </h2>
         </Reveal>
 
-        {/* No per-row entrance here. This section's motion is the scroll
-            position itself choosing a step, and a fifth copy of the page's
-            reveal would bury that. */}
         <ol className="mt-14 border-t border-line">
           {STEPS.map((step, index) => {
             const isActive = index === effectiveIndex
@@ -104,9 +101,6 @@ export function HowItWorks() {
                 onMouseLeave={() => setHoverIndex(null)}
                 className="relative border-b border-line py-8"
               >
-                {/* The step's own rule extends across as it takes focus: the
-                    same travelling measure-edge the headings use, borrowed by
-                    a line that was already in the layout. */}
                 <motion.span
                   aria-hidden="true"
                   initial={false}
