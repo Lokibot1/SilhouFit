@@ -112,7 +112,7 @@ export function SignUpPage() {
                 <span className="h-px flex-1 bg-line-strong" />
               </div>
 
-              <div className="grid gap-2.5 sm:grid-cols-2">
+              <div className="grid gap-2.5 min-[360px]:grid-cols-2">
                 <FloatingField
                   {...field('firstName')}
                   label="First name"
@@ -196,27 +196,23 @@ export function SignUpPage() {
                   </span>
                   <span>
                     I agree to the{' '}
-                    <a
-                      href="/terms-of-service"
-                      onClick={(event) => {
-                        event.preventDefault()
-                        openLegal('terms')
-                      }}
+                    <button
+                      type="button"
+                      aria-haspopup="dialog"
+                      onClick={() => openLegal('terms')}
                       className={LEGAL_LINK}
                     >
-                      Terms of Service<span className="sr-only"> (opens a dialog)</span>
-                    </a>{' '}
+                      Terms of Service
+                    </button>{' '}
                     and{' '}
-                    <a
-                      href="/privacy-policy"
-                      onClick={(event) => {
-                        event.preventDefault()
-                        openLegal('privacy')
-                      }}
+                    <button
+                      type="button"
+                      aria-haspopup="dialog"
+                      onClick={() => openLegal('privacy')}
                       className={LEGAL_LINK}
                     >
-                      Privacy Policy<span className="sr-only"> (opens a dialog)</span>
-                    </a>
+                      Privacy Policy
+                    </button>
                     .
                   </span>
                 </label>

@@ -144,7 +144,7 @@ describe('SignUpPage single form', () => {
   it('opens the dialog for a legal link instead of leaving the page', async () => {
     const user = userEvent.setup()
     renderPage()
-    await user.click(screen.getByRole('link', { name: /Privacy Policy/ }))
+    await user.click(screen.getByRole('button', { name: /Privacy Policy/ }))
     expect(await dialog('Privacy Policy')).toBeInTheDocument()
   })
 
@@ -237,14 +237,12 @@ describe('SignUpPage security and submit', () => {
     expect(await dialog('Terms of Service')).toBeInTheDocument()
     expect(submit).not.toHaveBeenCalled()
 
-    expect(screen.getByRole('link', { name: /terms of service/i })).toHaveAttribute(
-      'href',
-      '/terms-of-service',
-    )
-    expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute(
-      'href',
-      '/privacy-policy',
-    )
+    // Buttons, not links: there is no href to follow, so they can only open the dialogs.
+    for (const name of ['Terms of Service', 'Privacy Policy']) {
+      const trigger = screen.getByRole('button', { name })
+      expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
+      expect(trigger).not.toHaveAttribute('href')
+    }
   })
 
   it('focuses the consent box when both documents were read but the box is unticked', async () => {

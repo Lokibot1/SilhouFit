@@ -11,7 +11,7 @@ export function SignUpSkeleton() {
         <div className="mt-2 space-y-2.5">
           <div className="h-11 rounded-xl bg-line" />
           <div className="h-4 rounded bg-line" />
-          <div className="grid gap-2.5 sm:grid-cols-2">
+          <div className="grid gap-2.5 min-[360px]:grid-cols-2">
             <div className="h-11 rounded-xl bg-line" />
             <div className="h-11 rounded-xl bg-line" />
             <div className="h-11 rounded-xl bg-line" />
