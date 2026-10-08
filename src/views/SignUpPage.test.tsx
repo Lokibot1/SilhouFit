@@ -117,9 +117,9 @@ describe('SignUpPage single form', () => {
     expect(document.querySelector('input[type="password"]')).toBeNull()
   })
 
-  it('links "I already have an account" to /login', () => {
+  it('links "Login now!" to /login', () => {
     renderPage()
-    const login = screen.getByRole('link', { name: 'I already have an account' })
+    const login = screen.getByRole('link', { name: 'Login now!' })
     expect(login).toHaveAttribute('href', '/login')
     expect(createAccount().compareDocumentPosition(login) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
@@ -391,14 +391,14 @@ describe('SignUpPage legal consent flow', () => {
 describe('SignUpPage Google sign up', () => {
   const google = () => screen.getByRole('button', { name: 'Sign up with Google' })
 
-  it('offers the button at the top, above the primary action', () => {
+  it('offers the button at the bottom, below the primary action', () => {
     renderPage()
     expect(google()).toBeEnabled()
     expect(
-      google().compareDocumentPosition(field(/^first name$/i)) & Node.DOCUMENT_POSITION_FOLLOWING,
+      google().compareDocumentPosition(field(/^first name$/i)) & Node.DOCUMENT_POSITION_PRECEDING,
     ).toBeTruthy()
     expect(
-      google().compareDocumentPosition(createAccount()) & Node.DOCUMENT_POSITION_FOLLOWING,
+      google().compareDocumentPosition(createAccount()) & Node.DOCUMENT_POSITION_PRECEDING,
     ).toBeTruthy()
   })
 
@@ -478,7 +478,7 @@ describe('SignUpPage document metadata', () => {
     document.head.appendChild(meta)
 
     const { unmount } = renderPage()
-    expect(document.title).toBe('Create your account — SilhouFit')
+    expect(document.title).toBe('Sign up — SilhouFit')
     expect(meta.content.length).toBeGreaterThanOrEqual(150)
     expect(meta.content.length).toBeLessThanOrEqual(160)
 

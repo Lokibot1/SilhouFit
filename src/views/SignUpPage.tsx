@@ -5,19 +5,19 @@ import { CountrySelect } from '../components/form/CountrySelect'
 import { FloatingField } from '../components/form/FloatingField'
 import { GoogleButton } from '../components/form/GoogleButton'
 import { AlertIcon, CheckIcon, MailIcon, SpinnerIcon } from '../components/form/icons'
+import { SilhouetteMark } from '../components/landing/SilhouetteMark'
 import { LegalModal } from '../components/legal/LegalModal'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../components/ui/buttonStyles'
 import { fieldId, useSignUpForm } from '../hooks/useSignUpForm'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useMetaDescription } from '../hooks/useMetaDescription'
 import { DURATION, EASE_OUT } from '../motion/tokens'
-import { Reveal } from '../motion/Reveal'
 import { LIMITS, type FieldName } from '../utils/signUpValidation'
 
 const META_DESCRIPTION =
   'Create your SilhouFit account to save your fit profile, try clothes with AR fitting and shop boutiques and online with one secure sign in. It takes a minute.'
 
-const GAPS = '[&>*+*]:mt-2.5'
+const GAPS = '[&>*+*]:mt-4 short:[&>*+*]:mt-3'
 const LEGAL_LINK =
   'underline decoration-chrome-strong decoration-2 underline-offset-2 hover:text-chrome-strong'
 
@@ -36,7 +36,7 @@ function WelcomeHeading({ children }: { children: ReactNode }) {
 }
 
 export function SignUpPage() {
-  useDocumentTitle('Create your account — SilhouFit')
+  useDocumentTitle('Sign up — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
 
   const {
@@ -66,19 +66,12 @@ export function SignUpPage() {
   })
 
   return (
-    <div className="relative flex min-h-svh flex-col items-center justify-center px-4 pt-14 pb-3 sm:px-6">
-      {status !== 'success' && (
-        <Reveal>
-          <h1 className="display mb-3 text-center text-[clamp(1.75rem,4vw,2.5rem)] text-fg">
-            Create your account
-          </h1>
-        </Reveal>
-      )}
+    <div className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 max-[359px]:px-3 sm:px-6">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: DURATION.shift, ease: EASE_OUT }}
-        className="glass-card glass-elevated w-full max-w-md rounded-2xl px-4 py-4 wrap-break-word sm:px-5"
+        className="glass-card glass-elevated w-full max-w-md rounded-2xl px-4 py-4 wrap-break-word max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4"
       >
         {status === 'success' ? (
           <div>
@@ -105,14 +98,20 @@ export function SignUpPage() {
         ) : (
           <>
             <form noValidate onSubmit={onSubmit} aria-busy={pending} className={GAPS}>
-              <GoogleButton onClick={onGoogle} pending={pending && method === 'google'} />
-              <div className="flex items-center gap-3 text-xs text-fg-muted" aria-hidden="true">
-                <span className="h-px flex-1 bg-line-strong" />
-                or sign up with email
-                <span className="h-px flex-1 bg-line-strong" />
+              <div className="flex flex-col gap-5 pb-2 short:gap-3">
+                <div className="flex flex-col items-center gap-2 shortest:hidden">
+                  <span className="flex size-16 items-center justify-center rounded-2xl bg-fg shadow-sm short:size-12">
+                    <SilhouetteMark className="h-12 w-9 text-canvas short:h-9 short:w-7 [&>path]:stroke-[4]" />
+                  </span>
+                  <span className="font-display text-xl leading-none font-bold tracking-[-0.02em] text-fg">SilhouFit</span>
+                </div>
+                <div>
+                  <h1 className="display text-left text-3xl text-fg sm:text-4xl">Sign up</h1>
+                  <p className="mt-2 text-sm leading-snug text-fg-muted">Save your fit profile and try clothes with AR.</p>
+                </div>
               </div>
 
-              <div className="grid gap-2.5 min-[360px]:grid-cols-2">
+              <div className="grid gap-4 short:gap-3 min-[360px]:grid-cols-2">
                 <FloatingField
                   {...field('firstName')}
                   label="First name"
@@ -257,9 +256,23 @@ export function SignUpPage() {
                   'Create account'
                 )}
               </button>
-              <Link to="/login" className={`${SECONDARY_BUTTON} w-full`}>
-                I already have an account
-              </Link>
+
+              <div className="flex items-center gap-3 text-xs text-fg-muted" aria-hidden="true">
+                <span className="h-px flex-1 bg-line-strong" />
+                or sign up with
+                <span className="h-px flex-1 bg-line-strong" />
+              </div>
+              <GoogleButton onClick={onGoogle} pending={pending && method === 'google'} />
+
+              <p className="flex flex-wrap items-center justify-center gap-x-1 text-sm text-fg-muted">
+                Already registered?{' '}
+                <Link
+                  to="/login"
+                  className="flex min-h-11 items-center font-medium text-fg underline underline-offset-2 hover:text-chrome-strong"
+                >
+                  Login now!
+                </Link>
+              </p>
             </form>
           </>
         )}
