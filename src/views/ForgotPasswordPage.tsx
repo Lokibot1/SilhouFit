@@ -79,7 +79,7 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 sm:px-6">
+    <div className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 max-[359px]:px-3 sm:px-6">
       <Reveal>
         <h1 className="display mb-3 text-center text-[clamp(1.75rem,4vw,2.5rem)] text-fg">Reset your password</h1>
       </Reveal>
@@ -87,7 +87,7 @@ export function ForgotPasswordPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: DURATION.shift, ease: EASE_OUT }}
-        className="glass-card glass-elevated w-full max-w-md rounded-2xl px-4 py-4 wrap-break-word sm:px-5"
+        className="glass-card glass-elevated w-full max-w-md rounded-2xl px-4 py-4 wrap-break-word max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4"
       >
         {status === 'success' ? (
           <div>

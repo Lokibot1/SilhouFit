@@ -64,10 +64,10 @@ export function Navbar() {
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
-        authPage
-          ? ''
-          : solid
-            ? 'border-b border-line bg-canvas/85 backdrop-blur-md'
+        solid
+          ? 'border-b border-line bg-canvas/85 backdrop-blur-md'
+          : authPage
+            ? ''
             : 'border-b border-transparent'
       }`}
     >

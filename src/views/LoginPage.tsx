@@ -15,7 +15,7 @@ import type { LoginField } from '../utils/loginValidation'
 const META_DESCRIPTION =
   'Sign in to SilhouFit to open your saved fit profile, pick up AR fitting where you left off and shop boutiques and online with one secure SilhouFit account.'
 
-const GAPS = '[&>*+*]:mt-4'
+const GAPS = '[&>*+*]:mt-4 short:[&>*+*]:mt-3'
 
 function WelcomeHeading() {
   const ref = useRef<HTMLHeadingElement>(null)
@@ -63,12 +63,12 @@ export function LoginPage() {
         : null
 
   return (
-    <div className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 sm:px-6">
+    <div className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 max-[359px]:px-3 sm:px-6">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: DURATION.shift, ease: EASE_OUT }}
-        className="glass-card glass-elevated w-full max-w-md rounded-2xl px-4 py-4 wrap-break-word sm:px-5"
+        className="glass-card glass-elevated w-full max-w-md rounded-2xl px-4 py-4 wrap-break-word max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4"
       >
         {status === 'success' ? (
           <div>
@@ -87,14 +87,17 @@ export function LoginPage() {
           </div>
         ) : (
           <form noValidate onSubmit={onSubmit} aria-busy={pending} className={GAPS}>
-            <div className="flex flex-col gap-5 pb-2">
-              <div className="flex flex-col items-center gap-2">
-                <span className="flex size-16 items-center justify-center rounded-2xl bg-fg shadow-sm">
-                  <SilhouetteMark className="h-12 w-9 text-canvas [&>path]:stroke-[4]" />
+            <div className="flex flex-col gap-5 pb-2 short:gap-3">
+              <div className="flex flex-col items-center gap-2 shortest:hidden">
+                <span className="flex size-16 items-center justify-center rounded-2xl bg-fg shadow-sm short:size-12">
+                  <SilhouetteMark className="h-12 w-9 text-canvas short:h-9 short:w-7 [&>path]:stroke-[4]" />
                 </span>
                 <span className="font-display text-xl leading-none font-bold tracking-[-0.02em] text-fg">SilhouFit</span>
               </div>
-              <h1 className="display text-left text-3xl text-fg">Login Form</h1>
+              <div>
+                <h1 className="display text-left text-3xl text-fg sm:text-4xl">Login Form</h1>
+                <p className="mt-2 text-sm leading-snug text-fg-muted">Pick up your fit profile and AR fittings.</p>
+              </div>
             </div>
             <FloatingField
               {...field('email')}
@@ -113,8 +116,8 @@ export function LoginPage() {
               autoComplete="current-password"
               enterKeyHint="done"
             />
-            <div className="flex items-center justify-between gap-3">
-              <label className="relative flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-fg-muted">
+            <div className="flex flex-wrap items-center justify-between gap-x-2">
+              <label className="relative flex min-h-11 cursor-pointer items-center gap-2.5 text-sm whitespace-nowrap text-fg-muted">
                 <input
                   type="checkbox"
                   checked={remember}
@@ -134,7 +137,7 @@ export function LoginPage() {
               </label>
               <Link
                 to="/forgot-password"
-                className="flex min-h-11 items-center text-sm text-fg-muted underline-offset-2 hover:text-chrome-strong hover:underline"
+                className="flex min-h-11 items-center text-sm whitespace-nowrap text-fg-muted underline-offset-2 hover:text-chrome-strong hover:underline"
               >
                 Forgot password?
               </Link>

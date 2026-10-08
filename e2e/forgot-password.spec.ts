@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { DEVICE_MATRIX } from './viewports'
 
 const WIDTHS = [320, 640, 768, 1024, 1280, 1920]
 const MIN_TARGET = 44
@@ -49,6 +50,38 @@ for (const width of WIDTHS) {
       expect(box, 'control is laid out').not.toBeNull()
       expect(box!.height, `control height at ${width}px`).toBeGreaterThanOrEqual(MIN_TARGET)
     }
+  })
+}
+
+for (const { name, width, height } of DEVICE_MATRIX) {
+  test(`${name} ${width}x${height}: no horizontal scroll, every control reachable, submit clickable`, async ({ page }) => {
+    await page.setViewportSize({ width, height })
+    await page.goto('/forgot-password')
+    await expect(submit(page)).toBeVisible()
+
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth),
+      `/forgot-password overflows horizontally at ${width}x${height}`,
+    ).toBe(false)
+
+    for (const control of [emailField(page), submit(page), backLink(page)]) {
+      await control.scrollIntoViewIfNeeded()
+      const box = await control.boundingBox()
+      expect(box, 'control is laid out').not.toBeNull()
+      expect(box!.height, `control height at ${width}x${height}`).toBeGreaterThanOrEqual(MIN_TARGET)
+      expect(box!.x, 'control starts inside the viewport').toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width, 'control ends inside the viewport').toBeLessThanOrEqual(width)
+    }
+
+    await submit(page).scrollIntoViewIfNeeded()
+    const covered = await submit(page).evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+      return !(hit && el.contains(hit))
+    })
+    expect(covered, 'submit is covered by another element').toBe(false)
+    await submit(page).click()
+    await expect(page.getByText('Email is required.')).toBeVisible()
   })
 }
 

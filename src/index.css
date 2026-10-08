@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant short (@media (max-height: 43.75rem));
+@custom-variant shortest (@media (max-height: 30rem));
 
 @theme {
   --font-display: "League Spartan", ui-sans-serif, system-ui, sans-serif;

@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { DEVICE_MATRIX } from './viewports'
 
 // The one reserved credential the sign-in stub (src/service/signIn.ts) must accept.
 // Every other pair resolves { ok: false, reason: 'invalid' }.
@@ -38,6 +39,8 @@ test('renders the sign-in form with its own title and meta description', async (
   await expect(page).toHaveTitle('Sign in — SilhouFit')
   await expect(page.getByRole('heading', { level: 1, name: 'Login Form' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible()
+  await expect(page.getByText('Pick up your fit profile and AR fittings.')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
   await expect(emailField(page)).toBeVisible()
   await expect(passwordField(page)).toHaveAttribute('type', 'password')
   await expect(submit(page)).toBeVisible()
@@ -88,6 +91,51 @@ for (const width of WIDTHS) {
     expect(label!.width, `Remember me label width at ${width}px`).toBeGreaterThanOrEqual(MIN_TARGET)
     const join = await page.getByRole('link', { name: 'Join us today!' }).boundingBox()
     expect(join!.width, `Join link width at ${width}px`).toBeGreaterThanOrEqual(MIN_TARGET)
+  })
+}
+
+for (const { name, width, height } of DEVICE_MATRIX) {
+  test(`${name} ${width}x${height}: no horizontal scroll, every control reachable, submit clickable`, async ({ page }) => {
+    await page.setViewportSize({ width, height })
+    await page.goto('/login')
+    await passwordField(page).fill('a')
+    await expect(submit(page)).toBeVisible()
+
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth),
+      `/login overflows horizontally at ${width}x${height}`,
+    ).toBe(false)
+
+    const controls = [
+      emailField(page),
+      passwordField(page),
+      page.getByRole('button', { name: 'Show password' }),
+      page.getByText('Remember me'),
+      page.getByRole('link', { name: 'Forgot password?' }),
+      submit(page),
+      page.getByRole('button', { name: 'Sign in with Google' }),
+      page.getByRole('link', { name: 'Join us today!' }),
+    ]
+    for (const control of controls) {
+      await control.scrollIntoViewIfNeeded()
+      const box = await control.boundingBox()
+      expect(box, 'control is laid out').not.toBeNull()
+      expect(box!.height, `control height at ${width}x${height}`).toBeGreaterThanOrEqual(MIN_TARGET)
+      expect(box!.x, 'control starts inside the viewport').toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width, 'control ends inside the viewport').toBeLessThanOrEqual(width)
+    }
+
+    // Scrolled into view, the submit button must be the topmost element at its centre
+    // (not covered by the fixed navbar).
+    await submit(page).scrollIntoViewIfNeeded()
+    const covered = await submit(page).evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+      return !(hit && el.contains(hit))
+    })
+    expect(covered, 'submit is covered by another element').toBe(false)
+    await submit(page).click()
+    await expect(page.getByText('Email is required.')).toBeVisible()
   })
 }
 
