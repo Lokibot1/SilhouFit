@@ -3,6 +3,7 @@ import { lazy, Suspense, useState } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import { LandingCometCursor } from './components/CometCursor'
 import { IntroLoader } from './components/IntroLoader'
+import { LoginSkeleton } from './components/form/LoginSkeleton'
 import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { Layout } from './components/Layout'
 import { AboutPage } from './views/AboutPage'
@@ -15,6 +16,13 @@ import { TermsOfServicePage } from './views/TermsOfServicePage'
 
 const SignUpPage = lazy(() =>
   import('./views/SignUpPage').then((m) => ({ default: m.SignUpPage })),
+)
+
+const LoginPage = lazy(() =>
+  import('./views/LoginPage').then((m) => ({ default: m.LoginPage })),
+)
+const ForgotPasswordPage = lazy(() =>
+  import('./views/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
 )
 
 function prefersReducedMotion() {
@@ -47,6 +55,22 @@ function App() {
               element={
                 <Suspense fallback={<SignUpSkeleton />}>
                   <SignUpPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="login"
+              element={
+                <Suspense fallback={<LoginSkeleton />}>
+                  <LoginPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="forgot-password"
+              element={
+                <Suspense fallback={<LoginSkeleton short />}>
+                  <ForgotPasswordPage />
                 </Suspense>
               }
             />

@@ -1,5 +1,5 @@
-import { useRef, type ReactNode } from 'react'
-import { AlertIcon, XIcon } from './icons'
+import { useRef, useState, type ReactNode } from 'react'
+import { AlertIcon, EyeIcon, EyeOffIcon, XIcon } from './icons'
 
 interface FloatingFieldProps {
   id: string
@@ -14,7 +14,7 @@ interface FloatingFieldProps {
   error?: string
   /** Shown as "current/max" in the field's bottom-right corner. */
   counter?: { current: number; max: number }
-  type?: 'text' | 'email' | 'tel'
+  type?: 'text' | 'email' | 'tel' | 'password'
   autoComplete?: string
   inputMode?: 'text' | 'email' | 'tel'
   enterKeyHint?: 'next' | 'done'
@@ -38,6 +38,8 @@ export function FloatingField({
   readOnly,
 }: FloatingFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [revealed, setRevealed] = useState(false)
+  const isPassword = type === 'password'
   const errorId = `${id}-error`
 
   return (
@@ -50,7 +52,7 @@ export function FloatingField({
           ref={inputRef}
           id={id}
           name={id}
-          type={type}
+          type={isPassword && revealed ? 'text' : type}
           value={value}
           placeholder=" "
           onChange={(event) => onChange(event.target.value)}
@@ -58,7 +60,8 @@ export function FloatingField({
           autoComplete={autoComplete}
           inputMode={inputMode}
           enterKeyHint={enterKeyHint}
-          autoCapitalize={type === 'email' ? 'off' : undefined}
+          autoCapitalize={type === 'email' || isPassword ? 'off' : undefined}
+          autoCorrect={isPassword ? 'off' : undefined}
           spellCheck={false}
           readOnly={readOnly}
           aria-invalid={error ? true : undefined}
@@ -81,7 +84,18 @@ export function FloatingField({
           </span>
         )}
 
-        {value && !readOnly && (
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setRevealed((shown) => !shown)}
+            aria-pressed={revealed}
+            aria-label={revealed ? 'Hide password' : 'Show password'}
+            className="field__action"
+          >
+            {revealed ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+          </button>
+        )}
+        {!isPassword && value && !readOnly && (
           <button
             type="button"
             onClick={() => {
