@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { DEVICE_MATRIX } from './viewports'
+import { DEVICE_MATRIX } from '../shared/viewports'
 
 // The one reserved credential the sign-in stub (src/service/signIn.ts) must accept.
 // Every other pair resolves { ok: false, reason: 'invalid' }.

@@ -1,8 +1,8 @@
 import { MotionGlobalConfig } from 'motion/react'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ToastProvider } from './ToastProvider'
-import { useToast, type ToastOptions } from './useToast'
+import { ToastProvider } from '../../src/components/toast/ToastProvider'
+import { useToast, type ToastOptions } from '../../src/components/toast/useToast'
 
 function Trigger({ toast }: { toast: ToastOptions }) {
   const { show } = useToast()

@@ -24,7 +24,7 @@ import {
   validateSignUp,
   validateSuffix,
   type SignUpValues,
-} from './signUpValidation'
+} from '../../src/utils/signUpValidation'
 
 // Emoji fixtures written as escapes so the file encoding cannot change them.
 const GRINNING = '\u{1F600}'

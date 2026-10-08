@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { useState } from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { COUNTRIES } from '../../data/countries'
-import { CountrySelect } from './CountrySelect'
+import { COUNTRIES } from '../../src/data/countries'
+import { CountrySelect } from '../../src/components/form/CountrySelect'
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true

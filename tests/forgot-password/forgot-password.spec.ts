@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { DEVICE_MATRIX } from './viewports'
+import { DEVICE_MATRIX } from '../shared/viewports'
 
 const WIDTHS = [320, 640, 768, 1024, 1280, 1920]
 const MIN_TARGET = 44

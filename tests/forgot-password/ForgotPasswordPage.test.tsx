@@ -3,11 +3,11 @@ import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ToastProvider } from '../components/toast/ToastProvider'
-import { requestPasswordReset } from '../service/requestPasswordReset'
-import { ForgotPasswordPage } from './ForgotPasswordPage'
+import { ToastProvider } from '../../src/components/toast/ToastProvider'
+import { requestPasswordReset } from '../../src/service/requestPasswordReset'
+import { ForgotPasswordPage } from '../../src/views/ForgotPasswordPage'
 
-vi.mock('../service/requestPasswordReset', () => ({ requestPasswordReset: vi.fn() }))
+vi.mock('../../src/service/requestPasswordReset', () => ({ requestPasswordReset: vi.fn() }))
 const reset = vi.mocked(requestPasswordReset)
 
 beforeAll(() => {

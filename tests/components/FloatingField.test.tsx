@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
-import { FloatingField } from './FloatingField'
+import { FloatingField } from '../../src/components/form/FloatingField'
 
 function Harness({ type, label }: { type: 'text' | 'email' | 'password'; label: string }) {
   const [value, setValue] = useState('')

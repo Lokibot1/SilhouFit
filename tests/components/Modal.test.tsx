@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { useState } from 'react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { Modal } from './Modal'
+import { Modal } from '../../src/components/ui/Modal'
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { stripEmoji } from './signUpValidation'
-import { validateLogin, validateLoginEmail, validateLoginPassword } from './loginValidation'
+import { stripEmoji } from '../../src/utils/signUpValidation'
+import { validateLogin, validateLoginEmail, validateLoginPassword } from '../../src/utils/loginValidation'
 
 // Emoji fixtures written as escapes so the file encoding cannot change them.
 const GRINNING = '\u{1F600}'

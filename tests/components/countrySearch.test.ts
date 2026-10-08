@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { COUNTRIES, findCountry } from '../data/countries'
-import { searchCountries } from './countrySearch'
+import { COUNTRIES, findCountry } from '../../src/data/countries'
+import { searchCountries } from '../../src/utils/countrySearch'
 
 const codes = (query: string) => searchCountries(query).map((country) => country.code)
 

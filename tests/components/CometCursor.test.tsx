@@ -2,8 +2,8 @@ import { render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ThemeProvider } from '../contexts/ThemeContext'
-import { LandingCometCursor } from './CometCursor'
+import { ThemeProvider } from '../../src/contexts/ThemeContext'
+import { LandingCometCursor } from '../../src/components/CometCursor'
 
 const active = () => document.documentElement.classList.contains('comet-active')
 

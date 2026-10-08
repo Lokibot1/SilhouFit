@@ -3,13 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ToastProvider } from '../components/toast/ToastProvider'
-import { submitGoogleSignUp } from '../service/googleSignUp'
-import { submitSignUp } from '../service/signUp'
-import { SignUpPage } from './SignUpPage'
+import { ToastProvider } from '../../src/components/toast/ToastProvider'
+import { submitGoogleSignUp } from '../../src/service/googleSignUp'
+import { submitSignUp } from '../../src/service/signUp'
+import { SignUpPage } from '../../src/views/SignUpPage'
 
-vi.mock('../service/signUp', () => ({ submitSignUp: vi.fn() }))
-vi.mock('../service/googleSignUp', () => ({ submitGoogleSignUp: vi.fn() }))
+vi.mock('../../src/service/signUp', () => ({ submitSignUp: vi.fn() }))
+vi.mock('../../src/service/googleSignUp', () => ({ submitGoogleSignUp: vi.fn() }))
 const submit = vi.mocked(submitSignUp)
 const googleSubmit = vi.mocked(submitGoogleSignUp)
 
