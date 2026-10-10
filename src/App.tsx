@@ -6,6 +6,7 @@ import { IntroLoader } from './components/IntroLoader'
 import { LoginSkeleton } from './components/form/LoginSkeleton'
 import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { Layout } from './components/Layout'
+import { ShopSkeleton } from './components/shop/ShopSkeleton'
 import { AboutPage } from './views/AboutPage'
 import { CookiePolicyPage } from './views/CookiePolicyPage'
 import { LandingPage } from './views/LandingPage'
@@ -23,6 +24,10 @@ const LoginPage = lazy(() =>
 )
 const ForgotPasswordPage = lazy(() =>
   import('./views/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
+)
+
+const ShopPage = lazy(() =>
+  import('./views/ShopPage').then((m) => ({ default: m.ShopPage })),
 )
 
 function prefersReducedMotion() {
@@ -71,6 +76,14 @@ function App() {
               element={
                 <Suspense fallback={<LoginSkeleton short />}>
                   <ForgotPasswordPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="shop"
+              element={
+                <Suspense fallback={<ShopSkeleton />}>
+                  <ShopPage />
                 </Suspense>
               }
             />

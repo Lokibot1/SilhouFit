@@ -83,3 +83,41 @@ export const SpinnerIcon = ({ size = 16, className = '' }: IconProps) => (
     <path d="M12 3a9 9 0 1 0 9 9" />
   </Icon>
 )
+
+export const HeartIcon = ({ size = 20, className, filled = false }: IconProps & { filled?: boolean }) => (
+  <Icon size={size} className={className}>
+    <path
+      d="M12 20s-7.5-4.6-9-9.2C2 7.6 4 5 6.8 5c2 0 3.6 1.1 5.2 3 1.6-1.9 3.2-3 5.2-3C20 5 22 7.6 21 10.8 19.5 15.4 12 20 12 20Z"
+      fill={filled ? 'currentColor' : 'none'}
+    />
+  </Icon>
+)
+
+export const StarIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8 6.6 19.7l1.1-6.1L3.2 9.4l6.1-.8L12 3Z" fill="currentColor" />
+  </Icon>
+)
+
+export const GridIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <rect x="4" y="4" width="7" height="7" rx="1" />
+    <rect x="13" y="4" width="7" height="7" rx="1" />
+    <rect x="4" y="13" width="7" height="7" rx="1" />
+    <rect x="13" y="13" width="7" height="7" rx="1" />
+  </Icon>
+)
+
+export const ListIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 6h16M4 12h16M4 18h16" />
+  </Icon>
+)
+
+export const FilterIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+    <circle cx="16" cy="7" r="2" />
+    <circle cx="8" cy="17" r="2" />
+  </Icon>
+)
