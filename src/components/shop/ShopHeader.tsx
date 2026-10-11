@@ -12,7 +12,7 @@ interface ShopHeaderProps {
 // Shared by the page and its route fallback so the swap does not shift the layout.
 export function ShopHeader({ title, summary, ref }: ShopHeaderProps) {
   return (
-    <header className="mx-auto max-w-6xl px-6 pt-20 pb-4">
+    <header className="mx-auto max-w-6xl px-6 pt-20 pb-4 2xl:max-w-[88rem]">
       <nav aria-label="Breadcrumb">
         <ol className="font-ui flex items-center gap-2 text-sm text-fg-muted">
           <li>

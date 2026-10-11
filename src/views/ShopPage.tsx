@@ -231,7 +231,7 @@ export function ShopPage() {
         }
       />
 
-      <div className="mx-auto max-w-6xl px-6 pb-24">
+      <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
         {products.status === 'loading' && <ProductGridSkeleton view={view} perPage={perPage} />}
 
         {products.status === 'error' && (
@@ -249,11 +249,14 @@ export function ShopPage() {
 
         {products.status === 'success' && result && (
           <>
-            <CategoryPills
-              value={category}
-              counts={categoryCounts(products.data.products)}
-              onChange={(next) => update({ category: next })}
-            />
+            {/* On phones the categories live in the Filters modal instead. */}
+            <div className="hidden sm:block">
+              <CategoryPills
+                value={category}
+                counts={categoryCounts(products.data.products)}
+                onChange={(next) => update({ category: next })}
+              />
+            </div>
             <ShopToolbar
               sort={sort}
               onSort={(next) => update({ sort: next })}
@@ -262,6 +265,7 @@ export function ShopPage() {
               view={view}
               onView={(next) => update({ view: next, page: params.get('page') ?? undefined })}
               activeFilters={activeFilters}
+              categoryActive={category !== 'all'}
               onOpenFilters={() => setFiltersOpen(true)}
             />
             {sheet && (
@@ -280,8 +284,11 @@ export function ShopPage() {
               onClose={() => setFiltersOpen(false)}
               products={products.data.products}
               filters={filters}
-              onApply={(next) =>
+              category={category}
+              counts={categoryCounts(products.data.products)}
+              onApply={(next, nextCategory) =>
                 update({
+                  category: nextCategory,
                   min: next.minPrice?.toString(),
                   max: next.maxPrice?.toString(),
                   colors: next.colors?.join(','),
@@ -315,8 +322,8 @@ export function ShopPage() {
               <>
                 <ul
                   ref={listRef}
-                  className={`mt-6 grid gap-x-4 gap-y-10 ${
-                    view === 'list' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                  className={`mt-6 grid gap-x-3 gap-y-8 sm:gap-x-4 sm:gap-y-10 ${
+                    view === 'list' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5'
                   }`}
                 >
                   {result.items.map((product, index) => (

@@ -147,6 +147,15 @@ describe('CartSheet', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
+  it('offers Shop new arrivals in the empty state, which closes the cart and opens the newest pieces', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    const cart = await openCart(user)
+    await user.click(within(cart).getByRole('button', { name: 'Shop new arrivals' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByTestId('where')).toHaveTextContent('/shop?sort=newest')
+  })
+
   it('shows lines that cannot be bought with their reason, leaves them out of the subtotal, and lets them be removed', async () => {
     seed([
       { id: 'p03', size: 'S', color: 'Black', qty: 1 }, // 790

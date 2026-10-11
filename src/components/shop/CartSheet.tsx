@@ -5,6 +5,7 @@ import { lineKey, useCart, type Line } from '../../hooks/useCart'
 import { useCatalogue } from '../../hooks/useProducts'
 import { resolveCartItems } from '../../utils/checkout'
 import { formatPeso } from '../../utils/format'
+import { CartIcon, SparkleIcon } from '../form/icons'
 import { Modal } from '../ui/Modal'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 
@@ -68,6 +69,11 @@ export function CartSheet({ open, onClose, guest = false }: CartSheetProps) {
     }
   }
 
+  function browseNewArrivals() {
+    onClose()
+    navigate('/shop?sort=newest')
+  }
+
   function checkout() {
     onClose()
     navigate('/checkout?source=cart')
@@ -120,10 +126,19 @@ export function CartSheet({ open, onClose, guest = false }: CartSheetProps) {
         )}
 
         {cart.lines.length === 0 && (
-          <div className="py-8 text-center">
-            <h3 className="display text-xl text-fg">Your cart is empty</h3>
-            <p className="mt-2 text-base leading-relaxed text-fg-muted">Pieces you add will wait here until you check out.</p>
-            <button type="button" onClick={onClose} className={`${SHOP_SECONDARY} mx-auto mt-5`}>
+          <div className="flex flex-col items-center py-8 text-center">
+            <span aria-hidden="true" className="glass-card flex size-14 items-center justify-center rounded-full text-fg">
+              <CartIcon />
+            </span>
+            <h3 className="display mt-4 text-xl text-fg">Your cart is empty</h3>
+            <p className="mt-2 max-w-xs text-base leading-relaxed text-fg-muted">
+              Pieces you add will wait here until you check out. Start with what just arrived.
+            </p>
+            <button type="button" onClick={browseNewArrivals} className={`${SHOP_PRIMARY} mt-5 w-full max-w-xs`}>
+              <SparkleIcon size={16} />
+              Shop new arrivals
+            </button>
+            <button type="button" onClick={onClose} className={`${SHOP_SECONDARY} mt-2 w-full max-w-xs`}>
               Keep shopping
             </button>
           </div>

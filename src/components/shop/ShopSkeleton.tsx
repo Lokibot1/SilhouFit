@@ -18,7 +18,7 @@ export function ShopSkeleton() {
   return (
     <>
       <ShopHeader title={shopTitle(params)} summary={<SummarySkeleton />} />
-      <div className="mx-auto max-w-6xl px-6 pb-24">
+      <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
         <ProductGridSkeleton />
       </div>
     </>
@@ -34,7 +34,7 @@ export function ProductGridSkeleton({ view = 'grid', perPage = 12 }: ProductGrid
   const list = view === 'list'
   return (
     <div role="status" aria-label="Loading the catalogue" className="animate-pulse">
-      <div className="-mx-6 overflow-hidden px-6 py-1">
+      <div className="-mx-6 hidden overflow-hidden px-6 py-1 sm:block">
         <div className="flex w-max gap-2">
           {Array.from({ length: 6 }, (_, i) => (
             <div key={i} className="h-9 w-24 shrink-0 rounded-xl bg-line pointer-coarse:h-11" />
@@ -42,27 +42,27 @@ export function ProductGridSkeleton({ view = 'grid', perPage = 12 }: ProductGrid
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 sm:gap-3">
         <div className="flex items-center gap-3">
           <div className="h-9 w-28 rounded-xl bg-line pointer-coarse:h-11" />
           <div className="h-9 w-[4.75rem] rounded-xl bg-line pointer-coarse:h-11 pointer-coarse:w-[5.75rem]" />
         </div>
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-          <div className="h-9 w-full rounded-xl bg-line-strong pointer-coarse:h-11 sm:w-60" />
-          <div className="h-9 w-36 rounded-xl bg-line-strong pointer-coarse:h-11" />
+        <div className="flex w-full gap-2 max-[359px]:flex-col sm:w-auto sm:gap-3">
+          <div className="h-9 min-w-0 flex-1 rounded-xl bg-line-strong pointer-coarse:h-11 sm:w-60 sm:flex-none" />
+          <div className="h-9 w-33 rounded-xl bg-line-strong pointer-coarse:h-11 max-[359px]:w-full sm:w-36" />
         </div>
       </div>
 
       <div
-        className={`mt-6 grid gap-x-4 gap-y-10 ${
-          list ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+        className={`mt-6 grid gap-x-3 gap-y-8 sm:gap-x-4 sm:gap-y-10 ${
+          list ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5'
         }`}
       >
         {Array.from({ length: perPage }, (_, i) => (
           <div key={i} className={list ? 'flex gap-4' : ''}>
             <div className={`aspect-3/4 shrink-0 rounded-2xl bg-line-strong ${list ? 'w-28 sm:w-44' : ''}`} />
             <div className={`min-w-0 flex-1 ${list ? '' : 'mt-3'}`}>
-              <div className={list ? 'min-[360px]:max-sm:min-h-[8.25rem] max-[359px]:min-h-[9.2rem]' : 'h-[7.9rem] min-[360px]:max-sm:h-[9.2rem] max-[359px]:h-[10.7rem]'}>
+              <div className={list ? 'min-[360px]:max-sm:min-h-[8.25rem] max-[359px]:min-h-[9.2rem]' : 'h-[7.9rem] min-[480px]:max-sm:h-[7.7rem] min-[360px]:max-[479px]:h-[9rem] max-[359px]:h-[10.5rem]'}>
                 <Bar className="font-ui w-2/3 text-[11px]" />
                 <Bar className="mt-1 w-5/6 text-base leading-snug" />
                 <Bar className="mt-1 w-1/3 text-sm" />

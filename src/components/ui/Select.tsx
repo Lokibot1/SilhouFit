@@ -209,7 +209,8 @@ export function Select<T extends string | number>({ label, value, options, onCha
         className={`skeuo font-ui flex min-h-9 pointer-coarse:min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-3 text-sm font-semibold ${className}`}
       >
         <span className="truncate">
-          {triggerPrefix}
+          {/* Dropped on narrow phones so the value fits beside its neighbour; it names itself ("Price: low to high"). */}
+          <span className="max-[419px]:hidden">{triggerPrefix}</span>
           {options[selectedIndex]?.label}
         </span>
         <ChevronDownIcon className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />

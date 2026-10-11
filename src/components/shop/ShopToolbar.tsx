@@ -17,6 +17,8 @@ interface ShopToolbarProps {
   view: 'grid' | 'list'
   onView: (value: 'grid' | 'list') => void
   activeFilters: number
+  /** A category other than All is chosen. Phones set it in the Filters modal, so it counts there. */
+  categoryActive: boolean
   onOpenFilters: () => void
 }
 
@@ -46,15 +48,20 @@ export function ShopToolbar(props: ShopToolbarProps) {
   )
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-3">
+    <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 sm:gap-3">
       <div className="flex items-center gap-3">
         <button type="button" onClick={props.onOpenFilters} className={SHOP_SECONDARY}>
           <FilterIcon />
           Filters
-          {props.activeFilters > 0 && (
+          {props.activeFilters + Number(props.categoryActive) > 0 && (
             <>
-              <span aria-hidden="true" className="rounded-full bg-fg px-2 text-sm text-canvas tabular-nums">
-                {props.activeFilters}
+              {/* From sm the category pills are on the page, so only the modal's filters count. */}
+              <span
+                aria-hidden="true"
+                className={`rounded-full bg-fg px-2 text-sm text-canvas tabular-nums ${props.activeFilters > 0 ? '' : 'sm:hidden'}`}
+              >
+                <span className="sm:hidden">{props.activeFilters + Number(props.categoryActive)}</span>
+                <span className="max-sm:hidden">{props.activeFilters}</span>
               </span>
               <span className="sr-only">, {props.activeFilters} active</span>
             </>
@@ -65,9 +72,9 @@ export function ShopToolbar(props: ShopToolbarProps) {
           {viewButton('list', 'List view', <ListIcon />)}
         </div>
       </div>
-      {/* Stacked on phones so "Sort: Price: low to high" is never cut off; side by side from sm. */}
-      <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-        <div className="w-full sm:w-60">
+      {/* Side by side from 360px; below that the two stack so the sort value is never cut off. */}
+      <div className="flex w-full gap-2 max-[359px]:flex-col sm:w-auto sm:gap-3">
+        <div className="min-w-0 flex-1 sm:w-60 sm:flex-none">
           <Select
             label="Sort by"
             value={props.sort}
@@ -76,7 +83,7 @@ export function ShopToolbar(props: ShopToolbarProps) {
             onChange={props.onSort}
           />
         </div>
-        <div className="w-36">
+        <div className="w-33 max-[359px]:w-full sm:w-36">
           <Select
             label="Pieces per page"
             value={props.perPage}

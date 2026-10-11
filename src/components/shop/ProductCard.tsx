@@ -6,8 +6,8 @@ import { SilhouetteMark } from '../landing/SilhouetteMark'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 
 // flex-auto: each button is as wide as its label needs, then they share what is left, so "Add to cart" never wraps.
-const BUY_BUTTON = `${SHOP_PRIMARY} min-w-0 flex-auto whitespace-nowrap`
-const ADD_BUTTON = `${SHOP_SECONDARY} min-w-0 flex-auto whitespace-nowrap`
+const BUY_BUTTON = `${SHOP_PRIMARY} min-w-0 flex-auto whitespace-nowrap max-sm:px-2 max-sm:text-xs`
+const ADD_BUTTON = `${SHOP_SECONDARY} min-w-0 flex-auto whitespace-nowrap max-sm:px-2 max-sm:text-xs`
 
 // Controls fade in on hover or keyboard focus; touch screens have no hover, so they stay visible there.
 const REVEAL =
@@ -94,9 +94,9 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
           onClick={() => onToggleSaved(product)}
           aria-pressed={saved}
           aria-label={`Save ${name} to wishlist`}
-          className="absolute top-0 right-0 flex size-11 items-center justify-center text-fg"
+          className="absolute top-0 right-0 flex size-11 max-sm:size-9 items-center justify-center text-fg"
         >
-          <span className="flex size-8 items-center justify-center rounded-full bg-canvas">
+          <span className="flex size-8 max-sm:size-7 items-center justify-center rounded-full bg-canvas">
             <HeartIcon filled={saved} />
           </span>
         </button>
@@ -107,9 +107,9 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
               type="button"
               onClick={step(-1)}
               aria-label="Previous image"
-              className={`absolute top-1/2 left-0 flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL}`}
+              className={`absolute top-1/2 left-0 flex size-11 max-sm:size-9 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL}`}
             >
-              <span className={`flex size-8 -translate-x-2 items-center justify-center rounded-full bg-canvas ${DRIFT}`}>
+              <span className={`flex size-8 max-sm:size-6 -translate-x-2 items-center justify-center rounded-full bg-canvas ${DRIFT}`}>
                 <ChevronLeftIcon />
               </span>
             </button>
@@ -117,9 +117,9 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
               type="button"
               onClick={step(1)}
               aria-label="Next image"
-              className={`absolute top-1/2 right-0 flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL}`}
+              className={`absolute top-1/2 right-0 flex size-11 max-sm:size-9 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL}`}
             >
-              <span className={`flex size-8 translate-x-2 items-center justify-center rounded-full bg-canvas ${DRIFT}`}>
+              <span className={`flex size-8 max-sm:size-6 translate-x-2 items-center justify-center rounded-full bg-canvas ${DRIFT}`}>
                 <ChevronRightIcon />
               </span>
             </button>
@@ -144,12 +144,12 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
           {/* One line so titles line up across a row; the full text stays in the DOM and in the title. */}
           <p
             title={`${product.category} · ${product.boutique}`}
-            className="font-ui truncate text-[11px] tracking-[0.16em] text-fg-muted uppercase"
+            className="font-ui truncate text-[10px] tracking-[0.12em] text-fg-muted uppercase sm:text-[11px] sm:tracking-[0.16em]"
           >
             {product.category} · {product.boutique}
           </p>
-          <h3 className="text-base leading-snug font-semibold text-fg">{name}</h3>
-          <p className="flex items-center gap-1 text-sm text-fg-muted tabular-nums">
+          <h3 className="text-sm leading-snug font-semibold text-fg sm:text-base">{name}</h3>
+          <p className="flex items-center gap-1 text-xs text-fg-muted tabular-nums sm:text-sm">
             <StarIcon className="text-fg" />
             <span aria-hidden="true">
               {product.rating.toFixed(1)} ({product.reviews.toLocaleString('en-PH')})
@@ -167,13 +167,13 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
                 {product.colors.map((c) => (
                   <span
                     key={c.name}
-                    className="size-4 rounded-full border border-fg-muted"
+                    className="size-3 rounded-full border border-fg-muted sm:size-4"
                     style={{ backgroundColor: c.hex }}
                   />
                 ))}
               </span>
             </p>
-            <p className="ml-auto flex flex-wrap justify-end gap-x-2 text-base font-semibold text-fg tabular-nums">
+            <p className="ml-auto flex flex-wrap justify-end gap-x-2 text-sm font-semibold text-fg tabular-nums sm:text-base">
               {salePrice !== undefined ? (
                 <>
                   <span className="sr-only">Original price </span>
@@ -186,7 +186,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
               )}
             </p>
           </div>
-          <p className="font-ui text-xs text-fg-muted">
+          <p className="font-ui text-[11px] text-fg-muted sm:text-xs">
             {stock <= LOW_STOCK && (
               <>
                 <span className="font-semibold text-danger">{soldOut ? 'Sold out' : `Only ${stock} left`}</span>
