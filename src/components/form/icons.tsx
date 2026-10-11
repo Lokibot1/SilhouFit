@@ -78,6 +78,18 @@ export const ChevronDownIcon = ({ size = 16, className }: IconProps) => (
   </Icon>
 )
 
+export const ChevronLeftIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="m15 6-6 6 6 6" />
+  </Icon>
+)
+
+export const ChevronRightIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="m9 6 6 6-6 6" />
+  </Icon>
+)
+
 export const SpinnerIcon = ({ size = 16, className = '' }: IconProps) => (
   <Icon size={size} className={`animate-spin ${className}`}>
     <path d="M12 3a9 9 0 1 0 9 9" />

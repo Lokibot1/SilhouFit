@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { LOW_STOCK, type Product } from '../../data/products'
-import { BagIcon, CartIcon, HeartIcon, StarIcon } from '../form/icons'
+import { useState, type MouseEvent } from 'react'
+import { LOW_STOCK, productImages, type Product } from '../../data/products'
+import { BagIcon, CartIcon, ChevronLeftIcon, ChevronRightIcon, HeartIcon, StarIcon } from '../form/icons'
 import { formatPeso } from '../../utils/format'
 import { SilhouetteMark } from '../landing/SilhouetteMark'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
@@ -8,6 +8,12 @@ import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 // flex-auto: each button is as wide as its label needs, then they share what is left, so "Add to cart" never wraps.
 const BUY_BUTTON = `${SHOP_PRIMARY} min-w-0 flex-auto whitespace-nowrap`
 const ADD_BUTTON = `${SHOP_SECONDARY} min-w-0 flex-auto whitespace-nowrap`
+
+// Controls fade in on hover or keyboard focus; touch screens have no hover, so they stay visible there.
+const REVEAL =
+  'opacity-0 transition-[opacity,translate] duration-500 ease-in-out group-hover/img:opacity-100 group-has-focus-visible/img:opacity-100 pointer-coarse:opacity-100'
+// The chevrons also drift in from the edge and the dots rise into place, on the same timing.
+const DRIFT = 'transition-transform duration-500 ease-in-out group-hover/img:translate-x-0 group-has-focus-visible/img:translate-x-0 pointer-coarse:translate-x-0'
 
 const CHANNEL_LABEL = { both: 'Online and in store', online: 'Online only', store: 'In store only' } as const
 
@@ -24,14 +30,23 @@ interface ProductCardProps {
 
 export function ProductCard({ product, index, list = false, saved, onToggleSaved, onAddToCart, onBuy }: ProductCardProps) {
   const [failed, setFailed] = useState(false)
+  const [current, setCurrent] = useState(0)
   const { name, salePrice, stock } = product
   const soldOut = stock === 0
+  const images = productImages(product)
+  const multi = images.length > 1
+  // Wraps around at both ends. Stops the click so it never reaches the card.
+  const step = (by: number) => (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setCurrent((c) => (c + by + images.length) % images.length)
+  }
   const channel = product.channels.length === 2 ? CHANNEL_LABEL.both : CHANNEL_LABEL[product.channels[0]]
 
   return (
     <article className={`h-full ${list ? 'flex gap-4' : 'flex flex-col'}`}>
       <div
-        className={`relative aspect-3/4 shrink-0 overflow-hidden rounded-2xl border border-line bg-canvas-sub ${
+        className={`group/img relative aspect-3/4 shrink-0 overflow-hidden rounded-2xl border border-line bg-canvas-sub ${
           list ? 'w-28 sm:w-44' : 'w-full'
         }`}
       >
@@ -45,14 +60,22 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
             <span className="font-ui text-xs">{name}</span>
           </div>
         ) : (
-          <img
-            src={product.image}
-            alt={product.alt}
-            loading={index < 4 ? 'eager' : 'lazy'}
-            decoding="async"
-            onError={() => setFailed(true)}
-            className="photo-mono size-full object-cover"
-          />
+          <div
+            className="flex size-full transition-transform duration-350 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            style={{ transform: `translateX(-${current * 100}%)` }}
+          >
+            {images.map((src, i) => (
+              <img
+                key={src}
+                src={src}
+                alt={i === 0 ? product.alt : `${product.alt} (view ${i + 1} of ${images.length})`}
+                loading={i === 0 && index < 4 ? 'eager' : 'lazy'}
+                decoding="async"
+                onError={(e) => (i === 0 ? setFailed(true) : (e.currentTarget.style.visibility = 'hidden'))}
+                className="photo-mono size-full shrink-0 object-cover"
+              />
+            ))}
+          </div>
         )}
 
         <ul className="absolute top-2 left-2 flex max-w-[calc(100%-3.5rem)] flex-wrap items-start gap-1">
@@ -78,6 +101,41 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
           </span>
         </button>
 
+        {multi && (
+          <>
+            <button
+              type="button"
+              onClick={step(-1)}
+              aria-label="Previous image"
+              className={`absolute top-1/2 left-0 flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL}`}
+            >
+              <span className={`flex size-8 -translate-x-2 items-center justify-center rounded-full bg-canvas ${DRIFT}`}>
+                <ChevronLeftIcon />
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={step(1)}
+              aria-label="Next image"
+              className={`absolute top-1/2 right-0 flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL}`}
+            >
+              <span className={`flex size-8 translate-x-2 items-center justify-center rounded-full bg-canvas ${DRIFT}`}>
+                <ChevronRightIcon />
+              </span>
+            </button>
+            <p className="sr-only" aria-live="polite">
+              Image {current + 1} of {images.length}
+            </p>
+            <ol aria-hidden="true" className={`pointer-events-none absolute inset-x-0 bottom-2 flex translate-y-1.5 justify-center gap-1.5 group-hover/img:translate-y-0 group-has-focus-visible/img:translate-y-0 pointer-coarse:translate-y-0 ${REVEAL}`}>
+              {images.map((src, i) => (
+                <li
+                  key={src}
+                  className={`size-1.5 rounded-full bg-canvas transition-opacity duration-200 ${i === current ? 'opacity-100' : 'opacity-50'}`}
+                />
+              ))}
+            </ol>
+          </>
+        )}
       </div>
 
       {/* Spacing follows proximity: 4px inside a group, 12px between groups, 16px before the actions. */}

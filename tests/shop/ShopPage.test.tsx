@@ -312,7 +312,8 @@ describe('ShopPage cards', () => {
   it('shows price, sale price, low stock, swatch names and loads the first four images eagerly', async () => {
     renderPage()
     await loaded()
-    const images = screen.getAllByRole('img').filter((img) => img.tagName === 'IMG')
+    // The first photo of each card; the carousel's extra photos come after it and are always lazy.
+    const images = cards().map((card) => card.querySelector('img')!)
     expect(images.slice(0, 4).every((img) => img.getAttribute('loading') === 'eager')).toBe(true)
     expect(images[4]).toHaveAttribute('loading', 'lazy')
     expect(images[0]).toHaveAttribute('decoding', 'async')

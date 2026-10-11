@@ -1,11 +1,13 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { DURATION, EASE_OUT } from '../../motion/tokens'
+import { EASE_SCRUB } from '../../motion/tokens'
 
 const EDGE = 8
 const GAP = 8
 const HOVER_DELAY_MS = 300
+// One even curve in and out, slow enough to read as a fade rather than a blink.
+const FADE = { duration: 0.32, ease: EASE_SCRUB }
 
 interface BubbleProps {
   id: string
@@ -32,10 +34,9 @@ function Bubble({ id, label, anchor }: BubbleProps) {
       ref={ref}
       id={id}
       role="tooltip"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: DURATION.feedback, ease: EASE_OUT }}
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1, transition: FADE }}
+      exit={{ opacity: 0, scale: 0.96, transition: FADE }}
       style={place}
       className="font-ui pointer-events-none fixed z-[70] max-w-[calc(100vw-1rem)] rounded-xl bg-fg px-3 py-1.5 text-sm text-canvas shadow-[0_8px_20px_-8px_rgb(var(--shadow-key)/var(--shadow-b))]"
     >

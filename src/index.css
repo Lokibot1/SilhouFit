@@ -167,6 +167,20 @@
     }
   }
 
+  /* Anything clickable eases its hover in. Utilities and component classes that set their own transition win. */
+  a,
+  button,
+  summary,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  label[for] {
+    transition-property: color, background-color, border-color, box-shadow, opacity, text-decoration-color;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+
   :focus-visible {
     outline: 2px solid var(--chrome-strong);
     outline-offset: 2px;
@@ -471,16 +485,33 @@
 
   /* Skeuomorphic controls. Idle is raised; hover brightens and lifts; pressed sinks; selected stays sunk in the
      ink face. Focus keeps the global outline. */
+  @property --sk-hi {
+    syntax: "<color>";
+    inherits: false;
+    initial-value: transparent;
+  }
+
+  @property --sk-lo {
+    syntax: "<color>";
+    inherits: false;
+    initial-value: transparent;
+  }
+
+  /* The face colours are registered properties so the hover gradient can ease in; gradients alone cannot. */
   .skeuo,
   .skeuo-ink {
+    --sk-hi: var(--skeuo-face-hi);
+    --sk-lo: var(--skeuo-face-lo);
     border: 1px solid var(--line-strong);
-    background-image: linear-gradient(to bottom, var(--skeuo-face-hi), var(--skeuo-face-lo));
+    background-image: linear-gradient(to bottom, var(--sk-hi), var(--sk-lo));
     box-shadow: inset 0 1px 0 var(--skeuo-rim), var(--skeuo-drop);
     color: var(--fg);
     transition:
-      box-shadow 140ms ease,
-      filter 140ms ease,
-      transform 140ms ease;
+      --sk-hi 200ms ease,
+      --sk-lo 200ms ease,
+      box-shadow 200ms ease,
+      filter 200ms ease,
+      transform 200ms ease;
   }
 
   .skeuo-ink,
@@ -502,7 +533,8 @@
   }
 
   .skeuo:hover:not([aria-pressed='true'], [aria-current='page'], [data-checked='true'], [aria-expanded='true'], :disabled, [aria-disabled='true']) {
-    background-image: linear-gradient(to bottom, var(--skeuo-face-hi-hover), var(--skeuo-face-lo-hover));
+    --sk-hi: var(--skeuo-face-hi-hover);
+    --sk-lo: var(--skeuo-face-lo-hover);
     filter: var(--skeuo-hover-filter);
     box-shadow: inset 0 1px 0 var(--skeuo-rim-hover), var(--skeuo-drop-hover);
   }

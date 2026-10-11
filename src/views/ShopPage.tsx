@@ -30,6 +30,7 @@ import {
   type Availability,
   type ProductFilters,
 } from '../utils/productQuery'
+import { playAddToCart } from '../utils/sound'
 
 const DESCRIPTION =
   'Browse the SilhouFit catalogue: filter by category, check online and in-store stock, and preview how each piece fits with browser-based AR before you buy it.'
@@ -204,6 +205,7 @@ export function ShopPage() {
       return
     }
     setSheetOpen(false)
+    playAddToCart()
     toast.show({
       kind: 'success',
       message: `Added to cart: ${product.name}, ${size}, ${color} × ${qty}`,
