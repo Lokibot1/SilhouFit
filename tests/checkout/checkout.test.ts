@@ -24,6 +24,19 @@ describe('parseCheckoutItems', () => {
     expect(first.product.id).toBe('p01')
   })
 
+  it('builds several items from repeated params, in order', () => {
+    const items = parseCheckoutItems(params('item=p01&size=M&color=Navy&qty=2&item=p02&size=M&color=Black&qty=1'), PRODUCTS)
+    expect(items.map((i) => [i.product.id, i.size, i.color, i.qty])).toEqual([
+      ['p01', 'M', 'Navy', 2],
+      ['p02', 'M', 'Black', 1],
+    ])
+  })
+
+  it('rejects the whole order when one of several items is invalid or a piece repeats', () => {
+    expect(parseCheckoutItems(params('item=p01&size=M&color=Navy&item=p02&size=M&color=Rust'), PRODUCTS)).toEqual([])
+    expect(parseCheckoutItems(params('item=p01&size=M&color=Navy&item=p01&size=S&color=White'), PRODUCTS)).toEqual([])
+  })
+
   it('defaults the quantity to 1', () => {
     expect(parseCheckoutItems(params('item=p01&size=M&color=Navy'), PRODUCTS)[0].qty).toBe(1)
   })

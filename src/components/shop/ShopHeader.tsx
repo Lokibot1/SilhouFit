@@ -2,15 +2,17 @@ import type { ReactNode, Ref } from 'react'
 import { Link } from 'react-router-dom'
 
 interface ShopHeaderProps {
-  /** Follows the current view: "All pieces", a category, or "Saved pieces". */
+  /** Follows the current view: "All pieces" or a category. */
   title: string
   summary?: ReactNode
+  /** The last breadcrumb: the page this header belongs to. */
+  crumb?: string
   /** The focus and scroll target after paging or clearing filters. */
   ref?: Ref<HTMLHeadingElement>
 }
 
 // Shared by the page and its route fallback so the swap does not shift the layout.
-export function ShopHeader({ title, summary, ref }: ShopHeaderProps) {
+export function ShopHeader({ title, summary, crumb = 'Shop', ref }: ShopHeaderProps) {
   return (
     <header className="mx-auto max-w-6xl px-6 pt-20 pb-4 2xl:max-w-[88rem]">
       <nav aria-label="Breadcrumb">
@@ -21,7 +23,7 @@ export function ShopHeader({ title, summary, ref }: ShopHeaderProps) {
             </Link>
           </li>
           <li aria-hidden="true">/</li>
-          <li aria-current="page">Shop</li>
+          <li aria-current="page">{crumb}</li>
         </ol>
       </nav>
       <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">

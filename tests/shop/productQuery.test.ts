@@ -107,14 +107,6 @@ describe('queryProducts filters', () => {
   })
 })
 
-describe('queryProducts saved-only', () => {
-  it('keeps only the listed ids, and nothing when the list is empty', () => {
-    expect(ids({ onlyIds: ['p02', 'p05', 'missing'] })).toEqual(['p02', 'p05'])
-    expect(ids({ onlyIds: [] })).toEqual([])
-    expect(run({ onlyIds: undefined }).total).toBe(PRODUCTS.length)
-  })
-})
-
 describe('queryProducts paging', () => {
   it('slices by perPage and reports the page count', () => {
     const first = run({ perPage: 10 })

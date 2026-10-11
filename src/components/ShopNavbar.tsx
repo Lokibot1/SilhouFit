@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import { useCartCount } from '../hooks/useCart'
 import { useCurrentUser } from '../hooks/useCurrentUser'
@@ -31,21 +31,19 @@ function Badge({ count }: { count: number }) {
 
 /** The navbar on /shop: the lockup, the shop search, wishlist, cart, account and the theme toggle. */
 export function ShopNavbar() {
-  const [params, setParams] = useSearchParams()
   const [search, setSearch] = useShopSearch()
   const savedCount = useSavedIds()?.length ?? null // null until the catalogue is known
   const cartCount = useCartCount()
   const user = useCurrentUser()
-  const navigate = useNavigate()
   const [cartOpen, setCartOpen] = useState(false)
   const { pathname, search: query } = useLocation()
   const { theme } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const searchToggleRef = useRef<HTMLButtonElement>(null)
-  // The search and the saved filter belong to the shop page; on checkout the same bar keeps cart, account and theme.
+  // The search belongs to the shop page; on the wishlist and checkout the same bar keeps cart, account and theme.
   const onShop = pathname.replace(/\/$/, '') === '/shop'
-  const savedOnly = onShop && params.get('saved') === '1'
+  const onWishlist = pathname.replace(/\/$/, '') === '/wishlist'
 
   // Below lg the search is a row that opens on demand.
   useEffect(() => {
@@ -69,20 +67,6 @@ export function ShopNavbar() {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [onShop])
-
-  function toggleSavedOnly() {
-    if (!onShop) {
-      navigate('/shop?saved=1')
-      return
-    }
-    setParams((prev) => {
-      const next = new URLSearchParams(prev)
-      next.delete('page')
-      if (savedOnly) next.delete('saved')
-      else next.set('saved', '1')
-      return next
-    })
-  }
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-canvas/85 backdrop-blur-md">
@@ -149,16 +133,15 @@ export function ShopNavbar() {
           </Tooltip>
           )}
           <Tooltip label={savedCount === null ? 'Wishlist' : `Wishlist (${savedCount} saved)`}>
-            <button
-              type="button"
-              aria-pressed={savedOnly}
+            <Link
+              to="/wishlist"
+              aria-current={onWishlist ? 'page' : undefined}
               aria-label={savedCount === null ? 'Wishlist' : `Wishlist, ${savedCount} saved`}
-              onClick={toggleSavedOnly}
-              className={ICON_BUTTON}
+              className={`${ICON_BUTTON} ${onWishlist ? 'bg-fg/10' : ''}`}
             >
-              <HeartIcon filled={savedOnly} />
+              <HeartIcon filled={onWishlist} />
               <Badge count={savedCount ?? 0} />
-            </button>
+            </Link>
           </Tooltip>
           <Tooltip label={`Cart (${cartCount} ${cartCount === 1 ? 'item' : 'items'})`}>
             <button

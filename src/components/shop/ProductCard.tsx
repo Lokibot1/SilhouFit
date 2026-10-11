@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react'
 import { LOW_STOCK, productImages, type Product } from '../../data/products'
-import { BagIcon, CartIcon, ChevronLeftIcon, ChevronRightIcon, HeartIcon, StarIcon } from '../form/icons'
+import { BagIcon, CartIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, HeartIcon, StarIcon } from '../form/icons'
 import { formatPeso } from '../../utils/format'
 import { SilhouetteMark } from '../landing/SilhouetteMark'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
@@ -26,9 +26,11 @@ interface ProductCardProps {
   onToggleSaved: (product: Product) => void
   onAddToCart: (product: Product) => void
   onBuy: (product: Product) => void
+  /** The wishlist page: a checkbox on the photo for acting on several pieces at once. */
+  selection?: { selected: boolean; onChange: (selected: boolean) => void }
 }
 
-export function ProductCard({ product, index, list = false, saved, onToggleSaved, onAddToCart, onBuy }: ProductCardProps) {
+export function ProductCard({ product, index, list = false, saved, onToggleSaved, onAddToCart, onBuy, selection }: ProductCardProps) {
   const [failed, setFailed] = useState(false)
   const [current, setCurrent] = useState(0)
   const { name, salePrice, stock } = product
@@ -101,6 +103,21 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
           </span>
         </button>
 
+        {selection && (
+          <label className="absolute bottom-0 left-0 flex size-11 max-sm:size-9 cursor-pointer items-center justify-center text-fg">
+            <input
+              type="checkbox"
+              checked={selection.selected}
+              onChange={(e) => selection.onChange(e.target.checked)}
+              aria-label={`Select ${name}`}
+              className="peer sr-only"
+            />
+            <span className="flex size-6 items-center justify-center rounded-md border-2 border-fg bg-canvas peer-checked:bg-fg peer-checked:text-canvas peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong">
+              {selection.selected && <CheckIcon size={16} />}
+            </span>
+          </label>
+        )}
+
         {multi && (
           <>
             <button
@@ -141,13 +158,6 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
       {/* Spacing follows proximity: 4px inside a group, 12px between groups, 16px before the actions. */}
       <div className={`flex min-w-0 flex-1 flex-col gap-3 ${list ? '' : 'mt-3'}`}>
         <div className="flex flex-col gap-1">
-          {/* One line so titles line up across a row; the full text stays in the DOM and in the title. */}
-          <p
-            title={`${product.category} · ${product.boutique}`}
-            className="font-ui truncate text-[10px] tracking-[0.12em] text-fg-muted uppercase sm:text-[11px] sm:tracking-[0.16em]"
-          >
-            {product.category} · {product.boutique}
-          </p>
           <h3 className="text-sm leading-snug font-semibold text-fg sm:text-base">{name}</h3>
           <p className="flex items-center gap-1 text-xs text-fg-muted tabular-nums sm:text-sm">
             <StarIcon className="text-fg" />

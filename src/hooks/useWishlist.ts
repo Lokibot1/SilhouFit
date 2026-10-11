@@ -31,6 +31,15 @@ function toggleWishlist(id: string) {
   commit(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
 }
 
+function removeFromWishlist(remove: string[]) {
+  commit(ids.filter((id) => !remove.includes(id)))
+}
+
+// Puts pieces back (Undo) without duplicating any that were saved again in the meantime.
+function addToWishlist(add: string[]) {
+  commit([...ids, ...add.filter((id) => !ids.includes(id))])
+}
+
 // Another tab changed the list (or cleared storage).
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (event) => {
@@ -47,7 +56,13 @@ function subscribe(listener: () => void) {
 
 export function useWishlist() {
   const current = useSyncExternalStore(subscribe, () => ids)
-  return { ids: current, has: (id: string) => current.includes(id), toggle: toggleWishlist }
+  return {
+    ids: current,
+    has: (id: string) => current.includes(id),
+    toggle: toggleWishlist,
+    remove: removeFromWishlist,
+    add: addToWishlist,
+  }
 }
 
 /**

@@ -19,18 +19,24 @@ export const PROVIDERS: { value: Provider; label: string }[] = [
 ]
 
 /**
- * The items to check out, from the URL. Every param is untrusted: the piece must exist, the size and colour must be
- * ones it offers and the quantity must be 1 up to its stock. Anything else yields no items.
+ * The items to check out, from the URL: one piece, or several as repeated item/size/color/qty params in the same
+ * order. Every param is untrusted: each piece must exist, its size and colour must be ones it offers and its
+ * quantity must be 1 up to its stock. If any item fails, or a piece repeats, there are no items.
  */
 export function parseCheckoutItems(params: URLSearchParams, catalogue: Product[]): CheckoutItem[] {
-  const product = catalogue.find((p) => p.id === params.get('item'))
-  const size = params.get('size') ?? ''
-  const color = params.get('color') ?? ''
-  const qtyText = params.get('qty') ?? '1'
-  const qty = /^\d{1,3}$/.test(qtyText) ? Number(qtyText) : 0
-  if (!product || !sizesFor(product).includes(size) || !product.colors.some((c) => c.name === color)) return []
-  if (qty < 1 || qty > product.stock) return []
-  return [{ product, size, color, qty }]
+  const ids = params.getAll('item')
+  const items: CheckoutItem[] = []
+  for (const [i, id] of ids.entries()) {
+    const product = catalogue.find((p) => p.id === id)
+    const size = params.getAll('size')[i] ?? ''
+    const color = params.getAll('color')[i] ?? ''
+    const qtyText = params.getAll('qty')[i] ?? '1'
+    const qty = /^\d{1,3}$/.test(qtyText) ? Number(qtyText) : 0
+    if (!product || !sizesFor(product).includes(size) || !product.colors.some((c) => c.name === color)) return []
+    if (qty < 1 || qty > product.stock || items.some((item) => item.product.id === id)) return []
+    items.push({ product, size, color, qty })
+  }
+  return items
 }
 
 const joinNames = (names: string[]) =>

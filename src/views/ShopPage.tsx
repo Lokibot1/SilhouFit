@@ -37,7 +37,7 @@ const DESCRIPTION =
 
 // Params holding their default are dropped from the URL.
 const DEFAULTS: Record<string, string> = { category: 'all', sort: 'featured', perPage: '12', view: 'grid', page: '1' }
-const FILTER_KEYS = ['category', 'q', 'min', 'max', 'colors', 'avail', 'ar', 'saved', 'page']
+const FILTER_KEYS = ['category', 'q', 'min', 'max', 'colors', 'avail', 'ar', 'page']
 
 const price = (value: string | null) => (value !== null && /^\d+$/.test(value) ? Number(value) : undefined)
 
@@ -67,7 +67,6 @@ export function ShopPage() {
   const q = params.get('q') ?? ''
   const sort = SORT_OPTIONS.find((o) => o.value === params.get('sort'))?.value ?? 'featured'
   const perPage = PER_PAGE_OPTIONS.find((n) => String(n) === params.get('perPage')) ?? 12
-  const savedOnly = params.get('saved') === '1'
   const view = params.get('view') === 'list' ? 'list' : 'grid'
   const filters: ProductFilters = {
     minPrice: price(params.get('min')),
@@ -107,7 +106,6 @@ export function ShopPage() {
           sort,
           perPage,
           page: Number(params.get('page')),
-          onlyIds: savedOnly ? (savedIds ?? []) : undefined,
         })
       : null
 
@@ -138,16 +136,9 @@ export function ShopPage() {
     headingRef.current?.focus()
   }
 
-  function clearSavedOnly() {
-    update({ saved: undefined })
-    headingRef.current?.focus()
-  }
-
   function toggleSaved(product: Product) {
     const wasSaved = wishlist.has(product.id)
     wishlist.toggle(product.id)
-    // In the saved-only view the card disappears, so keep focus on the results heading.
-    if (savedOnly && wasSaved) headingRef.current?.focus()
     toast.show(
       wasSaved
         ? { kind: 'info', message: 'Removed from wishlist', action: { label: 'Undo', onClick: () => wishlist.toggle(product.id) } }
@@ -213,7 +204,6 @@ export function ShopPage() {
     })
   }
 
-  const noSaved = savedOnly && savedIds?.length === 0
   const from = result ? (result.page - 1) * perPage + 1 : 0
   const to = result ? from + result.items.length - 1 : 0
 
@@ -301,21 +291,17 @@ export function ShopPage() {
             {result.total === 0 ? (
               <div className="glass-card mt-6 rounded-2xl p-6 sm:p-8">
                 <h3 className="display text-xl text-fg">
-                  {noSaved
-                    ? 'No saved pieces yet'
-                    : !q
-                      ? 'No pieces match your filters'
-                      : activeFilters > 0 || category !== 'all' || savedOnly
-                        ? `No pieces match "${q}" with your filters`
-                        : `No pieces match "${q}"`}
+                  {!q
+                    ? 'No pieces match your filters'
+                    : activeFilters > 0 || category !== 'all'
+                      ? `No pieces match "${q}" with your filters`
+                      : `No pieces match "${q}"`}
                 </h3>
                 <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
-                  {noSaved
-                    ? 'Tap the heart on any piece to save it here.'
-                    : 'Check the spelling or try a shorter word, a colour or a category. Clearing the search and filters brings back the full catalogue.'}
+                  Check the spelling or try a shorter word, a colour or a category. Clearing the search and filters brings back the full catalogue.
                 </p>
-                <button type="button" onClick={noSaved ? clearSavedOnly : clearAll} className={`${PRIMARY_BUTTON} mt-6`}>
-                  {noSaved ? 'Browse all pieces' : 'Clear search and filters'}
+                <button type="button" onClick={clearAll} className={`${PRIMARY_BUTTON} mt-6`}>
+                  Clear search and filters
                 </button>
               </div>
             ) : (

@@ -13,7 +13,7 @@ import { isAuthPath } from '../utils/authRoutes'
 const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
 
 // Pages in the shopping flow share one bar (cart, account, theme; search on /shop only).
-const SHOP_BAR = ['/shop', '/checkout', '/checkout/success']
+const SHOP_BAR = ['/shop', '/wishlist', '/checkout', '/checkout/success']
 
 export function Layout({ bare = false }: { bare?: boolean }) {
   const { pathname, hash, key } = useLocation()

@@ -1,5 +1,7 @@
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useRef, useState } from 'react'
 import { sizesFor, type Product } from '../../data/products'
+import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { formatPeso } from '../../utils/format'
 import { BagIcon, CartIcon, FilterIcon, HashIcon, MinusIcon, PaletteIcon, PlusIcon, RulerIcon } from '../form/icons'
 import { Modal } from '../ui/Modal'
@@ -21,6 +23,8 @@ interface SpecSheetProps {
   onConfirm: (choice: Choice) => void
   /** Not signed in: Buy now says they will sign in before paying. */
   guest?: boolean
+  /** Choosing for several pieces in turn (the wishlist): which one this is. */
+  step?: { index: number; total: number }
 }
 
 const SIZE_ERROR = 'Choose a size to continue.'
@@ -31,8 +35,10 @@ const OPTION_BASE =
   'skeuo font-ui flex min-h-8 pointer-coarse:min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong'
 
 /** Pick the specs (colour, size, quantity) for Add to cart or Buy now, with the price following the choice. */
-export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, guest = false }: SpecSheetProps) {
+export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, guest = false, step }: SpecSheetProps) {
   const sizes = sizesFor(product)
+  const reduced = useReducedMotion()
+  const drift = reduced ? 0 : 24
   const left = action === 'cart' ? product.stock - inCart : product.stock
   const [color, setColor] = useState(product.colors.length === 1 ? product.colors[0].name : '')
   const [size, setSize] = useState('')
@@ -41,10 +47,11 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
   const sizeGroup = useRef<HTMLFieldSetElement>(null)
   const colorGroup = useRef<HTMLFieldSetElement>(null)
 
-  // Each opening starts fresh.
-  const [wasOpen, setWasOpen] = useState(open)
-  if (open !== wasOpen) {
-    setWasOpen(open)
+  // Each opening, and each next piece in a sequence, starts fresh.
+  const resetKey = `${open}|${product.id}`
+  const [wasKey, setWasKey] = useState(resetKey)
+  if (resetKey !== wasKey) {
+    setWasKey(resetKey)
     if (open) {
       setColor(product.colors.length === 1 ? product.colors[0].name : '')
       setSize('')
@@ -54,7 +61,8 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
   }
 
   const unit = product.salePrice ?? product.price
-  const verb = action === 'cart' ? 'Add to cart' : 'Buy now'
+  const last = !step || step.index === step.total
+  const verb = !last ? 'Next piece' : action === 'cart' ? 'Add to cart' : 'Buy now'
 
   function confirm() {
     if (!size) {
@@ -74,12 +82,12 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
     <Modal
       open={open}
       onClose={onClose}
-      title="Choose options"
+      title={step && step.total > 1 ? `Choose options (${step.index} of ${step.total})` : 'Choose options'}
       icon={<FilterIcon />}
       variant="sheet"
       footer={
         <div className="space-y-2">
-          {guest && action === 'buy' && <p className="text-center text-sm text-fg-muted">You&apos;ll sign in before you pay.</p>}
+          {guest && action === 'buy' && last && <p className="text-center text-sm text-fg-muted">You&apos;ll sign in before you pay.</p>}
           <button type="button" onClick={confirm} disabled={left <= 0} className={`${SHOP_PRIMARY} min-h-14! w-full text-lg!`}>
             {action === 'cart' ? <CartIcon /> : <BagIcon />}
             {verb}
@@ -87,7 +95,15 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
         </div>
       }
     >
-      <div className="space-y-6 pb-6">
+      {/* Moving to the next piece: the old one eases out to the left, the next eases in from the right. */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={product.id}
+          initial={{ opacity: 0, x: drift }}
+          animate={{ opacity: 1, x: 0, transition: { duration: DURATION.shift, ease: EASE_OUT } }}
+          exit={{ opacity: 0, x: -drift, transition: { duration: DURATION.state, ease: EASE_OUT } }}
+          className="space-y-6 pb-6"
+        >
         <div className="flex gap-4 rounded-xl border border-line bg-fg/5 p-3">
           <img
             src={product.image}
@@ -234,7 +250,8 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
             {formatPeso(unit * qty)}
           </span>
         </div>
-      </div>
+        </motion.div>
+      </AnimatePresence>
     </Modal>
   )
 }

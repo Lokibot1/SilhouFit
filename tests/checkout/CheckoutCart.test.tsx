@@ -211,6 +211,26 @@ describe('CheckoutPage from the cart', () => {
     expect(where()).toMatch(/^\/checkout\?/)
   })
 
+  it('takes the ordered pieces off the wishlist after success, and keeps them when the order fails', async () => {
+    const u = user()
+    const stored = () => JSON.parse(localStorage.getItem('silhoufit-wishlist') ?? '[]') as string[]
+    localStorage.setItem('silhoufit-wishlist', JSON.stringify(['p01', 'p03', 'p17']))
+    act(() => {
+      window.dispatchEvent(new StorageEvent('storage', { key: 'silhoufit-wishlist' }))
+    })
+    placeMock.mockRejectedValueOnce(new Error('network'))
+    renderCheckout('/checkout?item=p01&size=M&color=Navy&qty=1&item=p17&size=L&color=White&qty=1')
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await fillAddress(u)
+    await u.click(placeButton())
+    await screen.findByRole('alert')
+    expect(stored()).toEqual(['p01', 'p03', 'p17'])
+
+    await u.click(placeButton())
+    await waitFor(() => expect(where()).toBe('/checkout/success'))
+    expect(stored()).toEqual(['p03'])
+  })
+
   it('never touches the cart for a Buy now order', async () => {
     const u = user()
     seedCart([{ id: 'p01', size: 'M', color: 'Navy', qty: 2 }])

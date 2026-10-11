@@ -7,7 +7,7 @@ import { LoginSkeleton } from './components/form/LoginSkeleton'
 import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
-import { ShopSkeleton } from './components/shop/ShopSkeleton'
+import { ShopSkeleton, WishlistSkeleton } from './components/shop/ShopSkeleton'
 import { AboutPage } from './views/AboutPage'
 import { CookiePolicyPage } from './views/CookiePolicyPage'
 import { LandingPage } from './views/LandingPage'
@@ -29,6 +29,10 @@ const ForgotPasswordPage = lazy(() =>
 
 const ShopPage = lazy(() =>
   import('./views/ShopPage').then((m) => ({ default: m.ShopPage })),
+)
+
+const WishlistPage = lazy(() =>
+  import('./views/WishlistPage').then((m) => ({ default: m.WishlistPage })),
 )
 
 const CheckoutPage = lazy(() =>
@@ -92,6 +96,14 @@ function App() {
               element={
                 <Suspense fallback={<ShopSkeleton />}>
                   <ShopPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="wishlist"
+              element={
+                <Suspense fallback={<WishlistSkeleton />}>
+                  <WishlistPage />
                 </Suspense>
               }
             />

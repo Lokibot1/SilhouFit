@@ -96,7 +96,7 @@ for (const width of WIDTHS) {
       const clipped = await button.evaluate((el) => el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)
       expect(clipped, `${name} button text is clipped at ${width}px`).toBe(false)
     }
-    await expectTarget(page.getByRole('button', { name: /^Wishlist/ }), width, 'wishlist')
+    await expectTarget(page.getByRole('link', { name: /^Wishlist/ }), width, 'wishlist')
     await expectTarget(page.getByRole('button', { name: /^Cart/ }), width, 'cart')
     await expectTarget(page.getByRole('link', { name: 'Sign in' }), width, 'sign in')
     if (width >= 1024) await expectTarget(search(page), width, 'search')
@@ -152,7 +152,7 @@ test('reaches search, pills, Filters, hearts and pagination with the keyboard al
   await openShop(page)
   await openSearch(page)
   await search(page).focus()
-  await tabTo(page, page.getByRole('button', { name: /^Wishlist/ }))
+  await tabTo(page, page.getByRole('link', { name: /^Wishlist/ }))
   await tabTo(page, pill(page, 'Tops'))
   await page.keyboard.press('Enter')
   await expect(pill(page, 'Tops')).toHaveAttribute('aria-pressed', 'true')
@@ -260,17 +260,18 @@ test('focuses the search with Ctrl+K and ignores the shortcut while typing in an
   await expect(dialog.getByLabel('Minimum')).toBeFocused()
 })
 
-test('the wishlist icon filters to saved pieces and stays in step with the hearts', async ({ page }) => {
+test('the wishlist icon opens the wishlist page and stays in step with the hearts', async ({ page }) => {
   await openShop(page)
   await page.getByRole('button', { name: 'Save Heritage Polo to wishlist' }).click()
-  const wishlist = page.getByRole('button', { name: 'Wishlist, 1 saved' })
+  const wishlist = page.getByRole('link', { name: 'Wishlist, 1 saved' })
   await expect(wishlist).toBeVisible()
   await expect(page.getByText('Saved 1')).toBeVisible()
 
   await wishlist.click()
-  await expect(page).toHaveURL(/saved=1/)
+  await expect(page).toHaveURL(/\/wishlist$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Your wishlist' })).toBeVisible()
   await expect(cards(page)).toHaveCount(1)
-  await expect(wishlist).toHaveAttribute('aria-pressed', 'true')
+  await expect(wishlist).toHaveAttribute('aria-current', 'page')
 })
 
 test('Add to cart opens the spec sheet, needs a size, raises the navbar badge and Undo reverts it', async ({ page }) => {

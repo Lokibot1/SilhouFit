@@ -247,13 +247,14 @@ describe('ShopPage search, category and URL state', () => {
     const all = screen.getByRole('button', { name: /^All\s*24$/ })
     expect(all).toHaveAttribute('aria-pressed', 'true')
 
-    const tops = screen.getByRole('button', { name: /^Tops/ })
-    await user.click(tops)
-    expect(tops).toHaveAttribute('aria-pressed', 'true')
+    const topsPill = screen.getByRole('button', { name: /^Tops/ })
+    await user.click(topsPill)
+    expect(topsPill).toHaveAttribute('aria-pressed', 'true')
     expect(all).toHaveAttribute('aria-pressed', 'false')
     expect(urlSearch()).toBe('?category=Tops')
     expect(screen.getByRole('heading', { level: 1, name: 'Tops' })).toBeInTheDocument()
-    expect(cards().length > 0 && cards().every((card) => /Tops/.test(card.textContent ?? ''))).toBe(true)
+    const topsNames = PRODUCTS.filter((p) => p.category === 'Tops').map((p) => p.name)
+    expect(cards().length > 0 && cards().every((card) => topsNames.includes(within(card).getByRole('heading').textContent ?? ''))).toBe(true)
   })
 
   it('reads its state from the URL', async () => {
@@ -555,48 +556,6 @@ describe('ShopPage cart buttons', () => {
     await user.click(add)
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
-  })
-})
-
-describe('ShopPage saved-only view', () => {
-  it('shows only saved pieces when the navbar wishlist is pressed, and the heart count matches', async () => {
-    seedWishlist(['p02', 'p05'])
-    const user = userEvent.setup()
-    renderPage()
-    await loaded()
-    expect(screen.getByRole('button', { name: 'Wishlist, 2 saved' })).toBeInTheDocument()
-    expect(screen.getByText('Saved 2')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Wishlist, 2 saved' }))
-    await waitFor(() => expect(cards()).toHaveLength(2))
-    expect(screen.getByRole('heading', { level: 1, name: 'Saved pieces' })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Save Fence-Line Blazer to wishlist' }))
-    expect(screen.getByRole('button', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
-    expect(screen.getByText('Saved 1')).toBeInTheDocument()
-  })
-
-  it('explains an empty saved list and leaves it with "Browse all pieces"', async () => {
-    const user = userEvent.setup()
-    renderPage('/shop?saved=1&sort=newest')
-    expect(await screen.findByText('No saved pieces yet')).toBeInTheDocument()
-    expect(screen.getByText('Tap the heart on any piece to save it here.')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Browse all pieces' }))
-    expect(await loaded()).toHaveLength(12)
-    expect(urlSearch()).toBe('?sort=newest') // only saved is cleared
-    expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toHaveFocus()
-  })
-
-  it('keeps focus on the results heading when a card is unsaved in the saved-only view', async () => {
-    seedWishlist(['p02', 'p05'])
-    const user = userEvent.setup()
-    renderPage('/shop?saved=1')
-    await waitFor(() => expect(cards()).toHaveLength(2))
-
-    await user.click(screen.getByRole('button', { name: 'Save Fence-Line Blazer to wishlist' }))
-    await waitFor(() => expect(cards()).toHaveLength(1))
-    expect(screen.getByRole('heading', { level: 1, name: 'Saved pieces' })).toHaveFocus()
   })
 })
 

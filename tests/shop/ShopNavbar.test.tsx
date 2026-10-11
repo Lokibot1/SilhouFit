@@ -112,7 +112,7 @@ describe('route selects the navbar', () => {
   it.each(['/shop', '/shop/'])('uses the shop navbar on %s', (url) => {
     renderLayout(url)
     expect(screen.getByRole('searchbox', { name: 'Search the catalogue' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Wishlist, 0 saved' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Wishlist, 0 saved' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Sign Up now!' })).toBeNull()
   })
 
@@ -130,7 +130,7 @@ describe('route selects the navbar', () => {
     renderLayout('/about')
     expect(screen.getAllByRole('link', { name: 'Sign Up now!' }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('searchbox')).toBeNull()
-    expect(screen.queryByRole('button', { name: /^Wishlist/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /^Wishlist/ })).toBeNull()
   })
 })
 
@@ -271,25 +271,24 @@ describe('ShopNavbar', () => {
     expect(urlSearch()).toBe('?q=polo')
   })
 
-  it('shows the wishlist count in the label and a badge, and toggles saved-only through the URL', async () => {
+  it('shows the wishlist count in the label and a badge, and links to the wishlist page', () => {
     syncWishlist(['p01', 'p02'])
-    const user = userEvent.setup()
     renderNavbar('/shop?page=2')
-    const heart = screen.getByRole('button', { name: 'Wishlist, 2 saved' })
+    const heart = screen.getByRole('link', { name: 'Wishlist, 2 saved' })
     expect(heart).toHaveTextContent('2')
-    expect(heart).toHaveAttribute('aria-pressed', 'false')
+    expect(heart).toHaveAttribute('href', '/wishlist')
+    expect(heart).not.toHaveAttribute('aria-current')
+  })
 
-    await user.click(heart)
-    expect(urlSearch()).toBe('?saved=1')
-    expect(heart).toHaveAttribute('aria-pressed', 'true')
-    await user.click(heart)
-    expect(urlSearch()).toBe('')
+  it('marks the wishlist link as the current page on /wishlist', () => {
+    renderNavbar('/wishlist')
+    expect(screen.getByRole('link', { name: 'Wishlist, 0 saved' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('counts only saved pieces that exist, without deleting the others from storage', () => {
     syncWishlist(['p01', 'gone', 'also-gone'])
     renderNavbar()
-    expect(screen.getByRole('button', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(['p01', 'gone', 'also-gone'])
   })
 
@@ -297,18 +296,18 @@ describe('ShopNavbar', () => {
     syncWishlist(['p01', 'gone'])
     resetProductsCache()
     renderNavbar()
-    expect(screen.getByRole('button', { name: 'Wishlist' })).toHaveTextContent('')
+    expect(screen.getByRole('link', { name: 'Wishlist' })).toHaveTextContent('')
     act(() => primeProductsCache(CATALOGUE))
-    expect(screen.getByRole('button', { name: 'Wishlist, 1 saved' })).toHaveTextContent('1')
+    expect(screen.getByRole('link', { name: 'Wishlist, 1 saved' })).toHaveTextContent('1')
   })
 
   it('follows a change made in another tab through the storage event', () => {
     renderNavbar()
-    expect(screen.getByRole('button', { name: 'Wishlist, 0 saved' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Wishlist, 0 saved' })).toBeInTheDocument()
     syncWishlist(['p03', 'p04'])
-    expect(screen.getByRole('button', { name: 'Wishlist, 2 saved' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Wishlist, 2 saved' })).toBeInTheDocument()
     syncWishlist(['p03'])
-    expect(screen.getByRole('button', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
   })
 
   it('opens the cart drawer from the cart button: empty at zero, with the lines when there are some', async () => {
@@ -383,7 +382,7 @@ describe('ShopNavbar', () => {
     syncCart([{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
     const user = userEvent.setup()
     renderNavbar()
-    const wishlist = screen.getByRole('button', { name: 'Wishlist, 2 saved' })
+    const wishlist = screen.getByRole('link', { name: 'Wishlist, 2 saved' })
     const cart = screen.getByRole('button', { name: 'Cart, 1 item' })
     const signIn = screen.getByRole('link', { name: 'Sign in' })
     for (const control of [wishlist, cart, signIn]) expect(control).not.toHaveAttribute('title')

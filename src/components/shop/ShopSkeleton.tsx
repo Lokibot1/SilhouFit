@@ -25,6 +25,57 @@ export function ShopSkeleton() {
   )
 }
 
+export function CardSkeletons({ list = false, count }: { list?: boolean; count: number }) {
+  return (
+    <div
+      className={`mt-6 grid gap-x-3 gap-y-8 sm:gap-x-4 sm:gap-y-10 ${
+        list ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5'
+      }`}
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className={list ? 'flex gap-4' : ''}>
+          <div className={`aspect-3/4 shrink-0 rounded-2xl bg-line-strong ${list ? 'w-28 sm:w-44' : ''}`} />
+          <div className={`min-w-0 flex-1 ${list ? '' : 'mt-3'}`}>
+            <div className={list ? 'min-[360px]:max-sm:min-h-[6.95rem] max-[359px]:min-h-[7.9rem]' : 'h-[6.6rem] min-[480px]:max-sm:h-[6.4rem] min-[360px]:max-[479px]:h-[7.7rem] max-[359px]:h-[9.2rem]'}>
+              <Bar className="w-5/6 text-base leading-snug" />
+              <Bar className="mt-1 w-1/3 text-sm" />
+              <Bar className="mt-2 ml-auto w-1/2 text-base" />
+              <Bar className="mt-2 w-full text-xs" />
+            </div>
+            {/* The two buttons, stacked until sm. */}
+            <div className="flex flex-col gap-2 pt-3 sm:flex-row">
+              <div className="h-9 rounded-xl bg-line-strong pointer-coarse:h-11 sm:flex-1" />
+              <div className="h-9 rounded-xl bg-line-strong pointer-coarse:h-11 sm:flex-1" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** The wishlist's bulk-action bar and cards, under its own header. */
+export function WishlistGridSkeleton() {
+  return (
+    <div role="status" aria-label="Loading your wishlist" className="animate-pulse">
+      <div className="h-9 w-full rounded-xl bg-line pointer-coarse:h-11" />
+      <CardSkeletons count={4} />
+    </div>
+  )
+}
+
+/** The wishlist route fallback (header included). */
+export function WishlistSkeleton() {
+  return (
+    <>
+      <ShopHeader title="Your wishlist" crumb="Wishlist" />
+      <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
+        <WishlistGridSkeleton />
+      </div>
+    </>
+  )
+}
+
 interface ProductGridSkeletonProps {
   view?: 'grid' | 'list'
   perPage?: number
@@ -53,31 +104,7 @@ export function ProductGridSkeleton({ view = 'grid', perPage = 12 }: ProductGrid
         </div>
       </div>
 
-      <div
-        className={`mt-6 grid gap-x-3 gap-y-8 sm:gap-x-4 sm:gap-y-10 ${
-          list ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5'
-        }`}
-      >
-        {Array.from({ length: perPage }, (_, i) => (
-          <div key={i} className={list ? 'flex gap-4' : ''}>
-            <div className={`aspect-3/4 shrink-0 rounded-2xl bg-line-strong ${list ? 'w-28 sm:w-44' : ''}`} />
-            <div className={`min-w-0 flex-1 ${list ? '' : 'mt-3'}`}>
-              <div className={list ? 'min-[360px]:max-sm:min-h-[8.25rem] max-[359px]:min-h-[9.2rem]' : 'h-[7.9rem] min-[480px]:max-sm:h-[7.7rem] min-[360px]:max-[479px]:h-[9rem] max-[359px]:h-[10.5rem]'}>
-                <Bar className="font-ui w-2/3 text-[11px]" />
-                <Bar className="mt-1 w-5/6 text-base leading-snug" />
-                <Bar className="mt-1 w-1/3 text-sm" />
-                <Bar className="mt-2 ml-auto w-1/2 text-base" />
-                <Bar className="mt-2 w-full text-xs" />
-              </div>
-              {/* The two buttons, stacked until sm. */}
-              <div className="flex flex-col gap-2 pt-3 sm:flex-row">
-                <div className="h-9 rounded-xl bg-line-strong pointer-coarse:h-11 sm:flex-1" />
-                <div className="h-9 rounded-xl bg-line-strong pointer-coarse:h-11 sm:flex-1" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <CardSkeletons list={list} count={perPage} />
 
       <div className="mt-12 flex flex-col items-end gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-6">
         <Bar className="font-ui w-40 text-sm" />

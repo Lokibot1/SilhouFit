@@ -14,6 +14,7 @@ import { useCurrentUser, type CurrentUser } from '../hooks/useCurrentUser'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useMetaDescription } from '../hooks/useMetaDescription'
 import { useProducts } from '../hooks/useProducts'
+import { useWishlist } from '../hooks/useWishlist'
 import { placeOrder } from '../service/placeOrder'
 import {
   computeTotals,
@@ -158,6 +159,7 @@ interface CheckoutFormProps {
 function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const navigate = useNavigate()
   const cart = useCart()
+  const wishlist = useWishlist()
   const [fulfilment, setFulfilment] = useState<Fulfilment>(() => defaultFulfilment(items))
   const [payment, setPayment] = useState<Payment>('ewallet')
   const [provider, setProvider] = useState<Provider>('gcash')
@@ -269,6 +271,8 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
       })
       // Only what was ordered leaves the cart: a line added in another tab meanwhile stays. Buy now never touches it.
       if (fromCart) cart.removeLines(items.map((i) => lineKey({ id: i.product.id, size: i.size, color: i.color })))
+      // Bought pieces are no longer wanted on the wishlist.
+      wishlist.remove(items.map((i) => i.product.id))
       // Replace, so Back from the success page does not return to a filled form.
       navigate('/checkout/success', { replace: true })
     } catch {
@@ -305,7 +309,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           </h2>
           <ul className="mt-4 space-y-4">
             {items.map((item) => (
-              <ItemRow key={`${item.product.id}|${item.size}|${item.color}`} item={item} change={!fromCart} />
+              <ItemRow key={`${item.product.id}|${item.size}|${item.color}`} item={item} change={!fromCart && items.length === 1} />
             ))}
           </ul>
           {fromCart && (
