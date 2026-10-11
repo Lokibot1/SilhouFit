@@ -1,11 +1,5 @@
-import { lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-
-// three.js is fetched for the rack only on this page.
-const ClothingRack = lazy(() =>
-  import('../components/ClothingRack').then((m) => ({ default: m.ClothingRack })),
-)
 
 export function NotFoundPage() {
   useDocumentTitle('404: Out of stock, out of orbit — SilhouFit')
@@ -36,20 +30,6 @@ export function NotFoundPage() {
           </div>
         </div>
 
-        {/* Rail wider than the screen; --w is its width, --h its box height, capped so the scene fits one screen. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none relative h-(--h) shrink-0 overflow-hidden [--w:250vw] [--h:min(calc(var(--w)*0.15),38svh)] mask-[linear-gradient(to_bottom,black_65%,transparent_100%)] sm:[--w:140vw] lg:[--w:130vw] [@media(max-height:480px)]:[--h:18svh]"
-        >
-          <div className="rack-drift absolute top-[calc(var(--h)*0.2-var(--w)*0.0933)] left-1/2 w-(--w) -translate-x-1/2">
-            <Suspense fallback={null}>
-              <ClothingRack className="aspect-[4.5/1] w-full" />
-            </Suspense>
-          </div>
-        </div>
-        <p className="font-ui absolute right-6 bottom-6 z-10 hidden text-xs tracking-[0.16em] text-fg-muted uppercase [@media(pointer:fine)]:block">
-          Psst. Give the rack a nudge.
-        </p>
       </section>
     </>
   )

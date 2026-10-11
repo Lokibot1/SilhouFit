@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { NearViewport } from './NearViewport'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 
@@ -8,11 +8,13 @@ const ClothingRack = lazy(() =>
   import('./ClothingRack').then((m) => ({ default: m.ClothingRack })),
 )
 
-const PROJECT_LINKS = [
-  { label: 'Capabilities', href: '/about#capabilities' },
-  { label: 'AR fitting', href: '/#ar-fitting' },
-  { label: 'How it works', href: '/about#how-it-works' },
-  { label: 'For boutiques', href: '/about#boutiques' },
+// The rack belongs to the landing and about pages only.
+const RACK_PATHS = ['/', '/about']
+
+const EXPLORE_LINKS = [
+  { label: 'Shop', href: '/shop' },
+  { label: 'Wishlist', href: '/wishlist' },
+  { label: 'About SilhouFit', href: '/about' },
 ]
 
 const LEGAL_LINKS = [
@@ -52,17 +54,20 @@ function BackToTop() {
 
 export function Footer() {
   const year = new Date().getFullYear()
+  const showRack = RACK_PATHS.includes(useLocation().pathname.replace(/\/$/, '') || '/')
 
   // The rack is the footer's own ground: canvas pinned to the bottom, behind the lower content.
   return (
     <footer className="relative overflow-hidden">
-      <NearViewport className="absolute inset-x-0 bottom-0 h-[calc(clamp(18rem,52svh,34rem)+14rem)]">
-        <Suspense fallback={null}>
-          <ClothingRack className="h-full w-full" />
-        </Suspense>
-      </NearViewport>
+      {showRack && (
+        <NearViewport className="absolute inset-x-0 bottom-0 h-[calc(clamp(18rem,52svh,34rem)+14rem)]">
+          <Suspense fallback={null}>
+            <ClothingRack className="h-full w-full" />
+          </Suspense>
+        </NearViewport>
+      )}
 
-      <div className="relative mx-auto max-w-6xl px-6 pt-24 pb-[clamp(18rem,52svh,34rem)]">
+      <div className={`relative mx-auto max-w-6xl px-6 pt-24 ${showRack ? 'pb-[clamp(18rem,52svh,34rem)]' : 'pb-12'}`}>
         <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 sm:gap-x-10 sm:gap-y-12 lg:grid-cols-[1.4fr_0.85fr_0.85fr_0.85fr] lg:gap-y-0">
           <div className="col-span-2 sm:col-span-3 lg:col-span-1">
             <SilhouetteMark className="h-10 w-8 text-chrome-strong" />
@@ -96,10 +101,10 @@ export function Footer() {
 
           <div>
             <span className="font-ui block text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
-              Project
+              Explore
             </span>
             <ul className="mt-3 space-y-2.5">
-              {PROJECT_LINKS.map((link) => (
+              {EXPLORE_LINKS.map((link) => (
                 <li key={link.href}>
                   <Link to={link.href} className={`${LINK_CLASS} font-ui`}>
                     {link.label}

@@ -1207,18 +1207,3 @@ html.comet-active,
 html.comet-active * {
   cursor: none !important;
 }
-
-/* 404 scene: the rack's slow drift. Stilled by the reduced-motion rule above. */
-.rack-drift {
-  animation: rack-drift 14s ease-in-out infinite;
-}
-
-@keyframes rack-drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) rotate(-1.6deg);
-  }
-  50% {
-    transform: translate3d(0, -10px, 0) rotate(-0.6deg);
-  }
-}

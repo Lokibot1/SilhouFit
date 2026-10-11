@@ -130,7 +130,7 @@ describe('route selects the navbar', () => {
     renderLayout('/about')
     expect(screen.getAllByRole('link', { name: 'Sign Up now!' }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('searchbox')).toBeNull()
-    expect(screen.queryByRole('link', { name: /^Wishlist/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /^Wishlist, / })).toBeNull() // the footer's plain "Wishlist" link is fine
   })
 })
 
