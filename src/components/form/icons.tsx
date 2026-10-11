@@ -150,3 +150,37 @@ export const BagIcon = ({ size = 20, className }: IconProps) => (
     <path d="M9 8V7a3 3 0 0 1 6 0v1" />
   </Icon>
 )
+
+export const PaletteIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.5-1.9-.3-1 .4-2.1 1.5-2.1H17a4 4 0 0 0 4-4c0-5-4-10-9-10Z" />
+    <circle cx="7.5" cy="11" r="1" />
+    <circle cx="10.5" cy="7" r="1" />
+    <circle cx="15.5" cy="7.5" r="1" />
+  </Icon>
+)
+
+export const RulerIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <rect x="2.5" y="8" width="19" height="8" rx="1.5" />
+    <path d="M7 8v3M11 8v4M15 8v3M19 8v4" />
+  </Icon>
+)
+
+export const HashIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M9 4 7 20M17 4l-2 16M4 9h16M3.5 15h16" />
+  </Icon>
+)
+
+export const PlusIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M12 5v14M5 12h14" />
+  </Icon>
+)
+
+export const MinusIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M5 12h14" />
+  </Icon>
+)
