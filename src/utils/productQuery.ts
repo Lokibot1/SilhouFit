@@ -20,6 +20,8 @@ export interface ProductQuery extends ProductFilters {
   sort: SortKey
   page: number
   perPage: number
+  /** Keeps only these product ids (the wishlist); undefined keeps everything. */
+  onlyIds?: string[]
 }
 
 export interface ProductPage {
@@ -43,6 +45,12 @@ export const AVAILABILITY: { value: Availability; label: string }[] = [
   { value: 'low', label: `Low stock (${LOW_STOCK} or fewer)` },
 ]
 
+/** The page heading for a shop URL, so the route fallback can show it before any data arrives. */
+export function shopTitle(params: URLSearchParams) {
+  if (params.get('saved') === '1') return 'Saved pieces'
+  return CATEGORIES.find((c) => c === params.get('category')) ?? 'All pieces'
+}
+
 export const payablePrice = (product: Product) => product.salePrice ?? product.price
 
 function hasAvailability(product: Product, wanted: Availability) {
@@ -64,7 +72,7 @@ const SORTERS: Record<SortKey, (a: Product, b: Product) => number> = {
 }
 
 export function queryProducts(list: Product[], query: ProductQuery): ProductPage {
-  const { category, sort, perPage, minPrice, maxPrice, colors, availability, arReady } = query
+  const { category, sort, perPage, minPrice, maxPrice, colors, availability, arReady, onlyIds } = query
   const needle = query.q.trim().toLowerCase()
 
   const matched = list
@@ -75,6 +83,7 @@ export function queryProducts(list: Product[], query: ProductQuery): ProductPage
     .filter((p) => !colors?.length || p.colors.some((c) => colors.includes(c.name)))
     .filter((p) => !availability?.length || availability.some((a) => hasAvailability(p, a)))
     .filter((p) => !arReady || p.arReady)
+    .filter((p) => !onlyIds || onlyIds.includes(p.id))
     // Array.prototype.sort is stable, so equal keys keep the catalogue (featured) order.
     .sort(SORTERS[sort])
 

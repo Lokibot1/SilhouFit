@@ -72,6 +72,23 @@
   --shadow-key: 20 23 28;
   --shadow-a: 0.18;
   --shadow-b: 0.3;
+
+  /* Skeuomorphic controls (.skeuo, .skeuo-ink): a raised face, a lit top edge, a shaded base and a drop shadow
+     that flatten when pressed. Faces come from the carbon/silver ramps. */
+  --skeuo-face-hi: var(--color-silver-50);
+  --skeuo-face-lo: var(--color-silver-200);
+  --skeuo-ink-hi: #2a2f37;
+  --skeuo-ink-lo: var(--fg);
+  --skeuo-rim: rgb(255 255 255 / 0.85);
+  /* Hover: light mode just brightens the idle face; dark mode needs a lighter face and a brighter rim to read. */
+  --skeuo-face-hi-hover: var(--skeuo-face-hi);
+  --skeuo-face-lo-hover: var(--skeuo-face-lo);
+  --skeuo-rim-hover: var(--skeuo-rim);
+  --skeuo-hover-filter: brightness(1.06);
+  --skeuo-ink-hover-filter: brightness(1.12);
+  --skeuo-drop: 0 1px 0 rgb(20 23 28 / 0.16), 0 2px 5px -1px rgb(20 23 28 / 0.22);
+  --skeuo-drop-hover: 0 1px 0 rgb(20 23 28 / 0.16), 0 7px 14px -4px rgb(20 23 28 / 0.3);
+  --skeuo-inset: inset 0 2px 5px rgb(20 23 28 / 0.38);
 }
 
 .dark {
@@ -109,6 +126,20 @@
   --shadow-key: 0 0 0;
   --shadow-a: 0.5;
   --shadow-b: 0.65;
+
+  --skeuo-face-hi: var(--color-carbon-700);
+  --skeuo-face-lo: var(--color-carbon-800);
+  --skeuo-ink-hi: var(--color-silver-50);
+  --skeuo-ink-lo: var(--color-silver-300);
+  --skeuo-rim: rgb(255 255 255 / 0.14);
+  --skeuo-face-hi-hover: #3c4350;
+  --skeuo-face-lo-hover: #2c323b;
+  --skeuo-rim-hover: rgb(255 255 255 / 0.3);
+  --skeuo-hover-filter: none;
+  --skeuo-ink-hover-filter: brightness(0.9);
+  --skeuo-drop: 0 1px 0 rgb(0 0 0 / 0.55), 0 2px 6px -1px rgb(0 0 0 / 0.6);
+  --skeuo-drop-hover: 0 1px 0 rgb(0 0 0 / 0.55), 0 8px 16px -4px rgb(0 0 0 / 0.7);
+  --skeuo-inset: inset 0 2px 5px rgb(0 0 0 / 0.6);
 }
 
 @layer base {
@@ -436,6 +467,83 @@
       rgb(255 255 255 / calc(var(--halo-a) * 0.35)) 35%,
       transparent 68%
     );
+  }
+
+  /* Skeuomorphic controls. Idle is raised; hover brightens and lifts; pressed sinks; selected stays sunk in the
+     ink face. Focus keeps the global outline. */
+  .skeuo,
+  .skeuo-ink {
+    border: 1px solid var(--line-strong);
+    background-image: linear-gradient(to bottom, var(--skeuo-face-hi), var(--skeuo-face-lo));
+    box-shadow: inset 0 1px 0 var(--skeuo-rim), var(--skeuo-drop);
+    color: var(--fg);
+    transition:
+      box-shadow 140ms ease,
+      filter 140ms ease,
+      transform 140ms ease;
+  }
+
+  .skeuo-ink,
+  .skeuo-ink-face,
+  .skeuo[aria-pressed='true'],
+  .skeuo[aria-current='page'] {
+    background-image: linear-gradient(to bottom, var(--skeuo-ink-hi), var(--skeuo-ink-lo));
+    color: var(--canvas);
+  }
+
+  .skeuo-ink-face {
+    box-shadow: var(--skeuo-inset);
+  }
+
+  .skeuo-ink:hover {
+    filter: var(--skeuo-ink-hover-filter);
+    box-shadow: inset 0 1px 0 var(--skeuo-rim-hover), var(--skeuo-drop-hover);
+  }
+
+  .skeuo:hover:not([aria-pressed='true'], [aria-current='page'], [aria-expanded='true'], :disabled, [aria-disabled='true']) {
+    background-image: linear-gradient(to bottom, var(--skeuo-face-hi-hover), var(--skeuo-face-lo-hover));
+    filter: var(--skeuo-hover-filter);
+    box-shadow: inset 0 1px 0 var(--skeuo-rim-hover), var(--skeuo-drop-hover);
+  }
+
+  .skeuo:active,
+  .skeuo-ink:active {
+    transform: translateY(1px);
+    filter: brightness(0.96);
+    box-shadow: var(--skeuo-inset);
+  }
+
+  .skeuo[aria-pressed='true'],
+  .skeuo[aria-current='page'],
+  .skeuo[aria-expanded='true'] {
+    box-shadow: var(--skeuo-inset);
+  }
+
+  /* A sliding .skeuo-ink-face behind the selected button supplies its face. */
+  .skeuo-slide[aria-pressed='true'] {
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .skeuo:disabled,
+  .skeuo[aria-disabled='true'],
+  .skeuo-ink:disabled,
+  .skeuo-ink[aria-disabled='true'] {
+    background-image: none;
+    background-color: var(--canvas-sub);
+    box-shadow: none;
+    filter: none;
+    transform: none;
+    opacity: 0.5;
+    color: var(--fg-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeuo:active,
+    .skeuo-ink:active {
+      transform: none;
+    }
   }
 
   .btn-lift {

@@ -1,4 +1,4 @@
-import { SECONDARY_BUTTON } from '../ui/buttonStyles'
+import { SHOP_SECONDARY } from './shopControls'
 
 interface PaginationProps {
   page: number
@@ -16,11 +16,14 @@ function pageWindow(page: number, count: number) {
   return shown.flatMap((n, i) => (i > 0 && n - shown[i - 1] > 1 ? [0, n] : [n]))
 }
 
-const STEP = `${SECONDARY_BUTTON} min-w-11 disabled:pointer-events-none disabled:opacity-50`
+const STEP = `${SHOP_SECONDARY} min-w-9 pointer-coarse:min-w-11 px-4 disabled:pointer-events-none`
 
 export function Pagination({ page, pageCount, from, to, total, onPage }: PaginationProps) {
   return (
-    <div className="mt-12 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+    <div className="mt-12 flex flex-col items-end gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-6">
+      <p className="font-ui text-sm text-fg-muted tabular-nums">
+        Displaying {from}–{to} of {total}
+      </p>
       <nav aria-label="Pagination" className="flex items-center gap-2">
         <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)} className={STEP}>
           Prev
@@ -41,9 +44,7 @@ export function Pagination({ page, pageCount, from, to, total, onPage }: Paginat
                   aria-current={n === page ? 'page' : undefined}
                   aria-label={`Page ${n}`}
                   onClick={() => onPage(n)}
-                  className={`font-ui flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-xl text-base font-semibold tabular-nums ${
-                    n === page ? 'bg-fg text-canvas' : 'glass-btn bg-fg/5 text-fg hover:bg-fg/10'
-                  }`}
+                  className={`${SHOP_SECONDARY} min-w-9 pointer-coarse:min-w-11 tabular-nums`}
                 >
                   {n}
                 </button>
@@ -55,9 +56,6 @@ export function Pagination({ page, pageCount, from, to, total, onPage }: Paginat
           Next
         </button>
       </nav>
-      <p className="font-ui text-sm text-fg-muted tabular-nums">
-        Displaying {from}–{to} of {total}
-      </p>
     </div>
   )
 }

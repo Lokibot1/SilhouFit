@@ -14,41 +14,13 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { searchCountries } from '../../utils/countrySearch'
 import { stripEmoji } from '../../utils/signUpValidation'
+import { computePlace, LISTBOX_LIST, LISTBOX_PANEL, optionRow } from '../ui/listbox'
 import { CheckIcon, ChevronDownIcon } from './icons'
 
 const SEARCH_MAX_LENGTH = 40
 const SEARCH_DEBOUNCE_MS = 150
-const MENU_MAX_HEIGHT = 360
 const MENU_WIDTH = 320
 const EDGE = 8
-
-interface Place {
-  left: number
-  width: number
-  maxHeight: number
-  top?: number
-  bottom?: number
-  above: boolean
-}
-
-// Fixed to the viewport (rendered in a portal) so no ancestor can clip it and the page never grows.
-function computePlace(anchor: HTMLElement): Place {
-  const rect = anchor.getBoundingClientRect()
-  const width = Math.min(MENU_WIDTH, window.innerWidth - EDGE * 2)
-  const left = Math.min(Math.max(EDGE, rect.left - EDGE), window.innerWidth - width - EDGE)
-  const below = window.innerHeight - rect.bottom - EDGE - 4
-  const above = rect.top - EDGE - 4
-  if (below >= 240 || below >= above) {
-    return { left, width, top: rect.bottom + 4, maxHeight: Math.min(MENU_MAX_HEIGHT, below), above: false }
-  }
-  return {
-    left,
-    width,
-    bottom: window.innerHeight - rect.top + 4,
-    maxHeight: Math.min(MENU_MAX_HEIGHT, above),
-    above: true,
-  }
-}
 
 interface MenuProps {
   anchor: HTMLElement
@@ -63,7 +35,7 @@ function CountryMenu({ anchor, value, listboxId, onSelect, onClose }: MenuProps)
   const isPresent = useIsPresent()
   const panelRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
-  const [place, setPlace] = useState(() => computePlace(anchor))
+  const [place, setPlace] = useState(() => computePlace(anchor, MENU_WIDTH, EDGE))
   const [query, setQuery] = useState('')
   const debounced = useDebouncedValue(query, SEARCH_DEBOUNCE_MS)
   const results = useMemo(() => searchCountries(debounced), [debounced])
@@ -84,7 +56,7 @@ function CountryMenu({ anchor, value, listboxId, onSelect, onClose }: MenuProps)
   }, [])
 
   useEffect(() => {
-    const update = () => setPlace(computePlace(anchor))
+    const update = () => setPlace(computePlace(anchor, MENU_WIDTH, EDGE))
     function onPointerDown(event: PointerEvent) {
       const target = event.target as Node
       if (!panelRef.current?.contains(target) && !anchor.contains(target)) onClose(false)
@@ -154,7 +126,7 @@ function CountryMenu({ anchor, value, listboxId, onSelect, onClose }: MenuProps)
         top: place.top,
         bottom: place.bottom,
       }}
-      className="fixed z-[70] flex flex-col overflow-hidden rounded-xl border border-line-strong bg-canvas text-fg shadow-[0_18px_36px_-12px_rgb(var(--shadow-key)/var(--shadow-b))]"
+      className={LISTBOX_PANEL}
     >
       <input
         type="text"
@@ -180,7 +152,7 @@ function CountryMenu({ anchor, value, listboxId, onSelect, onClose }: MenuProps)
         role="listbox"
         aria-label="Countries"
         hidden={empty}
-        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain py-1"
+        className={LISTBOX_LIST}
       >
         {results.map((country) => {
           const selected = country.code === value
@@ -192,9 +164,7 @@ function CountryMenu({ anchor, value, listboxId, onSelect, onClose }: MenuProps)
               aria-selected={selected}
               onPointerMove={() => country.code !== active?.code && setActiveCode(country.code)}
               onClick={() => onSelect(country.code)}
-              className={`flex min-h-11 cursor-pointer items-center gap-2 px-3 text-base ${
-                country.code === active?.code ? 'bg-fg/10' : ''
-              } ${selected ? 'font-semibold' : ''}`}
+              className={optionRow(country.code === active?.code, selected)}
             >
               <span className="min-w-0 flex-1 truncate">{country.name}</span>
               <span className="font-ui shrink-0 text-sm text-fg-muted tabular-nums">
@@ -254,7 +224,7 @@ export function CountrySelect({ id, value, onChange, disabled }: CountrySelectPr
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
         aria-label={`Country calling code: ${country.name} ${country.dial}`}
-        className="font-ui relative flex h-8 w-22 items-center justify-center gap-1 rounded-lg border border-line-strong px-2 text-sm text-fg transition-colors duration-200 after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] hover:border-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-chrome-strong disabled:cursor-progress disabled:opacity-70"
+        className="skeuo font-ui relative flex h-8 w-22 cursor-pointer items-center justify-center gap-1 rounded-lg px-2 text-sm after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] disabled:cursor-progress"
       >
         <span>{country.code}</span>
         <span className="tabular-nums">{country.dial}</span>

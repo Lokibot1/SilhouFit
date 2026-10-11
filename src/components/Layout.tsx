@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation, useNavigationType } from 'react-router-d
 import { CookieConsentBanner } from './CookieConsentBanner'
 import { Footer } from './Footer'
 import { Navbar } from './Navbar'
+import { ShopNavbar } from './ShopNavbar'
 import { SiteSky } from './Sky'
 import { SkipLink } from './SkipLink'
 import { ToastProvider } from './toast/ToastProvider'
@@ -38,7 +39,7 @@ export function Layout({ bare = false }: { bare?: boolean }) {
       <div className="min-h-svh text-fg">
         <SiteSky />
         <SkipLink />
-        {!bare && <Navbar />}
+        {!bare && (pathname.replace(/\/$/, '') === '/shop' ? <ShopNavbar /> : <Navbar />)}
         <main id="main-content">
           <Outlet />
         </main>

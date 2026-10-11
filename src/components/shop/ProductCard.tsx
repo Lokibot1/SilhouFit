@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import { LOW_STOCK, type Product } from '../../data/products'
-import { HeartIcon, StarIcon } from '../form/icons'
+import { BagIcon, CartIcon, HeartIcon, StarIcon } from '../form/icons'
 import { SilhouetteMark } from '../landing/SilhouetteMark'
+import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 
 const PESO = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
+
+// flex-auto: each button is as wide as its label needs, then they share what is left, so "Add to cart" never wraps.
+const BUY_BUTTON = `${SHOP_PRIMARY} min-w-0 flex-auto whitespace-nowrap`
+const ADD_BUTTON = `${SHOP_SECONDARY} min-w-0 flex-auto whitespace-nowrap`
 
 const CHANNEL_LABEL = { both: 'Online and in store', online: 'Online only', store: 'In store only' } as const
 
@@ -14,15 +19,18 @@ interface ProductCardProps {
   list?: boolean
   saved: boolean
   onToggleSaved: (product: Product) => void
+  onAddToCart: (product: Product) => void
+  onBuy: (product: Product) => void
 }
 
-export function ProductCard({ product, index, list = false, saved, onToggleSaved }: ProductCardProps) {
+export function ProductCard({ product, index, list = false, saved, onToggleSaved, onAddToCart, onBuy }: ProductCardProps) {
   const [failed, setFailed] = useState(false)
   const { name, salePrice, stock } = product
+  const soldOut = stock === 0
   const channel = product.channels.length === 2 ? CHANNEL_LABEL.both : CHANNEL_LABEL[product.channels[0]]
 
   return (
-    <article className={list ? 'flex gap-4' : 'flex flex-col'}>
+    <article className={`h-full ${list ? 'flex gap-4' : 'flex flex-col'}`}>
       <div
         className={`relative aspect-3/4 shrink-0 overflow-hidden rounded-2xl border border-line bg-canvas-sub ${
           list ? 'w-28 sm:w-44' : 'w-full'
@@ -48,9 +56,12 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
           />
         )}
 
-        <ul className="absolute top-2 left-2 flex max-w-[calc(100%-3.5rem)] flex-wrap gap-1">
+        <ul className="absolute top-2 left-2 flex max-w-[calc(100%-3.5rem)] flex-wrap items-start gap-1">
           {product.badges.map((badge) => (
-            <li key={badge} className="font-ui rounded-full bg-canvas px-2 py-0.5 text-[11px] text-fg">
+            <li
+              key={badge}
+              className={`font-ui rounded-full bg-canvas whitespace-nowrap text-fg ${list ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}`}
+            >
               {badge}
             </li>
           ))}
@@ -68,53 +79,90 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
           </span>
         </button>
 
-        {stock <= LOW_STOCK && (
-          <p className="font-ui absolute bottom-2 left-2 rounded-full bg-canvas px-2 py-0.5 text-[11px] text-fg">
-            {stock === 0 ? 'Sold out' : `Only ${stock} left`}
-          </p>
-        )}
       </div>
 
-      <div className={`min-w-0 ${list ? 'flex-1' : 'mt-3'}`}>
-        <p className="font-ui text-[11px] tracking-[0.16em] text-fg-muted uppercase">
-          {product.category} · {product.boutique}
-        </p>
-        <h3 className="mt-1 text-base leading-snug font-semibold text-fg">{name}</h3>
-        <p className="mt-1 flex items-center gap-1 text-sm text-fg-muted tabular-nums">
-          <StarIcon className="text-fg" />
-          <span aria-hidden="true">
-            {product.rating.toFixed(1)} ({product.reviews.toLocaleString('en-PH')})
-          </span>
-          <span className="sr-only">
-            Rated {product.rating.toFixed(1)} out of 5 from {product.reviews.toLocaleString('en-PH')} reviews
-          </span>
-        </p>
-        <p className="mt-2 flex flex-wrap justify-end gap-x-2 text-base font-semibold text-fg tabular-nums">
-          {salePrice !== undefined ? (
-            <>
-              <span className="sr-only">Original price </span>
-              <s className="font-normal text-fg-muted">{PESO.format(product.price)}</s>
-              <span className="sr-only">Sale price </span>
-              <span>{PESO.format(salePrice)}</span>
-            </>
-          ) : (
-            <span>{PESO.format(product.price)}</span>
-          )}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <p>
-            <span className="sr-only">Available in {product.colors.map((c) => c.name).join(', ')}</span>
-            <span aria-hidden="true" className="flex gap-1">
-              {product.colors.map((c) => (
-                <span
-                  key={c.name}
-                  className="size-4 rounded-full border border-fg-muted"
-                  style={{ backgroundColor: c.hex }}
-                />
-              ))}
+      {/* Spacing follows proximity: 4px inside a group, 12px between groups, 16px before the actions. */}
+      <div className={`flex min-w-0 flex-1 flex-col gap-3 ${list ? '' : 'mt-3'}`}>
+        <div className="flex flex-col gap-1">
+          {/* One line so titles line up across a row; the full text stays in the DOM and in the title. */}
+          <p
+            title={`${product.category} · ${product.boutique}`}
+            className="font-ui truncate text-[11px] tracking-[0.16em] text-fg-muted uppercase"
+          >
+            {product.category} · {product.boutique}
+          </p>
+          <h3 className="text-base leading-snug font-semibold text-fg">{name}</h3>
+          <p className="flex items-center gap-1 text-sm text-fg-muted tabular-nums">
+            <StarIcon className="text-fg" />
+            <span aria-hidden="true">
+              {product.rating.toFixed(1)} ({product.reviews.toLocaleString('en-PH')})
+            </span>
+            <span className="sr-only">
+              Rated {product.rating.toFixed(1)} out of 5 from {product.reviews.toLocaleString('en-PH')} reviews
             </span>
           </p>
-          <p className="font-ui text-right text-xs text-fg-muted">{channel}</p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <p>
+              <span className="sr-only">Available in {product.colors.map((c) => c.name).join(', ')}</span>
+              <span aria-hidden="true" className="flex gap-1">
+                {product.colors.map((c) => (
+                  <span
+                    key={c.name}
+                    className="size-4 rounded-full border border-fg-muted"
+                    style={{ backgroundColor: c.hex }}
+                  />
+                ))}
+              </span>
+            </p>
+            <p className="ml-auto flex flex-wrap justify-end gap-x-2 text-base font-semibold text-fg tabular-nums">
+              {salePrice !== undefined ? (
+                <>
+                  <span className="sr-only">Original price </span>
+                  <s className="font-normal text-fg-muted">{PESO.format(product.price)}</s>
+                  <span className="sr-only">Sale price </span>
+                  <span>{PESO.format(salePrice)}</span>
+                </>
+              ) : (
+                <span>{PESO.format(product.price)}</span>
+              )}
+            </p>
+          </div>
+          <p className="font-ui text-xs text-fg-muted">
+            {stock <= LOW_STOCK && (
+              <>
+                <span className="font-semibold text-danger">{soldOut ? 'Sold out' : `Only ${stock} left`}</span>
+                {' · '}
+              </>
+            )}
+            {channel}
+          </p>
+        </div>
+        {/* Pinned to the bottom so cards in a row end together; stacked until there is room for two. */}
+        <div className="mt-auto flex flex-col gap-2 pt-1 sm:flex-row">
+          <button
+            type="button"
+            aria-disabled={soldOut}
+            title={soldOut ? 'Sold out' : undefined}
+            aria-label={soldOut ? `Add ${name} to cart, sold out` : `Add ${name} to cart`}
+            onClick={() => !soldOut && onAddToCart(product)}
+            className={ADD_BUTTON}
+          >
+            <CartIcon size={16} />
+            Add to cart
+          </button>
+          <button
+            type="button"
+            aria-disabled={soldOut}
+            title={soldOut ? 'Sold out' : undefined}
+            aria-label={soldOut ? `Buy ${name}, sold out` : `Buy ${name}`}
+            onClick={() => !soldOut && onBuy(product)}
+            className={BUY_BUTTON}
+          >
+            <BagIcon size={16} />
+            Buy
+          </button>
         </div>
       </div>
     </article>

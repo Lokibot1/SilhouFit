@@ -121,3 +121,32 @@ export const FilterIcon = ({ size = 20, className }: IconProps) => (
     <circle cx="8" cy="17" r="2" />
   </Icon>
 )
+
+export const SearchIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="m16 16 4.5 4.5" />
+  </Icon>
+)
+
+export const CartIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M3 4h2.5l2 11h10.5l2-8H7" />
+    <circle cx="9.5" cy="19.5" r="1.25" />
+    <circle cx="16.5" cy="19.5" r="1.25" />
+  </Icon>
+)
+
+export const UserIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+  </Icon>
+)
+
+export const BagIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M5 8h14l-1 12H6L5 8Z" />
+    <path d="M9 8V7a3 3 0 0 1 6 0v1" />
+  </Icon>
+)

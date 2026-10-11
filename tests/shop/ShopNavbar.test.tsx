@@ -1,0 +1,320 @@
+import { act, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MotionGlobalConfig } from 'motion/react'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Layout } from '../../src/components/Layout'
+import { ShopNavbar } from '../../src/components/ShopNavbar'
+import { ToastProvider } from '../../src/components/toast/ToastProvider'
+import { CookieConsentProvider } from '../../src/contexts/CookieConsentContext'
+import { ThemeProvider } from '../../src/contexts/ThemeContext'
+import { PRODUCTS } from '../../src/data/products'
+import { useCurrentUser } from '../../src/hooks/useCurrentUser'
+import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
+
+vi.mock('../../src/hooks/useCurrentUser', () => ({ useCurrentUser: vi.fn(() => null) }))
+const currentUser = vi.mocked(useCurrentUser)
+
+const KEY = 'silhoufit-wishlist'
+const CART_KEY = 'silhoufit-cart'
+function syncCart(lines: { id: string; qty: number }[]) {
+  localStorage.setItem(CART_KEY, JSON.stringify(lines))
+  act(() => {
+    window.dispatchEvent(new StorageEvent('storage', { key: CART_KEY }))
+  })
+}
+const CATALOGUE = { products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' }
+
+// The store re-reads localStorage on a storage event, which is also how another tab reaches it.
+function syncWishlist(ids?: string[]) {
+  if (ids) localStorage.setItem(KEY, JSON.stringify(ids))
+  else localStorage.clear()
+  act(() => {
+    window.dispatchEvent(new StorageEvent('storage', { key: ids ? KEY : null }))
+  })
+}
+
+beforeAll(() => {
+  MotionGlobalConfig.skipAnimations = true
+  const observer = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  vi.stubGlobal('IntersectionObserver', observer)
+  vi.stubGlobal('ResizeObserver', observer)
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener() {},
+    removeEventListener() {},
+  }))
+  Element.prototype.scrollIntoView = vi.fn()
+  HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as never
+})
+
+beforeEach(() => {
+  syncWishlist()
+  syncCart([])
+  resetProductsCache()
+  primeProductsCache(CATALOGUE)
+  currentUser.mockReturnValue(null)
+})
+afterEach(() => {
+  vi.clearAllMocks()
+  vi.restoreAllMocks()
+})
+
+function Where() {
+  const { search } = useLocation()
+  return <span data-testid="search">{search}</span>
+}
+const urlSearch = () => screen.getByTestId('search').textContent ?? ''
+
+function renderNavbar(url = '/shop') {
+  return render(
+    <MemoryRouter initialEntries={[url]}>
+      <ThemeProvider>
+        <ToastProvider>
+          <ShopNavbar />
+          <Where />
+          <input aria-label="Other field" />
+          <div role="dialog" aria-label="Stub dialog">
+            <button type="button">Apply</button>
+          </div>
+        </ToastProvider>
+      </ThemeProvider>
+    </MemoryRouter>,
+  )
+}
+
+describe('route selects the navbar', () => {
+  function renderLayout(url: string) {
+    return render(
+      <MemoryRouter initialEntries={[url]}>
+        <ThemeProvider>
+          <CookieConsentProvider>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="shop" element={<p>shop page</p>} />
+                <Route path="about" element={<p>about page</p>} />
+              </Route>
+            </Routes>
+          </CookieConsentProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    )
+  }
+
+  it.each(['/shop', '/shop/'])('uses the shop navbar on %s', (url) => {
+    renderLayout(url)
+    expect(screen.getByRole('searchbox', { name: 'Search the catalogue' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Wishlist, 0 saved' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Sign Up now!' })).toBeNull()
+  })
+
+  it('keeps the regular navbar elsewhere', () => {
+    renderLayout('/about')
+    expect(screen.getAllByRole('link', { name: 'Sign Up now!' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('searchbox')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Wishlist/ })).toBeNull()
+  })
+})
+
+describe('ShopNavbar', () => {
+  it('shows the brand and the theme toggle, with no About Us or Shop links', () => {
+    renderNavbar()
+    expect(screen.getByRole('link', { name: /SilhouFit/ })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('link', { name: 'About Us' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Shop' })).toBeNull()
+    expect(screen.queryByRole('navigation', { name: 'Primary' })).toBeNull()
+    expect(screen.getByRole('checkbox', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument()
+  })
+
+  it('links a logged-out user icon to /login', () => {
+    renderNavbar()
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+  })
+
+  it('shows the user avatar with initials instead when someone is signed in', () => {
+    currentUser.mockReturnValue({ name: 'Ana Reyes' })
+    renderNavbar()
+    expect(screen.queryByRole('link', { name: 'Sign in' })).toBeNull()
+    expect(screen.getByRole('img', { name: 'Ana Reyes' })).toHaveTextContent('AR')
+  })
+
+  it('writes the debounced search to q in the URL and drops the page', async () => {
+    const user = userEvent.setup()
+    renderNavbar('/shop?page=2')
+    await user.type(screen.getByRole('searchbox'), 'polo')
+    await waitFor(() => expect(urlSearch()).toBe('?q=polo'))
+  })
+
+  it('starts from q in the URL', () => {
+    renderNavbar('/shop?q=denim')
+    expect(screen.getByRole('searchbox')).toHaveValue('denim')
+  })
+
+  it('focuses the search on Ctrl+K or Cmd+K, but not while typing in another field', async () => {
+    const user = userEvent.setup()
+    renderNavbar()
+    await user.keyboard('{Control>}k{/Control}')
+    expect(screen.getByRole('searchbox')).toHaveFocus()
+
+    const other = screen.getByRole('textbox', { name: 'Other field' })
+    await user.click(other)
+    await user.keyboard('{Control>}k{/Control}')
+    expect(other).toHaveFocus()
+
+    ;(document.activeElement as HTMLElement).blur()
+    await user.keyboard('{Meta>}k{/Meta}')
+    expect(screen.getByRole('searchbox')).toHaveFocus()
+  })
+
+  it('leaves focus alone inside an open dialog, even on a button', async () => {
+    const user = userEvent.setup()
+    renderNavbar()
+    const apply = screen.getByRole('button', { name: 'Apply' })
+    apply.focus()
+    await user.keyboard('{Control>}k{/Control}')
+    expect(apply).toHaveFocus()
+  })
+
+  it('opens and closes the search row below the lg breakpoint', async () => {
+    const user = userEvent.setup()
+    renderNavbar()
+    const toggle = screen.getByRole('button', { name: 'Open search' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(toggle)
+    expect(screen.getByRole('searchbox')).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Close search' }))
+    expect(screen.getByRole('button', { name: 'Open search' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('closes the search row on Escape, keeping the text and returning focus to the toggle', async () => {
+    const user = userEvent.setup()
+    renderNavbar()
+    await user.click(screen.getByRole('button', { name: 'Open search' }))
+    await user.type(screen.getByRole('searchbox'), 'polo')
+    await waitFor(() => expect(urlSearch()).toBe('?q=polo'))
+
+    await user.keyboard('{Escape}')
+    const toggle = screen.getByRole('button', { name: 'Open search' })
+    expect(toggle).toHaveFocus()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('searchbox')).toHaveValue('polo')
+    expect(urlSearch()).toBe('?q=polo')
+  })
+
+  it('shows the wishlist count in the label and a badge, and toggles saved-only through the URL', async () => {
+    syncWishlist(['p01', 'p02'])
+    const user = userEvent.setup()
+    renderNavbar('/shop?page=2')
+    const heart = screen.getByRole('button', { name: 'Wishlist, 2 saved' })
+    expect(heart).toHaveTextContent('2')
+    expect(heart).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(heart)
+    expect(urlSearch()).toBe('?saved=1')
+    expect(heart).toHaveAttribute('aria-pressed', 'true')
+    await user.click(heart)
+    expect(urlSearch()).toBe('')
+  })
+
+  it('counts only saved pieces that exist, without deleting the others from storage', () => {
+    syncWishlist(['p01', 'gone', 'also-gone'])
+    renderNavbar()
+    expect(screen.getByRole('button', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(['p01', 'gone', 'also-gone'])
+  })
+
+  it('shows no count until the catalogue is known', () => {
+    syncWishlist(['p01', 'gone'])
+    resetProductsCache()
+    renderNavbar()
+    expect(screen.getByRole('button', { name: 'Wishlist' })).toHaveTextContent('')
+    act(() => primeProductsCache(CATALOGUE))
+    expect(screen.getByRole('button', { name: 'Wishlist, 1 saved' })).toHaveTextContent('1')
+  })
+
+  it('follows a change made in another tab through the storage event', () => {
+    renderNavbar()
+    expect(screen.getByRole('button', { name: 'Wishlist, 0 saved' })).toBeInTheDocument()
+    syncWishlist(['p03', 'p04'])
+    expect(screen.getByRole('button', { name: 'Wishlist, 2 saved' })).toBeInTheDocument()
+    syncWishlist(['p03'])
+    expect(screen.getByRole('button', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
+  })
+
+  it('opens the cart as a notice that follows the real count, with no badge at zero', async () => {
+    const user = userEvent.setup()
+    const { unmount } = renderNavbar()
+    const empty = screen.getByRole('button', { name: 'Cart, 0 items' })
+    expect(empty.querySelector('span')).toBeNull()
+    await user.click(empty)
+    expect(await screen.findByText(/Your cart is empty/)).toBeInTheDocument()
+    unmount()
+
+    syncCart([{ id: 'p01', qty: 1 }])
+    renderNavbar()
+    const one = screen.getByRole('button', { name: 'Cart, 1 item' })
+    expect(one).toHaveTextContent('1')
+    await user.click(one)
+    expect(await screen.findByText(/1 item in your cart/)).toBeInTheDocument()
+  })
+
+  it('totals quantities, caps each at stock and ignores pieces outside the catalogue without deleting them', () => {
+    // p02 has 4 in stock; p03 is fine; "gone" is not in the catalogue.
+    syncCart([
+      { id: 'p02', qty: 9 },
+      { id: 'p03', qty: 2 },
+      { id: 'gone', qty: 5 },
+    ])
+    renderNavbar()
+    expect(screen.getByRole('button', { name: 'Cart, 6 items' })).toHaveTextContent('6')
+    expect(JSON.parse(localStorage.getItem(CART_KEY)!)).toHaveLength(3)
+  })
+
+  it('shows no cart count until the catalogue is known', () => {
+    syncCart([{ id: 'p01', qty: 2 }])
+    resetProductsCache()
+    renderNavbar()
+    expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
+    act(() => primeProductsCache(CATALOGUE))
+    expect(screen.getByRole('button', { name: 'Cart, 2 items' })).toBeInTheDocument()
+  })
+
+  it('has no menu button: the theme toggle sits in the bar', () => {
+    renderNavbar()
+    expect(screen.queryByRole('button', { name: /menu/i })).toBeNull()
+    expect(screen.queryByRole('navigation', { name: 'Mobile' })).toBeNull()
+    expect(screen.getByRole('checkbox', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument()
+  })
+
+  it('shows tooltips on keyboard focus with live counts and no native titles', async () => {
+    syncWishlist(['p01', 'p02'])
+    syncCart([{ id: 'p01', qty: 1 }])
+    const user = userEvent.setup()
+    renderNavbar()
+    const wishlist = screen.getByRole('button', { name: 'Wishlist, 2 saved' })
+    const cart = screen.getByRole('button', { name: 'Cart, 1 item' })
+    const signIn = screen.getByRole('link', { name: 'Sign in' })
+    for (const control of [wishlist, cart, signIn]) expect(control).not.toHaveAttribute('title')
+
+    // jsdom's :focus-visible heuristic is unreliable after text inputs; a real browser shows it for keyboard focus.
+    const matches = Element.prototype.matches
+    vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector: string) {
+      return selector === ':focus-visible' ? this === document.activeElement : matches.call(this, selector)
+    })
+    for (let i = 0; i < 10 && document.activeElement !== wishlist; i++) await user.tab()
+    expect(wishlist).toHaveFocus()
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Wishlist (2 saved)')
+    await user.tab()
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Cart (1 item)')
+    await user.tab()
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Sign in')
+    await user.tab()
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/Switch to (light|dark) theme/)
+    expect(screen.getByRole('checkbox', { name: /Switch to (dark|light) mode/ }).closest('label')).not.toHaveAttribute('title')
+  })
+})

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { fetchProducts, type CatalogueData } from '../service/fetchProducts'
 
 type State =
@@ -9,9 +9,30 @@ type State =
 // Module-level so returning to /shop from another route shows the last catalogue at once; a fresh copy still loads.
 let cache: CatalogueData | null = null
 
-/** Test seam: forget the cached catalogue. */
+const listeners = new Set<() => void>()
+
+function setCache(next: CatalogueData | null) {
+  cache = next
+  listeners.forEach((listener) => listener())
+}
+
+/** Test seams: forget, or pre-fill, the cached catalogue. */
 export function resetProductsCache() {
-  cache = null
+  setCache(null)
+}
+export function primeProductsCache(data: CatalogueData) {
+  setCache(data)
+}
+
+/** The products loaded so far (null until the first load), for UI outside the shop page, e.g. the navbar. */
+export function useCatalogue() {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    () => cache,
+  )?.products ?? null
 }
 
 export function useProducts() {
@@ -22,7 +43,7 @@ export function useProducts() {
     const controller = new AbortController()
     fetchProducts({ signal: controller.signal }).then(
       (data) => {
-        cache = data
+        setCache(data)
         setState({ status: 'success', data })
       },
       (error: unknown) => {

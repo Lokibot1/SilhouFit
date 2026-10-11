@@ -1,7 +1,8 @@
 import { useRef } from 'react'
 import { useTheme } from '../contexts/ThemeContext'
 
-export function ThemeToggle() {
+/** `nativeTitle` off lets a caller supply its own tooltip instead of the browser's. */
+export function ThemeToggle({ nativeTitle = true }: { nativeTitle?: boolean }) {
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
   const labelRef = useRef<HTMLLabelElement>(null)
@@ -18,7 +19,7 @@ export function ThemeToggle() {
     <label
       ref={labelRef}
       className="sky-toggle"
-      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={nativeTitle ? (isDark ? 'Switch to light mode' : 'Switch to dark mode') : undefined}
     >
       <input
         type="checkbox"

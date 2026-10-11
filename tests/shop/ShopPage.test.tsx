@@ -1,9 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
+import { ShopNavbar } from '../../src/components/ShopNavbar'
+import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { PRODUCTS } from '../../src/data/products'
 import { resetProductsCache } from '../../src/hooks/useProducts'
 import { fetchProducts } from '../../src/service/fetchProducts'
@@ -15,7 +17,23 @@ const CATALOGUE = { products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' }
 
 const scrollIntoView = vi.fn()
 
+// The wishlist store re-reads localStorage on a storage event (how another tab reaches it).
+function seedCart(lines: { id: string; qty: number }[] = []) {
+  localStorage.setItem('silhoufit-cart', JSON.stringify(lines))
+  act(() => {
+    window.dispatchEvent(new StorageEvent('storage', { key: 'silhoufit-cart' }))
+  })
+}
+
+function seedWishlist(ids: string[] = []) {
+  localStorage.setItem('silhoufit-wishlist', JSON.stringify(ids))
+  act(() => {
+    window.dispatchEvent(new StorageEvent('storage', { key: 'silhoufit-wishlist' }))
+  })
+}
+
 beforeAll(() => {
+  configure({ asyncUtilTimeout: 5000 }) // the search is debounced; a loaded machine can be slow
   vi.setConfig({ testTimeout: 15000 })
   MotionGlobalConfig.skipAnimations = true
   vi.stubGlobal(
@@ -26,6 +44,11 @@ beforeAll(() => {
       disconnect() {}
     },
   )
+  vi.stubGlobal('ResizeObserver', class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  })
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: false,
     media: query,
@@ -38,6 +61,8 @@ beforeAll(() => {
 beforeEach(() => {
   resetProductsCache()
   localStorage.clear()
+  seedWishlist()
+  seedCart()
   fetchMock.mockResolvedValue(CATALOGUE)
 })
 afterEach(() => {
@@ -62,11 +87,14 @@ function Back() {
 function renderPage(url = '/shop') {
   return render(
     <MemoryRouter initialEntries={[url]}>
-      <ToastProvider>
-        <Routes>
-          <Route path="/shop" element={<><ShopPage /><Where /><Back /></>} />
-        </Routes>
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <ShopNavbar />
+          <Routes>
+            <Route path="/shop" element={<><ShopPage /><Where /><Back /></>} />
+          </Routes>
+        </ToastProvider>
+      </ThemeProvider>
     </MemoryRouter>,
   )
 }
@@ -82,7 +110,7 @@ describe('ShopPage states', () => {
     renderPage()
 
     expect(screen.getByRole('status', { name: 'Loading the catalogue' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1, name: 'Shop the rail' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toBeInTheDocument()
     expect(cards()).toHaveLength(0)
 
     resolve(CATALOGUE)
@@ -133,7 +161,7 @@ describe('ShopPage states', () => {
     await user.click(await screen.findByRole('button', { name: 'Clear search and filters' }))
     expect(await loaded()).toHaveLength(12)
     expect(screen.getByRole('searchbox')).toHaveValue('')
-    expect(screen.getByRole('heading', { level: 2, name: 'All pieces' })).toHaveFocus()
+    expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toHaveFocus()
 
     await user.click(screen.getByRole('button', { name: 'Back' }))
     await waitFor(() => expect(screen.getByRole('searchbox')).toHaveValue('zzzz'))
@@ -214,7 +242,7 @@ describe('ShopPage search, category and URL state', () => {
     expect(tops).toHaveAttribute('aria-pressed', 'true')
     expect(all).toHaveAttribute('aria-pressed', 'false')
     expect(urlSearch()).toBe('?category=Tops')
-    expect(screen.getByRole('heading', { level: 2, name: 'Tops' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Tops' })).toBeInTheDocument()
     expect(cards().length > 0 && cards().every((card) => /Tops/.test(card.textContent ?? ''))).toBe(true)
   })
 
@@ -222,8 +250,8 @@ describe('ShopPage search, category and URL state', () => {
     renderPage('/shop?category=Bottoms&sort=price-asc&view=list&perPage=24')
     await loaded()
     expect(screen.getByRole('button', { name: /^Bottoms/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByLabelText('Sort by')).toHaveValue('price-asc')
-    expect(screen.getByLabelText('Pieces per page')).toHaveValue('24')
+    expect(screen.getByLabelText('Sort by')).toHaveTextContent('Sort: Price: low to high')
+    expect(screen.getByLabelText('Pieces per page')).toHaveTextContent('24 per page')
     expect(screen.getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -231,7 +259,8 @@ describe('ShopPage search, category and URL state', () => {
     const user = userEvent.setup()
     renderPage('/shop?page=2')
     await loaded()
-    await user.selectOptions(screen.getByLabelText('Sort by'), 'price-desc')
+    await user.click(screen.getByLabelText('Sort by'))
+    await user.click(screen.getByRole('option', { name: 'Price: high to low' }))
     expect(urlSearch()).toBe('?sort=price-desc')
     expect(within(cards()[0]).getByText('₱8,900.00')).toBeInTheDocument()
   })
@@ -253,7 +282,7 @@ describe('ShopPage pagination', () => {
     expect(screen.getByText('Displaying 13–24 of 24')).toBeInTheDocument()
     expect(within(nav).getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav).getByRole('button', { name: 'Next' })).toBeDisabled()
-    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'All pieces' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toHaveFocus())
     expect(scrollIntoView).toHaveBeenCalled()
   })
 
@@ -261,7 +290,8 @@ describe('ShopPage pagination', () => {
     const user = userEvent.setup()
     renderPage('/shop?page=2')
     await loaded()
-    await user.selectOptions(screen.getByLabelText('Pieces per page'), '24')
+    await user.click(screen.getByLabelText('Pieces per page'))
+    await user.click(screen.getByRole('option', { name: '24 per page' }))
     expect(urlSearch()).toBe('?perPage=24')
     expect(cards()).toHaveLength(24)
     expect(screen.getByText('Page 1 of 1')).toBeInTheDocument()
@@ -319,28 +349,167 @@ describe('ShopPage cards', () => {
   })
 
   it('ignores saved ids that are not in the catalogue when counting', async () => {
-    localStorage.setItem('silhoufit-wishlist', JSON.stringify(['p01', 'gone']))
+    seedWishlist(['p01', 'gone'])
     renderPage()
     await loaded()
     expect(screen.getByText('Saved 1')).toBeInTheDocument()
+    // Hidden from the count, not deleted: a piece that comes back is still saved.
+    expect(JSON.parse(localStorage.getItem('silhoufit-wishlist')!)).toEqual(['p01', 'gone'])
   })
 
   it('restores saved pieces from storage and survives storage being blocked', async () => {
-    localStorage.setItem('silhoufit-wishlist', JSON.stringify(['p02']))
+    seedWishlist(['p02'])
     const { unmount } = renderPage()
     await loaded()
     expect(screen.getByRole('button', { name: 'Save Fence-Line Blazer to wishlist' })).toHaveAttribute('aria-pressed', 'true')
     unmount()
 
     resetProductsCache()
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('blocked')
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key) => {
+      if (key === 'silhoufit-wishlist') throw new Error('blocked')
     })
     const user = userEvent.setup()
     renderPage()
     await loaded()
     await user.click(screen.getByRole('button', { name: 'Save Heritage Polo to wishlist' }))
     expect(screen.getByText('Saved 2')).toBeInTheDocument()
+  })
+})
+
+describe('ShopPage header and motion', () => {
+  it('has a breadcrumb back home and a heading that follows the view', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await loaded()
+    const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(crumbs).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
+    expect(within(crumbs).getByText('Shop')).toHaveAttribute('aria-current', 'page')
+    expect(screen.queryByText('Shop the rail')).toBeNull()
+    expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toBeInTheDocument()
+    expect(screen.getByText('24 pieces')).toBeInTheDocument() // the summary sits beside the heading
+
+    await user.click(screen.getByRole('button', { name: /^Outerwear/ }))
+    expect(screen.getByRole('heading', { level: 1, name: 'Outerwear' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Outerwear' })).toBeNull()
+  })
+
+  it('derives the heading from the URL before any data arrives', () => {
+    fetchMock.mockReturnValueOnce(new Promise(() => {}))
+    renderPage('/shop?category=Knitwear')
+    expect(screen.getByRole('heading', { level: 1, name: 'Knitwear' })).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading the catalogue' })).toBeInTheDocument()
+  })
+
+  it('moves the sliding indicator with the pressed view and category', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await loaded()
+    const indicator = (button: HTMLElement) => button.querySelector('.skeuo-ink-face')
+    const grid = screen.getByRole('button', { name: 'Grid view' })
+    const list = screen.getByRole('button', { name: 'List view' })
+    expect(indicator(grid)).not.toBeNull()
+    expect(indicator(list)).toBeNull()
+    await user.click(list)
+    expect(indicator(list)).not.toBeNull()
+    expect(indicator(grid)).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /^Tops/ }))
+    expect(indicator(screen.getByRole('button', { name: /^Tops/ }))).not.toBeNull()
+    expect(indicator(screen.getByRole('button', { name: /^All/ }))).toBeNull()
+  })
+})
+
+describe('ShopPage cart buttons', () => {
+  it('adds to the cart with a toast, updates the navbar badge, and Undo reverts it', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await loaded()
+    expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Add Heritage Polo to cart' }))
+    expect(screen.getByText('Added to cart')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cart, 1 item' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
+  })
+
+  it('says why when the stock limit is reached', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await loaded()
+    const add = screen.getByRole('button', { name: 'Add Fence-Line Blazer to cart' }) // 4 in stock
+    for (let i = 0; i < 4; i++) await user.click(add)
+    expect(screen.getByRole('button', { name: 'Cart, 4 items' })).toBeInTheDocument()
+
+    await user.click(add)
+    expect(await screen.findByText(/All 4 in stock of Fence-Line Blazer are already in your cart/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cart, 4 items' })).toBeInTheDocument()
+  })
+
+  it('Buy puts the piece in the cart once and says checkout is not built yet', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await loaded()
+    const buy = screen.getByRole('button', { name: 'Buy Heritage Polo' })
+    await user.click(buy)
+    expect(await screen.findByText(/Checkout arrives with the store connection\. This piece is in your cart\./)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cart, 1 item' })).toBeInTheDocument()
+
+    await user.click(buy)
+    expect(screen.getByRole('button', { name: 'Cart, 1 item' })).toBeInTheDocument()
+  })
+
+  it('disables both buttons on a sold-out piece', async () => {
+    const user = userEvent.setup()
+    renderPage('/shop?perPage=24')
+    await loaded()
+    const add = screen.getByRole('button', { name: 'Add Field Denim Jacket to cart, sold out' })
+    expect(add).toHaveAttribute('aria-disabled', 'true')
+    await user.click(add)
+    expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
+  })
+})
+
+describe('ShopPage saved-only view', () => {
+  it('shows only saved pieces when the navbar wishlist is pressed, and the heart count matches', async () => {
+    seedWishlist(['p02', 'p05'])
+    const user = userEvent.setup()
+    renderPage()
+    await loaded()
+    expect(screen.getByRole('button', { name: 'Wishlist, 2 saved' })).toBeInTheDocument()
+    expect(screen.getByText('Saved 2')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Wishlist, 2 saved' }))
+    await waitFor(() => expect(cards()).toHaveLength(2))
+    expect(screen.getByRole('heading', { level: 1, name: 'Saved pieces' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Save Fence-Line Blazer to wishlist' }))
+    expect(screen.getByRole('button', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
+    expect(screen.getByText('Saved 1')).toBeInTheDocument()
+  })
+
+  it('explains an empty saved list and leaves it with "Browse all pieces"', async () => {
+    const user = userEvent.setup()
+    renderPage('/shop?saved=1&sort=newest')
+    expect(await screen.findByText('No saved pieces yet')).toBeInTheDocument()
+    expect(screen.getByText('Tap the heart on any piece to save it here.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Browse all pieces' }))
+    expect(await loaded()).toHaveLength(12)
+    expect(urlSearch()).toBe('?sort=newest') // only saved is cleared
+    expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toHaveFocus()
+  })
+
+  it('keeps focus on the results heading when a card is unsaved in the saved-only view', async () => {
+    seedWishlist(['p02', 'p05'])
+    const user = userEvent.setup()
+    renderPage('/shop?saved=1')
+    await waitFor(() => expect(cards()).toHaveLength(2))
+
+    await user.click(screen.getByRole('button', { name: 'Save Fence-Line Blazer to wishlist' }))
+    await waitFor(() => expect(cards()).toHaveLength(1))
+    expect(screen.getByRole('heading', { level: 1, name: 'Saved pieces' })).toHaveFocus()
   })
 })
 

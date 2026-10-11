@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Product } from '../../data/products'
 import { AVAILABILITY, colorOptions, type Availability, type ProductFilters } from '../../utils/productQuery'
 import { Modal } from '../ui/Modal'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
+import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 
 interface FilterPanelProps {
   open: boolean
@@ -66,10 +66,10 @@ export function FilterPanel({ open, onClose, products, filters, onApply }: Filte
       title="Filters"
       footer={
         <div className="flex gap-3">
-          <button type="button" onClick={() => setDraft(EMPTY)} className={`${SECONDARY_BUTTON} flex-1`}>
+          <button type="button" onClick={() => setDraft(EMPTY)} className={`${SHOP_SECONDARY} flex-1`}>
             Reset
           </button>
-          <button type="button" onClick={apply} disabled={invalidRange} className={`${PRIMARY_BUTTON} flex-1`}>
+          <button type="button" onClick={apply} disabled={invalidRange} className={`${SHOP_PRIMARY} flex-1`}>
             Apply
           </button>
         </div>

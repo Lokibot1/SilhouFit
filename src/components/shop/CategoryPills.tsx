@@ -1,4 +1,6 @@
+import { motion } from 'motion/react'
 import { CATEGORIES, type Category } from '../../data/products'
+import { DURATION, EASE_OUT } from '../../motion/tokens'
 
 interface CategoryPillsProps {
   value: Category | 'all'
@@ -18,12 +20,18 @@ export function CategoryPills({ value, counts, onChange }: CategoryPillsProps) {
               type="button"
               aria-pressed={active}
               onClick={() => onChange(category)}
-              className={`pill glass-btn min-h-11 shrink-0 cursor-pointer whitespace-nowrap ${
-                active ? 'bg-fg text-canvas' : 'bg-fg/5 text-fg hover:bg-fg/10'
-              }`}
+              className="pill skeuo skeuo-slide relative min-h-9 pointer-coarse:min-h-11 shrink-0 cursor-pointer px-3 py-1 whitespace-nowrap"
             >
-              {category === 'all' ? 'All' : category}
-              <span className="tabular-nums">{counts[category]}</span>
+              {active && (
+                <motion.span
+                  layoutId="category-pill"
+                  aria-hidden="true"
+                  className="skeuo-ink-face absolute inset-0 rounded-full"
+                  transition={{ duration: DURATION.state, ease: EASE_OUT }}
+                />
+              )}
+              <span className="relative">{category === 'all' ? 'All' : category}</span>
+              <span className="relative tabular-nums">{counts[category]}</span>
             </button>
           )
         })}

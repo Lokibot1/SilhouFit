@@ -1,0 +1,190 @@
+import { useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useTheme } from '../contexts/ThemeContext'
+import { useCartCount } from '../hooks/useCart'
+import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useShopSearch } from '../hooks/useShopSearch'
+import { useSavedIds } from '../hooks/useWishlist'
+import { CartIcon, HeartIcon, SearchIcon, UserIcon, XIcon } from './form/icons'
+import { SilhouetteMark } from './landing/SilhouetteMark'
+import { ThemeToggle } from './ThemeToggle'
+import { useToast } from './toast/useToast'
+import { Avatar } from './ui/Avatar'
+import { Tooltip } from './ui/Tooltip'
+
+const ICON_BUTTON =
+  'relative flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg hover:bg-fg/10 aria-pressed:bg-fg/10'
+
+const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform)
+
+function Badge({ count }: { count: number }) {
+  if (count === 0) return null
+  return (
+    <span
+      aria-hidden="true"
+      className="font-ui absolute top-0.5 right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-fg px-1 text-[11px] font-semibold text-canvas tabular-nums"
+    >
+      {count}
+    </span>
+  )
+}
+
+/** The navbar on /shop: the lockup, the shop search, wishlist, cart, account and the theme toggle. */
+export function ShopNavbar() {
+  const [params, setParams] = useSearchParams()
+  const [search, setSearch] = useShopSearch()
+  const savedCount = useSavedIds()?.length ?? null // null until the catalogue is known
+  const cartCount = useCartCount()
+  const user = useCurrentUser()
+  const toast = useToast()
+  const { theme } = useTheme()
+  const [searchOpen, setSearchOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const searchToggleRef = useRef<HTMLButtonElement>(null)
+  const savedOnly = params.get('saved') === '1'
+
+  // Below lg the search is a row that opens on demand.
+  useEffect(() => {
+    if (searchOpen) inputRef.current?.focus()
+  }, [searchOpen])
+
+  // Ctrl/Cmd+K focuses the search, unless the keys are going into another field.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return
+      const target = event.target as HTMLElement
+      const typingElsewhere =
+        target !== inputRef.current && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+      // An open dialog (the filter panel) keeps its own focus.
+      if (typingElsewhere || target.closest('[role="dialog"]')) return
+      event.preventDefault()
+      setSearchOpen(true)
+      inputRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  function toggleSavedOnly() {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('page')
+      if (savedOnly) next.delete('saved')
+      else next.set('saved', '1')
+      return next
+    })
+  }
+
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-canvas/85 backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-1 px-3 py-2 sm:px-6 lg:gap-x-4">
+        <Link to="/" className="tap group flex items-center gap-2 sm:gap-3">
+          <SilhouetteMark className="h-8 w-6 text-fg" />
+          <span className="leading-none">
+            <span className="font-display block text-[17px] font-bold tracking-[-0.02em] text-fg max-[359px]:sr-only">
+              SilhouFit
+            </span>
+            <span className="font-ui hidden text-[9px] tracking-[0.22em] text-fg-muted uppercase transition-colors group-hover:text-chrome-strong sm:block lg:hidden xl:block">
+              Omnichannel apparel
+            </span>
+          </span>
+        </Link>
+
+        <div
+          role="search"
+          className={`${searchOpen ? 'block' : 'hidden'} order-last w-full basis-full pb-2 lg:order-none lg:mx-auto lg:block lg:max-w-md lg:min-w-48 lg:flex-1 lg:basis-0 lg:pb-0`}
+        >
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-muted" />
+            <input
+              ref={inputRef}
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape') return
+                // Not the native clear: keep the text and q, just fold the row away.
+                event.preventDefault()
+                setSearchOpen(false)
+                searchToggleRef.current?.focus()
+              }}
+              aria-label="Search the catalogue"
+              placeholder="Search the catalogue"
+              autoComplete="off"
+              className="font-ui min-h-11 w-full rounded-xl border border-line-strong bg-canvas pr-4 pl-10 text-base text-fg placeholder:text-fg-muted lg:pr-20"
+            />
+            <kbd
+              aria-hidden="true"
+              className="font-ui pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded-xl border border-line-strong px-1.5 text-[11px] text-fg-muted lg:block"
+            >
+              {isMac ? '⌘K' : 'Ctrl K'}
+            </kbd>
+          </div>
+        </div>
+
+        <div className="ml-auto flex items-center lg:ml-0">
+          <Tooltip label={searchOpen ? 'Close search' : 'Open search'}>
+            <button
+              ref={searchToggleRef}
+              type="button"
+              aria-expanded={searchOpen}
+              aria-label={searchOpen ? 'Close search' : 'Open search'}
+              onClick={() => setSearchOpen((open) => !open)}
+              className={`${ICON_BUTTON} lg:hidden`}
+            >
+              {searchOpen ? <XIcon /> : <SearchIcon />}
+            </button>
+          </Tooltip>
+          <Tooltip label={savedCount === null ? 'Wishlist' : `Wishlist (${savedCount} saved)`}>
+            <button
+              type="button"
+              aria-pressed={savedOnly}
+              aria-label={savedCount === null ? 'Wishlist' : `Wishlist, ${savedCount} saved`}
+              onClick={toggleSavedOnly}
+              className={ICON_BUTTON}
+            >
+              <HeartIcon filled={savedOnly} />
+              <Badge count={savedCount ?? 0} />
+            </button>
+          </Tooltip>
+          <Tooltip label={`Cart (${cartCount} ${cartCount === 1 ? 'item' : 'items'})`}>
+            <button
+              type="button"
+              aria-label={`Cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
+              onClick={() =>
+                toast.show({
+                  kind: 'info',
+                  message:
+                    cartCount === 0
+                      ? 'Your cart is empty. Checkout arrives with the store connection.'
+                      : `${cartCount} ${cartCount === 1 ? 'item' : 'items'} in your cart. Checkout arrives with the store connection.`,
+                })
+              }
+              className={ICON_BUTTON}
+            >
+              <CartIcon />
+              <Badge count={cartCount} />
+            </button>
+          </Tooltip>
+          {user ? (
+            <span className="flex size-11 shrink-0 items-center justify-center">
+              <Avatar name={user.name} src={user.avatarUrl} size="sm" />
+            </span>
+          ) : (
+            <Tooltip label="Sign in">
+              <Link to="/login" aria-label="Sign in" className={ICON_BUTTON}>
+                <UserIcon />
+              </Link>
+            </Tooltip>
+          )}
+          <div className="ml-1">
+            <Tooltip label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
+              <ThemeToggle nativeTitle={false} />
+            </Tooltip>
+          </div>
+        </div>
+      </div>
+
+    </header>
+  )
+}
