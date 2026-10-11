@@ -12,6 +12,7 @@ vi.mock('../../src/service/signIn', () => ({ submitSignIn: vi.fn() }))
 vi.mock('../../src/service/googleSignIn', () => ({ submitGoogleSignIn: vi.fn() }))
 const signIn = vi.mocked(submitSignIn)
 const googleSignIn = vi.mocked(submitGoogleSignIn)
+const USER = { name: 'Demo Shopper', email: 'demo@silhoufit.com' }
 
 beforeAll(() => {
   // Full-form typing with userEvent is slow when the whole suite runs in parallel.
@@ -35,8 +36,8 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
-  signIn.mockResolvedValue({ ok: true })
-  googleSignIn.mockResolvedValue({ ok: true })
+  signIn.mockResolvedValue({ ok: true, user: USER })
+  googleSignIn.mockResolvedValue({ ok: true, user: USER })
 })
 afterEach(() => {
   vi.clearAllMocks()
@@ -307,7 +308,7 @@ describe('LoginPage submit', () => {
   it('replaces the form with a welcome panel, a success toast and a way home', async () => {
     const user = userEvent.setup()
     let finish: () => void = () => {}
-    signIn.mockReturnValue(new Promise((resolve) => (finish = () => resolve({ ok: true }))))
+    signIn.mockReturnValue(new Promise((resolve) => (finish = () => resolve({ ok: true, user: USER }))))
     renderPage()
     await fillAndSubmit(user)
 

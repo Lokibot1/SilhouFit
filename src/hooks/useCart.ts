@@ -1,22 +1,33 @@
 import { useSyncExternalStore } from 'react'
 import type { Product } from '../data/products'
-import { useCatalogue } from './useProducts'
+import { resolveCartItems } from '../utils/checkout'
+import { getCatalogue, useCatalogue } from './useProducts'
 
 const KEY = 'silhoufit-cart'
 
-interface Line {
+/** One cart line: a piece in one size and colour. Lines from before sizes existed have both as null. */
+export interface Line {
   id: string
+  size: string | null
+  color: string | null
   qty: number
 }
+
+export const lineKey = (line: Pick<Line, 'id' | 'size' | 'color'>) => `${line.id}|${line.size ?? ''}|${line.color ?? ''}`
+
+const text = (value: unknown) => (typeof value === 'string' ? value : null)
 
 function load(): Line[] {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(KEY) ?? '[]')
     if (!Array.isArray(parsed)) return []
-    return parsed.filter(
-      (line): line is Line =>
-        typeof line?.id === 'string' && Number.isInteger(line.qty) && line.qty > 0,
-    )
+    const lines: Line[] = []
+    for (const raw of parsed) {
+      // The old shape was { id, qty }; it still counts, with no size or colour.
+      if (typeof raw?.id !== 'string' || !Number.isInteger(raw.qty) || raw.qty <= 0) continue
+      lines.push({ id: raw.id, size: text(raw.size), color: text(raw.color), qty: raw.qty })
+    }
+    return lines
   } catch {
     return []
   }
@@ -46,23 +57,50 @@ if (typeof window !== 'undefined') {
   })
 }
 
-const qtyIn = (id: string) => lines.find((line) => line.id === id)?.qty ?? 0
+const qtyOfProduct = (id: string) => lines.filter((line) => line.id === id).reduce((sum, line) => sum + line.qty, 0)
 
-function setQty(id: string, qty: number) {
-  const others = lines.filter((line) => line.id !== id)
-  commit(qty > 0 ? [...others, { id, qty }] : others)
+interface AddRequest {
+  product: Product
+  size: string | null
+  color: string | null
+  qty?: number
 }
 
-/** Adds one piece, never past its stock. */
-function addToCart(product: Product): 'added' | 'limit' {
-  const qty = qtyIn(product.id)
-  if (qty >= product.stock) return 'limit'
-  setQty(product.id, qty + 1)
+/** Adds to a line, never past the piece's stock across all its sizes and colours; nothing is added if it would. */
+function addToCart({ product, size, color, qty = 1 }: AddRequest): 'added' | 'limit' {
+  if (qtyOfProduct(product.id) + qty > product.stock) return 'limit'
+  const key = lineKey({ id: product.id, size, color })
+  const existing = lines.find((line) => lineKey(line) === key)
+  commit(
+    existing
+      ? lines.map((line) => (line === existing ? { ...line, qty: line.qty + qty } : line))
+      : [...lines, { id: product.id, size, color, qty }],
+  )
   return 'added'
 }
 
-function removeOneFromCart(id: string) {
-  setQty(id, qtyIn(id) - 1)
+/** Sets a line's quantity, capped so the piece's lines together stay within its stock; zero or less removes it. */
+function setLineQty(key: string, qty: number) {
+  const line = lines.find((l) => lineKey(l) === key)
+  if (!line) return
+  const product = getCatalogue()?.find((p) => p.id === line.id)
+  const others = qtyOfProduct(line.id) - line.qty
+  const capped = product ? Math.min(qty, product.stock - others) : qty
+  commit(capped > 0 ? lines.map((l) => (l === line ? { ...l, qty: capped } : l)) : lines.filter((l) => l !== line))
+}
+
+/** Drops whole lines (after an order); lines added elsewhere in the meantime stay. */
+function removeLines(keys: string[]) {
+  commit(lines.filter((line) => !keys.includes(lineKey(line))))
+}
+
+/** Takes `qty` off a line (Undo), dropping the line at zero. */
+function removeFromCart(key: string, qty: number) {
+  commit(
+    lines
+      .map((line) => (lineKey(line) === key ? { ...line, qty: line.qty - qty } : line))
+      .filter((line) => line.qty > 0),
+  )
 }
 
 function subscribe(listener: () => void) {
@@ -73,22 +111,23 @@ function subscribe(listener: () => void) {
 export function useCart() {
   const current = useSyncExternalStore(subscribe, () => lines)
   return {
-    qtyOf: (id: string) => current.find((line) => line.id === id)?.qty ?? 0,
+    lines: current,
+    qtyOfProduct: (id: string) => current.filter((line) => line.id === id).reduce((sum, line) => sum + line.qty, 0),
     add: addToCart,
-    removeOne: removeOneFromCart,
+    remove: removeFromCart,
+    setQty: setLineQty,
+    removeLines,
   }
 }
 
 /**
- * Total pieces in the cart: only pieces in the catalogue, each capped at its stock. Zero until the catalogue is
- * known. Stored lines for pieces that have gone are hidden here, not deleted.
+ * Pieces that can be bought: the same lines the drawer subtotal and the checkout use (known, in stock, with a size
+ * and colour, within stock per piece). Zero until the catalogue is known. Other stored lines are hidden here, not
+ * deleted.
  */
 export function useCartCount() {
   const current = useSyncExternalStore(subscribe, () => lines)
   const catalogue = useCatalogue()
   if (!catalogue) return 0
-  return current.reduce((total, line) => {
-    const product = catalogue.find((p) => p.id === line.id)
-    return product ? total + Math.min(line.qty, product.stock) : total
-  }, 0)
+  return resolveCartItems(current, catalogue).items.reduce((total, item) => total + item.qty, 0)
 }

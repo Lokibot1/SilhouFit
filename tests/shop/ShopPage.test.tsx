@@ -4,6 +4,7 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
+import { clearSession, setSession } from '../../src/service/session'
 import { ShopNavbar } from '../../src/components/ShopNavbar'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { PRODUCTS } from '../../src/data/products'
@@ -63,6 +64,7 @@ beforeEach(() => {
   localStorage.clear()
   seedWishlist()
   seedCart()
+  act(() => clearSession())
   fetchMock.mockResolvedValue(CATALOGUE)
 })
 afterEach(() => {
@@ -71,8 +73,13 @@ afterEach(() => {
 })
 
 function Where() {
-  const { search } = useLocation()
-  return <span data-testid="search">{search}</span>
+  const { pathname, search } = useLocation()
+  return (
+    <>
+      <span data-testid="search">{search}</span>
+      <span data-testid="path">{pathname}</span>
+    </>
+  )
 }
 
 function Back() {
@@ -90,8 +97,11 @@ function renderPage(url = '/shop') {
       <ThemeProvider>
         <ToastProvider>
           <ShopNavbar />
+          <Where />
+          <Back />
           <Routes>
-            <Route path="/shop" element={<><ShopPage /><Where /><Back /></>} />
+            <Route path="/shop" element={<ShopPage />} />
+            <Route path="*" element={<p>another page</p>} />
           </Routes>
         </ToastProvider>
       </ThemeProvider>
@@ -420,53 +430,129 @@ describe('ShopPage header and motion', () => {
 })
 
 describe('ShopPage cart buttons', () => {
-  it('adds to the cart with a toast, updates the navbar badge, and Undo reverts it', async () => {
+  const path = () => screen.getByTestId('path').textContent
+  const signedIn = () => act(() => setSession({ name: 'Demo Shopper', email: 'demo@silhoufit.com' }))
+  const dialog = () => screen.findByRole('dialog', { name: 'Choose options' })
+
+  it("opens the sheet for a guest's Add to cart, with no sign-in hint and no redirect", async () => {
+    const user = userEvent.setup()
+    renderPage('/shop?category=Tops')
+    await loaded()
+    await user.click(screen.getByRole('button', { name: 'Add Heritage Polo to cart' }))
+    const sheet = await dialog()
+    expect(path()).toBe('/shop')
+    expect(within(sheet).getByRole('button', { name: 'Add to cart' })).toBeInTheDocument()
+    expect(within(sheet).queryByText("You'll sign in before you pay.")).toBeNull()
+  })
+
+  it("opens the sheet for a guest's Buy, says they will sign in before paying, and goes to checkout", async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await loaded()
+    await user.click(screen.getByRole('button', { name: 'Buy Heritage Polo' }))
+    const sheet = await dialog()
+    expect(within(sheet).getByText("You'll sign in before you pay.")).toBeInTheDocument()
+    await user.click(within(sheet).getByRole('radio', { name: 'M' }))
+    await user.click(within(sheet).getByRole('radio', { name: 'Navy' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Buy now' }))
+    expect(path()).toBe('/checkout') // the checkout page itself asks for the sign-in
+    expect(urlSearch()).toBe('?item=p01&size=M&color=Navy&qty=1')
+  })
+
+  it('lets a guest add to the cart and raises the badge', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await loaded()
+    await user.click(screen.getByRole('button', { name: 'Add Heritage Polo to cart' }))
+    const sheet = await dialog()
+    await user.click(within(sheet).getByRole('radio', { name: 'S' }))
+    await user.click(within(sheet).getByRole('radio', { name: 'White' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Add to cart' }))
+    expect(await screen.findByText('Added to cart: Heritage Polo, S, White × 1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cart, 1 item' })).toBeInTheDocument()
+  })
+
+  it('opens the spec sheet for a signed-in shopper, requires a size, then adds with an Undo', async () => {
+    signedIn()
     const user = userEvent.setup()
     renderPage()
     await loaded()
     expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Add Heritage Polo to cart' }))
-    expect(screen.getByText('Added to cart')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cart, 1 item' })).toBeInTheDocument()
+    const sheet = await dialog()
+    await user.click(within(sheet).getByRole('button', { name: 'Add to cart' }))
+    expect(within(sheet).getByRole('alert')).toHaveTextContent('Choose a size to continue.')
+
+    await user.click(within(sheet).getByRole('radio', { name: 'M' }))
+    await user.click(within(sheet).getByRole('radio', { name: 'Navy' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Increase quantity' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Add to cart' }))
+
+    expect(await screen.findByText('Added to cart: Heritage Polo, M, Navy × 2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cart, 2 items' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
     await user.click(screen.getByRole('button', { name: 'Undo' }))
     expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
   })
 
-  it('says why when the stock limit is reached', async () => {
+  it('takes Buy now from the sheet to checkout with the chosen specs', async () => {
+    signedIn()
     const user = userEvent.setup()
     renderPage()
     await loaded()
-    const add = screen.getByRole('button', { name: 'Add Fence-Line Blazer to cart' }) // 4 in stock
-    for (let i = 0; i < 4; i++) await user.click(add)
-    expect(screen.getByRole('button', { name: 'Cart, 4 items' })).toBeInTheDocument()
-
-    await user.click(add)
-    expect(await screen.findByText(/All 4 in stock of Fence-Line Blazer are already in your cart/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cart, 4 items' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Buy Heritage Polo' }))
+    const sheet = await dialog()
+    await user.click(within(sheet).getByRole('radio', { name: 'L' }))
+    await user.click(within(sheet).getByRole('radio', { name: 'White' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Buy now' }))
+    expect(path()).toBe('/checkout')
+    expect(urlSearch()).toBe('?item=p01&size=L&color=White&qty=1')
+    expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument() // Buy does not touch the cart
   })
 
-  it('Buy puts the piece in the cart once and says checkout is not built yet', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await loaded()
-    const buy = screen.getByRole('button', { name: 'Buy Heritage Polo' })
-    await user.click(buy)
-    expect(await screen.findByText(/Checkout arrives with the store connection\. This piece is in your cart\./)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cart, 1 item' })).toBeInTheDocument()
+  it('opens the sheet from a ?item=&action= link and cleans the URL', async () => {
+    signedIn()
+    renderPage('/shop?category=Bottoms&item=p04&action=cart')
+    const sheet = await dialog()
+    expect(within(sheet).getByRole('heading', { name: 'Straight Leg Jean' })).toBeInTheDocument()
+    expect(urlSearch()).toBe('?category=Bottoms')
+  })
 
-    await user.click(buy)
-    expect(screen.getByRole('button', { name: 'Cart, 1 item' })).toBeInTheDocument()
+  it('opens the sheet from a link for a guest too', async () => {
+    renderPage('/shop?item=p04&action=cart')
+    const sheet = await dialog()
+    expect(within(sheet).getByRole('heading', { name: 'Straight Leg Jean' })).toBeInTheDocument()
+    expect(urlSearch()).toBe('')
+  })
+
+  it('says so when the linked piece is gone or sold out, for anyone', async () => {
+    const first = renderPage('/shop?item=nope&action=buy')
+    expect(await screen.findByText('That piece is no longer in the catalogue.')).toBeInTheDocument()
+    expect(urlSearch()).toBe('')
+    first.unmount()
+
+    renderPage('/shop?item=p24&action=cart')
+    expect(await screen.findByText('Field Denim Jacket is sold out.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('falls back to Add to cart for an unknown action', async () => {
+    renderPage('/shop?item=p04&action=zzz')
+    const sheet = await dialog()
+    expect(within(sheet).getByRole('button', { name: 'Add to cart' })).toBeInTheDocument()
   })
 
   it('disables both buttons on a sold-out piece', async () => {
+    signedIn()
     const user = userEvent.setup()
     renderPage('/shop?perPage=24')
     await loaded()
     const add = screen.getByRole('button', { name: 'Add Field Denim Jacket to cart, sold out' })
     expect(add).toHaveAttribute('aria-disabled', 'true')
     await user.click(add)
+    expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
   })
 })

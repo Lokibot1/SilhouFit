@@ -1,10 +1,11 @@
 import { animate, MotionConfig, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CategoryPills } from '../components/shop/CategoryPills'
 import { FilterPanel } from '../components/shop/FilterPanel'
 import { Pagination } from '../components/shop/Pagination'
 import { ProductCard } from '../components/shop/ProductCard'
+import { SpecSheet, type Choice } from '../components/shop/SpecSheet'
 import { ShopHeader } from '../components/shop/ShopHeader'
 import { ProductGridSkeleton, SummarySkeleton } from '../components/shop/ShopSkeleton'
 import { ShopSummary, ShopToolbar } from '../components/shop/ShopToolbar'
@@ -16,7 +17,8 @@ import { DURATION } from '../motion/tokens'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useMetaDescription } from '../hooks/useMetaDescription'
 import { useProducts } from '../hooks/useProducts'
-import { useCart } from '../hooks/useCart'
+import { lineKey, useCart } from '../hooks/useCart'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useSavedIds, useWishlist } from '../hooks/useWishlist'
 import {
   AVAILABILITY,
@@ -46,6 +48,10 @@ export function ShopPage() {
   const wishlist = useWishlist()
   const savedIds = useSavedIds()
   const cart = useCart()
+  const user = useCurrentUser()
+  const navigate = useNavigate()
+  const [sheet, setSheet] = useState<{ product: Product; action: 'cart' | 'buy' } | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const toast = useToast()
   const [params, setParams] = useSearchParams()
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -148,25 +154,61 @@ export function ShopPage() {
     )
   }
 
-  function addToCart(product: Product) {
-    if (cart.add(product) === 'limit') {
-      toast.show({
-        kind: 'info',
-        message: `All ${product.stock} in stock of ${product.name} are already in your cart, so no more can be added.`,
-      })
-      return
-    }
-    toast.show({
-      kind: 'success',
-      message: 'Added to cart',
-      action: { label: 'Undo', onClick: () => cart.removeOne(product.id) },
-    })
+  // Everyone can add to the cart or start a purchase; signing in is asked for at checkout.
+  function openSheet(product: Product, action: 'cart' | 'buy') {
+    setSheet({ product, action })
+    setSheetOpen(true)
   }
 
-  // Placeholder: there is no checkout yet, so Buy puts the piece in the cart and says so.
-  function buy(product: Product) {
-    if (cart.qtyOf(product.id) === 0) cart.add(product)
-    toast.show({ kind: 'info', message: 'Checkout arrives with the store connection. This piece is in your cart.' })
+  // A link (the checkout's Change link, or a shared one) arrives with ?item=&action=. Read it once, drop it from the
+  // URL so Back is not trapped, then open that piece's sheet if the piece exists.
+  const deepLink = useRef(
+    params.get('item') ? { id: params.get('item')!, action: params.get('action') === 'buy' ? ('buy' as const) : ('cart' as const) } : null,
+  )
+  useEffect(() => {
+    if (!params.has('item')) return
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('item')
+        next.delete('action')
+        return next
+      },
+      { replace: true },
+    )
+    // Only the first arrival carries the link.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const catalogue = products.status === 'success' ? products.data.products : null
+  useEffect(() => {
+    const link = deepLink.current
+    if (!link || !catalogue) return
+    deepLink.current = null
+    const product = catalogue.find((p) => p.id === link.id)
+    if (!product) toast.show({ kind: 'info', message: 'That piece is no longer in the catalogue.' })
+    else if (product.stock === 0) toast.show({ kind: 'info', message: `${product.name} is sold out.` })
+    else openSheet(product, link.action)
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogue])
+
+  function confirmChoice({ size, color, qty }: Choice) {
+    if (!sheet) return
+    const { product, action } = sheet
+    if (action === 'buy') {
+      setSheetOpen(false)
+      navigate(`/checkout?${new URLSearchParams({ item: product.id, size, color, qty: String(qty) })}`)
+      return
+    }
+    if (cart.add({ product, size, color, qty }) === 'limit') {
+      toast.show({ kind: 'info', message: `All ${product.stock} in stock of ${product.name} are already in your cart.` })
+      return
+    }
+    setSheetOpen(false)
+    toast.show({
+      kind: 'success',
+      message: `Added to cart: ${product.name}, ${size}, ${color} × ${qty}`,
+      action: { label: 'Undo', onClick: () => cart.remove(lineKey({ id: product.id, size, color }), qty) },
+    })
   }
 
   const noSaved = savedOnly && savedIds?.length === 0
@@ -220,6 +262,17 @@ export function ShopPage() {
               activeFilters={activeFilters}
               onOpenFilters={() => setFiltersOpen(true)}
             />
+            {sheet && (
+              <SpecSheet
+                open={sheetOpen}
+                onClose={() => setSheetOpen(false)}
+                product={sheet.product}
+                action={sheet.action}
+                inCart={cart.qtyOfProduct(sheet.product.id)}
+                onConfirm={confirmChoice}
+                guest={!user}
+              />
+            )}
             <FilterPanel
               open={filtersOpen}
               onClose={() => setFiltersOpen(false)}
@@ -272,8 +325,8 @@ export function ShopPage() {
                         list={view === 'list'}
                         saved={wishlist.has(product.id)}
                         onToggleSaved={toggleSaved}
-                        onAddToCart={addToCart}
-                        onBuy={buy}
+                        onAddToCart={(p) => openSheet(p, 'cart')}
+                        onBuy={(p) => openSheet(p, 'buy')}
                       />
                     </li>
                   ))}

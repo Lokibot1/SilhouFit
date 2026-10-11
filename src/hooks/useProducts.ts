@@ -24,6 +24,9 @@ export function primeProductsCache(data: CatalogueData) {
   setCache(data)
 }
 
+/** The catalogue loaded so far, outside React (null until the first load). */
+export const getCatalogue = () => cache?.products ?? null
+
 /** The products loaded so far (null until the first load), for UI outside the shop page, e.g. the navbar. */
 export function useCatalogue() {
   return useSyncExternalStore(

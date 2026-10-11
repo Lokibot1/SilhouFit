@@ -12,6 +12,9 @@ import { isAuthPath } from '../utils/authRoutes'
 // Sections moved to /about; old anchors still land on them.
 const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
 
+// Pages in the shopping flow share one bar (cart, account, theme; search on /shop only).
+const SHOP_BAR = ['/shop', '/checkout', '/checkout/success']
+
 export function Layout({ bare = false }: { bare?: boolean }) {
   const { pathname, hash, key } = useLocation()
   const navigationType = useNavigationType()
@@ -39,7 +42,7 @@ export function Layout({ bare = false }: { bare?: boolean }) {
       <div className="min-h-svh text-fg">
         <SiteSky />
         <SkipLink />
-        {!bare && (pathname.replace(/\/$/, '') === '/shop' ? <ShopNavbar /> : <Navbar />)}
+        {!bare && (SHOP_BAR.includes(pathname.replace(/\/$/, '')) ? <ShopNavbar /> : <Navbar />)}
         <main id="main-content">
           <Outlet />
         </main>

@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { useEffect, useRef, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { CountrySelect } from '../components/form/CountrySelect'
 import { FloatingField } from '../components/form/FloatingField'
 import { GoogleButton } from '../components/form/GoogleButton'
@@ -12,6 +12,7 @@ import { fieldId, useSignUpForm } from '../hooks/useSignUpForm'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useMetaDescription } from '../hooks/useMetaDescription'
 import { DURATION, EASE_OUT } from '../motion/tokens'
+import { nextQuery } from '../utils/safeNext'
 import { LIMITS, type FieldName } from '../utils/signUpValidation'
 
 const META_DESCRIPTION =
@@ -38,6 +39,7 @@ function WelcomeHeading({ children }: { children: ReactNode }) {
 export function SignUpPage() {
   useDocumentTitle('Sign up — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
+  const next = nextQuery(useSearchParams()[0].get('next'))
 
   const {
     values,
@@ -89,6 +91,10 @@ export function SignUpPage() {
             <div className="mt-6 flex flex-col gap-3 sm:flex-row *:flex-1">
               <Link to="/" className={PRIMARY_BUTTON}>
                 Back to home
+              </Link>
+              {/* Sign-up does not sign the user in, so offer the way on, back to wherever they came from. */}
+              <Link to={`/login${next}`} className={SECONDARY_BUTTON}>
+                Sign in
               </Link>
               <Link to="/#ar-fitting" className={SECONDARY_BUTTON}>
                 Explore AR fitting
@@ -267,7 +273,7 @@ export function SignUpPage() {
               <p className="flex flex-wrap items-center justify-center gap-x-1 text-sm text-fg-muted">
                 Already registered?{' '}
                 <Link
-                  to="/login"
+                  to={`/login${next}`}
                   className="flex min-h-11 items-center font-medium text-fg underline underline-offset-2 hover:text-chrome-strong"
                 >
                   Login now!

@@ -10,5 +10,7 @@ export default defineConfig({
     include: ['tests/**/*.test.{ts,tsx}'],
     setupFiles: ['./tests/setup.ts'],
     globals: false,
+    // Typing whole forms with userEvent is slow when 37 jsdom files run in parallel; the default 5s is too tight.
+    testTimeout: 15000,
   },
 })

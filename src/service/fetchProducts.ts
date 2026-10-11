@@ -10,7 +10,10 @@ export interface CatalogueData {
 // Stand-in for the real endpoint. Querying the whole list on the client (ShopPage and utils/productQuery) is a
 // placeholder too: adapt this seam when the backend API arrives.
 export async function fetchProducts({ signal, delayMs = 700 }: RequestOptions = {}): Promise<CatalogueData> {
-  // Dev-only hook for exercising the error state: /shop?fail.
-  await simulateRequest(delayMs, signal, () => import.meta.env.DEV && new URLSearchParams(location.search).has('fail'))
+  // Dev-only hook for exercising the error state: /shop?fail (`fail=order` is the checkout's own, for placing an order).
+  await simulateRequest(delayMs, signal, () => {
+    const fail = new URLSearchParams(location.search).get('fail')
+    return import.meta.env.DEV && fail !== null && fail !== 'order'
+  })
   return { products: PRODUCTS, syncedAt: new Date().toISOString() }
 }

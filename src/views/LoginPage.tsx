@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { FloatingField } from '../components/form/FloatingField'
 import { GoogleButton } from '../components/form/GoogleButton'
 import { AlertIcon, CheckIcon, LockIcon, MailIcon, SpinnerIcon } from '../components/form/icons'
@@ -11,6 +11,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useMetaDescription } from '../hooks/useMetaDescription'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import type { LoginField } from '../utils/loginValidation'
+import { nextQuery } from '../utils/safeNext'
 
 const META_DESCRIPTION =
   'Sign in to SilhouFit to open your saved fit profile, pick up AR fitting where you left off and shop boutiques and online with one secure SilhouFit account.'
@@ -35,6 +36,7 @@ export function LoginPage() {
 
   const { values, remember, setRemember, errors, status, locked, method, setField, blurField, onSubmit, onGoogle } = useLoginForm()
   const pending = status === 'pending'
+  const next = nextQuery(useSearchParams()[0].get('next'))
 
   const field = (name: LoginField) => ({
     id: fieldId(name),
@@ -177,7 +179,7 @@ export function LoginPage() {
             <p className="flex flex-wrap items-center justify-center gap-x-1 text-sm text-fg-muted">
               Not a member yet?{' '}
               <Link
-                to="/signup"
+                to={`/signup${next}`}
                 className="flex min-h-11 items-center font-medium text-fg underline underline-offset-2 hover:text-chrome-strong"
               >
                 Join us today!

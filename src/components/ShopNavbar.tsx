@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import { useCartCount } from '../hooks/useCart'
 import { useCurrentUser } from '../hooks/useCurrentUser'
@@ -8,8 +8,8 @@ import { useSavedIds } from '../hooks/useWishlist'
 import { CartIcon, HeartIcon, SearchIcon, UserIcon, XIcon } from './form/icons'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 import { ThemeToggle } from './ThemeToggle'
-import { useToast } from './toast/useToast'
-import { Avatar } from './ui/Avatar'
+import { AccountMenu } from './AccountMenu'
+import { CartSheet } from './shop/CartSheet'
 import { Tooltip } from './ui/Tooltip'
 
 const ICON_BUTTON =
@@ -36,12 +36,16 @@ export function ShopNavbar() {
   const savedCount = useSavedIds()?.length ?? null // null until the catalogue is known
   const cartCount = useCartCount()
   const user = useCurrentUser()
-  const toast = useToast()
+  const navigate = useNavigate()
+  const [cartOpen, setCartOpen] = useState(false)
+  const { pathname, search: query } = useLocation()
   const { theme } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const searchToggleRef = useRef<HTMLButtonElement>(null)
-  const savedOnly = params.get('saved') === '1'
+  // The search and the saved filter belong to the shop page; on checkout the same bar keeps cart, account and theme.
+  const onShop = pathname.replace(/\/$/, '') === '/shop'
+  const savedOnly = onShop && params.get('saved') === '1'
 
   // Below lg the search is a row that opens on demand.
   useEffect(() => {
@@ -50,6 +54,7 @@ export function ShopNavbar() {
 
   // Ctrl/Cmd+K focuses the search, unless the keys are going into another field.
   useEffect(() => {
+    if (!onShop) return
     function onKeyDown(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return
       const target = event.target as HTMLElement
@@ -63,9 +68,13 @@ export function ShopNavbar() {
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [onShop])
 
   function toggleSavedOnly() {
+    if (!onShop) {
+      navigate('/shop?saved=1')
+      return
+    }
     setParams((prev) => {
       const next = new URLSearchParams(prev)
       next.delete('page')
@@ -90,6 +99,7 @@ export function ShopNavbar() {
           </span>
         </Link>
 
+        {onShop && (
         <div
           role="search"
           className={`${searchOpen ? 'block' : 'hidden'} order-last w-full basis-full pb-2 lg:order-none lg:mx-auto lg:block lg:max-w-md lg:min-w-48 lg:flex-1 lg:basis-0 lg:pb-0`}
@@ -121,8 +131,10 @@ export function ShopNavbar() {
             </kbd>
           </div>
         </div>
+        )}
 
-        <div className="ml-auto flex items-center lg:ml-0">
+        <div className={`ml-auto flex items-center ${onShop ? 'lg:ml-0' : ''}`}>
+          {onShop && (
           <Tooltip label={searchOpen ? 'Close search' : 'Open search'}>
             <button
               ref={searchToggleRef}
@@ -135,6 +147,7 @@ export function ShopNavbar() {
               {searchOpen ? <XIcon /> : <SearchIcon />}
             </button>
           </Tooltip>
+          )}
           <Tooltip label={savedCount === null ? 'Wishlist' : `Wishlist (${savedCount} saved)`}>
             <button
               type="button"
@@ -151,15 +164,7 @@ export function ShopNavbar() {
             <button
               type="button"
               aria-label={`Cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
-              onClick={() =>
-                toast.show({
-                  kind: 'info',
-                  message:
-                    cartCount === 0
-                      ? 'Your cart is empty. Checkout arrives with the store connection.'
-                      : `${cartCount} ${cartCount === 1 ? 'item' : 'items'} in your cart. Checkout arrives with the store connection.`,
-                })
-              }
+              onClick={() => setCartOpen(true)}
               className={ICON_BUTTON}
             >
               <CartIcon />
@@ -167,12 +172,10 @@ export function ShopNavbar() {
             </button>
           </Tooltip>
           {user ? (
-            <span className="flex size-11 shrink-0 items-center justify-center">
-              <Avatar name={user.name} src={user.avatarUrl} size="sm" />
-            </span>
+            <AccountMenu user={user} />
           ) : (
             <Tooltip label="Sign in">
-              <Link to="/login" aria-label="Sign in" className={ICON_BUTTON}>
+              <Link id="shop-sign-in" to={`/login?next=${encodeURIComponent(pathname + query)}`} aria-label="Sign in" className={ICON_BUTTON}>
                 <UserIcon />
               </Link>
             </Tooltip>
@@ -185,6 +188,7 @@ export function ShopNavbar() {
         </div>
       </div>
 
+      <CartSheet open={cartOpen} onClose={() => setCartOpen(false)} guest={!user} />
     </header>
   )
 }

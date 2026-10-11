@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'motion/react'
 import { useEffect, useId, useRef, type ReactNode, type Ref, type UIEventHandler } from 'react'
 import { createPortal } from 'react-dom'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { XIcon } from '../form/icons'
 
@@ -12,6 +13,8 @@ interface ModalProps {
   /** Called for Escape, the backdrop and the close button. */
   onClose: () => void
   title: string
+  /** 'sheet' is a right-side panel from sm up and a bottom sheet below it. */
+  variant?: 'center' | 'sheet'
   children: ReactNode
   footer?: ReactNode
   /** The scrolling content area, for callers that track how far it is read. */
@@ -19,7 +22,7 @@ interface ModalProps {
   onBodyScroll?: UIEventHandler<HTMLDivElement>
 }
 
-export function Modal({ open, onClose, title, children, footer, bodyRef, onBodyScroll }: ModalProps) {
+export function Modal({ open, onClose, title, variant = 'center', children, footer, bodyRef, onBodyScroll }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -75,6 +78,7 @@ export function Modal({ open, onClose, title, children, footer, bodyRef, onBodyS
       {open && (
         <ModalView
           title={title}
+          variant={variant}
           footer={footer}
           panelRef={panelRef}
           bodyRef={bodyRef}
@@ -89,16 +93,21 @@ export function Modal({ open, onClose, title, children, footer, bodyRef, onBodyS
   )
 }
 
-interface ModalViewProps extends Pick<ModalProps, 'title' | 'footer' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children'> {
+interface ModalViewProps extends Pick<ModalProps, 'title' | 'variant' | 'footer' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children'> {
   panelRef: Ref<HTMLDivElement>
 }
 
-function ModalView({ title, footer, panelRef, bodyRef, onBodyScroll, onClose, children }: ModalViewProps) {
+function ModalView({ title, variant, footer, panelRef, bodyRef, onBodyScroll, onClose, children }: ModalViewProps) {
   const titleId = useId()
   const reduced = useReducedMotion()
   const isPresent = useIsPresent()
   const transition = { duration: DURATION.state, ease: EASE_OUT }
-  const hidden = { opacity: 0, y: reduced ? 0 : 12, scale: reduced ? 1 : 0.98 }
+  const sheet = variant === 'sheet'
+  const wide = useMediaQuery('(min-width: 640px)')
+  // A sheet slides in from the right (wide) or the bottom (narrow); reduced motion only fades.
+  const hidden = sheet
+    ? { opacity: 0, x: reduced || !wide ? 0 : '100%', y: reduced || wide ? 0 : '100%', scale: 1 }
+    : { opacity: 0, y: reduced ? 0 : 12, x: 0, scale: reduced ? 1 : 0.98 }
 
   return (
     <motion.div
@@ -106,10 +115,13 @@ function ModalView({ title, footer, panelRef, bodyRef, onBodyScroll, onClose, ch
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={transition}
-      className={`fixed inset-0 z-[80] flex items-center justify-center p-4 ${isPresent ? '' : 'pointer-events-none'}`}
+      className={`fixed inset-0 z-[80] flex ${
+        sheet ? 'items-end justify-center sm:items-stretch sm:justify-end' : 'items-center justify-center p-4'
+      } ${isPresent ? '' : 'pointer-events-none'}`}
     >
-      {/* Pointer down, not click, so a text selection dragged out of the panel does not close it. */}
-      <div className="absolute inset-0 bg-carbon-950/60" aria-hidden="true" onPointerDown={onClose} />
+      {/* Pointer down, not click, so a text selection dragged out of the panel does not close it. Mouse down is
+          cancelled so the click does not move focus to the page after it has been returned to the opener. */}
+      <div className="absolute inset-0 bg-carbon-950/60" aria-hidden="true" onPointerDown={onClose} onMouseDown={(event) => event.preventDefault()} />
       <motion.div
         ref={panelRef}
         role="dialog"
@@ -117,10 +129,14 @@ function ModalView({ title, footer, panelRef, bodyRef, onBodyScroll, onClose, ch
         aria-labelledby={titleId}
         tabIndex={-1}
         initial={hidden}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
+        animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
         exit={hidden}
         transition={transition}
-        className="glass-card glass-elevated glass-dense relative flex max-h-[85svh] w-full max-w-2xl flex-col rounded-2xl outline-none"
+        className={`glass-card glass-elevated glass-dense relative flex w-full flex-col outline-none ${
+          sheet
+            ? 'max-h-[90svh] rounded-t-2xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-2xl'
+            : 'max-h-[85svh] max-w-2xl rounded-2xl'
+        }`}
       >
         <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3 sm:px-8 sm:pt-6">
           <h2 id={titleId} className="display text-xl text-fg sm:text-2xl">

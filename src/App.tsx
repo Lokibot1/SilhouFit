@@ -5,6 +5,7 @@ import { LandingCometCursor } from './components/CometCursor'
 import { IntroLoader } from './components/IntroLoader'
 import { LoginSkeleton } from './components/form/LoginSkeleton'
 import { SignUpSkeleton } from './components/form/SignUpSkeleton'
+import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
 import { ShopSkeleton } from './components/shop/ShopSkeleton'
 import { AboutPage } from './views/AboutPage'
@@ -28,6 +29,13 @@ const ForgotPasswordPage = lazy(() =>
 
 const ShopPage = lazy(() =>
   import('./views/ShopPage').then((m) => ({ default: m.ShopPage })),
+)
+
+const CheckoutPage = lazy(() =>
+  import('./views/CheckoutPage').then((m) => ({ default: m.CheckoutPage })),
+)
+const OrderSuccessPage = lazy(() =>
+  import('./views/OrderSuccessPage').then((m) => ({ default: m.OrderSuccessPage })),
 )
 
 function prefersReducedMotion() {
@@ -84,6 +92,22 @@ function App() {
               element={
                 <Suspense fallback={<ShopSkeleton />}>
                   <ShopPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="checkout"
+              element={
+                <Suspense fallback={<CheckoutRouteFallback />}>
+                  <CheckoutPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="checkout/success"
+              element={
+                <Suspense fallback={<CheckoutRouteFallback />}>
+                  <OrderSuccessPage />
                 </Suspense>
               }
             />

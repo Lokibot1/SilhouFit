@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -11,13 +11,14 @@ import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { PRODUCTS } from '../../src/data/products'
 import { useCurrentUser } from '../../src/hooks/useCurrentUser'
 import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
+import { getSession, setSession } from '../../src/service/session'
 
 vi.mock('../../src/hooks/useCurrentUser', () => ({ useCurrentUser: vi.fn(() => null) }))
 const currentUser = vi.mocked(useCurrentUser)
 
 const KEY = 'silhoufit-wishlist'
 const CART_KEY = 'silhoufit-cart'
-function syncCart(lines: { id: string; qty: number }[]) {
+function syncCart(lines: { id: string; qty: number; size?: string; color?: string }[]) {
   localStorage.setItem(CART_KEY, JSON.stringify(lines))
   act(() => {
     window.dispatchEvent(new StorageEvent('storage', { key: CART_KEY }))
@@ -97,6 +98,8 @@ describe('route selects the navbar', () => {
             <Routes>
               <Route element={<Layout />}>
                 <Route path="shop" element={<p>shop page</p>} />
+                <Route path="checkout" element={<p>checkout page</p>} />
+                <Route path="checkout/success" element={<p>success page</p>} />
                 <Route path="about" element={<p>about page</p>} />
               </Route>
             </Routes>
@@ -110,6 +113,16 @@ describe('route selects the navbar', () => {
     renderLayout(url)
     expect(screen.getByRole('searchbox', { name: 'Search the catalogue' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Wishlist, 0 saved' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Sign Up now!' })).toBeNull()
+  })
+
+  it.each(['/checkout', '/checkout/success'])('uses the shop bar on %s, without the search', (url) => {
+    renderLayout(url)
+    expect(screen.getByRole('button', { name: /^Cart/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', `/login?next=${encodeURIComponent(url)}`)
+    expect(screen.getByRole('checkbox', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument()
+    expect(screen.queryByRole('searchbox')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open search' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Sign Up now!' })).toBeNull()
   })
 
@@ -131,16 +144,68 @@ describe('ShopNavbar', () => {
     expect(screen.getByRole('checkbox', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument()
   })
 
-  it('links a logged-out user icon to /login', () => {
+  it('links a logged-out user icon to /login and returns to the current page afterwards', () => {
     renderNavbar()
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login?next=%2Fshop')
   })
 
-  it('shows the user avatar with initials instead when someone is signed in', () => {
+  it('keeps the filters in the return path', () => {
+    renderNavbar('/shop?category=Tops&sort=newest')
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
+      'href',
+      '/login?next=%2Fshop%3Fcategory%3DTops%26sort%3Dnewest',
+    )
+  })
+
+  it('shows the user avatar with initials, inside an account button, when someone is signed in', () => {
     currentUser.mockReturnValue({ name: 'Ana Reyes' })
     renderNavbar()
     expect(screen.queryByRole('link', { name: 'Sign in' })).toBeNull()
     expect(screen.getByRole('img', { name: 'Ana Reyes' })).toHaveTextContent('AR')
+    expect(screen.getByRole('button', { name: 'Account, Ana Reyes' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  describe('account menu', () => {
+    const open = async (user: ReturnType<typeof userEvent.setup>) => {
+      currentUser.mockReturnValue({ name: 'Ana Reyes', email: 'ana@example.com' })
+      renderNavbar()
+      await user.click(screen.getByRole('button', { name: 'Account, Ana Reyes' }))
+      return screen.getByRole('group', { name: 'Account' })
+    }
+
+    it('shows the name and email with a Sign out button, and moves focus into it', async () => {
+      const user = userEvent.setup()
+      const panel = await open(user)
+      expect(panel).toHaveTextContent('Ana Reyes')
+      expect(panel).toHaveTextContent('ana@example.com')
+      expect(screen.getByRole('button', { name: 'Account, Ana Reyes' })).toHaveAttribute('aria-expanded', 'true')
+      expect(screen.getByRole('button', { name: 'Sign out' })).toHaveFocus()
+    })
+
+    it('closes on Escape and returns focus to the avatar', async () => {
+      const user = userEvent.setup()
+      await open(user)
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(screen.queryByRole('group', { name: 'Account' })).toBeNull())
+      expect(screen.getByRole('button', { name: 'Account, Ana Reyes' })).toHaveFocus()
+    })
+
+    it('closes on a click outside', async () => {
+      const user = userEvent.setup()
+      await open(user)
+      await user.click(document.body)
+      await waitFor(() => expect(screen.queryByRole('group', { name: 'Account' })).toBeNull())
+    })
+
+    it('signs out, clears the session and says so', async () => {
+      setSession({ name: 'Ana Reyes', email: 'ana@example.com' })
+      const user = userEvent.setup()
+      await open(user)
+      await user.click(screen.getByRole('button', { name: 'Sign out' }))
+      expect(getSession()).toBeNull()
+      expect(await screen.findByText('Signed out')).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('group', { name: 'Account' })).toBeNull())
+    })
   })
 
   it('writes the debounced search to q in the URL and drops the page', async () => {
@@ -246,37 +311,59 @@ describe('ShopNavbar', () => {
     expect(screen.getByRole('button', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
   })
 
-  it('opens the cart as a notice that follows the real count, with no badge at zero', async () => {
+  it('opens the cart drawer from the cart button: empty at zero, with the lines when there are some', async () => {
     const user = userEvent.setup()
     const { unmount } = renderNavbar()
     const empty = screen.getByRole('button', { name: 'Cart, 0 items' })
-    expect(empty.querySelector('span')).toBeNull()
+    expect(empty.querySelector('span')).toBeNull() // no badge at zero
     await user.click(empty)
-    expect(await screen.findByText(/Your cart is empty/)).toBeInTheDocument()
+    const drawer = await screen.findByRole('dialog', { name: 'Your cart' })
+    expect(within(drawer).getByRole('heading', { name: 'Your cart is empty' })).toBeInTheDocument()
+    expect(within(drawer).getByRole('button', { name: 'Checkout' })).toBeDisabled()
     unmount()
 
-    syncCart([{ id: 'p01', qty: 1 }])
+    syncCart([{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
     renderNavbar()
     const one = screen.getByRole('button', { name: 'Cart, 1 item' })
     expect(one).toHaveTextContent('1')
     await user.click(one)
-    expect(await screen.findByText(/1 item in your cart/)).toBeInTheDocument()
+    const full = await screen.findByRole('dialog', { name: 'Your cart' })
+    expect(within(full).getByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
+    expect(within(full).getByRole('button', { name: 'Checkout' })).toBeEnabled()
   })
 
   it('totals quantities, caps each at stock and ignores pieces outside the catalogue without deleting them', () => {
     // p02 has 4 in stock; p03 is fine; "gone" is not in the catalogue.
     syncCart([
-      { id: 'p02', qty: 9 },
-      { id: 'p03', qty: 2 },
-      { id: 'gone', qty: 5 },
+      { id: 'p02', size: 'M', color: 'Black', qty: 9 },
+      { id: 'p03', size: 'S', color: 'Black', qty: 2 },
+      { id: 'gone', size: 'M', color: 'Navy', qty: 5 },
     ])
     renderNavbar()
     expect(screen.getByRole('button', { name: 'Cart, 6 items' })).toHaveTextContent('6')
     expect(JSON.parse(localStorage.getItem(CART_KEY)!)).toHaveLength(3)
   })
 
+  it('counts only what can be bought, the same as the drawer subtotal', async () => {
+    syncCart([
+      { id: 'p03', size: 'S', color: 'Black', qty: 2 }, // buyable
+      { id: 'gone', size: 'M', color: 'Navy', qty: 1 }, // not in the catalogue
+      { id: 'p24', size: 'M', color: 'Indigo', qty: 1 }, // sold out
+      { id: 'p01', size: '34', color: 'Navy', qty: 1 }, // a size this piece does not come in
+      { id: 'p01', qty: 3 }, // from before sizes existed
+      { id: 'p04', size: '30', color: 'Indigo', qty: 1 }, // buyable
+    ])
+    const user = userEvent.setup()
+    renderNavbar()
+    expect(screen.getByRole('button', { name: 'Cart, 3 items' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cart, 3 items' }))
+    const drawer = await screen.findByRole('dialog', { name: 'Your cart' })
+    expect(within(drawer).getByText('Subtotal (3 items)')).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem(CART_KEY)!)).toHaveLength(6) // nothing was deleted
+  })
+
   it('shows no cart count until the catalogue is known', () => {
-    syncCart([{ id: 'p01', qty: 2 }])
+    syncCart([{ id: 'p01', size: 'M', color: 'Navy', qty: 2 }])
     resetProductsCache()
     renderNavbar()
     expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
@@ -293,7 +380,7 @@ describe('ShopNavbar', () => {
 
   it('shows tooltips on keyboard focus with live counts and no native titles', async () => {
     syncWishlist(['p01', 'p02'])
-    syncCart([{ id: 'p01', qty: 1 }])
+    syncCart([{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
     const user = userEvent.setup()
     renderNavbar()
     const wishlist = screen.getByRole('button', { name: 'Wishlist, 2 saved' })

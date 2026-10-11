@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useToast } from '../components/toast/useToast'
 import { submitGoogleSignIn } from '../service/googleSignIn'
+import { setSession, type Session } from '../service/session'
 import { submitSignIn } from '../service/signIn'
 import {
   LOGIN_FIELD_ORDER,
@@ -9,6 +11,7 @@ import {
   type LoginField,
   type LoginValues,
 } from '../utils/loginValidation'
+import { safeNext } from '../utils/safeNext'
 import { normalizeEmail, stripEmoji } from '../utils/signUpValidation'
 
 const EMPTY: LoginValues = { email: '', password: '' }
@@ -25,6 +28,8 @@ export function fieldId(name: LoginField) {
 
 export function useLoginForm() {
   const toast = useToast()
+  const navigate = useNavigate()
+  const next = useSearchParams()[0].get('next')
   const [values, setValues] = useState<LoginValues>(EMPTY)
   const [remember, setRemember] = useState(false)
   const [touched, setTouched] = useState<Partial<Record<LoginField, boolean>>>({})
@@ -74,6 +79,14 @@ export function useLoginForm() {
     }, COOLDOWN_MS)
   }
 
+  // Sign-in finished: remember the user, then either return to the page that asked for it or show the welcome panel.
+  function signedIn(user: Session) {
+    setSession(user)
+    toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
+    if (next !== null) navigate(safeNext(next), { replace: true })
+    else setStatus('success')
+  }
+
   async function submit() {
     if (inFlight.current || locked) return
     const found = validateLogin(values)
@@ -95,8 +108,7 @@ export function useLoginForm() {
         { signal: abort.signal },
       )
       if (result.ok) {
-        setStatus('success')
-        toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
+        signedIn(result.user)
       } else if (++invalidCount.current >= MAX_INVALID) {
         startCooldown()
       } else {
@@ -126,9 +138,8 @@ export function useLoginForm() {
     setMethod('google')
     setStatus('pending')
     try {
-      await submitGoogleSignIn({ signal: abort.signal })
-      setStatus('success')
-      toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
+      const result = await submitGoogleSignIn({ signal: abort.signal })
+      signedIn(result.user)
     } catch {
       if (abort.signal.aborted) return
       // The inline banner belongs to the email form; Google failures use the toast alone.

@@ -4,6 +4,15 @@ export type Category = (typeof CATEGORIES)[number]
 export type Badge = 'New' | 'Best seller' | 'Limited' | 'AR-ready'
 export type Channel = 'online' | 'store'
 
+/** Sizes offered per category. Stock is tracked per piece, not per size (the real backend can refine that). */
+export const SIZES_BY_CATEGORY: Record<Category, string[]> = {
+  Tops: ['XS', 'S', 'M', 'L', 'XL'],
+  Outerwear: ['XS', 'S', 'M', 'L', 'XL'],
+  Knitwear: ['XS', 'S', 'M', 'L', 'XL'],
+  Bottoms: ['26', '28', '30', '32', '34', '36'],
+  Dresses: ['XS', 'S', 'M', 'L'],
+}
+
 /** From 1 up to this many units, a card shows "Only N left". */
 export const LOW_STOCK = 5
 
@@ -25,6 +34,8 @@ export interface Product {
   rating: number
   reviews: number
 }
+
+export const sizesFor = (product: Pick<Product, 'category'>) => SIZES_BY_CATEGORY[product.category]
 
 const BLACK = { name: 'Black', hex: '#1b1d21' }
 const WHITE = { name: 'White', hex: '#f1f1ee' }

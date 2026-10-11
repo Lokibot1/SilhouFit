@@ -40,9 +40,9 @@ beforeEach(() => {
 })
 afterEach(() => vi.clearAllMocks())
 
-function renderPage() {
+function renderPage(url = '/signup') {
   return render(
-    <MemoryRouter initialEntries={['/signup']}>
+    <MemoryRouter initialEntries={[url]}>
       <ToastProvider>
         <Routes>
           <Route path="/signup" element={<SignUpPage />} />
@@ -283,6 +283,16 @@ describe('SignUpPage security and submit', () => {
     expect(heading).toHaveFocus()
     expect(screen.getByText('Check your email to finish setting up your account.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to home' })).toBeInTheDocument()
+    // Sign-up does not sign anyone in, so the panel offers the way on.
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+  })
+
+  it('carries the return path to the login links, and drops an unsafe one', () => {
+    const { unmount } = renderPage('/signup?next=%2Fshop%3Fitem%3Dp01')
+    expect(screen.getByRole('link', { name: 'Login now!' })).toHaveAttribute('href', '/login?next=%2Fshop%3Fitem%3Dp01')
+    unmount()
+    renderPage('/signup?next=%2F%2Fevil.com')
+    expect(screen.getByRole('link', { name: 'Login now!' })).toHaveAttribute('href', '/login')
   })
 
   it('shows what went wrong on failure and retries with the same values', async () => {

@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { LOW_STOCK, type Product } from '../../data/products'
 import { BagIcon, CartIcon, HeartIcon, StarIcon } from '../form/icons'
+import { formatPeso } from '../../utils/format'
 import { SilhouetteMark } from '../landing/SilhouetteMark'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
-
-const PESO = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
 
 // flex-auto: each button is as wide as its label needs, then they share what is left, so "Add to cart" never wraps.
 const BUY_BUTTON = `${SHOP_PRIMARY} min-w-0 flex-auto whitespace-nowrap`
@@ -120,12 +119,12 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
               {salePrice !== undefined ? (
                 <>
                   <span className="sr-only">Original price </span>
-                  <s className="font-normal text-fg-muted">{PESO.format(product.price)}</s>
+                  <s className="font-normal text-fg-muted">{formatPeso(product.price)}</s>
                   <span className="sr-only">Sale price </span>
-                  <span>{PESO.format(salePrice)}</span>
+                  <span>{formatPeso(salePrice)}</span>
                 </>
               ) : (
-                <span>{PESO.format(product.price)}</span>
+                <span>{formatPeso(product.price)}</span>
               )}
             </p>
           </div>

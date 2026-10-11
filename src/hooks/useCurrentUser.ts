@@ -1,10 +1,13 @@
+import { useSyncExternalStore } from 'react'
+import { getSession, subscribe } from '../service/session'
+
 export interface CurrentUser {
   name: string
+  email?: string
   avatarUrl?: string
 }
 
-// Seam for auth: there is no login yet, so nobody is signed in. Return the session user here once the
-// backend exists; the shop navbar already renders an avatar for it.
+// The signed-in user from the session store (service/session.ts), or null. Swap the store for the real /me call later.
 export function useCurrentUser(): CurrentUser | null {
-  return null
+  return useSyncExternalStore(subscribe, getSession)
 }
