@@ -162,7 +162,12 @@ export function WishlistPage() {
 
         {catalogue && saved.length > 0 && (
           <>
-            <div role="toolbar" aria-label="Wishlist actions" className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* Sticks just under the navbar (its 61px height) so the actions stay in reach while scrolling a long list. */}
+            <div
+              role="toolbar"
+              aria-label="Wishlist actions"
+              className="sticky top-[61px] z-10 -mx-6 flex flex-wrap items-center gap-2 border-b border-line bg-canvas/85 px-6 py-2 backdrop-blur-md sm:gap-3"
+            >
               <button
                 type="button"
                 onClick={() => setSelected(allSelected ? [] : saved.map((p) => p.id))}
@@ -173,21 +178,26 @@ export function WishlistPage() {
               <p aria-live="polite" className="font-ui text-sm text-fg-muted tabular-nums">
                 {chosen.length} selected
               </p>
-              <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:gap-3">
+              {/* A row of three on phones (a shorter label, the full name kept for screen readers); inline from sm. */}
+              <div className="grid w-full grid-cols-3 gap-2 sm:ml-auto sm:flex sm:w-auto sm:gap-3">
                 <button
                   type="button"
                   disabled={buyable.length === 0}
+                  aria-label="Add to cart"
                   onClick={() => start('cart', chosen)}
-                  className={`${SHOP_SECONDARY} flex-auto whitespace-nowrap`}
+                  className={`${SHOP_SECONDARY} min-w-0 gap-1.5 whitespace-nowrap max-sm:px-2 max-sm:text-xs`}
                 >
                   <CartIcon size={16} />
-                  Add to cart
+                  <span className="max-sm:hidden">Add to cart</span>
+                  <span aria-hidden="true" className="sm:hidden">
+                    Cart
+                  </span>
                 </button>
                 <button
                   type="button"
                   disabled={buyable.length === 0}
                   onClick={() => start('buy', chosen)}
-                  className={`${SHOP_PRIMARY} flex-auto whitespace-nowrap`}
+                  className={`${SHOP_PRIMARY} min-w-0 gap-1.5 whitespace-nowrap max-sm:px-2 max-sm:text-xs`}
                 >
                   <BagIcon size={16} />
                   Buy
@@ -196,7 +206,7 @@ export function WishlistPage() {
                   type="button"
                   disabled={chosen.length === 0}
                   onClick={() => remove(chosen)}
-                  className={`${SHOP_SECONDARY} flex-auto whitespace-nowrap`}
+                  className={`${SHOP_SECONDARY} min-w-0 gap-1.5 whitespace-nowrap max-sm:px-2 max-sm:text-xs`}
                 >
                   <XIcon size={16} />
                   Remove

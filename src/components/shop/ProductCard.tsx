@@ -104,7 +104,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
         </button>
 
         {selection && (
-          <label className="absolute bottom-0 left-0 flex size-11 max-sm:size-9 cursor-pointer items-center justify-center text-fg">
+          <label className="absolute bottom-0 left-0 flex size-11 cursor-pointer items-center justify-center text-fg">
             <input
               type="checkbox"
               checked={selection.selected}
