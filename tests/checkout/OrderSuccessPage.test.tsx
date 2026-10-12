@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { clearSession, setSession } from '../../src/service/session'
 import { loadLastOrder, saveLastOrder, type PlacedOrder } from '../../src/utils/checkout'
-import { OrderSuccessPage } from '../../src/views/OrderSuccessPage'
+import { OrderSuccessPage } from '../../src/views/private/OrderSuccessPage'
 
 const DELIVERY: PlacedOrder = {
   orderId: 'SF-261011-ABCD',

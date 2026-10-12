@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { requestPasswordReset } from '../../src/service/requestPasswordReset'
-import { ForgotPasswordPage } from '../../src/views/ForgotPasswordPage'
+import { ForgotPasswordPage } from '../../src/views/auth/ForgotPasswordPage'
 
 vi.mock('../../src/service/requestPasswordReset', () => ({ requestPasswordReset: vi.fn() }))
 const reset = vi.mocked(requestPasswordReset)

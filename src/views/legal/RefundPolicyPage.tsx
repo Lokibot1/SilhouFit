@@ -1,7 +1,7 @@
 import {
   LegalPageLayout,
   LegalSection,
-} from '../components/legal/LegalPageLayout'
+} from '../../components/legal/LegalPageLayout'
 
 export function RefundPolicyPage() {
   return (

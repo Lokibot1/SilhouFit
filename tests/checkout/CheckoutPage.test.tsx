@@ -10,7 +10,7 @@ import { fetchProducts } from '../../src/service/fetchProducts'
 import { placeOrder } from '../../src/service/placeOrder'
 import { clearSession, setSession } from '../../src/service/session'
 import { loadLastOrder } from '../../src/utils/checkout'
-import { CheckoutPage } from '../../src/views/CheckoutPage'
+import { CheckoutPage } from '../../src/views/private/CheckoutPage'
 
 vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: vi.fn() }))
 vi.mock('../../src/service/placeOrder', () => ({ placeOrder: vi.fn() }))

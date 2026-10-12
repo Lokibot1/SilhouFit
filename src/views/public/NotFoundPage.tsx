@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 
 export function NotFoundPage() {
   useDocumentTitle('404: Out of stock, out of orbit — SilhouFit')

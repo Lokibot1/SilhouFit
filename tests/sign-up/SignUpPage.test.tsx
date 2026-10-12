@@ -6,7 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { submitGoogleSignUp } from '../../src/service/googleSignUp'
 import { submitSignUp } from '../../src/service/signUp'
-import { SignUpPage } from '../../src/views/SignUpPage'
+import { SignUpPage } from '../../src/views/auth/SignUpPage'
 
 vi.mock('../../src/service/signUp', () => ({ submitSignUp: vi.fn() }))
 vi.mock('../../src/service/googleSignUp', () => ({ submitGoogleSignUp: vi.fn() }))

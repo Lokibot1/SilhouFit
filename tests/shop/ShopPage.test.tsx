@@ -10,7 +10,7 @@ import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { PRODUCTS } from '../../src/data/products'
 import { resetProductsCache } from '../../src/hooks/useProducts'
 import { fetchProducts } from '../../src/service/fetchProducts'
-import { ShopPage } from '../../src/views/ShopPage'
+import { ShopPage } from '../../src/views/public/ShopPage'
 
 vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: vi.fn() }))
 const fetchMock = vi.mocked(fetchProducts)

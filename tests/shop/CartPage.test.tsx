@@ -7,7 +7,7 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { PRODUCTS } from '../../src/data/products'
 import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
 import { clearSession, setSession } from '../../src/service/session'
-import { CartPage } from '../../src/views/CartPage'
+import { CartPage } from '../../src/views/private/CartPage'
 
 const KEY = 'silhoufit-cart'
 const CATALOGUE = { products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' }

@@ -8,42 +8,42 @@ import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
 import { CartSkeleton, ShopSkeleton, WishlistSkeleton } from './components/shop/ShopSkeleton'
-import { AboutPage } from './views/AboutPage'
-import { CookiePolicyPage } from './views/CookiePolicyPage'
-import { LandingPage } from './views/LandingPage'
-import { NotFoundPage } from './views/NotFoundPage'
-import { PrivacyPolicyPage } from './views/PrivacyPolicyPage'
-import { RefundPolicyPage } from './views/RefundPolicyPage'
-import { TermsOfServicePage } from './views/TermsOfServicePage'
+import { AboutPage } from './views/public/AboutPage'
+import { CookiePolicyPage } from './views/legal/CookiePolicyPage'
+import { LandingPage } from './views/public/LandingPage'
+import { NotFoundPage } from './views/public/NotFoundPage'
+import { PrivacyPolicyPage } from './views/legal/PrivacyPolicyPage'
+import { RefundPolicyPage } from './views/legal/RefundPolicyPage'
+import { TermsOfServicePage } from './views/legal/TermsOfServicePage'
 
 const SignUpPage = lazy(() =>
-  import('./views/SignUpPage').then((m) => ({ default: m.SignUpPage })),
+  import('./views/auth/SignUpPage').then((m) => ({ default: m.SignUpPage })),
 )
 
 const LoginPage = lazy(() =>
-  import('./views/LoginPage').then((m) => ({ default: m.LoginPage })),
+  import('./views/auth/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
 const ForgotPasswordPage = lazy(() =>
-  import('./views/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
+  import('./views/auth/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
 )
 
 const ShopPage = lazy(() =>
-  import('./views/ShopPage').then((m) => ({ default: m.ShopPage })),
+  import('./views/public/ShopPage').then((m) => ({ default: m.ShopPage })),
 )
 
 const WishlistPage = lazy(() =>
-  import('./views/WishlistPage').then((m) => ({ default: m.WishlistPage })),
+  import('./views/private/WishlistPage').then((m) => ({ default: m.WishlistPage })),
 )
 
 const CartPage = lazy(() =>
-  import('./views/CartPage').then((m) => ({ default: m.CartPage })),
+  import('./views/private/CartPage').then((m) => ({ default: m.CartPage })),
 )
 
 const CheckoutPage = lazy(() =>
-  import('./views/CheckoutPage').then((m) => ({ default: m.CheckoutPage })),
+  import('./views/private/CheckoutPage').then((m) => ({ default: m.CheckoutPage })),
 )
 const OrderSuccessPage = lazy(() =>
-  import('./views/OrderSuccessPage').then((m) => ({ default: m.OrderSuccessPage })),
+  import('./views/private/OrderSuccessPage').then((m) => ({ default: m.OrderSuccessPage })),
 )
 
 function prefersReducedMotion() {

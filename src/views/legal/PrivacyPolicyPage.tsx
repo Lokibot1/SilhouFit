@@ -1,8 +1,8 @@
 import {
   LegalPageLayout,
   LegalSection,
-} from '../components/legal/LegalPageLayout'
-import { PRIVACY } from '../components/legal/legalContent'
+} from '../../components/legal/LegalPageLayout'
+import { PRIVACY } from '../../components/legal/legalContent'
 
 export function PrivacyPolicyPage() {
   return (

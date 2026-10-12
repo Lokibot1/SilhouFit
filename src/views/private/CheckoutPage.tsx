@@ -1,21 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { CheckoutSkeleton } from '../components/checkout/CheckoutSkeleton'
-import { OptionCards } from '../components/checkout/OptionCards'
-import { PriceSummary } from '../components/checkout/PriceSummary'
-import { CountrySelect } from '../components/form/CountrySelect'
-import { FloatingField } from '../components/form/FloatingField'
-import { AlertIcon, SpinnerIcon } from '../components/form/icons'
-import { SHOP_PRIMARY } from '../components/shop/shopControls'
-import { PRIMARY_BUTTON } from '../components/ui/buttonStyles'
-import { DEFAULT_COUNTRY_CODE, findCountry } from '../data/countries'
-import { lineKey, useCart } from '../hooks/useCart'
-import { useCurrentUser, type CurrentUser } from '../hooks/useCurrentUser'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { useMetaDescription } from '../hooks/useMetaDescription'
-import { useProducts } from '../hooks/useProducts'
-import { useWishlist } from '../hooks/useWishlist'
-import { placeOrder } from '../service/placeOrder'
+import { CheckoutSkeleton } from '../../components/checkout/CheckoutSkeleton'
+import { OptionCards } from '../../components/checkout/OptionCards'
+import { PriceSummary } from '../../components/checkout/PriceSummary'
+import { CountrySelect } from '../../components/form/CountrySelect'
+import { FloatingField } from '../../components/form/FloatingField'
+import { AlertIcon, SpinnerIcon } from '../../components/form/icons'
+import { SHOP_PRIMARY } from '../../components/shop/shopControls'
+import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
+import { DEFAULT_COUNTRY_CODE, findCountry } from '../../data/countries'
+import { lineKey, useCart } from '../../hooks/useCart'
+import { useCurrentUser, type CurrentUser } from '../../hooks/useCurrentUser'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { useMetaDescription } from '../../hooks/useMetaDescription'
+import { useProducts } from '../../hooks/useProducts'
+import { useWishlist } from '../../hooks/useWishlist'
+import { placeOrder } from '../../service/placeOrder'
 import {
   computeTotals,
   defaultFulfilment,
@@ -33,7 +33,7 @@ import {
   type Fulfilment,
   type Payment,
   type Provider,
-} from '../utils/checkout'
+} from '../../utils/checkout'
 import {
   ADDRESS_FIELD_ORDER,
   ADDRESS_LIMITS,
@@ -51,9 +51,9 @@ import {
   type AddressErrors,
   type AddressField,
   type AddressValues,
-} from '../utils/checkoutValidation'
-import { formatPeso } from '../utils/format'
-import { LIMITS, normalizePhone, sanitizePhoneDigits, validatePhone } from '../utils/signUpValidation'
+} from '../../utils/checkoutValidation'
+import { formatPeso } from '../../utils/format'
+import { LIMITS, normalizePhone, sanitizePhoneDigits, validatePhone } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
   'Review your SilhouFit order, choose delivery or pick-up in store, pay with GCash, Maya or cash, and add a note for the seller before you place the order.'

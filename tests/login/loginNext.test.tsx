@@ -7,7 +7,7 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { clearSession, getSession } from '../../src/service/session'
 import { submitGoogleSignIn } from '../../src/service/googleSignIn'
 import { submitSignIn } from '../../src/service/signIn'
-import { LoginPage } from '../../src/views/LoginPage'
+import { LoginPage } from '../../src/views/auth/LoginPage'
 
 vi.mock('../../src/service/signIn', () => ({ submitSignIn: vi.fn() }))
 vi.mock('../../src/service/googleSignIn', () => ({ submitGoogleSignIn: vi.fn() }))

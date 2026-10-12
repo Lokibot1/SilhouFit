@@ -1,8 +1,8 @@
-import { Capabilities } from '../components/landing/Capabilities'
-import { ForBoutiques } from '../components/landing/ForBoutiques'
-import { HowItWorks } from '../components/landing/HowItWorks'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { Reveal } from '../motion/Reveal'
+import { Capabilities } from '../../components/landing/Capabilities'
+import { ForBoutiques } from '../../components/landing/ForBoutiques'
+import { HowItWorks } from '../../components/landing/HowItWorks'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { Reveal } from '../../motion/Reveal'
 
 export function AboutPage() {
   useDocumentTitle('About SilhouFit — How the platform works for boutiques')

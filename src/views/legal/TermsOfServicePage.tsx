@@ -1,8 +1,8 @@
 import {
   LegalPageLayout,
   LegalSection,
-} from '../components/legal/LegalPageLayout'
-import { TERMS } from '../components/legal/legalContent'
+} from '../../components/legal/LegalPageLayout'
+import { TERMS } from '../../components/legal/legalContent'
 
 export function TermsOfServicePage() {
   return (
