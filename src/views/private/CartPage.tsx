@@ -1,5 +1,5 @@
-import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { useRef, useState } from 'react'
+import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useTransform } from 'motion/react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BagIcon, CartIcon, ChevronDownIcon, FilterIcon, PaletteIcon, RulerIcon, StoreIcon, TrashIcon, UserIcon } from '../../components/form/icons'
 import { ShopHeader } from '../../components/shop/ShopHeader'
@@ -15,6 +15,7 @@ import { sizesFor, type Product } from '../../data/products'
 import { lineKey, useCart, type Line } from '../../hooks/useCart'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProducts } from '../../hooks/useProducts'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
@@ -37,17 +38,72 @@ function problemWith(line: Line, product: Product | undefined) {
 }
 
 // A removed row slides away, then the gap closes. Motion's reduced-motion setting drops the slide and keeps the fade.
-// A row that only changed variation gets a new key, so its old self leaves at once instead of sliding.
+// A swiped row is already off screen, so it only closes the gap. A row that only changed variation gets a new key,
+// so its old self leaves at once instead of sliding.
+type Leaving = 'slide' | 'collapse' | 'instant'
 const ROW_VARIANTS = {
-  exit: (leaving: 'slide' | 'instant') => ({
+  exit: (leaving: Leaving) => ({
     opacity: 0,
     x: leaving === 'slide' ? 80 : 0,
     height: 0,
     paddingTop: 0,
     paddingBottom: 0,
     overflow: 'hidden',
-    transition: leaving === 'slide' ? { duration: DURATION.shift, ease: EASE_OUT } : { duration: 0 },
+    transition:
+      leaving === 'instant' ? { duration: 0 } : { duration: leaving === 'slide' ? DURATION.shift : DURATION.state, ease: EASE_OUT },
   }),
+}
+
+/** How far a row must be dragged, as a share of its width, for letting go to remove it. */
+const SWIPE_REMOVE_AT = 0.5
+
+/**
+ * Below sm a row can be dragged right to left: a red Remove panel grows from the edge, and letting go past halfway
+ * removes the line. From sm up the row does not move (the kebab menu is shown there).
+ */
+function SwipeRow({ onRemove, children }: { onRemove: () => void; children: ReactNode }) {
+  const wide = useMediaQuery('(min-width: 640px)')
+  const rowRef = useRef<HTMLDivElement>(null)
+  const x = useMotionValue(0)
+  const reveal = useTransform(x, (v) => Math.max(0, -v))
+
+  function release() {
+    const width = rowRef.current?.offsetWidth ?? 320
+    if (x.get() < -width * SWIPE_REMOVE_AT) {
+      animate(x, -width, { duration: DURATION.state, ease: EASE_OUT }).then(onRemove)
+    } else {
+      animate(x, 0, { duration: DURATION.state, ease: EASE_OUT })
+    }
+  }
+
+  return (
+    <div className="relative">
+      {!wide && (
+        <motion.div
+          aria-hidden="true"
+          style={{ width: reveal }}
+          className="absolute inset-y-0 right-0 flex items-center justify-end overflow-hidden rounded-xl bg-danger text-white"
+        >
+          <span className="font-ui flex items-center gap-2 px-4 text-sm font-semibold whitespace-nowrap">
+            <TrashIcon />
+            Remove
+          </span>
+        </motion.div>
+      )}
+      <motion.div
+        ref={rowRef}
+        drag={wide ? false : 'x'}
+        dragConstraints={{ left: -640, right: 0 }}
+        dragElastic={0}
+        dragMomentum={false}
+        onDragEnd={release}
+        style={{ x }}
+        className="relative flex gap-2 sm:gap-3"
+      >
+        {children}
+      </motion.div>
+    </div>
+  )
 }
 
 const plural = (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`
@@ -64,7 +120,7 @@ export function CartPage() {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const [selected, setSelected] = useState<string[]>([])
   const [confirming, setConfirming] = useState(false)
-  const [leaving, setLeaving] = useState<'slide' | 'instant'>('slide')
+  const [leaving, setLeaving] = useState<Leaving>('slide')
   // The row being edited is kept after the drawer closes so its content stays put while it slides out.
   const [editing, setEditing] = useState<{ row: Row; id: number } | null>(null)
   const [editOpen, setEditOpen] = useState(false)
@@ -85,8 +141,8 @@ export function CartPage() {
   const total = bought.reduce((sum, item) => sum + (item.product.salePrice ?? item.product.price) * item.qty, 0)
   const allSelected = rows.length > 0 && chosen.length === rows.length
 
-  function removeOne(row: Row) {
-    setLeaving('slide')
+  function removeOne(row: Row, how: Leaving = 'slide') {
+    setLeaving(how)
     const key = lineKey(row.line)
     const { line, product } = row
     cart.removeLines([key])
@@ -165,7 +221,7 @@ export function CartPage() {
     <MotionConfig reducedMotion="user">
       <ShopHeader ref={headingRef} title="Your cart" icon={<CartIcon className="size-[1.1em]" />} crumb="Cart" backToShop />
 
-      <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
+      <div className="mx-auto max-w-6xl px-6 pb-24 max-sm:pb-36 2xl:max-w-[88rem]">
         {cart.lines.length === 0 && <EmptyCart signedIn={!!user} />}
 
         {cart.lines.length > 0 && products.status === 'loading' && <CartListSkeleton count={Math.min(cart.lines.length, 4)} />}
@@ -228,17 +284,20 @@ export function CartPage() {
                       checked={selected.includes(key)}
                       onChange={(on) => toggle(key, on)}
                       label={`Select ${name}`}
-                      className="shrink-0 self-center"
+                      className="-ml-2.5 shrink-0 self-center sm:ml-0"
                     />
                   )
                   if (problem || !product) {
                     return (
-                      <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className="flex gap-3 py-5">
+                      <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className="py-5">
+                        <SwipeRow onRemove={() => removeOne(row, 'collapse')}>
                         {picker}
                         <div className="min-w-0 flex-1 rounded-xl border border-line-strong p-3">
                           <div className="flex items-start justify-between gap-3">
                             <p className="min-w-0 text-base font-semibold break-words text-fg">{product?.name ?? 'A piece in your cart'}</p>
-                            <RowMenu label={`More actions for ${name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
+                            <div className="max-sm:sr-only max-sm:focus-within:not-sr-only">
+                              <RowMenu label={`More actions for ${name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
+                            </div>
                           </div>
                           <p className="mt-1 text-sm text-danger">{problem}</p>
                           <p className="mt-1 text-sm text-fg-muted">It is left out of the total and the count.</p>
@@ -248,6 +307,7 @@ export function CartPage() {
                             </button>
                           )}
                         </div>
+                        </SwipeRow>
                       </motion.li>
                     )
                   }
@@ -255,17 +315,20 @@ export function CartPage() {
                   const room = product.stock - (cart.qtyOfProduct(product.id) - line.qty)
                   const qty = Math.min(line.qty, product.stock)
                   return (
-                    <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className="flex gap-3 py-5">
+                    <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className="py-5">
+                      <SwipeRow onRemove={() => removeOne(row, 'collapse')}>
                       {picker}
                       <img
                         src={product.image}
                         alt={product.alt}
-                        className="photo-mono h-24 w-18 shrink-0 rounded-xl border border-line object-cover"
+                        className="photo-mono h-20 w-16 shrink-0 sm:h-24 sm:w-18 rounded-xl border border-line object-cover"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                           <h2 className="min-w-0 text-base leading-snug font-semibold break-words text-fg">{product.name}</h2>
-                          <RowMenu label={`More actions for ${product.name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
+                          <div className="max-sm:sr-only max-sm:focus-within:not-sr-only">
+                            <RowMenu label={`More actions for ${product.name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -309,6 +372,7 @@ export function CartPage() {
                           </p>
                         </div>
                       </div>
+                      </SwipeRow>
                     </motion.li>
                   )
                 })}
@@ -317,8 +381,8 @@ export function CartPage() {
 
             {cart.lines.length > 0 && (
               <>
-                {/* Sticks to the bottom of the screen so the total and Checkout stay in reach on a long cart. */}
-                <div className="sticky bottom-0 z-10 -mx-6 mt-4 border-t border-line bg-canvas/85 px-6 py-2 backdrop-blur-md">
+                {/* Fixed to the bottom of the screen on phones; sticky from sm up. Either way the total and Checkout stay in reach. */}
+                <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-canvas/85 px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:inset-x-auto sm:z-10 sm:-mx-6 sm:mt-4 sm:pb-2">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
                     <div className="flex w-full items-center justify-between gap-3 sm:ml-auto sm:w-auto">
                       <p className="font-ui text-right tabular-nums">

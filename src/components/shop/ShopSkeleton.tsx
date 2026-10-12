@@ -83,11 +83,11 @@ export function CartListSkeleton({ count = 2 }: { count?: number }) {
     <div role="status" aria-label="Loading your cart" className="animate-pulse">
       <ul className="mt-4 divide-y divide-line">
         {Array.from({ length: count }, (_, i) => (
-          <li key={i} className="flex items-center gap-3 py-5">
-            <div className="flex size-11 shrink-0 items-center justify-center">
+          <li key={i} className="flex items-center gap-2 py-5 sm:gap-3">
+            <div className="-ml-2.5 flex size-11 shrink-0 items-center justify-center sm:ml-0">
               <div className="size-6 rounded-md bg-line-strong" />
             </div>
-            <div className="h-24 w-18 shrink-0 rounded-xl bg-line-strong" />
+            <div className="h-20 w-16 shrink-0 rounded-xl bg-line-strong sm:h-24 sm:w-18" />
             <div className="min-w-0 flex-1">
               <Bar className="w-1/2 text-base leading-snug" />
               <Bar className="mt-0.5 w-1/3 text-sm" />

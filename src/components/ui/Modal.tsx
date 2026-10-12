@@ -18,7 +18,7 @@ interface ModalProps {
   title: string
   /** Shown before the title. */
   icon?: ReactNode
-  /** 'sheet' is a right-side panel from sm up and a bottom sheet below it; 'sheet-left' is the same from the left. */
+  /** 'sheet' is a right-side panel from sm up and a bottom sheet below it; 'sheet-left' is a left panel from lg up. */
   variant?: 'center' | 'sheet' | 'sheet-left'
   children: ReactNode
   footer?: ReactNode
@@ -123,7 +123,7 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
   // A sheet slides in and out as one even motion (same curve both ways, no fade on the panel); the rest fade quickly.
   const slides = sheet && !reduced
   const transition = slides ? { duration: DURATION.shift, ease: SHEET_EASE } : { duration: DURATION.state, ease: EASE_OUT }
-  const wide = useMediaQuery('(min-width: 640px)')
+  const wide = useMediaQuery(left ? '(min-width: 1024px)' : '(min-width: 640px)')
   // A sheet slides in from the right (wide) or the bottom (narrow); reduced motion only fades.
   const hidden = sheet
     ? { opacity: slides ? 1 : 0, x: reduced || !wide ? 0 : left ? '-100%' : '100%', y: reduced || wide ? 0 : '100%', scale: 1 }
@@ -133,7 +133,9 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
     <div
       className={`fixed inset-0 z-[80] flex ${
         sheet
-          ? `items-end justify-center sm:items-stretch ${left ? 'sm:justify-start' : 'sm:justify-end'}`
+          ? left
+            ? 'items-end justify-center lg:items-stretch lg:justify-start'
+            : 'items-end justify-center sm:items-stretch sm:justify-end'
           : 'items-center justify-center p-4'
       } ${isPresent ? '' : 'pointer-events-none'}`}
     >
@@ -163,7 +165,9 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
         transition={transition}
         className={`glass-card glass-elevated glass-dense relative flex w-full flex-col outline-none ${
           sheet
-            ? `max-h-[90svh] rounded-t-2xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none ${left ? 'sm:rounded-r-2xl' : 'sm:rounded-l-2xl'}`
+            ? left
+              ? 'max-h-[90svh] rounded-t-2xl lg:h-full lg:max-h-none lg:max-w-md lg:rounded-none lg:rounded-r-2xl'
+              : 'max-h-[90svh] rounded-t-2xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-2xl'
             : 'max-h-[85svh] max-w-2xl rounded-2xl'
         }`}
       >
