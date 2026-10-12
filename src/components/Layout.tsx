@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { MotionConfig, motion } from 'motion/react'
 import { Navigate, Outlet, useLocation, useNavigationType } from 'react-router-dom'
 import { CookieConsentBanner } from './CookieConsentBanner'
 import { Footer } from './Footer'
@@ -7,13 +8,17 @@ import { ShopNavbar } from './ShopNavbar'
 import { SiteSky } from './Sky'
 import { SkipLink } from './SkipLink'
 import { ToastProvider } from './toast/ToastProvider'
+import { DURATION, EASE_OUT } from '../motion/tokens'
 import { isAuthPath } from '../utils/authRoutes'
 
 // Sections moved to /about; old anchors still land on them.
 const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
 
 // Pages in the shopping flow share one bar (cart, account, theme; search on /shop only).
-const SHOP_BAR = ['/shop', '/wishlist', '/checkout', '/checkout/success']
+const SHOP_BAR = ['/shop', '/wishlist', '/cart', '/checkout', '/checkout/success']
+
+// The cart and wishlist are working lists, so they end without the site footer.
+const NO_FOOTER = ['/wishlist', '/cart']
 
 export function Layout({ bare = false }: { bare?: boolean }) {
   const { pathname, hash, key } = useLocation()
@@ -44,9 +49,19 @@ export function Layout({ bare = false }: { bare?: boolean }) {
         <SkipLink />
         {!bare && (SHOP_BAR.includes(pathname.replace(/\/$/, '')) ? <ShopNavbar /> : <Navbar />)}
         <main id="main-content">
-          <Outlet />
+          {/* Enter-only fade and rise, keyed by route. Settles to transform: none so sticky/fixed children keep working. */}
+          <MotionConfig reducedMotion="user">
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: DURATION.state, ease: EASE_OUT }}
+            >
+              <Outlet />
+            </motion.div>
+          </MotionConfig>
         </main>
-        {!bare && !isAuthPath(pathname) && <Footer />}
+        {!bare && !isAuthPath(pathname) && !NO_FOOTER.includes(pathname.replace(/\/$/, '')) && <Footer />}
         <CookieConsentBanner />
       </div>
     </ToastProvider>

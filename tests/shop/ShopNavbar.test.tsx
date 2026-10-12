@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -98,6 +98,7 @@ describe('route selects the navbar', () => {
             <Routes>
               <Route element={<Layout />}>
                 <Route path="shop" element={<p>shop page</p>} />
+                <Route path="cart" element={<p>cart page</p>} />
                 <Route path="checkout" element={<p>checkout page</p>} />
                 <Route path="checkout/success" element={<p>success page</p>} />
                 <Route path="about" element={<p>about page</p>} />
@@ -116,9 +117,9 @@ describe('route selects the navbar', () => {
     expect(screen.queryByRole('link', { name: 'Sign Up now!' })).toBeNull()
   })
 
-  it.each(['/checkout', '/checkout/success'])('uses the shop bar on %s, without the search', (url) => {
+  it.each(['/cart', '/checkout', '/checkout/success'])('uses the shop bar on %s, without the search', (url) => {
     renderLayout(url)
-    expect(screen.getByRole('button', { name: /^Cart/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^Cart/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', `/login?next=${encodeURIComponent(url)}`)
     expect(screen.getByRole('checkbox', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument()
     expect(screen.queryByRole('searchbox')).toBeNull()
@@ -310,25 +311,19 @@ describe('ShopNavbar', () => {
     expect(screen.getByRole('link', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
   })
 
-  it('opens the cart drawer from the cart button: empty at zero, with the lines when there are some', async () => {
-    const user = userEvent.setup()
+  it('links to the cart page: no badge at zero, the count when there are lines, and the current page when on it', () => {
     const { unmount } = renderNavbar()
-    const empty = screen.getByRole('button', { name: 'Cart, 0 items' })
+    const empty = screen.getByRole('link', { name: 'Cart, 0 items' })
+    expect(empty).toHaveAttribute('href', '/cart')
+    expect(empty).not.toHaveAttribute('aria-current')
     expect(empty.querySelector('span')).toBeNull() // no badge at zero
-    await user.click(empty)
-    const drawer = await screen.findByRole('dialog', { name: 'Your cart' })
-    expect(within(drawer).getByRole('heading', { name: 'Your cart is empty' })).toBeInTheDocument()
-    expect(within(drawer).getByRole('button', { name: 'Checkout' })).toBeDisabled()
     unmount()
 
     syncCart([{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
-    renderNavbar()
-    const one = screen.getByRole('button', { name: 'Cart, 1 item' })
+    renderNavbar('/cart')
+    const one = screen.getByRole('link', { name: 'Cart, 1 item' })
     expect(one).toHaveTextContent('1')
-    await user.click(one)
-    const full = await screen.findByRole('dialog', { name: 'Your cart' })
-    expect(within(full).getByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
-    expect(within(full).getByRole('button', { name: 'Checkout' })).toBeEnabled()
+    expect(one).toHaveAttribute('aria-current', 'page')
   })
 
   it('totals quantities, caps each at stock and ignores pieces outside the catalogue without deleting them', () => {
@@ -339,11 +334,11 @@ describe('ShopNavbar', () => {
       { id: 'gone', size: 'M', color: 'Navy', qty: 5 },
     ])
     renderNavbar()
-    expect(screen.getByRole('button', { name: 'Cart, 6 items' })).toHaveTextContent('6')
+    expect(screen.getByRole('link', { name: 'Cart, 6 items' })).toHaveTextContent('6')
     expect(JSON.parse(localStorage.getItem(CART_KEY)!)).toHaveLength(3)
   })
 
-  it('counts only what can be bought, the same as the drawer subtotal', async () => {
+  it('counts only what can be bought, the same as the cart page total', () => {
     syncCart([
       { id: 'p03', size: 'S', color: 'Black', qty: 2 }, // buyable
       { id: 'gone', size: 'M', color: 'Navy', qty: 1 }, // not in the catalogue
@@ -352,12 +347,8 @@ describe('ShopNavbar', () => {
       { id: 'p01', qty: 3 }, // from before sizes existed
       { id: 'p04', size: '30', color: 'Indigo', qty: 1 }, // buyable
     ])
-    const user = userEvent.setup()
     renderNavbar()
-    expect(screen.getByRole('button', { name: 'Cart, 3 items' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Cart, 3 items' }))
-    const drawer = await screen.findByRole('dialog', { name: 'Your cart' })
-    expect(within(drawer).getByText('Subtotal (3 items)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cart, 3 items' })).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem(CART_KEY)!)).toHaveLength(6) // nothing was deleted
   })
 
@@ -365,9 +356,9 @@ describe('ShopNavbar', () => {
     syncCart([{ id: 'p01', size: 'M', color: 'Navy', qty: 2 }])
     resetProductsCache()
     renderNavbar()
-    expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cart, 0 items' })).toBeInTheDocument()
     act(() => primeProductsCache(CATALOGUE))
-    expect(screen.getByRole('button', { name: 'Cart, 2 items' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cart, 2 items' })).toBeInTheDocument()
   })
 
   it('has no menu button: the theme toggle sits in the bar', () => {
@@ -383,7 +374,7 @@ describe('ShopNavbar', () => {
     const user = userEvent.setup()
     renderNavbar()
     const wishlist = screen.getByRole('link', { name: 'Wishlist, 2 saved' })
-    const cart = screen.getByRole('button', { name: 'Cart, 1 item' })
+    const cart = screen.getByRole('link', { name: 'Cart, 1 item' })
     const signIn = screen.getByRole('link', { name: 'Sign in' })
     for (const control of [wishlist, cart, signIn]) expect(control).not.toHaveAttribute('title')
 

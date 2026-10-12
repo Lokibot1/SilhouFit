@@ -3,6 +3,7 @@
 // ShopSkeleton is the route fallback (header included); ShopPage shows ProductGridSkeleton under its own header.
 import { useSearchParams } from 'react-router-dom'
 import { shopTitle } from '../../utils/productQuery'
+import { CartIcon } from '../form/icons'
 import { ShopHeader } from './ShopHeader'
 
 // A one-line bar sized by the text classes it is given (the non-breaking space gives it the line height).
@@ -68,9 +69,46 @@ export function WishlistGridSkeleton() {
 export function WishlistSkeleton() {
   return (
     <>
-      <ShopHeader title="Your wishlist" crumb="Wishlist" />
+      <ShopHeader title="Your wishlist" crumb="Wishlist" backToShop />
       <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
         <WishlistGridSkeleton />
+      </div>
+    </>
+  )
+}
+
+/** The cart page's rows and its bottom bar, under its own header. */
+export function CartListSkeleton({ count = 2 }: { count?: number }) {
+  return (
+    <div role="status" aria-label="Loading your cart" className="animate-pulse">
+      <ul className="mt-4 divide-y divide-line">
+        {Array.from({ length: count }, (_, i) => (
+          <li key={i} className="flex items-center gap-3 py-5">
+            <div className="flex size-11 shrink-0 items-center justify-center">
+              <div className="size-6 rounded-md bg-line-strong" />
+            </div>
+            <div className="h-24 w-18 shrink-0 rounded-xl bg-line-strong" />
+            <div className="min-w-0 flex-1">
+              <Bar className="w-1/2 text-base leading-snug" />
+              <Bar className="mt-0.5 w-1/3 text-sm" />
+              <Bar className="mt-0.5 w-1/4 text-sm" />
+              <div className="mt-2 h-9 w-32 rounded-xl bg-line-strong pointer-coarse:h-11" />
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-6 h-14 rounded-xl bg-line" />
+    </div>
+  )
+}
+
+/** The cart route fallback (header included). */
+export function CartSkeleton() {
+  return (
+    <>
+      <ShopHeader title="Your cart" icon={<CartIcon className="size-[1.1em]" />} crumb="Cart" backToShop />
+      <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
+        <CartListSkeleton />
       </div>
     </>
   )

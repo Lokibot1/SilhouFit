@@ -313,7 +313,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
             ))}
           </ul>
           {fromCart && (
-            <Link to="/shop" className="tap mt-3 text-sm font-medium text-fg underline underline-offset-2 hover:text-chrome-strong">
+            <Link to="/cart" className="tap mt-3 text-sm font-medium text-fg underline underline-offset-2 hover:text-chrome-strong">
               Edit cart
             </Link>
           )}
@@ -526,8 +526,11 @@ export function CheckoutPage() {
   // Resolved once per URL: after the order the cart is emptied, and the page must not flash "nothing to check out".
   const [snapshot, setSnapshot] = useState<{ search: string; items: CheckoutItem[]; notices: string[] } | null>(null)
   if (products.status === 'success' && snapshot?.search !== search) {
+    // `line` keys narrow the cart to the ticked lines; without them the whole cart is ordered.
+    const only = params.getAll('line')
+    const lines = only.length > 0 ? cart.lines.filter((line) => only.includes(lineKey(line))) : cart.lines
     const resolved = fromCart
-      ? resolveCartItems(cart.lines, products.data.products)
+      ? resolveCartItems(lines, products.data.products)
       : { items: parseCheckoutItems(params, products.data.products), notices: [] }
     setSnapshot({ search, ...resolved })
   }

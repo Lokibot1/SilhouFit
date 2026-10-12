@@ -18,8 +18,8 @@ interface ModalProps {
   title: string
   /** Shown before the title. */
   icon?: ReactNode
-  /** 'sheet' is a right-side panel from sm up and a bottom sheet below it. */
-  variant?: 'center' | 'sheet'
+  /** 'sheet' is a right-side panel from sm up and a bottom sheet below it; 'sheet-left' is the same from the left. */
+  variant?: 'center' | 'sheet' | 'sheet-left'
   children: ReactNode
   footer?: ReactNode
   /** The scrolling content area, for callers that track how far it is read. */
@@ -118,20 +118,23 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
   const titleId = useId()
   const reduced = useReducedMotion()
   const isPresent = useIsPresent()
-  const sheet = variant === 'sheet'
+  const left = variant === 'sheet-left'
+  const sheet = variant === 'sheet' || left
   // A sheet slides in and out as one even motion (same curve both ways, no fade on the panel); the rest fade quickly.
   const slides = sheet && !reduced
   const transition = slides ? { duration: DURATION.shift, ease: SHEET_EASE } : { duration: DURATION.state, ease: EASE_OUT }
   const wide = useMediaQuery('(min-width: 640px)')
   // A sheet slides in from the right (wide) or the bottom (narrow); reduced motion only fades.
   const hidden = sheet
-    ? { opacity: slides ? 1 : 0, x: reduced || !wide ? 0 : '100%', y: reduced || wide ? 0 : '100%', scale: 1 }
+    ? { opacity: slides ? 1 : 0, x: reduced || !wide ? 0 : left ? '-100%' : '100%', y: reduced || wide ? 0 : '100%', scale: 1 }
     : { opacity: 0, y: reduced ? 0 : 12, x: 0, scale: reduced ? 1 : 0.98 }
 
   return (
     <div
       className={`fixed inset-0 z-[80] flex ${
-        sheet ? 'items-end justify-center sm:items-stretch sm:justify-end' : 'items-center justify-center p-4'
+        sheet
+          ? `items-end justify-center sm:items-stretch ${left ? 'sm:justify-start' : 'sm:justify-end'}`
+          : 'items-center justify-center p-4'
       } ${isPresent ? '' : 'pointer-events-none'}`}
     >
       {/* Pointer down, not click, so a text selection dragged out of the panel does not close it. Mouse down is
@@ -160,7 +163,7 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
         transition={transition}
         className={`glass-card glass-elevated glass-dense relative flex w-full flex-col outline-none ${
           sheet
-            ? 'max-h-[90svh] rounded-t-2xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-2xl'
+            ? `max-h-[90svh] rounded-t-2xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none ${left ? 'sm:rounded-r-2xl' : 'sm:rounded-l-2xl'}`
             : 'max-h-[85svh] max-w-2xl rounded-2xl'
         }`}
       >

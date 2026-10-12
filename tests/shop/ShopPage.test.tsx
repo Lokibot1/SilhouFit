@@ -471,7 +471,7 @@ describe('ShopPage cart buttons', () => {
     await user.click(within(sheet).getByRole('radio', { name: 'White' }))
     await user.click(within(sheet).getByRole('button', { name: 'Add to cart' }))
     expect(await screen.findByText('Added to cart: Heritage Polo, S, White × 1')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cart, 1 item' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cart, 1 item' })).toBeInTheDocument()
   })
 
   it('opens the spec sheet for a signed-in shopper, requires a size, then adds with an Undo', async () => {
@@ -479,7 +479,7 @@ describe('ShopPage cart buttons', () => {
     const user = userEvent.setup()
     renderPage()
     await loaded()
-    expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cart, 0 items' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Add Heritage Polo to cart' }))
     const sheet = await dialog()
@@ -492,11 +492,11 @@ describe('ShopPage cart buttons', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Add to cart' }))
 
     expect(await screen.findByText('Added to cart: Heritage Polo, M, Navy × 2')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cart, 2 items' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cart, 2 items' })).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
     await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cart, 0 items' })).toBeInTheDocument()
   })
 
   it('takes Buy now from the sheet to checkout with the chosen specs', async () => {
@@ -511,7 +511,7 @@ describe('ShopPage cart buttons', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Buy now' }))
     expect(path()).toBe('/checkout')
     expect(urlSearch()).toBe('?item=p01&size=L&color=White&qty=1')
-    expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument() // Buy does not touch the cart
+    expect(screen.getByRole('link', { name: 'Cart, 0 items' })).toBeInTheDocument() // Buy does not touch the cart
   })
 
   it('opens the sheet from a ?item=&action= link and cleans the URL', async () => {
@@ -555,7 +555,7 @@ describe('ShopPage cart buttons', () => {
     expect(add).toHaveAttribute('aria-disabled', 'true')
     await user.click(add)
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Cart, 0 items' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cart, 0 items' })).toBeInTheDocument()
   })
 })
 

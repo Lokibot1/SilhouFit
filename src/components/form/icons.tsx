@@ -59,6 +59,18 @@ export const XIcon = ({ size = 16, className }: IconProps) => (
   </Icon>
 )
 
+export const KebabIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M12 5h.01M12 12h.01M12 19h.01" strokeWidth={3} />
+  </Icon>
+)
+
+export const TrashIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 7h16M10 7V4.5h4V7M6 7l1 13h10l1-13M10 11v6M14 11v6" />
+  </Icon>
+)
+
 export const CheckIcon = ({ size = 16, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="m5 12.5 4.5 4.5L19 7.5" />
@@ -160,6 +172,14 @@ export const BagIcon = ({ size = 20, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="M5 8h14l-1 12H6L5 8Z" />
     <path d="M9 8V7a3 3 0 0 1 6 0v1" />
+  </Icon>
+)
+
+export const StoreIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M3.5 9.5 5 4h14l1.5 5.5" />
+    <path d="M3.5 9.5a2.75 2.75 0 0 0 5.5 0 3 3 0 0 0 6 0 2.75 2.75 0 0 0 5.5 0" />
+    <path d="M5 12.5V20h14v-7.5M10 20v-4h4v4" />
   </Icon>
 )
 

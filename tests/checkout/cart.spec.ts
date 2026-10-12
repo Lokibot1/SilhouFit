@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
 const overflows = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
 const placeOrderButton = (page: Page) => page.getByRole('button', { name: /Place order|Placing order/ })
-const cartButton = (page: Page, label: string) => page.getByRole('button', { name: `Cart, ${label}` })
+const cartButton = (page: Page, label: string) => page.getByRole('link', { name: `Cart, ${label}` })
 // Radio cards hide the native input; a user clicks the card, so the test does too.
 const choose = (page: Page, name: RegExp) => page.getByRole('radio', { name }).locator('xpath=ancestor::label').click()
 
@@ -74,14 +74,15 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
   await expect(cartButton(page, '2 items')).toBeVisible()
 
   await cartButton(page, '2 items').click()
-  const drawer = page.getByRole('dialog', { name: 'Your cart' })
-  await expect(drawer.getByRole('heading', { name: 'Rail Tank Set' })).toBeVisible()
-  await expect(drawer.getByText('Subtotal (2 items)')).toBeVisible()
-  await drawer.getByRole('button', { name: 'Checkout' }).click()
+  await expect(page).toHaveURL(/\/cart$/)
+  await expect(page.getByRole('heading', { name: 'Rail Tank Set' })).toBeVisible()
+  await page.getByText('Select all items').click()
+  await expect(page.getByText('Total (2 items)')).toBeVisible()
+  await page.getByRole('button', { name: 'Checkout' }).click()
 
-  await expect(page).toHaveURL(/\/login\?next=%2Fcheckout%3Fsource%3Dcart$/)
+  await expect(page).toHaveURL(/\/login\?next=%2Fcheckout%3Fsource%3Dcart%26line%3D/)
   await signInOnLoginPage(page)
-  await expect(page).toHaveURL(/\/checkout\?source=cart$/)
+  await expect(page).toHaveURL(/\/checkout\?source=cart&line=/)
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Rail Tank Set' })).toBeVisible()
   await expect(page.getByRole('complementary')).toContainText('Subtotal (2 items)')
@@ -155,28 +156,26 @@ test('the shopping bar on checkout has the cart and the account menu, and signin
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
   await expect(page.getByRole('link', { name: 'Sign Up now!' })).toHaveCount(0)
   await expect(page.getByRole('searchbox')).toHaveCount(0)
-  await cartButton(page, '1 item').click()
-  await expect(page.getByRole('dialog', { name: 'Your cart' }).getByRole('heading', { name: 'Heritage Polo' })).toBeVisible()
-  await page.keyboard.press('Escape')
+  await expect(cartButton(page, '1 item')).toHaveAttribute('href', '/cart')
 
   await page.getByRole('button', { name: 'Account, Demo Shopper' }).click()
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page).toHaveURL(/\/login\?next=%2Fcheckout%3Fsource%3Dcart$/)
 })
 
-test('can be done with the keyboard alone: cart drawer to the success page', async ({ page }) => {
+test('can be done with the keyboard alone: cart page to the success page', async ({ page }) => {
   await signedIn(page)
   await seedCart(page, [{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
   await page.goto('/shop')
   await expect(page.getByRole('article').first()).toBeVisible({ timeout: 15000 })
   await tabTo(page, cartButton(page, '1 item'))
   await page.keyboard.press('Enter')
-  const drawer = page.getByRole('dialog', { name: 'Your cart' })
-  await expect(drawer).toBeVisible()
-  await tabTo(page, drawer.getByRole('button', { name: 'Checkout' }))
+  await expect(page).toHaveURL(/\/cart$/)
+  await tabTo(page, page.getByRole('checkbox', { name: 'Select all items' }))
+  await page.keyboard.press('Space')
+  await tabTo(page, page.getByRole('button', { name: 'Checkout' }))
   await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/checkout\?source=cart$/)
-  await expect(drawer).toBeHidden()
+  await expect(page).toHaveURL(/\/checkout\?source=cart&line=/)
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
   await tabTo(page, page.getByRole('radio', { name: /Delivery/ }))
   await page.keyboard.press('ArrowRight')
@@ -216,22 +215,20 @@ test.describe('narrow screens', () => {
     expect(await overflows(page)).toBe(false)
   })
 
-  test('the cart drawer and the success page fit 320px, with controls of at least 36px (44px on touch)', async ({ page }) => {
+  test('the cart page and the success page fit 320px, with controls of at least 36px (44px on touch)', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 })
     await signedIn(page)
     await seedCart(page, [
       { id: 'p07', size: 'M', color: 'Blush', qty: 2 },
       { id: 'p01', size: 'M', color: 'Navy', qty: 1 },
     ])
-    await page.goto('/shop')
-    await expect(page.getByRole('article').first()).toBeVisible({ timeout: 15000 })
-    await cartButton(page, '3 items').click()
-    const drawer = page.getByRole('dialog', { name: 'Your cart' })
-    await expect(drawer.getByRole('button', { name: 'Checkout' })).toBeInViewport({ ratio: 1 })
+    await page.goto('/cart')
+    const cartPage = page.locator('main')
+    await expect(cartPage.getByRole('button', { name: 'Checkout' })).toBeInViewport({ ratio: 1, timeout: 15000 })
     expect(await overflows(page)).toBe(false)
     const coarse = await page.evaluate(() => matchMedia('(pointer: coarse)').matches)
     const min = coarse ? MIN_TARGET : COMPACT_TARGET
-    for (const control of await drawer.getByRole('button').all()) {
+    for (const control of await cartPage.getByRole('button').all()) {
       if (!(await control.isVisible())) continue
       const box = (await control.boundingBox())!
       const name = (await control.getAttribute('aria-label')) ?? (await control.textContent())
@@ -278,14 +275,11 @@ test.describe('dark mode', () => {
     await page.addInitScript(() => localStorage.setItem('silhoufit-theme', 'dark'))
   })
 
-  test('renders the cart drawer, cart checkout and success page readably', async ({ page }) => {
+  test('renders the cart page, cart checkout and success page readably', async ({ page }) => {
     await signedIn(page)
     await seedCart(page, [{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
-    await page.goto('/shop')
-    await expect(page.getByRole('article').first()).toBeVisible({ timeout: 15000 })
-    await cartButton(page, '1 item').click()
-    await expect(page.getByRole('dialog', { name: 'Your cart' }).getByRole('heading', { name: 'Heritage Polo' })).toBeVisible()
-    await page.keyboard.press('Escape')
+    await page.goto('/cart')
+    await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
     await page.goto('/checkout?source=cart')
     await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
     await expect(page.locator('html')).toHaveClass(/dark/)

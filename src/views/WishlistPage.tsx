@@ -1,7 +1,7 @@
 import { MotionConfig } from 'motion/react'
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BagIcon, CartIcon, HeartIcon, XIcon } from '../components/form/icons'
+import { BagIcon, CartIcon, HeartIcon, SparkleIcon, StoreIcon, XIcon } from '../components/form/icons'
 import { ProductCard } from '../components/shop/ProductCard'
 import { ShopHeader } from '../components/shop/ShopHeader'
 import { WishlistGridSkeleton } from '../components/shop/ShopSkeleton'
@@ -135,6 +135,7 @@ export function WishlistPage() {
         ref={headingRef}
         title="Your wishlist"
         crumb="Wishlist"
+        backToShop
         summary={
           products.status === 'success' ? (
             <p className="font-ui text-sm text-fg-muted tabular-nums">{plural(saved.length)} saved</p>
@@ -261,9 +262,9 @@ function EmptyWishlist({ name, catalogue }: { name?: string; catalogue: Product[
   const inCart = cart.lines.flatMap((line) => catalogue.find((p) => p.id === line.id)?.category ?? []).at(-1)
   const target = inCart ? `/shop?${new URLSearchParams({ category: inCart })}` : '/shop?sort=newest'
   return (
-    <div className="glass-card mx-auto mt-6 flex max-w-xl flex-col items-center rounded-2xl p-6 text-center sm:p-10">
-      <span aria-hidden="true" className="glass-card flex size-14 items-center justify-center rounded-full text-fg">
-        <HeartIcon />
+    <div className="mx-auto flex max-w-xl flex-col items-center px-2 py-12 text-center sm:py-16">
+      <span aria-hidden="true" className="text-fg-muted">
+        <HeartIcon className="size-14" />
       </span>
       <h2 className="display mt-4 text-2xl text-fg">{first ? `Nothing saved yet, ${first}` : 'Nothing saved yet'}</h2>
       <p className="mt-3 text-base leading-relaxed text-fg-muted">
@@ -272,6 +273,7 @@ function EmptyWishlist({ name, catalogue }: { name?: string; catalogue: Product[
           : 'Tap the heart on any piece you love to keep it here, then add it to your cart or buy it when you are ready.'}
       </p>
       <Link to={target} className={`${SHOP_PRIMARY} mt-6 w-full max-w-xs`}>
+        {inCart ? <StoreIcon /> : <SparkleIcon />}
         {inCart ? `Browse ${inCart}` : 'Shop new arrivals'}
       </Link>
       {inCart && (

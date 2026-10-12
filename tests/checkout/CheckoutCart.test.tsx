@@ -91,7 +91,7 @@ describe('CheckoutPage from the cart', () => {
     expect(screen.getByText('₱1,890.00 × 2')).toBeInTheDocument()
     expect(screen.getByText('₱1,790.00 × 1')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Change options/ })).toBeNull()
-    expect(screen.getByRole('link', { name: 'Edit cart' })).toHaveAttribute('href', '/shop')
+    expect(screen.getByRole('link', { name: 'Edit cart' })).toHaveAttribute('href', '/cart')
     const summary = screen.getByRole('complementary')
     expect(summary).toHaveTextContent('Subtotal (3 items)')
     expect(summary).toHaveTextContent('₱5,570.00') // 3,780 + 1,790
@@ -195,6 +195,29 @@ describe('CheckoutPage from the cart', () => {
     await u.click(placeButton())
     await waitFor(() => expect(where()).toBe('/checkout/success'))
     expect(storedCart().map((l) => l.id).sort()).toEqual(['p03', 'p24'])
+  })
+
+  it('orders only the lines named in the line params, including one piece in two sizes, and keeps the rest', async () => {
+    const u = user()
+    seedCart([
+      { id: 'p01', size: 'M', color: 'Navy', qty: 1 },
+      { id: 'p01', size: 'L', color: 'Navy', qty: 2 },
+      { id: 'p17', size: 'L', color: 'White', qty: 1 }, // not ticked
+    ])
+    const query = new URLSearchParams({ source: 'cart' })
+    query.append('line', 'p01|M|Navy')
+    query.append('line', 'p01|L|Navy')
+    renderCheckout(`/checkout?${query}`)
+    expect(await screen.findAllByRole('heading', { name: 'Heritage Polo' })).toHaveLength(2)
+    expect(screen.queryByRole('heading', { name: 'Rail White Shirt' })).toBeNull()
+    await fillAddress(u)
+    await u.click(placeButton())
+    await waitFor(() => expect(where()).toBe('/checkout/success'))
+    expect(placeMock.mock.calls[0][0].items).toMatchObject([
+      { id: 'p01', size: 'M', color: 'Navy', qty: 1 },
+      { id: 'p01', size: 'L', color: 'Navy', qty: 2 },
+    ])
+    expect(storedCart()).toEqual([{ id: 'p17', size: 'L', color: 'White', qty: 1 }])
   })
 
   it('does not clear the cart when the order fails', async () => {

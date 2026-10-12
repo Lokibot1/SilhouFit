@@ -97,7 +97,7 @@ for (const width of WIDTHS) {
       expect(clipped, `${name} button text is clipped at ${width}px`).toBe(false)
     }
     await expectTarget(page.getByRole('link', { name: /^Wishlist/ }), width, 'wishlist')
-    await expectTarget(page.getByRole('button', { name: /^Cart/ }), width, 'cart')
+    await expectTarget(page.getByRole('link', { name: /^Cart/ }), width, 'cart')
     await expectTarget(page.getByRole('link', { name: 'Sign in' }), width, 'sign in')
     if (width >= 1024) await expectTarget(search(page), width, 'search')
     else {
@@ -277,7 +277,7 @@ test('the wishlist icon opens the wishlist page and stays in step with the heart
 test('Add to cart opens the spec sheet, needs a size, raises the navbar badge and Undo reverts it', async ({ page }) => {
   await signedIn(page)
   await openShop(page)
-  await expect(page.getByRole('button', { name: 'Cart, 0 items' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Cart, 0 items' })).toBeVisible()
   await page.getByRole('button', { name: 'Add Heritage Polo to cart' }).click()
 
   const sheet = page.getByRole('dialog', { name: 'Choose options' })
@@ -291,10 +291,10 @@ test('Add to cart opens the spec sheet, needs a size, raises the navbar badge an
   await sheet.getByRole('button', { name: 'Add to cart' }).click()
   await expect(page.getByText('Added to cart: Heritage Polo, M, Navy × 2')).toBeVisible()
   await expect(sheet).toBeHidden()
-  await expect(page.getByRole('button', { name: 'Cart, 2 items' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Cart, 2 items' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Undo' }).click()
-  await expect(page.getByRole('button', { name: 'Cart, 0 items' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Cart, 0 items' })).toBeVisible()
 })
 
 test('Buy opens the same sheet, with Buy now as its action', async ({ page }) => {
@@ -308,7 +308,7 @@ test('Buy opens the same sheet, with Buy now as its action', async ({ page }) =>
   await expect(page.getByRole('button', { name: /^Buy Heritage Polo/ })).toBeFocused()
 })
 
-test("a guest's Add to cart opens the sheet, adds, raises the badge, and the cart drawer lists it", async ({ page }) => {
+test("a guest's Add to cart opens the sheet, adds, raises the badge, and the cart page lists it", async ({ page }) => {
   await openShop(page, '?category=Tops')
   await page.getByRole('button', { name: 'Add Rail Tank Set to cart' }).click()
   await expect(page).toHaveURL(/\/shop\?category=Tops$/) // no redirect for a guest
@@ -320,13 +320,14 @@ test("a guest's Add to cart opens the sheet, adds, raises the badge, and the car
   await sheet.getByRole('radio', { name: 'White' }).check({ force: true })
   await sheet.getByRole('button', { name: 'Add to cart' }).click()
   await expect(page.getByText('Added to cart: Rail Tank Set, S, White × 1')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Cart, 1 item' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Cart, 1 item' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Cart, 1 item' }).click()
-  const cart = page.getByRole('dialog', { name: 'Your cart' })
-  await expect(cart.getByRole('heading', { name: 'Rail Tank Set' })).toBeVisible()
-  await expect(cart.getByText("You'll sign in before you pay.")).toBeVisible()
-  await expect(cart.getByText('Subtotal (1 item)')).toBeVisible()
+  await page.getByRole('link', { name: 'Cart, 1 item' }).click()
+  await expect(page).toHaveURL(/\/cart$/)
+  await expect(page.getByRole('main').getByRole('heading', { name: 'Rail Tank Set' })).toBeVisible()
+  await page.getByText('Select all items').click()
+  await expect(page.getByText("You'll sign in before you pay.")).toBeVisible()
+  await expect(page.getByText('Total (1 item)')).toBeVisible()
 })
 
 test("a guest's Buy now says they will sign in before paying", async ({ page }) => {
@@ -336,25 +337,21 @@ test("a guest's Buy now says they will sign in before paying", async ({ page }) 
   await expect(sheet.getByText("You'll sign in before you pay.")).toBeVisible()
 })
 
-test('the cart drawer changes quantities, removes with an in-drawer Undo, and is empty after clearing', async ({ page }) => {
+test('the cart page changes quantities, removes with a toast Undo, and is empty after clearing', async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem('silhoufit-cart', JSON.stringify([{ id: 'p01', size: 'M', color: 'Navy', qty: 2 }])),
   )
-  await openShop(page)
-  await page.getByRole('button', { name: 'Cart, 2 items' }).click()
-  const cart = page.getByRole('dialog', { name: 'Your cart' })
-  await expect(cart.getByText('₱3,780.00').first()).toBeVisible()
-  await cart.getByRole('button', { name: 'Increase quantity of Heritage Polo' }).click()
-  await expect(page.getByRole('button', { name: 'Cart, 3 items' })).toBeVisible()
-  await cart.getByRole('button', { name: 'Remove Heritage Polo' }).click()
-  await expect(cart.getByRole('status')).toContainText('Removed Heritage Polo.')
-  await expect(cart.getByRole('heading', { name: 'Your cart is empty' })).toBeVisible()
-  await cart.getByRole('button', { name: /Undo/ }).click()
-  await expect(cart.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Cart, 3 items' })).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(cart).toBeHidden()
-  await expect(page.getByRole('button', { name: 'Cart, 3 items' })).toBeFocused()
+  await page.goto('/cart')
+  await expect(page.getByText('₱3,780.00').first()).toBeVisible({ timeout: 15000 })
+  await page.getByRole('button', { name: 'Increase quantity of Heritage Polo' }).click()
+  await expect(page.getByRole('link', { name: 'Cart, 3 items' })).toBeVisible()
+  await page.getByRole('button', { name: 'More actions for Heritage Polo' }).click()
+  await page.getByRole('menuitem', { name: 'Remove' }).click()
+  await expect(page.getByText('Removed Heritage Polo from cart')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Your cart is currently empty' })).toBeVisible()
+  await page.getByRole('button', { name: /Undo/ }).click()
+  await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Cart, 3 items' })).toBeVisible()
 })
 
 test('a click on the sheet backdrop returns focus to the button that opened it', async ({ page }) => {
@@ -382,7 +379,7 @@ test('sold-out pieces cannot be added or bought', async ({ page }) => {
   await expect(add).toHaveAttribute('aria-disabled', 'true')
   await add.scrollIntoViewIfNeeded()
   await add.click({ force: true }) // aria-disabled is not a native disabled state, so force past the actionability wait
-  await expect(page.getByRole('button', { name: 'Cart, 0 items' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Cart, 0 items' })).toBeVisible()
 })
 
 test('opens the Sort dropdown and drives it with the keyboard', async ({ page }) => {
@@ -448,7 +445,7 @@ test('keeps card titles in line: one-line category text and single-line badges',
 test('shows the Cart tooltip on keyboard focus, inside a 320px viewport', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 })
   await openShop(page)
-  await tabTo(page, page.getByRole('button', { name: /^Cart/ }))
+  await tabTo(page, page.getByRole('link', { name: /^Cart/ }))
   // Earlier tooltips may still be fading out, so pick this one by its text.
   const tooltip = page.getByRole('tooltip').filter({ hasText: 'Cart (0 items)' })
   await expect(tooltip).toBeVisible()

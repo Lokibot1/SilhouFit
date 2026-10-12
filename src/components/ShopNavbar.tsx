@@ -9,7 +9,6 @@ import { CartIcon, HeartIcon, SearchIcon, UserIcon, XIcon } from './form/icons'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 import { ThemeToggle } from './ThemeToggle'
 import { AccountMenu } from './AccountMenu'
-import { CartSheet } from './shop/CartSheet'
 import { Tooltip } from './ui/Tooltip'
 
 const ICON_BUTTON =
@@ -35,15 +34,15 @@ export function ShopNavbar() {
   const savedCount = useSavedIds()?.length ?? null // null until the catalogue is known
   const cartCount = useCartCount()
   const user = useCurrentUser()
-  const [cartOpen, setCartOpen] = useState(false)
   const { pathname, search: query } = useLocation()
   const { theme } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const searchToggleRef = useRef<HTMLButtonElement>(null)
-  // The search belongs to the shop page; on the wishlist and checkout the same bar keeps cart, account and theme.
+  // The search belongs to the shop page; on the wishlist, cart and checkout the same bar keeps cart, account and theme.
   const onShop = pathname.replace(/\/$/, '') === '/shop'
   const onWishlist = pathname.replace(/\/$/, '') === '/wishlist'
+  const onCart = pathname.replace(/\/$/, '') === '/cart'
 
   // Below lg the search is a row that opens on demand.
   useEffect(() => {
@@ -144,15 +143,15 @@ export function ShopNavbar() {
             </Link>
           </Tooltip>
           <Tooltip label={`Cart (${cartCount} ${cartCount === 1 ? 'item' : 'items'})`}>
-            <button
-              type="button"
+            <Link
+              to="/cart"
+              aria-current={onCart ? 'page' : undefined}
               aria-label={`Cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
-              onClick={() => setCartOpen(true)}
-              className={ICON_BUTTON}
+              className={`${ICON_BUTTON} ${onCart ? 'bg-fg/10' : ''}`}
             >
               <CartIcon />
               <Badge count={cartCount} />
-            </button>
+            </Link>
           </Tooltip>
           {user ? (
             <AccountMenu user={user} />
@@ -170,8 +169,6 @@ export function ShopNavbar() {
           </div>
         </div>
       </div>
-
-      <CartSheet open={cartOpen} onClose={() => setCartOpen(false)} guest={!user} />
     </header>
   )
 }

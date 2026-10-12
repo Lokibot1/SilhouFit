@@ -89,6 +89,22 @@ function setLineQty(key: string, qty: number) {
   commit(capped > 0 ? lines.map((l) => (l === line ? { ...l, qty: capped } : l)) : lines.filter((l) => l !== line))
 }
 
+/** Moves a line to another size and colour, joining the line already there if there is one. Returns the new key. */
+function changeVariant(key: string, size: string, color: string) {
+  const line = lines.find((l) => lineKey(l) === key)
+  if (!line) return key
+  const nextKey = lineKey({ id: line.id, size, color })
+  if (nextKey === key) return key
+  const target = lines.find((l) => lineKey(l) === nextKey)
+  // The piece's total quantity is unchanged, so its stock limit still holds.
+  commit(
+    target
+      ? lines.filter((l) => l !== line).map((l) => (l === target ? { ...l, qty: l.qty + line.qty } : l))
+      : lines.map((l) => (l === line ? { ...l, size, color } : l)),
+  )
+  return nextKey
+}
+
 /** Drops whole lines (after an order); lines added elsewhere in the meantime stay. */
 function removeLines(keys: string[]) {
   commit(lines.filter((line) => !keys.includes(lineKey(line))))
@@ -116,12 +132,13 @@ export function useCart() {
     add: addToCart,
     remove: removeFromCart,
     setQty: setLineQty,
+    changeVariant,
     removeLines,
   }
 }
 
 /**
- * Pieces that can be bought: the same lines the drawer subtotal and the checkout use (known, in stock, with a size
+ * Pieces that can be bought: the same lines the cart page total and the checkout use (known, in stock, with a size
  * and colour, within stock per piece). Zero until the catalogue is known. Other stored lines are hidden here, not
  * deleted.
  */

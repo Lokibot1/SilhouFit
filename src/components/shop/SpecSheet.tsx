@@ -31,7 +31,7 @@ const SIZE_ERROR = 'Choose a size to continue.'
 const COLOR_ERROR = 'Choose a colour to continue.'
 const LEGEND = 'font-ui text-xs font-semibold tracking-[0.12em] text-fg uppercase'
 const LEGEND_ICON = 'mr-2 -mt-0.5 inline align-middle'
-const OPTION_BASE =
+export const OPTION_BASE =
   'skeuo font-ui flex min-h-8 pointer-coarse:min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong'
 
 /** Pick the specs (colour, size, quantity) for Add to cart or Buy now, with the price following the choice. */
