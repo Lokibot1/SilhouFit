@@ -15,7 +15,7 @@ import { isAuthPath } from '../utils/authRoutes'
 const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
 
 // Pages in the shopping flow share one bar (cart, account, theme; search on /shop only).
-const SHOP_BAR = ['/shop', '/wishlist', '/cart', '/checkout', '/checkout/success']
+const SHOP_BAR = ['/shop', '/wishlist', '/cart', '/checkout', '/checkout/success', '/profile']
 
 // The cart and wishlist are working lists, so they end without the site footer.
 const NO_FOOTER = ['/wishlist', '/cart']

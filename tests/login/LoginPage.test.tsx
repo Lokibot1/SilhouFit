@@ -4,14 +4,17 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { submitGoogleSignIn } from '../../src/service/googleSignIn'
+import { GoogleAuthError, startGoogleAuth } from '../../src/service/googleAuth'
 import { submitSignIn } from '../../src/service/signIn'
 import { LoginPage } from '../../src/views/auth/LoginPage'
 
 vi.mock('../../src/service/signIn', () => ({ submitSignIn: vi.fn() }))
-vi.mock('../../src/service/googleSignIn', () => ({ submitGoogleSignIn: vi.fn() }))
+vi.mock('../../src/service/googleAuth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/googleAuth')>()),
+  startGoogleAuth: vi.fn(),
+}))
 const signIn = vi.mocked(submitSignIn)
-const googleSignIn = vi.mocked(submitGoogleSignIn)
+const googleSignIn = vi.mocked(startGoogleAuth)
 const USER = { name: 'Demo Shopper', email: 'demo@silhoufit.com' }
 
 beforeAll(() => {
@@ -37,7 +40,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   signIn.mockResolvedValue({ ok: true, user: USER })
-  googleSignIn.mockResolvedValue({ ok: true, user: USER })
+  googleSignIn.mockResolvedValue(undefined)
 })
 afterEach(() => {
   vi.clearAllMocks()
@@ -45,12 +48,13 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function renderPage() {
+function renderPage(url = '/login') {
   return render(
-    <MemoryRouter initialEntries={['/login']}>
+    <MemoryRouter initialEntries={[url]}>
       <ToastProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/profile" element={<p>profile page</p>} />
         </Routes>
       </ToastProvider>
     </MemoryRouter>,
@@ -305,7 +309,7 @@ describe('LoginPage submit', () => {
     expect(signIn).toHaveBeenCalledTimes(1)
   })
 
-  it('replaces the form with a welcome panel, a success toast and a way home', async () => {
+  it('leaves for /profile with a success toast once signed in', async () => {
     const user = userEvent.setup()
     let finish: () => void = () => {}
     signIn.mockReturnValue(new Promise((resolve) => (finish = () => resolve({ ok: true, user: USER }))))
@@ -313,12 +317,8 @@ describe('LoginPage submit', () => {
     await fillAndSubmit(user)
 
     finish()
-    // Wait for the success state first: while pending the h1 already matches, so a heading query alone returns early.
-    expect(await screen.findByText('Signed in. Welcome back.')).toBeInTheDocument()
-    // The page h1 gives way to the panel heading, so there is exactly one.
-    expect(screen.getAllByRole('heading', { name: 'Welcome back' })).toHaveLength(1)
-    expect(screen.getByRole('heading', { name: 'Welcome back' })).toHaveFocus()
-    expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/')
+    expect(await screen.findByText('profile page')).toBeInTheDocument()
+    expect(screen.getByText('Signed in. Welcome back.')).toBeInTheDocument()
     expect(screen.queryByLabelText(/^email$/i)).not.toBeInTheDocument()
     expect(document.querySelector('input[type="password"]')).toBeNull()
   })
@@ -380,8 +380,7 @@ describe('LoginPage network failure', () => {
     expect(signIn).toHaveBeenCalledTimes(2)
     expect(signIn.mock.calls[1][0]).toEqual(signIn.mock.calls[0][0])
     // Wait for the success outcome rather than the pending form.
-    expect(await screen.findByText('Signed in. Welcome back.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to home' })).toBeInTheDocument()
+    expect(await screen.findByText('profile page')).toBeInTheDocument()
   })
 
   it.each([
@@ -420,6 +419,7 @@ describe('LoginPage network failure', () => {
         <ToastProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+          <Route path="/profile" element={<p>profile page</p>} />
             <Route path="/signup" element={<p>Sign up page</p>} />
           </Routes>
         </ToastProvider>
@@ -534,45 +534,42 @@ describe('LoginPage cooldown after repeated invalid credentials', () => {
 })
 
 describe('LoginPage Google sign in', () => {
-  it('opens no legal dialog and calls the service once, showing a disabled, busy pending button', async () => {
+  it('opens no legal dialog and starts Google once, showing a disabled, busy pending button', async () => {
     const user = userEvent.setup()
-    googleSignIn.mockReturnValue(new Promise(() => {}))
     renderPage()
     await user.click(google())
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(googleSignIn).toHaveBeenCalledTimes(1)
-    expect(googleSignIn.mock.calls[0][0]?.signal).toBeInstanceOf(AbortSignal)
+    expect(googleSignIn).toHaveBeenCalledWith({ next: null })
+    // The browser leaves for Google, so the page stays pending and does not sign in itself.
     const pending = screen.getByRole('button', { name: 'Connecting to Google…' })
     expect(pending).toBeDisabled()
     expect(pending).toHaveAttribute('aria-busy', 'true')
     expect(signIn).not.toHaveBeenCalled()
+    expect(screen.queryByText('profile page')).not.toBeInTheDocument()
   })
 
-  it('shows the welcome panel and success toast on success', async () => {
+  it('hands the next path to the service', async () => {
     const user = userEvent.setup()
-    renderPage()
+    renderPage('/login?next=%2Fcheckout')
     await user.click(google())
-
-    expect(await screen.findByText('Signed in. Welcome back.')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Welcome back' })).toHaveFocus()
-    expect(screen.getByRole('link', { name: 'Back to home' })).toBeInTheDocument()
+    expect(googleSignIn).toHaveBeenCalledWith({ next: '/checkout' })
   })
 
   it('reports a failure in a toast, leaves the email form free of a banner, and retries from the toast', async () => {
     const user = userEvent.setup()
-    googleSignIn.mockRejectedValueOnce(new Error('network'))
+    googleSignIn.mockRejectedValueOnce(new GoogleAuthError('network'))
     renderPage()
     await user.click(google())
 
-    expect(await screen.findByText(/couldn't connect to Google/)).toBeInTheDocument()
+    expect(await screen.findByText(/couldn't reach Google sign-in/)).toBeInTheDocument()
     expect(google()).toBeEnabled()
     expect(within(form()).queryByRole('alert')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(googleSignIn).toHaveBeenCalledTimes(2)
-    expect(await screen.findByText('Signed in. Welcome back.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to home' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Connecting to Google…' })).toBeDisabled()
   })
 
   it('sends one request on a double click', async () => {
@@ -583,18 +580,18 @@ describe('LoginPage Google sign in', () => {
     expect(googleSignIn).toHaveBeenCalledTimes(1)
   })
 
-  it('aborts the request when the page unmounts', async () => {
+  it('becomes usable again when the page is restored from the back-forward cache', async () => {
     const user = userEvent.setup()
-    let signal: AbortSignal | undefined
-    googleSignIn.mockImplementation((options) => {
-      signal = options?.signal
-      return new Promise(() => {})
-    })
-    const { unmount } = renderPage()
+    renderPage()
     await user.click(google())
+    expect(google).toThrow()
 
-    unmount()
-    expect(signal?.aborted).toBe(true)
+    const event = new Event('pageshow') as PageTransitionEvent
+    Object.defineProperty(event, 'persisted', { value: true })
+    act(() => {
+      window.dispatchEvent(event)
+    })
+    expect(google()).toBeEnabled()
   })
 })
 
@@ -622,7 +619,7 @@ describe('LoginPage keeps the password private', () => {
     expect(document.body.textContent).not.toContain(SECRET)
 
     await user.click(screen.getByRole('button', { name: 'Try again' }))
-    await screen.findByRole('link', { name: 'Back to home' })
+    await screen.findByText('profile page')
     expect(document.body.textContent).not.toContain(SECRET)
 
     const logged = spies.flatMap((spy) => spy.mock.calls).map((args) => args.map(String).join(' '))

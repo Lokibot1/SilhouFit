@@ -3,10 +3,12 @@ import { lazy, Suspense, useState } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import { LandingCometCursor } from './components/CometCursor'
 import { IntroLoader } from './components/IntroLoader'
+import { CallbackSkeleton } from './components/form/CallbackSkeleton'
 import { LoginSkeleton } from './components/form/LoginSkeleton'
 import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
+import { ProfileSkeleton } from './components/profile/ProfileSkeleton'
 import { CartSkeleton, ShopSkeleton, WishlistSkeleton } from './components/shop/ShopSkeleton'
 import { AboutPage } from './views/public/AboutPage'
 import { CookiePolicyPage } from './views/legal/CookiePolicyPage'
@@ -22,6 +24,9 @@ const SignUpPage = lazy(() =>
 
 const LoginPage = lazy(() =>
   import('./views/auth/LoginPage').then((m) => ({ default: m.LoginPage })),
+)
+const AuthCallbackPage = lazy(() =>
+  import('./views/auth/AuthCallbackPage').then((m) => ({ default: m.AuthCallbackPage })),
 )
 const ForgotPasswordPage = lazy(() =>
   import('./views/auth/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
@@ -44,6 +49,10 @@ const CheckoutPage = lazy(() =>
 )
 const OrderSuccessPage = lazy(() =>
   import('./views/private/OrderSuccessPage').then((m) => ({ default: m.OrderSuccessPage })),
+)
+
+const ProfilePage = lazy(() =>
+  import('./views/private/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 )
 
 function prefersReducedMotion() {
@@ -84,6 +93,14 @@ function App() {
               element={
                 <Suspense fallback={<LoginSkeleton />}>
                   <LoginPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="auth/callback"
+              element={
+                <Suspense fallback={<CallbackSkeleton />}>
+                  <AuthCallbackPage />
                 </Suspense>
               }
             />
@@ -135,7 +152,15 @@ function App() {
                 </Suspense>
               }
             />
-            <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route
+              path="profile"
+              element={
+                <Suspense fallback={<ProfileSkeleton />}>
+                  <ProfilePage />
+                </Suspense>
+              }
+            />
+            <Route path="privacy-policy"element={<PrivacyPolicyPage />} />
             <Route path="terms-of-service" element={<TermsOfServicePage />} />
             <Route path="refund-policy" element={<RefundPolicyPage />} />
             <Route path="cookie-policy" element={<CookiePolicyPage />} />

@@ -139,7 +139,7 @@ for (const { name, width, height } of DEVICE_MATRIX) {
   })
 }
 
-test('signs in with the keyboard alone and lands on the welcome panel, staying on /login', async ({ page }) => {
+test('signs in with the keyboard alone and lands on the profile page', async ({ page }) => {
   await page.goto('/login')
 
   await tabTo(page, emailField(page))
@@ -148,12 +148,11 @@ test('signs in with the keyboard alone and lands on the welcome panel, staying o
   await page.keyboard.type(DEMO.password)
   await page.keyboard.press('Enter')
 
-  const heading = page.getByRole('heading', { name: 'Welcome back' })
+  const heading = page.getByRole('heading', { name: 'Demo Shopper' })
   await expect(heading).toBeVisible()
   await expect(heading).toBeFocused()
   await expect(page.getByText('Signed in. Welcome back.')).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Back to home' })).toBeVisible()
-  await expect(page).toHaveURL(/\/login$/)
+  await expect(page).toHaveURL(/\/profile$/)
 })
 
 test('shows one generic alert for wrong credentials, the same for an unknown email and a wrong password', async ({ page }) => {

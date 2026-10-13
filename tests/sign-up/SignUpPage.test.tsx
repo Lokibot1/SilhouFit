@@ -4,14 +4,17 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { submitGoogleSignUp } from '../../src/service/googleSignUp'
+import { GoogleAuthError, startGoogleAuth } from '../../src/service/googleAuth'
 import { submitSignUp } from '../../src/service/signUp'
 import { SignUpPage } from '../../src/views/auth/SignUpPage'
 
 vi.mock('../../src/service/signUp', () => ({ submitSignUp: vi.fn() }))
-vi.mock('../../src/service/googleSignUp', () => ({ submitGoogleSignUp: vi.fn() }))
+vi.mock('../../src/service/googleAuth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/googleAuth')>()),
+  startGoogleAuth: vi.fn(),
+}))
 const submit = vi.mocked(submitSignUp)
-const googleSubmit = vi.mocked(submitGoogleSignUp)
+const googleSubmit = vi.mocked(startGoogleAuth)
 
 beforeAll(() => {
   // Full-form typing with userEvent is slow when the whole suite runs in parallel.
@@ -36,7 +39,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   submit.mockResolvedValue({ ok: true })
-  googleSubmit.mockResolvedValue({ ok: true })
+  googleSubmit.mockResolvedValue(undefined)
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -474,11 +477,9 @@ describe('SignUpPage Google sign up', () => {
     ).toBeTruthy()
   })
 
-  it('opens both documents first, then continues on its own and shows the welcome panel', async () => {
+  it('opens both documents first, then continues on its own and stays pending while the browser leaves', async () => {
     const user = userEvent.setup()
-    let finish: () => void = () => {}
-    googleSubmit.mockReturnValue(new Promise((resolve) => (finish = () => resolve({ ok: true }))))
-    renderPage()
+    renderPage('/signup?next=%2Fcheckout')
     await user.click(google())
 
     expect(await dialog('Terms of Service')).toBeInTheDocument()
@@ -491,11 +492,8 @@ describe('SignUpPage Google sign up', () => {
     const pending = screen.getByRole('button', { name: 'Connecting to Google…' })
     expect(pending).toBeDisabled()
     expect(pending).toHaveAttribute('aria-busy', 'true')
-
-    finish()
-    const heading = await screen.findByRole('heading', { name: 'Welcome!' })
-    expect(heading).toHaveFocus()
-    expect(screen.getByText('Account created. Check your email to finish setting up.')).toBeInTheDocument()
+    expect(googleSubmit).toHaveBeenCalledWith({ next: '/checkout' })
+    expect(screen.queryByRole('heading', { name: /^Welcome/ })).not.toBeInTheDocument()
     expect(submit).not.toHaveBeenCalled()
   })
 
@@ -514,25 +512,24 @@ describe('SignUpPage Google sign up', () => {
 
   it('reports a failure in a toast and retries from it', async () => {
     const user = userEvent.setup()
-    googleSubmit.mockRejectedValueOnce(new Error('network'))
+    googleSubmit.mockRejectedValueOnce(new GoogleAuthError('network'))
     renderPage()
     await user.click(google())
     await acknowledgeBoth(user)
 
-    expect(await screen.findByText(/couldn't connect to Google/)).toBeInTheDocument()
+    expect(await screen.findByText(/couldn't reach Google sign-in/)).toBeInTheDocument()
     expect(google()).toBeEnabled()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(googleSubmit).toHaveBeenCalledTimes(2)
-    expect(await screen.findByRole('heading', { name: 'Welcome!' })).toBeInTheDocument()
   })
 
   it('sends one request on a double click', async () => {
     const user = userEvent.setup()
-    googleSubmit.mockRejectedValueOnce(new Error('network'))
+    googleSubmit.mockRejectedValueOnce(new GoogleAuthError('server'))
     renderPage()
     await user.click(google())
     await acknowledgeBoth(user)
-    await screen.findByText(/couldn't connect to Google/)
+    await screen.findByText(/couldn't start Google sign-in/)
     expect(googleSubmit).toHaveBeenCalledTimes(1)
 
     googleSubmit.mockReturnValue(new Promise(() => {}))

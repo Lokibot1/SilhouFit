@@ -3,9 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CurrentUser } from '../hooks/useCurrentUser'
 import { DURATION, EASE_OUT } from '../motion/tokens'
-import { clearSession } from '../service/session'
-import { getSupabase } from '../service/supabase'
-import { clearLastOrder } from '../utils/checkout'
+import { signOut as endSession } from '../service/signOut'
 import { useToast } from './toast/useToast'
 import { Avatar } from './ui/Avatar'
 import { computePlace, LISTBOX_PANEL } from './ui/listbox'
@@ -63,9 +61,7 @@ export function AccountMenu({ user }: { user: CurrentUser }) {
   }, [open, placed])
 
   function signOut() {
-    void getSupabase().then((supabase) => supabase.auth.signOut()).catch(() => {}) // not awaited: the UI must not wait on the network
-    clearSession()
-    clearLastOrder() // an order's address and phone must not outlive the session
+    endSession()
     close(false)
     // The avatar is replaced by the Sign in icon: put focus there rather than on the page.
     requestAnimationFrame(() => document.getElementById('shop-sign-in')?.focus())

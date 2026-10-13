@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useToast } from '../components/toast/useToast'
 import type { LegalDoc } from '../components/legal/legalContent'
-import { submitGoogleSignUp } from '../service/googleSignUp'
+import { googleErrorMessage, startGoogleAuth } from '../service/googleAuth'
 import { submitSignUp, type SignUpError, type SignUpErrorKind } from '../service/signUp'
 import {
   CONSENT_ERROR,
@@ -87,6 +88,7 @@ function withConsent(errors: SignUpErrors, read: Acknowledged): SignUpErrors {
 
 export function useSignUpForm() {
   const toast = useToast()
+  const next = useSearchParams()[0].get('next')
   const [values, setValues] = useState<SignUpValues>(EMPTY)
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({})
   const [status, setStatus] = useState<SignUpStatus>('editing')
@@ -104,6 +106,15 @@ export function useSignUpForm() {
   const googleRef = useRef<() => void>(() => {})
 
   useEffect(() => () => controller.current?.abort(), [])
+
+  // Back from Google restores this page frozen mid-request; make the buttons usable again.
+  useEffect(() => {
+    const onShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setStatus('editing')
+    }
+    window.addEventListener('pageshow', onShow)
+    return () => window.removeEventListener('pageshow', onShow)
+  }, [])
 
   const errors = useMemo(() => {
     const all = withConsent(validateSignUp(values), acknowledged)
@@ -181,16 +192,15 @@ export function useSignUpForm() {
     setMethod('google')
     setStatus('pending')
     try {
-      await submitGoogleSignUp({ signal: abort.signal })
-      setStatus('success')
-      toast.show({ kind: 'success', message: 'Account created. Check your email to finish setting up.' })
-    } catch {
+      // The browser leaves for Google, so the pending state stays until it does. The callback page finishes sign-in.
+      await startGoogleAuth({ next })
+    } catch (failure) {
       if (abort.signal.aborted) return
       // The inline error banner belongs to the email form; Google failures use the toast alone.
       setStatus('editing')
       toast.show({
         kind: 'error',
-        message: "We couldn't connect to Google. The connection dropped before we got a response. Nothing was saved. Try again.",
+        message: googleErrorMessage(failure),
         action: { label: 'Try again', onClick: () => googleRef.current() },
       })
     } finally {

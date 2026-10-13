@@ -1,5 +1,4 @@
 import { motion } from 'motion/react'
-import { useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { FloatingField } from '../../components/form/FloatingField'
 import { GoogleButton } from '../../components/form/GoogleButton'
@@ -17,18 +16,6 @@ const META_DESCRIPTION =
   'Sign in to SilhouFit to open your saved fit profile, pick up AR fitting where you left off and shop boutiques and online with one secure SilhouFit account.'
 
 const GAPS = '[&>*+*]:mt-4 short:[&>*+*]:mt-3'
-
-function WelcomeHeading() {
-  const ref = useRef<HTMLHeadingElement>(null)
-  useEffect(() => {
-    ref.current?.focus()
-  }, [])
-  return (
-    <h2 ref={ref} tabIndex={-1} className="display text-2xl text-fg outline-none">
-      Welcome back
-    </h2>
-  )
-}
 
 export function LoginPage() {
   useDocumentTitle('Sign in — SilhouFit')
@@ -69,121 +56,104 @@ export function LoginPage() {
         transition={{ duration: DURATION.shift, ease: EASE_OUT }}
         className="glass-card glass-elevated w-full max-w-md rounded-2xl px-4 py-4 wrap-break-word max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4"
       >
-        {status === 'success' ? (
-          <div>
-            <span className="flex size-10 items-center justify-center rounded-full border border-line-strong text-success">
-              <CheckIcon />
-            </span>
-            <div className="mt-4">
-              <WelcomeHeading />
+        <form noValidate onSubmit={onSubmit} aria-busy={pending} className={GAPS}>
+          <div className="flex flex-col gap-5 pb-2 short:gap-3">
+            <div className="flex flex-col items-center gap-2 shortest:hidden">
+              <span className="flex size-16 items-center justify-center rounded-2xl bg-fg shadow-sm short:size-12">
+                <SilhouetteMark className="h-12 w-9 text-canvas short:h-9 short:w-7 [&>path]:stroke-[4]" />
+              </span>
+              <span className="font-display text-xl leading-none font-bold tracking-[-0.02em] text-fg">SilhouFit</span>
             </div>
-            <p className="mt-2 text-base leading-relaxed text-fg-muted">You're signed in.</p>
-            <div className="mt-6 flex">
-              <Link to="/" className={`${PRIMARY_BUTTON} flex-1`}>
-                Back to home
-              </Link>
+            <div>
+              <h1 className="display text-left text-3xl text-fg sm:text-4xl">Login Form</h1>
+              <p className="mt-2 text-sm leading-snug text-fg-muted">Pick up your fit profile and AR fittings.</p>
             </div>
           </div>
-        ) : (
-          <form noValidate onSubmit={onSubmit} aria-busy={pending} className={GAPS}>
-            <div className="flex flex-col gap-5 pb-2 short:gap-3">
-              <div className="flex flex-col items-center gap-2 shortest:hidden">
-                <span className="flex size-16 items-center justify-center rounded-2xl bg-fg shadow-sm short:size-12">
-                  <SilhouetteMark className="h-12 w-9 text-canvas short:h-9 short:w-7 [&>path]:stroke-[4]" />
-                </span>
-                <span className="font-display text-xl leading-none font-bold tracking-[-0.02em] text-fg">SilhouFit</span>
-              </div>
-              <div>
-                <h1 className="display text-left text-3xl text-fg sm:text-4xl">Login Form</h1>
-                <p className="mt-2 text-sm leading-snug text-fg-muted">Pick up your fit profile and AR fittings.</p>
-              </div>
-            </div>
-            <FloatingField
-              {...field('email')}
-              label="Email"
-              type="email"
-              icon={<MailIcon size={16} />}
-              autoComplete="email"
-              inputMode="email"
-              enterKeyHint="next"
-            />
-            <FloatingField
-              {...field('password')}
-              label="Password"
-              type="password"
-              icon={<LockIcon size={16} />}
-              autoComplete="current-password"
-              enterKeyHint="done"
-            />
-            <div className="flex flex-wrap items-center justify-between gap-x-2">
-              <label className="relative flex min-h-11 cursor-pointer items-center gap-2.5 text-sm whitespace-nowrap text-fg-muted">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  disabled={pending}
-                  onChange={(event) => setRemember(event.target.checked)}
-                  className="peer sr-only"
-                />
-                <span
-                  aria-hidden="true"
-                  className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong ${
-                    remember ? 'border-fg bg-fg text-canvas' : 'border-line-strong'
-                  }`}
-                >
-                  {remember && <CheckIcon />}
-                </span>
-                Remember me
-              </label>
-              <Link
-                to="/forgot-password"
-                className="flex min-h-11 items-center text-sm whitespace-nowrap text-fg-muted underline-offset-2 hover:text-chrome-strong hover:underline"
+          <FloatingField
+            {...field('email')}
+            label="Email"
+            type="email"
+            icon={<MailIcon size={16} />}
+            autoComplete="email"
+            inputMode="email"
+            enterKeyHint="next"
+          />
+          <FloatingField
+            {...field('password')}
+            label="Password"
+            type="password"
+            icon={<LockIcon size={16} />}
+            autoComplete="current-password"
+            enterKeyHint="done"
+          />
+          <div className="flex flex-wrap items-center justify-between gap-x-2">
+            <label className="relative flex min-h-11 cursor-pointer items-center gap-2.5 text-sm whitespace-nowrap text-fg-muted">
+              <input
+                type="checkbox"
+                checked={remember}
+                disabled={pending}
+                onChange={(event) => setRemember(event.target.checked)}
+                className="peer sr-only"
+              />
+              <span
+                aria-hidden="true"
+                className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong ${
+                  remember ? 'border-fg bg-fg text-canvas' : 'border-line-strong'
+                }`}
               >
-                Forgot password?
-              </Link>
-            </div>
+                {remember && <CheckIcon />}
+              </span>
+              Remember me
+            </label>
+            <Link
+              to="/forgot-password"
+              className="flex min-h-11 items-center text-sm whitespace-nowrap text-fg-muted underline-offset-2 hover:text-chrome-strong hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
 
-            {banner && (
-              <div
-                role="alert"
-                className="flex items-start gap-3 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm leading-snug"
-              >
-                <AlertIcon size={20} className="mt-px text-danger" />
-                <p>
-                  <strong className="block font-semibold text-fg">{banner.title}</strong>
-                  <span className="text-fg-muted">{banner.body}</span>
-                </p>
-              </div>
+          {banner && (
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm leading-snug"
+            >
+              <AlertIcon size={20} className="mt-px text-danger" />
+              <p>
+                <strong className="block font-semibold text-fg">{banner.title}</strong>
+                <span className="text-fg-muted">{banner.body}</span>
+              </p>
+            </div>
+          )}
+
+          <button type="submit" disabled={pending || locked} className={`${PRIMARY_BUTTON} w-full`}>
+            {pending && method === 'email' ? (
+              <>
+                <SpinnerIcon />
+                Signing in…
+              </>
+            ) : (
+              'Sign in'
             )}
+          </button>
 
-            <button type="submit" disabled={pending || locked} className={`${PRIMARY_BUTTON} w-full`}>
-              {pending && method === 'email' ? (
-                <>
-                  <SpinnerIcon />
-                  Signing in…
-                </>
-              ) : (
-                'Sign in'
-              )}
-            </button>
+          <div className="flex items-center gap-3 text-xs text-fg-muted" aria-hidden="true">
+            <span className="h-px flex-1 bg-line-strong" />
+            or continue with
+            <span className="h-px flex-1 bg-line-strong" />
+          </div>
+          <GoogleButton onClick={onGoogle} pending={pending && method === 'google'} label="Sign in with Google" />
 
-            <div className="flex items-center gap-3 text-xs text-fg-muted" aria-hidden="true">
-              <span className="h-px flex-1 bg-line-strong" />
-              or continue with
-              <span className="h-px flex-1 bg-line-strong" />
-            </div>
-            <GoogleButton onClick={onGoogle} pending={pending && method === 'google'} label="Sign in with Google" />
-
-            <p className="flex flex-wrap items-center justify-center gap-x-1 text-sm text-fg-muted">
-              Not a member yet?{' '}
-              <Link
-                to={`/signup${next}`}
-                className="flex min-h-11 items-center font-medium text-fg underline underline-offset-2 hover:text-chrome-strong"
-              >
-                Join us today!
-              </Link>
-            </p>
-          </form>
-        )}
+          <p className="flex flex-wrap items-center justify-center gap-x-1 text-sm text-fg-muted">
+            Not a member yet?{' '}
+            <Link
+              to={`/signup${next}`}
+              className="flex min-h-11 items-center font-medium text-fg underline underline-offset-2 hover:text-chrome-strong"
+            >
+              Join us today!
+            </Link>
+          </p>
+        </form>
       </motion.div>
     </div>
   )

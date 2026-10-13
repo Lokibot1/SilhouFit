@@ -27,7 +27,18 @@ export async function mockAuth(page: Page) {
   })
   await page.route('**/users/me', (route) =>
     route.fulfill({
-      json: { id: 'user-1', email: DEMO.email, firstName: 'Demo', lastName: 'Shopper', fullName: 'Demo Shopper' },
+      json: {
+        id: 'user-1',
+        email: DEMO.email,
+        firstName: 'Demo',
+        middleName: null,
+        lastName: 'Shopper',
+        suffix: null,
+        fullName: 'Demo Shopper',
+        avatarUrl: null,
+        createdAt: '2026-01-15T08:30:00.000Z',
+        updatedAt: '2026-01-15T08:30:00.000Z',
+      },
       headers: CORS,
     }),
   )
@@ -45,6 +56,39 @@ export async function mockSignUp(page: Page, bodies: object[] = []) {
     const identities = body.email === DEMO.email ? [] : [{ identity_id: 'identity-1' }]
     await route.fulfill({
       json: { id: 'user-2', aud: 'authenticated', role: '', email: body.email, identities },
+      headers: CORS,
+    })
+  })
+}
+
+/**
+ * Stands in for the Google round trip. The Supabase `/auth/v1/authorize` request is answered with a redirect back to
+ * its own `redirect_to` (what Google and Supabase do), carrying `?code=` or, when `cancelled`, `?error=access_denied`.
+ * `grant_type=pkce` on `/auth/v1/token` then returns a session for DEMO. Register it after mockAuth, which serves /users/me.
+ * Every authorize URL is pushed to `authorizeUrls` so a test can assert the provider and redirect_to.
+ */
+export async function mockGoogle(page: Page, { cancelled = false }: { cancelled?: boolean } = {}, authorizeUrls: URL[] = []) {
+  await page.route('**/auth/v1/authorize*', async (route) => {
+    const url = new URL(route.request().url())
+    authorizeUrls.push(url)
+    const back = new URL(url.searchParams.get('redirect_to') ?? '')
+    if (cancelled) {
+      back.searchParams.set('error', 'access_denied')
+      back.searchParams.set('error_code', 'access_denied')
+      back.searchParams.set('error_description', 'The user denied access')
+    } else {
+      back.searchParams.set('code', 'google-test-code')
+    }
+    await route.fulfill({ status: 302, headers: { location: back.toString() } })
+  })
+  await page.route('**/auth/v1/token*', async (route) => {
+    if (new URL(route.request().url()).searchParams.get('grant_type') !== 'pkce') {
+      await route.fallback()
+      return
+    }
+    const user = { id: 'user-1', aud: 'authenticated', role: 'authenticated', email: DEMO.email }
+    await route.fulfill({
+      json: { access_token: jwt(), token_type: 'bearer', expires_in: 3600, refresh_token: 'refresh', user },
       headers: CORS,
     })
   })

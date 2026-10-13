@@ -5,14 +5,14 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { clearSession, getSession } from '../../src/service/session'
-import { submitGoogleSignIn } from '../../src/service/googleSignIn'
+import { startGoogleAuth } from '../../src/service/googleAuth'
 import { submitSignIn } from '../../src/service/signIn'
 import { LoginPage } from '../../src/views/auth/LoginPage'
 
 vi.mock('../../src/service/signIn', () => ({ submitSignIn: vi.fn() }))
-vi.mock('../../src/service/googleSignIn', () => ({ submitGoogleSignIn: vi.fn() }))
+vi.mock('../../src/service/googleAuth', () => ({ startGoogleAuth: vi.fn() }))
 const signIn = vi.mocked(submitSignIn)
-const googleSignIn = vi.mocked(submitGoogleSignIn)
+const googleSignIn = vi.mocked(startGoogleAuth)
 const USER = { name: 'Demo Shopper', email: 'demo@silhoufit.com' }
 
 beforeAll(() => {
@@ -28,7 +28,7 @@ beforeAll(() => {
 beforeEach(() => {
   clearSession()
   signIn.mockResolvedValue({ ok: true, user: USER })
-  googleSignIn.mockResolvedValue({ ok: true, user: USER })
+  googleSignIn.mockResolvedValue(undefined)
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -76,28 +76,27 @@ describe('LoginPage return path', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/shop')
   })
 
-  it('also returns after a Google sign-in', async () => {
+  it('passes the requested path to Google sign-in, which brings it back through the callback page', async () => {
     const user = userEvent.setup()
     renderLogin('/login?next=%2Fcheckout%3Fitem%3Dp04')
     await user.click(screen.getByRole('button', { name: 'Sign in with Google' }))
-    expect(await screen.findByText('somewhere else')).toBeInTheDocument()
-    expect(screen.getByTestId('where')).toHaveTextContent('/checkout?item=p04')
+    expect(googleSignIn).toHaveBeenCalledWith({ next: '/checkout?item=p04' })
   })
 
-  it.each(['//evil.com', 'https://evil.com', '/\\evil.com'])('sends an unsafe next (%s) to /shop', async (next) => {
+  it.each(['//evil.com', 'https://evil.com', '/\\evil.com'])('sends an unsafe next (%s) to /profile', async (next) => {
     const user = userEvent.setup()
     renderLogin(`/login?next=${encodeURIComponent(next)}`)
     await signInByEmail(user)
     await screen.findByText('somewhere else')
-    expect(screen.getByTestId('where')).toHaveTextContent(/^\/shop$/)
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/profile$/)
   })
 
-  it('keeps the welcome panel when there is no next', async () => {
+  it('goes to /profile when there is no next, replacing the login entry', async () => {
     const user = userEvent.setup()
     renderLogin('/login')
     await signInByEmail(user)
-    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
-    expect(screen.getByTestId('where')).toHaveTextContent('/login')
+    expect(await screen.findByText('somewhere else')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/profile$/)
     expect(getSession()).toEqual(USER)
   })
 

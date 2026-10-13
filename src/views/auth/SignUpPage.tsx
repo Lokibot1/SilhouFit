@@ -83,18 +83,12 @@ export function SignUpPage() {
             </span>
             <div className="mt-4">
               <WelcomeHeading>
-                Welcome{method === 'google' ? '!' : `, ${values.firstName.trim()}`}
+                Welcome, {values.firstName.trim()}
               </WelcomeHeading>
             </div>
             <p className="mt-2 text-base leading-relaxed text-fg-muted">
-              {method === 'google' ? (
-                'Check your email to finish setting up your account.'
-              ) : (
-                <>
-                  We sent a confirmation link to <strong className="font-medium text-fg">{values.email.trim()}</strong>.
-                  Open it to activate your account, then go to login.
-                </>
-              )}
+              We sent a confirmation link to <strong className="font-medium text-fg">{values.email.trim()}</strong>.
+              Open it to activate your account, then go to login.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row *:flex-1">
               <Link to="/" className={PRIMARY_BUTTON}>

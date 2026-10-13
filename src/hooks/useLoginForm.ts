@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useToast } from '../components/toast/useToast'
-import { submitGoogleSignIn } from '../service/googleSignIn'
+import { googleErrorMessage, startGoogleAuth } from '../service/googleAuth'
 import { setSession, type Session } from '../service/session'
 import { submitSignIn, type SignInError, type SignInErrorKind } from '../service/signIn'
 import {
@@ -16,7 +16,7 @@ import { normalizeEmail, stripEmoji } from '../utils/signUpValidation'
 
 const EMPTY: LoginValues = { email: '', password: '' }
 
-export type LoginStatus = 'editing' | 'pending' | 'success' | 'invalid' | 'error'
+export type LoginStatus = 'editing' | 'pending' | 'invalid' | 'error'
 export type LoginMethod = 'email' | 'google'
 
 // What happened, why and the next step, per failure kind. 'invalid' stays generic so emails are never revealed.
@@ -75,6 +75,15 @@ export function useLoginForm() {
     [],
   )
 
+  // Back from Google restores this page frozen mid-request; make the buttons usable again.
+  useEffect(() => {
+    const onShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setStatus('editing')
+    }
+    window.addEventListener('pageshow', onShow)
+    return () => window.removeEventListener('pageshow', onShow)
+  }, [])
+
   const errors = useMemo(() => {
     const all = validateLogin(values)
     return Object.fromEntries(
@@ -100,12 +109,11 @@ export function useLoginForm() {
     }, COOLDOWN_MS)
   }
 
-  // Sign-in finished: remember the user, then either return to the page that asked for it or show the welcome panel.
+  // Sign-in finished: remember the user, then return to the page that asked for it, or to the profile.
   function signedIn(user: Session) {
     setSession(user)
     toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
-    if (next !== null) navigate(safeNext(next), { replace: true })
-    else setStatus('success')
+    navigate(safeNext(next, '/profile'), { replace: true })
   }
 
   async function submit() {
@@ -162,15 +170,15 @@ export function useLoginForm() {
     setMethod('google')
     setStatus('pending')
     try {
-      const result = await submitGoogleSignIn({ signal: abort.signal })
-      signedIn(result.user)
-    } catch {
+      // The browser leaves for Google, so the pending state stays until it does. The callback page finishes sign-in.
+      await startGoogleAuth({ next })
+    } catch (failure) {
       if (abort.signal.aborted) return
       // The inline banner belongs to the email form; Google failures use the toast alone.
       setStatus('editing')
       toast.show({
         kind: 'error',
-        message: "We couldn't connect to Google. The connection dropped before we got a response. Try again.",
+        message: googleErrorMessage(failure),
         action: { label: 'Try again', onClick: () => googleRef.current() },
       })
     } finally {
