@@ -84,7 +84,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
           {product.badges.map((badge) => (
             <li
               key={badge}
-              className={`font-ui rounded-full bg-canvas whitespace-nowrap text-fg ${list ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}`}
+              className={`skeuo-gloss font-ui rounded-full whitespace-nowrap ${list ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}`}
             >
               {badge}
             </li>

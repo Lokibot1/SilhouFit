@@ -89,6 +89,23 @@
   --skeuo-drop: 0 1px 0 rgb(20 23 28 / 0.16), 0 2px 5px -1px rgb(20 23 28 / 0.22);
   --skeuo-drop-hover: 0 1px 0 rgb(20 23 28 / 0.16), 0 7px 14px -4px rgb(20 23 28 / 0.3);
   --skeuo-inset: inset 0 2px 5px rgb(20 23 28 / 0.38);
+  /* Glossy tags (.skeuo-gloss): a silver gel pill in the button palette. Idle is the silver face, hover a
+     brighter face, pressed/selected the ink face. Each state has a face gradient, an outline, a highlight capsule
+     and a label colour (dark on silver, light on ink); the glow is an RGB triplet so alpha is set where used. */
+  --gloss-top: var(--skeuo-face-hi);
+  --gloss-bottom: var(--skeuo-face-lo);
+  --gloss-border: var(--line-strong);
+  --gloss-highlight: rgb(255 255 255 / 0.7);
+  --gloss-label: var(--fg);
+  --gloss-top-hover: var(--chrome-bright);
+  --gloss-bottom-hover: var(--color-silver-100);
+  --gloss-highlight-hover: rgb(255 255 255 / 0.9);
+  --gloss-top-pressed: var(--skeuo-ink-hi);
+  --gloss-bottom-pressed: var(--skeuo-ink-lo);
+  --gloss-border-pressed: var(--skeuo-ink-lo);
+  --gloss-highlight-pressed: rgb(255 255 255 / 0.1);
+  --gloss-label-pressed: var(--canvas);
+  --gloss-glow: 20 23 28;
 }
 
 .dark {
@@ -140,6 +157,12 @@
   --skeuo-drop: 0 1px 0 rgb(0 0 0 / 0.55), 0 2px 6px -1px rgb(0 0 0 / 0.6);
   --skeuo-drop-hover: 0 1px 0 rgb(0 0 0 / 0.55), 0 8px 16px -4px rgb(0 0 0 / 0.7);
   --skeuo-inset: inset 0 2px 5px rgb(0 0 0 / 0.6);
+  --gloss-top-hover: var(--skeuo-face-hi-hover);
+  --gloss-bottom-hover: var(--skeuo-face-lo-hover);
+  --gloss-highlight: rgb(255 255 255 / 0.1);
+  --gloss-highlight-hover: rgb(255 255 255 / 0.16);
+  --gloss-highlight-pressed: rgb(255 255 255 / 0.12);
+  --gloss-glow: 0 0 0;
 }
 
 @layer base {
@@ -573,9 +596,187 @@
     color: var(--fg-muted);
   }
 
+  /* Glossy tag: a silver gel pill with a lighter highlight capsule inset near the top (::before, kept behind the
+     label by isolation + z-index -1), a thin outline and a soft shadow underneath. Hover brightens and lifts;
+     pressed and selected go to the ink face with a tight shadow. Add it to .skeuo (buttons) or use it alone
+     (static tags). A selected .skeuo-slide hands the face to a .skeuo-gloss-face indicator carrying the ink look. */
+  .skeuo-gloss,
+  .skeuo-gloss-face {
+    isolation: isolate;
+  }
+
+  .skeuo-gloss {
+    --sk-hi: var(--gloss-top);
+    --sk-lo: var(--gloss-bottom);
+    position: relative;
+    border: 1px solid var(--gloss-border);
+    background-image: linear-gradient(to bottom, var(--sk-hi), var(--sk-lo));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.28),
+      inset 0 -2px 4px rgb(0 0 0 / 0.28),
+      0 3px 8px -2px rgb(var(--gloss-glow) / 0.3);
+    color: var(--gloss-label);
+  }
+
+  .skeuo-gloss::before,
+  .skeuo-gloss-face::before {
+    content: '';
+    position: absolute;
+    inset: 2px 12% 52%;
+    z-index: -1;
+    border-radius: 9999px;
+    background-color: var(--gloss-highlight);
+    pointer-events: none;
+    transition: background-color 200ms ease;
+  }
+
+  .skeuo-gloss:hover:not([aria-pressed='true'], [aria-current='page'], [data-checked='true'], [aria-expanded='true'], :disabled, [aria-disabled='true']) {
+    --sk-hi: var(--gloss-top-hover);
+    --sk-lo: var(--gloss-bottom-hover);
+    filter: none;
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.4),
+      inset 0 -2px 4px rgb(0 0 0 / 0.22),
+      0 4px 12px -3px rgb(var(--gloss-glow) / 0.4);
+  }
+
+  .skeuo-gloss:hover:not([aria-pressed='true'], [aria-current='page'], [data-checked='true'], [aria-expanded='true'], :disabled, [aria-disabled='true'])::before {
+    background-color: var(--gloss-highlight-hover);
+  }
+
+  .skeuo-gloss:active:not([aria-pressed='true']) {
+    --sk-hi: var(--gloss-top-pressed);
+    --sk-lo: var(--gloss-bottom-pressed);
+    border-color: var(--gloss-border-pressed);
+    filter: none;
+    transform: translateY(1px);
+    box-shadow:
+      inset 0 2px 4px rgb(0 0 0 / 0.45),
+      0 1px 2px rgb(var(--gloss-glow) / 0.3);
+  }
+
+  .skeuo-gloss:active:not([aria-pressed='true'])::before {
+    background-color: var(--gloss-highlight-pressed);
+  }
+
+  /* Selected: the ink pressed look. Chips take it themselves; page pills take it on the sliding face. */
+  .skeuo-gloss-face,
+  .skeuo-gloss[aria-pressed='true']:not(.skeuo-slide) {
+    --sk-hi: var(--gloss-top-pressed);
+    --sk-lo: var(--gloss-bottom-pressed);
+    background-image: linear-gradient(to bottom, var(--sk-hi), var(--sk-lo));
+    box-shadow:
+      inset 0 2px 4px rgb(0 0 0 / 0.45),
+      0 1px 3px rgb(var(--gloss-glow) / 0.3);
+    color: var(--gloss-label-pressed);
+  }
+
+  .skeuo-gloss[aria-pressed='true']:not(.skeuo-slide) {
+    border-color: var(--gloss-border-pressed);
+    filter: none;
+    transform: translateY(1px);
+  }
+
+  .skeuo-slide.skeuo-gloss[aria-pressed='true'] {
+    border-color: var(--gloss-border-pressed);
+  }
+
+  .skeuo-gloss-face::before,
+  .skeuo-gloss[aria-pressed='true']:not(.skeuo-slide)::before {
+    background-color: var(--gloss-highlight-pressed);
+  }
+
+  .skeuo-gloss:disabled::before,
+  .skeuo-gloss[aria-disabled='true']::before {
+    display: none;
+  }
+
+  .skeuo-gloss:disabled,
+  .skeuo-gloss[aria-disabled='true'] {
+    background-image: none;
+    background-color: var(--canvas-sub);
+    box-shadow: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .skeuo:active,
     .skeuo-ink:active {
+      transform: none;
+    }
+
+    .skeuo-gloss::before {
+      transition: none;
+    }
+
+    .skeuo-gloss:hover:not([aria-pressed='true'], [aria-current='page'], [data-checked='true'], [aria-expanded='true'], :disabled, [aria-disabled='true']) {
+      transform: none;
+    }
+  }
+
+  /* Filter panel inputs. A checkbox is a raised key that sinks into the ink face when checked; a text field is a
+     recessed well. Both reuse the control tokens, so light and dark follow the buttons. */
+  .skeuo-check {
+    appearance: none;
+    position: relative;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 1px solid var(--line-strong);
+    border-radius: 0.375rem;
+    background-image: linear-gradient(to bottom, var(--skeuo-face-hi), var(--skeuo-face-lo));
+    box-shadow: inset 0 1px 0 var(--skeuo-rim), var(--skeuo-drop);
+    color: var(--canvas);
+    transition:
+      box-shadow 200ms ease,
+      transform 200ms ease,
+      filter 200ms ease;
+  }
+
+  .skeuo-check:hover {
+    filter: var(--skeuo-hover-filter);
+    box-shadow: inset 0 1px 0 var(--skeuo-rim-hover), var(--skeuo-drop-hover);
+  }
+
+  .skeuo-check:active {
+    transform: translateY(1px);
+    box-shadow: var(--skeuo-inset);
+  }
+
+  .skeuo-check:checked {
+    background-image: linear-gradient(to bottom, var(--skeuo-ink-hi), var(--skeuo-ink-lo));
+    box-shadow: var(--skeuo-inset);
+  }
+
+  .skeuo-check::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.3125rem;
+    height: 0.625rem;
+    border: solid currentColor;
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -60%) rotate(45deg) scale(0);
+    transition: transform 150ms ease;
+  }
+
+  .skeuo-check:checked::after {
+    transform: translate(-50%, -60%) rotate(45deg) scale(1);
+  }
+
+  .skeuo-well {
+    background-image: linear-gradient(to bottom, var(--skeuo-face-lo), var(--canvas));
+    box-shadow: var(--skeuo-inset);
+    transition: box-shadow 200ms ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeuo-check,
+    .skeuo-check::after {
+      transition: none;
+    }
+
+    .skeuo-check:active {
       transform: none;
     }
   }

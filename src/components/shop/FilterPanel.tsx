@@ -39,7 +39,7 @@ const toggled = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((
 const LEGEND = 'font-ui text-sm font-semibold text-fg max-sm:text-xs'
 const CHECK_ROW = 'flex min-h-11 max-sm:min-h-10 cursor-pointer items-center gap-3 max-sm:gap-2 text-base max-sm:text-sm text-fg'
 const PRICE_INPUT =
-  'font-ui mt-1 min-h-11 max-sm:min-h-10 w-full rounded-xl border border-line-strong bg-canvas px-3 text-base max-sm:text-sm text-fg tabular-nums'
+  'skeuo-well font-ui mt-1 min-h-11 max-sm:min-h-10 w-full rounded-xl border border-line-strong bg-canvas px-3 text-base max-sm:text-sm text-fg tabular-nums'
 
 export function FilterPanel({ open, onClose, products, filters, category, counts, onApply }: FilterPanelProps) {
   const [draft, setDraft] = useState(() => toDraft(filters, category))
@@ -94,7 +94,7 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
                 type="button"
                 aria-pressed={draft.category === c}
                 onClick={() => setDraft({ ...draft, category: c })}
-                className={`${draft.category === c ? SHOP_PRIMARY : SHOP_SECONDARY} min-h-8 gap-1.5 px-3 text-xs`}
+                className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! gap-1.5 px-3 text-xs`}
               >
                 {c === 'all' ? 'All' : c}
                 <span className="tabular-nums">{counts[c]}</span>
@@ -146,7 +146,7 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
                 type="checkbox"
                 checked={draft.colors.includes(color.name)}
                 onChange={() => setDraft({ ...draft, colors: toggled(draft.colors, color.name) })}
-                className="size-5 accent-fg"
+                className="skeuo-check size-5"
               />
               <span aria-hidden="true" className="size-4 rounded-full border border-fg-muted" style={{ backgroundColor: color.hex }} />
               {color.name}
@@ -162,7 +162,7 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
                 type="checkbox"
                 checked={draft.availability.includes(option.value)}
                 onChange={() => setDraft({ ...draft, availability: toggled(draft.availability, option.value) })}
-                className="size-5 accent-fg"
+                className="skeuo-check size-5"
               />
               {option.label}
             </label>
@@ -176,7 +176,7 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
               type="checkbox"
               checked={draft.arReady}
               onChange={() => setDraft({ ...draft, arReady: !draft.arReady })}
-              className="size-5 accent-fg"
+              className="skeuo-check size-5"
             />
             AR-ready pieces only
           </label>
