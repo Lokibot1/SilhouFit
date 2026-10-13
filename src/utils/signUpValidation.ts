@@ -15,6 +15,7 @@ export interface SignUpValues {
   lastName: string
   suffix: string
   email: string
+  password: string
   consent: boolean
 }
 export type FieldName = keyof SignUpValues
@@ -26,6 +27,7 @@ export interface SignUpPayload {
   lastName: string
   suffix: string | null
   email: string
+  password: string
   consent: true
 }
 
@@ -36,6 +38,7 @@ export const FIELD_ORDER: FieldName[] = [
   'middleName',
   'suffix',
   'email',
+  'password',
   'consent',
 ]
 
@@ -159,12 +162,6 @@ export function validatePassword(value: string): string | null {
   return null
 }
 
-export function validateConfirmPassword(password: string, confirm: string): string | null {
-  if (!confirm) return 'Confirm your password.'
-  if (confirm !== password) return "Passwords don't match."
-  return null
-}
-
 export const CONSENT_ERROR = 'Please read and accept the Terms of Service and Privacy Policy to create an account.'
 
 export function validateConsent(checked: boolean): string | null {
@@ -211,6 +208,8 @@ export function validateField(name: FieldName, values: SignUpValues): string | n
       return validateSuffix(values.suffix)
     case 'email':
       return validateEmail(values.email)
+    case 'password':
+      return validatePassword(values.password)
     case 'consent':
       return validateConsent(values.consent)
   }
@@ -237,6 +236,8 @@ export function normalizeSignUp(values: SignUpValues): SignUpPayload {
     lastName: normalizeName(values.lastName),
     suffix: values.suffix.trim() || null,
     email: normalizeEmail(values.email),
+    // Verbatim: trimming or casing a password would change what the user set.
+    password: values.password,
     consent: true,
   }
 }

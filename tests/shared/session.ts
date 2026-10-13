@@ -33,6 +33,23 @@ export async function mockAuth(page: Page) {
   )
 }
 
+/**
+ * Stands in for Supabase Auth sign-up with email confirmation on: it answers with an obfuscated user
+ * (no session, empty identities) for DEMO.email, and a new unconfirmed user for any other address.
+ * Every request body is pushed to `bodies` so a test can assert what was sent.
+ */
+export async function mockSignUp(page: Page, bodies: object[] = []) {
+  await page.route('**/auth/v1/signup*', async (route) => {
+    const body = route.request().postDataJSON() ?? {}
+    bodies.push(body)
+    const identities = body.email === DEMO.email ? [] : [{ identity_id: 'identity-1' }]
+    await route.fulfill({
+      json: { id: 'user-2', aud: 'authenticated', role: '', email: body.email, identities },
+      headers: CORS,
+    })
+  })
+}
+
 /** Starts the page already signed in, by seeding the session store before any script runs. */
 export async function signedIn(page: Page) {
   await page.addInitScript(

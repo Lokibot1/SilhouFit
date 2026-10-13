@@ -60,6 +60,7 @@ async function fillDetails(user: User) {
   await user.type(field(/^first name$/i), 'Anne')
   await user.type(field(/^last name$/i), 'Santos')
   await user.type(field(/^email$/i), 'anne@example.com')
+  await user.type(field(/^password$/i), 'Str0ng!Pass')
 }
 
 const dialog = (name: string) => screen.findByRole('dialog', { name })
@@ -100,7 +101,7 @@ describe('SignUpPage single form', () => {
   it('puts the four name fields and every other field in that one form, in order', () => {
     renderPage()
     const form = document.querySelector('form')!
-    const labels = [/^first name$/i, /^last name$/i, /^middle name$/i, /^suffix$/i, /^email$/i]
+    const labels = [/^first name$/i, /^last name$/i, /^middle name$/i, /^suffix$/i, /^email$/i, /^password$/i]
     const inputs = labels.map((label) => field(label))
     inputs.forEach((input) => expect(form).toContainElement(input))
     inputs.slice(1).forEach((input, i) =>
@@ -110,10 +111,22 @@ describe('SignUpPage single form', () => {
     expect(form).toContainElement(createAccount())
   })
 
-  it('does not collect a password', () => {
+  it('collects one new password with a show/hide toggle, a checklist and no confirm field', async () => {
+    const user = userEvent.setup()
     renderPage()
-    expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument()
-    expect(document.querySelector('input[type="password"]')).toBeNull()
+    const password = field(/^password$/i)
+    expect(document.querySelectorAll('input[type="password"]')).toHaveLength(1)
+    expect(screen.queryByLabelText(/confirm/i)).not.toBeInTheDocument()
+    expect(password).toHaveAttribute('autocomplete', 'new-password')
+    expect(screen.getByRole('group', { name: 'Password requirements' })).toBeInTheDocument()
+
+    await user.type(password, 'Abcdefg1')
+    expect(screen.getByText('One special character').nextElementSibling).toHaveTextContent('not met')
+    await user.type(password, '!')
+    expect(screen.getByText('One special character').nextElementSibling).toHaveTextContent('met')
+
+    await user.click(screen.getByRole('button', { name: 'Show password' }))
+    expect(password).toHaveAttribute('type', 'text')
   })
 
   it('links "Login now!" to /login', () => {
@@ -130,6 +143,7 @@ describe('SignUpPage single form', () => {
 
     expect(screen.getByText('First name is required.')).toBeInTheDocument()
     expect(screen.getByText('Email is required.')).toBeInTheDocument()
+    expect(screen.getByText('Password is required.')).toBeInTheDocument()
     expect(screen.getByText(/accept the Terms of Service/)).toBeInTheDocument()
     expect(submit).not.toHaveBeenCalled()
     expect(screen.queryByText(/middle name can/i)).not.toBeInTheDocument()
@@ -247,15 +261,16 @@ describe('SignUpPage security and submit', () => {
       middleName: null,
       suffix: null,
     })
-    expect(submit.mock.calls[0][0]).not.toHaveProperty('password')
+    expect(submit.mock.calls[0][0].password).toBe('Str0ng!Pass')
 
     finish()
     const heading = await screen.findByRole('heading', { name: 'Welcome, Anne' })
     expect(heading).toHaveFocus()
-    expect(screen.getByText('Check your email to finish setting up your account.')).toBeInTheDocument()
+    expect(screen.getByText('anne@example.com')).toBeInTheDocument()
+    expect(screen.getByText(/We sent a confirmation link to/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to home' })).toBeInTheDocument()
     // Sign-up does not sign anyone in, so the panel offers the way on.
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: 'Go to login' })).toHaveAttribute('href', '/login')
   })
 
   it('carries the return path to the login links, and drops an unsafe one', () => {
@@ -274,12 +289,88 @@ describe('SignUpPage security and submit', () => {
     await fillSecurity(user)
     await user.click(createAccount())
 
-    await waitFor(() => expect(screen.getByText(/Nothing was saved/)).toBeInTheDocument())
+    // The banner and the retry toast both carry the copy.
+    await waitFor(() => expect(screen.getAllByText(/Nothing was saved/).length).toBeGreaterThan(0))
     expect(screen.getByText("We couldn't create your account.")).toBeInTheDocument()
 
     await user.click(screen.getAllByRole('button', { name: 'Try again' })[0])
     expect(submit).toHaveBeenCalledTimes(2)
     expect(await screen.findByRole('heading', { name: 'Welcome, Anne' })).toBeInTheDocument()
+  })
+
+  it('shows a weak password inline on the field, focuses it and clears it on change', async () => {
+    const user = userEvent.setup()
+    submit.mockRejectedValueOnce(Object.assign(new Error('weak'), { kind: 'weak-password' }))
+    renderPage()
+    await fillDetails(user)
+    await fillSecurity(user)
+    await user.click(createAccount())
+
+    const password = field(/^password$/i)
+    expect(await screen.findByText(/too easy to guess/)).toBeInTheDocument()
+    expect(password).toHaveAttribute('aria-invalid', 'true')
+    expect(password).toHaveFocus()
+    // Linked to the field by aria-describedby; no banner.
+    const described = password.getAttribute('aria-describedby')!.split(' ')
+    expect(described.map((id) => document.getElementById(id)?.textContent).join(' ')).toMatch(/too easy to guess/)
+
+    await user.type(password, '9')
+    expect(screen.queryByText(/too easy to guess/)).not.toBeInTheDocument()
+  })
+
+  it('drops a stale weak-password message when an unchanged resubmit fails on the server', async () => {
+    const user = userEvent.setup()
+    submit.mockRejectedValueOnce(Object.assign(new Error('weak'), { kind: 'weak-password' }))
+    submit.mockRejectedValueOnce(Object.assign(new Error('boom'), { kind: 'server' }))
+    renderPage()
+    await fillDetails(user)
+    await fillSecurity(user)
+    await user.click(createAccount())
+    expect(await screen.findByText(/too easy to guess/)).toBeInTheDocument()
+
+    await user.click(createAccount())
+    await waitFor(() => expect(screen.getAllByText(/Something went wrong on our side/).length).toBeGreaterThan(0))
+    expect(screen.queryByText(/too easy to guess/)).not.toBeInTheDocument()
+    expect(field(/^password$/i)).not.toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('shows a rejected email inline on the email field and focuses it', async () => {
+    const user = userEvent.setup()
+    submit.mockRejectedValueOnce(Object.assign(new Error('email'), { kind: 'invalid-email' }))
+    renderPage()
+    await fillDetails(user)
+    await fillSecurity(user)
+    await user.click(createAccount())
+
+    const email = field(/^email$/i)
+    expect(await screen.findByText(/Check it for typos/)).toBeInTheDocument()
+    expect(email).toHaveAttribute('aria-invalid', 'true')
+    expect(email).toHaveFocus()
+
+    await user.type(email, 'm')
+    expect(screen.queryByText(/Check it for typos/)).not.toBeInTheDocument()
+  })
+
+  it('says sign-ups are unavailable in the banner without a retry toast action', async () => {
+    const user = userEvent.setup()
+    submit.mockRejectedValueOnce(Object.assign(new Error('off'), { kind: 'signup-disabled' }))
+    renderPage()
+    await fillDetails(user)
+    await fillSecurity(user)
+    await user.click(createAccount())
+
+    expect(await screen.findByText('Sign-ups are unavailable right now.', { selector: 'strong' })).toBeInTheDocument()
+  })
+
+  it('names a rate limit in the banner', async () => {
+    const user = userEvent.setup()
+    submit.mockRejectedValueOnce(Object.assign(new Error('limit'), { kind: 'rate-limit' }))
+    renderPage()
+    await fillDetails(user)
+    await fillSecurity(user)
+    await user.click(createAccount())
+
+    expect(await screen.findByText('Too many sign-up attempts.', { selector: 'strong' })).toBeInTheDocument()
   })
 
   it('aborts the request when the page unmounts', async () => {

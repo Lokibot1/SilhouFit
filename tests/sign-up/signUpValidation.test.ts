@@ -13,7 +13,6 @@ import {
   sanitizePhoneDigits,
   sanitizeSuffix,
   stripEmoji,
-  validateConfirmPassword,
   validateConsent,
   validateEmail,
   validateField,
@@ -39,6 +38,7 @@ const validValues: SignUpValues = {
   middleName: '',
   suffix: '',
   email: 'anne@example.com',
+  password: 'Str0ng!Pass',
   consent: true,
 }
 
@@ -425,21 +425,6 @@ describe('validatePassword', () => {
   })
 })
 
-describe('validateConfirmPassword', () => {
-  it('requires a value', () => {
-    expect(validateConfirmPassword('Str0ng!Pass', '')).toBe('Confirm your password.')
-  })
-
-  it('reports a mismatch, case-sensitively', () => {
-    expect(validateConfirmPassword('Str0ng!Pass', 'Str0ng!Pas')).toBe("Passwords don't match.")
-    expect(validateConfirmPassword('Str0ng!Pass', 'str0ng!pass')).toBe("Passwords don't match.")
-  })
-
-  it('accepts a match', () => {
-    expect(validateConfirmPassword('Str0ng!Pass', 'Str0ng!Pass')).toBeNull()
-  })
-})
-
 describe('validateConsent', () => {
   it('requires consent', () => {
     expect(validateConsent(false)).toBe(
@@ -549,6 +534,7 @@ describe('validateField', () => {
     expect(validateField('firstName', with_({ firstName: '' }))).toBe('First name is required.')
     expect(validateField('lastName', with_({ lastName: '' }))).toBe('Last name is required.')
     expect(validateField('email', with_({ email: 'a@b' }))).toBe('Enter a valid email like name@example.com.')
+    expect(validateField('password', with_({ password: 'short' }))).toBe('Use at least 8 characters.')
     expect(validateField('middleName', with_({ middleName: '9' }))).toBe(
       'Middle name can only contain letters, spaces, hyphens and apostrophes.',
     )
@@ -599,10 +585,11 @@ describe('validateSignUp and isSignUpValid', () => {
       lastName: '',
       suffix: '',
       email: '',
+      password: '',
       consent: false,
     }
     expect(Object.keys(validateSignUp(empty)).sort()).toEqual(
-      ['consent', 'email', 'firstName', 'lastName'].sort(),
+      ['consent', 'email', 'firstName', 'lastName', 'password'].sort(),
     )
     expect(isSignUpValid(empty)).toBe(false)
   })
@@ -625,6 +612,7 @@ describe('normalizeSignUp', () => {
       lastName: 'Santos',
       suffix: 'Jr.',
       email: 'anne@example.com',
+      password: 'Str0ng!Pass',
       consent: true,
     })
   })
@@ -635,8 +623,8 @@ describe('normalizeSignUp', () => {
     expect(payload.suffix).toBeNull()
   })
 
-  it('does not include a password', () => {
-    expect(normalizeSignUp(validValues)).not.toHaveProperty('password')
+  it('keeps the password exactly as typed', () => {
+    expect(normalizeSignUp(with_({ password: ' Str0ng!Pass ' })).password).toBe(' Str0ng!Pass ')
   })
 
   it('throws when the values are invalid', () => {

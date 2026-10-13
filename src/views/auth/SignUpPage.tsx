@@ -3,11 +3,12 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { FloatingField } from '../../components/form/FloatingField'
 import { GoogleButton } from '../../components/form/GoogleButton'
-import { AlertIcon, CheckIcon, MailIcon, SpinnerIcon } from '../../components/form/icons'
+import { PasswordChecklist } from '../../components/form/PasswordChecklist'
+import { AlertIcon, CheckIcon, LockIcon, MailIcon, SpinnerIcon } from '../../components/form/icons'
 import { SilhouetteMark } from '../../components/landing/SilhouetteMark'
 import { LegalModal } from '../../components/legal/LegalModal'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
-import { fieldId, useSignUpForm } from '../../hooks/useSignUpForm'
+import { fieldId, SIGN_UP_ERROR_COPY, useSignUpForm } from '../../hooks/useSignUpForm'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
@@ -44,6 +45,7 @@ export function SignUpPage() {
     values,
     errors,
     status,
+    errorKind,
     method,
     legalOpen,
     setField,
@@ -85,7 +87,14 @@ export function SignUpPage() {
               </WelcomeHeading>
             </div>
             <p className="mt-2 text-base leading-relaxed text-fg-muted">
-              Check your email to finish setting up your account.
+              {method === 'google' ? (
+                'Check your email to finish setting up your account.'
+              ) : (
+                <>
+                  We sent a confirmation link to <strong className="font-medium text-fg">{values.email.trim()}</strong>.
+                  Open it to activate your account, then go to login.
+                </>
+              )}
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row *:flex-1">
               <Link to="/" className={PRIMARY_BUTTON}>
@@ -93,7 +102,7 @@ export function SignUpPage() {
               </Link>
               {/* Sign-up does not sign the user in, so offer the way on, back to wherever they came from. */}
               <Link to={`/login${next}`} className={SECONDARY_BUTTON}>
-                Sign in
+                Go to login
               </Link>
               <Link to="/#ar-fitting" className={SECONDARY_BUTTON}>
                 Explore AR fitting
@@ -154,6 +163,21 @@ export function SignUpPage() {
                 autoComplete="email"
                 inputMode="email"
                 enterKeyHint="next"
+              />
+
+              <FloatingField
+                {...field('password')}
+                label="Password"
+                type="password"
+                icon={<LockIcon size={16} />}
+                autoComplete="new-password"
+                enterKeyHint="done"
+              />
+              <PasswordChecklist
+                password={values.password}
+                email={values.email}
+                firstName={values.firstName}
+                visible
               />
 
               <div className="scroll-mt-28">
@@ -222,12 +246,9 @@ export function SignUpPage() {
                   <AlertIcon size={20} className="mt-px text-danger" />
                   <p>
                     <strong className="block font-semibold text-fg">
-                      We couldn't create your account.
+                      {SIGN_UP_ERROR_COPY[errorKind].title}
                     </strong>
-                    <span className="text-fg-muted">
-                      The connection dropped before we got a response. Nothing was saved. Check
-                      your connection and try again.
-                    </span>
+                    <span className="text-fg-muted">{SIGN_UP_ERROR_COPY[errorKind].body}</span>
                   </p>
                 </div>
               )}

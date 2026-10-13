@@ -1,4 +1,4 @@
-// Mirrors the page wrapper and single-column card (logo, heading, name pairs, email, consent, submit, divider, Google, footer) so the swap does not shift layout.
+// Mirrors the page wrapper and single-column card (logo, heading, name pairs, email, password, checklist, consent, submit, divider, Google, footer) so the swap does not shift layout.
 export function SignUpSkeleton() {
   return (
     <div
@@ -15,7 +15,12 @@ export function SignUpSkeleton() {
             </div>
             <div>
               <div className="h-[calc(1.875rem*0.95)] w-40 rounded bg-line sm:h-[calc(2.25rem*0.95)]" />
-              <div className="mt-2 h-[1.2031rem] w-3/4 rounded bg-line" />
+              {/* Transparent copy of the real text, so the bars wrap at the same widths as the form. */}
+              <p className="mt-2 text-sm leading-snug">
+                <span className="box-decoration-clone rounded bg-line text-transparent">
+                  Save your fit profile and try clothes with AR.
+                </span>
+              </p>
             </div>
           </div>
           <div className="grid gap-4 short:gap-3 min-[360px]:grid-cols-2">
@@ -25,9 +30,17 @@ export function SignUpSkeleton() {
             <div className="h-11 rounded-xl bg-line" />
           </div>
           <div className="h-11 rounded-xl bg-line" />
-          <div className="flex h-11 items-center gap-2.5">
-            <div className="size-5 shrink-0 rounded-md bg-line" />
-            <div className="h-4 w-3/4 rounded bg-line" />
+          <div className="h-11 rounded-xl bg-line" />
+          {/* Password checklist: strength row + five one-per-row requirements, two columns from sm. */}
+          <div className="h-[194px] rounded-xl bg-line sm:h-[146px]" />
+          <div className="flex min-h-11 items-start gap-2.5 py-2 text-sm leading-snug">
+            <div className="mt-px size-5 shrink-0 rounded-md bg-line" />
+            <span>
+              <span className="box-decoration-clone rounded bg-line text-transparent">
+                I agree to the <span className="inline-block">Terms of Service</span> and{' '}
+                <span className="inline-block">Privacy Policy</span>.
+              </span>
+            </span>
           </div>
           <div className="h-11 rounded-xl bg-line-strong" />
           <div className="h-4 rounded bg-line" />

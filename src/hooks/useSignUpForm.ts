@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { useToast } from '../components/toast/useToast'
 import type { LegalDoc } from '../components/legal/legalContent'
 import { submitGoogleSignUp } from '../service/googleSignUp'
-import { submitSignUp } from '../service/signUp'
+import { submitSignUp, type SignUpError, type SignUpErrorKind } from '../service/signUp'
 import {
   CONSENT_ERROR,
   FIELD_ORDER,
@@ -22,11 +22,40 @@ const EMPTY: SignUpValues = {
   lastName: '',
   suffix: '',
   email: '',
+  password: '',
   consent: false,
 }
 
 export type SignUpStatus = 'editing' | 'pending' | 'success' | 'error'
 export type SignUpMethod = 'email' | 'google'
+
+// What happened, why and the next step, per failure kind. 'weak-password' and 'invalid-email' show inline on their field.
+export const SIGN_UP_ERROR_COPY: Record<SignUpErrorKind, { title: string; body: string }> = {
+  network: {
+    title: "We couldn't create your account.",
+    body: 'The connection dropped before we got a response. Nothing was saved. Check your connection and try again.',
+  },
+  'rate-limit': {
+    title: 'Too many sign-up attempts.',
+    body: 'Our servers are limiting requests right now. Nothing was saved. Wait a minute, then try again.',
+  },
+  'weak-password': {
+    title: 'That password was rejected.',
+    body: 'It is too easy to guess or has appeared in a data breach. Choose a longer, less predictable password and try again.',
+  },
+  'invalid-email': {
+    title: 'That email address was rejected.',
+    body: 'That email address was rejected. Check it for typos or use a different one.',
+  },
+  'signup-disabled': {
+    title: 'Sign-ups are unavailable right now.',
+    body: "New accounts can't be created at the moment. Nothing was saved. Try again later or contact support.",
+  },
+  server: {
+    title: "We couldn't create your account.",
+    body: 'Something went wrong on our side. Nothing was saved. Try again in a moment.',
+  },
+}
 
 // Terms first, then Privacy; the order the consent flow opens them in.
 const LEGAL_ORDER: LegalDoc[] = ['terms', 'privacy']
@@ -62,6 +91,9 @@ export function useSignUpForm() {
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({})
   const [status, setStatus] = useState<SignUpStatus>('editing')
   const [method, setMethod] = useState<SignUpMethod>('email')
+  const [errorKind, setErrorKind] = useState<SignUpErrorKind>('server')
+  // The server's verdict on the password or email; it stays until that field changes.
+  const [serverError, setServerError] = useState<{ field: 'email' | 'password'; message: string }>()
   // Reading a document and pressing "I understand" lasts as long as the form; nothing is stored.
   const [acknowledged, setAcknowledged] = useState<Acknowledged>({ terms: false, privacy: false })
   const [legalOpen, setLegalOpen] = useState<LegalDoc | null>(null)
@@ -75,14 +107,16 @@ export function useSignUpForm() {
 
   const errors = useMemo(() => {
     const all = withConsent(validateSignUp(values), acknowledged)
-    return Object.fromEntries(
+    const shown = Object.fromEntries(
       Object.entries(all).filter(([name]) => touched[name as FieldName]),
     ) as SignUpErrors
-  }, [values, touched, acknowledged])
+    return serverError && !shown[serverError.field] ? { ...shown, [serverError.field]: serverError.message } : shown
+  }, [values, touched, acknowledged, serverError])
 
   const setField = useCallback((name: FieldName, value: string | boolean) => {
     const clean = typeof value === 'string' ? (SANITIZERS[name]?.(value) ?? value) : value
     setValues((current) => ({ ...current, [name]: clean }))
+    setServerError((current) => (current?.field === name ? undefined : current))
     if (name === 'consent') setTouched((current) => ({ ...current, consent: true }))
   }, [])
 
@@ -106,18 +140,30 @@ export function useSignUpForm() {
     const abort = new AbortController()
     controller.current = abort
     setMethod('email')
+    setServerError(undefined)
     setStatus('pending')
     try {
       await submitSignUp(normalizeSignUp(values), { signal: abort.signal })
       setStatus('success')
       toast.show({ kind: 'success', message: 'Account created. Check your email to finish setting up.' })
-    } catch {
+    } catch (failure) {
       if (abort.signal.aborted) return
+      const kind = (failure as Partial<SignUpError> | null)?.kind ?? 'server'
+      const inline = kind === 'weak-password' ? 'password' : kind === 'invalid-email' ? 'email' : null
+      if (inline) {
+        // Fixable on the field itself, so no banner or retry toast.
+        setServerError({ field: inline, message: SIGN_UP_ERROR_COPY[kind].body })
+        setStatus('editing')
+        document.getElementById(fieldId(inline))?.focus()
+        return
+      }
+      const copy = SIGN_UP_ERROR_COPY[kind]
+      setErrorKind(kind)
       setStatus('error')
       toast.show({
         kind: 'error',
-        message: "We couldn't create your account. Check your connection and try again.",
-        action: { label: 'Try again', onClick: () => submitRef.current() },
+        message: `${copy.title} ${copy.body}`,
+        action: kind === 'signup-disabled' ? undefined : { label: 'Try again', onClick: () => submitRef.current() },
       })
     } finally {
       inFlight.current = false
@@ -204,6 +250,7 @@ export function useSignUpForm() {
     values,
     errors,
     status,
+    errorKind,
     method,
     legalOpen,
     setField,
