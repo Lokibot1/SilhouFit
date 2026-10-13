@@ -1,10 +1,11 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { DEMO, signedIn } from '../shared/session'
+import { DEMO, mockAuth, signedIn } from '../shared/session'
 
 const MIN_TARGET = 44
 const COMPACT_TARGET = 36
 
 test.beforeEach(async ({ page }) => {
+  await mockAuth(page)
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
 })
 

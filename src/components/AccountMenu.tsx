@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import type { CurrentUser } from '../hooks/useCurrentUser'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { clearSession } from '../service/session'
+import { getSupabase } from '../service/supabase'
 import { clearLastOrder } from '../utils/checkout'
 import { useToast } from './toast/useToast'
 import { Avatar } from './ui/Avatar'
@@ -62,6 +63,7 @@ export function AccountMenu({ user }: { user: CurrentUser }) {
   }, [open, placed])
 
   function signOut() {
+    void getSupabase().then((supabase) => supabase.auth.signOut()).catch(() => {}) // not awaited: the UI must not wait on the network
     clearSession()
     clearLastOrder() // an order's address and phone must not outlive the session
     close(false)

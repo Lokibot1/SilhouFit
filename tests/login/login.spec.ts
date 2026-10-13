@@ -1,9 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { DEMO, mockAuth } from '../shared/session'
 import { DEVICE_MATRIX } from '../shared/viewports'
 
-// The one reserved credential the sign-in stub (src/service/signIn.ts) must accept.
-// Every other pair resolves { ok: false, reason: 'invalid' }.
-const DEMO = { email: 'demo@silhoufit.com', password: 'Demo@1234' }
+// Supabase Auth and /users/me are mocked: only DEMO signs in, every other pair is invalid_credentials.
 const WRONG_PASSWORD = { email: DEMO.email, password: 'Wrong@1234' }
 const UNKNOWN_EMAIL = { email: 'nobody@example.com', password: 'Whatever@1' }
 
@@ -11,6 +10,7 @@ const WIDTHS = [320, 640, 768, 1024, 1280, 1920]
 const MIN_TARGET = 44
 
 test.beforeEach(async ({ page }) => {
+  await mockAuth(page)
   // Keep the cookie banner out of the way; pick the theme per test.
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
 })

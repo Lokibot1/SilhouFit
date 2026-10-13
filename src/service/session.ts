@@ -1,5 +1,5 @@
 // The signed-in user, kept in localStorage so a reload and other tabs agree. Only { name, email } is stored: never a
-// token or password. The real backend will use HttpOnly cookies, and this store becomes a cache of /me.
+// token or password. supabase-js keeps its own token in localStorage; this store stays the { name, email } cache of /users/me.
 const KEY = 'silhoufit-session'
 
 export interface Session {

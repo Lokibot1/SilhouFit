@@ -1,4 +1,4 @@
-// Mirrors the page wrapper and single-column card (logo, heading, name pairs, email, phone, consent, submit, divider, Google, footer) so the swap does not shift layout.
+// Mirrors the page wrapper and single-column card (logo, heading, name pairs, email, consent, submit, divider, Google, footer) so the swap does not shift layout.
 export function SignUpSkeleton() {
   return (
     <div
@@ -24,7 +24,6 @@ export function SignUpSkeleton() {
             <div className="h-11 rounded-xl bg-line" />
             <div className="h-11 rounded-xl bg-line" />
           </div>
-          <div className="h-11 rounded-xl bg-line" />
           <div className="h-11 rounded-xl bg-line" />
           <div className="flex h-11 items-center gap-2.5">
             <div className="size-5 shrink-0 rounded-md bg-line" />

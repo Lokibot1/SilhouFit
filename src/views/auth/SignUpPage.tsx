@@ -1,7 +1,6 @@
 import { motion } from 'motion/react'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CountrySelect } from '../../components/form/CountrySelect'
 import { FloatingField } from '../../components/form/FloatingField'
 import { GoogleButton } from '../../components/form/GoogleButton'
 import { AlertIcon, CheckIcon, MailIcon, SpinnerIcon } from '../../components/form/icons'
@@ -155,23 +154,6 @@ export function SignUpPage() {
                 autoComplete="email"
                 inputMode="email"
                 enterKeyHint="next"
-              />
-              <FloatingField
-                {...field('phone')}
-                label="Phone number"
-                type="tel"
-                prefix={
-                  <CountrySelect
-                    id={fieldId('phoneCountry')}
-                    value={values.phoneCountry}
-                    onChange={(code) => setField('phoneCountry', code)}
-                    disabled={pending}
-                  />
-                }
-                autoComplete="tel-national"
-                inputMode="tel"
-                enterKeyHint="next"
-                counter={{ current: values.phone.length, max: LIMITS.phoneMaxDigits }}
               />
 
               <div className="scroll-mt-28">

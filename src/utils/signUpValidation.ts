@@ -1,5 +1,3 @@
-import { findCountry } from '../data/countries'
-
 export const LIMITS = {
   nameMaxLength: 40,
   nameWordMaxLength: 20,
@@ -17,10 +15,6 @@ export interface SignUpValues {
   lastName: string
   suffix: string
   email: string
-  /** ISO 3166-1 alpha-2 code of the selected calling country. */
-  phoneCountry: string
-  /** National number, digits only. */
-  phone: string
   consent: boolean
 }
 export type FieldName = keyof SignUpValues
@@ -32,8 +26,6 @@ export interface SignUpPayload {
   lastName: string
   suffix: string | null
   email: string
-  /** E.164 style: calling code plus the national number without its trunk 0. */
-  phone: string
   consent: true
 }
 
@@ -44,8 +36,6 @@ export const FIELD_ORDER: FieldName[] = [
   'middleName',
   'suffix',
   'email',
-  'phoneCountry',
-  'phone',
   'consent',
 ]
 
@@ -221,10 +211,6 @@ export function validateField(name: FieldName, values: SignUpValues): string | n
       return validateSuffix(values.suffix)
     case 'email':
       return validateEmail(values.email)
-    case 'phoneCountry':
-      return findCountry(values.phoneCountry) ? null : 'Choose a country calling code.'
-    case 'phone':
-      return validatePhone(values.phone)
     case 'consent':
       return validateConsent(values.consent)
   }
@@ -251,7 +237,6 @@ export function normalizeSignUp(values: SignUpValues): SignUpPayload {
     lastName: normalizeName(values.lastName),
     suffix: values.suffix.trim() || null,
     email: normalizeEmail(values.email),
-    phone: normalizePhone(values.phone, findCountry(values.phoneCountry)!.dial),
     consent: true,
   }
 }

@@ -6,7 +6,7 @@ import { GoogleButton } from '../../components/form/GoogleButton'
 import { AlertIcon, CheckIcon, LockIcon, MailIcon, SpinnerIcon } from '../../components/form/icons'
 import { SilhouetteMark } from '../../components/landing/SilhouetteMark'
 import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
-import { fieldId, useLoginForm } from '../../hooks/useLoginForm'
+import { fieldId, SIGN_IN_ERROR_COPY, useLoginForm } from '../../hooks/useLoginForm'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
@@ -34,7 +34,7 @@ export function LoginPage() {
   useDocumentTitle('Sign in — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
 
-  const { values, remember, setRemember, errors, status, locked, method, setField, blurField, onSubmit, onGoogle } = useLoginForm()
+  const { values, remember, setRemember, errors, status, errorKind, locked, method, setField, blurField, onSubmit, onGoogle } = useLoginForm()
   const pending = status === 'pending'
   const next = nextQuery(useSearchParams()[0].get('next'))
 
@@ -58,10 +58,7 @@ export function LoginPage() {
           body: "The email or password doesn't match our records. Check both and try again, or reset your password.",
         }
       : status === 'error'
-        ? {
-            title: "We couldn't sign you in.",
-            body: 'The connection dropped before we got a response. Check your connection and try again.',
-          }
+        ? SIGN_IN_ERROR_COPY[errorKind]
         : null
 
   return (

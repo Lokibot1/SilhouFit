@@ -3,13 +3,11 @@ import { useToast } from '../components/toast/useToast'
 import type { LegalDoc } from '../components/legal/legalContent'
 import { submitGoogleSignUp } from '../service/googleSignUp'
 import { submitSignUp } from '../service/signUp'
-import { DEFAULT_COUNTRY_CODE } from '../data/countries'
 import {
   CONSENT_ERROR,
   FIELD_ORDER,
   normalizeSignUp,
   sanitizeName,
-  sanitizePhoneDigits,
   sanitizeSuffix,
   stripEmoji,
   validateSignUp,
@@ -24,8 +22,6 @@ const EMPTY: SignUpValues = {
   lastName: '',
   suffix: '',
   email: '',
-  phoneCountry: DEFAULT_COUNTRY_CODE,
-  phone: '',
   consent: false,
 }
 
@@ -44,7 +40,6 @@ const SANITIZERS: Partial<Record<FieldName, (input: string) => string>> = {
   lastName: sanitizeName,
   suffix: sanitizeSuffix,
   email: stripEmoji,
-  phone: sanitizePhoneDigits,
 }
 
 export function fieldId(name: FieldName) {

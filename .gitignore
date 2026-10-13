@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Production build output
+build/
+dist/
+out/
+
+# Local env files
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+
+# Optional local tooling
+.claude/
+.vscode/
+
+# Local config files
+claude.md
+skills-lock.json
+
+SilhoufitContextversion1.md
+
+# Playwright
+test-results/
+playwright-report/

@@ -39,8 +39,6 @@ const validValues: SignUpValues = {
   middleName: '',
   suffix: '',
   email: 'anne@example.com',
-  phoneCountry: 'PH',
-  phone: '9171234567',
   consent: true,
 }
 
@@ -551,13 +549,10 @@ describe('validateField', () => {
     expect(validateField('firstName', with_({ firstName: '' }))).toBe('First name is required.')
     expect(validateField('lastName', with_({ lastName: '' }))).toBe('Last name is required.')
     expect(validateField('email', with_({ email: 'a@b' }))).toBe('Enter a valid email like name@example.com.')
-    expect(validateField('phone', with_({ phone: '123' }))).toBe('Enter a phone number with 7 to 11 digits.')
-    expect(validateField('phone', with_({ phone: '' }))).toBe('Phone number is required.')
     expect(validateField('middleName', with_({ middleName: '9' }))).toBe(
       'Middle name can only contain letters, spaces, hyphens and apostrophes.',
     )
     expect(validateField('suffix', with_({ suffix: 'J1' }))).toBe('Suffix can only contain letters and periods.')
-    expect(validateField('phoneCountry', with_({ phoneCountry: 'ZZ' }))).toBe('Choose a country calling code.')
     expect(validateField('consent', with_({ consent: false }))).toBe(
       'Please read and accept the Terms of Service and Privacy Policy to create an account.',
     )
@@ -582,8 +577,8 @@ describe('validateSignUp and isSignUpValid', () => {
     expect(isSignUpValid(validValues)).toBe(true)
   })
 
-  it('accepts a middle name, a suffix and another country', () => {
-    const values = with_({ middleName: 'Dela Cruz', suffix: 'Jr.', phoneCountry: 'GB', phone: '07911123456' })
+  it('accepts a middle name and a suffix', () => {
+    const values = with_({ middleName: 'Dela Cruz', suffix: 'Jr.' })
     expect(validateSignUp(values)).toEqual({})
     expect(isSignUpValid(values)).toBe(true)
   })
@@ -604,12 +599,10 @@ describe('validateSignUp and isSignUpValid', () => {
       lastName: '',
       suffix: '',
       email: '',
-      phoneCountry: 'PH',
-      phone: '',
       consent: false,
     }
     expect(Object.keys(validateSignUp(empty)).sort()).toEqual(
-      ['consent', 'email', 'firstName', 'lastName', 'phone'].sort(),
+      ['consent', 'email', 'firstName', 'lastName'].sort(),
     )
     expect(isSignUpValid(empty)).toBe(false)
   })
@@ -624,7 +617,6 @@ describe('normalizeSignUp', () => {
         lastName: ' Santos ',
         suffix: ' Jr. ',
         email: '  Anne@Example.COM ',
-        phone: '09171234567',
       }),
     )
     expect(payload).toEqual({
@@ -633,7 +625,6 @@ describe('normalizeSignUp', () => {
       lastName: 'Santos',
       suffix: 'Jr.',
       email: 'anne@example.com',
-      phone: '+639171234567',
       consent: true,
     })
   })
@@ -644,17 +635,12 @@ describe('normalizeSignUp', () => {
     expect(payload.suffix).toBeNull()
   })
 
-  it('uses the selected country dial code', () => {
-    expect(normalizeSignUp(with_({ phoneCountry: 'US', phone: '2025550123' })).phone).toBe('+12025550123')
-  })
-
   it('does not include a password', () => {
     expect(normalizeSignUp(validValues)).not.toHaveProperty('password')
   })
 
   it('throws when the values are invalid', () => {
     expect(() => normalizeSignUp(with_({ email: 'bad' }))).toThrow()
-    expect(() => normalizeSignUp(with_({ phone: '' }))).toThrow()
     expect(() => normalizeSignUp(with_({ consent: false }))).toThrow()
   })
 })

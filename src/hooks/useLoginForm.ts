@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useToast } from '../components/toast/useToast'
 import { submitGoogleSignIn } from '../service/googleSignIn'
 import { setSession, type Session } from '../service/session'
-import { submitSignIn } from '../service/signIn'
+import { submitSignIn, type SignInError, type SignInErrorKind } from '../service/signIn'
 import {
   LOGIN_FIELD_ORDER,
   validateLogin,
@@ -18,6 +18,26 @@ const EMPTY: LoginValues = { email: '', password: '' }
 
 export type LoginStatus = 'editing' | 'pending' | 'success' | 'invalid' | 'error'
 export type LoginMethod = 'email' | 'google'
+
+// What happened, why and the next step, per failure kind. 'invalid' stays generic so emails are never revealed.
+export const SIGN_IN_ERROR_COPY: Record<SignInErrorKind, { title: string; body: string }> = {
+  network: {
+    title: "We couldn't sign you in.",
+    body: 'The connection dropped before we got a response. Check your connection and try again.',
+  },
+  'rate-limit': {
+    title: 'Too many sign-in attempts.',
+    body: 'Our servers are limiting requests right now. Wait a minute, then try again.',
+  },
+  profile: {
+    title: "We signed you in but couldn't load your profile.",
+    body: 'Try again. If it keeps happening, contact support.',
+  },
+  server: {
+    title: "We couldn't sign you in.",
+    body: 'Something went wrong on our side. Try again in a moment.',
+  },
+}
 
 const MAX_INVALID = 5
 const COOLDOWN_MS = 30_000
@@ -37,6 +57,7 @@ export function useLoginForm() {
   // Separate from status so a Google result during the cooldown cannot lift it.
   const [locked, setLocked] = useState(false)
   const [method, setMethod] = useState<LoginMethod>('email')
+  const [errorKind, setErrorKind] = useState<SignInErrorKind>('server')
   const invalidCount = useRef(0)
   const cooldown = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const inFlight = useRef(false)
@@ -114,12 +135,15 @@ export function useLoginForm() {
       } else {
         setStatus('invalid')
       }
-    } catch {
+    } catch (failure) {
       if (abort.signal.aborted) return
+      const kind = (failure as Partial<SignInError> | null)?.kind ?? 'server'
+      const copy = SIGN_IN_ERROR_COPY[kind]
+      setErrorKind(kind)
       setStatus('error')
       toast.show({
         kind: 'error',
-        message: "We couldn't sign you in. Check your connection and try again.",
+        message: `${copy.title} ${copy.body}`,
         action: { label: 'Try again', onClick: () => submitRef.current() },
       })
     } finally {
@@ -162,5 +186,5 @@ export function useLoginForm() {
     void submit()
   }
 
-  return { values, remember, setRemember, errors, status, locked, method, setField, blurField, onSubmit, onGoogle: googleSignIn }
+  return { values, remember, setRemember, errors, status, errorKind, locked, method, setField, blurField, onSubmit, onGoogle: googleSignIn }
 }

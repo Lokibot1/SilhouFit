@@ -365,7 +365,7 @@ describe('LoginPage invalid credentials', () => {
 describe('LoginPage network failure', () => {
   it('shows a connection banner and a "Try again" toast that retries with the same values', async () => {
     const user = userEvent.setup()
-    signIn.mockRejectedValueOnce(new Error('network'))
+    signIn.mockRejectedValueOnce(Object.assign(new Error('network'), { kind: 'network' }))
     renderPage()
     await fillAndSubmit(user)
 
@@ -382,6 +382,31 @@ describe('LoginPage network failure', () => {
     // Wait for the success outcome rather than the pending form.
     expect(await screen.findByText('Signed in. Welcome back.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to home' })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['rate-limit', /too many sign-in attempts.*wait a minute/i],
+    ['profile', /signed you in but couldn't load your profile.*contact support/i],
+    ['server', /something went wrong on our side/i],
+  ] as const)('shows %s copy in the banner and the toast, not the connection message', async (kind, copy) => {
+    const user = userEvent.setup()
+    signIn.mockRejectedValueOnce(Object.assign(new Error(kind), { kind }))
+    renderPage()
+    await fillAndSubmit(user)
+
+    const alert = await within(form()).findByRole('alert')
+    expect(alert).toHaveTextContent(copy)
+    expect(alert.textContent).not.toMatch(/connection dropped/i)
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.getAllByText(copy).length).toBeGreaterThan(0)
+  })
+
+  it('falls back to the server copy for an error without a kind', async () => {
+    const user = userEvent.setup()
+    signIn.mockRejectedValueOnce(new Error('VITE_SUPABASE_URL missing'))
+    renderPage()
+    await fillAndSubmit(user)
+    expect(await within(form()).findByRole('alert')).toHaveTextContent(/something went wrong on our side/i)
   })
 
   it.each([

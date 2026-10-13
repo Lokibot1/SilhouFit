@@ -60,7 +60,6 @@ async function fillDetails(user: User) {
   await user.type(field(/^first name$/i), 'Anne')
   await user.type(field(/^last name$/i), 'Santos')
   await user.type(field(/^email$/i), 'anne@example.com')
-  await user.type(field(/^phone number$/i), '09171234567')
 }
 
 const dialog = (name: string) => screen.findByRole('dialog', { name })
@@ -101,7 +100,7 @@ describe('SignUpPage single form', () => {
   it('puts the four name fields and every other field in that one form, in order', () => {
     renderPage()
     const form = document.querySelector('form')!
-    const labels = [/^first name$/i, /^last name$/i, /^middle name$/i, /^suffix$/i, /^email$/i, /^phone number$/i, ]
+    const labels = [/^first name$/i, /^last name$/i, /^middle name$/i, /^suffix$/i, /^email$/i]
     const inputs = labels.map((label) => field(label))
     inputs.forEach((input) => expect(form).toContainElement(input))
     inputs.slice(1).forEach((input, i) =>
@@ -131,7 +130,6 @@ describe('SignUpPage single form', () => {
 
     expect(screen.getByText('First name is required.')).toBeInTheDocument()
     expect(screen.getByText('Email is required.')).toBeInTheDocument()
-    expect(screen.getByText('Phone number is required.')).toBeInTheDocument()
     expect(screen.getByText(/accept the Terms of Service/)).toBeInTheDocument()
     expect(submit).not.toHaveBeenCalled()
     expect(screen.queryByText(/middle name can/i)).not.toBeInTheDocument()
@@ -176,22 +174,6 @@ describe('SignUpPage single form', () => {
     await user.click(field(/^suffix$/i))
     await user.paste('Jr.9 x\u{1F600}')
     expect(field(/^suffix$/i)).toHaveValue('Jr.x')
-
-    await user.click(field(/^phone number$/i))
-    await user.paste('+63 9a17')
-    expect(field(/^phone number$/i)).toHaveValue('63917')
-  })
-
-  it('caps the phone at 11 digits and shows a counter', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(field(/^phone number$/i))
-    await user.paste('0917123456789012')
-    expect(field(/^phone number$/i)).toHaveValue('09171234567')
-    expect(screen.getByText('11/11')).toBeInTheDocument()
-
-    await user.type(field(/^phone number$/i), '99')
-    expect(field(/^phone number$/i)).toHaveValue('09171234567')
   })
 
   it('keeps middle name and suffix optional and sets their autocomplete tokens', async () => {
@@ -199,20 +181,10 @@ describe('SignUpPage single form', () => {
     renderPage()
     expect(field(/^middle name$/i)).toHaveAttribute('autocomplete', 'additional-name')
     expect(field(/^suffix$/i)).toHaveAttribute('autocomplete', 'honorific-suffix')
-    expect(field(/^phone number$/i)).toHaveAttribute('autocomplete', 'tel-national')
-    expect(field(/^phone number$/i)).toHaveAttribute('inputmode', 'tel')
 
     await fillDetails(user)
     await user.click(createAccount())
     expect(await dialog('Terms of Service')).toBeInTheDocument()
-  })
-
-  it('reports a phone with too few digits', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.type(field(/^phone number$/i), '12345')
-    await user.tab()
-    expect(screen.getByText('Enter a phone number with 7 to 11 digits.')).toBeInTheDocument()
   })
 
   it('clears a filled field and refocuses it', async () => {
@@ -274,7 +246,6 @@ describe('SignUpPage security and submit', () => {
       email: 'anne@example.com',
       middleName: null,
       suffix: null,
-      phone: '+639171234567',
     })
     expect(submit.mock.calls[0][0]).not.toHaveProperty('password')
 
