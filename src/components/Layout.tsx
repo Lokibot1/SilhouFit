@@ -4,6 +4,7 @@ import { Navigate, Outlet, useLocation, useNavigationType } from 'react-router-d
 import { CookieConsentBanner } from './CookieConsentBanner'
 import { Footer } from './Footer'
 import { Navbar } from './Navbar'
+import { OnboardingGate } from './onboarding/OnboardingGate'
 import { ShopNavbar } from './ShopNavbar'
 import { SiteSky } from './Sky'
 import { SkipLink } from './SkipLink'
@@ -63,6 +64,7 @@ export function Layout({ bare = false }: { bare?: boolean }) {
         </main>
         {!bare && !isAuthPath(pathname) && !NO_FOOTER.includes(pathname.replace(/\/$/, '')) && !pathname.startsWith('/shop/') && <Footer />}
         <CookieConsentBanner />
+        <OnboardingGate />
       </div>
     </ToastProvider>
   )

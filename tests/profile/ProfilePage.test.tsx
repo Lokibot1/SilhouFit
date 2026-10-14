@@ -72,7 +72,7 @@ describe('ProfilePage', () => {
 
     finish(ME)
     const heading = await screen.findByRole('heading', { level: 1, name: 'Anne Santos' })
-    expect(heading).toHaveFocus()
+    await waitFor(() => expect(heading).toHaveFocus())
     expect(screen.getByText('anne@example.com')).toBeInTheDocument()
     expect(screen.getByText('Member since')).toBeInTheDocument()
     expect(screen.getByText('January 15, 2026')).toBeInTheDocument()

@@ -85,6 +85,7 @@ export function ShopNavbar() {
         {onShop && (
         <div
           role="search"
+          data-tour="shop-search"
           className={`${searchOpen ? 'block' : 'hidden'} order-last w-full basis-full pb-2 lg:order-none lg:mx-auto lg:block lg:max-w-md lg:min-w-48 lg:flex-1 lg:basis-0 lg:pb-0`}
         >
           <div className="relative">
@@ -122,6 +123,7 @@ export function ShopNavbar() {
             <button
               ref={searchToggleRef}
               type="button"
+              data-tour="shop-search-toggle"
               aria-expanded={searchOpen}
               aria-label={searchOpen ? 'Close search' : 'Open search'}
               onClick={() => setSearchOpen((open) => !open)}
@@ -145,6 +147,7 @@ export function ShopNavbar() {
           <Tooltip label={`Cart (${cartCount} ${cartCount === 1 ? 'item' : 'items'})`}>
             <Link
               to="/cart"
+              data-tour="cart"
               aria-current={onCart ? 'page' : undefined}
               aria-label={`Cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
               className={`${ICON_BUTTON} ${onCart ? 'bg-fg/10' : ''}`}

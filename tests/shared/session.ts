@@ -7,14 +7,29 @@ const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers
 const encode = (value: object) => btoa(JSON.stringify(value)).replace(/=+$/, '')
 const jwt = () => `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: 'user-1', role: 'authenticated', exp: 4_102_444_800 })}.sig`
 
-/** Stands in for Supabase Auth and GET /users/me: only DEMO signs in, any other pair is invalid_credentials. */
-export async function mockAuth(page: Page) {
+/** The signed-in user Supabase returns. By default they have already seen the onboarding tour; `brandNew` has not. */
+const authUser = (brandNew: boolean) => ({
+  id: 'user-1',
+  aud: 'authenticated',
+  role: 'authenticated',
+  email: DEMO.email,
+  user_metadata: brandNew ? {} : { onboarding: { status: 'completed', at: '2026-01-15T08:30:00.000Z' } },
+})
+
+/**
+ * Stands in for Supabase Auth and GET /users/me: only DEMO signs in, any other pair is invalid_credentials.
+ * `brandNew` signs in a user who has not seen the onboarding tour yet; the tour's save (PUT /auth/v1/user) is answered too.
+ */
+export async function mockAuth(page: Page, { brandNew = false }: { brandNew?: boolean } = {}) {
+  await page.route('**/auth/v1/user*', (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    return route.fulfill({ json: authUser(brandNew), headers: CORS })
+  })
   await page.route('**/auth/v1/token*', async (route) => {
     const { email, password } = route.request().postDataJSON() ?? {}
     if (email === DEMO.email && password === DEMO.password) {
-      const user = { id: 'user-1', aud: 'authenticated', role: 'authenticated', email: DEMO.email }
       await route.fulfill({
-        json: { access_token: jwt(), token_type: 'bearer', expires_in: 3600, refresh_token: 'refresh', user },
+        json: { access_token: jwt(), token_type: 'bearer', expires_in: 3600, refresh_token: 'refresh', user: authUser(brandNew) },
         headers: CORS,
       })
       return
@@ -67,7 +82,11 @@ export async function mockSignUp(page: Page, bodies: object[] = []) {
  * `grant_type=pkce` on `/auth/v1/token` then returns a session for DEMO. Register it after mockAuth, which serves /users/me.
  * Every authorize URL is pushed to `authorizeUrls` so a test can assert the provider and redirect_to.
  */
-export async function mockGoogle(page: Page, { cancelled = false }: { cancelled?: boolean } = {}, authorizeUrls: URL[] = []) {
+export async function mockGoogle(
+  page: Page,
+  { cancelled = false, brandNew = false }: { cancelled?: boolean; brandNew?: boolean } = {},
+  authorizeUrls: URL[] = [],
+) {
   await page.route('**/auth/v1/authorize*', async (route) => {
     const url = new URL(route.request().url())
     authorizeUrls.push(url)
@@ -86,9 +105,8 @@ export async function mockGoogle(page: Page, { cancelled = false }: { cancelled?
       await route.fallback()
       return
     }
-    const user = { id: 'user-1', aud: 'authenticated', role: 'authenticated', email: DEMO.email }
     await route.fulfill({
-      json: { access_token: jwt(), token_type: 'bearer', expires_in: 3600, refresh_token: 'refresh', user },
+      json: { access_token: jwt(), token_type: 'bearer', expires_in: 3600, refresh_token: 'refresh', user: authUser(brandNew) },
       headers: CORS,
     })
   })

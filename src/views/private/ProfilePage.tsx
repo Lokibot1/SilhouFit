@@ -8,6 +8,7 @@ import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyl
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
+import { useOnboarding } from '../../hooks/useOnboarding'
 import { fetchMe, type Me, type MeErrorKind } from '../../service/fetchMe'
 import { signOut } from '../../service/signOut'
 
@@ -51,6 +52,7 @@ export function ProfilePage() {
 
   const user = useCurrentUser()
   const toast = useToast()
+  const { startTour } = useOnboarding()
   const [state, setState] = useState<State>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -78,7 +80,8 @@ export function ProfilePage() {
   }, [attempt])
 
   useEffect(() => {
-    if (state.status !== 'loading') headingRef.current?.focus()
+    // The tour's welcome card may already hold focus; the heading must not take it back.
+    if (state.status !== 'loading' && !document.querySelector('[aria-modal="true"]')) headingRef.current?.focus()
   }, [state.status])
 
   if (!user) {
@@ -148,9 +151,14 @@ export function ProfilePage() {
             <dd className="text-base text-fg">{since}</dd>
           </dl>
         )}
-        <button type="button" onClick={leave} className={`${SECONDARY_BUTTON} mt-6`}>
-          Sign out
-        </button>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button type="button" onClick={() => startTour({ skipWelcome: true })} className={SECONDARY_BUTTON}>
+            Replay the tour
+          </button>
+          <button type="button" onClick={leave} className={SECONDARY_BUTTON}>
+            Sign out
+          </button>
+        </div>
       </section>
     </div>
   )

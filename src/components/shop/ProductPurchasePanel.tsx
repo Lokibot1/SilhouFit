@@ -75,6 +75,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
   const addButton = (
     <button
       type="button"
+      data-tour="product-add"
       aria-disabled={soldOut}
       aria-label={soldOut ? 'Add to cart, sold out' : undefined}
       onClick={() => submit(onAdd)}
@@ -88,6 +89,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
   const buyButton = (
     <button
       type="button"
+      data-tour="product-buy"
       aria-disabled={soldOut}
       aria-label={soldOut ? 'Buy now, sold out' : undefined}
       onClick={() => submit(onBuy)}
@@ -169,7 +171,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
         </div>
       )}
 
-      <fieldset ref={colorGroup} aria-describedby={error === COLOR_ERROR ? 'product-error' : undefined}>
+      <fieldset ref={colorGroup} data-tour="product-options" aria-describedby={error === COLOR_ERROR ? 'product-error' : undefined}>
         <legend className={LEGEND}>
           <PaletteIcon size={16} className={LEGEND_ICON} />
           Colour
@@ -211,7 +213,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
         )}
       </fieldset>
 
-      <fieldset ref={sizeGroup} aria-describedby={error === SIZE_ERROR ? 'product-error' : undefined}>
+      <fieldset ref={sizeGroup} data-tour="product-options" aria-describedby={error === SIZE_ERROR ? 'product-error' : undefined}>
         <legend className={LEGEND}>
           <RulerIcon size={16} className={LEGEND_ICON} />
           Size{size ? <span className="font-normal text-fg-muted">: {size}</span> : <span className="font-normal text-fg-muted"> (required)</span>}
@@ -289,6 +291,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
             <Tooltip label="AR try-on isn't available yet">
               <button
                 type="button"
+                data-tour="product-ar"
                 aria-disabled="true"
                 aria-label="AR Virtual Try-On"
                 className={`${SHOP_SECONDARY} min-h-12! w-full max-lg:min-h-11!`}

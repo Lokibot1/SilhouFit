@@ -240,7 +240,7 @@ export function ShopPage() {
         {products.status === 'success' && result && (
           <>
             {/* On phones the categories live in the Filters modal instead. */}
-            <div className="hidden sm:block">
+            <div data-tour="shop-categories" className="hidden sm:block">
               <CategoryPills
                 value={category}
                 counts={categoryCounts(products.data.products)}
@@ -313,7 +313,7 @@ export function ShopPage() {
                   }`}
                 >
                   {result.items.map((product, index) => (
-                    <li key={product.id} className="min-w-0">
+                    <li key={product.id} data-tour={index === 0 ? 'product-card' : undefined} className="min-w-0">
                       <ProductCard
                         product={product}
                         index={index}

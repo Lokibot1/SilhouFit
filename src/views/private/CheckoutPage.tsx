@@ -303,7 +303,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
             <p className="mt-2 text-sm text-fg-muted">Your cart is unchanged until the order is placed.</p>
           </div>
         )}
-        <section aria-labelledby="checkout-items" className={SECTION}>
+        <section aria-labelledby="checkout-items" data-tour="checkout-items" className={SECTION}>
           <h2 id="checkout-items" className="display text-xl text-fg">
             Your order
           </h2>
@@ -319,7 +319,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           )}
         </section>
 
-        <section className={SECTION}>
+        <section data-tour="checkout-fulfilment" className={SECTION}>
           <OptionCards
             legend="How do you want to get it?"
             name="fulfilment"
@@ -398,7 +398,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           </section>
         )}
 
-        <section className={SECTION}>
+        <section data-tour="checkout-payment" className={SECTION}>
           <OptionCards
             legend="How do you want to pay?"
             name="payment"
@@ -497,7 +497,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           </div>
         )}
 
-        <button type="submit" disabled={pending || Boolean(blocked)} className={`${PRIMARY_BUTTON} w-full`}>
+        <button type="submit" data-tour="checkout-place" disabled={pending || Boolean(blocked)} className={`${PRIMARY_BUTTON} w-full`}>
           {pending ? (
             <>
               <SpinnerIcon />
