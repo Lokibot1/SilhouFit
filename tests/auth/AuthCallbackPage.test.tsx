@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { StrictMode } from 'react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { MeError } from '../../src/service/fetchMe'
@@ -16,8 +16,12 @@ vi.mock('../../src/service/fetchMe', async (importOriginal) => ({
   fetchMe: vi.fn(),
 }))
 const signOutSupabase = vi.fn()
+const exchangeCodeForSession = vi.fn()
+const setSupabaseSession = vi.fn()
 vi.mock('../../src/service/supabase', () => ({
-  getSupabase: async () => ({ auth: { signOut: signOutSupabase } }),
+  getSupabase: async () => ({
+    auth: { signOut: signOutSupabase, exchangeCodeForSession, setSession: setSupabaseSession },
+  }),
 }))
 const me = vi.mocked(fetchMe)
 
@@ -42,10 +46,15 @@ beforeAll(() => {
     disconnect() {}
   })
 })
-beforeEach(() => {
+beforeEach(async () => {
+  // The last test's unmount signs out on a timer; let it fire before this test counts calls.
+  await new Promise((resolve) => setTimeout(resolve))
+  vi.clearAllMocks()
   clearSession()
   clearStashedNext()
   signOutSupabase.mockResolvedValue({ error: null })
+  exchangeCodeForSession.mockResolvedValue({ data: {}, error: null })
+  setSupabaseSession.mockResolvedValue({ data: {}, error: null })
   me.mockResolvedValue(ME)
 })
 afterEach(() => {
@@ -65,6 +74,7 @@ function renderCallback(url: string, { strict = false } = {}) {
     <MemoryRouter initialEntries={['/auth/callback']}>
       <ToastProvider>
         <Where />
+        <Link to="/somewhere">Leave</Link>
         <Routes>
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/profile" element={<p>profile page</p>} />
@@ -112,6 +122,9 @@ describe('AuthCallbackPage success', () => {
     renderCallback('/auth/callback?code=abc', { strict: true })
     await screen.findByText('profile page')
     expect(me).toHaveBeenCalledTimes(2)
+    // The one-time code is exchanged once, not once per run.
+    expect(exchangeCodeForSession).toHaveBeenCalledTimes(1)
+    expect(exchangeCodeForSession).toHaveBeenCalledWith('abc')
     // The first run is aborted before it can store a session or navigate.
     expect(me.mock.calls[0][0]?.signal?.aborted).toBe(true)
     expect(screen.getAllByText('Signed in. Welcome back.')).toHaveLength(1)
@@ -123,6 +136,85 @@ describe('AuthCallbackPage success', () => {
     renderCallback('/auth/callback?code=abc')
     expect(screen.getByRole('status', { name: 'Signing you in with Google' })).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('AuthCallbackPage exchange', () => {
+  it('exchanges the code, then drops it from the address bar before loading the profile', async () => {
+    me.mockImplementation(async () => {
+      expect(window.location.search).toBe('')
+      return ME
+    })
+    renderCallback('/auth/callback?code=abc')
+    await screen.findByText('profile page')
+    expect(exchangeCodeForSession).toHaveBeenCalledWith('abc')
+  })
+
+  it('hands implicit-flow tokens from the hash to Supabase', async () => {
+    renderCallback('/auth/callback#access_token=at&refresh_token=rt&token_type=bearer')
+    await screen.findByText('profile page')
+    expect(setSupabaseSession).toHaveBeenCalledWith({ access_token: 'at', refresh_token: 'rt' })
+    expect(exchangeCodeForSession).not.toHaveBeenCalled()
+  })
+
+  it('shows the expired-sign-in card and signs out when the exchange fails', async () => {
+    exchangeCodeForSession.mockResolvedValue({ data: {}, error: new Error('invalid flow state') })
+    renderCallback('/auth/callback?code=abc')
+    expect(await screen.findByRole('alert')).toHaveTextContent(/expired or was already used/)
+    expect(me).not.toHaveBeenCalled()
+    expect(signOutSupabase).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('AuthCallbackPage exchange failures and leaving', () => {
+  it('shows the network copy with Try again when the exchange fails on a dropped connection', async () => {
+    const user = userEvent.setup()
+    const dropped = Object.assign(new Error('fetch failed'), { name: 'AuthRetryableFetchError', status: 0 })
+    exchangeCodeForSession.mockResolvedValueOnce({ data: {}, error: dropped })
+    renderCallback('/auth/callback?code=abc')
+    expect(await screen.findByRole('alert')).toHaveTextContent(/connection dropped/)
+    expect(signOutSupabase).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('profile page')).toBeInTheDocument()
+    expect(exchangeCodeForSession).toHaveBeenCalledTimes(2)
+  })
+
+  it('treats a fetch TypeError during the exchange as a network failure', async () => {
+    exchangeCodeForSession.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    renderCallback('/auth/callback?code=abc')
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('signs out only after a pending exchange settles when the user leaves mid-exchange', async () => {
+    const user = userEvent.setup()
+    let finish: (value: unknown) => void = () => {}
+    exchangeCodeForSession.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    renderCallback('/auth/callback?code=abc')
+    await user.click(screen.getByRole('link', { name: 'Leave' }))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(signOutSupabase).not.toHaveBeenCalled()
+    finish({ data: {}, error: null })
+    await waitFor(() => expect(signOutSupabase).toHaveBeenCalledTimes(1))
+  })
+})
+
+describe('AuthCallbackPage titles', () => {
+  it('says what happened on each state', async () => {
+    me.mockReturnValue(new Promise(() => {}))
+    const first = renderCallback('/auth/callback?code=abc')
+    expect(document.title).toBe('Signing you in — SilhouFit')
+    first.unmount()
+
+    renderCallback('/auth/callback?error=access_denied')
+    await screen.findByRole('heading', { name: 'You cancelled Google sign-in' })
+    expect(document.title).toBe('Google sign-in cancelled — SilhouFit')
+  })
+
+  it('uses the failure title on an error card', async () => {
+    me.mockRejectedValue(new MeError('not-found'))
+    renderCallback('/auth/callback?code=abc')
+    await screen.findByRole('alert')
+    expect(document.title).toBe("Couldn't sign you in — SilhouFit")
   })
 })
 
@@ -203,6 +295,31 @@ describe('AuthCallbackPage /users/me failures', () => {
     expect(await screen.findByText('login page')).toBeInTheDocument()
     expect(signOutSupabase).toHaveBeenCalledTimes(1)
   })
+
+  it('signs out when the user leaves after a retryable failure by any other link', async () => {
+    const user = userEvent.setup()
+    me.mockRejectedValue(new MeError('network'))
+    renderCallback('/auth/callback?code=abc')
+    await screen.findByRole('button', { name: 'Try again' })
+    expect(signOutSupabase).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('link', { name: 'Leave' }))
+    await waitFor(() => expect(signOutSupabase).toHaveBeenCalledTimes(1))
+  })
+
+  it('signs out when the user leaves while it is still waiting', async () => {
+    const user = userEvent.setup()
+    me.mockReturnValue(new Promise(() => {}))
+    renderCallback('/auth/callback?code=abc')
+    await user.click(screen.getByRole('link', { name: 'Leave' }))
+    await waitFor(() => expect(signOutSupabase).toHaveBeenCalledTimes(1))
+  })
+
+  it('does not sign out a finished sign-in, even under StrictMode', async () => {
+    renderCallback('/auth/callback?code=abc', { strict: true })
+    await screen.findByText('profile page')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(signOutSupabase).not.toHaveBeenCalled()
+  })
 })
 
 describe('AuthCallbackPage without a code', () => {
@@ -213,10 +330,28 @@ describe('AuthCallbackPage without a code', () => {
     expect(me).not.toHaveBeenCalled()
   })
 
-  it('sends a signed-out user to /login', async () => {
+  it('sends a rejected reload (401) to /login and clears the orphan Supabase token', async () => {
+    me.mockRejectedValue(new MeError('unauthorized'))
     renderCallback('/auth/callback')
     expect(await screen.findByText('login page')).toBeInTheDocument()
-    expect(me).not.toHaveBeenCalled()
+    expect(exchangeCodeForSession).not.toHaveBeenCalled()
+    await waitFor(() => expect(signOutSupabase).toHaveBeenCalledTimes(1))
+  })
+
+  it('finishes the sign-in on a reload mid-wait, when only the Supabase session survived', async () => {
+    sessionStorage.setItem('silhoufit-auth-next', '/checkout')
+    renderCallback('/auth/callback')
+    expect(await screen.findByText('checkout page')).toBeInTheDocument()
+    expect(getSession()).toEqual({ name: 'Demo Shopper', email: 'demo@silhoufit.com' })
+    expect(exchangeCodeForSession).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('silhoufit-auth-next')).toBeNull()
+  })
+
+  it('signs out cleanly when the reloaded session has no profile', async () => {
+    me.mockRejectedValue(new MeError('not-found'))
+    renderCallback('/auth/callback')
+    expect(await screen.findByRole('alert')).toHaveTextContent("We couldn't find your profile.")
+    expect(signOutSupabase).toHaveBeenCalledTimes(1)
   })
 })
 

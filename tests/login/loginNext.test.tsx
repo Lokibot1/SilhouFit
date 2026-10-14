@@ -10,7 +10,10 @@ import { submitSignIn } from '../../src/service/signIn'
 import { LoginPage } from '../../src/views/auth/LoginPage'
 
 vi.mock('../../src/service/signIn', () => ({ submitSignIn: vi.fn() }))
-vi.mock('../../src/service/googleAuth', () => ({ startGoogleAuth: vi.fn() }))
+vi.mock('../../src/service/googleAuth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/googleAuth')>()),
+  startGoogleAuth: vi.fn(),
+}))
 const signIn = vi.mocked(submitSignIn)
 const googleSignIn = vi.mocked(startGoogleAuth)
 const USER = { name: 'Demo Shopper', email: 'demo@silhoufit.com' }
@@ -68,6 +71,15 @@ describe('LoginPage return path', () => {
     expect(getSession()).toEqual(USER)
   })
 
+  it('drops a Google next path left in the stash once an email sign-in finishes', async () => {
+    const user = userEvent.setup()
+    sessionStorage.setItem('silhoufit-auth-next', '/checkout')
+    renderLogin('/login')
+    await signInByEmail(user)
+    await screen.findByText('somewhere else')
+    expect(sessionStorage.getItem('silhoufit-auth-next')).toBeNull()
+  })
+
   it('replaces the login entry, so Back does not return to the form', async () => {
     const user = userEvent.setup()
     renderLogin('/login?next=%2Fshop')
@@ -108,5 +120,15 @@ describe('LoginPage return path', () => {
   it('does not carry an unsafe next to the sign-up page', () => {
     renderLogin('/login?next=%2F%2Fevil.com')
     expect(screen.getByRole('link', { name: 'Join us today!' })).toHaveAttribute('href', '/signup')
+  })
+})
+
+describe('LoginPage auth params', () => {
+  it('strips a confirmation code and tokens from the URL, keeping next and unrelated params', () => {
+    window.history.replaceState(null, '', '/login?code=abc&next=%2Fshop&utm=1#access_token=at&refresh_token=rt&type=signup')
+    renderLogin('/login?next=%2Fshop')
+    expect(window.location.search).toBe('?next=%2Fshop&utm=1')
+    expect(window.location.hash).toBe('')
+    window.history.replaceState(null, '', '/')
   })
 })

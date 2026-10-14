@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useToast } from '../components/toast/useToast'
-import { googleErrorMessage, startGoogleAuth } from '../service/googleAuth'
+import { clearStashedNext, googleErrorMessage, startGoogleAuth } from '../service/googleAuth'
 import { setSession, type Session } from '../service/session'
 import { submitSignIn, type SignInError, type SignInErrorKind } from '../service/signIn'
 import {
@@ -39,6 +39,12 @@ export const SIGN_IN_ERROR_COPY: Record<SignInErrorKind, { title: string; body: 
   },
 }
 
+// Auth params a confirmation or provider link leaves in the address bar.
+const AUTH_PARAMS = [
+  'code', 'access_token', 'refresh_token', 'token_type', 'expires_in', 'expires_at',
+  'provider_token', 'provider_refresh_token', 'type', 'error', 'error_code', 'error_description',
+]
+
 const MAX_INVALID = 5
 const COOLDOWN_MS = 30_000
 
@@ -74,6 +80,25 @@ export function useLoginForm() {
     },
     [],
   )
+
+  // A sign-up confirmation link's code or tokens must not stay in the URL or history.
+  useEffect(() => {
+    const search = new URLSearchParams(window.location.search)
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const dirty = AUTH_PARAMS.some((key) => search.has(key) || hash.has(key))
+    if (!dirty) return
+    AUTH_PARAMS.forEach((key) => {
+      search.delete(key)
+      hash.delete(key)
+    })
+    const query = search.toString()
+    const fragment = hash.toString()
+    window.history.replaceState(
+      window.history.state,
+      '',
+      window.location.pathname + (query ? `?${query}` : '') + (fragment ? `#${fragment}` : ''),
+    )
+  }, [])
 
   // Back from Google restores this page frozen mid-request; make the buttons usable again.
   useEffect(() => {
@@ -112,6 +137,7 @@ export function useLoginForm() {
   // Sign-in finished: remember the user, then return to the page that asked for it, or to the profile.
   function signedIn(user: Session) {
     setSession(user)
+    clearStashedNext()
     toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
     navigate(safeNext(next, '/profile'), { replace: true })
   }

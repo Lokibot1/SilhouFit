@@ -160,7 +160,7 @@ function App() {
                 </Suspense>
               }
             />
-            <Route path="privacy-policy"element={<PrivacyPolicyPage />} />
+            <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="terms-of-service" element={<TermsOfServicePage />} />
             <Route path="refund-policy" element={<RefundPolicyPage />} />
             <Route path="cookie-policy" element={<CookiePolicyPage />} />

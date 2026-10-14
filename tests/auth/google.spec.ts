@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { mockAuth, mockGoogle, signedIn } from '../shared/session'
+import { DEMO, mockAuth, mockGoogle, signedIn } from '../shared/session'
 
 // Supabase Auth, the Google redirect and /users/me are mocked (see mockGoogle); nothing leaves the browser.
 const CALLBACK = 'http://localhost:5173/auth/callback'
@@ -122,3 +122,136 @@ test('the callback result has no horizontal scroll at 320px', async ({ page }) =
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow).toBeLessThanOrEqual(0)
 })
+
+// supabase-js keeps the session under an `sb-*-auth-token` key; none may outlive a flow that did not finish.
+const sbKeys = (page: Page) =>
+  page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token')))
+
+async function signInByEmail(page: Page) {
+  await page.getByLabel('Email', { exact: true }).fill(DEMO.email)
+  await page.getByLabel('Password', { exact: true }).fill(DEMO.password)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+}
+
+test('the callback tab title says what happened', async ({ page }) => {
+  await mockGoogle(page, { cancelled: true })
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Sign in with Google' }).click()
+  await expect(page).toHaveTitle('Google sign-in cancelled — SilhouFit')
+})
+
+test('the callback tab title names a failure', async ({ page }) => {
+  await mockGoogle(page)
+  await page.route('**/users/me', (route) => route.fulfill({ status: 404, json: {}, headers: CORS }))
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Sign in with Google' }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
+  await expect(page).toHaveTitle("Couldn't sign you in — SilhouFit")
+  await expect.poll(() => sbKeys(page)).toEqual([])
+})
+
+test('reloading the callback while the profile loads finishes the sign-in', async ({ page }) => {
+  await mockGoogle(page)
+  let hold = true
+  await page.route('**/users/me', (route) => (hold ? undefined : route.fallback()))
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Sign in with Google' }).click()
+  // The code is exchanged and gone from the URL; only /users/me is outstanding.
+  await expect(page.getByRole('status', { name: 'Signing you in with Google' })).toBeVisible()
+  await expect(page).toHaveURL(/\/auth\/callback$/)
+  await expect.poll(() => sbKeys(page)).toHaveLength(1)
+
+  hold = false
+  await page.reload()
+  await expect(page).toHaveURL(/\/profile$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Demo Shopper' })).toBeVisible()
+})
+
+test('leaving the callback by any link after a retryable failure leaves no Supabase token', async ({ page }) => {
+  await mockGoogle(page)
+  await page.route('**/users/me', (route) => route.fulfill({ status: 500, json: {}, headers: CORS }))
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Sign in with Google' }).click()
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+  expect(await sbKeys(page)).toHaveLength(1)
+
+  // The result card has no header, so move through the router the way any in-app link would.
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/shop')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
+  await expect(page).toHaveURL(/\/shop/)
+  await expect.poll(() => sbKeys(page)).toEqual([])
+})
+
+test('a stale ?code= on /login is never exchanged into a session', async ({ page }) => {
+  const exchanges: string[] = []
+  page.on('request', (request) => {
+    if (request.url().includes('grant_type=pkce')) exchanges.push(request.url())
+  })
+  await mockGoogle(page)
+  // Park the Google round trip so the PKCE verifier stays in storage, as after an abandoned sign-in.
+  await page.route('**/auth/v1/authorize*', (route) => route.fulfill({ contentType: 'text/html', body: '<p>Google</p>' }))
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Sign in with Google' }).click()
+  await expect(page.getByText('Google', { exact: true })).toBeVisible()
+
+  await page.goto('/login?code=stale-code')
+  const verifiers = await page.evaluate(() => Object.keys(localStorage).filter((key) => key.endsWith('-code-verifier')))
+  expect(verifiers.length).toBeGreaterThan(0)
+  await page.getByLabel('Email', { exact: true }).fill(DEMO.email)
+  await page.getByLabel('Password', { exact: true }).fill('Wrong@1234')
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
+  expect(exchanges).toEqual([])
+  expect(await sbKeys(page)).toEqual([])
+})
+
+test('an email sign-in clears a Google next path left in the stash', async ({ page }) => {
+  await page.goto('/login')
+  await page.evaluate(() => sessionStorage.setItem('silhoufit-auth-next', '/shop'))
+  await signInByEmail(page)
+  await expect(page).toHaveURL(/\/profile$/)
+  expect(await page.evaluate(() => sessionStorage.getItem('silhoufit-auth-next'))).toBeNull()
+})
+
+test('signing out clears a Google next path left in the stash', async ({ page }) => {
+  await page.goto('/login')
+  await signInByEmail(page)
+  await expect(page).toHaveURL(/\/profile$/)
+  await page.evaluate(() => sessionStorage.setItem('silhoufit-auth-next', '/shop'))
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await expect(page).toHaveURL(/\/$/)
+  expect(await page.evaluate(() => sessionStorage.getItem('silhoufit-auth-next'))).toBeNull()
+})
+
+// The skeleton holds the page while its chunk (cancelled) or /users/me (error) is held, then the result takes over.
+for (const width of [320, 1280]) {
+  for (const state of ['cancelled', 'error'] as const) {
+    test(`the loading skeleton and the ${state} card are the same height at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
+      await mockGoogle(page, { cancelled: state === 'cancelled' })
+      let release!: () => void
+      const held = new Promise<void>((resolve) => (release = resolve))
+      await page.route('**/AuthCallbackPage*', async (route) => {
+        await held
+        await route.continue()
+      })
+      if (state === 'error') {
+        await page.route('**/users/me', (route) => route.fulfill({ status: 500, json: {}, headers: CORS }))
+      }
+      await page.goto('/login')
+      await page.getByRole('button', { name: 'Sign in with Google' }).click()
+
+      const skeleton = page.getByRole('status', { name: 'Signing you in with Google' }).locator('.glass-card')
+      await expect(skeleton).toBeVisible()
+      const skeletonHeight = (await skeleton.boundingBox())!.height
+      release()
+
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      const card = page.locator('.glass-card').filter({ has: page.getByRole('heading', { level: 1 }) })
+      const cardHeight = (await card.boundingBox())!.height
+      expect(Math.abs(cardHeight - skeletonHeight)).toBeLessThanOrEqual(1)
+    })
+  }
+}

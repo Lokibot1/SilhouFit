@@ -10,6 +10,7 @@ import { fetchMe, MeError, type MeErrorKind } from '../../service/fetchMe'
 import { clearStashedNext, readStashedNext } from '../../service/googleAuth'
 import { getSession, setSession } from '../../service/session'
 import { signOut } from '../../service/signOut'
+import { getSupabase } from '../../service/supabase'
 import { nextQuery, safeNext } from '../../utils/safeNext'
 
 const META_DESCRIPTION =
@@ -54,27 +55,53 @@ function readParams() {
   const get = (key: string) => search.get(key) ?? hash.get(key)
   const error = get('error') ?? get('error_code')
   return {
-    hasResult: Boolean(get('code') ?? get('access_token')),
+    code: search.get('code'),
+    accessToken: hash.get('access_token'),
+    refreshToken: hash.get('refresh_token'),
     error: error ? error.toLowerCase() : null,
   }
 }
+
+type Params = ReturnType<typeof readParams>
 
 // Drops `code`, tokens and error text from the address bar and the history entry.
 function cleanUrl() {
   window.history.replaceState(window.history.state, '', window.location.pathname)
 }
 
+// A dropped connection, not a rejected code: Supabase wraps fetch failures as AuthRetryableFetchError (status 0).
+function isNetworkFailure(failure: unknown) {
+  const { name, status } = (failure ?? {}) as { name?: string; status?: number }
+  return failure instanceof TypeError || name === 'AuthRetryableFetchError' || status === 0
+}
+
+// The client is created with detectSessionInUrl off, so this is the only place a code or token becomes a session.
+async function establishSession({ code, accessToken, refreshToken }: Params) {
+  const supabase = await getSupabase().catch(() => {
+    throw new MeError('server')
+  })
+  try {
+    const { error } = code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : await supabase.auth.setSession({ access_token: accessToken ?? '', refresh_token: refreshToken ?? '' })
+    if (error) throw error
+  } catch (failure) {
+    throw new MeError(isNetworkFailure(failure) ? 'network' : 'unauthorized')
+  }
+  cleanUrl()
+}
+
 export function AuthCallbackPage() {
   // Read once: cleaning the URL later must not change the answer on a re-render or a StrictMode re-run.
   const [params] = useState(readParams)
-  if (!params.hasResult && !params.error) {
-    return <Navigate to={getSession() ? '/profile' : '/login'} replace />
-  }
-  return <CallbackFlow error={params.error} />
+  const hasResult = Boolean(params.code ?? params.accessToken)
+  if (!hasResult && !params.error && getSession()) return <Navigate to="/profile" replace />
+  // No result and no app session: a reload after the code was used. A Supabase session may still be waiting to finish.
+  return <CallbackFlow params={params} resume={!hasResult && !params.error} />
 }
 
-function CallbackFlow({ error }: { error: string | null }) {
-  useDocumentTitle('Signing you in — SilhouFit')
+function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
+  const { error } = params
   useMetaDescription(META_DESCRIPTION)
 
   const navigate = useNavigate()
@@ -90,6 +117,35 @@ function CallbackFlow({ error }: { error: string | null }) {
   )
   const [attempt, setAttempt] = useState(0)
   const headingRef = useRef<HTMLHeadingElement>(null)
+  // The exchange runs once per page load, so a StrictMode re-run or Try again reuses it.
+  const exchange = useRef<Promise<void> | null>(null)
+  // True from the exchange until the flow signs in or signs out, so leaving mid-way drops the Supabase token.
+  const unfinished = useRef(false)
+  const mounted = useRef(false)
+
+  useDocumentTitle(
+    view.status === 'cancelled'
+      ? 'Google sign-in cancelled — SilhouFit'
+      : view.status === 'failed'
+        ? "Couldn't sign you in — SilhouFit"
+        : 'Signing you in — SilhouFit',
+  )
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      // StrictMode remounts at once, so look again after the tick.
+      setTimeout(() => {
+        if (mounted.current || !unfinished.current) return
+        unfinished.current = false
+        // A pending exchange would otherwise write its token after this sign-out.
+        const pending = exchange.current
+        if (pending) void pending.then(() => signOut(), () => signOut())
+        else signOut()
+      })
+    }
+  }, [])
 
   useEffect(() => {
     if (!error) return
@@ -105,11 +161,21 @@ function CallbackFlow({ error }: { error: string | null }) {
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new MeError('network')), TIMEOUT_MS)
     })
-    // supabase-js exchanges the code once, when its client is created; fetchMe waits for that through getSession.
-    Promise.race([fetchMe({ signal: controller.signal }), timeout]).then(
+    unfinished.current = true
+    if (!resume) {
+      exchange.current ??= establishSession(params).catch((failure: unknown) => {
+        exchange.current = null
+        throw failure
+      })
+    }
+    Promise.race([
+      (exchange.current ?? Promise.resolve()).then(() => fetchMe({ signal: controller.signal })),
+      timeout,
+    ]).then(
       (me) => {
         clearTimeout(timer)
         if (controller.signal.aborted) return
+        unfinished.current = false
         setSession({ name: me.fullName ?? `${me.firstName} ${me.lastName}`, email: me.email })
         clearStashedNext()
         toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
@@ -120,9 +186,20 @@ function CallbackFlow({ error }: { error: string | null }) {
         clearTimeout(timer)
         if (controller.signal.aborted) return
         const kind = (failure as Partial<MeError> | null)?.kind ?? 'server'
+        if (kind === 'unauthorized' && resume) {
+          // A reload with nothing to finish: no valid session, so drop any orphan token and go to login.
+          unfinished.current = false
+          signOut()
+          clearStashedNext()
+          navigate('/login', { replace: true })
+          return
+        }
         const failed: FailKind = kind === 'unauthorized' ? 'session' : kind
         // No half sign-in: only a retryable failure keeps the Supabase session, so Try again can reuse it.
-        if (!RETRYABLE.includes(failed)) signOut()
+        if (!RETRYABLE.includes(failed)) {
+          unfinished.current = false
+          signOut()
+        }
         cleanUrl()
         setView({ status: 'failed', kind: failed })
       },
@@ -131,7 +208,7 @@ function CallbackFlow({ error }: { error: string | null }) {
       controller.abort()
       clearTimeout(timer)
     }
-  }, [attempt, error, navigate, next, toast])
+  }, [attempt, error, navigate, next, params, resume, toast])
 
   useEffect(() => {
     if (view.status !== 'loading') headingRef.current?.focus()
@@ -162,7 +239,7 @@ function CallbackFlow({ error }: { error: string | null }) {
           </h1>
           <p className="mt-2 text-base leading-relaxed text-fg-muted">{copy.body}</p>
         </div>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row *:flex-1">
+        <div className="mt-auto flex flex-col gap-3 pt-6 sm:flex-row *:flex-1">
           {retryable && (
             <button
               type="button"
@@ -178,7 +255,10 @@ function CallbackFlow({ error }: { error: string | null }) {
           {/* Leaving also drops a Supabase session kept for Try again, so nothing half signed in is left behind. */}
           <Link
             to={`/login${nextQuery(next)}`}
-            onClick={signOut}
+            onClick={() => {
+              unfinished.current = false
+              signOut()
+            }}
             className={retryable ? SECONDARY_BUTTON : PRIMARY_BUTTON}
           >
             Back to login

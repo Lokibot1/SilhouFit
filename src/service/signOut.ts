@@ -1,4 +1,5 @@
 import { clearLastOrder } from '../utils/checkout'
+import { clearStashedNext } from './googleAuth'
 import { clearSession } from './session'
 import { getSupabase } from './supabase'
 
@@ -6,5 +7,6 @@ import { getSupabase } from './supabase'
 export function signOut() {
   void getSupabase().then((supabase) => supabase.auth.signOut()).catch(() => {})
   clearSession()
+  clearStashedNext() // a pending Google `next` belongs to the session that is ending
   clearLastOrder() // an order's address and phone must not outlive the session
 }
