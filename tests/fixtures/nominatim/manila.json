@@ -1,0 +1,37 @@
+{
+  "place_id": 260422156,
+  "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+  "osm_type": "way",
+  "osm_id": 179229087,
+  "lat": "14.5994416",
+  "lon": "120.9837695",
+  "category": "building",
+  "type": "commercial",
+  "place_rank": 30,
+  "importance": 0.00007501869230177795,
+  "addresstype": "building",
+  "name": "JG Plaza",
+  "display_name": "JG Plaza, 718, P. Paterno Street, Barangay 383, Barangay 307, Quiapo, Third District, Manila, Capital District, Metro Manila, 1001, Philippines",
+  "address": {
+    "building": "JG Plaza",
+    "house_number": "718",
+    "road": "P. Paterno Street",
+    "neighbourhood": "Barangay 383",
+    "quarter": "Barangay 307",
+    "suburb": "Quiapo",
+    "city_district": "Third District",
+    "city": "Manila",
+    "state_district": "Capital District",
+    "region": "Metro Manila",
+    "ISO3166-2-lvl3": "PH-00",
+    "postcode": "1001",
+    "country": "Philippines",
+    "country_code": "ph"
+  },
+  "boundingbox": [
+    "14.5993206",
+    "14.5995611",
+    "120.9837099",
+    "120.9838395"
+  ]
+}

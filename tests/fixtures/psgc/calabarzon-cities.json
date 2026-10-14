@@ -1,0 +1,28 @@
+[
+  {
+    "code": "041001000",
+    "name": "Agoncillo",
+    "oldName": "",
+    "isCapital": false,
+    "isCity": false,
+    "isMunicipality": true,
+    "provinceCode": "041000000",
+    "districtCode": false,
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0401001000"
+  },
+  {
+    "code": "041005000",
+    "name": "Batangas City",
+    "oldName": "",
+    "isCapital": true,
+    "isCity": true,
+    "isMunicipality": false,
+    "provinceCode": "041000000",
+    "districtCode": false,
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0401005000"
+  }
+]

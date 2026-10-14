@@ -7,6 +7,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useOnboarding } from '../../hooks/useOnboarding'
 import { useProducts } from '../../hooks/useProducts'
 import { DURATION, EASE_OUT, SPRING } from '../../motion/tokens'
+import { getAddress } from '../../service/address'
 import { saveOnboardingStatus, type OnboardingChoice } from '../../service/onboarding'
 import { CheckIcon, SpinnerIcon, XIcon } from '../form/icons'
 import { SilhouetteMark } from '../landing/SilhouetteMark'
@@ -14,6 +15,7 @@ import { useToast } from '../toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
 import { Modal } from '../ui/Modal'
 import { Tooltip } from '../ui/Tooltip'
+import { AddressStep } from './AddressStep'
 import { Confetti } from './Confetti'
 import { Spotlight } from './Spotlight'
 import { tourProduct, tourSteps } from './steps'
@@ -178,9 +180,12 @@ export function OnboardingTour() {
     void save('skipped')
   }
 
-  function finish() {
-    tour.finishTour()
+  // The address step is offered once: not again on a replay when one is already saved.
+  async function finish() {
     void save('completed')
+    const saved = user?.email ? await getAddress(user.email).catch(() => null) : null
+    if (saved) tour.finishTour()
+    else tour.askAddress()
   }
 
   function startShopping() {
@@ -231,6 +236,14 @@ export function OnboardingTour() {
             and picking up in store. It takes about a minute and nothing is ordered.
           </p>
         </Modal>
+      </MotionConfig>
+    )
+  }
+
+  if (tour.phase === 'address') {
+    return (
+      <MotionConfig reducedMotion="user">
+        <AddressStep onDone={tour.finishTour} />
       </MotionConfig>
     )
   }
@@ -334,7 +347,7 @@ export function OnboardingTour() {
             >
               Back
             </button>
-            <button type="button" onClick={isLast ? finish : () => tour.next(counts)} className={PRIMARY_BUTTON}>
+            <button type="button" onClick={isLast ? () => void finish() : () => tour.next(counts)} className={PRIMARY_BUTTON}>
               {isLast ? 'Finish' : 'Next'}
             </button>
           </div>

@@ -4,6 +4,7 @@ import { getSupabase } from './supabase'
 export interface Me {
   id: string
   email: string
+  role?: 'superadmin' | 'admin' | 'staff' | 'customer'
   firstName: string
   middleName: string | null
   lastName: string

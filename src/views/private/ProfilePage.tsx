@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { AlertIcon } from '../../components/form/icons'
+import { DeliveryAddress } from '../../components/profile/DeliveryAddress'
 import { PROFILE_CARD, PROFILE_SHELL, ProfileSkeleton } from '../../components/profile/ProfileSkeleton'
 import { useToast } from '../../components/toast/useToast'
 import { Avatar } from '../../components/ui/Avatar'
@@ -13,7 +14,7 @@ import { fetchMe, type Me, type MeErrorKind } from '../../service/fetchMe'
 import { signOut } from '../../service/signOut'
 
 const META_DESCRIPTION =
-  'Review the name, email and join date saved on your SilhouFit account, and sign out of this device when you are done shopping or trying on clothes with AR.'
+  'Review the name, email, join date and delivery address saved on your SilhouFit account, and sign out of this device when you are done shopping or fitting.'
 
 const ERROR_COPY: Record<Exclude<MeErrorKind, 'unauthorized'>, { title: string; body: string }> = {
   network: {
@@ -152,14 +153,17 @@ export function ProfilePage() {
           </dl>
         )}
         <div className="mt-6 flex flex-wrap gap-3">
-          <button type="button" onClick={() => startTour({ skipWelcome: true })} className={SECONDARY_BUTTON}>
-            Replay the tour
-          </button>
+          {me.role === 'customer' && (
+            <button type="button" onClick={() => startTour({ skipWelcome: true })} className={SECONDARY_BUTTON}>
+              Replay the tour
+            </button>
+          )}
           <button type="button" onClick={leave} className={SECONDARY_BUTTON}>
             Sign out
           </button>
         </div>
       </section>
+      {me.role === 'customer' && <DeliveryAddress />}
     </div>
   )
 }

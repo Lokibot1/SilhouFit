@@ -15,6 +15,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProducts } from '../../hooks/useProducts'
 import { useWishlist } from '../../hooks/useWishlist'
+import { getAddress, onAddressSaved, type SavedAddress } from '../../service/address'
 import { placeOrder } from '../../service/placeOrder'
 import {
   computeTotals,
@@ -37,6 +38,7 @@ import {
 import {
   ADDRESS_FIELD_ORDER,
   ADDRESS_LIMITS,
+  cleanPlaceName,
   cleanText,
   filterCity,
   filterFullName,
@@ -177,8 +179,48 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const [failed, setFailed] = useState(false)
   const inFlight = useRef(false)
   const controller = useRef<AbortController | null>(null)
+  // The saved address fills only what the shopper has not touched, and never what they typed.
+  const edited = useRef<Partial<Record<AddressField, boolean>>>({})
+  const [saved, setSaved] = useState<'loading' | 'filled' | 'none' | 'failed'>(user.email ? 'loading' : 'none')
+  // A read that is over at once never flashes the note; one that is slow (an API later) does.
+  const [slow, setSlow] = useState(false)
 
   useEffect(() => () => controller.current?.abort(), [])
+
+  useEffect(() => {
+    if (!user.email) return
+    let live = true
+    const timer = setTimeout(() => setSlow(true), 150)
+    const apply = (address: SavedAddress) => {
+      const barangay = cleanPlaceName(address.barangay)
+      const area = /^(barangay|brgy)\b/i.test(barangay) ? barangay : `Barangay ${barangay}`
+      const fill = (name: AddressField, value: string) => (edited.current[name] ? undefined : FILTERS[name](value))
+      setValues((current) => ({
+        ...current,
+        street: current.street || fill('street', barangay ? `${address.street}, ${area}` : address.street) || '',
+        city: current.city || fill('city', cleanPlaceName(address.city)) || '',
+        postal: current.postal || fill('postal', address.postal) || '',
+      }))
+      setSaved('filled')
+    }
+    // An address saved while this form is open (the tour's last step) fills the same way, still never over typing.
+    const unsubscribe = onAddressSaved(user.email, apply)
+    getAddress(user.email).then(
+      (address) => {
+        if (!live) return
+        if (!address) return setSaved('none')
+        apply(address)
+      },
+      () => {
+        if (live) setSaved('failed')
+      },
+    )
+    return () => {
+      live = false
+      clearTimeout(timer)
+      unsubscribe()
+    }
+  }, [user.email])
 
   const availability = fulfilmentAvailability(items)
   const blocked = orderBlock(items)
@@ -200,7 +242,10 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     value: values[name],
     error: shown(name),
     readOnly: pending,
-    onChange: (value: string) => setValues((current) => ({ ...current, [name]: FILTERS[name](value) })),
+    onChange: (value: string) => {
+      edited.current[name] = true
+      setValues((current) => ({ ...current, [name]: FILTERS[name](value) }))
+    },
     onBlur: () => setTouched((current) => ({ ...current, [name]: true })),
   })
 
@@ -208,7 +253,10 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const phoneField = {
     ...field('phone'),
     // A pasted international number loses its dial code instead of overflowing the national number.
-    onChange: (value: string) => setValues((current) => ({ ...current, phone: filterPhone(value, dial) })),
+    onChange: (value: string) => {
+      edited.current.phone = true
+      setValues((current) => ({ ...current, phone: filterPhone(value, dial) }))
+    },
   }
 
   async function submit() {
@@ -347,6 +395,19 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
             <h2 id="checkout-address" className="display text-xl text-fg">
               Delivery address
             </h2>
+            {/* Always in the layout, so the saved address arriving does not move the fields. */}
+            <div className="mt-1 min-h-6">
+              {saved === 'loading' && slow && (
+                <p role="status" className="text-base text-fg-muted">
+                  Filling in your saved address…
+                </p>
+              )}
+              {saved === 'failed' && (
+                <p role="status" className="text-base text-fg-muted">
+                  We couldn&apos;t read your saved address on this device, so type it below.
+                </p>
+              )}
+            </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <FloatingField

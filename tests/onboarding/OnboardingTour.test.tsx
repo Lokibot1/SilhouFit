@@ -8,6 +8,7 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { PRODUCTS } from '../../src/data/products'
 import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
 import { resetTour, useOnboarding } from '../../src/hooks/useOnboarding'
+import { getAddress, saveAddress, type SavedAddress } from '../../src/service/address'
 import { saveOnboardingStatus } from '../../src/service/onboarding'
 import { clearSession, setSession } from '../../src/service/session'
 
@@ -19,6 +20,13 @@ vi.mock('motion/react', async (importOriginal) => ({
 }))
 vi.mock('../../src/service/onboarding', () => ({ saveOnboardingStatus: vi.fn() }))
 vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: () => new Promise(() => {}) }))
+// The address step's lists never arrive here; its own behaviour is covered in AddressForm.test.tsx.
+vi.mock('../../src/service/psgc', () => ({
+  getRegions: () => new Promise(() => {}),
+  getProvinces: () => new Promise(() => {}),
+  getCities: () => new Promise(() => {}),
+  getBarangays: () => new Promise(() => {}),
+}))
 const save = vi.mocked(saveOnboardingStatus)
 
 beforeAll(() => {
@@ -168,6 +176,8 @@ describe('OnboardingTour', () => {
     for (let i = 0; i < 10; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
     await user.click(screen.getByRole('button', { name: 'Finish' }))
     expect(save).toHaveBeenCalledWith('anne@example.com', 'completed')
+    // The optional address step comes first; skipping it goes on to the completion card.
+    await user.click(await screen.findByRole('button', { name: 'Skip this step' }))
     expect(screen.getByRole('dialog', { name: "You're Ready to Shop!" })).toBeInTheDocument()
     expect(screen.getByText(/Welcome to SilhouFit, Anne\./)).toBeInTheDocument()
     expect(screen.getByTestId('confetti')).toBeInTheDocument()
@@ -181,8 +191,61 @@ describe('OnboardingTour', () => {
     const user = await open({ welcome: false })
     for (let i = 0; i < 10; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
     await user.click(screen.getByRole('button', { name: 'Finish' }))
+    await user.click(await screen.findByRole('button', { name: 'Skip this step' }))
     expect(screen.getByRole('dialog', { name: "You're Ready to Shop!" })).toBeInTheDocument()
     expect(screen.queryByTestId('confetti')).not.toBeInTheDocument()
+  })
+
+  describe('address step', () => {
+    const SAVED: SavedAddress = {
+      regionCode: '130000000',
+      region: 'NCR',
+      province: '',
+      cityCode: '133900000',
+      city: 'City of Manila',
+      barangayCode: '133901176',
+      barangay: 'Barangay 176',
+      street: '12 Rizal Avenue',
+      postal: '1000',
+    }
+
+    async function finishTour() {
+      const user = await open({ welcome: false })
+      for (let i = 0; i < 10; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
+      await user.click(screen.getByRole('button', { name: 'Finish' }))
+      return user
+    }
+
+    it('is offered after Finish, before the completion card, and is not one of the counted steps', async () => {
+      await finishTour()
+      expect(await screen.findByRole('dialog', { name: 'Save your delivery address' })).toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: "You're Ready to Shop!" })).not.toBeInTheDocument()
+      expect(screen.queryByText(/Step \d+ of/)).not.toBeInTheDocument()
+    })
+
+    it('saves nothing when skipped with the button, and leaves the tour status as completed', async () => {
+      const user = await finishTour()
+      await user.click(await screen.findByRole('button', { name: 'Skip this step' }))
+      expect(screen.getByRole('dialog', { name: "You're Ready to Shop!" })).toBeInTheDocument()
+      expect(await getAddress('anne@example.com')).toBeNull()
+      expect(save).toHaveBeenCalledTimes(1)
+      expect(save).toHaveBeenCalledWith('anne@example.com', 'completed')
+    })
+
+    it('goes on to the completion card with Escape, saving nothing', async () => {
+      const user = await finishTour()
+      await screen.findByRole('dialog', { name: 'Save your delivery address' })
+      await user.keyboard('{Escape}')
+      expect(screen.getByRole('dialog', { name: "You're Ready to Shop!" })).toBeInTheDocument()
+      expect(await getAddress('anne@example.com')).toBeNull()
+    })
+
+    it('is left out on a replay when an address is already saved', async () => {
+      await saveAddress('anne@example.com', SAVED)
+      await finishTour()
+      expect(await screen.findByRole('dialog', { name: "You're Ready to Shop!" })).toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Save your delivery address' })).not.toBeInTheDocument()
+    })
   })
 
   it('shows fallback cards without navigating when there is no sample piece', async () => {

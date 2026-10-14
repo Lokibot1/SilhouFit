@@ -1,0 +1,37 @@
+[
+  {
+    "code": "041000000",
+    "name": "Batangas",
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0401000000"
+  },
+  {
+    "code": "042100000",
+    "name": "Cavite",
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0402100000"
+  },
+  {
+    "code": "043400000",
+    "name": "Laguna",
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0403400000"
+  },
+  {
+    "code": "045600000",
+    "name": "Quezon",
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0405600000"
+  },
+  {
+    "code": "045800000",
+    "name": "Rizal",
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0405800000"
+  }
+]

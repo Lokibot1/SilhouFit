@@ -110,6 +110,20 @@ describe('ProfilePage', () => {
     expect(load).toHaveBeenCalledTimes(2)
   })
 
+  it.each([
+    ['customer', true],
+    ['staff', false],
+    ['admin', false],
+    ['superadmin', false],
+    [undefined, false],
+  ] as const)('shows Replay the tour for a %s: %s', async (role, shown) => {
+    load.mockResolvedValue({ ...ME, role })
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Anne Santos' })
+    expect(screen.queryByRole('button', { name: 'Replay the tour' }) !== null).toBe(shown)
+    expect(screen.queryByRole('region', { name: /delivery address/i }) !== null).toBe(shown)
+  })
+
   it('explains a missing profile with Sign out and no retry', async () => {
     load.mockRejectedValue(new MeError('not-found'))
     renderPage()

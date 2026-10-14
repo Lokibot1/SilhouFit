@@ -1,6 +1,6 @@
 import { LIMITS, sanitizePhoneDigits, stripEmoji } from './signUpValidation'
 
-export const ADDRESS_LIMITS = { name: 60, street: 120, city: 40, postal: 4, note: 200 } as const
+export const ADDRESS_LIMITS = { name: 60, street: 120, city: 40, place: 80, postal: 4, note: 200 } as const
 
 export interface AddressValues {
   fullName: string
@@ -28,7 +28,12 @@ export const filterFullName = (input: string) =>
 export const filterStreet = (input: string) =>
   stripEmoji(input.replace(CONTROL, '')).replace(/ {2,}/g, ' ').slice(0, ADDRESS_LIMITS.street)
 export const filterCity = (input: string) =>
-  input.replace(/[^\p{L}\p{M} ]/gu, '').replace(/ {2,}/g, ' ').slice(0, ADDRESS_LIMITS.city)
+  input.replace(/[^\p{L}\p{M} .'’-]/gu, '').replace(/ {2,}/g, ' ').slice(0, ADDRESS_LIMITS.city)
+/** A region or barangay typed by hand: letters, marks, digits and the punctuation PSGC names use ("Barangay 176-A"). */
+export const filterPlace = (input: string) =>
+  stripEmoji(input.replace(/[^\p{L}\p{M}\p{N} .'’()-]/gu, '')).replace(/ {2,}/g, ' ').slice(0, ADDRESS_LIMITS.place)
+/** A PSGC name without its "(…)" qualifier: "Pio V. Corpuz (Limbuhan)" becomes "Pio V. Corpuz". */
+export const cleanPlaceName = (name: string) => cleanText(name.replace(/\([^)]*\)/g, ''))
 export const filterPostal = (input: string) => input.replace(/\D/g, '').slice(0, ADDRESS_LIMITS.postal)
 /**
  * The national number from what was typed or pasted, given the selected country's dial code ("+63"). A pasted
@@ -72,7 +77,19 @@ export function validateStreet(value: string): string | null {
 export function validateCity(value: string): string | null {
   const city = cleanText(value)
   if (!city) return 'City is required.'
-  if (!/^[\p{L}\p{M} ]+$/u.test(city)) return 'City can only contain letters and spaces.'
+  if (!/^[\p{L}\p{M} .'’-]+$/u.test(city)) return 'City can only contain letters, spaces, periods, hyphens and apostrophes.'
+  return null
+}
+
+/** `label` names the field in the message ("Region", "Barangay"). */
+export function validatePlace(value: string, label: string): string | null {
+  const place = cleanText(value)
+  if (!place) return `${label} is required.`
+  if (!/^[\p{L}\p{M}\p{N} .'’()-]+$/u.test(place)) {
+    return `${label} can only contain letters, numbers, spaces and . ' ’ ( ) -`
+  }
+  if (!/\p{L}/u.test(place)) return `${label} needs at least one letter.`
+  if (place.length > ADDRESS_LIMITS.place) return `${label} can be at most ${ADDRESS_LIMITS.place} characters.`
   return null
 }
 

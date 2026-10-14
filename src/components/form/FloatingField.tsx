@@ -19,6 +19,8 @@ interface FloatingFieldProps {
   inputMode?: 'text' | 'email' | 'tel'
   enterKeyHint?: 'next' | 'done'
   readOnly?: boolean
+  /** A value the user cannot change (a derived one): muted, skipped by Tab, and no keyboard on a phone. */
+  locked?: boolean
 }
 
 export function FloatingField({
@@ -36,6 +38,7 @@ export function FloatingField({
   inputMode,
   enterKeyHint,
   readOnly,
+  locked,
 }: FloatingFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [revealed, setRevealed] = useState(false)
@@ -46,6 +49,7 @@ export function FloatingField({
     <div
       className={`field scroll-mt-28 ${prefix ? 'field--prefix' : icon ? '' : 'field--plain'}`}
       data-invalid={error ? '' : undefined}
+      data-locked={locked ? '' : undefined}
     >
       <div className="field__box">
         <input
@@ -58,12 +62,14 @@ export function FloatingField({
           onChange={(event) => onChange(event.target.value)}
           onBlur={onBlur}
           autoComplete={autoComplete}
-          inputMode={inputMode}
+          inputMode={locked ? 'none' : inputMode}
           enterKeyHint={enterKeyHint}
           autoCapitalize={type === 'email' || isPassword ? 'off' : undefined}
           autoCorrect={isPassword ? 'off' : undefined}
           spellCheck={false}
-          readOnly={readOnly}
+          readOnly={readOnly || locked}
+          aria-readonly={locked ? true : undefined}
+          tabIndex={locked ? -1 : undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           className="field__input"
@@ -95,7 +101,7 @@ export function FloatingField({
             {revealed ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
           </button>
         )}
-        {!isPassword && value && !readOnly && (
+        {!isPassword && value && !readOnly && !locked && (
           <button
             type="button"
             onClick={() => {

@@ -1,0 +1,67 @@
+[
+  {
+    "code": "041005001",
+    "name": "Alangilan",
+    "oldName": "",
+    "subMunicipalityCode": false,
+    "cityCode": "041005000",
+    "municipalityCode": false,
+    "districtCode": false,
+    "provinceCode": "041000000",
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0401005001"
+  },
+  {
+    "code": "041005003",
+    "name": "Balagtas",
+    "oldName": "",
+    "subMunicipalityCode": false,
+    "cityCode": "041005000",
+    "municipalityCode": false,
+    "districtCode": false,
+    "provinceCode": "041000000",
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0401005003"
+  },
+  {
+    "code": "041005004",
+    "name": "Balete",
+    "oldName": "",
+    "subMunicipalityCode": false,
+    "cityCode": "041005000",
+    "municipalityCode": false,
+    "districtCode": false,
+    "provinceCode": "041000000",
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0401005004"
+  },
+  {
+    "code": "041005050",
+    "name": "Pallocan Silangan",
+    "oldName": "",
+    "subMunicipalityCode": false,
+    "cityCode": "041005000",
+    "municipalityCode": false,
+    "districtCode": false,
+    "provinceCode": "041000000",
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0401005050"
+  },
+  {
+    "code": "041005051",
+    "name": "Pallocan Kanluran",
+    "oldName": "",
+    "subMunicipalityCode": false,
+    "cityCode": "041005000",
+    "municipalityCode": false,
+    "districtCode": false,
+    "provinceCode": "041000000",
+    "regionCode": "040000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "0401005051"
+  }
+]

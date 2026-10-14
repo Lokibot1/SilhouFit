@@ -1,0 +1,37 @@
+{
+  "place_id": 256644456,
+  "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+  "osm_type": "node",
+  "osm_id": 1428607476,
+  "lat": "13.7567039",
+  "lon": "121.0584181",
+  "category": "amenity",
+  "type": "fast_food",
+  "place_rank": 30,
+  "importance": 0.000054718089570413024,
+  "addresstype": "amenity",
+  "name": "McDonald's",
+  "display_name": "McDonald's, 12, P. Burgos Street, Barangay 9, Pallocan West, Tramo, Batangas City, Batangas, Calabarzon, 4200, Philippines",
+  "address": {
+    "amenity": "McDonald's",
+    "house_number": "12",
+    "road": "P. Burgos Street",
+    "neighbourhood": "Barangay 9",
+    "quarter": "Pallocan West",
+    "hamlet": "Tramo",
+    "city": "Batangas City",
+    "state": "Batangas",
+    "ISO3166-2-lvl4": "PH-BTG",
+    "region": "Calabarzon",
+    "ISO3166-2-lvl3": "PH-40",
+    "postcode": "4200",
+    "country": "Philippines",
+    "country_code": "ph"
+  },
+  "boundingbox": [
+    "13.7566539",
+    "13.7567539",
+    "121.0583681",
+    "121.0584681"
+  ]
+}

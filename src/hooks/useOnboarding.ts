@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react'
 // tab" flag: closing the tour does not save anything, so the next sign-in is offered it again.
 const KEY = 'silhoufit-tour'
 
-export type TourPhase = 'welcome' | 'step' | 'done' | null
+export type TourPhase = 'welcome' | 'step' | 'address' | 'done' | null
 
 interface TourState {
   phase: TourPhase
@@ -19,7 +19,9 @@ function load(): TourState {
   try {
     const parsed = JSON.parse(sessionStorage.getItem(KEY) ?? 'null') as Partial<TourState> | null
     if (!parsed) return IDLE
-    const phase = parsed.phase === 'welcome' || parsed.phase === 'step' || parsed.phase === 'done' ? parsed.phase : null
+    const phase = parsed.phase === 'welcome' || parsed.phase === 'step' || parsed.phase === 'address' || parsed.phase === 'done'
+        ? parsed.phase
+        : null
     const index = (n: unknown) => (typeof n === 'number' && Number.isInteger(n) && n >= 0 ? n : 0)
     return { phase, step: index(parsed.step), stop: index(parsed.stop), exited: parsed.exited === true }
   } catch {
@@ -70,9 +72,14 @@ function setStop(stop: number) {
   if (state.phase === 'step' && state.stop !== stop) commit({ ...state, stop })
 }
 
-/** Skip or Finish was saved; the completion card is next. */
+/** The last stop was finished: the optional address step comes before the completion card. */
+function askAddress() {
+  if (state.phase === 'step') commit({ ...state, phase: 'address' })
+}
+
+/** Finish was saved (or the address step ended); the completion card is next. Ignored once the tour was closed. */
 function finishTour() {
-  commit({ ...state, phase: 'done' })
+  if (state.phase === 'step' || state.phase === 'address') commit({ ...state, phase: 'done' })
 }
 
 /** Closes the tour for this tab: X and Escape save nothing; after Skip or Finish it closes the completion card. */
@@ -87,5 +94,5 @@ export function resetTour() {
 
 export function useOnboarding() {
   const current = useSyncExternalStore(subscribe, () => state)
-  return { ...current, startTour, next, back, setStop, finishTour, exitTour, endTour: exitTour }
+  return { ...current, startTour, next, back, setStop, askAddress, finishTour, exitTour, endTour: exitTour }
 }

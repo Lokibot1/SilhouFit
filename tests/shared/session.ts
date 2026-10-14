@@ -45,6 +45,7 @@ export async function mockAuth(page: Page, { brandNew = false }: { brandNew?: bo
       json: {
         id: 'user-1',
         email: DEMO.email,
+        role: 'customer',
         firstName: 'Demo',
         middleName: null,
         lastName: 'Shopper',

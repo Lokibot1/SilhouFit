@@ -12,12 +12,14 @@ export function CookiePolicyPage() {
     >
       <LegalSection heading="What this site uses today">
         <p>
-          This site stores two things in your browser&apos;s local storage:
-          your light or dark theme choice, and whether you accepted or
-          rejected this cookie notice. No analytics, advertising, or
-          tracking cookies are set. Rejecting the notice only stops it from
-          reappearing; it does not remove the theme preference, which is
-          needed for the toggle in the navigation bar to work.
+          This site stores these in your browser&apos;s storage: your light
+          or dark theme choice, whether you accepted or rejected this
+          cookie notice, your sign-in session, your cart and wishlist, your
+          progress through the welcome tour, a summary of your last order,
+          and the delivery address you save, which stays on this device. No
+          analytics, advertising, or tracking cookies are set. Rejecting
+          the notice only stops it from reappearing; it does not remove
+          these, which the site needs to work.
         </p>
       </LegalSection>
 
@@ -51,8 +53,9 @@ export function CookiePolicyPage() {
       <LegalSection heading="Managing storage">
         <p>
           You can clear local storage for this site at any time through
-          your browser settings, which will reset your theme and reshow
-          the cookie notice.
+          your browser settings, which will reset your theme, sign you out,
+          empty your cart and remove your saved address, and reshow the
+          cookie notice.
         </p>
       </LegalSection>
 

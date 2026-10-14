@@ -1,0 +1,16 @@
+{
+  "_note": "Hand-written: a Philippine region that exists in PSGC but a city that does not, to exercise the 'not in the list' path.",
+  "place_id": 1,
+  "lat": "13.7000000",
+  "lon": "121.0000000",
+  "display_name": "Sample Road, Atlantis City, Calabarzon, 4200, Philippines",
+  "address": {
+    "road": "Sample Road",
+    "quarter": "Sample Quarter",
+    "city": "Atlantis City",
+    "region": "Calabarzon",
+    "postcode": "4200",
+    "country": "Philippines",
+    "country_code": "ph"
+  }
+}

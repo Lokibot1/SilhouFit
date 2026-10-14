@@ -1,0 +1,93 @@
+[
+  {
+    "code": "133901001",
+    "name": "Barangay 1",
+    "oldName": "",
+    "subMunicipalityCode": "133901000",
+    "cityCode": "133900000",
+    "municipalityCode": false,
+    "districtCode": "133900000",
+    "provinceCode": false,
+    "regionCode": "130000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "1380601001"
+  },
+  {
+    "code": "133901002",
+    "name": "Barangay 2",
+    "oldName": "",
+    "subMunicipalityCode": "133901000",
+    "cityCode": "133900000",
+    "municipalityCode": false,
+    "districtCode": "133900000",
+    "provinceCode": false,
+    "regionCode": "130000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "1380601002"
+  },
+  {
+    "code": "133901010",
+    "name": "Barangay 10",
+    "oldName": "",
+    "subMunicipalityCode": "133901000",
+    "cityCode": "133900000",
+    "municipalityCode": false,
+    "districtCode": "133900000",
+    "provinceCode": false,
+    "regionCode": "130000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "1380601010"
+  },
+  {
+    "code": "133901176",
+    "name": "Barangay 176",
+    "oldName": "",
+    "subMunicipalityCode": "133901000",
+    "cityCode": "133900000",
+    "municipalityCode": false,
+    "districtCode": "133900000",
+    "provinceCode": false,
+    "regionCode": "130000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "1380601176"
+  },
+  {
+    "code": "133903003",
+    "name": "Barangay 383",
+    "oldName": "",
+    "subMunicipalityCode": "133903000",
+    "cityCode": "133900000",
+    "municipalityCode": false,
+    "districtCode": "133900000",
+    "provinceCode": false,
+    "regionCode": "130000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "1380603003"
+  },
+  {
+    "code": "133903016",
+    "name": "Barangay 307",
+    "oldName": "",
+    "subMunicipalityCode": "133903000",
+    "cityCode": "133900000",
+    "municipalityCode": false,
+    "districtCode": "133900000",
+    "provinceCode": false,
+    "regionCode": "130000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "1380603016"
+  },
+  {
+    "code": "133909001",
+    "name": "Barangay 654",
+    "oldName": "",
+    "subMunicipalityCode": "133909000",
+    "cityCode": "133900000",
+    "municipalityCode": false,
+    "districtCode": "133900000",
+    "provinceCode": false,
+    "regionCode": "130000000",
+    "islandGroupCode": "luzon",
+    "psgc10DigitCode": "1380609001"
+  }
+]

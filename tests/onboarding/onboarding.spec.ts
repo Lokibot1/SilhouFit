@@ -51,6 +51,8 @@ for (const size of SIZES) {
         await current.getByRole('button', { name: 'Next', exact: true }).click()
       }
       await current.getByRole('button', { name: 'Finish', exact: true }).click()
+      // The optional address step comes first; skipping it goes on to the completion card.
+      await page.getByRole('dialog', { name: 'Save your delivery address' }).getByRole('button', { name: 'Skip this step' }).click()
       await expect(page.getByRole('dialog', { name: "You're Ready to Shop!" })).toBeVisible()
       await page.getByRole('button', { name: 'Start Shopping' }).click()
       await expect(page).toHaveURL(/\/shop$/)

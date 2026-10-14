@@ -1,0 +1,31 @@
+{
+  "place_id": 256527125,
+  "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+  "osm_type": "way",
+  "osm_id": 146881458,
+  "lat": "1.3528469",
+  "lon": "103.8199623",
+  "category": "highway",
+  "type": "path",
+  "place_rank": 27,
+  "importance": 0.04008432822156099,
+  "addresstype": "road",
+  "name": "MacRitchie Nature Trail",
+  "display_name": "MacRitchie Nature Trail, Central Water Catchment, North Region, Singapore, 576587, Singapore",
+  "address": {
+    "road": "MacRitchie Nature Trail",
+    "neighbourhood": "Central Water Catchment",
+    "suburb": "Central Water Catchment",
+    "borough": "North Region",
+    "city": "Singapore",
+    "postcode": "576587",
+    "country": "Singapore",
+    "country_code": "sg"
+  },
+  "boundingbox": [
+    "1.3457361",
+    "1.3570582",
+    "103.8183175",
+    "103.8364960"
+  ]
+}

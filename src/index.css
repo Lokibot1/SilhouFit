@@ -920,6 +920,13 @@
     outline: none;
   }
 
+  /* A derived value (the province): flat and muted so it does not read as a field to type in. */
+  .field[data-locked] .field__input {
+    background-color: var(--canvas-sub);
+    color: var(--fg-muted);
+    cursor: default;
+  }
+
   .field__input::placeholder {
     color: transparent;
   }
@@ -1407,4 +1414,50 @@ a {
 html.comet-active,
 html.comet-active * {
   cursor: none !important;
+}
+
+/* ---- Address map -----------------------------------------------------------
+   Leaflet's own stylesheet loads with the map. These sit on `.address-map.leaflet-container` so they win over it
+   whichever order the two arrive in. The dark theme inverts the tiles; markers are CSS and are not in the pane. */
+.address-map.leaflet-container {
+  background: var(--canvas-sub);
+  font-family: var(--font-ui);
+}
+
+.address-map.leaflet-container .leaflet-bar a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  background-color: var(--canvas);
+  color: var(--fg);
+  border-bottom-color: var(--line-strong);
+}
+
+.address-map.leaflet-container .leaflet-bar a:hover,
+.address-map.leaflet-container .leaflet-bar a:focus-visible {
+  background-color: var(--canvas-sub);
+}
+
+.address-map.leaflet-container .leaflet-control-attribution {
+  background: var(--canvas);
+  color: var(--fg-muted);
+}
+
+.address-map.leaflet-container .leaflet-control-attribution {
+  display: flex;
+  align-items: center;
+}
+
+/* The credit stays on screen; its links are padded up to a 44px touch target. */
+.address-map.leaflet-container .leaflet-control-attribution a {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--fg);
+}
+
+.dark .address-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
 }

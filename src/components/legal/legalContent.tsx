@@ -147,9 +147,9 @@ export const TERMS: LegalDocument = {
 
 export const PRIVACY: LegalDocument = {
   title: 'Privacy policy',
-  lastUpdated: 'September 27, 2026',
+  lastUpdated: 'October 14, 2026',
   scopeNote:
-    'SilhouFit is a capstone prototype. This policy describes how the platform is designed to handle data once boutiques and shoppers are using it. The site you are viewing today does not have accounts, checkout, or a live camera-based fitting session connected to it. The only thing it currently stores in your browser is your theme choice and your cookie preference, covered in the cookie policy.',
+    'SilhouFit is a capstone prototype. This policy describes how the platform is designed to handle data once boutiques and shoppers are using it. The site you are viewing today has accounts and a checkout, but no live camera-based fitting session connected to it. It stores these in your browser: your theme and cookie choice, your sign-in session, your cart and wishlist, your tour progress, your last order summary, and the delivery address you save, which stays on this device. These are covered in the cookie policy.',
   sections: [
     {
       heading: 'Information the platform is designed to collect',
@@ -191,12 +191,27 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Who information is shared with',
       body: (
-        <p>
-          The boutique you are shopping at, for order fulfillment. A
-          third-party payment processor, to complete a transaction. Law
-          enforcement or regulators, where required by law. Personal data
-          is not sold to third parties for advertising.
-        </p>
+        <>
+          <p>
+            The boutique you are shopping at, for order fulfillment. A
+            third-party payment processor, to complete a transaction. Law
+            enforcement or regulators, where required by law. Personal data
+            is not sold to third parties for advertising.
+          </p>
+          <p>
+            The delivery address form uses three outside services. Lists of
+            regions, cities and barangays are requested from the PSGC Cloud
+            service (psgc.gitlab.io), which republishes the Philippine
+            Statistics Authority&apos;s geographic codes. Map pictures are
+            loaded from OpenStreetMap&apos;s tile servers
+            (tile.openstreetmap.org). When you confirm a map pin or use
+            Auto-pin, its coordinates are sent to OpenStreetMap&apos;s
+            Nominatim service (nominatim.openstreetmap.org) to turn them
+            into an address. These services see your IP address and the
+            request itself. SilhouFit does not store the coordinates, and
+            for now your saved delivery address is kept on this device only.
+          </p>
+        </>
       ),
     },
     {
