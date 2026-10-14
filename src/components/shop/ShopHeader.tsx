@@ -12,14 +12,16 @@ interface ShopHeaderProps {
   crumb?: string
   /** A link back to the shop above the breadcrumb, for the pages reached from it (cart, wishlist). */
   backToShop?: boolean
+  /** Tighter top padding and title for pages that must fit one screen (product page). */
+  compact?: boolean
   /** The focus and scroll target after paging or clearing filters. */
   ref?: Ref<HTMLHeadingElement>
 }
 
 // Shared by the page and its route fallback so the swap does not shift the layout.
-export function ShopHeader({ title, icon, summary, crumb = 'Shop', backToShop = false, ref }: ShopHeaderProps) {
+export function ShopHeader({ title, icon, summary, crumb = 'Shop', backToShop = false, compact = false, ref }: ShopHeaderProps) {
   return (
-    <header className="mx-auto max-w-6xl px-6 pt-20 pb-4 2xl:max-w-[88rem]">
+    <header className={`mx-auto max-w-6xl px-6 2xl:max-w-[88rem] ${compact ? 'w-full pt-[4.5rem] pb-2' : 'pt-20 pb-4'}`}>
       {backToShop && (
         <Link to="/shop" className="tap font-ui mb-2 -ml-1 flex w-fit items-center gap-1 text-sm font-medium text-fg-muted hover:text-fg pointer-coarse:min-h-11">
           <ChevronLeftIcon />
@@ -38,7 +40,7 @@ export function ShopHeader({ title, icon, summary, crumb = 'Shop', backToShop = 
         </ol>
       </nav>
       <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <h1 ref={ref} tabIndex={-1} className="display flex scroll-mt-32 items-center gap-3 text-3xl text-fg sm:text-4xl">
+        <h1 ref={ref} tabIndex={-1} className={`display flex scroll-mt-32 items-center gap-3 ${compact ? 'text-3xl' : 'text-3xl sm:text-4xl'} text-fg`}>
           {icon}
           {title}
         </h1>

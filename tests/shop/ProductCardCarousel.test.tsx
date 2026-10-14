@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { ProductCard } from '../../src/components/shop/ProductCard'
 import { PRODUCTS, productImages, type Product } from '../../src/data/products'
@@ -9,7 +10,11 @@ const three: Product = { ...base, images: ['/images/gallery/a.webp', '/images/ga
 
 function setup(product: Product) {
   const handlers = { onToggleSaved: vi.fn(), onAddToCart: vi.fn(), onBuy: vi.fn() }
-  const { container } = render(<ProductCard product={product} index={0} saved={false} {...handlers} />)
+  const { container } = render(
+    <MemoryRouter>
+      <ProductCard product={product} index={0} saved={false} {...handlers} />
+    </MemoryRouter>,
+  )
   return { container, ...handlers }
 }
 

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { ProductCard } from '../../src/components/shop/ProductCard'
 import { PRODUCTS } from '../../src/data/products'
@@ -9,7 +10,11 @@ const soldOut = PRODUCTS.find((p) => p.id === 'p24')!
 
 function setup(product = blazer, list = false) {
   const handlers = { onToggleSaved: vi.fn(), onAddToCart: vi.fn(), onBuy: vi.fn() }
-  render(<ProductCard product={product} index={0} list={list} saved={false} {...handlers} />)
+  render(
+    <MemoryRouter>
+      <ProductCard product={product} index={0} list={list} saved={false} {...handlers} />
+    </MemoryRouter>,
+  )
   return handlers
 }
 

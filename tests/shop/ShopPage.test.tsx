@@ -126,7 +126,7 @@ describe('ShopPage states', () => {
     resolve(CATALOGUE)
     expect(await loaded()).toHaveLength(12)
     expect(screen.queryByRole('status')).toBeNull()
-    expect(screen.getByText('24 pieces')).toBeInTheDocument()
+    expect(screen.getByText('25 pieces')).toBeInTheDocument()
     expect(screen.getByText(/^Stock synced \d{1,2}:\d{2}\s?[AP]M$/)).toBeInTheDocument()
   })
 
@@ -244,7 +244,7 @@ describe('ShopPage search, category and URL state', () => {
     renderPage('/shop?page=2')
     await loaded()
 
-    const all = screen.getByRole('button', { name: /^All\s*24$/ })
+    const all = screen.getByRole('button', { name: /^All\s*25$/ })
     expect(all).toHaveAttribute('aria-pressed', 'true')
 
     const topsPill = screen.getByRole('button', { name: /^Tops/ })
@@ -285,13 +285,16 @@ describe('ShopPage pagination', () => {
     const nav = screen.getByRole('navigation', { name: 'Pagination' })
     expect(within(nav).getByRole('button', { name: 'Prev' })).toBeDisabled()
     expect(within(nav).getByRole('button', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
-    expect(screen.getByText('Displaying 1–12 of 24')).toBeInTheDocument()
+    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument()
+    expect(screen.getByText('Displaying 1–12 of 25')).toBeInTheDocument()
 
     await user.click(within(nav).getByRole('button', { name: 'Next' }))
     expect(urlSearch()).toBe('?page=2')
-    expect(screen.getByText('Displaying 13–24 of 24')).toBeInTheDocument()
+    expect(screen.getByText('Displaying 13–24 of 25')).toBeInTheDocument()
     expect(within(nav).getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page')
+
+    await user.click(within(nav).getByRole('button', { name: 'Next' }))
+    expect(screen.getByText('Displaying 25–25 of 25')).toBeInTheDocument()
     expect(within(nav).getByRole('button', { name: 'Next' })).toBeDisabled()
     await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toHaveFocus())
     expect(scrollIntoView).toHaveBeenCalled()
@@ -305,7 +308,7 @@ describe('ShopPage pagination', () => {
     await user.click(screen.getByRole('option', { name: '24 per page' }))
     expect(urlSearch()).toBe('?perPage=24')
     expect(cards()).toHaveLength(24)
-    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument()
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
   })
 })
 
@@ -398,7 +401,7 @@ describe('ShopPage header and motion', () => {
     expect(within(crumbs).getByText('Shop')).toHaveAttribute('aria-current', 'page')
     expect(screen.queryByText('Shop the rail')).toBeNull()
     expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toBeInTheDocument()
-    expect(screen.getByText('24 pieces')).toBeInTheDocument() // the summary sits beside the heading
+    expect(screen.getByText('25 pieces')).toBeInTheDocument() // the summary sits beside the heading
 
     await user.click(screen.getByRole('button', { name: /^Outerwear/ }))
     expect(screen.getByRole('heading', { level: 1, name: 'Outerwear' })).toBeInTheDocument()

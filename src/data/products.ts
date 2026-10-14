@@ -33,6 +33,8 @@ export interface Product {
   channels: Channel[]
   arReady: boolean
   addedAt: string
+  /** Longer copy for the product page; collapsed behind "View more" when it runs long. */
+  description?: string
   rating: number
   reviews: number
 }
@@ -84,4 +86,13 @@ export const PRODUCTS: Product[] = [
   { id: 'p22', name: 'Weekend Tapered Jean', category: 'Bottoms', boutique: BINONDO, price: 1990, salePrice: 1590, image: photo('straight-jeans'), images: [photo('jeans-on-hanger'), photo('folded-jeans')], alt: 'Straight-leg jeans on a hanger', colors: [INDIGO, SAND], badges: [], stock: 27, channels: ['online', 'store'], arReady: false, addedAt: '2025-12-19', rating: 4, reviews: 201 }, // nC4-PXzKZcI
   { id: 'p23', name: 'Washed Black Tee', category: 'Tops', boutique: LUMBAN, price: 990, image: photo('black-tees'), images: [photo('dress-shirts'), photo('white-shirt-rail')], alt: 'Black crew-neck t-shirts on hangers', colors: [BLACK], badges: [], stock: 5, channels: ['store'], arReady: false, addedAt: '2026-04-27', rating: 4.3, reviews: 63 }, // DjCo6_Rr4nE
   { id: 'p24', name: 'Field Denim Jacket', category: 'Outerwear', boutique: AYALA, price: 4590, image: photo('denim-jacket'), images: [photo('jackets-on-hooks'), photo('blazer')], alt: 'Denim jacket displayed in a shop', colors: [INDIGO, SAND], badges: ['Best seller'], stock: 0, channels: ['online'], arReady: false, addedAt: '2026-01-08', rating: 4.9, reviews: 318 }, // zs6-wsPk8hI
+  { id: 'p25', name: 'Long Story Overcoat', category: 'Outerwear', boutique: AYALA, price: 7490, image: photo('jackets-on-hooks'), images: [photo('blazer'), photo('denim-jacket')], alt: 'Jackets and a cap hanging on wall hooks', colors: [BLACK, OLIVE, SAND], badges: ['New', 'AR-ready'], stock: 10, channels: ['online', 'store'], arReady: true, addedAt: '2026-10-10', rating: 4.6, reviews: 27, description: `A long, structured overcoat cut from a dense wool blend and made for the cooler months. The shoulder is softly padded so it holds its shape over knitwear, and the lapel sits flat when worn open or buttoned to the collar. It is fully lined in a smooth viscose that slips over sleeves, with two deep pockets at the hip and a hidden inside pocket sized for a phone or a passport.\n\nThe length falls just below the knee, which keeps the line clean over trousers, jeans or a dress. Every seam is finished by hand at the Ayala workroom, and the buttons are real horn, sewn on with a shank so the front never puckers. A spare button and a small card with care steps are stitched inside the lining.\n\nCare: dry clean only, or brush lightly after wear and air on a wide hanger. Store away from direct sun to keep the colour even. Size runs true; if you are between sizes, take the larger one for layering. Available online and in store at all three boutiques.
+
+Fabric and construction: the outer shell is 70% virgin wool and 30% recycled polyamide, woven tightly enough to block wind and light rain without feeling stiff. The body is canvassed with horsehair and cotton rather than fused, which lets the chest relax and mould to you over the first few weeks of wear. Shoulder pads are kept thin so the silhouette stays natural, and the sleeves are set with a small amount of ease so you can reach, drive and carry a bag without the coat pulling across the back.
+
+Fit notes: the cut is relaxed through the body and straight through the sleeve, with a back vent that opens cleanly when you sit. Our model is 178 cm tall and wears a size M, which falls just below the knee. If you prefer a shorter, sharper line, go down one size. The AR fitting lets you preview the length and shoulder on your own body before you decide, and every boutique can adjust sleeve length for free within thirty days of purchase.
+
+Styling: wear it open over a knit and straight trousers for work, or belt it over a dress for evenings. The Black reads formal and keeps its shape in humid weather, the Olive pairs well with denim and white shirting, and the Sand is lighter in tone and shows off the texture of the wool in daylight.
+
+Returns and care: pieces can be returned unworn within fourteen days with the original tags. Please avoid machine washing, tumble drying or ironing directly on the surface; use a cool steamer instead. Replacement buttons and lining repairs are handled at any boutique.` },
 ]

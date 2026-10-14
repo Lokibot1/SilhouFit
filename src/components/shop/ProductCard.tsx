@@ -1,9 +1,10 @@
 import { useState, type MouseEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { LOW_STOCK, productImages, type Product } from '../../data/products'
 import { BagIcon, CartIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, HeartIcon, StarIcon } from '../form/icons'
 import { formatPeso } from '../../utils/format'
 import { SilhouetteMark } from '../landing/SilhouetteMark'
-import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
+import { CHANNEL_LABEL, SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 
 // flex-auto: each button is as wide as its label needs, then they share what is left, so "Add to cart" never wraps.
 const BUY_BUTTON = `${SHOP_PRIMARY} min-w-0 flex-auto whitespace-nowrap max-sm:px-2 max-sm:text-xs`
@@ -14,8 +15,6 @@ const REVEAL =
   'opacity-0 transition-[opacity,translate] duration-500 ease-in-out group-hover/img:opacity-100 group-has-focus-visible/img:opacity-100 pointer-coarse:opacity-100'
 // The chevrons also drift in from the edge and the dots rise into place, on the same timing.
 const DRIFT = 'transition-transform duration-500 ease-in-out group-hover/img:translate-x-0 group-has-focus-visible/img:translate-x-0 pointer-coarse:translate-x-0'
-
-const CHANNEL_LABEL = { both: 'Online and in store', online: 'Online only', store: 'In store only' } as const
 
 interface ProductCardProps {
   product: Product
@@ -52,6 +51,8 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
           list ? 'w-28 sm:w-44' : 'w-full'
         }`}
       >
+        {/* The photo is a second route to the page; the name below is the keyboard one. The controls stay outside the anchor. */}
+        <Link to={`/shop/${product.id}`} tabIndex={-1} className="block size-full">
         {failed ? (
           <div
             role="img"
@@ -79,8 +80,9 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
             ))}
           </div>
         )}
+        </Link>
 
-        <ul className="absolute top-2 left-2 flex max-w-[calc(100%-3.5rem)] flex-wrap items-start gap-1">
+        <ul className="pointer-events-none absolute top-2 left-2 flex max-w-[calc(100%-3.5rem)] flex-wrap items-start gap-1">
           {product.badges.map((badge) => (
             <li
               key={badge}
@@ -158,7 +160,11 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
       {/* Spacing follows proximity: 4px inside a group, 12px between groups, 16px before the actions. */}
       <div className={`flex min-w-0 flex-1 flex-col gap-3 ${list ? '' : 'mt-3'}`}>
         <div className="flex flex-col gap-1">
-          <h3 className="text-sm leading-snug font-semibold text-fg sm:text-base">{name}</h3>
+          <h3 className="text-sm leading-snug font-semibold text-fg sm:text-base">
+            <Link to={`/shop/${product.id}`} className="tap hover:underline">
+              {name}
+            </Link>
+          </h3>
           <p className="flex items-center gap-1 text-xs text-fg-muted tabular-nums sm:text-sm">
             <StarIcon className="text-fg" />
             <span aria-hidden="true">

@@ -47,7 +47,7 @@ export function Layout({ bare = false }: { bare?: boolean }) {
       <div className="min-h-svh text-fg">
         <SiteSky />
         <SkipLink />
-        {!bare && (SHOP_BAR.includes(pathname.replace(/\/$/, '')) ? <ShopNavbar /> : <Navbar />)}
+        {!bare && (SHOP_BAR.includes(pathname.replace(/\/$/, '')) || pathname.startsWith('/shop/') ? <ShopNavbar /> : <Navbar />)}
         <main id="main-content">
           {/* Enter-only fade and rise, keyed by route. Settles to transform: none so sticky/fixed children keep working. */}
           <MotionConfig reducedMotion="user">
@@ -61,7 +61,7 @@ export function Layout({ bare = false }: { bare?: boolean }) {
             </motion.div>
           </MotionConfig>
         </main>
-        {!bare && !isAuthPath(pathname) && !NO_FOOTER.includes(pathname.replace(/\/$/, '')) && <Footer />}
+        {!bare && !isAuthPath(pathname) && !NO_FOOTER.includes(pathname.replace(/\/$/, '')) && !pathname.startsWith('/shop/') && <Footer />}
         <CookieConsentBanner />
       </div>
     </ToastProvider>

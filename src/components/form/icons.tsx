@@ -223,3 +223,10 @@ export const SparkleIcon = ({ size = 20, className }: IconProps) => (
     <path d="M19 16v4M17 18h4" />
   </Icon>
 )
+
+export const CameraIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 8h3l1.5-2.5h7L17 8h3v11H4V8Z" />
+    <circle cx="12" cy="13" r="3.5" />
+  </Icon>
+)
