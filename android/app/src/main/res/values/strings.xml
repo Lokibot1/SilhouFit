@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SilhouFit</string>
+    <string name="title_activity_main">SilhouFit</string>
+    <string name="package_name">com.silhoufit.app</string>
+    <string name="custom_url_scheme">com.silhoufit.app</string>
+</resources>

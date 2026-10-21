@@ -1,11 +1,14 @@
+import { Capacitor } from '@capacitor/core'
 import { getSupabase } from './supabase'
 import { safeNext } from '../utils/safeNext'
 
 // Google sign-in and sign-up are the same call: Supabase creates the user on first use.
 // Setup (Supabase dashboard): enable the Google provider under Authentication -> Providers, and add
 // `http://localhost:5173/auth/callback` plus the production `<origin>/auth/callback` under
-// Authentication -> URL Configuration -> Redirect URLs, or Supabase refuses the redirect.
+// Authentication -> URL Configuration -> Redirect URLs, or Supabase refuses the redirect. The native app also needs
+// `com.silhoufit.app://auth/callback` in that list.
 export const CALLBACK_PATH = '/auth/callback'
+const NATIVE_REDIRECT = 'com.silhoufit.app://auth/callback'
 
 // The safe `?next=` path waits here across the round trip to Google. A path, never a token.
 const NEXT_KEY = 'silhoufit-auth-next'
@@ -62,12 +65,17 @@ export async function startGoogleAuth({ next }: { next: string | null }): Promis
 
   try {
     const supabase = await getSupabase()
-    const { error } = await supabase.auth.signInWithOAuth({
+    const native = Capacitor.isNativePlatform()
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}${CALLBACK_PATH}` },
+      options: native
+        ? { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true }
+        : { redirectTo: `${window.location.origin}${CALLBACK_PATH}` },
     })
     // Status 0 is supabase-js's fetch failure.
     if (error) throw new GoogleAuthError(error.status === 0 ? 'network' : 'server')
+    // The system browser, not the webview, shows Google's page.
+    if (native) await (await import('@capacitor/browser')).Browser.open({ url: data.url })
   } catch (failure) {
     clearStashedNext()
     if (failure instanceof GoogleAuthError) throw failure

@@ -131,7 +131,7 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
 
   return (
     <div
-      className={`fixed inset-0 z-[80] flex ${
+      className={`fixed inset-0 z-[80] flex pb-[env(safe-area-inset-bottom)] ${
         sheet
           ? left
             ? 'items-end justify-center lg:items-stretch lg:justify-start'

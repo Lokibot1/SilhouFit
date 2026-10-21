@@ -43,3 +43,8 @@ SilhoufitContextversion1.md
 # Playwright
 test-results/
 playwright-report/
+
+# Capacitor / native signing
+*.jks
+*.keystore
+keystore.properties

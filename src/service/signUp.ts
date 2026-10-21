@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core'
 import type { SignUpPayload } from '../utils/signUpValidation'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
@@ -36,6 +37,8 @@ export async function submitSignUp(
 ): Promise<{ ok: true }> {
   const supabase = await getSupabase()
   let error
+  // The native webview's own origin is not a link an email can open.
+  const siteUrl = (Capacitor.isNativePlatform() && import.meta.env.VITE_SITE_URL) || window.location.origin
   try {
     const result = await supabase.auth.signUp({
       email,
@@ -48,7 +51,7 @@ export async function submitSignUp(
           suffix,
           full_name: [firstName, middleName, lastName, suffix].filter(Boolean).join(' '),
         },
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: `${siteUrl}/login`,
       },
     })
     error = result.error

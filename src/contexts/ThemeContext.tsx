@@ -1,7 +1,9 @@
+import { Capacitor } from '@capacitor/core'
 import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useState,
   type ReactNode,
@@ -34,6 +36,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     localStorage.setItem(STORAGE_KEY, theme)
+  }, [theme])
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) void import('../native').then((native) => native.syncStatusBar(theme))
   }, [theme])
 
   const toggleTheme = useCallback((origin?: { x: number; y: number }) => {

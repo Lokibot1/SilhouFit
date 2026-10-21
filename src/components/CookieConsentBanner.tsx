@@ -7,7 +7,7 @@ export function CookieConsentBanner() {
   if (status !== null) return null
 
   return (
-    <div className="fixed inset-x-0 bottom-4 z-50 px-4">
+    <div className="fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 px-4">
       <div
         role="region"
         aria-label="Cookie notice"

@@ -68,7 +68,7 @@ export function ShopNavbar() {
   }, [onShop])
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-canvas/85 backdrop-blur-md">
+    <header className="fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] border-b border-line bg-canvas/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center 2xl:max-w-[88rem] gap-x-1 px-3 py-2 sm:px-6 lg:gap-x-4">
         <Link to="/" className="tap group flex items-center gap-2 sm:gap-3">
           <SilhouetteMark className="h-8 w-6 text-fg" />
