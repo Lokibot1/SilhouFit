@@ -60,6 +60,10 @@ const ProfilePage = lazy(() =>
   import('./views/private/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 )
 
+const BodySetupPage = lazy(() =>
+  import('./views/private/BodySetupPage').then((m) => ({ default: m.BodySetupPage })),
+)
+
 function prefersReducedMotion() {
   return (
     typeof window !== 'undefined' &&
@@ -170,6 +174,14 @@ function App() {
               element={
                 <Suspense fallback={<ProfileSkeleton />}>
                   <ProfilePage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="profile/measurements"
+              element={
+                <Suspense fallback={<ProfileSkeleton />}>
+                  <BodySetupPage />
                 </Suspense>
               }
             />

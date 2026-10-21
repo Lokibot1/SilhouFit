@@ -4,6 +4,7 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
+import { getBodyProfile } from '../../src/service/bodyProfile'
 import { fetchMe, MeError, type Me } from '../../src/service/fetchMe'
 import { clearSession, getSession, setSession } from '../../src/service/session'
 import { ProfilePage } from '../../src/views/private/ProfilePage'
@@ -11,6 +12,11 @@ import { ProfilePage } from '../../src/views/private/ProfilePage'
 vi.mock('../../src/service/fetchMe', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/fetchMe')>()),
   fetchMe: vi.fn(),
+}))
+// The body measurements section loads its own profile; it is covered in BodyMeasurements.test.tsx, so no real request here.
+vi.mock('../../src/service/bodyProfile', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/bodyProfile')>()),
+  getBodyProfile: vi.fn(),
 }))
 const signOutSupabase = vi.fn()
 vi.mock('../../src/service/supabase', () => ({
@@ -38,6 +44,7 @@ beforeAll(() => {
 beforeEach(() => {
   act(() => setSession({ name: 'Anne Santos', email: ME.email }))
   signOutSupabase.mockResolvedValue({ error: null })
+  vi.mocked(getBodyProfile).mockResolvedValue(null)
 })
 afterEach(() => {
   vi.clearAllMocks()

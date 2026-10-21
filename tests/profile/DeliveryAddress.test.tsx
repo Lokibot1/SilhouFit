@@ -18,6 +18,11 @@ vi.mock('../../src/service/fetchMe', async (original) => ({
   ...(await original<typeof import('../../src/service/fetchMe')>()),
   fetchMe: vi.fn(),
 }))
+// The body measurements section loads on its own; it is covered separately.
+vi.mock('../../src/service/bodyProfile', async (original) => ({
+  ...(await original<typeof import('../../src/service/bodyProfile')>()),
+  getBodyProfile: () => Promise.resolve(null),
+}))
 // The lists never arrive: the form's own behaviour is covered in AddressForm.test.tsx.
 vi.mock('../../src/service/psgc', async (original) => ({
   ...(await original<typeof import('../../src/service/psgc')>()),

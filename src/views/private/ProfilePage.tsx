@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { AlertIcon } from '../../components/form/icons'
+import { BodyMeasurements } from '../../components/profile/BodyMeasurements'
 import { DeliveryAddress } from '../../components/profile/DeliveryAddress'
 import { PROFILE_CARD, PROFILE_SHELL, ProfileSkeleton } from '../../components/profile/ProfileSkeleton'
 import { useToast } from '../../components/toast/useToast'
@@ -164,6 +165,7 @@ export function ProfilePage() {
         </div>
       </section>
       {me.role === 'customer' && <DeliveryAddress />}
+      {me.role === 'customer' && <BodyMeasurements />}
     </div>
   )
 }

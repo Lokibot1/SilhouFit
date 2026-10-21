@@ -16,7 +16,7 @@ interface FloatingFieldProps {
   counter?: { current: number; max: number }
   type?: 'text' | 'email' | 'tel' | 'password'
   autoComplete?: string
-  inputMode?: 'text' | 'email' | 'tel'
+  inputMode?: 'text' | 'email' | 'tel' | 'decimal'
   enterKeyHint?: 'next' | 'done'
   readOnly?: boolean
   /** A value the user cannot change (a derived one): muted, skipped by Tab, and no keyboard on a phone. */

@@ -8,6 +8,7 @@ import { useOnboarding } from '../../hooks/useOnboarding'
 import { useProducts } from '../../hooks/useProducts'
 import { DURATION, EASE_OUT, SPRING } from '../../motion/tokens'
 import { getAddress } from '../../service/address'
+import { getBodyProfile } from '../../service/bodyProfile'
 import { saveOnboardingStatus, type OnboardingChoice } from '../../service/onboarding'
 import { CheckIcon, SpinnerIcon, XIcon } from '../form/icons'
 import { SilhouetteMark } from '../landing/SilhouetteMark'
@@ -24,6 +25,11 @@ import { dockFor, freeArea, PAD, useTourTarget, type Box } from './useTourTarget
 const SKIPPED_TOAST = 'Tour skipped. Replay it any time from your profile.'
 const SAVE_FAILED_TOAST =
   "We couldn't save your tour choice. Your account did not confirm the save, so it is only remembered on this device. We'll try again next time you open SilhouFit, so keep shopping."
+
+const BODY_ROUTE = '/profile/measurements'
+// The body step opens its page once per tab session, so Back or wandering off is not undone by a second redirect.
+let bodyOpened = false
+let bodySeen = false
 
 const PARTICLES = [
   { top: '12%', left: '14%', delay: '0s' },
@@ -130,6 +136,31 @@ export function OnboardingTour() {
     navigate(route)
   }, [inStep, route, offRoute, step.id, navigate])
 
+  // The body step is its own page: open it once, then render nothing while it runs. Leaving it by any other way than
+  // Skip or Finish (the browser's Back button) ends the tour, since nothing is left on screen to continue it.
+  const inBody = tour.phase === 'body'
+  const exitRef = useRef(() => {})
+  useEffect(() => {
+    exitRef.current = exit
+  })
+  useEffect(() => {
+    if (!inBody) {
+      bodyOpened = bodySeen = false
+      return
+    }
+    if (pathname === BODY_ROUTE) {
+      bodyOpened = bodySeen = true
+      return
+    }
+    if (bodySeen) {
+      exitRef.current()
+      return
+    }
+    if (bodyOpened) return
+    bodyOpened = true
+    navigate(BODY_ROUTE)
+  }, [inBody, pathname, navigate])
+
   // Focus the heading at every stop so a screen reader starts there and the keyboard is already in the card.
   useEffect(() => {
     if (inStep) headingRef.current?.focus({ preventScroll: true })
@@ -180,11 +211,18 @@ export function OnboardingTour() {
     void save('skipped')
   }
 
+  // The body step is offered once: not again on a replay when a profile is saved. A profile that cannot be read counts as not saved.
+  async function afterAddress() {
+    const profile = await getBodyProfile().catch(() => null)
+    if (profile) tour.finishTour()
+    else tour.askBody()
+  }
+
   // The address step is offered once: not again on a replay when one is already saved.
   async function finish() {
     void save('completed')
     const saved = user?.email ? await getAddress(user.email).catch(() => null) : null
-    if (saved) tour.finishTour()
+    if (saved) await afterAddress()
     else tour.askAddress()
   }
 
@@ -196,7 +234,7 @@ export function OnboardingTour() {
   const doneModal = (
     <Modal
       open={tour.phase === 'done'}
-      onClose={startShopping}
+      onClose={tour.endTour}
       title="You're Ready to Shop!"
       icon={<CheckIcon className="text-success" />}
       footer={
@@ -243,7 +281,7 @@ export function OnboardingTour() {
   if (tour.phase === 'address') {
     return (
       <MotionConfig reducedMotion="user">
-        <AddressStep onDone={tour.finishTour} />
+        <AddressStep onDone={() => void afterAddress()} />
       </MotionConfig>
     )
   }

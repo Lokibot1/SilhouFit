@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react'
 // tab" flag: closing the tour does not save anything, so the next sign-in is offered it again.
 const KEY = 'silhoufit-tour'
 
-export type TourPhase = 'welcome' | 'step' | 'address' | 'done' | null
+export type TourPhase = 'welcome' | 'step' | 'address' | 'body' | 'done' | null
 
 interface TourState {
   phase: TourPhase
@@ -19,7 +19,7 @@ function load(): TourState {
   try {
     const parsed = JSON.parse(sessionStorage.getItem(KEY) ?? 'null') as Partial<TourState> | null
     if (!parsed) return IDLE
-    const phase = parsed.phase === 'welcome' || parsed.phase === 'step' || parsed.phase === 'address' || parsed.phase === 'done'
+    const phase = parsed.phase === 'welcome' || parsed.phase === 'step' || parsed.phase === 'address' || parsed.phase === 'body' || parsed.phase === 'done'
         ? parsed.phase
         : null
     const index = (n: unknown) => (typeof n === 'number' && Number.isInteger(n) && n >= 0 ? n : 0)
@@ -77,9 +77,14 @@ function askAddress() {
   if (state.phase === 'step') commit({ ...state, phase: 'address' })
 }
 
-/** Finish was saved (or the address step ended); the completion card is next. Ignored once the tour was closed. */
+/** The address step ended: the optional body measurements page comes before the completion card. */
+function askBody() {
+  if (state.phase === 'step' || state.phase === 'address') commit({ ...state, phase: 'body' })
+}
+
+/** Finish was saved (or the address or body step ended); the completion card is next. Ignored once the tour was closed. */
 function finishTour() {
-  if (state.phase === 'step' || state.phase === 'address') commit({ ...state, phase: 'done' })
+  if (state.phase === 'step' || state.phase === 'address' || state.phase === 'body') commit({ ...state, phase: 'done' })
 }
 
 /** Closes the tour for this tab: X and Escape save nothing; after Skip or Finish it closes the completion card. */
@@ -94,5 +99,5 @@ export function resetTour() {
 
 export function useOnboarding() {
   const current = useSyncExternalStore(subscribe, () => state)
-  return { ...current, startTour, next, back, setStop, askAddress, finishTour, exitTour, endTour: exitTour }
+  return { ...current, startTour, next, back, setStop, askAddress, askBody, finishTour, exitTour, endTour: exitTour }
 }

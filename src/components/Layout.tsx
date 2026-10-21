@@ -21,8 +21,12 @@ const SHOP_BAR = ['/shop', '/wishlist', '/cart', '/checkout', '/checkout/success
 // The cart and wishlist are working lists, so they end without the site footer.
 const NO_FOOTER = ['/wishlist', '/cart']
 
-export function Layout({ bare = false }: { bare?: boolean }) {
+// Full-screen flows: no top bar or footer. Kept inside the main Layout so toasts and the tour carry across the exit.
+const BARE_PATHS = ['/profile/measurements']
+
+export function Layout({ bare: bareProp = false }: { bare?: boolean }) {
   const { pathname, hash, key } = useLocation()
+  const bare = bareProp || BARE_PATHS.includes(pathname.replace(/\/$/, ''))
   const navigationType = useNavigationType()
 
   useEffect(() => {

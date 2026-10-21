@@ -1,3 +1,4 @@
+import { clearBodyDraft } from '../components/body-setup/draft'
 import { resetTour } from '../hooks/useOnboarding'
 import { clearLastOrder } from '../utils/checkout'
 import { clearStashedNext } from './googleAuth'
@@ -10,5 +11,6 @@ export function signOut() {
   clearSession()
   clearStashedNext() // a pending Google `next` belongs to the session that is ending
   clearLastOrder() // an order's address and phone must not outlive the session
+  clearBodyDraft() // measurements must not outlive the session
   resetTour() // the next sign-in is offered the tour again
 }

@@ -19,6 +19,11 @@ vi.mock('motion/react', async (importOriginal) => ({
   useReducedMotion: () => motion.reduced,
 }))
 vi.mock('../../src/service/onboarding', () => ({ saveOnboardingStatus: vi.fn() }))
+// A saved body profile skips the body step, so these tests end on the completion card. The body step has its own tests.
+vi.mock('../../src/service/bodyProfile', async (original) => ({
+  ...(await original<typeof import('../../src/service/bodyProfile')>()),
+  getBodyProfile: () => Promise.resolve({ heightCm: 170 }),
+}))
 vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: () => new Promise(() => {}) }))
 // The address step's lists never arrive here; its own behaviour is covered in AddressForm.test.tsx.
 vi.mock('../../src/service/psgc', () => ({
