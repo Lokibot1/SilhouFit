@@ -33,6 +33,18 @@ export interface Deformed {
   unitsPerCm: number
 }
 
+/** Blends every number in `a` toward `b` by `p`, so a `Deformed` can ease between two shapes. A part only `b` has appears whole. */
+export function lerpValue<T>(a: T, b: T, p: number): T {
+  if (typeof a === 'number' && typeof b === 'number') return (a + (b - a) * p) as T
+  if (Array.isArray(a) && Array.isArray(b)) return b.map((v, i) => lerpValue(a[i] ?? v, v, p)) as T
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const k in b) out[k] = k in a ? lerpValue((a as Record<string, unknown>)[k], b[k], p) : b[k]
+    return out as T
+  }
+  return b
+}
+
 // Reference stature of each mesh: a model unit is REF cm ÷ mesh height. Landmarks are fractions of mesh height,
 // read off each scan; torsoHalf is (height fraction, half-width fraction) where the torso ends and an arm begins.
 const REF_CM: Record<BodyModelId, number> = { male: 175, female: 179 }

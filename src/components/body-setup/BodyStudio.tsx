@@ -7,7 +7,7 @@ import type { BodyBuildId, BodyModelId } from '../../service/bodyProfile'
 import { ChevronLeftIcon, ChevronRightIcon, RulerIcon, SpinnerIcon } from '../form/icons'
 import { addStudio, createChromeMaterial, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
 import { Tooltip } from '../ui/Tooltip'
-import { applyMeasurements, type BodyBounds, type Deformed } from './deformBody'
+import { applyMeasurements, lerpValue, type BodyBounds, type Deformed } from './deformBody'
 import { SPECS, type Entered, type Field } from './measurements'
 import { StudioFlat, StudioFrame } from './StudioFallback'
 
@@ -216,20 +216,54 @@ export function BodyStudio({ model, build, cm, focus, reduced, className = '' }:
       }
     }
 
+    // The body eases from the shape on screen to the new one; the tape follows the same blend. Buffers belong to one mesh.
+    let morph: { mesh: THREE.Mesh; target: Float32Array; from: Float32Array; shown?: Deformed; run?: { stop: () => void } } | undefined
+
     function deformNow() {
       deforming = false
       const { base, bounds, mesh } = state
       if (!base || !bounds || !mesh) return
       const next = latest.current
       const position = mesh.geometry.attributes.position as THREE.BufferAttribute
-      state.deformed = applyMeasurements(base, position.array as Float32Array, bounds, next.cm, next.build)
-      position.needsUpdate = true
-      mesh.geometry.computeVertexNormals()
-      feather.value = (state.deformed.topY - bounds.minY) * 0.01
-      showTape(state.deformed, next.focus)
+      const shownPositions = position.array as Float32Array
+      if (morph?.mesh !== mesh) {
+        morph?.run?.stop()
+        morph = { mesh, target: new Float32Array(base.length), from: new Float32Array(base.length) }
+      }
+      const m = morph
+      m.run?.stop()
+      const aim = applyMeasurements(base, m.target, bounds, next.cm, next.build)
+      const paint = (shown: Deformed) => {
+        m.shown = state.deformed = shown
+        position.needsUpdate = true
+        mesh.geometry.computeVertexNormals()
+        feather.value = (shown.topY - bounds.minY) * 0.01
+        showTape(shown, next.focus)
+      }
+
+      if (!m.shown || next.reduced || shownPositions.every((v, i) => v === m.target[i])) {
+        shownPositions.set(m.target)
+        paint(aim)
+      } else {
+        m.from.set(shownPositions)
+        const was = m.shown
+        m.run = animate(0, 1, {
+          duration: DURATION.shift,
+          ease: EASE_OUT,
+          onUpdate: (p) => {
+            if (disposed || state.mesh !== mesh) return
+            for (let i = 0; i < shownPositions.length; i++) {
+              shownPositions[i] = m.from[i] + (m.target[i] - m.from[i]) * p
+            }
+            paint(lerpValue(was, aim, p))
+            invalidate()
+          },
+          onComplete: () => (m.run = undefined),
+        })
+      }
 
       const key = `${next.model}|${next.focus}|${camera.aspect.toFixed(2)}`
-      const to = goal(state.deformed, bounds, next.focus)
+      const to = goal(aim, bounds, next.focus)
       if (key === goalKey || !goalKey) {
         goalKey = key
         if (!tween) Object.assign(view, to)
@@ -309,6 +343,7 @@ export function BodyStudio({ model, build, cm, focus, reduced, className = '' }:
       ctx.current = null
       cancelAnimationFrame(frame)
       tween?.stop()
+      morph?.run?.stop()
       resizeObserver.disconnect()
       inView.disconnect()
       document.removeEventListener('visibilitychange', onVisibility)
