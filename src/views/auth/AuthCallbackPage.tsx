@@ -176,7 +176,11 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
         clearTimeout(timer)
         if (controller.signal.aborted) return
         unfinished.current = false
-        setSession({ name: me.fullName ?? `${me.firstName} ${me.lastName}`, email: me.email })
+        setSession({
+          name: me.fullName ?? `${me.firstName} ${me.lastName}`,
+          email: me.email,
+          avatarUrl: me.avatarUrl ?? undefined,
+        })
         clearStashedNext()
         toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
         // Replacing the entry also leaves the code out of history.

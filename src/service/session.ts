@@ -1,17 +1,19 @@
-// The signed-in user, kept in localStorage so a reload and other tabs agree. Only { name, email } is stored: never a
+// The signed-in user, kept in localStorage so a reload and other tabs agree. Only { name, email, avatarUrl } is stored: never a
 // token or password. supabase-js keeps its own token in localStorage; this store stays the { name, email } cache of /users/me.
 const KEY = 'silhoufit-session'
 
 export interface Session {
   name: string
   email: string
+  avatarUrl?: string
 }
 
 function load(): Session | null {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(KEY) ?? 'null')
     const user = parsed as Partial<Session> | null
-    return typeof user?.name === 'string' && typeof user.email === 'string' ? { name: user.name, email: user.email } : null
+    if (typeof user?.name !== 'string' || typeof user.email !== 'string') return null
+    return { name: user.name, email: user.email, avatarUrl: typeof user.avatarUrl === 'string' ? user.avatarUrl : undefined }
   } catch {
     return null
   }
@@ -42,7 +44,7 @@ if (typeof window !== 'undefined') {
 }
 
 export const getSession = () => session
-export const setSession = (user: Session) => commit({ name: user.name, email: user.email })
+export const setSession = (user: Session) => commit({ name: user.name, email: user.email, avatarUrl: user.avatarUrl })
 export const clearSession = () => commit(null)
 
 export function subscribe(listener: () => void) {

@@ -12,6 +12,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOnboarding } from '../../hooks/useOnboarding'
 import { fetchMe, type Me, type MeErrorKind } from '../../service/fetchMe'
+import { setSession } from '../../service/session'
 import { signOut } from '../../service/signOut'
 
 const META_DESCRIPTION =
@@ -65,7 +66,15 @@ export function ProfilePage() {
   useEffect(() => {
     const controller = new AbortController()
     fetchMe({ signal: controller.signal }).then(
-      (me) => setState({ status: 'success', me }),
+      (me) => {
+        // Keep the navbar avatar in step with /me, including for sessions saved before avatarUrl was cached.
+        setSession({
+          name: me.fullName ?? `${me.firstName} ${me.lastName}`,
+          email: me.email,
+          avatarUrl: me.avatarUrl ?? undefined,
+        })
+        setState({ status: 'success', me })
+      },
       (error: unknown) => {
         if (controller.signal.aborted) return
         const kind = (error as { kind?: MeErrorKind } | null)?.kind ?? 'server'

@@ -7,7 +7,7 @@ export interface SignInPayload {
   remember?: boolean
 }
 
-export type SignInResult = { ok: true; user: { name: string; email: string } } | { ok: false; reason: 'invalid' }
+export type SignInResult = { ok: true; user: { name: string; email: string; avatarUrl?: string } } | { ok: false; reason: 'invalid' }
 
 // Wrong password, unknown email and unconfirmed email all read the same, so the form never reveals which emails exist.
 const INVALID_CODES = ['invalid_credentials', 'email_not_confirmed']
@@ -26,6 +26,7 @@ export class SignInError extends Error {
 
 interface Profile {
   email: string
+  avatarUrl?: string | null
   firstName: string
   lastName: string
   fullName: string | null
@@ -56,7 +57,11 @@ export async function submitSignIn(
     const profile = (await response.json()) as Profile
     return {
       ok: true,
-      user: { name: profile.fullName ?? `${profile.firstName} ${profile.lastName}`, email: profile.email },
+      user: {
+        name: profile.fullName ?? `${profile.firstName} ${profile.lastName}`,
+        email: profile.email,
+        avatarUrl: profile.avatarUrl ?? undefined,
+      },
     }
   } catch (failure) {
     // No half sign-in: Supabase must not keep a session the app never got.
