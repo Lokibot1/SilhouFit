@@ -46,6 +46,8 @@ interface MeasureStepProps {
   onUnit: (unit: Unit) => void
   /** Jump to a measurement by its position in `fields`. */
   onGo: (index: number) => void
+  /** Opened from the review screen: Done goes back there. */
+  fromReview?: boolean
   onPrev: () => void
   onNext: () => void
 }
@@ -104,6 +106,7 @@ export function MeasureStep({
   onValue,
   onUnit,
   onGo,
+  fromReview = false,
   onPrev,
   onNext,
 }: MeasureStepProps) {
@@ -219,7 +222,7 @@ export function MeasureStep({
             Back
           </button>
           <button type="submit" form="measure-form" className={PRIMARY_BUTTON}>
-            {index === fields.length - 1 ? 'Review' : 'Next'}
+            {fromReview ? 'Done' : index === fields.length - 1 ? 'Review' : 'Next'}
           </button>
         </div>
       </div>

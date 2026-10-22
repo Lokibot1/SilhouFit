@@ -260,16 +260,22 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
   })
 
   const go = (to: number) => dispatch({ type: 'step', step: to })
+  // An edit started from the review screen goes straight back to it when done, instead of walking the remaining steps.
+  const [fromReview, setFromReview] = useState(false)
+  const backToReview = () => {
+    setFromReview(false)
+    dispatch({ type: 'review', reviewing: true })
+  }
 
   const nav = (next: () => void, canNext: boolean, hint?: string) => (
     <div className={STEP_FOOTER}>
       {hint && !canNext && <p className="mb-3 text-sm text-fg-muted">{hint}</p>}
       <div className="flex flex-wrap justify-between gap-3">
-        <button type="button" onClick={() => go(step - 1)} disabled={step === 0} className={`${SECONDARY_BUTTON} disabled:cursor-not-allowed disabled:opacity-50`}>
+        <button type="button" onClick={() => (fromReview ? backToReview() : go(step - 1))} disabled={step === 0 && !fromReview} className={`${SECONDARY_BUTTON} disabled:cursor-not-allowed disabled:opacity-50`}>
           Back
         </button>
-        <button type="button" onClick={next} disabled={!canNext} className={`${PRIMARY_BUTTON} ${DISABLED_PRIMARY}`}>
-          Next
+        <button type="button" onClick={fromReview ? backToReview : next} disabled={!canNext} className={`${PRIMARY_BUTTON} ${DISABLED_PRIMARY}`}>
+          {fromReview ? 'Done' : 'Next'}
         </button>
       </div>
     </div>
@@ -283,7 +289,10 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
       pending={pending}
       headingRef={headingRef}
       onConsent={setConsent}
-      onEditStep={go}
+      onEditStep={(to) => {
+        setFromReview(true)
+        go(to)
+      }}
       onFinish={() => void finish()}
     />
   ) : step === 0 ? (
@@ -312,8 +321,9 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
       onValue={(value) => dispatch({ type: 'set', field, value })}
       onUnit={(unit) => dispatch({ type: 'unit', unit })}
       onGo={(i) => go(2 + i)}
-      onPrev={() => go(step - 1)}
-      onNext={() => (step === lastStep(model) ? dispatch({ type: 'review', reviewing: true }) : go(step + 1))}
+      fromReview={fromReview}
+      onPrev={() => (fromReview ? backToReview() : go(step - 1))}
+      onNext={() => (fromReview ? backToReview() : step === lastStep(model) ? dispatch({ type: 'review', reviewing: true }) : go(step + 1))}
     />
   ) : null
 
@@ -404,7 +414,7 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
               Approximate preview. Enter your own tape measurements: the avatar does not measure you.
             </p>
           </div>
-          <section aria-label="Measurements" className={`${CARD} flex min-h-0 min-w-0 flex-1 flex-col lg:flex-none ${!reviewing ? STEP_CARD_PINNED : ''}`}>
+          <section aria-label="Measurements" className={`${CARD} flex min-h-0 min-w-0 flex-1 flex-col lg:flex-none ${STEP_CARD_PINNED}`}>
             {stepArea}
           </section>
         </div>

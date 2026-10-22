@@ -1,10 +1,11 @@
 import type { Ref } from 'react'
-import { SpinnerIcon } from '../form/icons'
+import { PencilIcon, SpinnerIcon } from '../form/icons'
 import { Checkbox } from '../ui/Checkbox'
+import { Tooltip } from '../ui/Tooltip'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
 import type { Draft } from './draft'
 import { Warnings } from './MeasureStep'
-import { STEP_BODY, STEP_FOOTER } from './stepLayout'
+import { STEP_BODY, STEP_BODY_PINNED, STEP_FOOTER } from './stepLayout'
 import {
   BUILD_LABEL,
   fieldsFor,
@@ -28,7 +29,7 @@ interface ReviewStepProps {
   onFinish: () => void
 }
 
-const EDIT = 'font-ui min-h-11 cursor-pointer rounded-xl px-2 text-base font-semibold text-fg underline underline-offset-4 hover:text-chrome-strong'
+const EDIT = 'flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg hover:text-chrome-strong'
 
 export function ReviewStep({ draft, warnings, consent, pending, headingRef, onConsent, onEditStep, onFinish }: ReviewStepProps) {
   const { model, build, unit, entered } = draft
@@ -38,7 +39,7 @@ export function ReviewStep({ draft, warnings, consent, pending, headingRef, onCo
 
   return (
     <>
-      <div className={STEP_BODY}>
+      <div className={`${STEP_BODY} ${STEP_BODY_PINNED}`}>
         <h2 ref={headingRef} tabIndex={-1} className="display text-2xl text-fg outline-none">
           Review your measurements
         </h2>
@@ -54,9 +55,11 @@ export function ReviewStep({ draft, warnings, consent, pending, headingRef, onCo
             <div key={row.key} className="flex min-h-11 items-center gap-3 py-1">
               <dt className="text-base text-fg-muted">{row.label}</dt>
               <dd className="ml-auto text-base text-fg">{row.value}</dd>
-              <button type="button" onClick={() => onEditStep(row.step)} aria-label={`Change ${row.label.toLowerCase()}`} className={EDIT}>
-                Change
-              </button>
+              <Tooltip label={`Change ${row.label.toLowerCase()}`}>
+                <button type="button" onClick={() => onEditStep(row.step)} aria-label={`Change ${row.label.toLowerCase()}`} className={EDIT}>
+                  <PencilIcon />
+                </button>
+              </Tooltip>
             </div>
           ))}
           {fields.map((field, i) => {
@@ -70,14 +73,16 @@ export function ReviewStep({ draft, warnings, consent, pending, headingRef, onCo
                 <dd className="ml-auto text-right text-base text-fg tabular-nums">
                   {value === undefined ? 'Not entered' : `${formatValue(field, value, unit)} ${unitLabel(field, unit)}`}
                 </dd>
-                <button
-                  type="button"
-                  onClick={() => onEditStep(2 + i)}
-                  aria-label={`${value === undefined ? 'Add' : 'Edit'} ${SPECS[field].label.toLowerCase()}`}
-                  className={EDIT}
-                >
-                  {value === undefined ? 'Add' : 'Edit'}
-                </button>
+                <Tooltip label={value === undefined ? 'Add measurement' : 'Edit measurement'}>
+                  <button
+                    type="button"
+                    onClick={() => onEditStep(2 + i)}
+                    aria-label={`${value === undefined ? 'Add' : 'Edit'} ${SPECS[field].label.toLowerCase()}`}
+                    className={EDIT}
+                  >
+                    <PencilIcon />
+                  </button>
+                </Tooltip>
               </div>
             )
           })}
@@ -85,7 +90,7 @@ export function ReviewStep({ draft, warnings, consent, pending, headingRef, onCo
 
         {!hasHeight && (
           <p role="alert" className="mt-4 text-base leading-snug text-danger">
-            Height is needed to save. It is the one measurement every profile requires, so choose Add next to height.
+            Height is needed to save. It is the one measurement every profile requires, so choose the pencil next to height.
           </p>
         )}
         {hasHeight && missing.length > 0 && (

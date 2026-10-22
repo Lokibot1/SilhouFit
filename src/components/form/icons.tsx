@@ -65,6 +65,12 @@ export const KebabIcon = ({ size = 20, className }: IconProps) => (
   </Icon>
 )
 
+export const PencilIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4" />
+  </Icon>
+)
+
 export const TrashIcon = ({ size = 16, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="M4 7h16M10 7V4.5h4V7M6 7l1 13h10l1-13M10 11v6M14 11v6" />

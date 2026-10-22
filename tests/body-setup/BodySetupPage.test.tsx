@@ -307,6 +307,19 @@ describe('BodySetupPage flow', () => {
     expect(await screen.findByRole('heading', { name: 'Height' })).toBeInTheDocument()
     expect(screen.getByRole('textbox')).toHaveValue('175')
   })
+
+  it('returns to the review screen after editing one measurement from it', async () => {
+    const user = await open()
+    await chooseModel(user, 'Male')
+    await next(user)
+    await toReview(user, '175')
+    await user.click(screen.getByRole('button', { name: 'Edit height' }))
+    await screen.findByRole('heading', { name: 'Height' })
+    await typeValue(user, '180')
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    expect(await screen.findByRole('heading', { name: 'Review your measurements' })).toBeInTheDocument()
+    expect(screen.getByText('180 cm')).toBeInTheDocument()
+  })
 })
 
 describe('BodySetupPage screen reader and focus behaviour', () => {
