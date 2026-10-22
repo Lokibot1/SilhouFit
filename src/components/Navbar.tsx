@@ -6,8 +6,10 @@ import {
 } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { isAuthPath } from '../utils/authRoutes'
+import { AccountMenu } from './AccountMenu'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -23,6 +25,7 @@ export function Navbar() {
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const { pathname } = useLocation()
   const authPage = isAuthPath(pathname)
+  const user = useCurrentUser()
 
   const { scrollY, scrollYProgress } = useScroll()
   useMotionValueEvent(scrollY, 'change', (value) => setSolid(value > 24))
@@ -119,12 +122,16 @@ export function Navbar() {
                 )
               })}
 
-              <Link
-                to="/signup"
-                className="pill bg-fg font-medium text-canvas transition-colors hover:bg-chrome-strong"
-              >
-                Sign Up now!
-              </Link>
+              {user ? (
+                <AccountMenu user={user} />
+              ) : (
+                <Link
+                  to="/signup"
+                  className="pill bg-fg font-medium text-canvas transition-colors hover:bg-chrome-strong"
+                >
+                  Sign Up now!
+                </Link>
+              )}
             </div>
           )}
 
@@ -187,13 +194,19 @@ export function Navbar() {
                   </Link>
                 )
               })}
-              <Link
-                to="/signup"
-                onClick={() => setMenuOpen(false)}
-                className="pill mt-6 bg-fg font-medium text-canvas"
-              >
-                Sign Up now!
-              </Link>
+              {user ? (
+                <div className="mt-6">
+                  <AccountMenu user={user} />
+                </div>
+              ) : (
+                <Link
+                  to="/signup"
+                  onClick={() => setMenuOpen(false)}
+                  className="pill mt-6 bg-fg font-medium text-canvas"
+                >
+                  Sign Up now!
+                </Link>
+              )}
             </div>
           </motion.div>
         )}
