@@ -1,15 +1,19 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
 import type { CurrentUser } from '../hooks/useCurrentUser'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { signOut as endSession } from '../service/signOut'
 import { useToast } from './toast/useToast'
+import { LogOutIcon, SettingsIcon, UserIcon } from './form/icons'
 import { Avatar } from './ui/Avatar'
 import { computePlace, LISTBOX_PANEL } from './ui/listbox'
 import { Tooltip } from './ui/Tooltip'
 
 const PANEL_WIDTH = 256
+const ITEM = 'flex min-h-9 pointer-coarse:min-h-11 w-full items-center gap-2 px-3 text-base'
+const ITEM_LIVE = `${ITEM} cursor-pointer hover:bg-fg/10`
 
 /** The signed-in avatar as a button that opens a small panel with who is signed in and Sign out. */
 export function AccountMenu({ user }: { user: CurrentUser }) {
@@ -27,7 +31,11 @@ export function AccountMenu({ user }: { user: CurrentUser }) {
 
   useEffect(() => {
     if (!open) return
-    const update = () => setPlace(computePlace(buttonRef.current!, PANEL_WIDTH))
+    // Inset by the panel's overhang so its right edge lines up with the avatar and it opens toward the left.
+    const update = () => {
+      const button = buttonRef.current!
+      setPlace(computePlace(button, PANEL_WIDTH, PANEL_WIDTH - button.offsetWidth))
+    }
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Tab') {
         // The panel sits at the end of the page, so leaving it by Tab would drop focus: go back to the avatar.
@@ -57,7 +65,7 @@ export function AccountMenu({ user }: { user: CurrentUser }) {
   // The panel mounts once its place is known, so focus moves in then.
   const placed = place !== undefined
   useEffect(() => {
-    if (open && placed) panelRef.current?.querySelector('button')?.focus()
+    if (open && placed) panelRef.current?.querySelector<HTMLElement>('a, button')?.focus()
   }, [open, placed])
 
   function signOut() {
@@ -96,17 +104,26 @@ export function AccountMenu({ user }: { user: CurrentUser }) {
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: DURATION.state, ease: EASE_OUT }}
               style={{ left: place.left, width: place.width, top: place.top, bottom: place.bottom }}
-              className={`${LISTBOX_PANEL} gap-3 p-4`}
+              className={`${LISTBOX_PANEL} py-1`}
             >
-              <div className="min-w-0">
+              <div className="min-w-0 px-3 py-2">
                 <p className="truncate text-base font-semibold text-fg">{user.name}</p>
                 {user.email && <p className="truncate text-sm text-fg-muted">{user.email}</p>}
               </div>
-              <button
-                type="button"
-                onClick={signOut}
-                className="skeuo font-ui flex min-h-9 pointer-coarse:min-h-11 cursor-pointer items-center justify-center rounded-xl px-3 text-sm font-semibold"
-              >
+              <div className="my-1 h-px bg-line-strong" role="separator" />
+              <Link to="/profile" onClick={() => close(false)} className={ITEM_LIVE}>
+                <UserIcon />
+                Profile
+              </Link>
+              {/* The settings page is still to do, so the row shows but does nothing yet. */}
+              <button type="button" aria-disabled="true" className={`${ITEM_LIVE} text-fg-muted`}>
+                <SettingsIcon />
+                Settings
+                <span className="ml-auto text-sm">Soon</span>
+              </button>
+              <div className="my-1 h-px bg-line-strong" role="separator" />
+              <button type="button" onClick={signOut} className={ITEM_LIVE}>
+                <LogOutIcon />
                 Sign out
               </button>
             </motion.div>

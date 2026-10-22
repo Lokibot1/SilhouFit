@@ -174,7 +174,22 @@ export const UserIcon = ({ size = 20, className }: IconProps) => (
   </Icon>
 )
 
-export const BagIcon = ({ size = 20, className }: IconProps) => (
+export const SettingsIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+    <circle cx="15" cy="7" r="2" />
+    <circle cx="9" cy="17" r="2" />
+  </Icon>
+)
+
+export const LogOutIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M9 4H5v16h4" />
+    <path d="M16 8l4 4-4 4M20 12H9" />
+  </Icon>
+)
+
+export const BagIcon =({ size = 20, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="M5 8h14l-1 12H6L5 8Z" />
     <path d="M9 8V7a3 3 0 0 1 6 0v1" />
