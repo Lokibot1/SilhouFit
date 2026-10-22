@@ -15,7 +15,7 @@ import { MeasureStep } from '../../components/body-setup/MeasureStep'
 import { fieldsFor, fromProfile, toPayload, warnings as crossChecks } from '../../components/body-setup/measurements'
 import { ReviewStep } from '../../components/body-setup/ReviewStep'
 import { SectionBoundary } from '../../components/body-setup/SectionBoundary'
-import { STEP_BODY, STEP_FOOTER } from '../../components/body-setup/stepLayout'
+import { STEP_BODY, STEP_BODY_PINNED, STEP_CARD_PINNED, STEP_FOOTER } from '../../components/body-setup/stepLayout'
 import { StudioFlat, StudioFrame } from '../../components/body-setup/StudioFallback'
 import { AlertIcon, XIcon } from '../../components/form/icons'
 import { PROFILE_CARD, PROFILE_SHELL } from '../../components/profile/ProfileSkeleton'
@@ -295,7 +295,7 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
     </>
   ) : step === 1 && model ? (
     <>
-      <div className={STEP_BODY}>
+      <div className={`${STEP_BODY} ${STEP_BODY_PINNED}`}>
         <BuildStep headingRef={headingRef} headingId={headingId} model={model} value={build} onChange={(b) => dispatch({ type: 'build', build: b })} />
       </div>
       {nav(() => go(2), true)}
@@ -404,7 +404,7 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
               Approximate preview. Enter your own tape measurements: the avatar does not measure you.
             </p>
           </div>
-          <section aria-label="Measurements" className={`${CARD} flex min-h-0 min-w-0 flex-1 flex-col lg:flex-none`}>
+          <section aria-label="Measurements" className={`${CARD} flex min-h-0 min-w-0 flex-1 flex-col lg:flex-none ${!reviewing ? STEP_CARD_PINNED : ''}`}>
             {stepArea}
           </section>
         </div>

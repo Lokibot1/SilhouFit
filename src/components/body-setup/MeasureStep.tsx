@@ -3,7 +3,7 @@ import type { BodyModelId } from '../../service/bodyProfile'
 import { AlertIcon, CheckIcon, ChevronDownIcon } from '../form/icons'
 import { FloatingField } from '../form/FloatingField'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
-import { STEP_BODY, STEP_FOOTER } from './stepLayout'
+import { STEP_BODY, STEP_BODY_PINNED, STEP_FOOTER } from './stepLayout'
 import {
   formatValue,
   howTo,
@@ -122,7 +122,7 @@ export function MeasureStep({
 
   return (
     <>
-      <div className={STEP_BODY}>
+      <div className={`${STEP_BODY} ${STEP_BODY_PINNED}`}>
         <p className="font-ui text-base text-fg-muted">{spec.required ? 'Required for AR try-on' : 'Optional'}</p>
         <h2 ref={headingRef} tabIndex={-1} className="display mt-1 text-2xl text-fg outline-none">
           {spec.label}

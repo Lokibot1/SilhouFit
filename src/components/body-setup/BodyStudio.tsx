@@ -1,7 +1,8 @@
 import { animate } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import femaleUrl from '../../assets/female_body.glb?url'
+import femaleUrl from '../../assets/body-female.glb?url'
+import maleUrl from '../../assets/body-male.glb?url'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import type { BodyBuildId, BodyModelId } from '../../service/bodyProfile'
 import { ChevronLeftIcon, ChevronRightIcon, RulerIcon, SpinnerIcon } from '../form/icons'
@@ -174,7 +175,9 @@ export function BodyStudio({ model, build, cm, focus, reduced, className = '' }:
       const t = Math.tan(THREE.MathUtils.degToRad(FOV / 2))
       const top = deformed.topY - bounds.minY
       const aspect = camera.aspect || 1
-      const full = { y: bounds.minY + top / 2, dist: Math.max((top * 0.56) / t, (top * 0.44) / (t * aspect)) }
+      // Wide enough for the height tape, which stands just outside the widest part of the body.
+      const half = Math.abs(deformed.regions.height?.line?.from[0] ?? top * 0.4) * 1.15
+      const full = { y: bounds.minY + top / 2, dist: Math.max((top * 0.56) / t, half / (t * aspect)) }
       const region = focusField ? deformed.regions[focusField] : undefined
       if (!region || focusField === 'height') return full
       const span = region.y1 - region.y0
@@ -363,7 +366,7 @@ export function BodyStudio({ model, build, cm, focus, reduced, className = '' }:
     if (!state) return
     let stale = false
     setLoad('loading')
-    loadBodyGeometry(model === 'female' ? femaleUrl : undefined).then(
+    loadBodyGeometry(model === 'female' ? femaleUrl : maleUrl).then(
       (geometry) => {
         if (stale) return geometry.dispose()
         geometry.computeBoundingBox()

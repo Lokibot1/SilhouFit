@@ -8,8 +8,8 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { applyMeasurements, hullPerimeter, type BodyBounds } from '../../src/components/body-setup/deformBody'
 import type { Entered } from '../../src/components/body-setup/measurements'
 
-// Reference stature the deformer assumes for each mesh (cm per mesh height): male 175, female 179.
-const REF_CM = { male: 175, female: 179 }
+// Reference stature the deformer assumes for each mesh (cm per mesh height): male 175, female 165.
+const REF_CM = { male: 175, female: 165 }
 
 /** A body-like mesh: two legs, a tapering torso, a head and two sloping arms. Feet at y = 0. */
 function makeBody(height = 1.7) {
@@ -25,13 +25,13 @@ function makeBody(height = 1.7) {
     const f = s / steps
     const y = f * height
     if (f < 0.45) {
-      ring(-0.08, y, 0.06, 0.06)
-      ring(0.08, y, 0.06, 0.06)
+      ring(-0.07, y, 0.05, 0.06)
+      ring(0.07, y, 0.05, 0.06)
     } else if (f <= 0.7) {
-      ring(0, y, 0.14, 0.09)
+      ring(0, y, 0.12, 0.09)
     } else if (f <= 0.8) {
       const t = (f - 0.7) / 0.1
-      ring(0, y, 0.14 - 0.07 * t, 0.09 - 0.04 * t)
+      ring(0, y, 0.12 - 0.05 * t, 0.09 - 0.04 * t)
     } else {
       ring(0, y, 0.05, 0.05)
     }
@@ -174,7 +174,7 @@ describe('applyMeasurements on a synthetic body', () => {
   it('scales the waist ring by target over current perimeter', () => {
     const mesh = makeBody(1.7)
     const cmPerUnit = REF_CM.male / mesh.height
-    const waistY = 0.645 * mesh.height
+    const waistY = 0.62 * mesh.height
     const half = 0.13 * mesh.height
     const before = perimeterCm(mesh.base, waistY, half, cmPerUnit)
     expect(before).toBeGreaterThan(60) // sanity: the fixture has a plausible waist
@@ -188,18 +188,20 @@ describe('applyMeasurements on a synthetic body', () => {
     const mesh = makeBody(1.7)
     const cmPerUnit = REF_CM.male / mesh.height
     const { out } = run(mesh, { hips: 105, chest: 98 })
-    expect(perimeterCm(out, 0.5 * mesh.height, 0.13 * mesh.height, cmPerUnit)).toBeCloseTo(105, 0)
+    expect(perimeterCm(out, 0.51 * mesh.height, 0.13 * mesh.height, cmPerUnit)).toBeCloseTo(105, 0)
     // The chest sits where the fixture tapers, so (like the deformer) read the hull of the whole +/-1.2% band around it.
     const bandCm = (positions: Float32Array) => {
       const flat: number[] = []
       for (let i = 0; i < positions.length; i += 3) {
-        if (Math.abs(positions[i + 1] - 0.715 * mesh.height) <= 0.012 * mesh.height && Math.abs(positions[i]) <= 0.12 * mesh.height) {
+        if (Math.abs(positions[i + 1] - 0.73 * mesh.height) <= 0.012 * mesh.height && Math.abs(positions[i]) <= 0.12 * mesh.height) {
           flat.push(positions[i], positions[i + 2])
         }
       }
       return hullPerimeter(flat) * cmPerUnit
     }
-    expect(bandCm(out) / bandCm(mesh.base)).toBeCloseTo(98 / bandCm(mesh.base), 1)
+    // The chest ramp is confined to the 3% under the chest now, so the band's lower edge, which sets the hull on this taper,
+    // is a little short of the full ratio: it lands 6.6% under (was 5%).
+    expect(Math.abs(bandCm(out) / bandCm(mesh.base) - 98 / bandCm(mesh.base))).toBeLessThan(0.08)
   })
 
   it('leaves vertices at shoulder height and above where they were when the waist grows', () => {
@@ -241,7 +243,7 @@ describe('applyMeasurements on a synthetic body', () => {
     const mesh = makeBody(1.7)
     const cmPerUnit = REF_CM.male / mesh.height
     const { out } = run(mesh, { waist: 80 }, 'overweight')
-    expect(perimeterCm(out, 0.645 * mesh.height, 0.13 * mesh.height, cmPerUnit)).toBeCloseTo(80, 0)
+    expect(perimeterCm(out, 0.62 * mesh.height, 0.13 * mesh.height, cmPerUnit)).toBeCloseTo(80, 0)
   })
 
   it('lets a build change the body only where nothing was measured', () => {
@@ -249,7 +251,7 @@ describe('applyMeasurements on a synthetic body', () => {
     const cmPerUnit = REF_CM.male / mesh.height
     const regular = run(mesh, {}, 'regular').out
     const heavy = run(mesh, {}, 'overweight').out
-    const waistY = 0.645 * mesh.height
+    const waistY = 0.62 * mesh.height
     const half = 0.13 * mesh.height
     expect(perimeterCm(heavy, waistY, half, cmPerUnit)).toBeGreaterThan(perimeterCm(regular, waistY, half, cmPerUnit) * 1.2)
   })
@@ -292,10 +294,12 @@ async function loadRealBody(file: string) {
   return { base: geometry.attributes.position.array as Float32Array, minY: min.y, maxY: max.y }
 }
 
+// Heights are fractions of the mesh height, read off each scan (see LANDMARKS in deformBody.ts). `waistHalf` and `hipsHalf` are
+// the half-widths that keep a ring on the torso alone; `armX` is the x beyond which, between the knee and the shoulder, only an arm is.
 describe.each([
-  { file: 'human_body.glb', model: 'male' as const, torsoHalf: 0.13 },
-  { file: 'female_body.glb', model: 'female' as const, torsoHalf: 0.1061 },
-])('applyMeasurements on the real $file', ({ file, model, torsoHalf }) => {
+  { file: 'body-male.glb', model: 'male' as const, waist: 0.62, waistHalf: 0.08, hips: 0.51, hipsHalf: 0.086, armX: 0.1 },
+  { file: 'body-female.glb', model: 'female' as const, waist: 0.655, waistHalf: 0.065, hips: 0.52, hipsHalf: 0.114, armX: 0.13 },
+])('applyMeasurements on the real $file', ({ file, model, waist, waistHalf, hips, hipsHalf, armX }) => {
   let mesh: { base: Float32Array; bounds: BodyBounds; height: number }
 
   beforeAll(async () => {
@@ -342,8 +346,8 @@ describe.each([
 
   it('brings the waist ring to the entered perimeter', () => {
     const cmPerUnit = REF_CM[model] / mesh.height
-    const waistY = mesh.bounds.minY + 0.645 * mesh.height
-    const half = torsoHalf * mesh.height
+    const waistY = mesh.bounds.minY + waist * mesh.height
+    const half = waistHalf * mesh.height
     // The scan has no vertex exactly at waistY, so read a thin band of the base and of the output the same way.
     const bandPerimeter = (positions: Float32Array) => {
       const flat: number[] = []
@@ -357,13 +361,14 @@ describe.each([
     const target = Math.round(baseCm * 1.25)
     const { out } = run(mesh, { waist: target })
     // The deformer reads each slice as the hull of a +-1.2% band, which runs a few percent larger than this thin band, so the
-    // ring lands 4-5% under the entered value (the old 20k-vertex scan scraped under 0.05; the denser one is 0.06). Pinned at 0.07.
-    expect(Math.abs(bandPerimeter(out) / baseCm - target / baseCm)).toBeLessThan(0.07)
+    // ring lands 4-5% under the entered value on the male (0.07 pinned before). The female narrows to a 55 cm hourglass waist, so the
+    // thicker band reads wider than the thin one by about 8%: pinned at 0.09.
+    expect(Math.abs(bandPerimeter(out) / baseCm - target / baseCm)).toBeLessThan(0.09)
   })
 
   it('keeps the shoulder-height torso in place when the waist grows', () => {
     const { out } = run(mesh, { waist: 130 })
-    const shoulderY = mesh.bounds.minY + 0.8 * mesh.height
+    const shoulderY = mesh.bounds.minY + 0.85 * mesh.height
     let worst = 0
     for (let i = 0; i < out.length; i += 3) {
       if (mesh.base[i + 1] >= shoulderY && Math.abs(mesh.base[i]) < 0.04 * mesh.height) {
@@ -371,5 +376,215 @@ describe.each([
       }
     }
     expect(worst).toBeLessThan(0.01 * mesh.height)
+  })
+
+  describe('hanging arms', () => {
+    const rangeOf = (positions: Float32Array, pick: (x: number, y: number) => boolean) => {
+      let widest = 0
+      let lowest = Infinity
+      for (let i = 0; i < positions.length; i += 3) {
+        const x = Math.abs(positions[i])
+        const y = positions[i + 1]
+        if (!pick(x, y)) continue
+        widest = Math.max(widest, x)
+        lowest = Math.min(lowest, y)
+      }
+      return { widest, lowest }
+    }
+    const arm = (h: number) => (x: number, y: number) => x > armX * h && y > 0.38 * h && y < 0.8 * h
+
+    it('is centred, with both arms hanging beside the body and the hands down by the hips', () => {
+      const h = mesh.height
+      let left = 0
+      let right = 0
+      for (let i = 0; i < mesh.base.length; i += 3) {
+        if (Math.abs(mesh.base[i]) > armX * h && mesh.base[i + 1] > mesh.bounds.minY + 0.4 * h) {
+          if (mesh.base[i] < 0) left++
+          else right++
+        }
+      }
+      expect(left).toBeGreaterThan(300) // the female scan has only 15k vertices in all
+      expect(Math.abs(left - right) / (left + right)).toBeLessThan(0.05)
+      expect(rangeOf(mesh.base, arm(h)).widest).toBeLessThan(0.2 * h)
+      expect(rangeOf(mesh.base, arm(h)).lowest).toBeLessThan(mesh.bounds.minY + 0.43 * h)
+    })
+
+    it('reads the chest, waist and hips rings off the torso alone, not the arms beside it', () => {
+      const { deformed } = run(mesh, {})
+      for (const field of ['chest', 'waist', 'hips'] as const) {
+        expect(deformed.regions[field]?.ring?.rx).toBeLessThan(armX * mesh.height)
+      }
+      expect(deformed.regions.hips!.ring!.rx).toBeGreaterThan(0.08 * mesh.height)
+    })
+
+    it('brings the hips ring to the entered perimeter with the arms beside it', () => {
+      const cmPerUnit = REF_CM[model] / mesh.height
+      const hipsCm = (positions: Float32Array) => {
+        const flat: number[] = []
+        const y = mesh.bounds.minY + hips * mesh.height
+        for (let i = 0; i < positions.length; i += 3) {
+          if (Math.abs(positions[i + 1] - y) < 0.003 * mesh.height && Math.abs(positions[i]) < hipsHalf * mesh.height) flat.push(positions[i], positions[i + 2])
+        }
+        return hullPerimeter(flat) * cmPerUnit
+      }
+      const baseCm = hipsCm(mesh.base)
+      const { out } = run(mesh, { hips: Math.round(baseCm * 1.2) })
+      // As the waist test above, the deformer reads the hull of a thicker band than this thin one. The hips band is thick
+      // on the male scan, so the thin ring lands up to 9% under the entered value.
+      expect(Math.abs(hipsCm(out) / baseCm - 1.2)).toBeLessThan(0.09)
+    })
+
+    it('moves the hanging arm with the shoulders and the sleeve, and the tapes follow it', () => {
+      const h = mesh.height
+      const reach = (out: Float32Array) => rangeOf(out, (x, y) => x > armX * h && y > 0.35 * h)
+      const rest = run(mesh, {})
+      // The scans' own shoulder widths differ (about 52 cm on the male, 40 on the female), so go 8 cm either side of it.
+      const own = (rest.deformed.regions.shoulders!.line!.to[0] * 2) / rest.deformed.unitsPerCm
+      const wide = run(mesh, { shoulders: own + 8 })
+      const narrow = run(mesh, { shoulders: own - 8 })
+      expect(reach(wide.out).widest).toBeGreaterThan(reach(rest.out).widest)
+      expect(reach(narrow.out).widest).toBeLessThan(reach(rest.out).widest)
+
+      const long = run(mesh, { sleeve: 80 })
+      const short = run(mesh, { sleeve: 45 })
+      expect(reach(long.out).lowest).toBeLessThan(reach(rest.out).lowest - 0.02 * h)
+      expect(reach(short.out).lowest).toBeGreaterThan(reach(rest.out).lowest + 0.02 * h)
+
+      // The sleeve tape runs from the shoulder down the arm, nearly straight, and a longer sleeve lengthens it.
+      for (const r of [rest, long, short]) {
+        const { from, to } = r.deformed.regions.sleeve!.line!
+        expect(from[1] - to[1]).toBeGreaterThan(0.2 * h)
+        expect(Math.abs(to[0] - from[0])).toBeLessThan(0.2 * (from[1] - to[1]))
+      }
+      expect(long.deformed.regions.sleeve!.line!.to[1]).toBeLessThan(rest.deformed.regions.sleeve!.line!.to[1])
+      expect(wide.deformed.regions.shoulders!.line!.to[0]).toBeGreaterThan(rest.deformed.regions.shoulders!.line!.to[0])
+    })
+
+    describe('chest only', () => {
+      // The scan's own girth in cm as the deformer reads it: a probe entry of 100 cm scales the ring by 100 over that girth.
+      const girthCm = (field: 'chest' | 'bust') => {
+        const probe = run(mesh, { [field]: 100 })
+        return 100 / (probe.deformed.regions[field]!.ring!.rx / rest().deformed.regions[field]!.ring!.rx)
+      }
+      // Largest move of the base vertices that `pick` takes, as a share of the height.
+      const moved = (out: Float32Array, pick: (x: number, y: number) => boolean) => {
+        let worst = 0
+        for (let i = 0; i < out.length; i += 3) {
+          if (!pick(Math.abs(mesh.base[i]), mesh.base[i + 1])) continue
+          worst = Math.max(worst, Math.hypot(out[i] - mesh.base[i], out[i + 1] - mesh.base[i + 1], out[i + 2] - mesh.base[i + 2]))
+        }
+        return worst / mesh.height
+      }
+      const chestFrac = model === 'male' ? 0.73 : 0.69
+      // The waist ratio holds up to 3% of the height under the chest. The female waist sits only 3.5% under hers, so her
+      // hold is a 0.5% sliver just above the waist, and the torso is read there.
+      const [torsoLo, torsoHi] = model === 'male' ? [waist + 0.01, chestFrac - 0.05] : [waist + 0.001, chestFrac - 0.03 - 0.001]
+
+      const rest = () => run(mesh, {})
+      const grown = () => {
+        const r = rest()
+        const chest = Math.round(girthCm('chest') * 1.1)
+        return { r, chest, g: run(mesh, { chest }) }
+      }
+
+      it('leaves the arms below the chest where they were', () => {
+        const h = mesh.height
+        const { g } = grown()
+        expect(moved(g.out, (x, y) => x > armX * h && y > 0.38 * h && y < (chestFrac - 0.05) * h)).toBeLessThan(0.0003)
+      })
+
+      it('leaves the torso under the chest where it was', () => {
+        const h = mesh.height
+        const { g } = grown()
+        expect(moved(g.out, (x, y) => x <= armX * h && y > torsoLo * h && y < torsoHi * h)).toBeLessThan(0.0003)
+      })
+
+      it('widens the chest ring by the entered ratio', () => {
+        const { r, chest, g } = grown()
+        const before = r.deformed.regions.chest!.ring!
+        const after = g.deformed.regions.chest!.ring!
+        expect(after.rx / before.rx).toBeCloseTo(after.rz / before.rz, 6)
+        expect(after.rx / before.rx).toBeGreaterThan(1.05)
+        expect(after.rx / before.rx).toBeCloseTo(chest / girthCm('chest'), 6)
+      })
+
+      // Mean radial move (x, z) of the torso vertices in a height band, as a share of the height; `back` keeps z < 0.
+      const torsoMove = (out: Float32Array, f0: number, f1: number, back: boolean) => {
+        const h = mesh.height
+        let sum = 0
+        let n = 0
+        for (let i = 0; i < out.length; i += 3) {
+          const f = (mesh.base[i + 1] - mesh.bounds.minY) / h
+          if (f < f0 || f >= f1 || Math.abs(mesh.base[i]) > armX * h || (mesh.base[i + 2] < 0) !== back) continue
+          sum += Math.hypot(out[i] - mesh.base[i], out[i + 2] - mesh.base[i + 2])
+          n++
+        }
+        return sum / n / h
+      }
+
+      it.each([0.9, 1.1])('carries the upper chest, back and traps with the chest (x%s), easing to nothing at the neck', (factor) => {
+        const out = run(mesh, { chest: girthCm('chest') * factor }).out
+        const at = (f: number, back: boolean) => torsoMove(out, f - 0.005, f + 0.005, back)
+        const shoulderFrac = model === 'male' ? 0.775 : 0.77
+        const neckFrac = model === 'male' ? 0.85 : 0.84
+        for (const back of [true, false]) {
+          // Through the shoulder line the move stays a substantial share of the move at chest height.
+          expect(at(shoulderFrac, back)).toBeGreaterThan(0.5 * at(chestFrac, back))
+          expect(at(neckFrac + 0.02, back)).toBeLessThan(0.0003)
+        }
+        // No step: neighbouring 1% slices of the back differ by far less than the chest move itself.
+        let worstStep = 0
+        for (let f = chestFrac; f < neckFrac; f += 0.01) worstStep = Math.max(worstStep, Math.abs(at(f + 0.01, true) - at(f, true)))
+        expect(worstStep).toBeLessThan(0.003)
+      })
+
+      it.each(model === 'male' ? [95, 115] : [70])('tapers a large waist-only entry (%s cm) up the torso without a shelf', (waistCm) => {
+        const out = run(mesh, { waist: waistCm }).out
+        const h = mesh.height
+        const halfWidth = (f: number) => {
+          let widest = 0
+          for (let i = 0; i < out.length; i += 3) {
+            if (Math.abs(out[i + 1] - mesh.bounds.minY - f * h) < 0.005 * h && Math.abs(mesh.base[i]) <= armX * h) widest = Math.max(widest, Math.abs(out[i]))
+          }
+          return widest / h
+        }
+        // Slope of the torso half-width between 1% slices, from the waist to the chest. The scans' own shapes reach about 0.9
+        // (male) and 1.7 (female, whose waist and chest are 3.5% apart); a held-then-stepped ramp went well past that.
+        let worst = 0
+        for (let f = waist + 0.01; f < chestFrac; f += 0.01) worst = Math.max(worst, Math.abs(halfWidth(f + 0.01) - halfWidth(f)) / 0.01)
+        expect(worst).toBeLessThan(model === 'male' ? 1.1 : 1.9)
+      })
+
+      it('keeps the height tape clear of the arms at the chest', () => {
+        const { g } = grown()
+        let widest = 0
+        for (let i = 0; i < g.out.length; i += 3) widest = Math.max(widest, Math.abs(g.out[i]))
+        expect(g.deformed.regions.height!.line!.from[0]).toBeGreaterThan(widest + 0.02 * mesh.height)
+      })
+
+      if (model === 'female') {
+        it('moves the bust and the chest together when only one is entered', () => {
+          const h = mesh.height
+          for (const field of ['bust', 'chest'] as const) {
+            const { out, deformed } = run(mesh, { [field]: Math.round(girthCm(field) * 1.1) })
+            expect(out.every(Number.isFinite)).toBe(true)
+            const bustGrowth = deformed.regions.bust!.ring!.rx / rest().deformed.regions.bust!.ring!.rx
+            const chestGrowth = deformed.regions.chest!.ring!.rx / rest().deformed.regions.chest!.ring!.rx
+            expect(bustGrowth).toBeCloseTo(chestGrowth, 6)
+            expect(bustGrowth).toBeGreaterThan(1.05)
+            expect(moved(out, (x, y) => x > armX * h && y > 0.38 * h && y < (chestFrac - 0.05) * h)).toBeLessThan(0.0003)
+          }
+        })
+      }
+    })
+
+    it('keeps the height tape clear of the body, arms included', () => {
+      for (const cm of [{}, { shoulders: 60, chest: 130, hips: 120 }, { shoulders: 40 }] as Entered[]) {
+        const { out, deformed } = run(mesh, cm)
+        let widest = 0
+        for (let i = 0; i < out.length; i += 3) widest = Math.max(widest, Math.abs(out[i]))
+        expect(deformed.regions.height!.line!.from[0]).toBeGreaterThan(widest + 0.02 * mesh.height)
+      }
+    })
   })
 })

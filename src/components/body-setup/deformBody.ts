@@ -4,7 +4,7 @@ import type { Entered, Field } from './measurements'
 // Reshapes a body mesh to the user's measurements for the preview. Pure: typed arrays in, typed arrays out, no three.
 // `out` is always rebuilt from the untouched `base`, so nothing drifts as values change. The result is an approximate
 // picture, not a scan: girths scale the body radially by (target / current slice perimeter), heights remap y between
-// landmarks, shoulders and sleeves move the arm. Both models stand in a relaxed A-pose with the arms away from the torso.
+// landmarks, shoulders and sleeves move the arm. Both scans stand relaxed with the arms hanging at the sides.
 
 export interface BodyBounds {
   model: BodyModelId
@@ -46,8 +46,9 @@ export function lerpValue<T>(a: T, b: T, p: number): T {
 }
 
 // Reference stature of each mesh: a model unit is REF cm ÷ mesh height. Landmarks are fractions of mesh height,
-// read off each scan; torsoHalf is (height fraction, half-width fraction) where the torso ends and an arm begins.
-const REF_CM: Record<BodyModelId, number> = { male: 175, female: 179 }
+// read off each scan; torsoHalf is (height fraction, half-width fraction) where the torso ends and an arm begins: the edge of
+// the hip or ribcage, just inside the hanging arm (which touches the body from the armpit up).
+const REF_CM: Record<BodyModelId, number> = { male: 175, female: 165 }
 const LANDMARKS: Record<
   BodyModelId,
   {
@@ -65,12 +66,12 @@ const LANDMARKS: Record<
   }
 > = {
   male: {
-    ankle: 0.04, knee: 0.28, crotch: 0.455, thigh: 0.405, hips: 0.5, waist: 0.645, chest: 0.715, bust: 0.715, shoulder: 0.79, neck: 0.845,
-    torsoHalf: [[0.45, 0.13], [0.7, 0.13], [0.725, 0.115], [0.76, 0.06], [0.8, 0.04], [1, 0.04]],
+    ankle: 0.04, knee: 0.28, crotch: 0.41, thigh: 0.385, hips: 0.51, waist: 0.62, chest: 0.73, bust: 0.73, shoulder: 0.775, neck: 0.85,
+    torsoHalf: [[0.33, 0.08], [0.41, 0.09], [0.45, 0.093], [0.5, 0.088], [0.55, 0.082], [0.6, 0.08], [0.65, 0.082], [0.7, 0.088], [0.74, 0.095], [0.76, 0.1], [0.8, 0.09], [0.83, 0.1], [1, 0.1]],
   },
   female: {
-    ankle: 0.04, knee: 0.28, crotch: 0.45, thigh: 0.4, hips: 0.5, waist: 0.645, chest: 0.69, bust: 0.72, shoulder: 0.8, neck: 0.845,
-    torsoHalf: [[0.45, 0.11], [0.7, 0.105], [0.725, 0.095], [0.75, 0.085], [0.775, 0.06], [0.8, 0.04], [1, 0.04]],
+    ankle: 0.04, knee: 0.28, crotch: 0.49, thigh: 0.42, hips: 0.52, waist: 0.655, chest: 0.69, bust: 0.735, shoulder: 0.77, neck: 0.84,
+    torsoHalf: [[0.33, 0.087], [0.37, 0.099], [0.4, 0.107], [0.42, 0.1115], [0.44, 0.1236], [0.45, 0.1285], [0.46, 0.1145], [0.5, 0.1176], [0.54, 0.11], [0.58, 0.098], [0.62, 0.08], [0.64, 0.069], [0.66, 0.063], [0.68, 0.069], [0.7, 0.0758], [0.73, 0.08], [0.76, 0.078], [0.8, 0.088], [0.83, 0.1], [1, 0.1]],
   },
 }
 
@@ -85,12 +86,23 @@ const BUILD_MULT: Record<BodyBuildId, { chest: number; waist: number; hips: numb
 }
 
 const WRIST_SHARE = 0.78 // wrist as a share of the shoulder-to-fingertip distance
+const SPREAD_FADE = 0.7 // how much of a shoulder-width change has faded by the fingertip: the hand stays beside the hip
 
 const smoothstep = (x: number, a: number, b: number) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
   return t * t * (3 - 2 * t)
 }
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x))
+
+/** How much of the body at (|x|, y) belongs to an arm: 1 outside the torso's half-width, 0 on the lower legs and fading out toward the neck. */
+function armWeight(L: (typeof LANDMARKS)[BodyModelId], minY: number, height: number, ax: number, y: number) {
+  const half = torsoHalf(L.torsoHalf, (y - minY) / height) * height
+  return (
+    smoothstep(ax, half, half + 0.025 * height) *
+    smoothstep(y, minY + 0.33 * height, minY + 0.38 * height) *
+    (1 - smoothstep(y, minY + L.shoulder * height, minY + L.neck * height))
+  )
+}
 
 /** Perimeter of the convex hull of flat [x, z, x, z, ...] points. 0 for fewer than three distinct points. */
 export function hullPerimeter(points: number[]): number {
@@ -144,6 +156,8 @@ interface Rig {
   thigh: Slice
   shoulderHalf: number
   jointY: number
+  /** Half of the widest the body gets, the arms included. */
+  halfWidth: number
   /** Unit vector from the shoulder joint to the fingertip, in the x-y plane, for the +x arm. */
   armDir: [number, number]
   armLength: number
@@ -179,7 +193,7 @@ function buildRig(base: Float32Array, bounds: BodyBounds): Rig {
     for (let i = 0; i < count; i++) {
       const x = base[i * 3]
       if (Math.abs(base[i * 3 + 1] - y) > band) continue
-      if (leg ? x * leg <= 0 : Math.abs(x) > limit) continue
+      if (Math.abs(x) > limit || (leg && x * leg <= 0)) continue
       const z = base[i * 3 + 2]
       pts.push(x, z)
       minX = Math.min(minX, x); maxX = Math.max(maxX, x)
@@ -199,13 +213,23 @@ function buildRig(base: Float32Array, bounds: BodyBounds): Rig {
 
   const shoulderY = at(L.shoulder)
   let shoulderHalf = 0
-  let tipX = 0
+  let halfWidth = 0
+  for (let i = 0; i < count; i++) {
+    const x = Math.abs(base[i * 3])
+    halfWidth = Math.max(halfWidth, x)
+    if (Math.abs(base[i * 3 + 1] - shoulderY) < 0.01 * height) shoulderHalf = Math.max(shoulderHalf, x)
+  }
+  // The fingertip is the arm vertex furthest from the shoulder, whether the arm is out or hanging.
+  let tipX = shoulderHalf
   let tipY = shoulderY
+  let reach = 0
   for (let i = 0; i < count; i++) {
     const x = base[i * 3]
     const y = base[i * 3 + 1]
-    if (Math.abs(y - shoulderY) < 0.01 * height) shoulderHalf = Math.max(shoulderHalf, Math.abs(x))
-    if (x > tipX && y < shoulderY) {
+    if (x <= 0 || y >= shoulderY || armWeight(L, bounds.minY, height, x, y) < 0.5) continue
+    const d = Math.hypot(x - shoulderHalf, y - shoulderY)
+    if (d > reach) {
+      reach = d
       tipX = x
       tipY = y
     }
@@ -225,6 +249,7 @@ function buildRig(base: Float32Array, bounds: BodyBounds): Rig {
     hips: slice(L.hips),
     thigh: slice(L.thigh, 1),
     shoulderHalf,
+    halfWidth,
     jointY: shoulderY,
     armDir: armLength > 0 ? [dx / armLength, dy / armLength] : [1, 0],
     armLength,
@@ -304,10 +329,19 @@ export function applyMeasurements(
     { y: at(L.knee), ratio: 1, cz: rig.hips.cz },
     { y: rig.hips.y, ratio: hipsRatio, cz: rig.hips.cz },
     { y: rig.waist.y, ratio: waistRatio, cz: rig.waist.cz },
+    // Hold the waist ratio until just under the chest, so the chest ramp stays at chest height. A big waist-vs-chest
+    // difference gets a longer ramp (up to the whole gap) so the torso tapers instead of forming a shelf.
+    {
+      y: Math.max(rig.waist.y, rig.chest.y - clamp(0.3 * height * Math.abs(waistRatio - chestRatio), 0.03 * height, rig.chest.y - rig.waist.y)) + 1e-6,
+      ratio: waistRatio,
+      cz: rig.waist.cz,
+    },
     { y: rig.chest.y, ratio: chestRatio, cz: rig.chest.cz },
   ]
   if (female) stations.push({ y: rig.bust.y, ratio: bustRatio, cz: rig.bust.cz })
-  stations.push({ y: at(L.shoulder), ratio: 1, cz: rig.chest.cz })
+  // The upper chest, back and traps follow the chest through the shoulder line, then ease back to 1 at the neck.
+  stations.push({ y: at(L.shoulder), ratio: female ? bustRatio : chestRatio, cz: rig.chest.cz })
+  stations.push({ y: at(L.neck), ratio: 1, cz: rig.chest.cz })
   stations.sort((a, b) => a.y - b.y)
   const radial = (y: number): [number, number] => {
     if (y <= stations[0].y || y >= stations[stations.length - 1].y) return [1, stations[0].cz]
@@ -327,9 +361,6 @@ export function applyMeasurements(
   const wristCm = rig.armLength * k * WRIST_SHARE
   const sleeveRatio = cm.sleeve !== undefined && wristCm > 0 ? clamp(cm.sleeve / wristCm, 0.6, 1.6) : 1
   const [dirX, dirY] = rig.armDir
-  const torsoWidth = rig.chest.rx
-  const shoulderY = at(L.shoulder)
-  const neckY = at(L.neck)
   const crotchY = at(L.crotch)
 
   // Thigh: scaled around each leg's own axis, fading out toward the knee and the crotch.
@@ -341,14 +372,10 @@ export function applyMeasurements(
     const bx = base[i * 3]
     const by = base[i * 3 + 1]
     const bz = base[i * 3 + 2]
-    const f = (by - minY) / height
     const side = bx < 0 ? -1 : 1
     const ax = Math.abs(bx)
 
-    const arm =
-      smoothstep(ax, torsoHalf(L.torsoHalf, f) * height, (torsoHalf(L.torsoHalf, f) + 0.025) * height) *
-      smoothstep(by, at(0.47), at(0.51)) *
-      (1 - smoothstep(by, shoulderY, neckY))
+    const arm = armWeight(L, minY, height, ax, by)
 
     let x = bx
     let y = remap(by)
@@ -370,9 +397,9 @@ export function applyMeasurements(
     z = cz + (z - cz) * eff
 
     if (arm > 0) {
-      const spread = shoulderDelta + (ratio - 1) * torsoWidth
-      let along = (ax - rig.shoulderHalf) * dirX + (by - rig.jointY) * dirY
-      along = Math.max(along, 0) * (sleeveRatio - 1)
+      const reach = (ax - rig.shoulderHalf) * dirX + (by - rig.jointY) * dirY
+      const spread = shoulderDelta * (1 - SPREAD_FADE * clamp(reach / (rig.armLength || 1), 0, 1))
+      const along = Math.max(reach, 0) * (sleeveRatio - 1)
       x += side * (spread + along * dirX) * arm
       y += along * dirY * arm
     }
@@ -414,7 +441,7 @@ export function applyMeasurements(
 
   const front = Math.max(rig.chest.front, rig.waist.front, rig.hips.front) + 0.015 * height
   const margin = 0.03 * height
-  const widest = Math.max(rig.hips.rx * hipsRatio, rig.shoulderHalf + shoulderDelta)
+  const widest = Math.max(rig.hips.rx * hipsRatio, rig.halfWidth + shoulderDelta)
   const topY = newKnots[5]
   regions.height = { y0: minY, y1: topY, line: { from: [widest + margin * 2, minY, 0], to: [widest + margin * 2, topY, 0] } }
 
@@ -426,7 +453,11 @@ export function applyMeasurements(
     line: { from: [-jointX, shoulderYNew, rig.chest.cz], to: [jointX, shoulderYNew, rig.chest.cz] },
   }
   const wristLen = rig.armLength * sleeveRatio * WRIST_SHARE
-  const wrist: Vec3 = [jointX + dirX * wristLen, shoulderYNew + dirY * wristLen, rig.chest.cz]
+  const wrist: Vec3 = [
+    jointX - shoulderDelta * SPREAD_FADE * WRIST_SHARE + dirX * wristLen,
+    shoulderYNew + dirY * wristLen,
+    rig.chest.cz,
+  ]
   regions.sleeve = { y0: wrist[1], y1: shoulderYNew, line: { from: [jointX, shoulderYNew, rig.chest.cz], to: wrist } }
 
   const neckNew = newKnots[4]
