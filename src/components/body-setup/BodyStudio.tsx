@@ -16,6 +16,8 @@ import { StudioFlat, StudioFrame } from './StudioFallback'
 const TAPE = 0xffc83d
 const FOV = 30
 const ROTATE_STEP = Math.PI / 8
+// One revolution in 14 seconds for the read-only turntable.
+const SPIN_RAD_PER_S = (Math.PI * 2) / 14
 // A solid canvas backing and a muted-text outline keep the arrows 3:1 against both the chrome body and the page in either theme.
 const ROTATE_BUTTON =
   'font-ui flex size-11 cursor-pointer items-center justify-center rounded-xl border-2 border-fg-muted bg-canvas/85 text-fg backdrop-blur-sm hover:border-fg hover:bg-canvas'
@@ -28,6 +30,10 @@ interface BodyStudioProps {
   /** The field being measured, or null for the whole body. */
   focus: Field | null
   reduced: boolean
+  /** Turn the body continuously about its vertical axis. Ignored under reduced motion, and paused off screen. */
+  autoRotate?: boolean
+  /** Show the rotate buttons. Off for a read-only view. */
+  controls?: boolean
   className?: string
 }
 
@@ -52,18 +58,18 @@ interface Scene3D {
  * The avatar. One WebGL context for the whole setup: it is driven by props and swaps geometry when the model changes.
  * A flat silhouette with a band takes over if WebGL is unavailable, lost, or the model fails to load.
  */
-export function BodyStudio({ model, build, cm, focus, reduced, className = '' }: BodyStudioProps) {
+export function BodyStudio({ model, build, cm, focus, reduced, autoRotate = false, controls = true, className = '' }: BodyStudioProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const ctx = useRef<Scene3D | null>(null)
-  const latest = useRef({ model, build, cm, focus, reduced })
+  const latest = useRef({ model, build, cm, focus, reduced, autoRotate })
   const [unavailable, setUnavailable] = useState(false)
   const [load, setLoad] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
-    latest.current = { model, build, cm, focus, reduced }
+    latest.current = { model, build, cm, focus, reduced, autoRotate }
     ctx.current?.deform()
-  }, [model, build, cm, focus, reduced])
+  }, [model, build, cm, focus, reduced, autoRotate])
 
   useEffect(() => {
     const host = hostRef.current
@@ -145,9 +151,21 @@ export function BodyStudio({ model, build, cm, focus, reduced, className = '' }:
     let deforming = false
     let disposed = false
 
-    function render() {
+    let last = 0
+    function render(now: number) {
       frame = 0
-      if (disposed || !visible || document.hidden || !dirty) return
+      if (disposed || !visible || document.hidden) {
+        last = 0
+        return
+      }
+      // The turntable keeps itself going while it can be seen; every other use renders on demand only.
+      const spin = latest.current.autoRotate && !latest.current.reduced
+      if (spin) {
+        azimuth += last ? (Math.min(now - last, 100) / 1000) * SPIN_RAD_PER_S : 0
+        last = now
+        dirty = true
+      } else last = 0
+      if (!dirty) return
       dirty = false
       if (deforming) deformNow()
       pivot.rotation.y = azimuth
@@ -155,6 +173,7 @@ export function BodyStudio({ model, build, cm, focus, reduced, className = '' }:
       camera.position.set(0, view.y + view.dist * 0.16, view.dist)
       camera.lookAt(0, view.y, 0)
       renderer.render(scene, camera)
+      if (spin && !frame) frame = requestAnimationFrame(render)
     }
     const invalidate = () => {
       dirty = true
@@ -408,7 +427,7 @@ export function BodyStudio({ model, build, cm, focus, reduced, className = '' }:
           Measuring {SPECS[focus].label.toLowerCase()}
         </p>
       )}
-      {!flat && (
+      {!flat && controls && (
         <div className="absolute inset-x-0 bottom-3 flex justify-center gap-3">
           {([-1, 1] as const).map((dir) => (
             <Tooltip key={dir} label={dir < 0 ? 'Turn left' : 'Turn right'}>

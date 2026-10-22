@@ -5,6 +5,7 @@ import { AddressForm } from '../address/AddressForm'
 import { AlertIcon } from '../form/icons'
 import { useToast } from '../toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
+import { IconEditButton } from '../ui/IconEditButton'
 import { Modal } from '../ui/Modal'
 import { PROFILE_CARD } from './ProfileSkeleton'
 
@@ -54,10 +55,15 @@ export function DeliveryAddress() {
   }, [address])
 
   return (
-    <section aria-labelledby={headingId} className={`${PROFILE_CARD} mt-6`}>
-      <h2 id={headingId} className="display text-xl text-fg">
-        Delivery address
-      </h2>
+    <section aria-labelledby={headingId} className={`${PROFILE_CARD} w-full max-w-sm sm:aspect-square`}>
+      <div className="flex items-start justify-between gap-3">
+        <h2 id={headingId} className="display text-xl text-fg">
+          Delivery address
+        </h2>
+        {address && (
+          <IconEditButton ref={editButton} label="Edit address" onClick={() => setEditing(true)} className="-mt-2 -mr-2" />
+        )}
+      </div>
 
       {state.status === 'loading' && (
         <div role="status" aria-label="Loading your delivery address" className="mt-4 animate-pulse">
@@ -111,9 +117,6 @@ export function DeliveryAddress() {
             ))}
           </address>
           <p className="mt-2 text-sm text-fg-muted">Saved on this device only.</p>
-          <button ref={editButton} type="button" onClick={() => setEditing(true)} className={`${SECONDARY_BUTTON} mt-4`}>
-            Edit address
-          </button>
         </>
       )}
 

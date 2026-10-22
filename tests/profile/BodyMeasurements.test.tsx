@@ -9,6 +9,30 @@ import { fetchMe, type Me } from '../../src/service/fetchMe'
 import { clearSession, setSession } from '../../src/service/session'
 import { ProfilePage } from '../../src/views/private/ProfilePage'
 
+const motion = vi.hoisted(() => ({ reduced: false, crash: false }))
+vi.mock('motion/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('motion/react')>()),
+  useReducedMotion: () => motion.reduced,
+}))
+// The WebGL studio is replaced by a stub that shows the props the card hands it.
+vi.mock('../../src/components/body-setup/BodyStudio', () => ({
+  BodyStudio: (props: { model: string; build: string | null; cm: object; focus: string | null; reduced: boolean; autoRotate?: boolean; controls?: boolean }) => {
+    if (motion.crash) throw new Error('studio chunk failed')
+    return (
+      <div
+        role="group"
+        aria-label="3D body preview"
+        data-testid="studio"
+        data-model={props.model}
+        data-build={props.build ?? ''}
+        data-focus={props.focus ?? ''}
+        data-auto-rotate={String(props.autoRotate)}
+        data-controls={String(props.controls)}
+        data-cm={JSON.stringify(props.cm)}
+      />
+    )
+  },
+}))
 vi.mock('../../src/service/fetchMe', async (original) => ({
   ...(await original<typeof import('../../src/service/fetchMe')>()),
   fetchMe: vi.fn(),
@@ -59,6 +83,7 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
 })
 beforeEach(() => {
+  motion.reduced = motion.crash = false
   localStorage.clear()
   act(() => setSession({ name: 'Anne Santos', email: ME.email }))
   vi.mocked(fetchMe).mockResolvedValue(ME)
@@ -125,6 +150,56 @@ describe('Profile body measurements', () => {
     expect(body.queryByRole('link', { name: 'Add your measurements' })).not.toBeInTheDocument()
     await user.click(body.getByRole('link', { name: 'Edit measurements' }))
     expect(screen.getByTestId('where')).toHaveTextContent('/profile/measurements')
+  })
+
+  it('puts the Edit measurements pencil link on the card, only when something is saved', async () => {
+    getProfile.mockResolvedValue(FEMALE)
+    renderPage()
+    const body = await section()
+    const edit = await body.findByRole('link', { name: 'Edit measurements' })
+    expect(edit).toHaveAttribute('href', '/profile/measurements')
+    expect(edit).not.toHaveTextContent(/\w/)
+  })
+
+  it('shows the saved avatar, turning on its own with no rotate controls', async () => {
+    getProfile.mockResolvedValue(FEMALE)
+    renderPage()
+    const body = await section()
+    const studio = await body.findByTestId('studio')
+    expect(studio).toHaveAttribute('data-model', 'female')
+    expect(studio).toHaveAttribute('data-build', 'skinny_fat')
+    expect(studio).toHaveAttribute('data-focus', '')
+    expect(studio).toHaveAttribute('data-auto-rotate', 'true')
+    expect(studio).toHaveAttribute('data-controls', 'false')
+    expect(JSON.parse(studio.dataset.cm!)).toMatchObject({ height: 165.5, weight: 58, waist: 66 })
+  })
+
+  it('keeps the avatar still for a visitor who prefers reduced motion', async () => {
+    motion.reduced = true
+    getProfile.mockResolvedValue(FEMALE)
+    renderPage()
+    expect(await (await section()).findByTestId('studio')).toHaveAttribute('data-auto-rotate', 'false')
+  })
+
+  it('keeps the measurements and the pencil when the avatar cannot load, with a way to retry', async () => {
+    motion.crash = true
+    getProfile.mockResolvedValue(FEMALE)
+    const user = userEvent.setup({ delay: null })
+    renderPage()
+    const body = await section()
+    expect(await body.findByText('165.5 cm')).toBeInTheDocument()
+    expect(await body.findByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(body.getByRole('link', { name: 'Edit measurements' })).toBeInTheDocument()
+    motion.crash = false
+    await user.click(body.getByRole('button', { name: 'Try again' }))
+    expect(await body.findByTestId('studio')).toBeInTheDocument()
+  })
+
+  it('does not draw an avatar when nothing is saved', async () => {
+    renderPage()
+    const body = await section()
+    await body.findByText(/You have not saved any measurements yet/)
+    expect(body.queryByTestId('studio')).not.toBeInTheDocument()
   })
 
   it('hides bust for a male profile even if the server sent one', async () => {

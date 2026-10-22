@@ -8,6 +8,7 @@ import { FloatingField } from '../../components/form/FloatingField'
 import { AlertIcon, SpinnerIcon } from '../../components/form/icons'
 import { SHOP_PRIMARY } from '../../components/shop/shopControls'
 import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
+import { IconEditButton } from '../../components/ui/IconEditButton'
 import { DEFAULT_COUNTRY_CODE, findCountry } from '../../data/countries'
 import { lineKey, useCart } from '../../hooks/useCart'
 import { useCurrentUser, type CurrentUser } from '../../hooks/useCurrentUser'
@@ -121,13 +122,7 @@ function ItemRow({ item, change }: { item: CheckoutItem; change: boolean }) {
         {/* Wraps instead of overflowing: a sale piece shows two prices, and quantities make them long. */}
         <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           {change ? (
-            <Link
-              to={`/shop?item=${product.id}&action=buy`}
-              aria-label={`Change options for ${product.name}`}
-              className="tap text-sm font-medium text-fg underline underline-offset-2 hover:text-chrome-strong"
-            >
-              Change
-            </Link>
+            <IconEditButton to={`/shop?item=${product.id}&action=buy`} label={`Change options for ${product.name}`} hint="Change options" />
           ) : (
             <span />
           )}
@@ -352,19 +347,17 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           </div>
         )}
         <section aria-labelledby="checkout-items" data-tour="checkout-items" className={SECTION}>
-          <h2 id="checkout-items" className="display text-xl text-fg">
-            Your order
-          </h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="checkout-items" className="display text-xl text-fg">
+              Your order
+            </h2>
+            {fromCart && <IconEditButton to="/cart" label="Edit cart" className="-mr-2" />}
+          </div>
           <ul className="mt-4 space-y-4">
             {items.map((item) => (
               <ItemRow key={`${item.product.id}|${item.size}|${item.color}`} item={item} change={!fromCart && items.length === 1} />
             ))}
           </ul>
-          {fromCart && (
-            <Link to="/cart" className="tap mt-3 text-sm font-medium text-fg underline underline-offset-2 hover:text-chrome-strong">
-              Edit cart
-            </Link>
-          )}
         </section>
 
         <section data-tour="checkout-fulfilment" className={SECTION}>

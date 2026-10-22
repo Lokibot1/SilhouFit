@@ -164,8 +164,12 @@ export function ProfilePage() {
           </button>
         </div>
       </section>
-      {me.role === 'customer' && <DeliveryAddress />}
-      {me.role === 'customer' && <BodyMeasurements />}
+      {me.role === 'customer' && (
+        <div className="mt-6 grid gap-6 lg:grid-cols-[24rem_minmax(0,1fr)] lg:items-start">
+          <DeliveryAddress />
+          <BodyMeasurements />
+        </div>
+      )}
     </div>
   )
 }
