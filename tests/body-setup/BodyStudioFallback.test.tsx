@@ -27,6 +27,7 @@ vi.mock('../../src/service/bodyProfile', async (original) => ({
   ...(await original<typeof import('../../src/service/bodyProfile')>()),
   getBodyProfile: vi.fn().mockResolvedValue(null),
   saveBodyProfile: vi.fn(),
+  saveGender: vi.fn().mockResolvedValue(undefined),
 }))
 
 beforeAll(() => {

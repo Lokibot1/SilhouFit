@@ -26,7 +26,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOnboarding } from '../../hooks/useOnboarding'
-import { BodyProfileError, getBodyProfile, saveBodyProfile, type BodyProfileErrorKind } from '../../service/bodyProfile'
+import { BodyProfileError, getBodyProfile, saveBodyProfile, saveGender, type BodyProfileErrorKind } from '../../service/bodyProfile'
 
 // Three.js stays out of every other chunk: the studio loads here, and its import starts as soon as the page mounts.
 const loadStudio = () => import('../../components/body-setup/BodyStudio').then((m) => ({ default: m.BodyStudio }))
@@ -249,6 +249,8 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
       setPending(false)
       return
     }
+    // The measurements are already safe: a failure here only leaves gender unset, and the next finish tries again.
+    if (model) await saveGender(model).catch(() => {})
     clearBodyDraft()
     toast.show({ kind: 'success', message: 'Measurements saved. SilhouFit can now recommend sizes.' })
     if (inTour) onFinished()

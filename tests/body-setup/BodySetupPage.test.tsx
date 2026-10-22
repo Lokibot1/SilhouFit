@@ -7,7 +7,7 @@ import { loadDraft, newDraft, saveDraft } from '../../src/components/body-setup/
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { resetTour, useOnboarding } from '../../src/hooks/useOnboarding'
 import { getAddress, saveAddress, type SavedAddress } from '../../src/service/address'
-import { BodyProfileError, getBodyProfile, saveBodyProfile, type BodyProfile } from '../../src/service/bodyProfile'
+import { BodyProfileError, getBodyProfile, saveBodyProfile, saveGender, type BodyProfile } from '../../src/service/bodyProfile'
 import { clearSession, setSession } from '../../src/service/session'
 import { BodySetupPage } from '../../src/views/private/BodySetupPage'
 
@@ -49,6 +49,7 @@ vi.mock('../../src/service/bodyProfile', async (original) => ({
   ...(await original<typeof import('../../src/service/bodyProfile')>()),
   getBodyProfile: vi.fn(),
   saveBodyProfile: vi.fn(),
+  saveGender: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.setConfig({ testTimeout: 60000 }) // step-by-step flows re-render the whole page on every click; slow when the suite runs in parallel
@@ -255,6 +256,7 @@ describe('BodySetupPage flow', () => {
     await waitFor(() => expect(save).toHaveBeenCalled())
     expect(save.mock.calls[0][0]).toMatchObject({ heightCm: 165, armLengthCm: 58, bustCm: null, bodyModel: 'female' })
     expect(save.mock.calls[0][0]).not.toHaveProperty('sleeveLengthCm')
+    expect(saveGender).toHaveBeenCalledWith('female')
   })
 
   it('does not let the user past the model step until one is chosen', async () => {
