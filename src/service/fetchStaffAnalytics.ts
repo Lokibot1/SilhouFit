@@ -96,7 +96,7 @@ interface MonthOrder extends LoggedOrder {
   date: string
   /** Unique across months (order ids restart every month), for counting orders over several months. */
   key: string
-  lines: { productId: string; name: string; category: string; units: number; usedAr: boolean }[]
+  lines: { productId: string; name: string; category: string; units: number; price: number; usedAr: boolean }[]
 }
 
 interface Month {
@@ -312,4 +312,47 @@ export async function fetchOrderLog({ signal, delayMs = 1000, limit = 48 }: Requ
     .orders.slice(-limit)
     .reverse()
     .map(({ orderId, customerName, placedAt, itemCount, total }) => ({ orderId, customerName, placedAt, itemCount, total }))
+}
+
+export interface HistoryOrder extends LoggedOrder {
+  /** YYYY-MM-DD in Asia/Manila. */
+  date: string
+  lines: { productId: string; name: string; category: string; units: number; price: number }[]
+}
+
+/**
+ * Every order of the last 12 months (this month up to now), oldest first, for the Transactions page. The current month is the
+ * dashboard's own order log. Order numbers restart every month in the generator, so earlier months are numbered backwards from
+ * SF-10001 and every number in the history is unique.
+ */
+export function buildOrderHistory(): HistoryOrder[] {
+  const now = manilaToday()
+  const currentKey = now.date.slice(0, 7)
+  let firstKey = currentKey
+  for (let n = 0; n < 11; n++) firstKey = previousMonth(firstKey)
+  const months = new Map<string, MonthOrder[]>()
+  for (const order of ordersFor({ start: `${firstKey}-01`, end: now.date })) {
+    const key = order.date.slice(0, 7)
+    months.set(key, [...(months.get(key) ?? []), order])
+  }
+  // Newest month first, so each earlier month ends where the one after it begins.
+  const firstNo = new Map<string, number>()
+  let next = 10001
+  for (const [key, orders] of [...months].sort(([a], [b]) => (a < b ? 1 : -1))) {
+    if (key !== currentKey) next -= orders.length
+    firstNo.set(key, key === currentKey ? 10001 : next)
+  }
+  return [...months]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .flatMap(([key, orders]) =>
+      orders.map(({ customerName, placedAt, itemCount, total, date, lines }, i) => ({
+        orderId: `SF-${firstNo.get(key)! + i}`,
+        customerName,
+        placedAt,
+        itemCount,
+        total,
+        date,
+        lines: lines.map(({ productId, name, category, units, price }) => ({ productId, name, category, units, price })),
+      })),
+    )
 }

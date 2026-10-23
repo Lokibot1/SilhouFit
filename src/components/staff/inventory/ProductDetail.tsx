@@ -50,7 +50,7 @@ function CopyIcon() {
   )
 }
 
-function CopyId({ id }: { id: string }) {
+export function CopyId({ id, what = 'product' }: { id: string; what?: string }) {
   const toast = useToast()
   async function copy() {
     try {
@@ -65,7 +65,7 @@ function CopyId({ id }: { id: string }) {
       <button
         type="button"
         onClick={copy}
-        aria-label="Copy product ID"
+        aria-label={`Copy ${what} ID`}
         className="-m-1 flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg-muted hover:text-fg pointer-coarse:size-11"
       >
         <CopyIcon />

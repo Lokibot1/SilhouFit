@@ -100,7 +100,8 @@ describe('StaffLayout', () => {
       expect(await screen.findByText('dashboard page')).toBeInTheDocument()
       expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
       expect(screen.getByRole('link', { name: 'Inventory' })).toHaveAttribute('href', '/staff/inventory')
-      expect(screen.getByRole('link', { name: /Transactions/ })).toHaveAttribute('aria-disabled', 'true')
+      expect(screen.getByRole('link', { name: 'Transactions' })).toHaveAttribute('href', '/staff/transactions')
+      expect(screen.getByRole('link', { name: /Online Orders/ })).toHaveAttribute('aria-disabled', 'true')
     })
 
     it('offers a retry when the profile fails to load', async () => {

@@ -26,3 +26,19 @@ export const formatOrderTime = (iso: string) =>
     minute: '2-digit',
     hour12: true,
   })
+
+const PLACED_AT = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Manila',
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+})
+
+/** An ISO time as Manila store time in 12-hour form, with the year: "Oct 22, 2026, 3:45 PM". */
+export const formatPlacedAt = (iso: string) => PLACED_AT.format(new Date(iso))
+
+/** 1 -> "1 item", 3 -> "3 items". */
+export const itemsLabel = (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`
