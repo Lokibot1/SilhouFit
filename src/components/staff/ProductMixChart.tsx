@@ -1,10 +1,12 @@
 import { motion } from 'motion/react'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useReveal } from '../../hooks/useReveal'
 import { useSection } from '../../hooks/useSection'
 import { DURATION, EASE_OUT, staggerDelay } from '../../motion/tokens'
 import { fetchProductMix, type ProductMixItem } from '../../service/fetchStaffAnalytics'
+import type { RequestOptions } from '../../service/simulateRequest'
 import { donutSegments } from '../../utils/chartPath'
+import { defaultFilter, describe, resolvePeriod } from '../../utils/period'
 import { EmptyNote, SectionBody, StaffSection } from './StaffSection'
 import { DONUT_SIZE, DonutSkeleton, LEGEND_LIST } from './StaffSkeleton'
 
@@ -13,18 +15,26 @@ const SWATCH = ['bg-chart-1', 'bg-chart-2', 'bg-chart-3', 'bg-chart-4', 'bg-char
 const STROKE = ['stroke-chart-1', 'stroke-chart-2', 'stroke-chart-3', 'stroke-chart-4', 'stroke-chart-5', 'stroke-chart-other']
 const SLICES = 5
 
-/** Units sold this month by category, as a donut with a legend. */
+/** Units sold by category over the chosen period, as a donut with a legend. */
 export function ProductMixChart() {
-  const section = useSection(fetchProductMix)
+  const [filter, setFilter] = useState(defaultFilter)
+  const { period, year } = filter
+  const fetcher = useCallback((options: RequestOptions) => fetchProductMix({ ...options, filter: { period, year } }), [period, year])
+  const section = useSection(fetcher)
 
   return (
-    <StaffSection id="product-mix" title="Products sold" description="Units by category this month">
+    <StaffSection
+      id="product-mix"
+      title="Products sold"
+      description={describe(filter, 'Units by category')}
+      filter={{ name: 'Products sold', value: filter, onChange: setFilter }}
+    >
       <SectionBody section={section} what="the products sold" skeleton={<DonutSkeleton />}>
         {(mix) =>
           mix.length === 0 ? (
-            <EmptyNote>No products sold yet this month. The mix shows here once the first order is placed.</EmptyNote>
+            <EmptyNote>No products sold {resolvePeriod(filter).when}. The mix shows here once the first order is placed.</EmptyNote>
           ) : (
-            <DonutFigure mix={mix} />
+            <DonutFigure key={`${period}-${year}`} mix={mix} />
           )
         }
       </SectionBody>

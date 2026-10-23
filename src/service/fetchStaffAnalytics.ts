@@ -1,14 +1,18 @@
 import { LOW_STOCK, PRODUCTS } from '../data/products'
+import { addDays, defaultFilter, manilaToday, mondayOf, resolvePeriod, resolveSalesWindow, type Granularity, type PeriodFilterValue } from '../utils/period'
 import { simulateRequest, type RequestOptions } from './simulateRequest'
 
 // Stand-in for the analytics endpoints behind the staff dashboard. Nothing on the backend can answer these yet:
 // it has no Order, OrderItem or AR fitting event models. Swap each function for its call when they exist
 // (month is YYYY-MM, in Asia/Manila):
 //   fetchStaffSummary  -> GET /analytics/summary?month=YYYY-MM
-//   fetchSalesSeries   -> GET /analytics/sales?from=&to=&interval=day
-//   fetchProductMix    -> GET /analytics/product-mix?month=
-//   fetchTrendingItems -> GET /analytics/trending?month=&limit=5 (per item: category, orders, stock, arConversion)
+//   fetchSalesSeries   -> GET /analytics/sales?interval=day|week|month|quarter|year&year=YYYY
+//     (the server returns the buckets inside the year; interval=year returns that year and the two before it)
+//   fetchProductMix    -> GET /analytics/product-mix?period=&year=&from=&to=
+//   fetchTrendingItems -> GET /analytics/trending?period=&year=&from=&to=&limit=5 (per item: category, orders, stock, arConversion)
 //   fetchOrderLog      -> GET /orders?limit=&sort=-placedAt
+// The three charts take a per-card filter. On Products sold and Trendy items, from and to are inclusive dates in Asia/Manila, resolved from period and
+// year by the shared client helper (utils/period).
 // Until then the figures are generated from the month, so a given month always shows the same numbers.
 
 /** True while the figures are placeholders; the dashboard says so. Set to false when the real endpoints are wired. */
@@ -38,7 +42,7 @@ export interface TrendingItem {
   productId: string
   name: string
   category: string
-  /** Orders this month that contain the item. An order counts once, however many pieces it has. */
+  /** Orders in the period that contain the item. An order counts once, however many pieces it has. */
   orders: number
   /** Pieces on hand now. */
   stock: number
@@ -80,16 +84,12 @@ function mulberry32(seed: number) {
 }
 const seedOf = (text: string) => [...text].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0
 
-/** Now in Asia/Manila (no daylight saving). */
-function manilaNow(now: Date) {
-  const stamp = now.toLocaleString('sv-SE', { timeZone: 'Asia/Manila' }) // "2026-10-22 15:45:12"
-  return { date: stamp.slice(0, 10), minutes: Number(stamp.slice(11, 13)) * 60 + Number(stamp.slice(14, 16)) }
-}
-
 const pad = (n: number) => String(n).padStart(2, '0')
 
 interface MonthOrder extends LoggedOrder {
   date: string
+  /** Unique across months (order ids restart every month), for counting orders over several months. */
+  key: string
   lines: { productId: string; name: string; category: string; units: number; usedAr: boolean }[]
 }
 
@@ -101,11 +101,11 @@ interface Month {
   arUsers: number
 }
 
-/** Every order of the current month up to now, oldest first. All five fetchers read from this. */
-function buildMonth(): Month {
-  const { date: today, minutes: nowMinutes } = manilaNow(new Date())
-  const monthKey = today.slice(0, 7)
-  const dayCount = Number(today.slice(8))
+/**
+ * Every order of one month, oldest first. `lastDay` is how many days to generate; `cutoffMinutes` stops the last
+ * day at that Manila time (null for a full day). A given month always yields the same orders.
+ */
+function buildMonthOrders(monthKey: string, lastDay: number, cutoffMinutes: number | null) {
   const rand = mulberry32(seedOf(monthKey))
   const arRand = mulberry32(seedOf(`${monthKey}-ar`))
   const convRand = mulberry32(seedOf(`${monthKey}-conv`))
@@ -125,7 +125,7 @@ function buildMonth(): Month {
   const days: string[] = []
   const orders: MonthOrder[] = []
   let arUsers = 0
-  for (let day = 1; day <= dayCount; day++) {
+  for (let day = 1; day <= lastDay; day++) {
     const date = `${monthKey}-${pad(day)}`
     days.push(date)
     arUsers += 3 + arRand() * 5
@@ -140,10 +140,11 @@ function buildMonth(): Month {
         const usedAr = convRand() < rateOf(product.id) && product.arReady
         return { productId: product.id, name: product.name, category: product.category, units: rand() < 0.8 ? 1 : 2, price: product.salePrice ?? product.price, usedAr }
       })
-      // Today's orders stop at the current time.
-      if (date === today && minute > nowMinutes) continue
+      // The last day's orders stop at the cutoff (today: the current time).
+      if (day === lastDay && cutoffMinutes !== null && minute > cutoffMinutes) continue
       dayOrders.push({
         orderId: '',
+        key: '',
         customerName,
         placedAt: new Date(`${date}T${pad(Math.floor(minute / 60))}:${pad(minute % 60)}:00+08:00`).toISOString(),
         itemCount: lines.reduce((sum, l) => sum + l.units, 0),
@@ -154,10 +155,44 @@ function buildMonth(): Month {
     }
     orders.push(...dayOrders.sort((a, b) => a.placedAt.localeCompare(b.placedAt)))
   }
-  orders.forEach((order, i) => (order.orderId = `SF-${10001 + i}`))
+  orders.forEach((order, i) => {
+    order.orderId = `SF-${10001 + i}`
+    order.key = `${monthKey}:${order.orderId}`
+  })
 
+  return { days, orders, arUsers }
+}
+
+/** Every order of the current month up to now, oldest first. The summary and the order log read from this. */
+function buildMonth(): Month {
+  const { date: today, minutes } = manilaToday()
+  const monthKey = today.slice(0, 7)
+  const { days, orders, arUsers } = buildMonthOrders(monthKey, Number(today.slice(8)), minutes)
   const empty = failParam() === 'empty'
   return { today, start: `${monthKey}-01`, days, orders: empty ? [] : orders, arUsers: empty ? 0 : Math.round(arUsers * 0.75) }
+}
+
+const nextMonth = (key: string) => (key.endsWith('-12') ? `${Number(key.slice(0, 4)) + 1}-01` : `${key.slice(0, 5)}${pad(Number(key.slice(5)) + 1)}`)
+
+// A finished month never changes, so it is built once.
+const pastMonths = new Map<string, MonthOrder[]>()
+
+/** The orders dated inside the period, oldest first, across as many months as it spans. */
+function ordersFor(period: { start: string; end: string }): MonthOrder[] {
+  if (failParam() === 'empty' || period.end < period.start) return []
+  const now = manilaToday()
+  const currentKey = now.date.slice(0, 7)
+  const found: MonthOrder[] = []
+  for (let key = period.start.slice(0, 7); key <= period.end.slice(0, 7); key = nextMonth(key)) {
+    let orders = pastMonths.get(key)
+    if (key === currentKey) orders = buildMonthOrders(key, Number(now.date.slice(8)), now.minutes).orders
+    else if (!orders) {
+      orders = buildMonthOrders(key, new Date(Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5)), 0)).getUTCDate(), null).orders
+      pastMonths.set(key, orders)
+    }
+    found.push(...orders.filter((order) => order.date >= period.start && order.date <= period.end))
+  }
+  return found
 }
 
 export async function fetchStaffSummary({ signal, delayMs = 600 }: RequestOptions = {}): Promise<StaffSummary> {
@@ -173,32 +208,57 @@ export async function fetchStaffSummary({ signal, delayMs = 600 }: RequestOption
   }
 }
 
-/** One entry per day from the 1st to today, zero on days without orders. */
-export async function fetchSalesSeries({ signal, delayMs = 900 }: RequestOptions = {}): Promise<SalesDay[]> {
-  await respond('sales', signal, delayMs)
-  const month = buildMonth()
-  const totals = new Map<string, number>()
-  for (const order of month.orders) totals.set(order.date, (totals.get(order.date) ?? 0) + order.total)
-  return month.days.map((date) => ({ date, total: totals.get(date) ?? 0 }))
+type FilterOptions = RequestOptions & { filter?: PeriodFilterValue }
+
+const max = (a: string, b: string) => (a > b ? a : b)
+
+/** The start of the bucket holding `date`; a week is clipped to the window's start. */
+function bucketOf(date: string, granularity: Granularity, start: string) {
+  switch (granularity) {
+    case 'day':
+      return date
+    case 'week':
+      return max(mondayOf(date), start)
+    case 'month':
+      return `${date.slice(0, 7)}-01`
+    case 'quarter':
+      return `${date.slice(0, 4)}-${pad(Math.floor((Number(date.slice(5, 7)) - 1) / 3) * 3 + 1)}-01`
+    case 'year':
+      return `${date.slice(0, 4)}-01-01`
+  }
 }
 
-/** Units per category, largest first. */
-export async function fetchProductMix({ signal, delayMs = 750 }: RequestOptions = {}): Promise<ProductMixItem[]> {
+/** Sales per day, week, month, quarter or year, as the filter says; zero where nothing sold. Each entry is dated by its bucket's start. */
+export async function fetchSalesSeries({ signal, delayMs = 900, filter = defaultFilter() }: FilterOptions = {}): Promise<SalesDay[]> {
+  await respond('sales', signal, delayMs)
+  const span = resolveSalesWindow(filter)
+  // Every bucket of the span, in order, so quiet ones show as zero.
+  const totals = new Map<string, number>()
+  for (let date = span.start; date <= span.end; date = addDays(date, 1)) totals.set(bucketOf(date, span.granularity, span.start), 0)
+  for (const order of ordersFor(span)) {
+    const bucket = bucketOf(order.date, span.granularity, span.start)
+    totals.set(bucket, totals.get(bucket)! + order.total)
+  }
+  return [...totals].map(([date, total]) => ({ date, total }))
+}
+
+/** Units per category over the period, largest first. */
+export async function fetchProductMix({ signal, delayMs = 750, filter = defaultFilter() }: FilterOptions = {}): Promise<ProductMixItem[]> {
   await respond('mix', signal, delayMs)
   const units = new Map<string, number>()
-  for (const order of buildMonth().orders) for (const line of order.lines) units.set(line.category, (units.get(line.category) ?? 0) + line.units)
+  for (const order of ordersFor(resolvePeriod(filter))) for (const line of order.lines) units.set(line.category, (units.get(line.category) ?? 0) + line.units)
   return [...units].map(([category, count]) => ({ category, units: count })).sort((a, b) => b.units - a.units)
 }
 
-/** The five most ordered products this month, by the orders that contain them. */
-export async function fetchTrendingItems({ signal, delayMs = 850 }: RequestOptions = {}): Promise<TrendingItem[]> {
+/** The five most ordered products over the period, by the orders that contain them. */
+export async function fetchTrendingItems({ signal, delayMs = 850, filter = defaultFilter() }: FilterOptions = {}): Promise<TrendingItem[]> {
   await respond('trending', signal, delayMs)
   const tally = new Map<string, { name: string; category: string; orders: Set<string>; arOrders: Set<string> }>()
-  for (const order of buildMonth().orders) {
+  for (const order of ordersFor(resolvePeriod(filter))) {
     for (const line of order.lines) {
       const entry = tally.get(line.productId) ?? { name: line.name, category: line.category, orders: new Set<string>(), arOrders: new Set<string>() }
-      entry.orders.add(order.orderId)
-      if (line.usedAr) entry.arOrders.add(order.orderId)
+      entry.orders.add(order.key)
+      if (line.usedAr) entry.arOrders.add(order.key)
       tally.set(line.productId, entry)
     }
   }

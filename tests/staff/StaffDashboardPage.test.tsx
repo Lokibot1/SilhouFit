@@ -1,10 +1,11 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Me } from '../../src/service/fetchMe'
 import * as analytics from '../../src/service/fetchStaffAnalytics'
+import { defaultFilter, describe as describePeriod } from '../../src/utils/period'
 import { StaffDashboardPage } from '../../src/views/staff/StaffDashboardPage'
 
 vi.mock('../../src/service/fetchStaffAnalytics', async (importOriginal) => ({
@@ -42,9 +43,9 @@ beforeAll(() => {
 beforeEach(() => {
   vi.mocked(analytics.fetchStaffSummary).mockResolvedValue({ arSessions: 37, salesTotal: 482350, orderCount: 96, unitsSold: 214, periodStart: '2026-10-01', periodEnd: '2026-10-22' })
   vi.mocked(analytics.fetchSalesSeries).mockResolvedValue([
-    { date: '2026-10-20', total: 1000 },
-    { date: '2026-10-21', total: 4000 },
-    { date: '2026-10-22', total: 2500 },
+    { date: '2026-08-01', total: 1000 },
+    { date: '2026-09-01', total: 4000 },
+    { date: '2026-10-01', total: 2500 },
   ])
   vi.mocked(analytics.fetchProductMix).mockResolvedValue([
     { category: 'Tops', units: 60 },
@@ -78,7 +79,7 @@ describe('StaffDashboardPage', () => {
     expect(await screen.findByText('Tried AR Fitting')).toBeInTheDocument()
     expect(await screen.findByText('37', { selector: '.sr-only' })).toBeInTheDocument()
     expect(await screen.findByText('₱482,350', { selector: '.sr-only' })).toBeInTheDocument()
-    expect(await screen.findByRole('img', { name: /Daily sales, October 20 to 22\. Peak ₱4,000 on Oct 21; total ₱7,500\./ })).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: /Monthly sales, 2026 so far\. Peak ₱4,000 in September 2026; total ₱7,500\./ })).toBeInTheDocument()
     expect((await screen.findAllByText('Tops')).length).toBeGreaterThan(0)
     expect(screen.getByText('60%')).toBeInTheDocument()
     expect(screen.getByText('Washed Black Tee')).toBeInTheDocument()
@@ -115,9 +116,9 @@ describe('StaffDashboardPage', () => {
     renderPage()
     await screen.findByRole('list', { description: 'Newest first' })
     for (const [title, text] of [
-      ['Sales this month', 'Daily totals since the 1st'],
-      ['Products sold', 'Units by category this month'],
-      ['Trendy items', 'Most ordered items this month'],
+      ['Sales', 'Monthly totals · 2026 so far'],
+      ['Products sold', describePeriod(defaultFilter(), 'Units by category')],
+      ['Trendy items', describePeriod(defaultFilter(), 'Most ordered items')],
       ['Recent orders', 'Newest first'],
     ]) {
       const heading = screen.getByRole('heading', { name: title })
@@ -138,9 +139,9 @@ describe('StaffDashboardPage', () => {
     expect(row).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('offers the daily values as a table', async () => {
+  it('offers the monthly values as a table', async () => {
     renderPage()
-    const table = await screen.findByRole('table', { name: /Daily sales/, hidden: true })
+    const table = await screen.findByRole('table', { name: /Monthly sales/, hidden: true })
     expect(within(table).getAllByRole('row', { hidden: true })).toHaveLength(4)
   })
 
@@ -150,7 +151,7 @@ describe('StaffDashboardPage', () => {
     expect(await screen.findByText("We couldn't load the sales chart.")).toBeInTheDocument()
     expect(await screen.findByText('Washed Black Tee')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(await screen.findByRole('img', { name: /Daily sales/ })).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: /Monthly sales/ })).toBeInTheDocument()
   })
 
   it('shows an empty state with a next step when there are no orders', async () => {
@@ -159,7 +160,72 @@ describe('StaffDashboardPage', () => {
     vi.mocked(analytics.fetchTrendingItems).mockResolvedValue([])
     vi.mocked(analytics.fetchOrderLog).mockResolvedValue([])
     renderPage()
-    expect(await screen.findByText('No orders yet this month. Sales show here once the first order is placed.')).toBeInTheDocument()
+    expect(await screen.findByText('No orders this year. Sales show here once the first order is placed.')).toBeInTheDocument()
     expect(await screen.findByText(/No orders yet\. Customers who order show here/)).toBeInTheDocument()
+    expect(screen.getByText('No products sold this month. The mix shows here once the first order is placed.')).toBeInTheDocument()
+    expect(screen.getByText('No orders this month. The most ordered items show here once the first order is placed.')).toBeInTheDocument()
+    // The empty cards keep their filters, so another period is one click away.
+    expect(screen.getByRole('radiogroup', { name: 'Sales period' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Trendy items year' })).toBeInTheDocument()
+  })
+
+  describe('period filter', () => {
+    const week = () => within(screen.getByRole('radiogroup', { name: 'Sales period' })).getByRole('radio', { name: 'Week' })
+    const lastFilter = (fetcher: typeof analytics.fetchSalesSeries) => vi.mocked(fetcher).mock.lastCall?.[0]?.filter
+
+    it('filters one card without touching the others', async () => {
+      renderPage()
+      await screen.findByRole('img', { name: /Monthly sales/ })
+      expect(lastFilter(analytics.fetchSalesSeries)).toMatchObject({ period: 'month' })
+      await userEvent.click(week())
+      expect(lastFilter(analytics.fetchSalesSeries)).toMatchObject({ period: 'week' })
+      expect(analytics.fetchSalesSeries).toHaveBeenCalledTimes(2)
+      expect(analytics.fetchProductMix).toHaveBeenCalledTimes(1)
+      expect(analytics.fetchTrendingItems).toHaveBeenCalledTimes(1)
+      expect(await screen.findByRole('img', { name: /Weekly sales/ })).toBeInTheDocument()
+    })
+
+    it('shows a skeleton while loading and keeps the filter in place with its focus', async () => {
+      renderPage()
+      await screen.findByRole('img', { name: /Monthly sales/ })
+      let finish!: (value: { date: string; total: number }[]) => void
+      vi.mocked(analytics.fetchSalesSeries).mockReturnValueOnce(new Promise((resolve) => (finish = resolve)))
+      week().focus()
+      await userEvent.keyboard('{Enter}')
+      expect(screen.getByRole('status', { name: 'Loading sales' })).toBeInTheDocument()
+      expect(screen.queryByRole('img', { name: /Monthly sales/ })).not.toBeInTheDocument()
+      expect(week()).toHaveFocus()
+      expect(week()).toHaveAttribute('aria-checked', 'true')
+      await act(async () => finish([{ date: '2026-10-19', total: 900 }, { date: '2026-10-20', total: 100 }]))
+      expect(await screen.findByRole('img', { name: /Weekly sales/ })).toBeInTheDocument()
+      expect(week()).toHaveFocus()
+    })
+
+    it('shows the error with the filter present, and Retry asks for the same filter again', async () => {
+      renderPage()
+      await screen.findByRole('img', { name: /Monthly sales/ })
+      vi.mocked(analytics.fetchSalesSeries).mockRejectedValueOnce(Object.assign(new Error('x'), { kind: 'network' }))
+      await userEvent.click(week())
+      expect(await screen.findByText("We couldn't load the sales chart.")).toBeInTheDocument()
+      expect(week()).toHaveAttribute('aria-checked', 'true')
+      await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      expect(lastFilter(analytics.fetchSalesSeries)).toMatchObject({ period: 'week' })
+      expect(await screen.findByRole('img', { name: /Weekly sales/ })).toBeInTheDocument()
+    })
+
+    it('discards the answer to an earlier choice when a later one is made', async () => {
+      renderPage()
+      await screen.findByRole('img', { name: /Monthly sales/ })
+      let finishWeek!: (value: { date: string; total: number }[]) => void
+      vi.mocked(analytics.fetchSalesSeries)
+        .mockReturnValueOnce(new Promise((resolve) => (finishWeek = resolve)))
+        .mockResolvedValueOnce([{ date: '2026-10-01', total: 500 }, { date: '2026-10-02', total: 700 }])
+      await userEvent.click(week())
+      await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Sales period' })).getByRole('radio', { name: 'Quarter' }))
+      expect(await screen.findByRole('img', { name: /Peak ₱700/ })).toBeInTheDocument()
+      await act(async () => finishWeek([{ date: '2026-10-19', total: 9999 }]))
+      expect(screen.getByRole('img', { name: /Peak ₱700/ })).toBeInTheDocument()
+      expect(screen.queryByRole('img', { name: /9,999/ })).not.toBeInTheDocument()
+    })
   })
 })

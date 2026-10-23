@@ -1,23 +1,53 @@
 import type { ReactNode } from 'react'
 import type { SectionState } from '../../hooks/useSection'
+import type { PeriodFilterValue } from '../../utils/period'
 import { AlertIcon } from '../form/icons'
 import { SECONDARY_BUTTON } from '../ui/buttonStyles'
+import { FILTER_DESCRIPTION, FILTER_HEAD, PeriodSegments, YearSelect } from './PeriodFilter'
 import { STAFF_SECTION } from './StaffSkeleton'
 
-/** A dashboard card with its own heading, so each section can load, fail and retry on its own. */
-export function StaffSection({ id, title, description, children }: { id: string; title: string; description?: string; children: ReactNode }) {
+/** A dashboard card with its own heading, so each section can load, fail and retry on its own. With `filter` it also carries its own period and year. */
+export function StaffSection({
+  id,
+  title,
+  description,
+  filter,
+  children,
+}: {
+  id: string
+  title: string
+  description?: string
+  filter?: { name: string; value: PeriodFilterValue; onChange: (value: PeriodFilterValue) => void }
+  children: ReactNode
+}) {
+  const heading = (
+    <h2 id={id} className="display text-xl text-fg">
+      {title}
+    </h2>
+  )
   return (
     <section aria-labelledby={id} className={STAFF_SECTION}>
-      <div className="mb-3">
-        <h2 id={id} className="display text-xl text-fg">
-          {title}
-        </h2>
-        {description && (
-          <p id={`${id}-desc`} className="mt-0.5 truncate text-xs leading-4 text-fg-muted">
-            {description}
-          </p>
-        )}
-      </div>
+      {filter ? (
+        <div className={FILTER_HEAD}>
+          {heading}
+          <YearSelect {...filter} />
+          {description && (
+            <p id={`${id}-desc`} className={`${FILTER_DESCRIPTION} truncate text-xs leading-4 text-fg-muted`}>
+              {description}
+            </p>
+          )}
+          <PeriodSegments {...filter} />
+        </div>
+      ) : (
+        <div className="mb-3">
+          {heading}
+          {description && (
+            <p id={`${id}-desc`} className="mt-0.5 truncate text-xs leading-4 text-fg-muted">
+              {description}
+            </p>
+          )}
+        </div>
+      )}
       {children}
     </section>
   )

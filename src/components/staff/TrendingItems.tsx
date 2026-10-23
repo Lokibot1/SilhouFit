@@ -1,24 +1,35 @@
 import { motion } from 'motion/react'
+import { useCallback, useState } from 'react'
 import { useReveal } from '../../hooks/useReveal'
 import { useSection } from '../../hooks/useSection'
 import { DURATION, EASE_OUT, staggerDelay } from '../../motion/tokens'
 import { LOW_STOCK } from '../../data/products'
 import { fetchTrendingItems, type TrendingItem } from '../../service/fetchStaffAnalytics'
+import type { RequestOptions } from '../../service/simulateRequest'
+import { defaultFilter, describe, resolvePeriod } from '../../utils/period'
 import { EmptyNote, SectionBody, StaffSection } from './StaffSection'
 import { BAR_ROW, BarsSkeleton, TREND_ROW } from './StaffSkeleton'
 
-/** The five most ordered products this month, as horizontal bars. */
+/** The five most ordered products over the chosen period, as horizontal bars. */
 export function TrendingItems() {
-  const section = useSection(fetchTrendingItems)
+  const [filter, setFilter] = useState(defaultFilter)
+  const { period, year } = filter
+  const fetcher = useCallback((options: RequestOptions) => fetchTrendingItems({ ...options, filter: { period, year } }), [period, year])
+  const section = useSection(fetcher)
 
   return (
-    <StaffSection id="trending" title="Trendy items" description="Most ordered items this month">
+    <StaffSection
+      id="trending"
+      title="Trendy items"
+      description={describe(filter, 'Most ordered items')}
+      filter={{ name: 'Trendy items', value: filter, onChange: setFilter }}
+    >
       <SectionBody section={section} what="the trendy items" skeleton={<BarsSkeleton />}>
         {(items) =>
           items.length === 0 ? (
-            <EmptyNote>No orders yet this month. The most ordered items show here once the first order is placed.</EmptyNote>
+            <EmptyNote>No orders {resolvePeriod(filter).when}. The most ordered items show here once the first order is placed.</EmptyNote>
           ) : (
-            <BarsFigure items={items} />
+            <BarsFigure key={`${period}-${year}`} items={items} />
           )
         }
       </SectionBody>

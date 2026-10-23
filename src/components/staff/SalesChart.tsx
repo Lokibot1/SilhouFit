@@ -1,32 +1,43 @@
 import { motion } from 'motion/react'
-import { useEffect, useId, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type PointerEvent } from 'react'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useReveal } from '../../hooks/useReveal'
 import { useSection } from '../../hooks/useSection'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { fetchSalesSeries, type SalesDay } from '../../service/fetchStaffAnalytics'
+import type { RequestOptions } from '../../service/simulateRequest'
 import { areaPath, niceCeil, smoothPath } from '../../utils/chartPath'
 import { formatDay, formatPeso, formatPesoCompact, formatPesoWhole } from '../../utils/format'
+import { defaultFilter, describeSales, resolveSalesWindow, SALES_NOUN, type Granularity } from '../../utils/period'
 import { Tooltip } from '../ui/Tooltip'
 import { EmptyNote, SectionBody, StaffSection } from './StaffSection'
-import { CHART_PLOT, SalesSkeleton } from './StaffSkeleton'
+import { AXIS_TWO_LINES, CHART_PLOT, SalesSkeleton } from './StaffSkeleton'
 
 // Percent insets with slack above and below, so the stroke is not clipped at the box edges.
 const CLOSED = 'inset(-5% 100% -5% 0%)'
 const OPEN = 'inset(-5% -2% -5% -2%)'
 
-/** Daily sales this month as a smooth line. */
+/** Sales over the chosen period as a smooth line, with one point per day, week, month, quarter or year, as the filter says. */
 export function SalesChart() {
-  const section = useSection(fetchSalesSeries)
+  const [filter, setFilter] = useState(defaultFilter)
+  const { period, year } = filter
+  const fetcher = useCallback((options: RequestOptions) => fetchSalesSeries({ ...options, filter: { period, year } }), [period, year])
+  const section = useSection(fetcher)
+  const resolved = resolveSalesWindow(filter)
 
   return (
-    <StaffSection id="sales" title="Sales this month" description="Daily totals since the 1st">
-      <SectionBody section={section} what="the sales chart" skeleton={<SalesSkeleton />}>
+    <StaffSection
+      id="sales"
+      title="Sales"
+      description={describeSales(filter)}
+      filter={{ name: 'Sales', value: filter, onChange: setFilter }}
+    >
+      <SectionBody section={section} what="the sales chart" skeleton={<SalesSkeleton twoLineAxis={period === 'quarter'} />}>
         {(series) =>
-          series.every((day) => day.total === 0) ? (
-            <EmptyNote>No orders yet this month. Sales show here once the first order is placed.</EmptyNote>
+          series.every((bucket) => bucket.total === 0) ? (
+            <EmptyNote>No orders {resolved.when}. Sales show here once the first order is placed.</EmptyNote>
           ) : (
-            <SalesFigure series={series} />
+            <SalesFigure key={`${period}-${year}`} series={series} granularity={resolved.granularity} scope={resolved.scope} />
           )
         }
       </SectionBody>
@@ -34,14 +45,30 @@ export function SalesChart() {
   )
 }
 
-/** "Oct 1 to 22" for a run of days in one month. */
-function dayRange(series: SalesDay[], month: 'short' | 'long') {
-  const first = series[0].date
-  const last = series[series.length - 1].date
-  return first === last ? formatDay(first, month) : `${formatDay(first, month)} to ${Number(last.slice(8))}`
+/** A bucket's name: short for the axis and table, fuller for the tooltip, a phrase for sentences. */
+function bucketLabel(date: string, granularity: Granularity, style: 'axis' | 'tip' | 'long') {
+  if (granularity === 'week') return style === 'axis' ? formatDay(date) : style === 'tip' ? `Week of ${formatDay(date)}` : `the week of ${formatDay(date)}`
+  if (granularity === 'month') {
+    return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: style === 'axis' ? 'short' : 'long', year: style === 'long' ? 'numeric' : undefined })
+  }
+  if (granularity === 'quarter') {
+    const quarter = `Q${Math.ceil(Number(date.slice(5, 7)) / 3)}`
+    return style === 'axis' ? quarter : `${quarter} ${date.slice(0, 4)} (${quarterRange(date)})`
+  }
+  if (granularity === 'year') return date.slice(0, 4)
+  return formatDay(date)
 }
 
-function SalesFigure({ series }: { series: SalesDay[] }) {
+/** The months a quarter spans, e.g. "Jan–Mar", from its first day. */
+function quarterRange(date: string) {
+  const month = (m: number) => new Date(Date.UTC(2000, m, 1)).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short' })
+  const first = Math.floor((Number(date.slice(5, 7)) - 1) / 3) * 3
+  return `${month(first)}–${month(first + 2)}`
+}
+
+const FIRST_COLUMN: Record<Granularity, string> = { day: 'Date', week: 'Week of', month: 'Month', quarter: 'Quarter', year: 'Year' }
+
+function SalesFigure({ series, granularity, scope }: { series: SalesDay[]; granularity: Granularity; scope: string }) {
   const { ref, inView, reduced, fade } = useReveal<HTMLElement>()
   const gradient = useId().replace(/:/g, '')
   const wide = useMediaQuery('(min-width: 640px)')
@@ -55,10 +82,11 @@ function SalesFigure({ series }: { series: SalesDay[] }) {
   // A lone day sits in the middle.
   const xOf = (i: number) => (last === 0 ? 50 : (i / last) * 100)
   const points = series.map((day, i) => ({ x: xOf(i), y: 100 - (day.total / top) * 100 }))
-  const summary = (month: 'short' | 'long') =>
-    `Daily sales, ${dayRange(series, month)}. Peak ${formatPesoWhole(peak.total)} on ${formatDay(peak.date)}; total ${formatPesoWhole(total)}.`
+  const heading = `${SALES_NOUN[granularity]} sales, ${scope}`
+  const summary = `${heading}. Peak ${formatPesoWhole(peak.total)} ${granularity === 'day' ? 'on' : 'in'} ${bucketLabel(peak.date, granularity, 'long')}; total ${formatPesoWhole(total)}.`
 
-  const tickCount = Math.min(series.length, wide ? 5 : 3)
+  // A short series (four quarters, three years) fits at any width, so it keeps every label.
+  const tickCount = Math.min(series.length, wide ? 5 : series.length <= 4 ? 4 : 3)
   const ticks = [...new Set(Array.from({ length: tickCount }, (_, n) => (tickCount === 1 ? 0 : Math.round((n * last) / (tickCount - 1)))))]
 
   // A touch or pen tap stays shown after the finger lifts, until a tap lands outside the plot.
@@ -102,7 +130,7 @@ function SalesFigure({ series }: { series: SalesDay[] }) {
             {/* The line is wiped in from the left by clipping the box: dash-based drawing breaks under non-scaling strokes. */}
             <motion.svg
               role="img"
-              aria-label={summary('long')}
+              aria-label={summary}
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
               className="absolute inset-0 size-full overflow-visible"
@@ -132,36 +160,43 @@ function SalesFigure({ series }: { series: SalesDay[] }) {
               <>
                 <div className="pointer-events-none absolute inset-y-0 w-px bg-fg-muted/60" style={{ left: `${xOf(active)}%` }} />
                 <span className="pointer-events-none absolute -mt-1.5 -ml-1.5" style={{ left: `${xOf(active)}%`, top: `${points[active].y}%` }}>
-                  <Tooltip open label={`${formatDay(series[active].date)}: ${formatPeso(series[active].total)}`}>
+                  <Tooltip open label={`${bucketLabel(series[active].date, granularity, 'tip')}: ${formatPeso(series[active].total)}`}>
                     <span className="block size-3 rounded-full bg-chart-2 ring-2 ring-canvas-sub" />
                   </Tooltip>
                 </span>
               </>
             )}
           </div>
-          <div aria-hidden="true" className="relative mt-1.5 h-5">
+          <div aria-hidden="true" className={`relative mt-1.5 ${granularity === 'quarter' ? AXIS_TWO_LINES : 'h-5'}`}>
             {ticks.map((i) => (
               <span
                 key={i}
                 className="absolute whitespace-nowrap text-xs tabular-nums text-fg-muted"
                 style={{ left: `${xOf(i)}%`, transform: `translateX(${last === 0 ? -50 : i === 0 ? 0 : i === last ? -100 : -50}%)` }}
               >
-                {formatDay(series[i].date)}
+                {granularity === 'quarter' ? (
+                  <>
+                    <span className="block">{bucketLabel(series[i].date, granularity, 'axis')}</span>
+                    <span className="block">{quarterRange(series[i].date)}</span>
+                  </>
+                ) : (
+                  bucketLabel(series[i].date, granularity, 'axis')
+                )}
               </span>
             ))}
           </div>
         </div>
       </div>
-      <figcaption className="sr-only">{summary('short')}</figcaption>
+      <figcaption className="sr-only">{summary}</figcaption>
       <details className="mt-1">
         <summary className="font-ui min-h-11 w-fit cursor-pointer py-2.5 text-sm font-semibold text-fg">View as table</summary>
         <div className="max-h-64 overflow-y-auto">
           <table className="w-full text-sm">
-            <caption className="sr-only">Daily sales, {dayRange(series, 'long')}</caption>
+            <caption className="sr-only">{heading}</caption>
             <thead>
               <tr className="text-xs text-fg-muted">
                 <th scope="col" className="sticky top-0 bg-canvas-sub py-2 text-left font-medium">
-                  Date
+                  {FIRST_COLUMN[granularity]}
                 </th>
                 <th scope="col" className="sticky top-0 bg-canvas-sub py-2 text-right font-medium">
                   Sales
@@ -171,7 +206,7 @@ function SalesFigure({ series }: { series: SalesDay[] }) {
             <tbody className="divide-y divide-line">
               {series.map((day) => (
                 <tr key={day.date}>
-                  <td className="py-2 text-fg">{formatDay(day.date)}</td>
+                  <td className="py-2 text-fg">{bucketLabel(day.date, granularity, granularity === 'quarter' ? 'tip' : 'axis')}</td>
                   <td className="py-2 text-right tabular-nums text-fg">{formatPeso(day.total)}</td>
                 </tr>
               ))}

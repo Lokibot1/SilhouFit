@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useSidebarCollapsed } from '../../hooks/useSidebarCollapsed'
+import { FILTER_DESCRIPTION, FILTER_HEAD, SEGMENTS_BOX, YEAR_BOX } from './PeriodFilter'
 import { StaffBrand } from './StaffNav'
 
 // Shared by the real shell (views/staff/StaffLayout) and its skeleton so the swap does not shift anything.
@@ -70,11 +71,14 @@ export function StatCardsSkeleton() {
   )
 }
 
-export function SalesSkeleton() {
+// Quarter labels carry their month range on a second line, so that axis row is taller.
+export const AXIS_TWO_LINES = 'h-9'
+
+export function SalesSkeleton({ twoLineAxis = false }: { twoLineAxis?: boolean }) {
   return (
-    <div role="status" aria-label="Loading daily sales" className="animate-pulse">
+    <div role="status" aria-label="Loading sales" className="animate-pulse">
       <div className={`${CHART_PLOT} rounded-xl bg-line`} />
-      <div className="mt-1.5 h-5 rounded-xl bg-line bg-clip-content py-0.5" />
+      <div className={`mt-1.5 rounded-xl bg-line bg-clip-content py-0.5 ${twoLineAxis ? AXIS_TWO_LINES : 'h-5'}`} />
       <div className="mt-1 h-11 w-36 rounded-xl bg-line bg-clip-content py-1.5" />
     </div>
   )
@@ -132,12 +136,21 @@ export function OrderLogSkeleton() {
   )
 }
 
-const SkeletonSection = ({ children }: { children: ReactNode }) => (
+const SkeletonSection = ({ filtered, children }: { filtered?: boolean; children: ReactNode }) => (
   <div className={STAFF_SECTION}>
-    <div className="mb-3">
-      <Bar className="display w-40 text-xl" />
-      <div className="mt-0.5 h-4 w-48 rounded-xl bg-line" />
-    </div>
+    {filtered ? (
+      <div className={FILTER_HEAD}>
+        <Bar className="display w-32 max-w-full text-xl" />
+        <div className={`${YEAR_BOX} rounded-xl bg-line`} />
+        <div className={`${FILTER_DESCRIPTION} w-48 max-w-full rounded-xl bg-line`} />
+        <div className={`${SEGMENTS_BOX} rounded-xl bg-line`} />
+      </div>
+    ) : (
+      <div className="mb-3">
+        <Bar className="display w-40 text-xl" />
+        <div className="mt-0.5 h-4 w-48 rounded-xl bg-line" />
+      </div>
+    )}
     {children}
   </div>
 )
@@ -182,14 +195,14 @@ export function StaffShellSkeleton() {
           <StatCardsSkeleton />
           <div className="grid gap-3 xl:grid-cols-12">
             <div className="grid gap-3 xl:col-span-8 xl:grid-rows-[auto_1fr]">
-              <SkeletonSection>
+              <SkeletonSection filtered>
                 <SalesSkeleton />
               </SkeletonSection>
               <div className="grid gap-3 md:grid-cols-2 [&>div]:h-full">
-                <SkeletonSection>
+                <SkeletonSection filtered>
                   <DonutSkeleton />
                 </SkeletonSection>
-                <SkeletonSection>
+                <SkeletonSection filtered>
                   <BarsSkeleton />
                 </SkeletonSection>
               </div>
