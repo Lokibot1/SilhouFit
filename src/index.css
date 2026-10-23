@@ -50,6 +50,11 @@
   --line-strong: rgb(20 23 28 / 0.26);
   --danger: #b42318;
   --success: #0f7a43;
+  /* Inventory row tints (.row-low, .row-out): the colour and its strength at the row's edges. */
+  --row-low: #eab308;
+  --row-low-a: 26%;
+  --row-out: var(--danger);
+  --row-out-a: 13%;
 
   /* Staff charts: steel hues, each at least 3:1 against --canvas-sub. Lightness differs between neighbours, so
      the legend's text and numbers carry the meaning and colour never does alone. */
@@ -146,6 +151,10 @@
   --line-strong: rgb(255 255 255 / 0.2);
   --danger: #ff8a80;
   --success: #6ee7a0;
+  --row-low: #f59e0b;
+  --row-low-a: 32%;
+  --row-out: #ef4444;
+  --row-out-a: 38%;
 
   --chart-1: #e4e9ef;
   --chart-2: #8fb4dc;
@@ -1497,4 +1506,30 @@ html.comet-active * {
 
 .dark .address-map .leaflet-tile-pane {
   filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+
+/* Low and out-of-stock rows: a tint at both edges fading to clear in the middle, so the row's details stay on the plain surface. */
+.row-low {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--row-low) var(--row-low-a), transparent) 0%, transparent 38%, transparent 62%, color-mix(in srgb, var(--row-low) var(--row-low-a), transparent) 100%);
+}
+.row-out {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--row-out) var(--row-out-a), transparent) 0%, transparent 38%, transparent 62%, color-mix(in srgb, var(--row-out) var(--row-out-a), transparent) 100%);
+}
+/* Rows fade in when they arrive (same curve as EASE_OUT in motion/tokens); --i staggers them, capped at 120ms in all. */
+@media (prefers-reduced-motion: no-preference) {
+  .enter-row {
+    animation: enter-row 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: min(calc(var(--i, 0) * 12ms), 120ms);
+  }
+}
+@keyframes enter-row {
+  from {
+    opacity: 0;
+  }
+}
+@media (forced-colors: active) {
+  .row-low,
+  .row-out {
+    background-image: none;
+  }
 }

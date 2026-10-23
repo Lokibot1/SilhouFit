@@ -53,13 +53,16 @@ export function StaffSection({
   )
 }
 
-export type SectionErrorKind = 'network' | 'rate-limit' | 'not-found' | 'server'
+export type SectionErrorKind = 'network' | 'rate-limit' | 'not-found' | 'server' | 'forbidden' | 'validation' | 'conflict'
 
 const WHY: Record<SectionErrorKind, string> = {
   network: 'The connection dropped before we got a response. Check your connection, then try again.',
   'rate-limit': 'Our servers are limiting requests right now. Wait a minute, then try again.',
   'not-found': 'The server could not find what was asked for. Try again.',
   server: 'Something went wrong on our side. Try again in a moment.',
+  forbidden: 'Your account is not allowed to see this. Sign in again, or ask an admin for access.',
+  validation: 'The server could not use that request. Reload the page, then try again.',
+  conflict: 'Someone else changed this at the same time. Reload the page, then try again.',
 }
 
 export function SectionError({ what, kind, onRetry }: { what: string; kind: SectionErrorKind; onRetry: () => void }) {
@@ -78,7 +81,10 @@ export function SectionError({ what, kind, onRetry }: { what: string; kind: Sect
 }
 
 /** Pulls the kind off a rejected fetch; anything unexpected reads as a server fault. */
-export const errorKind = (error: unknown): SectionErrorKind => (error as { kind?: SectionErrorKind } | null)?.kind ?? 'server'
+export const errorKind = (error: unknown): SectionErrorKind => {
+  const kind = (error as { kind?: string } | null)?.kind
+  return kind && Object.hasOwn(WHY, kind) ? (kind as SectionErrorKind) : 'server'
+}
 
 /** The loading and error states every dashboard section shares; `children` draws the loaded data (and its empty state). */
 export function SectionBody<T>({

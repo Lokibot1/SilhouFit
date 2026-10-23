@@ -1,0 +1,374 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { CATEGORIES, SIZES_BY_CATEGORY, type Category } from '../../../data/products'
+import type { Gender } from '../../../service/fetchProductList'
+import { addProduct, createFailureReason, knownSkus, uploadImage } from '../../../service/inventoryActions'
+import { INVENTORY_SAMPLE_DATA } from '../../../service/sampleInventory'
+import { GENDERS } from '../../../utils/inventoryQuery'
+import {
+  buildProductInput,
+  buildSkus,
+  describedBy,
+  newColor,
+  filterMultiline,
+  filterPrice,
+  filterText,
+  PRODUCT_LIMITS,
+  validateProductForm,
+  variantRows,
+  type ProductFormValues,
+} from '../../../utils/productValidation'
+import { AlertIcon, SpinnerIcon } from '../../form/icons'
+import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { Checkbox } from '../../ui/Checkbox'
+import { Modal } from '../../ui/Modal'
+import { Select } from '../../ui/Select'
+import { Field, FIELD_INPUT } from './FormField'
+import { ImageUploader } from './ImageUploader'
+import { VariantBuilder } from './VariantBuilder'
+
+const FORM_ID = 'product-form'
+const GENDER_OPTIONS = [{ value: '', label: 'Not specified' }, ...GENDERS]
+const CATEGORY_OPTIONS = CATEGORIES.map((c) => ({ value: c as string, label: c }))
+const RETRYABLE = ['network', 'rate-limit', 'server']
+
+const initialValues = (): ProductFormValues => ({
+  name: '',
+  category: CATEGORIES[0],
+  gender: '',
+  arReady: false,
+  description: '',
+  basePrice: '',
+  images: [],
+  sizes: SIZES_BY_CATEGORY[CATEGORIES[0]],
+  custom: [],
+  colors: [newColor()],
+  edits: {},
+})
+
+const snapshot = (v: ProductFormValues) => JSON.stringify({ ...v, images: v.images.map((i) => [i.id, i.alt]) })
+
+interface Banner {
+  title: string
+  why: string
+  retry: boolean
+}
+
+interface ProductFormSheetProps {
+  open: boolean
+  /** Called when the sheet should close (Cancel, Escape, the backdrop), once any unsaved work has been dropped. */
+  onClose: () => void
+  /** The product was created. The page closes the sheet, refreshes the list and shows the toast. */
+  onCreated: (product: { id: string; name: string }) => void
+}
+
+/** The Add product sheet. Mount it with a new `key` each time it opens so it starts empty. */
+export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetProps) {
+  const [values, setValues] = useState(initialValues)
+  const [initial] = useState(() => snapshot(values))
+  const [existing] = useState(knownSkus)
+  const [touched, setTouched] = useState<ReadonlySet<string>>(new Set())
+  const [attempted, setAttempted] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [banner, setBanner] = useState<Banner | null>(null)
+  const [conflictSku, setConflictSku] = useState<string>()
+  const [progress, setProgress] = useState<Record<string, number>>({})
+  const [discarding, setDiscarding] = useState(false)
+  const [focusSummary, setFocusSummary] = useState(0)
+
+  const sizesTouched = useRef(false)
+  const inFlight = useRef(false)
+  const abort = useRef<AbortController | null>(null)
+  const summaryRef = useRef<HTMLDivElement>(null)
+  const latest = useRef(values)
+  useEffect(() => {
+    latest.current = values
+  })
+
+  // Leaving mid-request stops it; the thumbnails' object URLs are let go.
+  useEffect(
+    () => () => {
+      abort.current?.abort()
+      for (const image of latest.current.images) URL.revokeObjectURL(image.preview)
+    },
+    [],
+  )
+
+  const errors = validateProductForm(values, { existingSkus: existing, conflictSku })
+  const skus = buildSkus(values, existing)
+  const dirty = snapshot(values) !== initial
+  const error = (key: string) => (attempted || touched.has(key) ? errors[key] : undefined)
+  const touch = (key: string) => setTouched((old) => new Set(old).add(key))
+  const errorKeys = Object.keys(errors)
+  const visible = Object.fromEntries(errorKeys.filter((key) => error(key)).map((key) => [key, errors[key]]))
+
+  function set(patch: Partial<ProductFormValues>) {
+    if (patch.sizes || patch.custom) sizesTouched.current = true
+    // Until sizes are picked by hand, they follow the category.
+    const next = patch.category && !sizesTouched.current && !patch.sizes ? { ...patch, sizes: SIZES_BY_CATEGORY[patch.category] } : patch
+    setValues((old) => ({ ...old, ...next }))
+  }
+
+  useEffect(() => {
+    if (focusSummary) summaryRef.current?.focus()
+  }, [focusSummary])
+
+  function focusField(key: string) {
+    const [kind, rest] = key.split(/:(.*)/s)
+    const id = key === 'basePrice' ? 'pf-base-price' : rest ? `pf-${kind}-${rest}` : `pf-${kind}`
+    const target = document.getElementById(id)
+    const control = target?.matches('input, button, textarea') ? target : target?.querySelector<HTMLElement>('input, button')
+    ;(control ?? target)?.focus()
+  }
+
+  function labelFor(key: string) {
+    const [kind, rest] = key.split(/:(.*)/s)
+    const row = variantRows(values).find((r) => r.key === rest)
+    const rowName = row ? `${row.color} ${row.size}` : ''
+    const colorIndex = values.colors.findIndex((c) => c.id === rest) + 1
+    const names: Record<string, string> = {
+      name: 'Name',
+      description: 'Description',
+      basePrice: 'Base price',
+      images: 'Images',
+      sizes: 'Sizes',
+      colors: 'Colours',
+      matrix: 'Variants',
+      alt: 'Image alt text',
+      'color-name': `Colour ${colorIndex} name`,
+      'color-hex': `Colour ${colorIndex} hex`,
+      sku: `${rowName} SKU`,
+      stock: `${rowName} stock`,
+      price: `${rowName} price override`,
+    }
+    return names[kind] ?? kind
+  }
+
+  async function submit(event?: FormEvent) {
+    event?.preventDefault()
+    if (inFlight.current) return
+    setAttempted(true)
+    if (errorKeys.length > 0) {
+      setBanner(null)
+      setFocusSummary((n) => n + 1)
+      return
+    }
+    inFlight.current = true
+    setPending(true)
+    setBanner(null)
+    const controller = (abort.current = new AbortController())
+    let stage: 'upload' | 'create' = 'upload'
+    let uploading = ''
+    try {
+      // Files already uploaded by an earlier try keep their URL, so a retry only sends what is missing.
+      const urls: Record<string, string> = {}
+      for (const image of latest.current.images) {
+        let url = image.url
+        if (!url) {
+          uploading = image.file.name
+          setProgress((old) => ({ ...old, [image.id]: 0 }))
+          const uploaded = await uploadImage(image.file, (percent) => setProgress((old) => ({ ...old, [image.id]: percent })), controller.signal)
+          url = uploaded
+          setValues((old) => ({ ...old, images: old.images.map((i) => (i.id === image.id ? { ...i, url: uploaded } : i)) }))
+        }
+        urls[image.id] = url
+      }
+      stage = 'create'
+      const created = await addProduct(buildProductInput(latest.current, urls, existing), { signal: controller.signal })
+      onCreated(created)
+    } catch (failure) {
+      if (controller.signal.aborted) return
+      const { kind = '', detail = '' } = failure as { kind?: string; detail?: string }
+      const name = latest.current.name.trim()
+      const conflict = kind === 'conflict' ? Object.entries(skus).find(([, sku]) => detail.toUpperCase().includes(sku.toUpperCase())) : undefined
+      if (conflict) {
+        setConflictSku(conflict[1])
+        touch(`sku:${conflict[0]}`)
+      }
+      setBanner({
+        title:
+          stage === 'upload'
+            ? `Couldn't upload ${uploading}.`
+            : conflict
+              ? `${conflict[1]} is already used, so ${name} wasn't created.`
+              : `Couldn't create ${name}.`,
+        why: createFailureReason(failure, stage),
+        retry: RETRYABLE.includes(kind),
+      })
+      if (conflict) setTimeout(() => focusField(`sku:${conflict[0]}`))
+    } finally {
+      inFlight.current = false
+      setPending(false)
+    }
+  }
+
+  function requestClose() {
+    if (pending) return
+    if (discarding) setDiscarding(false)
+    else if (dirty) setDiscarding(true)
+    else onClose()
+  }
+
+  const row = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'
+  const footer = discarding ? (
+    <div className={row}>
+      <button type="button" autoFocus onClick={() => setDiscarding(false)} className={PRIMARY_BUTTON}>
+        Cancel
+      </button>
+      <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+        Discard changes
+      </button>
+    </div>
+  ) : (
+    <div className={row}>
+      <button type="button" disabled={pending} onClick={requestClose} className={SECONDARY_BUTTON}>
+        Cancel
+      </button>
+      <button type="submit" form={FORM_ID} disabled={pending} className={PRIMARY_BUTTON}>
+        {pending && <SpinnerIcon />}
+        {pending ? 'Creating…' : 'Create product'}
+      </button>
+    </div>
+  )
+
+  const shown = attempted ? errorKeys : []
+  return (
+    <Modal variant="sheet" open={open} onClose={requestClose} title={discarding ? 'Are you sure?' : 'Add product'} footer={footer}>
+      {discarding ? (
+        <p className="pb-5 text-base leading-relaxed text-fg-muted">
+          {values.name.trim() ? `${values.name.trim()} hasn't been created yet.` : "This product hasn't been created yet."} Closing now discards everything you
+          entered, including the chosen images.
+        </p>
+      ) : (
+        <form id={FORM_ID} noValidate onSubmit={submit} className="pb-5">
+          <fieldset disabled={pending} className="m-0 grid min-w-0 gap-5 border-0 p-0">
+            {shown.length > 0 && (
+              <div ref={summaryRef} role="alert" tabIndex={-1} className="rounded-xl border border-danger p-3 outline-none">
+                <p className="flex items-center gap-2 text-sm font-semibold text-fg">
+                  <AlertIcon size={20} className="shrink-0 text-danger" />
+                  {shown.length === 1 ? 'Fix 1 problem' : `Fix ${shown.length} problems`} before creating the product
+                </p>
+                <ul className="mt-2 grid gap-1 text-sm">
+                  {shown.slice(0, 6).map((key) => (
+                    <li key={key}>
+                      <a
+                        href={`#${key}`}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          focusField(key)
+                        }}
+                        className="text-fg underline"
+                      >
+                        {labelFor(key)}: {errors[key]}
+                      </a>
+                    </li>
+                  ))}
+                  {shown.length > 6 && <li className="text-fg-muted">and {shown.length - 6} more below</li>}
+                </ul>
+              </div>
+            )}
+            {banner && (
+              <div role="alert" className="flex items-start gap-3 rounded-xl border border-line bg-canvas p-3">
+                <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-fg">{banner.title}</p>
+                  <p className="mt-1 text-sm text-fg-muted">{banner.why}</p>
+                  {banner.retry && (
+                    <button type="button" onClick={() => void submit()} className={`${SECONDARY_BUTTON} mt-3 text-sm`}>
+                      Try again
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <Field id="pf-name" label="Name" count={{ value: values.name.length, max: PRODUCT_LIMITS.nameMax }} error={error('name')}>
+              <input
+                id="pf-name"
+                type="text"
+                autoComplete="off"
+                value={values.name}
+                aria-invalid={Boolean(error('name'))}
+                aria-describedby={describedBy('pf-name', error('name'), true)}
+                onChange={(event) => set({ name: filterText(event.target.value, PRODUCT_LIMITS.nameMax) })}
+                onBlur={() => touch('name')}
+                className={FIELD_INPUT}
+              />
+            </Field>
+
+            <div className="grid gap-1">
+              <p className="text-sm font-semibold text-fg">Category</p>
+              <Select label="Category" value={values.category as string} options={CATEGORY_OPTIONS} onChange={(category) => set({ category: category as Category })} />
+            </div>
+
+            {/* The sample catalogue has no gender; the API has no arReady field yet, so it can't be saved there. */}
+            {INVENTORY_SAMPLE_DATA ? (
+              <div className="grid gap-1">
+                <Checkbox label="AR Fitting ready" checked={values.arReady} onChange={(arReady) => set({ arReady })} className="justify-start">
+                  <span className="text-base font-semibold">AR Fitting ready</span>
+                </Checkbox>
+                <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
+              </div>
+            ) : (
+              <div className="grid gap-1">
+                <p className="text-sm font-semibold text-fg">
+                  Gender <span className="font-normal text-fg-muted">(optional)</span>
+                </p>
+                <Select label="Gender" value={values.gender} options={GENDER_OPTIONS} onChange={(gender) => set({ gender: gender as Gender | '' })} />
+              </div>
+            )}
+
+            <Field
+              id="pf-description"
+              label="Description"
+              optional
+              count={{ value: values.description.length, max: PRODUCT_LIMITS.descriptionMax }}
+              error={error('description')}
+            >
+              <textarea
+                id="pf-description"
+                rows={4}
+                value={values.description}
+                aria-invalid={Boolean(error('description'))}
+                aria-describedby={describedBy('pf-description', error('description'), true)}
+                onChange={(event) => set({ description: filterMultiline(event.target.value, PRODUCT_LIMITS.descriptionMax) })}
+                onBlur={() => touch('description')}
+                className={`${FIELD_INPUT} py-2`}
+              />
+            </Field>
+
+            <Field id="pf-base-price" label="Base price (PHP)" error={error('basePrice')}>
+              <input
+                id="pf-base-price"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="0.00"
+                value={values.basePrice}
+                aria-invalid={Boolean(error('basePrice'))}
+                aria-describedby={describedBy('pf-base-price', error('basePrice'))}
+                onChange={(event) => set({ basePrice: filterPrice(event.target.value) })}
+                onBlur={() => touch('basePrice')}
+                className={`${FIELD_INPUT} text-right tabular-nums`}
+              />
+            </Field>
+
+            <ImageUploader
+              images={values.images}
+              name={values.name.trim()}
+              progress={progress}
+              disabled={pending}
+              error={error('images')}
+              errors={visible}
+              onChange={(images) => {
+                set({ images })
+                touch('images')
+              }}
+            />
+
+            <VariantBuilder values={values} skus={skus} disabled={pending} error={error} touch={touch} set={set} />
+          </fieldset>
+        </form>
+      )}
+    </Modal>
+  )
+}

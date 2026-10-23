@@ -11,6 +11,12 @@ export interface ProductListItem {
   totalStock: number
   primaryImage: { url: string; altText: string | null } | null
   createdAt: string
+  // Optional until the API sends them (see the note on `fetchProductList`); the sample catalogue fills all three.
+  isActive?: boolean
+  outOfStockVariants?: number
+  variantCount?: number
+  /** Needs a backend `Product.arReady` boolean on list and detail; until then only the sample catalogue fills it. */
+  arReady?: boolean
 }
 
 export interface PaginatedProducts {
@@ -18,30 +24,52 @@ export interface PaginatedProducts {
   meta: { total: number; page: number; limit: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean }
 }
 
+export type Gender = 'male' | 'female' | 'other' | 'unisex'
+
 export interface ProductListParams {
   search?: string
+  category?: string
+  gender?: Gender
+  page?: number
   inStockOnly?: boolean
   sortBy?: 'createdAt' | 'basePrice' | 'name'
   sortOrder?: 'asc' | 'desc'
   limit?: number
 }
 
-export type ProductListErrorKind = 'network' | 'rate-limit' | 'not-found' | 'server'
+/** The shape of a full product id; anything else is searched by name. */
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export type ProductListErrorKind = 'network' | 'rate-limit' | 'not-found' | 'server' | 'validation' | 'conflict' | 'forbidden'
 
 // Lets a section pick accurate copy; 'not-found' is only raised for a product looked up by id.
 export class ProductListError extends Error {
   kind: ProductListErrorKind
+  /** What the server said was wrong, when it said (a 400 or 409 on creating a product). */
+  detail?: string
 
-  constructor(kind: ProductListErrorKind) {
+  constructor(kind: ProductListErrorKind, detail?: string) {
     super(`Loading products failed (${kind}).`)
     this.kind = kind
+    this.detail = detail
   }
 }
 
-const STATUS_KIND: Record<number, ProductListErrorKind> = { 404: 'not-found', 429: 'rate-limit' }
+const STATUS_KIND: Record<number, ProductListErrorKind> = { 400: 'validation', 401: 'forbidden', 403: 'forbidden', 404: 'not-found', 409: 'conflict', 429: 'rate-limit' }
+
+/** The server's own message (Nest sends a string or a list of them), or undefined when the body is not that. */
+async function errorDetail(response: Response): Promise<string | undefined> {
+  try {
+    const { message } = (await response.json()) as { message?: unknown }
+    const text = Array.isArray(message) ? message.filter((m) => typeof m === 'string').join('; ') : message
+    return typeof text === 'string' && text ? text.slice(0, 300) : undefined
+  } catch {
+    return undefined
+  }
+}
 
 // Same request shape as fetchMe: the Supabase token rides along, and an abort rejects with the AbortError itself.
-async function get(path: string, signal?: AbortSignal): Promise<unknown> {
+export async function request(method: 'GET' | 'PATCH' | 'POST', path: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
   let token: string | undefined
   try {
     const supabase = await getSupabase()
@@ -54,14 +82,16 @@ async function get(path: string, signal?: AbortSignal): Promise<unknown> {
   let response: Response
   try {
     response = await fetch(`${import.meta.env.VITE_API_URL}${path}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      method,
+      headers: { ...(token && { Authorization: `Bearer ${token}` }), ...(body !== undefined && { 'Content-Type': 'application/json' }) },
+      body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     })
   } catch (failure) {
     if (signal?.aborted) throw failure
     throw new ProductListError('network')
   }
-  if (!response.ok) throw new ProductListError(STATUS_KIND[response.status] ?? 'server')
+  if (!response.ok) throw new ProductListError(STATUS_KIND[response.status] ?? 'server', await errorDetail(response))
   try {
     return await response.json()
   } catch {
@@ -91,11 +121,15 @@ function toListItem(value: unknown): ProductListItem {
   }
 }
 
-/** GET /products. Active products only; the API caps `limit` at 100. */
+/**
+ * GET /products. Active products only; the API caps `limit` at 100.
+ * Backend needs for staff Inventory: `?status=active|archived|all` (staff only) so archived products can be listed, `isActive`,
+ * `outOfStockVariants` and `variantCount` on each list item, and a bulk or atomic stock endpoint (restock now sends one PATCH per variant).
+ */
 export async function fetchProductList(params: ProductListParams, { signal }: RequestOptions = {}): Promise<PaginatedProducts> {
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) if (value !== undefined) query.set(key, String(value))
-  const body = await get(`/products?${query}`, signal)
+  const body = await request('GET', `/products?${query}`, undefined, signal)
   const meta = isRecord(body) ? body.meta : null
   if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(meta) || !isCount(meta.total)) throw new ProductListError('server')
   return {
@@ -113,7 +147,7 @@ export async function fetchProductList(params: ProductListParams, { signal }: Re
 
 /** GET /products/:id. The API answers with the detail shape, so price range and stock are worked out from its variants. */
 export async function fetchProductById(id: string, { signal }: RequestOptions = {}): Promise<ProductListItem> {
-  const body = await get(`/products/${encodeURIComponent(id)}`, signal)
+  const body = await request('GET', `/products/${encodeURIComponent(id)}`, undefined, signal)
   if (!isRecord(body) || !Array.isArray(body.variants) || !Array.isArray(body.images) || !isCount(body.basePrice)) throw new ProductListError('server')
   const variants = body.variants.filter(isRecord)
   const prices = variants.map((variant) => (isCount(variant.effectivePrice) ? (variant.effectivePrice as number) : (body.basePrice as number)))
@@ -125,4 +159,28 @@ export async function fetchProductById(id: string, { signal }: RequestOptions = 
     totalStock: variants.reduce((sum, variant) => sum + (isCount(variant.stock) ? (variant.stock as number) : 0), 0),
     primaryImage: images.find((image) => image.isPrimary === true) ?? images[0] ?? null,
   })
+}
+
+export interface ProductVariant {
+  id: string
+  sku: string
+  size: string
+  color: string
+  stock: number
+  effectivePrice: number
+}
+
+/** GET /products/:id, reduced to the variants a staff member checks stock against. */
+export async function fetchProductDetail(id: string, { signal }: RequestOptions = {}): Promise<{ variants: ProductVariant[] }> {
+  const body = await request('GET', `/products/${encodeURIComponent(id)}`, undefined, signal)
+  if (!isRecord(body) || !Array.isArray(body.variants)) throw new ProductListError('server')
+  return {
+    variants: body.variants.map((value) => {
+      if (!isRecord(value)) throw new ProductListError('server')
+      const { id, sku, size, color, stock, effectivePrice } = value
+      if (typeof id !== 'string' || typeof sku !== 'string' || typeof size !== 'string' || typeof color !== 'string') throw new ProductListError('server')
+      if (!isCount(stock) || !isCount(effectivePrice)) throw new ProductListError('server')
+      return { id, sku, size, color, stock: stock as number, effectivePrice: effectivePrice as number }
+    }),
+  }
 }

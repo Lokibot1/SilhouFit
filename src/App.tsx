@@ -8,6 +8,7 @@ import { LoginSkeleton } from './components/form/LoginSkeleton'
 import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
+import { InventoryPageSkeleton } from './components/staff/InventorySkeleton'
 import { StaffShellSkeleton } from './components/staff/StaffSkeleton'
 import { ToastProvider } from './components/toast/ToastProvider'
 import { ProfileSkeleton } from './components/profile/ProfileSkeleton'
@@ -70,6 +71,9 @@ const RoleDashboardPlaceholder = lazy(() =>
 )
 const StaffDashboardPage = lazy(() =>
   import('./views/staff/StaffDashboardPage').then((m) => ({ default: m.StaffDashboardPage })),
+)
+const StaffInventoryPage = lazy(() =>
+  import('./views/staff/StaffInventoryPage').then((m) => ({ default: m.StaffInventoryPage })),
 )
 
 const BodySetupPage = lazy(() =>
@@ -223,6 +227,14 @@ function App() {
               }
             >
               <Route index element={<StaffDashboardPage />} />
+              <Route
+                path="inventory"
+                element={
+                  <Suspense fallback={<InventoryPageSkeleton />}>
+                    <StaffInventoryPage />
+                  </Suspense>
+                }
+              />
               <Route path="profile" element={<StaffProfile />} />
             </Route>
             {(['admin', 'superadmin'] as const).map((area) => (

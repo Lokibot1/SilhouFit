@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchProductById, fetchProductList, ProductListError, type ProductListErrorKind, type ProductListItem } from '../../service/fetchProductList'
+import { fetchProductById, fetchProductList, ProductListError, UUID, type ProductListErrorKind, type ProductListItem } from '../../service/fetchProductList'
 import { SearchIcon, XIcon } from '../form/icons'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { ProductRow } from './ProductRow'
@@ -8,7 +8,6 @@ import { ProductRowsSkeleton } from './StaffSkeleton'
 
 const MIN_CHARS = 2
 const LIMIT = 10
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type State =
   | { status: 'idle' }

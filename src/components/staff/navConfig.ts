@@ -13,7 +13,7 @@ export interface NavItem {
 export const NAV: Record<Area, NavItem[]> = {
   staff: [
     { label: 'Dashboard', to: '/staff', icon: GridIcon },
-    { label: 'Inventory', icon: BagIcon },
+    { label: 'Inventory', to: '/staff/inventory', icon: BagIcon },
     { label: 'Transactions', icon: ListIcon },
     // Online Orders has no backend module yet.
     { label: 'Online Orders', icon: CartIcon },

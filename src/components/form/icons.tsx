@@ -96,6 +96,19 @@ export const ChevronDownIcon = ({ size = 16, className }: IconProps) => (
   </Icon>
 )
 
+export const ChevronUpIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="m6 15 6-6 6 6" />
+  </Icon>
+)
+
+/** Up and down chevrons stacked: a column that can be sorted but is not yet. */
+export const SortIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="m8 9 4-4 4 4M8 15l4 4 4-4" />
+  </Icon>
+)
+
 export const ChevronLeftIcon = ({ size = 16, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="m15 6-6 6 6 6" />
@@ -254,6 +267,13 @@ export const PlusIcon = ({ size = 16, className }: IconProps) => (
 export const MinusIcon = ({ size = 16, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="M5 12h14" />
+  </Icon>
+)
+
+/** An arrow curling back: bring something back. */
+export const RestoreIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 12a8 8 0 1 0 2.5-5.8L4 8.5M4 4v4.5h4.5" />
   </Icon>
 )
 
