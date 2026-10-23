@@ -75,7 +75,7 @@ export function StaffInventoryPage() {
   const filtered = Boolean(q || category || gender || stock || ar);
 
   // The URL is the one source of truth. Only the primitives go into the fetcher, so it changes only when a value does.
-  const fetcher = useCallback(
+  const load = useCallback(
     (options: RequestOptions): Promise<PaginatedProducts> => {
       if (INVENTORY_SAMPLE_DATA) {
         return sampleProductList(
@@ -157,9 +157,13 @@ export function StaffInventoryPage() {
       refreshKey,
     ],
   );
+  // Each answer remembers which tab it is for. Switching tabs shows the skeleton until the other tab's list arrives;
+  // filters, sorting and paging keep the previous rows, dimmed, as before.
+  const fetcher = useCallback((options: RequestOptions) => load(options).then((list) => ({ ...list, forStatus: status })), [load, status]);
   const { state, previous, retry } = useSection(fetcher);
-  const result = state.status === "success" ? state.data : previous;
-  const stale = state.status === "loading" && previous !== undefined;
+  const latest = state.status === "success" ? state.data : previous;
+  const result = latest?.forStatus === status ? latest : undefined;
+  const stale = state.status === "loading" && result !== undefined;
 
   // Paging with the pager: once the new page renders, keep keyboard focus in the pager and bring the list back into view.
   const sectionRef = useRef<HTMLElement>(null);
@@ -463,7 +467,7 @@ export function StaffInventoryPage() {
           {state.status === "loading" ? "Loading products" : ""}
         </p>
 
-        {state.status === "error" && previous && (
+        {state.status === "error" && result && (
           <div className="mb-3 rounded-xl border border-line bg-canvas-sub p-3">
             <SectionError
               what="the latest products"
@@ -497,7 +501,7 @@ export function StaffInventoryPage() {
               </button>
             </div>
           </div>
-        ) : state.status === "error" && !previous ? (
+        ) : state.status === "error" && !result ? (
           <SectionError what="the products" kind={state.kind} onRetry={retry} />
         ) : result && result.data.length === 0 ? (
           <div>

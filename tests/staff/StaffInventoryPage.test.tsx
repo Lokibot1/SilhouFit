@@ -980,7 +980,7 @@ describe('Row tint and Added date', () => {
     expect(card(3).className).not.toMatch(/row-/)
 
     const added = within(tee(1)).getAllByRole('cell')[4]
-    expect(within(added).getByText('Oct 23, 26')).toBeInTheDocument()
+    expect(within(added).getByText('Oct 23, 2026')).toBeInTheDocument()
     expect(added.querySelector('time')).toHaveAttribute('datetime', '2026-10-23T12:00:00.000Z')
     expect(added).toHaveTextContent('October 23, 2026')
     expect(added.querySelector('[title]')).toBeNull()

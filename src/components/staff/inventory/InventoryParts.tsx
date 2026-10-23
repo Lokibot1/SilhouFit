@@ -21,10 +21,10 @@ export const rowTint = (product: ProductListItem) => {
   return level === 'out' ? 'row-out' : level === 'low' ? 'row-low' : ''
 }
 
-const ADDED_SHORT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+const ADDED_SHORT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 const ADDED_FULL = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
-/** The date added in a short form ("Oct 23, 26"). Screen readers get the full date; a mouse gets it as a tooltip. */
+/** The date added in a short form ("Oct 23, 2026"). Screen readers get the full date; a mouse gets it as a tooltip. */
 export function AddedDate({ iso }: { iso: string }) {
   if (!iso || Number.isNaN(Date.parse(iso))) return <>—</>
   const date = new Date(iso)
