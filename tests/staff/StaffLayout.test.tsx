@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { fetchMe, type Me } from '../../src/service/fetchMe'
+import { fetchStaffNotifications } from '../../src/service/fetchStaffNotifications'
 import { clearSession, getSession, setSession } from '../../src/service/session'
 import { StaffLayout } from '../../src/views/staff/StaffLayout'
 
@@ -16,7 +17,13 @@ vi.mock('../../src/service/fetchMe', async (importOriginal) => ({
 vi.mock('../../src/service/supabase', () => ({
   getSupabase: async () => ({ auth: { signOut: vi.fn().mockResolvedValue({ error: null }) } }),
 }))
+vi.mock('../../src/service/fetchStaffNotifications', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/fetchStaffNotifications')>()),
+  fetchStaffNotifications: vi.fn(),
+}))
 const load = vi.mocked(fetchMe)
+// jsdom has no layout: this decides whether the `lg` query (the sidebar is on screen) matches.
+let wide = false
 
 const ME: Me = {
   id: 'user-1',
@@ -34,10 +41,12 @@ const ME: Me = {
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
-  vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }))
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: wide, media: query, addEventListener() {}, removeEventListener() {} }))
 })
 afterEach(() => {
   vi.clearAllMocks()
+  wide = false
+  localStorage.clear()
   act(() => clearSession())
 })
 
@@ -75,6 +84,7 @@ describe('StaffLayout', () => {
   describe('signed in', () => {
     beforeEach(() => {
       act(() => setSession({ name: 'Sam Reyes', email: ME.email }))
+      vi.mocked(fetchStaffNotifications).mockResolvedValue([])
     })
 
     it('sends a customer to the profile with a notice', async () => {
@@ -99,22 +109,46 @@ describe('StaffLayout', () => {
       expect(await screen.findByText('dashboard page')).toBeInTheDocument()
     })
 
-    it('collapses the sidebar to icons, remembers it, and expands again', async () => {
+    it('keeps the logo and the sidebar toggle out of the sidebar', async () => {
+      wide = true
       load.mockResolvedValue(ME)
       renderStaff()
       await screen.findByText('dashboard page')
       const sidebar = screen.getByRole('complementary', { name: 'Staff sidebar' })
-      await userEvent.click(within(sidebar).getByRole('button', { name: 'Collapse sidebar' }))
+      expect(within(sidebar).queryByText('SilhouFit')).not.toBeInTheDocument()
+      expect(within(sidebar).queryByRole('button')).not.toBeInTheDocument()
+      expect(within(screen.getByRole('banner')).getByText('SilhouFit')).toBeInTheDocument()
+    })
+
+    it('collapses the sidebar to icons with the burger, remembers it, and expands again', async () => {
+      wide = true
+      load.mockResolvedValue(ME)
+      renderStaff()
+      await screen.findByText('dashboard page')
+      const sidebar = screen.getByRole('complementary', { name: 'Staff sidebar' })
+      const topbar = screen.getByRole('banner')
+      await userEvent.click(within(topbar).getByRole('button', { name: 'Collapse sidebar' }))
       expect(localStorage.getItem('silhoufit.sidebar.collapsed')).toBe('1')
       // Still reachable by name, but the text is visually hidden.
       expect(within(sidebar).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/staff')
       expect(within(sidebar).getByRole('link', { name: 'Dashboard' })).toHaveClass('size-11')
-      await userEvent.click(within(sidebar).getByRole('button', { name: 'Expand sidebar' }))
+      await userEvent.click(within(topbar).getByRole('button', { name: 'Expand sidebar' }))
       expect(localStorage.getItem('silhoufit.sidebar.collapsed')).toBe('0')
-      expect(within(sidebar).getByRole('button', { name: 'Collapse sidebar' })).toHaveAttribute('aria-expanded', 'true')
+      expect(within(topbar).getByRole('button', { name: 'Collapse sidebar' })).toHaveAttribute('aria-expanded', 'true')
     })
 
-    it('keeps the account and theme controls in the top bar, not the sidebar', async () => {
+    it('opens the menu drawer with the burger below lg', async () => {
+      load.mockResolvedValue(ME)
+      renderStaff()
+      await screen.findByText('dashboard page')
+      const burger = within(screen.getByRole('banner')).getByRole('button', { name: 'Open menu' })
+      expect(burger).toHaveAttribute('aria-haspopup', 'dialog')
+      await userEvent.click(burger)
+      const drawer = await screen.findByRole('dialog', { name: 'Menu' })
+      expect(within(drawer).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/staff')
+    })
+
+    it('keeps the bell and the account menu in the top bar, and the theme switch only in the account menu', async () => {
       load.mockResolvedValue(ME)
       renderStaff()
       await screen.findByText('dashboard page')
@@ -122,8 +156,32 @@ describe('StaffLayout', () => {
       expect(within(sidebar).queryByRole('button', { name: /Log out|Sign out/ })).not.toBeInTheDocument()
       expect(within(sidebar).queryByRole('checkbox')).not.toBeInTheDocument()
       const topbar = screen.getByRole('banner')
-      expect(within(topbar).getByRole('checkbox', { name: /Switch to (light|dark) mode/ })).toBeInTheDocument()
-      expect(within(topbar).getByRole('button', { name: 'Account, Sam Reyes' })).toBeInTheDocument()
+      expect(within(topbar).getByRole('button', { name: 'Notifications' })).toBeInTheDocument()
+      expect(within(topbar).queryByRole('checkbox')).not.toBeInTheDocument()
+      await userEvent.click(within(topbar).getByRole('button', { name: 'Account, Sam Reyes' }))
+      const menu = await screen.findByRole('group', { name: 'Account' })
+      expect(within(menu).getByRole('checkbox', { name: /Switch to (light|dark) mode/ })).toBeInTheDocument()
+    })
+
+    it('toggles the theme from anywhere on the Dark mode row and reaches it with the keyboard', async () => {
+      load.mockResolvedValue(ME)
+      renderStaff()
+      await userEvent.click(await screen.findByRole('button', { name: 'Account, Sam Reyes' }))
+      const menu = await screen.findByRole('group', { name: 'Account' })
+      const switchInput = within(menu).getByRole<HTMLInputElement>('checkbox')
+      const before = switchInput.checked
+      await userEvent.click(within(menu).getByText('Dark mode'))
+      expect(switchInput.checked).toBe(!before)
+      // Tab walks Profile, Settings, the switch, then Sign out, and the panel stays open.
+      act(() => within(menu).getByRole('link', { name: /Profile/ }).focus())
+      await userEvent.tab()
+      await userEvent.tab()
+      expect(switchInput).toHaveFocus()
+      await userEvent.keyboard('{Enter}')
+      expect(switchInput.checked).toBe(before)
+      await userEvent.tab()
+      expect(within(menu).getByRole('button', { name: 'Sign out' })).toHaveFocus()
+      expect(screen.getByRole('group', { name: 'Account' })).toBeInTheDocument()
     })
 
     it('links Profile in the account menu to the staff profile', async () => {

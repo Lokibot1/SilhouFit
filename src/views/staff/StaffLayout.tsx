@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, useLocation, useOutletContext } from 'react-router-dom'
 import { AlertIcon } from '../../components/form/icons'
 import { SkipLink } from '../../components/SkipLink'
-import { StaffNav, sectionName } from '../../components/staff/StaffNav'
+import { StaffNav } from '../../components/staff/StaffNav'
 import { StaffSidebar } from '../../components/staff/StaffSidebar'
 import { STAFF_MAIN, StaffShellSkeleton } from '../../components/staff/StaffSkeleton'
 import { StaffTopbar } from '../../components/staff/StaffTopbar'
@@ -103,7 +103,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
     const copy = ERROR_COPY[state.kind]
     const missing = state.kind === 'not-found'
     return (
-      <main id="main-content" className="grid min-h-svh place-items-center bg-canvas px-4 text-fg">
+      <main id="main-content" className="staff-shell grid min-h-svh place-items-center bg-canvas px-4 text-fg">
         <SkipLink />
         <div role="alert" className="flex w-full max-w-xl items-start gap-3 rounded-2xl border border-line bg-canvas-sub p-6 sm:p-8">
           <AlertIcon size={20} className="mt-1 shrink-0 text-danger" />
@@ -121,19 +121,29 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
 
   const { me } = state
   return (
-    <div className="min-h-svh bg-canvas text-fg lg:flex">
+    <div className="staff-shell min-h-svh bg-canvas text-fg">
       <SkipLink />
-      <StaffSidebar area={area} collapsed={collapsed} onToggle={toggleSidebar} />
-      <div className="min-w-0 flex-1">
-        <StaffTopbar area={area} section={sectionName(pathname)} user={user} onMenu={() => setMenuOpen(true)} onSignOut={() => setLeaving(true)} />
-        <main id="main-content" className={STAFF_MAIN}>
-          <Suspense fallback={null}>
-            <Outlet context={{ me }} />
-          </Suspense>
-        </main>
+      <StaffTopbar
+        area={area}
+        user={user}
+        wide={wide}
+        collapsed={collapsed}
+        onToggleSidebar={toggleSidebar}
+        onMenu={() => setMenuOpen(true)}
+        onSignOut={() => setLeaving(true)}
+      />
+      <div className="lg:flex">
+        <StaffSidebar area={area} collapsed={collapsed} />
+        <div className="min-w-0 flex-1">
+          <main id="main-content" className={STAFF_MAIN}>
+            <Suspense fallback={null}>
+              <Outlet context={{ me }} />
+            </Suspense>
+          </main>
+        </div>
       </div>
       <Modal open={menuOpen && !wide} onClose={() => setMenuOpen(false)} title="Menu" variant="sheet-left">
-        <div className="flex min-h-full flex-col pb-5">
+        <div className="staff-shell flex min-h-full flex-col pb-5">
           <StaffNav area={area} onNavigate={() => setMenuOpen(false)} />
         </div>
       </Modal>

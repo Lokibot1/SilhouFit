@@ -41,7 +41,7 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
-  vi.mocked(analytics.fetchStaffSummary).mockResolvedValue({ arSessions: 37, salesTotal: 482350, orderCount: 96, unitsSold: 214, periodStart: '2026-10-01', periodEnd: '2026-10-22' })
+  vi.mocked(analytics.fetchStaffSummary).mockResolvedValue({ arSessions: 37, salesTotal: 482350, aov: 5024.48, arChange: 18.4, salesChange: -8.7, ordersChange: 0, orderCount: 96, unitsSold: 214, periodStart: '2026-10-01', periodEnd: '2026-10-22' })
   vi.mocked(analytics.fetchSalesSeries).mockResolvedValue([
     { date: '2026-08-01', total: 1000 },
     { date: '2026-09-01', total: 4000 },
@@ -76,7 +76,7 @@ describe('StaffDashboardPage', () => {
     renderPage()
     expect(await screen.findByText('Hello, Sam')).toBeInTheDocument()
     expect(screen.getByText('Sample data')).toBeInTheDocument()
-    expect(await screen.findByText('Tried AR Fitting')).toBeInTheDocument()
+    expect(await screen.findByText('AR Fitting Sessions')).toBeInTheDocument()
     expect(await screen.findByText('37', { selector: '.sr-only' })).toBeInTheDocument()
     expect(await screen.findByText('₱482,350', { selector: '.sr-only' })).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: /Monthly sales, 2026 so far\. Peak ₱4,000 in September 2026; total ₱7,500\./ })).toBeInTheDocument()
@@ -102,14 +102,12 @@ describe('StaffDashboardPage', () => {
     expect(section).not.toHaveTextContent(/units/i)
   })
 
-  it('lists orders in the order given, eight at a time', async () => {
+  it('lists the newest orders in the order given, in a fixed window with no paging', async () => {
     renderPage()
     const log = await screen.findByRole('list', { description: 'Newest first' })
-    expect(within(log).getAllByRole('listitem')).toHaveLength(8)
+    expect(within(log).getAllByRole('listitem')).toHaveLength(14)
     expect(within(log).getAllByRole('listitem')[0]).toHaveTextContent('Customer 20')
-    await userEvent.click(screen.getByRole('button', { name: 'View more' }))
-    expect(within(log).getAllByRole('listitem')).toHaveLength(16)
-    expect(within(log).getAllByRole('listitem')[8]).toHaveTextContent('Customer 12')
+    expect(screen.queryByRole('button', { name: 'View more' })).not.toBeInTheDocument()
   })
 
   it('puts a one-line description under each tile title', async () => {
@@ -124,6 +122,15 @@ describe('StaffDashboardPage', () => {
       const heading = screen.getByRole('heading', { name: title })
       expect(document.getElementById(`${heading.id}-desc`)).toHaveTextContent(text)
     }
+  })
+
+  it('shows up, down and flat changes and the average order value on the stat cards', async () => {
+    renderPage()
+    expect(await screen.findByText('+18.4%')).toBeInTheDocument()
+    expect(screen.getByText('−8.7%')).toBeInTheDocument()
+    expect(screen.getByText('0.0%')).toBeInTheDocument()
+    expect(screen.getByText(/AOV/)).toHaveTextContent('AOV ₱5,024.48')
+    expect(screen.getByText(', up from the same days last month')).toBeInTheDocument()
   })
 
   it('pins a category from the donut legend and shows its units and share in the centre', async () => {

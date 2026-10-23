@@ -26,6 +26,12 @@ export interface StaffSummary {
   orderCount: number
   /** Units sold, not orders. */
   unitsSold: number
+  /** Average order value: sales divided by orders, in pesos (0 with no orders). */
+  aov: number
+  /** Percent change against the same days of last month, one decimal; null when last month had none to compare. */
+  arChange: number | null
+  salesChange: number | null
+  ordersChange: number | null
   /** YYYY-MM-DD: the first day of the month and today. */
   periodStart: string
   periodEnd: string
@@ -172,6 +178,8 @@ function buildMonth(): Month {
   return { today, start: `${monthKey}-01`, days, orders: empty ? [] : orders, arUsers: empty ? 0 : Math.round(arUsers * 0.75) }
 }
 
+const sampleGain = (value: number | null) => (SAMPLE_DATA && value !== null ? Math.abs(value) : value)
+const previousMonth = (key: string) => (key.endsWith('-01') ? `${Number(key.slice(0, 4)) - 1}-12` : `${key.slice(0, 5)}${pad(Number(key.slice(5)) - 1)}`)
 const nextMonth = (key: string) => (key.endsWith('-12') ? `${Number(key.slice(0, 4)) + 1}-01` : `${key.slice(0, 5)}${pad(Number(key.slice(5)) + 1)}`)
 
 // A finished month never changes, so it is built once.
@@ -198,9 +206,22 @@ function ordersFor(period: { start: string; end: string }): MonthOrder[] {
 export async function fetchStaffSummary({ signal, delayMs = 600 }: RequestOptions = {}): Promise<StaffSummary> {
   await respond('summary', signal, delayMs)
   const month = buildMonth()
+  const salesTotal = month.orders.reduce((sum, o) => sum + o.total, 0)
+  // Last month, cut at the same day of the month, so the comparison is like for like.
+  const prevKey = previousMonth(month.today.slice(0, 7))
+  const prevDays = new Date(Date.UTC(Number(prevKey.slice(0, 4)), Number(prevKey.slice(5)), 0)).getUTCDate()
+  const prev = buildMonthOrders(prevKey, Math.min(Number(month.today.slice(8)), prevDays), null)
+  const prevSales = prev.orders.reduce((sum, o) => sum + o.total, 0)
+  const change = (now: number, before: number) => (month.orders.length > 0 && before > 0 ? Math.round(((now - before) / before) * 1000) / 10 : null)
   return {
     arSessions: month.arUsers,
-    salesTotal: month.orders.reduce((sum, o) => sum + o.total, 0),
+    salesTotal,
+    aov: month.orders.length ? Math.round((salesTotal / month.orders.length) * 100) / 100 : 0,
+    // Sample only: the generated months can all land below last month, so AR and sales are shown as gains to make
+    // the up and down pills both visible. Orders keep their real sign. Real data needs no such step.
+    arChange: sampleGain(change(month.arUsers, Math.round(prev.arUsers * 0.75))),
+    salesChange: sampleGain(change(salesTotal, prevSales)),
+    ordersChange: change(month.orders.length, prev.orders.length),
     orderCount: month.orders.length,
     unitsSold: month.orders.reduce((sum, o) => sum + o.itemCount, 0),
     periodStart: month.start,

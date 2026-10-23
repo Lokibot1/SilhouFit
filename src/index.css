@@ -125,6 +125,18 @@
   --gloss-glow: 20 23 28;
 }
 
+/* Staff area, light mode only: a grayer page, lighter cards, a white sidebar and top bar and a black active item. The semantic
+   colours are overridden here so every bg-canvas, bg-canvas-sub and bg-chrome-strong inside follows without edits. */
+:root:not(.dark) .staff-shell {
+  --color-canvas: #f0f1f4;
+  --color-canvas-sub: #fbfbfc;
+  --color-chrome-strong: #0f1115;
+}
+:root:not(.dark) .staff-aside,
+:root:not(.dark) .staff-topbar {
+  background-color: #ffffff;
+}
+
 .dark {
   --canvas: #0c0d10;
   --canvas-sub: #14161a;

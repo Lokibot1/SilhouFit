@@ -10,7 +10,7 @@ import { useCurrentUser } from '../hooks/useCurrentUser'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { isAuthPath } from '../utils/authRoutes'
 import { AccountMenu } from './AccountMenu'
-import { SilhouetteMark } from './landing/SilhouetteMark'
+import { BrandMark } from './BrandMark'
 import { ThemeToggle } from './ThemeToggle'
 
 const NAV_LINKS = [
@@ -86,15 +86,11 @@ export function Navbar() {
             className="tap group flex items-center gap-3"
             onClick={() => setMenuOpen(false)}
           >
-            <SilhouetteMark className="h-8 w-6 text-fg" />
-            <span className="leading-none">
-              <span className="font-display block text-[17px] font-bold tracking-[-0.02em] text-fg">
-                SilhouFit
-              </span>
+            <BrandMark>
               <span className="font-ui block text-[9px] tracking-[0.22em] max-[359px]:hidden text-fg-muted uppercase transition-colors group-hover:text-chrome-strong">
                 Omnichannel apparel
               </span>
-            </span>
+            </BrandMark>
           </Link>
 
           {!authPage && (

@@ -4,11 +4,12 @@ import { useCountUp } from '../../hooks/useCountUp'
 import { useReveal } from '../../hooks/useReveal'
 import { useSection } from '../../hooks/useSection'
 import { fetchStaffSummary, type StaffSummary } from '../../service/fetchStaffAnalytics'
-import { formatDay, formatPesoWhole } from '../../utils/format'
+import { formatDay, formatPeso, formatPesoWhole } from '../../utils/format'
 import { staggerDelay } from '../../motion/tokens'
 import { SectionBody } from './StaffSection'
-import { BagIcon, CameraIcon, CartIcon, ListIcon } from '../form/icons'
-import { STAFF_SECTION, StatCardsSkeleton, STAT_CARD, STAT_TOP, STAT_VALUE } from './StaffSkeleton'
+import { ArIcon, BanknoteIcon, BoxIcon, CartArrowIcon, TrendDownIcon, TrendUpIcon } from '../form/icons'
+import { Tooltip } from '../ui/Tooltip'
+import { STAFF_SECTION, StatCardsSkeleton, STAT_CARD, STAT_CONTEXT, STAT_ICON, STAT_LABEL, STAT_PILL_ROW, STAT_VALUE } from './StaffSkeleton'
 
 /** This month's three headline figures, from one request. */
 export function StatCards() {
@@ -30,10 +31,10 @@ function Cards({ summary }: { summary: StaffSummary }) {
   const since = `Since ${formatDay(summary.periodStart)}`
   return (
     <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <Card index={0} icon={CameraIcon} label="Tried AR Fitting" value={summary.arSessions} context="Unique users so far" />
-      <Card index={1} icon={BagIcon} label="Sales this month" value={summary.salesTotal} context={since} peso />
-      <Card index={2} icon={ListIcon} label="Orders this month" value={summary.orderCount} context={`Placed since ${formatDay(summary.periodStart)}`} />
-      <Card index={3} icon={CartIcon} label="Products sold" value={summary.unitsSold} context={`Units since ${formatDay(summary.periodStart)}`} />
+      <Card index={0} icon={ArIcon} label="AR Fitting Sessions" value={summary.arSessions} context="No. of users who tried AR Fitting" change={summary.arChange} />
+      <Card index={1} icon={BanknoteIcon} label="Sales this month" value={summary.salesTotal} context={since} change={summary.salesChange} peso />
+      <Card index={2} icon={BoxIcon} label="Orders this month" value={summary.orderCount} context={`Placed since ${formatDay(summary.periodStart)}`} change={summary.ordersChange} />
+      <Card index={3} icon={CartArrowIcon} label="Products sold" value={summary.unitsSold} context={`Units since ${formatDay(summary.periodStart)}`} aov={summary.orderCount > 0 ? summary.aov : null} />
     </dl>
   )
 }
@@ -44,29 +45,65 @@ interface CardProps {
   label: string
   value: number
   context: string
+  /** Percent against the same days last month; null shows nothing. */
+  change?: number | null
+  /** Average order value, shown instead of a change on the card that carries it. */
+  aov?: number | null
   peso?: boolean
 }
 
-function Card({ index, icon: Icon, label, value, context, peso = false }: CardProps) {
+function Card({ index, icon: Icon, label, value, context, change = null, aov = null, peso = false }: CardProps) {
   const { ref, fade } = useReveal<HTMLDivElement>(index)
   const shown = useCountUp(value, staggerDelay(index))
   const text = (n: number) => (peso ? formatPesoWhole(n) : n.toLocaleString('en-PH'))
 
   return (
     <motion.div ref={ref} {...fade} className={STAT_CARD}>
-      {/* The figure comes first on screen but after its label in the markup, so the label reads first. */}
-      <dd className={`${STAT_TOP} order-1`}>
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-line text-fg">
-          <Icon size={20} />
-        </span>
-        <span className={`${STAT_VALUE} min-w-0 truncate text-fg`}>
-          {/* The count-up is hidden from screen readers, which get the final figure once. */}
-          <span aria-hidden="true">{text(shown)}</span>
-          <span className="sr-only">{text(value)}</span>
-        </span>
+      <dt className={STAT_LABEL}>{label}</dt>
+      <dd className={`${STAT_VALUE} text-fg`}>
+        {/* The count-up is hidden from screen readers, which get the final figure once. */}
+        <span aria-hidden="true">{text(shown)}</span>
+        <span className="sr-only">{text(value)}</span>
       </dd>
-      <dt className="order-2 mt-2 truncate text-sm font-semibold text-fg">{label}</dt>
-      <dd className="order-3 mt-1 truncate text-xs text-fg-muted">{context}</dd>
+      <dd className={STAT_CONTEXT}>{context}</dd>
+      <span aria-hidden="true" className={STAT_ICON}>
+        <Icon size={20} />
+      </span>
+      <div className={STAT_PILL_ROW}>
+        {change !== null && <ChangePill change={change} />}
+        {aov !== null && <AovPill aov={aov} />}
+      </div>
     </motion.div>
+  )
+}
+
+const PILL = 'font-ui inline-flex h-5 items-center gap-1 rounded-full px-2 text-xs font-semibold tabular-nums text-fg'
+
+/** Up or down against the same days last month. Direction is the arrow and the sign, not only the colour. */
+function ChangePill({ change }: { change: number }) {
+  const up = change > 0
+  const down = change < 0
+  const Arrow = down ? TrendDownIcon : TrendUpIcon
+  const text = `${up ? '+' : down ? '−' : ''}${Math.abs(change).toFixed(1)}%`
+  return (
+    <Tooltip label="Compared with the same days last month">
+      <span tabIndex={0} className={`${PILL} ${up ? 'bg-success/15' : down ? 'bg-danger/10' : 'bg-line'}`}>
+        <Arrow size={16} className={up ? 'text-success' : down ? 'text-danger' : 'text-fg-muted'} />
+        {text}
+        <span className="sr-only">{up ? ', up' : down ? ', down' : ', no change'} from the same days last month</span>
+      </span>
+    </Tooltip>
+  )
+}
+
+function AovPill({ aov }: { aov: number }) {
+  return (
+    <Tooltip label="AOV is the Average Order Value: total sales divided by the number of orders.">
+      <span tabIndex={0} className={`${PILL} bg-line`}>
+        <BanknoteIcon size={16} className="text-fg-muted" />
+        AOV {formatPeso(aov)}
+        <span className="sr-only">, average order value</span>
+      </span>
+    </Tooltip>
   )
 }

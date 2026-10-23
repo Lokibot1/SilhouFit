@@ -6,8 +6,9 @@ import type { CurrentUser } from '../hooks/useCurrentUser'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { signOut as endSession } from '../service/signOut'
 import { useToast } from './toast/useToast'
-import { LogOutIcon, SettingsIcon, UserIcon } from './form/icons'
+import { LogOutIcon, MoonIcon, SettingsIcon, UserIcon } from './form/icons'
 import { Avatar } from './ui/Avatar'
+import { ThemeToggle } from './ThemeToggle'
 import { computePlace, LISTBOX_PANEL } from './ui/listbox'
 import { Tooltip } from './ui/Tooltip'
 
@@ -18,9 +19,19 @@ const ITEM_LIVE = `${ITEM} cursor-pointer hover:bg-fg/10`
 /**
  * The signed-in avatar as a button that opens a small panel with who is signed in and Sign out.
  * `profileTo` is where Profile goes; null shows it as coming soon, for an area with no profile page yet.
- * `onSignOut` runs just before the session ends.
+ * `onSignOut` runs just before the session ends. `themeSwitch` adds a Dark mode row with the theme switch.
  */
-export function AccountMenu({ user, profileTo = '/profile', onSignOut }: { user: CurrentUser; profileTo?: string | null; onSignOut?: () => void }) {
+export function AccountMenu({
+  user,
+  profileTo = '/profile',
+  onSignOut,
+  themeSwitch = false,
+}: {
+  user: CurrentUser
+  profileTo?: string | null
+  onSignOut?: () => void
+  themeSwitch?: boolean
+}) {
   const toast = useToast()
   const panelId = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -41,10 +52,18 @@ export function AccountMenu({ user, profileTo = '/profile', onSignOut }: { user:
       setPlace(computePlace(button, PANEL_WIDTH, PANEL_WIDTH - button.offsetWidth))
     }
     function onKeyDown(event: KeyboardEvent) {
+      const items = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('a, button, input') ?? [])
+      const at = items.indexOf(document.activeElement as HTMLElement)
       if (event.key === 'Tab') {
-        // The panel sits at the end of the page, so leaving it by Tab would drop focus: go back to the avatar.
+        // Tab walks the rows. The panel sits at the end of the page, so leaving it by Tab would drop focus: go back to the avatar.
+        if (at >= 0 && at !== (event.shiftKey ? 0 : items.length - 1)) return
         event.preventDefault()
         close(true)
+        return
+      }
+      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && at >= 0) {
+        event.preventDefault()
+        items[(at + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus()
         return
       }
       if (event.key !== 'Escape') return
@@ -134,6 +153,26 @@ export function AccountMenu({ user, profileTo = '/profile', onSignOut }: { user:
                 Settings
                 <span className="ml-auto text-sm">Soon</span>
               </button>
+              {themeSwitch && (
+                // The whole row toggles; the switch itself and its label already handle their own clicks.
+                <div
+                  onClick={(event) => {
+                    if (!(event.target as HTMLElement).closest('.sky-toggle')) event.currentTarget.querySelector('input')?.click()
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') return
+                    event.preventDefault()
+                    event.currentTarget.querySelector('input')?.click()
+                  }}
+                  className={`${ITEM_LIVE} focus-within:bg-fg/10`}
+                >
+                  <MoonIcon />
+                  Dark mode
+                  <span className="ml-auto flex">
+                    <ThemeToggle nativeTitle={false} />
+                  </span>
+                </div>
+              )}
               <div className="my-1 h-px bg-line-strong" role="separator" />
               <button type="button" onClick={signOut} className={ITEM_LIVE}>
                 <LogOutIcon />

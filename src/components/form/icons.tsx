@@ -108,6 +108,25 @@ export const ChevronRightIcon = ({ size = 16, className }: IconProps) => (
   </Icon>
 )
 
+export const MenuIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 6h16M4 12h16M4 18h16" />
+  </Icon>
+)
+
+export const MoonIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+  </Icon>
+)
+
+export const BellIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M6 9a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8" />
+    <path d="M10.3 21a2 2 0 0 0 3.4 0" />
+  </Icon>
+)
+
 export const SpinnerIcon = ({ size = 16, className = '' }: IconProps) => (
   <Icon size={size} className={`animate-spin ${className}`}>
     <path d="M12 3a9 9 0 1 0 9 9" />
@@ -249,5 +268,53 @@ export const CameraIcon = ({ size = 20, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="M4 8h3l1.5-2.5h7L17 8h3v11H4V8Z" />
     <circle cx="12" cy="13" r="3.5" />
+  </Icon>
+)
+
+// A cube inside scan corners: the AR Fitting mark.
+export const ArIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3" />
+    <path d="M12 7.5l4 2.25v4.5L12 16.5l-4-2.25v-4.5L12 7.5Z" />
+    <path d="M8.2 9.8L12 12l3.8-2.2M12 12v4.3" />
+  </Icon>
+)
+
+export const BanknoteIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <rect x="2.5" y="6" width="19" height="12" rx="2" />
+    <circle cx="12" cy="12" r="2.5" />
+    <path d="M6 12h.01M18 12h.01" />
+  </Icon>
+)
+
+// A cart with an arrow in its basket: items going out.
+export const CartArrowIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M3 4h2.2L7 13.5h9.6L18.5 7H6.2" />
+    <circle cx="9.5" cy="18.5" r="1.3" />
+    <circle cx="16" cy="18.5" r="1.3" />
+    <path d="M10.5 10.2h4.2M13.2 8.5l1.7 1.7-1.7 1.7" />
+  </Icon>
+)
+
+// A parcel with a ribbon tab: one order.
+export const BoxIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <rect x="3" y="4" width="18" height="5" rx="1.5" />
+    <path d="M4.5 9v9a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V9" />
+    <path d="M10 4v5.5l2-1.3 2 1.3V4" />
+  </Icon>
+)
+
+export const TrendUpIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M3 17l6-6 4 4 8-8M15 7h6v6" />
+  </Icon>
+)
+
+export const TrendDownIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M3 7l6 6 4-4 8 8M15 17h6v-6" />
   </Icon>
 )

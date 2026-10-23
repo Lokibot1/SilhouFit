@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom'
 import type { Area } from '../../utils/staffRole'
-import { ChevronLeftIcon, ChevronRightIcon } from '../form/icons'
+import { BrandMark } from '../BrandMark'
 import { Tooltip } from '../ui/Tooltip'
-import { NAV, type NavItem } from './navConfig'
+import { NAV } from './navConfig'
 
 export const AREA_LABEL: Record<Area, string> = { staff: 'Staff', admin: 'Admin', superadmin: 'Super Admin' }
 
@@ -10,22 +10,11 @@ const ROW = 'font-ui flex min-h-11 items-center gap-3 rounded-xl px-3 text-base 
 // Collapsed rows are a centred 44px square, so the icon is the whole target.
 const ROW_COLLAPSED = 'font-ui flex size-11 items-center justify-center rounded-xl text-base font-semibold'
 
-/** The section name shown in the top bar: the longest nav route that contains the current path. */
-export function sectionName(pathname: string) {
-  const path = pathname.replace(/\/$/, '')
-  let best: NavItem | undefined
-  for (const item of Object.values(NAV).flat()) {
-    if (!item.to || !(path === item.to || path.startsWith(`${item.to}/`))) continue
-    if (!best || item.to.length > best.to!.length) best = item
-  }
-  return best?.label ?? 'Dashboard'
-}
-
 export function StaffBrand({ area = 'staff' }: { area?: Area }) {
   return (
-    <span className="font-display text-lg font-bold tracking-[-0.02em] text-fg">
-      SilhouFit <span className="font-ui text-sm font-semibold tracking-normal text-fg-muted">{AREA_LABEL[area]}</span>
-    </span>
+    <BrandMark bold inline>
+      <span className="font-ui text-sm font-semibold tracking-normal text-fg-muted">{AREA_LABEL[area]}</span>
+    </BrandMark>
   )
 }
 
@@ -59,7 +48,7 @@ export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps)
                 to={item.to}
                 end
                 onClick={onNavigate}
-                className={({ isActive }) => `${row} ${isActive ? 'bg-chrome-strong text-canvas' : 'text-fg hover:bg-fg/10'}`}
+                className={({ isActive }) => `${row} ${isActive ? 'bg-chrome-strong text-canvas-sub' : 'text-fg hover:bg-fg/10'}`}
               >
                 {content}
               </NavLink>
@@ -77,29 +66,5 @@ export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps)
         </ul>
       </nav>
     </div>
-  )
-}
-
-interface SidebarToggleProps {
-  collapsed: boolean
-  onToggle: () => void
-}
-
-/** Collapses or expands the desktop sidebar. */
-export function SidebarToggle({ collapsed, onToggle }: SidebarToggleProps) {
-  const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar'
-  const Chevron = collapsed ? ChevronRightIcon : ChevronLeftIcon
-  return (
-    <Tooltip label={label}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={label}
-        aria-expanded={!collapsed}
-        className="flex size-11 shrink-0 items-center justify-center rounded-xl text-fg-muted hover:bg-fg/10 hover:text-fg"
-      >
-        <Chevron size={20} />
-      </button>
-    </Tooltip>
   )
 }
