@@ -221,6 +221,24 @@
     background-color: var(--canvas);
   }
 
+  /* Tailwind's reset leaves buttons on the default arrow. Anything you can press gets the pointer; utilities (disabled:cursor-*) still win. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab'],
+  [role='option'],
+  [role='menuitem'],
+  summary,
+  select,
+  label[for],
+  input:is([type='checkbox'], [type='radio'], [type='color'], [type='file'], [type='range']):not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role='button'][aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;

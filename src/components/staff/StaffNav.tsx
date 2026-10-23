@@ -6,9 +6,9 @@ import { NAV } from './navConfig'
 
 export const AREA_LABEL: Record<Area, string> = { staff: 'Staff', admin: 'Admin', superadmin: 'Super Admin' }
 
-const ROW = 'font-ui flex min-h-11 items-center gap-3 rounded-xl px-3 text-base font-semibold'
+const ROW = 'font-ui flex min-h-11 items-center gap-2.5 rounded-xl px-2.5 text-sm font-semibold'
 // Collapsed rows are a centred 44px square, so the icon is the whole target.
-const ROW_COLLAPSED = 'font-ui flex size-11 items-center justify-center rounded-xl text-base font-semibold'
+const ROW_COLLAPSED = 'font-ui flex size-11 items-center justify-center rounded-xl text-sm font-semibold'
 
 export function StaffBrand({ area = 'staff' }: { area?: Area }) {
   return (
@@ -36,10 +36,10 @@ export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps)
             const row = collapsed ? ROW_COLLAPSED : ROW
             const content = (
               <>
-                <Icon size={20} />
+                <Icon size={collapsed ? 20 : 16} />
                 {collapsed ? <span className="sr-only">{item.label}</span> : <span className="min-w-0 flex-1 truncate">{item.label}</span>}
                 {!collapsed && !item.to && (
-                  <span className="rounded-full border border-line-strong px-2 py-0.5 text-sm font-medium">Soon</span>
+                  <span className="rounded-full border border-line-strong px-1.5 py-0.5 text-xs font-medium">Soon</span>
                 )}
               </>
             )
