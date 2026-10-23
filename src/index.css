@@ -1551,3 +1551,48 @@ html.comet-active * {
     background-image: none;
   }
 }
+
+/* Printing an invoice: only the sheet and the elements it sits in stay; everything else (the page, the modal's backdrop, title and buttons) is removed,
+   and the sheet's ancestors lose their fixed size, scrolling and transforms so the page can flow onto paper. */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  html:has(.invoice-sheet),
+  body:has(.invoice-sheet) {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  body:has(.invoice-sheet) *:not(:has(.invoice-sheet), .invoice-sheet, .invoice-sheet *) {
+    display: none !important;
+  }
+  body:has(.invoice-sheet) *:has(.invoice-sheet) {
+    position: static !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    transform: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  body:has(.invoice-sheet) *:has(.invoice-sheet)::before,
+  body:has(.invoice-sheet) *:has(.invoice-sheet)::after {
+    display: none !important;
+  }
+  .invoice-sheet {
+    break-inside: auto;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+}

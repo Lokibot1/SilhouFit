@@ -1,13 +1,15 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSection } from '../../../hooks/useSection'
 import { fetchTransactionDetail, type TransactionDetail, type TransactionListItem } from '../../../service/fetchTransactions'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { sampleTransactionDetail, TRANSACTIONS_SAMPLE_DATA } from '../../../service/sampleTransactions'
 import { formatPeso, itemsLabel } from '../../../utils/format'
+import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { CopyId } from '../inventory/ProductDetail'
 import { EmptyNote, SectionBody } from '../StaffSection'
-import { PlacedAt } from './TransactionParts'
+import { InvoicePreview } from './InvoicePreview'
+import { PlacedAt, ReturnedBadge } from './TransactionParts'
 
 /** Stands in for the detail request while no order is selected. It never answers. */
 const IDLE = new Promise<TransactionDetail>(() => {})
@@ -29,6 +31,16 @@ function Header({ transaction }: { transaction: TransactionListItem }) {
         <span className="tabular-nums">{itemsLabel(transaction.itemCount)}</span>
         <span className="text-lg font-semibold text-fg tabular-nums">{formatPeso(transaction.total)}</span>
       </p>
+      {transaction.returnedAt && (
+        <div className="mt-3 rounded-xl border border-line bg-canvas-sub p-3 text-sm">
+          <ReturnedBadge />
+          <p className="mt-2 text-fg">
+            Returned on <PlacedAt iso={transaction.returnedAt} />
+          </p>
+          <p className="text-fg-muted">Reason: {transaction.returnReason}</p>
+          <p className="font-semibold text-fg tabular-nums">Refunded in full: {formatPeso(transaction.refundAmount ?? transaction.total)}</p>
+        </div>
+      )}
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
         <p className="min-w-0 font-mono text-xs break-all text-fg-muted">
           <span className="sr-only">Order ID </span>
@@ -123,19 +135,44 @@ export function TransactionDrawer({ transaction, open, session, onClose }: Trans
   )
   const section = useSection(fetcher)
 
+  // The invoice preview takes the drawer's place (no second modal). It is remembered with the session it was opened in, so each open starts on the order.
+  const [invoiceSession, setInvoiceSession] = useState<number | null>(null)
+  const showInvoice = invoiceSession === session
+  const invoiceButton = useRef<HTMLButtonElement>(null)
+  const wasInvoice = useRef(false)
+  useEffect(() => {
+    if (wasInvoice.current && !showInvoice) invoiceButton.current?.focus()
+    wasInvoice.current = showInvoice
+  }, [showInvoice])
+  const detail = section.state.status === 'success' ? section.state.data : null
+
   return (
-    <Modal variant="sheet" open={open} onClose={onClose} title={transaction?.orderNo ?? ''}>
-      {open && transaction && (
-        <div className="pb-5">
-          <Header transaction={transaction} />
-          <div className="mt-4">
-            <SectionBody section={section} what="the items" skeleton={<LinesSkeleton />}>
-              {(detail) =>
-                detail.lines.length === 0 ? <EmptyNote>This order has no items.</EmptyNote> : <Lines detail={detail} total={transaction.total} />
-              }
-            </SectionBody>
+    <Modal variant="sheet" open={open} onClose={onClose} title={transaction && showInvoice ? `Invoice ${transaction.orderNo}` : (transaction?.orderNo ?? '')}>
+      {open && transaction && showInvoice && detail ? (
+        <InvoicePreview transaction={transaction} detail={detail} onBack={() => setInvoiceSession(null)} />
+      ) : (
+        open &&
+        transaction && (
+          <div className="pb-5">
+            <Header transaction={transaction} />
+            <button
+              ref={invoiceButton}
+              type="button"
+              disabled={!detail || detail.lines.length === 0}
+              onClick={() => setInvoiceSession(session)}
+              className={`${SECONDARY_BUTTON_SM} mt-3 w-full sm:w-auto`}
+            >
+              Invoice
+            </button>
+            <div className="mt-4">
+              <SectionBody section={section} what="the items" skeleton={<LinesSkeleton />}>
+                {(loaded) =>
+                  loaded.lines.length === 0 ? <EmptyNote>This order has no items.</EmptyNote> : <Lines detail={loaded} total={transaction.total} />
+                }
+              </SectionBody>
+            </div>
           </div>
-        </div>
+        )
       )}
     </Modal>
   )

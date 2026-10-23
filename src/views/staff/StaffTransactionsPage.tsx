@@ -4,7 +4,10 @@ import {
   PAGER_FOOTER,
   PAGER_PAGINATION,
 } from "../../components/staff/inventory/layout";
-import { TransactionPagerSkeleton } from "../../components/staff/TransactionsSkeleton";
+import {
+  TransactionPagerSkeleton,
+  TransactionTotalsSkeleton,
+} from "../../components/staff/TransactionsSkeleton";
 import { PAGER_ROWS } from "../../components/staff/transactions/layout";
 import { SectionError } from "../../components/staff/StaffSection";
 import { STAFF_SECTION } from "../../components/staff/StaffSkeleton";
@@ -12,6 +15,8 @@ import { TransactionCards } from "../../components/staff/transactions/Transactio
 import { TransactionDrawer } from "../../components/staff/transactions/TransactionDrawer";
 import { TransactionTable } from "../../components/staff/transactions/TransactionTable";
 import { TransactionToolbar } from "../../components/staff/transactions/TransactionToolbar";
+import { TransactionTotals } from "../../components/staff/transactions/TransactionTotals";
+import { useToast } from "../../components/toast/useToast";
 import { Pagination } from "../../components/shop/Pagination";
 import { SECONDARY_BUTTON } from "../../components/ui/buttonStyles";
 import { Tooltip } from "../../components/ui/Tooltip";
@@ -22,16 +27,22 @@ import { useSection } from "../../hooks/useSection";
 import { UUID } from "../../service/fetchProductList";
 import {
   fetchTransactionDetail,
+  fetchTransactionExport,
   fetchTransactionList,
+  fetchTransactionSummary,
   type PaginatedTransactions,
   type TransactionListItem,
 } from "../../service/fetchTransactions";
 import {
+  sampleTransactionExport,
   sampleTransactionList,
+  sampleTransactionSummary,
   TRANSACTIONS_SAMPLE_DATA,
 } from "../../service/sampleTransactions";
 import type { RequestOptions } from "../../service/simulateRequest";
+import { downloadFile } from "../../utils/downloadFile";
 import { manilaToday } from "../../utils/period";
+import { buildTransactionsCsv } from "../../utils/transactionsCsv";
 import {
   DEFAULT_DIR,
   rangeDates,
@@ -94,6 +105,56 @@ export function StaffTransactionsPage() {
   const { state, previous, retry } = useSection(load);
   const result = state.status === "success" ? state.data : previous;
   const stale = state.status === "loading" && result !== undefined;
+
+  // The totals strip is its own section: the filtered range's figures, whatever the sort or page.
+  const loadSummary = useCallback(
+    (options: RequestOptions) =>
+      (TRANSACTIONS_SAMPLE_DATA
+        ? sampleTransactionSummary
+        : fetchTransactionSummary)({ search: q || undefined, from, to }, options),
+    [q, from, to],
+  );
+  const totals = useSection(loadSummary);
+  const totalsResult =
+    totals.state.status === "success" ? totals.state.data : totals.previous;
+
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const rows = await (
+        TRANSACTIONS_SAMPLE_DATA
+          ? sampleTransactionExport
+          : fetchTransactionExport
+      )({
+        search: q || undefined,
+        from,
+        to,
+        sortBy: SORT_COLUMN[sort],
+        sortOrder: dir,
+      });
+      downloadFile(
+        new Blob([buildTransactionsCsv(rows)], {
+          type: "text/csv;charset=utf-8",
+        }),
+        `transactions-${manilaToday().date}.csv`,
+      );
+      toast.show({
+        kind: "success",
+        message: `${rows.length} ${rows.length === 1 ? "transaction" : "transactions"} exported`,
+      });
+    } catch {
+      toast.show({
+        kind: "error",
+        message:
+          "Couldn't export the transactions. The list could not be fetched, so no file was made. Check your connection, then retry.",
+        action: { label: "Retry", onClick: () => void exportCsv() },
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   // Paging with the pager: once the new page renders, keep keyboard focus in the pager and bring the list back into view.
   const sectionRef = useRef<HTMLElement>(null);
@@ -173,8 +234,10 @@ export function StaffTransactionsPage() {
     });
   }
 
-  const total = result?.meta.total;
   const rows = result?.data ?? null;
+  // The totals show only above a list that has rows, as before: not over an error or an empty result.
+  const showTotals =
+    !(state.status === "error" && !result) && result?.data.length !== 0;
 
   // `selected` outlives `open`, so the drawer keeps its title and content while it slides out.
   const [selected, setSelected] = useState<TransactionListItem | null>(null);
@@ -188,19 +251,10 @@ export function StaffTransactionsPage() {
 
   return (
     <div className="grid gap-3">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="display text-2xl text-fg sm:text-3xl">Transactions</h1>
-          <p className="mt-1 h-5 text-sm text-fg-muted">
-            {total === undefined ? null : (
-              <>
-                <span className="tabular-nums">{total}</span>{" "}
-                {filtered ? "matching " : ""}
-                {total === 1 ? "transaction" : "transactions"}
-              </>
-            )}
-          </p>
-        </div>
+      <header className="flex min-h-8 flex-wrap items-center justify-between gap-3">
+        <h1 className="display min-w-0 text-2xl text-fg sm:text-3xl">
+          Transactions
+        </h1>
         {TRANSACTIONS_SAMPLE_DATA && (
           <Tooltip
             label="These orders are generated placeholders until the orders backend is connected."
@@ -215,6 +269,26 @@ export function StaffTransactionsPage() {
           </Tooltip>
         )}
       </header>
+
+      {showTotals &&
+        (totals.state.status === "error" ? (
+          <div className="rounded-xl border border-line bg-canvas-sub p-3">
+            <SectionError
+              what="the totals"
+              kind={totals.state.kind}
+              onRetry={totals.retry}
+            />
+          </div>
+        ) : totalsResult ? (
+          totalsResult.count > 0 && (
+            <TransactionTotals
+              summary={totalsResult}
+              stale={totals.state.status === "loading"}
+            />
+          )
+        ) : (
+          <TransactionTotalsSkeleton />
+        ))}
 
       <section
         ref={sectionRef}
@@ -235,6 +309,9 @@ export function StaffTransactionsPage() {
           }
           onPer={(n) => update({ per: String(n) })}
           onClear={clearFilters}
+          canExport={(result?.meta.total ?? 0) > 0}
+          exporting={exporting}
+          onExport={() => void exportCsv()}
         />
         <p role="status" className="sr-only">
           {state.status === "loading" ? "Loading transactions" : ""}

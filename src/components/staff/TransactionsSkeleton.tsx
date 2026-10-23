@@ -1,6 +1,6 @@
 import { CARD_ROW, PAGER_CONTROL, PAGER_FOOTER, PAGER_PAGINATION, TABLE_HEAD_ROW, TABLE_ROW, TD, TH } from './inventory/layout'
 import { STAFF_SECTION } from './StaffSkeleton'
-import { PAGER_ROWS, PAGER_SKELETON_ROWS, TransactionColgroup } from './transactions/layout'
+import { PAGER_ROWS, PAGER_SKELETON_ROWS, TOTALS_GRID, TOTALS_TILE, TOTALS_WRAP, TransactionColgroup } from './transactions/layout'
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
@@ -40,6 +40,22 @@ export function TransactionCardSkeletonRows({ count }: { count: number }) {
   ))
 }
 
+/** The totals strip's placeholder: four tiles of the real strip's size (label line 20px, value line 28px, caption line 16px reserved). */
+export function TransactionTotalsSkeleton() {
+  return (
+    <div aria-hidden="true" className={TOTALS_WRAP}>
+      <div className={`${TOTALS_GRID} animate-pulse`}>
+        {[0, 1, 2, 3].map((n) => (
+          <div key={n} className={TOTALS_TILE}>
+            <Bar className="h-4 w-16" />
+            <Bar className="mt-1.5 h-5 w-24" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** The pager footer's placeholder: same layout and heights as the real Pagination in its transactions layout. */
 export function TransactionPagerSkeleton() {
   return (
@@ -54,16 +70,14 @@ export function TransactionPagerSkeleton() {
   )
 }
 
-/** The route's fallback while the page's code loads: the page header, a card with the toolbar's controls, and the first rows. */
+/** The route's fallback while the page's code loads: the page header, the totals cards, a card with the toolbar's controls, and the first rows. */
 export function TransactionsPageSkeleton() {
   return (
     <div role="status" aria-label="Loading transactions" className="grid gap-3">
-      <div>
+      <div className="flex min-h-8 items-center">
         <Bar className="display h-[22.8px] w-48 sm:h-[28.5px]" />
-        <div className="mt-1 h-5">
-          <Bar className="h-4 w-32" />
-        </div>
       </div>
+      <TransactionTotalsSkeleton />
       <div className={STAFF_SECTION}>
         <div className="mb-3 grid gap-3">
           <Bar className="h-11" />

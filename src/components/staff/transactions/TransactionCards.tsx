@@ -4,7 +4,7 @@ import { formatPeso, itemsLabel } from '../../../utils/format'
 import { openRow } from '../inventory/InventoryParts'
 import { CARD_ROW } from '../inventory/layout'
 import { TransactionCardSkeletonRows } from '../TransactionsSkeleton'
-import { PlacedAt } from './TransactionParts'
+import { PlacedAt, ReturnedBadge } from './TransactionParts'
 
 interface TransactionCardsProps {
   rows: TransactionListItem[] | null
@@ -39,7 +39,10 @@ export function TransactionCards({ rows, skeletonRows, stale, onOpen }: Transact
                 className="block min-h-11 min-w-0 flex-1 cursor-pointer rounded-xl text-left hover:text-chrome-strong"
               >
                 <span className="block truncate font-mono text-base font-semibold text-fg">{transaction.orderNo}</span>
-                <span className="block truncate text-sm text-fg-muted">{transaction.customerName}</span>
+                <span className="flex items-center gap-2">
+                    <span className="block min-w-0 truncate text-sm text-fg-muted">{transaction.customerName}</span>
+                    {transaction.returnedAt && <ReturnedBadge />}
+                  </span>
               </button>
               <p className="shrink-0 text-base font-semibold whitespace-nowrap text-fg tabular-nums">{formatPeso(transaction.total)}</p>
             </div>

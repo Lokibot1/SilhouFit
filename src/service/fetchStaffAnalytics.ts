@@ -1,5 +1,7 @@
 import { LOW_STOCK, PRODUCTS } from '../data/products'
 import { addDays, defaultFilter, manilaToday, mondayOf, resolvePeriod, resolveSalesWindow, type Granularity, type PeriodFilterValue } from '../utils/period'
+import type { VatClass } from '../utils/invoiceTax'
+import { PAYMENT_METHODS, type Buyer, type PaymentMethod } from './fetchTransactions'
 import { simulateRequest, type RequestOptions } from './simulateRequest'
 
 // Stand-in for the analytics endpoints behind the staff dashboard. Nothing on the backend can answer these yet:
@@ -88,7 +90,7 @@ function mulberry32(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
 }
-const seedOf = (text: string) => [...text].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0
+export const seedOf = (text: string) => [...text].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -317,8 +319,22 @@ export async function fetchOrderLog({ signal, delayMs = 1000, limit = 48 }: Requ
 export interface HistoryOrder extends LoggedOrder {
   /** YYYY-MM-DD in Asia/Manila. */
   date: string
-  lines: { productId: string; name: string; category: string; units: number; price: number }[]
+  paymentMethod: PaymentMethod
+  /** Set on a few orders: a business buyer who gave a TIN. */
+  buyer?: Buyer
+  lines: { productId: string; name: string; category: string; units: number; price: number; vatClass?: VatClass }[]
 }
+
+// Fixed by hash, so an order always has the same payment, buyer and tax classes; about 1 line in 40 is exempt and 1 in 40 zero-rated.
+const paymentMethodOf = (seed: string) => PAYMENT_METHODS[seedOf(seed) % PAYMENT_METHODS.length]
+function vatClassOf(seed: string): VatClass | undefined {
+  const n = seedOf(seed) % 40
+  return n === 0 ? 'exempt' : n === 1 ? 'zero' : undefined
+}
+const SAMPLE_BUYERS: Buyer[] = [
+  { name: 'Sample Trading Corp.', tin: '000-000-000-00000', address: '1 Sample Avenue, Sample City, Metro Manila 0000' },
+  { name: 'Sample Uniforms Inc.', tin: '000-000-000-00000', address: '2 Sample Road, Sample City, Cebu 0000' },
+]
 
 /**
  * Every order of the last 12 months (this month up to now), oldest first, for the Transactions page. The current month is the
@@ -345,14 +361,22 @@ export function buildOrderHistory(): HistoryOrder[] {
   return [...months]
     .sort(([a], [b]) => (a < b ? -1 : 1))
     .flatMap(([key, orders]) =>
-      orders.map(({ customerName, placedAt, itemCount, total, date, lines }, i) => ({
-        orderId: `SF-${firstNo.get(key)! + i}`,
-        customerName,
-        placedAt,
-        itemCount,
-        total,
-        date,
-        lines: lines.map(({ productId, name, category, units, price }) => ({ productId, name, category, units, price })),
-      })),
+      orders.map(({ customerName, placedAt, itemCount, total, date, lines }, i) => {
+        const buyer = seedOf(`${placedAt}:buyer`) % 23 === 0 ? SAMPLE_BUYERS[seedOf(placedAt) % SAMPLE_BUYERS.length] : undefined
+        return {
+          orderId: `SF-${firstNo.get(key)! + i}`,
+          customerName,
+          placedAt,
+          itemCount,
+          total,
+          date,
+          paymentMethod: paymentMethodOf(`${placedAt}:${customerName}`),
+          ...(buyer && { buyer }),
+          lines: lines.map(({ productId, name, category, units, price }, n) => {
+            const vatClass = vatClassOf(`${placedAt}:${productId}:${n}`)
+            return { productId, name, category, units, price, ...(vatClass && { vatClass }) }
+          }),
+        }
+      }),
     )
 }

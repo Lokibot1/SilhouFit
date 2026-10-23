@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { RETURN_REASONS } from '../../src/service/fetchTransactions'
 import { buildOrderHistory, fetchOrderLog } from '../../src/service/fetchStaffAnalytics'
-import { sampleTransactionDetail, sampleTransactionList } from '../../src/service/sampleTransactions'
+import { resetSampleInvoices, sampleIssueInvoice } from '../../src/service/sampleInvoices'
+import { sampleTransactionDetail, sampleTransactionExport, sampleTransactionList, sampleTransactionSummary } from '../../src/service/sampleTransactions'
 
 const NO_DELAY = { delayMs: 0 }
 const all = { limit: 100000 }
@@ -121,5 +123,114 @@ describe('sampleTransactionDetail', () => {
 
   it('rejects with not-found for an unknown order', async () => {
     await expect(sampleTransactionDetail('00000000-0000-4000-8000-999999999999', NO_DELAY)).rejects.toMatchObject({ kind: 'not-found' })
+  })
+})
+
+describe('sample invoice data', () => {
+  it('gives every order a payment method, and exercises exempt, zero-rated and business-buyer orders', () => {
+    const history = buildOrderHistory()
+    expect(history.every((o) => ['cash', 'gcash', 'card', 'cod'].includes(o.paymentMethod))).toBe(true)
+    expect(new Set(history.map((o) => o.paymentMethod)).size).toBe(4)
+    const classes = new Set(history.flatMap((o) => o.lines.map((l) => l.vatClass)))
+    expect(classes.has('exempt')).toBe(true)
+    expect(classes.has('zero')).toBe(true)
+    expect(history.some((o) => o.buyer)).toBe(true)
+    expect(history.filter((o) => o.buyer).length).toBeLessThan(history.length / 5)
+  })
+
+  it('is the same on every call', () => {
+    expect(buildOrderHistory().map((o) => [o.paymentMethod, o.buyer?.name])).toEqual(buildOrderHistory().map((o) => [o.paymentMethod, o.buyer?.name]))
+  })
+
+  it('carries the payment, buyer and tax classes into the order detail', async () => {
+    const order = buildOrderHistory().find((o) => o.buyer && o.lines.some((l) => l.vatClass))!
+    const id = (await sampleTransactionList({ search: order.orderId, limit: 1 }, NO_DELAY)).data[0].id
+    const detail = await sampleTransactionDetail(id, NO_DELAY)
+    expect(detail.paymentMethod).toBe(order.paymentMethod)
+    expect(detail.buyer).toEqual(order.buyer)
+    expect(detail.lines.map((l) => l.vatClass)).toEqual(order.lines.map((l) => l.vatClass))
+  })
+})
+
+describe('returned orders', () => {
+  const list = () => sampleTransactionList({ ...all }, NO_DELAY).then((r) => r.data)
+
+  it('returns about 7% of the orders, the same ones every time', async () => {
+    const data = await list()
+    const returned = data.filter((o) => o.returnedAt)
+    expect(returned.length / data.length).toBeGreaterThan(0.05)
+    expect(returned.length / data.length).toBeLessThan(0.09)
+    expect((await list()).filter((o) => o.returnedAt).map((o) => o.id)).toEqual(returned.map((o) => o.id))
+  })
+
+  it('refunds a returned order in full, after the sale and before now, for one of the known reasons', async () => {
+    const returned = (await list()).filter((o) => o.returnedAt)
+    const reasons = new Set(returned.map((o) => o.returnReason))
+    expect([...reasons].every((r) => RETURN_REASONS.some((known) => known === r))).toBe(true)
+    expect(reasons.size).toBe(RETURN_REASONS.length)
+    for (const o of returned) {
+      expect(Date.parse(o.returnedAt!)).toBeGreaterThan(Date.parse(o.placedAt))
+      expect(Date.parse(o.returnedAt!)).toBeLessThanOrEqual(Date.now())
+      expect(o.refundAmount).toBe(o.total)
+    }
+  })
+
+  it('leaves the other orders without any return fields, and the orders themselves unchanged', async () => {
+    const history = buildOrderHistory()
+    const data = await list()
+    expect(data).toHaveLength(history.length)
+    const byNo = new Map(history.map((o) => [o.orderId, o]))
+    for (const o of data) {
+      expect(o).toMatchObject({ placedAt: byNo.get(o.orderNo)!.placedAt, total: byNo.get(o.orderNo)!.total, itemCount: byNo.get(o.orderNo)!.itemCount })
+      if (!o.returnedAt) expect(Object.keys(o)).not.toEqual(expect.arrayContaining(['returnReason']))
+    }
+  })
+
+  it('carries the return into the detail and the export', async () => {
+    const [first] = (await list()).filter((o) => o.returnedAt)
+    expect(await sampleTransactionDetail(first.id, NO_DELAY)).toMatchObject({ returnedAt: first.returnedAt, returnReason: first.returnReason, refundAmount: first.total })
+    const rows = await sampleTransactionExport({}, NO_DELAY)
+    expect(rows.find((r) => r.id === first.id)).toMatchObject({ returnedAt: first.returnedAt })
+  })
+
+  it('does not touch the dashboard order log', async () => {
+    const log = await fetchOrderLog({ ...NO_DELAY, limit: 100000 })
+    expect(log.every((o) => !('returnedAt' in o))).toBe(true)
+  })
+})
+
+describe('sampleTransactionSummary and sampleTransactionExport', () => {
+  beforeEach(resetSampleInvoices)
+
+  it('summarises exactly the orders the filters match, whatever the page', async () => {
+    const filters = { from: '2026-10-01', to: '2026-10-22' }
+    const matched = buildOrderHistory().filter((o) => o.date >= filters.from && o.date <= filters.to)
+    const summary = await sampleTransactionSummary(filters, NO_DELAY)
+    const { data } = await sampleTransactionList({ ...filters, ...all }, NO_DELAY)
+    const kept = data.filter((o) => !o.returnedAt)
+    expect(summary.count).toBe(matched.length)
+    expect(summary.returnedCount).toBe(data.length - kept.length)
+    expect(summary.gross).toBeCloseTo(kept.reduce((sum, o) => sum + o.total, 0), 2)
+    // VAT is at most 12/112 of the gross (less when lines are exempt or zero-rated), and some is exempt here.
+    expect(summary.vat).toBeLessThan((summary.gross * 12) / 112)
+    expect(summary.vat).toBeGreaterThan((summary.gross * 12) / 112 - summary.gross * 0.2)
+  })
+
+  it('exports every match, unpaged, in the requested sort, with the invoice number once issued', async () => {
+    const rows = await sampleTransactionExport({ sortBy: 'total', sortOrder: 'desc' }, NO_DELAY)
+    expect(rows).toHaveLength(buildOrderHistory().length)
+    expect(rows.map((r) => r.total)).toEqual([...rows.map((r) => r.total)].sort((a, b) => b - a))
+    expect(rows.every((r) => r.invoiceNo === undefined)).toBe(true)
+
+    await sampleIssueInvoice(rows[3].id, NO_DELAY)
+    const again = await sampleTransactionExport({ sortBy: 'total', sortOrder: 'desc' }, NO_DELAY)
+    expect(again[3].invoiceNo).toBe('SI-0000001')
+  })
+
+  it('narrows the export by search', async () => {
+    const first = buildOrderHistory()[0]
+    const rows = await sampleTransactionExport({ search: first.orderId }, NO_DELAY)
+    expect(rows.map((r) => r.orderNo)).toContain(first.orderId)
+    expect(rows.length).toBeLessThan(20)
   })
 })

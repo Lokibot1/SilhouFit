@@ -7,7 +7,7 @@ import { TABLE_ROW, TD, TH } from '../inventory/layout'
 import { SortHeader } from '../inventory/SortHeader'
 import { TransactionTableSkeletonRows } from '../TransactionsSkeleton'
 import { TransactionColgroup } from './layout'
-import { PlacedAt } from './TransactionParts'
+import { PlacedAt, ReturnedBadge } from './TransactionParts'
 
 interface TransactionTableProps {
   sorted: { sort: TransactionSort; dir: TransactionDir }
@@ -56,7 +56,10 @@ export function TransactionTable({ sorted, onSort, rows, skeletonRows, stale, on
                   className="flex min-h-11 w-full min-w-0 cursor-pointer flex-col justify-center rounded-xl text-left hover:text-chrome-strong"
                 >
                   <span className="block truncate font-mono text-base font-semibold text-fg">{transaction.orderNo}</span>
-                  <span className="block truncate text-sm text-fg-muted">{transaction.customerName}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="block min-w-0 truncate text-sm text-fg-muted">{transaction.customerName}</span>
+                    {transaction.returnedAt && <ReturnedBadge />}
+                  </span>
                 </button>
               </td>
               <td className={`${TD} text-sm text-fg-muted`}>

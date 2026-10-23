@@ -8,6 +8,7 @@ import { ProductListError } from '../../src/service/fetchProductList'
 import {
   fetchTransactionDetail,
   fetchTransactionList,
+  fetchTransactionSummary,
   type PaginatedTransactions,
   type TransactionDetail,
   type TransactionListItem,
@@ -18,6 +19,7 @@ vi.mock('../../src/service/fetchTransactions', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/fetchTransactions')>()),
   fetchTransactionList: vi.fn(),
   fetchTransactionDetail: vi.fn(),
+  fetchTransactionSummary: vi.fn(),
 }))
 
 // The page defaults to the generated orders; these tests flip it off for the real-API path and on for the sample path.
@@ -29,6 +31,7 @@ vi.mock('../../src/service/sampleTransactions', async (importOriginal) => {
 
 const list = vi.mocked(fetchTransactionList)
 const detail = vi.mocked(fetchTransactionDetail)
+const summary = vi.mocked(fetchTransactionSummary)
 
 const order = (n: number, overrides: Partial<TransactionListItem> = {}): TransactionListItem => ({
   id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
@@ -72,6 +75,7 @@ beforeEach(() => {
   sample.on = false
   vi.resetAllMocks()
   list.mockResolvedValue(answer([order(1), order(2)]))
+  summary.mockResolvedValue({ count: 1234, gross: 2283000, vat: 244607.14, returnedCount: 0 })
   detail.mockImplementation(async (id) => detailOf([order(1), order(2)].find((o) => o.id === id)!))
 })
 
@@ -129,13 +133,42 @@ describe('StaffTransactionsPage', () => {
     const opener = await within(table()).findByRole('button', { name: /SF-10001/ })
     expect(table()).toHaveAttribute('aria-busy', 'false')
     expect(screen.getByRole('heading', { level: 1, name: 'Transactions' })).toBeInTheDocument()
-    expect(screen.getByText('2').closest('p')).toHaveTextContent('2 transactions')
+    // The page title carries no count line any more.
+    expect(screen.queryByText('2 transactions')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 }).parentElement).not.toHaveTextContent(/\d+\s+(matching\s+)?transactions?/)
     const cells = within(opener.closest('tr')!).getAllByRole('cell')
     expect(opener).toHaveTextContent('Customer 1')
     expect(cells[1]).toHaveTextContent(/^Oct 22, 2026, 3:45\sPM$/)
     expect(cells[2]).toHaveTextContent('3')
     expect(cells[3]).toHaveTextContent('₱4,580.00')
     expect(document.title).toBe('Transactions — SilhouFit')
+  })
+
+  it('marks returned orders with a Returned badge in the table and the cards, and not the others', async () => {
+    const returned = order(2, { returnedAt: '2026-10-24T02:05:00.000Z', returnReason: 'Wrong size', refundAmount: 4580 })
+    list.mockResolvedValue(answer([order(1), returned]))
+    renderPage()
+    const row = (await within(table()).findByRole('button', { name: /SF-10002/ })).closest('tr')!
+    expect(within(row).getByText('Returned')).toBeInTheDocument()
+    expect(within(row).getByRole('button')).toHaveAccessibleName(/Returned/)
+    expect(within(within(table()).getByRole('button', { name: /SF-10001/ }).closest('tr')!).queryByText('Returned')).not.toBeInTheDocument()
+    const card = document.querySelector(`li[data-transaction="${returned.id}"]`)!
+    expect(within(card as HTMLElement).getByText('Returned')).toBeInTheDocument()
+    expect(document.querySelector(`li[data-transaction="${order(1).id}"]`)!.textContent).not.toContain('Returned')
+  })
+
+  it('shows the return in the drawer: when, why and the full refund', async () => {
+    const user = userEvent.setup()
+    const returned = order(2, { returnedAt: '2026-10-24T02:05:00.000Z', returnReason: 'Defective item', refundAmount: 4580 })
+    list.mockResolvedValue(answer([returned]))
+    detail.mockResolvedValue(detailOf(returned))
+    renderPage()
+    await user.click(await within(table()).findByRole('button', { name: /SF-10002/ }))
+    const drawer = await screen.findByRole('dialog', { name: 'SF-10002' })
+    expect(within(drawer).getByText('Returned')).toBeInTheDocument()
+    expect(within(drawer).getByText(/Returned on/)).toHaveTextContent(/^Returned on Oct 24, 2026, 10:05\sAM$/)
+    expect(within(drawer).getByText('Reason: Defective item')).toBeInTheDocument()
+    expect(within(drawer).getByText('Refunded in full: ₱4,580.00')).toBeInTheDocument()
   })
 
   it('has a meta description of 150 to 160 characters', () => {
@@ -297,7 +330,6 @@ describe('StaffTransactionsPage', () => {
     expect(where()).toBe('/staff/transactions?sort=total&range=week')
     expect(lastParams().from! < lastParams().to!).toBe(true)
     expect(screen.getByText('Filters (1)')).toBeInTheDocument()
-    expect(screen.getByText('2').closest('p')).toHaveTextContent('2 matching transactions')
 
     await user.click(screen.getByRole('button', { name: 'Clear filters' }))
     expect(where()).toBe('/staff/transactions?sort=total')
@@ -364,7 +396,7 @@ describe('StaffTransactionsPage', () => {
     await choose(user, 'Date range', 'Today')
     expect(await screen.findByRole('alert')).toHaveTextContent("We couldn't load the latest transactions.")
     expect(within(table()).getByRole('button', { name: /SF-10001/ })).toBeInTheDocument()
-    expect(screen.getByText('60').closest('p')).toHaveTextContent('60 matching transactions')
+    expect(screen.getByText('Displaying 1–25 of 60')).toBeInTheDocument()
     const failed = lastParams()
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())

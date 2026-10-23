@@ -1,7 +1,8 @@
 import { MAX_SEARCH, PER_PAGE_OPTIONS, type TransactionDir, type TransactionQuery, type TransactionSort } from '../../../utils/transactionQuery'
-import { ChevronDownIcon, SearchIcon, XIcon } from '../../form/icons'
-import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { ChevronDownIcon, SearchIcon, SpinnerIcon, XIcon } from '../../form/icons'
+import { SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Select } from '../../ui/Select'
+import { Tooltip } from '../../ui/Tooltip'
 
 const RANGE_OPTIONS = [
   { value: '', label: 'All time' },
@@ -32,9 +33,13 @@ interface TransactionToolbarProps {
   onSort: (sort: TransactionSort, dir: TransactionDir) => void
   onPer: (per: number) => void
   onClear: () => void
+  /** Whether any transaction matches, so there is something to export. */
+  canExport: boolean
+  exporting: boolean
+  onExport: () => void
 }
 
-export function TransactionToolbar({ text, onText, query, today, onFilter, onSort, onPer, onClear }: TransactionToolbarProps) {
+export function TransactionToolbar({ text, onText, query, today, onFilter, onSort, onPer, onClear, canExport, exporting, onExport }: TransactionToolbarProps) {
   const active = Number(query.range !== '')
   return (
     <div className="mb-3 grid gap-3">
@@ -114,6 +119,19 @@ export function TransactionToolbar({ text, onText, query, today, onFilter, onSor
               Clear filters
             </button>
           )}
+          <div className="w-full @sm:w-auto @4xl:ml-auto [&>span]:w-full @sm:[&>span]:w-auto">
+            <Tooltip label={canExport ? 'Download every matching transaction as a CSV file' : 'There are no transactions to export'} describe>
+              <button
+                type="button"
+                aria-disabled={!canExport || exporting}
+                onClick={() => canExport && !exporting && onExport()}
+                className={`${SECONDARY_BUTTON_SM} w-full`}
+              >
+                {exporting && <SpinnerIcon />}
+                {exporting ? 'Exporting…' : 'Export CSV'}
+              </button>
+            </Tooltip>
+          </div>
         </div>
       </details>
     </div>
