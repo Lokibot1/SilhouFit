@@ -95,15 +95,17 @@ describe('route selects the navbar', () => {
       <MemoryRouter initialEntries={[url]}>
         <ThemeProvider>
           <CookieConsentProvider>
-            <Routes>
-              <Route element={<Layout />}>
-                <Route path="shop" element={<p>shop page</p>} />
-                <Route path="cart" element={<p>cart page</p>} />
-                <Route path="checkout" element={<p>checkout page</p>} />
-                <Route path="checkout/success" element={<p>success page</p>} />
-                <Route path="about" element={<p>about page</p>} />
-              </Route>
-            </Routes>
+            <ToastProvider>
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route path="shop" element={<p>shop page</p>} />
+                  <Route path="cart" element={<p>cart page</p>} />
+                  <Route path="checkout" element={<p>checkout page</p>} />
+                  <Route path="checkout/success" element={<p>success page</p>} />
+                  <Route path="about" element={<p>about page</p>} />
+                </Route>
+              </Routes>
+            </ToastProvider>
           </CookieConsentProvider>
         </ThemeProvider>
       </MemoryRouter>,

@@ -8,7 +8,6 @@ import { OnboardingGate } from './onboarding/OnboardingGate'
 import { ShopNavbar } from './ShopNavbar'
 import { SiteSky } from './Sky'
 import { SkipLink } from './SkipLink'
-import { ToastProvider } from './toast/ToastProvider'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { isAuthPath } from '../utils/authRoutes'
 
@@ -48,28 +47,26 @@ export function Layout({ bare: bareProp = false }: { bare?: boolean }) {
   }
 
   return (
-    <ToastProvider>
-      <div className="min-h-svh text-fg">
-        <SiteSky />
-        <SkipLink />
-        {!bare && (SHOP_BAR.includes(pathname.replace(/\/$/, '')) || pathname.startsWith('/shop/') ? <ShopNavbar /> : <Navbar />)}
-        <main id="main-content">
-          {/* Enter-only fade and rise, keyed by route. Settles to transform: none so sticky/fixed children keep working. */}
-          <MotionConfig reducedMotion="user">
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: DURATION.state, ease: EASE_OUT }}
-            >
-              <Outlet />
-            </motion.div>
-          </MotionConfig>
-        </main>
-        {!bare && !isAuthPath(pathname) && !NO_FOOTER.includes(pathname.replace(/\/$/, '')) && !pathname.startsWith('/shop/') && <Footer />}
-        <CookieConsentBanner />
-        <OnboardingGate />
-      </div>
-    </ToastProvider>
+    <div className="min-h-svh text-fg">
+      <SiteSky />
+      <SkipLink />
+      {!bare && (SHOP_BAR.includes(pathname.replace(/\/$/, '')) || pathname.startsWith('/shop/') ? <ShopNavbar /> : <Navbar />)}
+      <main id="main-content">
+        {/* Enter-only fade and rise, keyed by route. Settles to transform: none so sticky/fixed children keep working. */}
+        <MotionConfig reducedMotion="user">
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATION.state, ease: EASE_OUT }}
+          >
+            <Outlet />
+          </motion.div>
+        </MotionConfig>
+      </main>
+      {!bare && !isAuthPath(pathname) && !NO_FOOTER.includes(pathname.replace(/\/$/, '')) && !pathname.startsWith('/shop/') && <Footer />}
+      <CookieConsentBanner />
+      <OnboardingGate />
+    </div>
   )
 }

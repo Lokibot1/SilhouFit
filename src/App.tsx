@@ -8,6 +8,8 @@ import { LoginSkeleton } from './components/form/LoginSkeleton'
 import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
+import { StaffShellSkeleton } from './components/staff/StaffSkeleton'
+import { ToastProvider } from './components/toast/ToastProvider'
 import { ProfileSkeleton } from './components/profile/ProfileSkeleton'
 import { ProductRouteSkeleton } from './components/shop/ProductSkeleton'
 import { CartSkeleton, ShopSkeleton, WishlistSkeleton } from './components/shop/ShopSkeleton'
@@ -60,9 +62,30 @@ const ProfilePage = lazy(() =>
   import('./views/private/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 )
 
+const StaffLayout = lazy(() =>
+  import('./views/staff/StaffLayout').then((m) => ({ default: m.StaffLayout })),
+)
+const RoleDashboardPlaceholder = lazy(() =>
+  import('./views/staff/RoleDashboardPlaceholder').then((m) => ({ default: m.RoleDashboardPlaceholder })),
+)
+const StaffDashboardPage = lazy(() =>
+  import('./views/staff/StaffDashboardPage').then((m) => ({ default: m.StaffDashboardPage })),
+)
+
 const BodySetupPage = lazy(() =>
   import('./views/private/BodySetupPage').then((m) => ({ default: m.BodySetupPage })),
 )
+
+// The profile page has no customer navbar here, so its top padding shrinks to sit under the staff top bar.
+function StaffProfile() {
+  return (
+    <div className="[&>div]:pt-6!">
+      <Suspense fallback={<ProfileSkeleton />}>
+        <ProfilePage />
+      </Suspense>
+    </div>
+  )
+}
 
 function prefersReducedMotion() {
   return (
@@ -85,115 +108,142 @@ function App() {
       </AnimatePresence>
 
       <div inert={!introDone} aria-hidden={!introDone}>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route index element={<LandingPage />} />
-            <Route path="about" element={<AboutPage />} />
+        <ToastProvider>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route index element={<LandingPage />} />
+              <Route path="about" element={<AboutPage />} />
+              <Route
+                path="signup"
+                element={
+                  <Suspense fallback={<SignUpSkeleton />}>
+                    <SignUpPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="login"
+                element={
+                  <Suspense fallback={<LoginSkeleton />}>
+                    <LoginPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="auth/callback"
+                element={
+                  <Suspense fallback={<CallbackSkeleton />}>
+                    <AuthCallbackPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="forgot-password"
+                element={
+                  <Suspense fallback={<LoginSkeleton short />}>
+                    <ForgotPasswordPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="shop"
+                element={
+                  <Suspense fallback={<ShopSkeleton />}>
+                    <ShopPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="shop/:id"
+                element={
+                  <Suspense fallback={<ProductRouteSkeleton />}>
+                    <ProductPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="wishlist"
+                element={
+                  <Suspense fallback={<WishlistSkeleton />}>
+                    <WishlistPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="cart"
+                element={
+                  <Suspense fallback={<CartSkeleton />}>
+                    <CartPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="checkout"
+                element={
+                  <Suspense fallback={<CheckoutRouteFallback />}>
+                    <CheckoutPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="checkout/success"
+                element={
+                  <Suspense fallback={<CheckoutRouteFallback />}>
+                    <OrderSuccessPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="profile"
+                element={
+                  <Suspense fallback={<ProfileSkeleton />}>
+                    <ProfilePage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="profile/measurements"
+                element={
+                  <Suspense fallback={<ProfileSkeleton />}>
+                    <BodySetupPage />
+                  </Suspense>
+                }
+              />
+              <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="terms-of-service" element={<TermsOfServicePage />} />
+              <Route path="refund-policy" element={<RefundPolicyPage />} />
+              <Route path="cookie-policy" element={<CookiePolicyPage />} />
+            </Route>
             <Route
-              path="signup"
+              path="staff"
               element={
-                <Suspense fallback={<SignUpSkeleton />}>
-                  <SignUpPage />
+                <Suspense fallback={<StaffShellSkeleton />}>
+                  <StaffLayout />
                 </Suspense>
               }
-            />
-            <Route
-              path="login"
-              element={
-                <Suspense fallback={<LoginSkeleton />}>
-                  <LoginPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="auth/callback"
-              element={
-                <Suspense fallback={<CallbackSkeleton />}>
-                  <AuthCallbackPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="forgot-password"
-              element={
-                <Suspense fallback={<LoginSkeleton short />}>
-                  <ForgotPasswordPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="shop"
-              element={
-                <Suspense fallback={<ShopSkeleton />}>
-                  <ShopPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="shop/:id"
-              element={
-                <Suspense fallback={<ProductRouteSkeleton />}>
-                  <ProductPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="wishlist"
-              element={
-                <Suspense fallback={<WishlistSkeleton />}>
-                  <WishlistPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="cart"
-              element={
-                <Suspense fallback={<CartSkeleton />}>
-                  <CartPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="checkout"
-              element={
-                <Suspense fallback={<CheckoutRouteFallback />}>
-                  <CheckoutPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="checkout/success"
-              element={
-                <Suspense fallback={<CheckoutRouteFallback />}>
-                  <OrderSuccessPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="profile"
-              element={
-                <Suspense fallback={<ProfileSkeleton />}>
-                  <ProfilePage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="profile/measurements"
-              element={
-                <Suspense fallback={<ProfileSkeleton />}>
-                  <BodySetupPage />
-                </Suspense>
-              }
-            />
-            <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
-            <Route path="terms-of-service" element={<TermsOfServicePage />} />
-            <Route path="refund-policy" element={<RefundPolicyPage />} />
-            <Route path="cookie-policy" element={<CookiePolicyPage />} />
-          </Route>
-          <Route element={<Layout bare />}>
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
+            >
+              <Route index element={<StaffDashboardPage />} />
+              <Route path="profile" element={<StaffProfile />} />
+            </Route>
+            {(['admin', 'superadmin'] as const).map((area) => (
+              <Route
+                key={area}
+                path={area}
+                element={
+                  <Suspense fallback={<StaffShellSkeleton />}>
+                    <StaffLayout area={area} />
+                  </Suspense>
+                }
+              >
+                <Route index element={<RoleDashboardPlaceholder area={area} />} />
+                <Route path="profile" element={<StaffProfile />} />
+              </Route>
+            ))}
+            <Route element={<Layout bare />}>
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </ToastProvider>
       </div>
     </>
   )

@@ -50,6 +50,8 @@ interface TooltipProps {
   label: string
   /** Also expose the label as the control's description. Off by default: the tooltip is never the accessible name. */
   describe?: boolean
+  /** Shows the tip while true, for a caller that follows a pointer itself (a chart's readout). Hover and focus then do nothing. */
+  open?: boolean
   children: ReactNode
 }
 
@@ -57,11 +59,12 @@ interface TooltipProps {
  * A hint for a control. Shows on mouse hover after a short delay and at once on keyboard focus; a touch tap never
  * shows it. Hides on leave, press, blur or Escape.
  */
-export function Tooltip({ label, describe = false, children }: TooltipProps) {
+export function Tooltip({ label, describe = false, open: controlled, children }: TooltipProps) {
   const id = useId()
   const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null)
   const timer = useRef<number>(undefined)
-  const [open, setOpen] = useState(false)
+  const [hovered, setOpen] = useState(false)
+  const open = controlled ?? hovered
 
   const hide = () => {
     window.clearTimeout(timer.current)

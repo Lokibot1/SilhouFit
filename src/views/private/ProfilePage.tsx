@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { AlertIcon } from '../../components/form/icons'
 import { BodyMeasurements } from '../../components/profile/BodyMeasurements'
 import { DeliveryAddress } from '../../components/profile/DeliveryAddress'
@@ -14,6 +14,7 @@ import { useOnboarding } from '../../hooks/useOnboarding'
 import { fetchMe, type Me, type MeErrorKind } from '../../service/fetchMe'
 import { setSession } from '../../service/session'
 import { signOut } from '../../service/signOut'
+import { isStaffRole } from '../../utils/staffRole'
 
 const META_DESCRIPTION =
   'Review the name, email, join date and delivery address saved on your SilhouFit account, and sign out of this device when you are done shopping or fitting.'
@@ -53,6 +54,7 @@ export function ProfilePage() {
   useDocumentTitle('Your profile — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
 
+  const { pathname } = useLocation()
   const user = useCurrentUser()
   const toast = useToast()
   const { startTour } = useOnboarding()
@@ -94,6 +96,11 @@ export function ProfilePage() {
     // The tour's welcome card may already hold focus; the heading must not take it back.
     if (state.status !== 'loading' && !document.querySelector('[aria-modal="true"]')) headingRef.current?.focus()
   }, [state.status])
+
+  // Staff roles see their profile inside their own sidebar shell.
+  if (state.status === 'success' && isStaffRole(state.me.role) && !pathname.startsWith(`/${state.me.role}/`)) {
+    return <Navigate to={`/${state.me.role}/profile`} replace />
+  }
 
   if (!user) {
     return <Navigate to={hadUser && !expired ? '/' : '/login?next=%2Fprofile'} replace />

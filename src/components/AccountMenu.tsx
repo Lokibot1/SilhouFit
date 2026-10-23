@@ -15,8 +15,12 @@ const PANEL_WIDTH = 256
 const ITEM = 'flex min-h-9 pointer-coarse:min-h-11 w-full items-center gap-2 px-3 text-base'
 const ITEM_LIVE = `${ITEM} cursor-pointer hover:bg-fg/10`
 
-/** The signed-in avatar as a button that opens a small panel with who is signed in and Sign out. */
-export function AccountMenu({ user }: { user: CurrentUser }) {
+/**
+ * The signed-in avatar as a button that opens a small panel with who is signed in and Sign out.
+ * `profileTo` is where Profile goes; null shows it as coming soon, for an area with no profile page yet.
+ * `onSignOut` runs just before the session ends.
+ */
+export function AccountMenu({ user, profileTo = '/profile', onSignOut }: { user: CurrentUser; profileTo?: string | null; onSignOut?: () => void }) {
   const toast = useToast()
   const panelId = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -69,6 +73,7 @@ export function AccountMenu({ user }: { user: CurrentUser }) {
   }, [open, placed])
 
   function signOut() {
+    onSignOut?.()
     endSession()
     close(false)
     // The avatar is replaced by the Sign in icon: put focus there rather than on the page.
@@ -111,10 +116,18 @@ export function AccountMenu({ user }: { user: CurrentUser }) {
                 {user.email && <p className="truncate text-sm text-fg-muted">{user.email}</p>}
               </div>
               <div className="my-1 h-px bg-line-strong" role="separator" />
-              <Link to="/profile" onClick={() => close(false)} className={ITEM_LIVE}>
-                <UserIcon />
-                Profile
-              </Link>
+              {profileTo ? (
+                <Link to={profileTo} onClick={() => close(false)} className={ITEM_LIVE}>
+                  <UserIcon />
+                  Profile
+                </Link>
+              ) : (
+                <button type="button" aria-disabled="true" className={`${ITEM_LIVE} text-fg-muted`}>
+                  <UserIcon />
+                  Profile
+                  <span className="ml-auto text-sm">Soon</span>
+                </button>
+              )}
               {/* The settings page is still to do, so the row shows but does nothing yet. */}
               <button type="button" aria-disabled="true" className={`${ITEM_LIVE} text-fg-muted`}>
                 <SettingsIcon />

@@ -1,3 +1,4 @@
+import type { Me } from './fetchMe'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
@@ -7,7 +8,7 @@ export interface SignInPayload {
   remember?: boolean
 }
 
-export type SignInResult = { ok: true; user: { name: string; email: string; avatarUrl?: string } } | { ok: false; reason: 'invalid' }
+export type SignInResult = { ok: true; user: { name: string; email: string; avatarUrl?: string; role?: Me['role'] } } | { ok: false; reason: 'invalid' }
 
 // Wrong password, unknown email and unconfirmed email all read the same, so the form never reveals which emails exist.
 const INVALID_CODES = ['invalid_credentials', 'email_not_confirmed']
@@ -27,6 +28,7 @@ export class SignInError extends Error {
 interface Profile {
   email: string
   avatarUrl?: string | null
+  role?: Me['role']
   firstName: string
   lastName: string
   fullName: string | null
@@ -61,6 +63,7 @@ export async function submitSignIn(
         name: profile.fullName ?? `${profile.firstName} ${profile.lastName}`,
         email: profile.email,
         avatarUrl: profile.avatarUrl ?? undefined,
+        role: profile.role,
       },
     }
   } catch (failure) {

@@ -12,6 +12,7 @@ import { getSession, setSession } from '../../service/session'
 import { signOut } from '../../service/signOut'
 import { getSupabase } from '../../service/supabase'
 import { nextQuery, safeNext } from '../../utils/safeNext'
+import { homeFor } from '../../utils/staffRole'
 
 const META_DESCRIPTION =
   'Finishing your Google sign-in to SilhouFit. If something went wrong, you can head back to the login page and try again whenever you are ready to continue.'
@@ -184,7 +185,7 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
         clearStashedNext()
         toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
         // Replacing the entry also leaves the code out of history.
-        navigate(safeNext(next, '/profile'), { replace: true })
+        navigate(safeNext(next, homeFor(me.role)), { replace: true })
       },
       (failure: unknown) => {
         clearTimeout(timer)

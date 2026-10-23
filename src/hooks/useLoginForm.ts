@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useToast } from '../components/toast/useToast'
 import { clearStashedNext, googleErrorMessage, startGoogleAuth } from '../service/googleAuth'
+import type { Me } from '../service/fetchMe'
 import { setSession, type Session } from '../service/session'
 import { submitSignIn, type SignInError, type SignInErrorKind } from '../service/signIn'
 import {
@@ -12,6 +13,7 @@ import {
   type LoginValues,
 } from '../utils/loginValidation'
 import { safeNext } from '../utils/safeNext'
+import { homeFor } from '../utils/staffRole'
 import { normalizeEmail, stripEmoji } from '../utils/signUpValidation'
 
 const EMPTY: LoginValues = { email: '', password: '' }
@@ -135,11 +137,11 @@ export function useLoginForm() {
   }
 
   // Sign-in finished: remember the user, then return to the page that asked for it, or to the profile.
-  function signedIn(user: Session) {
+  function signedIn(user: Session & { role?: Me['role'] }) {
     setSession(user)
     clearStashedNext()
     toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
-    navigate(safeNext(next, '/profile'), { replace: true })
+    navigate(safeNext(next, homeFor(user.role)), { replace: true })
   }
 
   async function submit() {

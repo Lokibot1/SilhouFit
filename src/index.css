@@ -32,6 +32,13 @@
   --color-chrome-bright: var(--chrome-bright);
   --color-danger: var(--danger);
   --color-success: var(--success);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-other: var(--chart-other);
+  --color-chart-grid: var(--chart-grid);
 }
 
 :root {
@@ -43,6 +50,16 @@
   --line-strong: rgb(20 23 28 / 0.26);
   --danger: #b42318;
   --success: #0f7a43;
+
+  /* Staff charts: steel hues, each at least 3:1 against --canvas-sub. Lightness differs between neighbours, so
+     the legend's text and numbers carry the meaning and colour never does alone. */
+  --chart-1: #20303f;
+  --chart-2: #2f5f8f;
+  --chart-3: #5b86a8;
+  --chart-4: #4a5563;
+  --chart-5: #3d8a8f;
+  --chart-other: #78828f;
+  --chart-grid: rgb(20 23 28 / 0.12);
 
   /* Chrome needs bright and shaded tones to read as metal: `--chrome` fills, `--chrome-strong`
      is contrast-safe accent text, `--chrome-shade` the dark band. */
@@ -117,6 +134,14 @@
   --line-strong: rgb(255 255 255 / 0.2);
   --danger: #ff8a80;
   --success: #6ee7a0;
+
+  --chart-1: #e4e9ef;
+  --chart-2: #8fb4dc;
+  --chart-3: #6f9bc0;
+  --chart-4: #a3adba;
+  --chart-5: #5fb3b8;
+  --chart-other: #7b8491;
+  --chart-grid: rgb(255 255 255 / 0.1);
 
   --chrome: #c3cad4;
   --chrome-strong: #d7dde5;
