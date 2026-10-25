@@ -6,6 +6,7 @@ export interface CurrentUser {
   name: string
   email?: string
   avatarUrl?: string
+  initials?: string
   role?: Me['role']
 }
 

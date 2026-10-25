@@ -5,7 +5,7 @@ vi.mock('../../src/service/supabase', () => ({
   getSupabase: async () => ({ auth: { getSession } }),
 }))
 
-const { BodyProfileError, getBodyProfile, saveBodyProfile } = await import('../../src/service/bodyProfile')
+const { BodyProfileError, getBodyProfile, saveBodyProfile, updateBodyProfile } = await import('../../src/service/bodyProfile')
 
 const PROFILE = {
   heightCm: 171.3,
@@ -288,6 +288,46 @@ describe('saveBodyProfile', () => {
     const controller = new AbortController()
     await saveBodyProfile(PROFILE, { signal: controller.signal })
     expect(fetchMock.mock.calls[0][1].signal).toBe(controller.signal)
+  })
+})
+
+describe('updateBodyProfile', () => {
+  it('PATCHes only the keys passed, as JSON with the bearer token, and returns the whole saved profile', async () => {
+    fetchMock.mockResolvedValue(json({ ...PROFILE, chestCm: 95 }))
+    expect(await updateBodyProfile({ chestCm: 95 })).toEqual({ ...PROFILE, chestCm: 95 })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toMatch(/\/users\/me\/body-profile$/)
+    expect(init.method).toBe('PATCH')
+    expect(init.headers).toEqual({ Authorization: 'Bearer token-123', 'Content-Type': 'application/json' })
+    expect(JSON.parse(init.body)).toEqual({ chestCm: 95 })
+  })
+
+  it('sends a cleared field as an explicit null', async () => {
+    fetchMock.mockResolvedValue(json({ ...PROFILE, waistCm: null }))
+    await updateBodyProfile({ waistCm: null })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ waistCm: null })
+  })
+
+  it('treats 404 (no profile created yet) as a server error, like save', async () => {
+    fetchMock.mockResolvedValue(json({}, 404))
+    await expect(updateBodyProfile({ chestCm: 95 })).rejects.toMatchObject({ kind: 'server' })
+  })
+
+  it.each([
+    [400, 'invalid'],
+    [401, 'unauthorized'],
+    [422, 'invalid'],
+    [429, 'rate-limit'],
+    [500, 'server'],
+  ])('maps a %i response to %s', async (status, kind) => {
+    fetchMock.mockResolvedValue(json({}, status))
+    await expect(updateBodyProfile({ chestCm: 95 })).rejects.toMatchObject({ kind })
+  })
+
+  it('is unauthorized without a session, and sends no request', async () => {
+    getSession.mockResolvedValue({ data: { session: null } })
+    await expect(updateBodyProfile({ chestCm: 95 })).rejects.toMatchObject({ kind: 'unauthorized' })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })
 

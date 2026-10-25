@@ -51,8 +51,8 @@ const NUMBER_KEYS = [
 ] as const
 
 async function request(
-  method: 'GET' | 'PUT',
-  body: BodyProfile | undefined,
+  method: 'GET' | 'PUT' | 'PATCH',
+  body: Partial<BodyProfile> | undefined,
   signal?: AbortSignal,
 ) {
   let token: string | undefined
@@ -147,6 +147,18 @@ export function getBodyProfile({ signal }: RequestOptions = {}): Promise<BodyPro
 /** Creates or replaces the profile. Send only what the user entered; a field they cleared goes as null. */
 export async function saveBodyProfile(profile: BodyProfile, { signal }: RequestOptions = {}): Promise<BodyProfile> {
   const response = await request('PUT', profile, signal)
+  if (!response.ok) throw new BodyProfileError(STATUS_KIND[response.status] ?? 'server')
+  const saved = await parse(response)
+  pending = null // a GET still on the wire may carry the old profile
+  return saved
+}
+
+/**
+ * Changes only the fields passed; a field passed as null is cleared, one left out is kept. Returns the whole saved profile.
+ * Nothing is saved yet when the API answers 404, and that surfaces as a 'server' error (as it does for save): create the profile with saveBodyProfile first.
+ */
+export async function updateBodyProfile(patch: Partial<BodyProfile>, { signal }: RequestOptions = {}): Promise<BodyProfile> {
+  const response = await request('PATCH', patch, signal)
   if (!response.ok) throw new BodyProfileError(STATUS_KIND[response.status] ?? 'server')
   const saved = await parse(response)
   pending = null // a GET still on the wire may carry the old profile

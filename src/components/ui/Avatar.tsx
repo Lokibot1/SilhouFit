@@ -19,12 +19,14 @@ function hueFor(name: string) {
 interface AvatarProps {
   name: string
   src?: string
+  /** Shown instead of the letters taken from `name`, for names that carry a suffix. */
+  initials?: string
   size?: keyof typeof SIZES
 }
 
-export function Avatar({ name, src, size = 'md' }: AvatarProps) {
+export function Avatar({ name, src, initials: given, size = 'md' }: AvatarProps) {
   const [failedSrc, setFailedSrc] = useState<string>()
-  const letters = initials(name)
+  const letters = given || initials(name)
 
   if (src && failedSrc !== src) {
     return (

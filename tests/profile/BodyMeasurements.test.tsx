@@ -56,6 +56,8 @@ const ME: Me = {
   suffix: null,
   fullName: 'Anne Santos',
   avatarUrl: null,
+  birthday: null,
+  gender: null,
   createdAt: '2026-01-15T08:30:00.000Z',
   updatedAt: '2026-01-15T08:30:00.000Z',
 }

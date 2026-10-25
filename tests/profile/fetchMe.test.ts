@@ -16,6 +16,8 @@ const ME = {
   suffix: null,
   fullName: 'Anne Santos',
   avatarUrl: null,
+  birthday: null,
+  gender: null,
   createdAt: '2026-01-15T08:30:00.000Z',
   updatedAt: '2026-01-15T08:30:00.000Z',
 }
@@ -36,6 +38,14 @@ describe('fetchMe', () => {
     expect(await fetchMe()).toEqual(ME)
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/users\/me$/)
     expect(fetchMock.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer token-123' })
+  })
+
+  it('reads birthday and gender, and falls back to null for missing or unknown values', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ ...ME, birthday: '1995-05-15', gender: 'female' }), { status: 200 }))
+    expect(await fetchMe()).toMatchObject({ birthday: '1995-05-15', gender: 'female' })
+    const { birthday: _b, gender: _g, ...older } = ME
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ ...older, gender: 'robot' }), { status: 200 }))
+    expect(await fetchMe()).toMatchObject({ birthday: null, gender: null })
   })
 
   it('is unauthorized without a session, and sends no request', async () => {

@@ -11,6 +11,9 @@ export interface Me {
   suffix: string | null
   fullName: string | null
   avatarUrl: string | null
+  /** YYYY-MM-DD. */
+  birthday: string | null
+  gender: 'male' | 'female' | 'other' | 'unisex' | null
   createdAt: string
   updatedAt: string
 }
@@ -28,6 +31,19 @@ export class MeError extends Error {
 }
 
 const STATUS_KIND: Record<number, MeErrorKind> = { 401: 'unauthorized', 404: 'not-found', 429: 'rate-limit' }
+
+const GENDERS: unknown[] = ['male', 'female', 'other', 'unisex']
+
+/** The profile from a /users/me body, or null when it lacks what the page cannot do without. A 200 with the wrong shape would otherwise crash the page or show "undefined undefined". */
+export function toMe(body: Partial<Me> | null): Me | null {
+  const required = [body?.id, body?.email, body?.firstName, body?.lastName]
+  if (!body || !required.every((value) => typeof value === 'string' && value)) return null
+  return {
+    ...body,
+    birthday: typeof body.birthday === 'string' ? body.birthday : null,
+    gender: GENDERS.includes(body.gender) ? body.gender! : null,
+  } as Me
+}
 
 // Loads the signed-in user's profile with the Supabase access token. An abort rejects with the AbortError itself.
 export async function fetchMe({ signal }: RequestOptions = {}): Promise<Me> {
@@ -58,8 +74,7 @@ export async function fetchMe({ signal }: RequestOptions = {}): Promise<Me> {
   } catch {
     throw new MeError('server')
   }
-  // A 200 with the wrong shape would otherwise crash the page or show "undefined undefined".
-  const required = [body?.id, body?.email, body?.firstName, body?.lastName]
-  if (!required.every((value) => typeof value === 'string' && value)) throw new MeError('server')
-  return body as Me
+  const me = toMe(body)
+  if (!me) throw new MeError('server')
+  return me
 }

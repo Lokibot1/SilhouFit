@@ -15,7 +15,7 @@ export function AccountLink({ user, onNavigate }: { user: CurrentUser; onNavigat
         onClick={onNavigate}
         className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl hover:bg-fg/10"
       >
-        <Avatar name={user.name} src={user.avatarUrl} size="sm" />
+        <Avatar name={user.name} src={user.avatarUrl} initials={user.initials} size="sm" />
       </Link>
     </Tooltip>
   )

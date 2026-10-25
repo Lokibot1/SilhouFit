@@ -10,6 +10,8 @@ export interface Session {
   name: string
   email: string
   avatarUrl?: string
+  /** First letter of the first name and of the last name; without it the avatar uses the first and last word of `name`. */
+  initials?: string
   /** Only decides where the navbar's account button goes; the pages and the API check the role again. */
   role?: Me['role']
 }
@@ -23,6 +25,7 @@ function load(): Session | null {
       name: user.name,
       email: user.email,
       avatarUrl: typeof user.avatarUrl === 'string' ? user.avatarUrl : undefined,
+      initials: typeof user.initials === 'string' ? user.initials : undefined,
       role: ROLES.includes(user.role as string) ? user.role : undefined,
     }
   } catch {
@@ -55,7 +58,7 @@ if (typeof window !== 'undefined') {
 }
 
 export const getSession = () => session
-export const setSession = (user: Session) => commit({ name: user.name, email: user.email, avatarUrl: user.avatarUrl, role: user.role })
+export const setSession = (user: Session) => commit({ name: user.name, email: user.email, avatarUrl: user.avatarUrl, initials: user.initials, role: user.role })
 export const clearSession = () => commit(null)
 
 export function subscribe(listener: () => void) {

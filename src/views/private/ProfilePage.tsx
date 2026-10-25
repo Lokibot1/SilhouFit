@@ -3,10 +3,13 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { AlertIcon } from '../../components/form/icons'
 import { BodyMeasurements } from '../../components/profile/BodyMeasurements'
 import { DeliveryAddress } from '../../components/profile/DeliveryAddress'
+import { EditProfileForm } from '../../components/profile/EditProfileForm'
 import { PROFILE_CARD, PROFILE_SHELL, ProfileSkeleton } from '../../components/profile/ProfileSkeleton'
 import { useToast } from '../../components/toast/useToast'
 import { Avatar } from '../../components/ui/Avatar'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
+import { IconEditButton } from '../../components/ui/IconEditButton'
+import { Modal } from '../../components/ui/Modal'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
@@ -43,6 +46,9 @@ type State =
   | { status: 'error'; kind: Exclude<MeErrorKind, 'unauthorized'> }
   | { status: 'success'; me: Me }
 
+/** First letter of the first name and of the last name, so "Anna Maria Cruz Jr." is "AC". */
+const initialsOf = (me: Me) => `${me.firstName[0]}${me.lastName[0]}`.toUpperCase()
+
 function formatDate(iso: string) {
   const date = new Date(iso)
   return Number.isNaN(date.getTime())
@@ -61,9 +67,11 @@ export function ProfilePage() {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  // Signed in when the page opened: losing the session later (Sign out here or in the navbar) ends at '/'.
+  // Signed in when the page opened: losing the session later (Sign out here or in the navbar) ends at the login page.
   const [hadUser] = useState(user !== null)
   const [expired, setExpired] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -74,6 +82,7 @@ export function ProfilePage() {
           name: me.fullName ?? `${me.firstName} ${me.lastName}`,
           email: me.email,
           avatarUrl: me.avatarUrl ?? undefined,
+          initials: initialsOf(me),
           role: me.role,
         })
         setState({ status: 'success', me })
@@ -82,9 +91,7 @@ export function ProfilePage() {
         if (controller.signal.aborted) return
         const kind = (error as { kind?: MeErrorKind } | null)?.kind ?? 'server'
         if (kind === 'unauthorized') {
-          // The token is no longer valid: end the session, then the guard sends the user to sign in again.
-          setExpired(true)
-          signOut()
+          expire()
           return
         }
         setState({ status: 'error', kind })
@@ -92,6 +99,12 @@ export function ProfilePage() {
     )
     return () => controller.abort()
   }, [attempt])
+
+  // The token is no longer valid: end the session, then the guard sends the user to sign in again.
+  function expire() {
+    setExpired(true)
+    signOut()
+  }
 
   useEffect(() => {
     // The tour's welcome card may already hold focus; the heading must not take it back.
@@ -110,6 +123,25 @@ export function ProfilePage() {
   function retry() {
     setState({ status: 'loading' })
     setAttempt((n) => n + 1)
+  }
+
+  function saved(me: Me) {
+    setSession({
+      name: me.fullName ?? `${me.firstName} ${me.lastName}`,
+      email: me.email,
+      avatarUrl: me.avatarUrl ?? undefined,
+      initials: initialsOf(me),
+      role: me.role,
+    })
+    setState({ status: 'success', me })
+    setSaving(false)
+    setEditing(false)
+    toast.show({ kind: 'success', message: 'Profile updated' })
+  }
+
+  // The dialog stays open while a save is in flight, so its result is never lost.
+  function closeEditor() {
+    if (!saving) setEditing(false)
   }
 
   function leave() {
@@ -152,8 +184,8 @@ export function ProfilePage() {
     <div className={PROFILE_SHELL}>
       <section aria-label="Your profile" className={PROFILE_CARD}>
         <div className="flex items-center gap-4">
-          <Avatar name={name} src={me.avatarUrl ?? undefined} size="lg" />
-          <div className="min-w-0">
+          <Avatar name={name} src={me.avatarUrl ?? undefined} initials={initialsOf(me)} size="lg" />
+          <div className="min-w-0 flex-1">
             <h1
               ref={headingRef}
               tabIndex={-1}
@@ -163,6 +195,9 @@ export function ProfilePage() {
             </h1>
             <p className="text-base wrap-break-word text-fg-muted">{me.email}</p>
           </div>
+          {me.role === 'customer' && (
+            <IconEditButton label="Edit profile" onClick={() => setEditing(true)} className="-mt-2 -mr-2 self-start" />
+          )}
         </div>
         {since && (
           <dl className="mt-6">
@@ -186,6 +221,11 @@ export function ProfilePage() {
           <DeliveryAddress />
           <BodyMeasurements />
         </div>
+      )}
+      {me.role === 'customer' && (
+        <Modal open={editing} onClose={closeEditor} title="Edit your profile">
+          <EditProfileForm me={me} onSaved={saved} onCancel={closeEditor} onUnauthorized={expire} onPendingChange={setSaving} />
+        </Modal>
       )}
     </div>
   )

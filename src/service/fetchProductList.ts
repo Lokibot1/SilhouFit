@@ -4,6 +4,8 @@ import { getSupabase } from './supabase'
 export interface ProductListItem {
   id: string
   name: string
+  /** Set when the API sends it; the by-slug lookup relies on it. */
+  slug?: string
   category: string
   brand: string | null
   minPrice: number
@@ -42,7 +44,7 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 export type ProductListErrorKind = 'network' | 'rate-limit' | 'not-found' | 'server' | 'validation' | 'conflict' | 'forbidden'
 
-// Lets a section pick accurate copy; 'not-found' is only raised for a product looked up by id.
+// Lets a section pick accurate copy; 'not-found' is only raised for a product looked up by id or slug.
 export class ProductListError extends Error {
   kind: ProductListErrorKind
   /** What the server said was wrong, when it said (a 400 or 409 on creating a product). */
@@ -111,6 +113,7 @@ function toListItem(value: unknown): ProductListItem {
   return {
     id,
     name,
+    ...(typeof value.slug === 'string' && { slug: value.slug }),
     category,
     brand: typeof value.brand === 'string' ? value.brand : null,
     minPrice: minPrice as number,
@@ -145,20 +148,26 @@ export async function fetchProductList(params: ProductListParams, { signal }: Re
   }
 }
 
-/** GET /products/:id. The API answers with the detail shape, so price range and stock are worked out from its variants. */
-export async function fetchProductById(id: string, { signal }: RequestOptions = {}): Promise<ProductListItem> {
-  const body = await request('GET', `/products/${encodeURIComponent(id)}`, undefined, signal)
-  if (!isRecord(body) || !Array.isArray(body.variants) || !Array.isArray(body.images) || !isCount(body.basePrice)) throw new ProductListError('server')
+/** Shapes a product detail body into a list item: the API sends the price range, stock is summed from its variants. */
+function toDetailItem(body: unknown): ProductListItem {
+  if (!isRecord(body) || !Array.isArray(body.variants) || !Array.isArray(body.images) || !isCount(body.minPrice) || !isCount(body.maxPrice)) throw new ProductListError('server')
   const variants = body.variants.filter(isRecord)
-  const prices = variants.map((variant) => (isCount(variant.effectivePrice) ? (variant.effectivePrice as number) : (body.basePrice as number)))
   const images = body.images.filter(isRecord)
   return toListItem({
     ...body,
-    minPrice: prices.length ? Math.min(...prices) : body.basePrice,
-    maxPrice: prices.length ? Math.max(...prices) : body.basePrice,
     totalStock: variants.reduce((sum, variant) => sum + (isCount(variant.stock) ? (variant.stock as number) : 0), 0),
     primaryImage: images.find((image) => image.isPrimary === true) ?? images[0] ?? null,
   })
+}
+
+/** GET /products/:id. The API answers with the detail shape, so price range and stock are worked out from its variants. */
+export async function fetchProductById(id: string, { signal }: RequestOptions = {}): Promise<ProductListItem> {
+  return toDetailItem(await request('GET', `/products/${encodeURIComponent(id)}`, undefined, signal))
+}
+
+/** GET /products/slug/:slug. Same detail shape as by id, so the result matches `fetchProductById` and carries the slug. */
+export async function fetchProductBySlug(slug: string, { signal }: RequestOptions = {}): Promise<ProductListItem> {
+  return toDetailItem(await request('GET', `/products/slug/${encodeURIComponent(slug)}`, undefined, signal))
 }
 
 export interface ProductVariant {

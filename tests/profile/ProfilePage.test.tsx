@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { getBodyProfile } from '../../src/service/bodyProfile'
 import { fetchMe, MeError, type Me } from '../../src/service/fetchMe'
+import { updateMe, UpdateMeError } from '../../src/service/updateMe'
 import { clearSession, getSession, setSession } from '../../src/service/session'
 import { ProfilePage } from '../../src/views/private/ProfilePage'
 
@@ -17,6 +18,10 @@ vi.mock('../../src/service/fetchMe', async (importOriginal) => ({
 vi.mock('../../src/service/bodyProfile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/bodyProfile')>()),
   getBodyProfile: vi.fn(),
+}))
+vi.mock('../../src/service/updateMe', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/updateMe')>()),
+  updateMe: vi.fn(),
 }))
 const signOutSupabase = vi.fn()
 vi.mock('../../src/service/supabase', () => ({
@@ -33,6 +38,8 @@ const ME: Me = {
   suffix: null,
   fullName: 'Anne Santos',
   avatarUrl: null,
+  birthday: null,
+  gender: null,
   createdAt: '2026-01-15T08:30:00.000Z',
   updatedAt: '2026-01-15T08:30:00.000Z',
 }
@@ -156,5 +163,80 @@ describe('ProfilePage', () => {
     expect(getSession()).toBeNull()
     expect(signOutSupabase).toHaveBeenCalled()
     expect(screen.getByText('Signed out')).toBeInTheDocument()
+  })
+
+  describe('editing the profile', () => {
+    it('is offered to customers only', async () => {
+      load.mockResolvedValue({ ...ME, role: 'customer' })
+      const { unmount } = renderPage()
+      expect(await screen.findByRole('button', { name: 'Edit profile' })).toBeInTheDocument()
+      unmount()
+
+      load.mockResolvedValue({ ...ME, role: undefined })
+      renderPage()
+      await screen.findByRole('heading', { level: 1, name: 'Anne Santos' })
+      expect(screen.queryByRole('button', { name: 'Edit profile' })).not.toBeInTheDocument()
+    })
+
+    it('saves, then shows the new name, a toast and the updated session', async () => {
+      const user = userEvent.setup()
+      load.mockResolvedValue({ ...ME, role: 'customer' })
+      vi.mocked(updateMe).mockResolvedValue({ ...ME, role: 'customer', lastName: 'Reyes', fullName: 'Anne Reyes' })
+      renderPage()
+      await user.click(await screen.findByRole('button', { name: 'Edit profile' }))
+      const last = await screen.findByLabelText('Last name')
+      await user.clear(last)
+      await user.type(last, 'Reyes')
+      await user.click(screen.getByRole('button', { name: 'Save changes' }))
+
+      expect(await screen.findByRole('heading', { level: 1, name: 'Anne Reyes' })).toBeInTheDocument()
+      expect(screen.getByText('Profile updated')).toBeInTheDocument()
+      expect(getSession()?.name).toBe('Anne Reyes')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('keeps the navbar initials to the first and last name, not the suffix', async () => {
+      const user = userEvent.setup()
+      load.mockResolvedValue({ ...ME, role: 'customer', firstName: 'Anna', middleName: 'Maria', lastName: 'Cruz', suffix: 'Jr.', fullName: 'Anna Maria Cruz Jr.' })
+      renderPage()
+      await screen.findByRole('heading', { level: 1, name: 'Anna Maria Cruz Jr.' })
+      expect(getSession()?.initials).toBe('AC')
+      expect(screen.getByRole('img', { name: 'Anna Maria Cruz Jr.' })).toHaveTextContent('AC')
+
+      vi.mocked(updateMe).mockResolvedValue({ ...ME, role: 'customer', firstName: 'Beth', middleName: null, lastName: 'Diaz', suffix: 'III', fullName: 'Beth Diaz III' })
+      await user.click(screen.getByRole('button', { name: 'Edit profile' }))
+      await user.type(await screen.findByLabelText('Suffix (optional)'), 'x')
+      await user.click(screen.getByRole('button', { name: 'Save changes' }))
+      await waitFor(() => expect(getSession()?.initials).toBe('BD'))
+    })
+
+    it('ignores Escape and the close button while a save is pending', async () => {
+      const user = userEvent.setup()
+      load.mockResolvedValue({ ...ME, role: 'customer' })
+      let finish: (me: Me) => void = () => {}
+      vi.mocked(updateMe).mockReturnValue(new Promise((resolve) => (finish = resolve)))
+      renderPage()
+      await user.click(await screen.findByRole('button', { name: 'Edit profile' }))
+      await user.type(await screen.findByLabelText('Suffix (optional)'), 'Jr')
+      await user.click(screen.getByRole('button', { name: 'Save changes' }))
+      await user.keyboard('{Escape}')
+      await user.click(screen.getByRole('button', { name: 'Close Edit your profile' }))
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      finish({ ...ME, role: 'customer', suffix: 'Jr' })
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    })
+
+    it('ends the session when the token is rejected on save', async () => {
+      const user = userEvent.setup()
+      load.mockResolvedValue({ ...ME, role: 'customer' })
+      vi.mocked(updateMe).mockRejectedValue(new UpdateMeError('unauthorized'))
+      renderPage()
+      await user.click(await screen.findByRole('button', { name: 'Edit profile' }))
+      await user.type(await screen.findByLabelText('Suffix (optional)'), 'Jr')
+      await user.click(screen.getByRole('button', { name: 'Save changes' }))
+      await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/login?next=%2Fprofile'))
+      expect(getSession()).toBeNull()
+      expect(signOutSupabase).toHaveBeenCalled()
+    })
   })
 })
