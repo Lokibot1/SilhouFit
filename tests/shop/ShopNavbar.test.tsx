@@ -168,6 +168,18 @@ describe('ShopNavbar', () => {
     expect(screen.getByRole('button', { name: 'Account, Ana Reyes' })).toHaveAttribute('aria-expanded', 'false')
   })
 
+  it('links the logo to the landing page only when signed out', () => {
+    const { unmount } = renderNavbar()
+    expect(screen.getByRole('link', { name: /SilhouFit/ })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('link', { name: 'Visit website' })).toBeNull()
+    unmount()
+
+    currentUser.mockReturnValue({ name: 'Ana Reyes' })
+    renderNavbar()
+    expect(screen.queryByRole('link', { name: /SilhouFit/ })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Visit website' })).toHaveAttribute('href', '/')
+  })
+
   describe('account menu', () => {
     const open = async (user: ReturnType<typeof userEvent.setup>) => {
       currentUser.mockReturnValue({ name: 'Ana Reyes', email: 'ana@example.com' })

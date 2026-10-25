@@ -74,6 +74,7 @@ export function ProfilePage() {
           name: me.fullName ?? `${me.firstName} ${me.lastName}`,
           email: me.email,
           avatarUrl: me.avatarUrl ?? undefined,
+          role: me.role,
         })
         setState({ status: 'success', me })
       },

@@ -221,6 +221,14 @@ export const LogOutIcon = ({ size = 20, className }: IconProps) => (
   </Icon>
 )
 
+export const GlobeIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18" />
+    <path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+  </Icon>
+)
+
 export const BagIcon =({ size = 20, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="M5 8h14l-1 12H6L5 8Z" />

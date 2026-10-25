@@ -9,6 +9,7 @@ import { CartIcon, HeartIcon, SearchIcon, UserIcon, XIcon } from './form/icons'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 import { ThemeToggle } from './ThemeToggle'
 import { AccountMenu } from './AccountMenu'
+import { VisitWebsiteLink } from './VisitWebsiteLink'
 import { Tooltip } from './ui/Tooltip'
 
 const ICON_BUTTON =
@@ -67,20 +68,30 @@ export function ShopNavbar() {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [onShop])
 
+  const lockup = (
+    <>
+      <SilhouetteMark className="h-8 w-6 text-fg" />
+      <span className="leading-none">
+        <span className="font-display block text-[17px] font-bold tracking-[-0.02em] text-fg max-[359px]:sr-only">
+          SilhouFit
+        </span>
+        <span className="font-ui hidden text-[9px] tracking-[0.22em] text-fg-muted uppercase transition-colors group-hover:text-chrome-strong sm:block lg:hidden xl:block">
+          Omnichannel apparel
+        </span>
+      </span>
+    </>
+  )
+
   return (
     <header className="fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] border-b border-line bg-canvas/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center 2xl:max-w-[88rem] gap-x-1 px-3 py-2 sm:px-6 lg:gap-x-4">
-        <Link to="/" className="tap group flex items-center gap-2 sm:gap-3">
-          <SilhouetteMark className="h-8 w-6 text-fg" />
-          <span className="leading-none">
-            <span className="font-display block text-[17px] font-bold tracking-[-0.02em] text-fg max-[359px]:sr-only">
-              SilhouFit
-            </span>
-            <span className="font-ui hidden text-[9px] tracking-[0.22em] text-fg-muted uppercase transition-colors group-hover:text-chrome-strong sm:block lg:hidden xl:block">
-              Omnichannel apparel
-            </span>
-          </span>
-        </Link>
+        {user ? (
+          <div className="flex items-center gap-2 sm:gap-3">{lockup}</div>
+        ) : (
+          <Link to="/" className="tap group flex items-center gap-2 sm:gap-3">
+            {lockup}
+          </Link>
+        )}
 
         {onShop && (
         <div
@@ -157,7 +168,10 @@ export function ShopNavbar() {
             </Link>
           </Tooltip>
           {user ? (
-            <AccountMenu user={user} />
+            <>
+              <VisitWebsiteLink />
+              <AccountMenu user={user} />
+            </>
           ) : (
             <Tooltip label="Sign in">
               <Link id="shop-sign-in" to={`/login?next=${encodeURIComponent(pathname + query)}`} aria-label="Sign in" className={ICON_BUTTON}>

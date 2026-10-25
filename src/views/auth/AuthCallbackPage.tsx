@@ -181,6 +181,7 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
           name: me.fullName ?? `${me.firstName} ${me.lastName}`,
           email: me.email,
           avatarUrl: me.avatarUrl ?? undefined,
+          role: me.role,
         })
         clearStashedNext()
         toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })

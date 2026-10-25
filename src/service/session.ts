@@ -1,11 +1,17 @@
 // The signed-in user, kept in localStorage so a reload and other tabs agree. Only { name, email, avatarUrl } is stored: never a
 // token or password. supabase-js keeps its own token in localStorage; this store stays the { name, email } cache of /users/me.
+import type { Me } from './fetchMe'
+
 const KEY = 'silhoufit-session'
+
+const ROLES = ['superadmin', 'admin', 'staff', 'customer']
 
 export interface Session {
   name: string
   email: string
   avatarUrl?: string
+  /** Only decides where the navbar's account button goes; the pages and the API check the role again. */
+  role?: Me['role']
 }
 
 function load(): Session | null {
@@ -13,7 +19,12 @@ function load(): Session | null {
     const parsed: unknown = JSON.parse(localStorage.getItem(KEY) ?? 'null')
     const user = parsed as Partial<Session> | null
     if (typeof user?.name !== 'string' || typeof user.email !== 'string') return null
-    return { name: user.name, email: user.email, avatarUrl: typeof user.avatarUrl === 'string' ? user.avatarUrl : undefined }
+    return {
+      name: user.name,
+      email: user.email,
+      avatarUrl: typeof user.avatarUrl === 'string' ? user.avatarUrl : undefined,
+      role: ROLES.includes(user.role as string) ? user.role : undefined,
+    }
   } catch {
     return null
   }
@@ -44,7 +55,7 @@ if (typeof window !== 'undefined') {
 }
 
 export const getSession = () => session
-export const setSession = (user: Session) => commit({ name: user.name, email: user.email, avatarUrl: user.avatarUrl })
+export const setSession = (user: Session) => commit({ name: user.name, email: user.email, avatarUrl: user.avatarUrl, role: user.role })
 export const clearSession = () => commit(null)
 
 export function subscribe(listener: () => void) {

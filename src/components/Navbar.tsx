@@ -9,9 +9,10 @@ import { Link, useLocation } from "react-router-dom";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { DURATION, EASE_OUT } from "../motion/tokens";
 import { isAuthPath } from "../utils/authRoutes";
-import { AccountMenu } from "./AccountMenu";
+import { AccountLink } from "./AccountLink";
 import { BrandMark } from "./BrandMark";
 import { ThemeToggle } from "./ThemeToggle";
+import { VisitWebsiteLink } from "./VisitWebsiteLink";
 
 const NAV_LINKS = [
   { label: "About Us", href: "/about" },
@@ -64,6 +65,14 @@ export function Navbar() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [menuOpen]);
 
+  const brandMark = (
+    <BrandMark>
+      <span className="font-ui block text-[9px] tracking-[0.22em] max-[359px]:hidden text-fg-muted uppercase transition-colors group-hover:text-chrome-strong">
+        Omnichannel apparel
+      </span>
+    </BrandMark>
+  );
+
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] transition-colors duration-300 ${
@@ -81,17 +90,17 @@ export function Navbar() {
             solid ? "py-3" : "py-5"
           }`}
         >
-          <Link
-            to="/"
-            className="tap group flex items-center gap-3"
-            onClick={() => setMenuOpen(false)}
-          >
-            <BrandMark>
-              <span className="font-ui block text-[9px] tracking-[0.22em] max-[359px]:hidden text-fg-muted uppercase transition-colors group-hover:text-chrome-strong">
-                Omnichannel apparel
-              </span>
-            </BrandMark>
-          </Link>
+          {user ? (
+            <div className="flex items-center gap-3">{brandMark}</div>
+          ) : (
+            <Link
+              to="/"
+              className="tap group flex items-center gap-3"
+              onClick={() => setMenuOpen(false)}
+            >
+              {brandMark}
+            </Link>
+          )}
 
           {!authPage && (
             <div className="hidden items-center gap-8 lg:flex">
@@ -119,7 +128,10 @@ export function Navbar() {
               })}
 
               {user ? (
-                <AccountMenu user={user} />
+                <div className="flex items-center gap-2">
+                  <VisitWebsiteLink />
+                  <AccountLink user={user} />
+                </div>
               ) : (
                 <Link
                   to="/login"
@@ -133,6 +145,7 @@ export function Navbar() {
 
           {!authPage && (
             <div className="flex items-center gap-2 lg:hidden">
+              {user && <VisitWebsiteLink onNavigate={() => setMenuOpen(false)} />}
               <button
                 ref={menuButtonRef}
                 type="button"
@@ -194,7 +207,7 @@ export function Navbar() {
               })}
               {user ? (
                 <div className="mt-6">
-                  <AccountMenu user={user} />
+                  <AccountLink user={user} onNavigate={() => setMenuOpen(false)} />
                 </div>
               ) : (
                 <Link
