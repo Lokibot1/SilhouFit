@@ -34,7 +34,7 @@ export function computePlace(anchor: HTMLElement, preferredWidth: number, inset 
 }
 
 export const LISTBOX_PANEL =
-  'fixed z-[85] flex flex-col overflow-hidden rounded-xl border border-line-strong bg-canvas text-fg shadow-[0_18px_36px_-12px_rgb(var(--shadow-key)/var(--shadow-b))]'
+  'fixed z-[85] flex flex-col overflow-hidden rounded-xl border border-line-strong bg-canvas-raised text-fg shadow-[0_18px_36px_-12px_rgb(var(--shadow-key)/var(--shadow-b))]'
 
 export const LISTBOX_LIST = 'relative min-h-0 flex-1 overflow-y-auto overscroll-contain py-1'
 

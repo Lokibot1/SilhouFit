@@ -10,6 +10,7 @@ import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { Modal } from '../../components/ui/Modal'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
+import { useStaffArea } from '../../hooks/useStaffArea'
 import { useSidebarCollapsed } from '../../hooks/useSidebarCollapsed'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { fetchMe, type Me, type MeErrorKind } from '../../service/fetchMe'
@@ -45,6 +46,7 @@ export const useStaffMe = () => useOutletContext<{ me: Me }>().me
 
 /** Guards one area (signed in, and the role must match the area) and draws the sidebar shell around its pages. */
 export function StaffLayout({ area = 'staff' }: { area?: Area }) {
+  useStaffArea()
   const user = useCurrentUser()
   const toast = useToast()
   const { pathname } = useLocation()

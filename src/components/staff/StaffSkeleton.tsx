@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useSidebarCollapsed } from '../../hooks/useSidebarCollapsed'
+import { useStaffArea } from '../../hooks/useStaffArea'
 import { FILTER_DESCRIPTION, FILTER_HEAD, SEGMENTS_BOX, YEAR_BOX } from './PeriodFilter'
 import { StaffBrand } from './StaffNav'
 
@@ -8,7 +9,7 @@ import { StaffBrand } from './StaffNav'
 export const staffAside = (collapsed = false) =>
   `staff-aside sticky top-14 hidden h-[calc(100svh-3.5rem)] shrink-0 flex-col overflow-hidden border-r border-line bg-canvas-sub transition-[width] duration-300 ease-out motion-reduce:transition-none lg:flex ${collapsed ? 'w-[4.5rem] items-center p-3' : 'w-52 p-2.5'}`
 export const STAFF_TOPBAR =
-  'staff-topbar sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-line bg-canvas-sub px-3.5 shadow-[0_1px_3px_rgb(0_0_0/0.12),0_2px_8px_rgb(0_0_0/0.06)] dark:shadow-[0_2px_8px_rgb(0_0_0/0.3)]'
+  'staff-topbar sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-line bg-canvas-sub px-3.5 shadow-[0_1px_3px_rgb(0_0_0/0.12),0_2px_8px_rgb(0_0_0/0.06)] dark:shadow-none'
 export const STAFF_MAIN = 'mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-10 lg:py-6'
 // A bento tile. It is a size container so its content (the order log) lays out by the tile's width, not the screen's.
 export const STAFF_SECTION = '@container rounded-2xl border border-line bg-canvas-sub p-4'
@@ -167,6 +168,7 @@ const SkeletonSection = ({ filtered, children }: { filtered?: boolean; children:
 /** Mirrors the loaded shell: the full-width top bar, then the sidebar from `lg` beside the dashboard's header and sections. */
 export function StaffShellSkeleton() {
   const [collapsed] = useSidebarCollapsed()
+  useStaffArea()
   return (
     <div role="status" aria-label="Loading the staff area" className="staff-shell min-h-svh animate-pulse bg-canvas">
       <header className={STAFF_TOPBAR}>

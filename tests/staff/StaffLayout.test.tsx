@@ -104,6 +104,16 @@ describe('StaffLayout', () => {
       expect(screen.getByRole('link', { name: /Online Orders/ })).toHaveAttribute('aria-disabled', 'true')
     })
 
+    it('marks the page as the staff area while mounted, and clears it on leaving', async () => {
+      load.mockResolvedValue(ME)
+      const { unmount } = renderStaff()
+      expect(document.documentElement.dataset.area).toBe('staff')
+      await screen.findByText('dashboard page')
+      expect(document.documentElement.dataset.area).toBe('staff')
+      unmount()
+      expect(document.documentElement.dataset.area).toBeUndefined()
+    })
+
     it('offers a retry when the profile fails to load', async () => {
       load.mockRejectedValueOnce(Object.assign(new Error('x'), { kind: 'network' })).mockResolvedValue(ME)
       renderStaff()

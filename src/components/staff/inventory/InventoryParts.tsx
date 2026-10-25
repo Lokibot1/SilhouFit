@@ -7,8 +7,8 @@ import { PlusIcon, RestoreIcon } from '../../form/icons'
 import { Tooltip } from '../../ui/Tooltip'
 
 const LEVELS = {
-  out: { label: 'Out of stock', dot: 'bg-danger dark:bg-red-400', border: 'dark:border-red-400' },
-  low: { label: 'Low stock', dot: 'border-2 border-danger dark:border-amber-400', border: 'dark:border-amber-400' },
+  out: { label: 'Out of stock', dot: 'bg-danger', border: 'dark:border-danger' },
+  low: { label: 'Low stock', dot: 'border-2 border-danger dark:border-warning', border: 'dark:border-warning' },
   in: { label: 'In stock', dot: 'bg-success', border: '' },
 } as const
 

@@ -23,6 +23,7 @@
   /* Semantic roles: components name the role and never need a dark: variant. */
   --color-canvas: var(--canvas);
   --color-canvas-sub: var(--canvas-sub);
+  --color-canvas-raised: var(--canvas-raised);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-line: var(--line);
@@ -32,6 +33,7 @@
   --color-chrome-bright: var(--chrome-bright);
   --color-danger: var(--danger);
   --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -44,12 +46,14 @@
 :root {
   --canvas: #f3f4f6;
   --canvas-sub: #e9ebef;
+  --canvas-raised: var(--canvas);
   --fg: #14171c;
   --fg-muted: #4a515c;
   --line: rgb(20 23 28 / 0.14);
   --line-strong: rgb(20 23 28 / 0.26);
   --danger: #b42318;
   --success: #0f7a43;
+  --warning: #b45309;
   /* Inventory row tints (.row-low, .row-out): the colour and its strength at the row's edges. */
   --row-low: #eab308;
   --row-low-a: 26%;
@@ -209,6 +213,48 @@
   --gloss-highlight-hover: rgb(255 255 255 / 0.16);
   --gloss-highlight-pressed: rgb(255 255 255 / 0.12);
   --gloss-glow: 0 0 0;
+}
+
+/* Staff, admin and superadmin area, dark mode only (StaffLayout sets data-area on <html>, so portals are covered too).
+   A desaturated palette of its own, not the customer one: no pure black or white, and depth comes from lighter surfaces
+   and borders rather than shadows (every shadow token is zeroed or tinted to the page colour). */
+:root.dark[data-area='staff'] {
+  color-scheme: dark;
+  --canvas: #121418;
+  --canvas-sub: #1a1d23;
+  --canvas-raised: #21252c;
+  --fg: #e3e6eb;
+  --fg-muted: #aeb5c0;
+  --danger: #f28b82;
+  --success: #6fcf97;
+  --warning: #e8b04a;
+  --row-low: var(--warning);
+  --row-low-a: 26%;
+  --row-out: var(--danger);
+  --row-out-a: 24%;
+
+  --chart-1: #c9d1dc;
+  --chart-2: #7fa6cf;
+  --chart-3: #6a93b5;
+  --chart-4: #98a2af;
+  --chart-5: #5ba3a8;
+  --chart-grid: rgb(255 255 255 / 0.08);
+
+  --chrome: #9aa3b0;
+  --chrome-strong: #c9d1dc;
+  --chrome-bright: #e3e6eb;
+
+  --glass-tint: 33 37 44;
+  --glass-lift: 1;
+
+  --shadow-key: 18 20 24;
+  --shadow-a: 0;
+  --shadow-b: 0;
+
+  --skeuo-drop: 0 0 0 0 transparent;
+  --skeuo-drop-hover: 0 0 0 0 transparent;
+  --skeuo-inset: inset 0 2px 5px rgb(18 20 24 / 0.6);
+  --gloss-glow: 18 20 24;
 }
 
 @layer base {
