@@ -202,8 +202,6 @@ interface Rig {
   model: BodyBounds['model']
   minY: number
   height: number
-  /** cm per mesh unit. */
-  k: number
   chest: Slice
   bust: Slice
   waist: Slice
@@ -299,7 +297,6 @@ function buildRig(base: Float32Array, bounds: BodyBounds): Rig {
     model: bounds.model,
     minY: bounds.minY,
     height,
-    k: REF_CM[bounds.model] / height,
     chest: slice(L.chest),
     bust: slice(L.bust),
     waist: slice(L.waist),
@@ -337,20 +334,22 @@ export function applyMeasurements(
     rigs.set(base, rig)
   }
   const L = LANDMARKS[rig.model]
-  const { height, minY, k } = rig
+  const { height, minY } = rig
+  // The mesh stands as tall as the entered height, so a taller body is the whole body scaled (girths and lengths included), not stretched in y only.
+  const H = cm.height ?? REF_CM[rig.model]
+  const k = H / height // cm per mesh unit
   const u = 1 / k // mesh units per cm
   const at = (f: number) => minY + f * height
   const mult = BUILD_MULT[build ?? 'regular']
   const female = rig.model === 'female'
 
   // Heights: knots at the base landmarks, remapped piecewise-linearly, so one region grows without stretching the rest.
-  const H = cm.height ?? REF_CM[rig.model]
   const ankleCm = L.ankle * H
   const inseamCm = cm.inseam ?? (L.crotch - L.ankle) * H
   const waistSegCm = cm.outseam !== undefined ? Math.max(cm.outseam - inseamCm, 0.5 * (L.waist - L.crotch) * H) : (L.waist - L.crotch) * H
   const torsoCm = cm.torso ?? (L.neck - L.waist) * H
   const headBase = (1 - L.neck) * H
-  const headCm = clamp(H - (ankleCm + inseamCm + waistSegCm + torsoCm), 0.6 * headBase, 1.5 * headBase)
+  const headCm = clamp(H - (ankleCm + inseamCm + waistSegCm + torsoCm), 0.95 * headBase, 1.05 * headBase)
   const fit = (H - headCm) / (ankleCm + inseamCm + waistSegCm + torsoCm)
   const knotsCm = [0, ankleCm * fit, 0, 0, 0, 0]
   knotsCm[2] = knotsCm[1] + inseamCm * fit

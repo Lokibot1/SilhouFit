@@ -224,6 +224,20 @@ describe('applyMeasurements on a synthetic body', () => {
     }
   })
 
+  it('scales the whole body with the height, not only its length: head, torso and legs keep their proportions', () => {
+    const mesh = makeBody()
+    const rest = run(mesh, {}).deformed
+    for (const height of [140, 175, 210]) {
+      const { out, deformed } = run(mesh, { height })
+      let worst = 0
+      for (let i = 0; i < out.length; i++) worst = Math.max(worst, Math.abs(out[i] - mesh.base[i]))
+      expect(worst).toBeLessThan(1e-4)
+      expect(deformed.unitsPerCm).toBeCloseTo((rest.unitsPerCm * 175) / height, 9)
+      // A girth in cm follows: the same waist number is a different share of a taller body.
+      expect(deformed.regions.waist!.ring!.rx).toBeCloseTo(rest.regions.waist!.ring!.rx, 9)
+    }
+  })
+
   it('reports the reference height when none is entered', () => {
     const { deformed, } = run(makeBody(), {})
     expect(deformed.topY / deformed.unitsPerCm).toBeCloseTo(175, 6)
@@ -392,6 +406,27 @@ describe.each([
     const first = run(mesh, cm).out
     run(mesh, { height: 200, waist: 130 })
     expect(Array.from(run(mesh, cm).out)).toEqual(Array.from(first))
+  })
+
+  it.each([150, 180, 200])('keeps the head in proportion at %s cm, even when the other lengths do not add up to it', (height) => {
+    const neckFrac = model === 'male' ? 0.85 : 0.84
+    const headShare = (positions: Float32Array, top: number) => {
+      let sum = 0
+      let n = 0
+      for (let i = 0; i < positions.length; i += 3) {
+        if (Math.abs((mesh.base[i + 1] - mesh.bounds.minY) / mesh.height - neckFrac) < 0.003) {
+          sum += positions[i + 1]
+          n++
+        }
+      }
+      return (top - sum / n) / (top - mesh.bounds.minY)
+    }
+    const rest = run(mesh, {})
+    const base = headShare(rest.out, rest.deformed.topY)
+    for (const cm of [{ height }, { height, inseam: 60, torso: 40 }, { height, inseam: 120, outseam: 150 }] as Entered[]) {
+      const r = run(mesh, cm)
+      expect(Math.abs(headShare(r.out, r.deformed.topY) / base - 1)).toBeLessThan(0.06)
+    }
   })
 
   it('stands as tall as the entered height', () => {
