@@ -12,8 +12,6 @@ import { isAuthPath } from "../utils/authRoutes";
 import { AccountLink } from "./AccountLink";
 import { BrandMark } from "./BrandMark";
 import { ThemeToggle } from "./ThemeToggle";
-import { VisitWebsiteLink } from "./VisitWebsiteLink";
-
 const NAV_LINKS = [
   { label: "About Us", href: "/about" },
   { label: "Shop", href: "/shop" },
@@ -128,10 +126,7 @@ export function Navbar() {
               })}
 
               {user ? (
-                <div className="flex items-center gap-2">
-                  <VisitWebsiteLink />
-                  <AccountLink user={user} />
-                </div>
+                <AccountLink user={user} />
               ) : (
                 <Link
                   to="/login"
@@ -145,7 +140,6 @@ export function Navbar() {
 
           {!authPage && (
             <div className="flex items-center gap-2 lg:hidden">
-              {user && <VisitWebsiteLink onNavigate={() => setMenuOpen(false)} />}
               <button
                 ref={menuButtonRef}
                 type="button"

@@ -178,6 +178,7 @@ export function StaffShellSkeleton() {
         <div className="flex shrink-0 items-center gap-1">
           <div className="size-11 rounded-xl bg-line" />
           <div className="size-11 rounded-xl bg-line" />
+          <div className="size-11 rounded-xl bg-line" />
         </div>
       </header>
       <div className="lg:flex">

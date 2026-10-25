@@ -122,6 +122,15 @@ describe('StaffLayout', () => {
       expect(within(screen.getByRole('banner')).getByText('SilhouFit')).toBeInTheDocument()
     })
 
+    it('keeps the logo out of the links and offers a Visit website globe to the landing page', async () => {
+      load.mockResolvedValue(ME)
+      renderStaff()
+      await screen.findByText('dashboard page')
+      const topbar = screen.getByRole('banner')
+      expect(within(topbar).queryByRole('link', { name: /SilhouFit/ })).not.toBeInTheDocument()
+      expect(within(topbar).getByRole('link', { name: 'Visit website' })).toHaveAttribute('href', '/')
+    })
+
     it('collapses the sidebar to icons with the burger, remembers it, and expands again', async () => {
       wide = true
       load.mockResolvedValue(ME)
