@@ -94,6 +94,61 @@ const smoothstep = (x: number, a: number, b: number) => {
 }
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x))
 
+const MAX_RATIO_SLOPE = 8 // the most a leg ratio may change per body height, between neighbouring stations
+
+/** Monotone cubic (Fritsch-Carlson/PCHIP) through ascending `xs`: never overshoots its points, flat beyond the ends. */
+export function monotoneCubic(xs: number[], ys: number[]): (x: number) => number {
+  const n = xs.length
+  const h = xs.slice(1).map((x, i) => x - xs[i])
+  const delta = h.map((hi, i) => (ys[i + 1] - ys[i]) / hi)
+  const d = ys.map((_, i) => {
+    if (i === 0 || i === n - 1 || delta[i - 1] * delta[i] <= 0) return 0
+    const w1 = 2 * h[i] + h[i - 1]
+    const w2 = h[i] + 2 * h[i - 1]
+    return (w1 + w2) / (w1 / delta[i - 1] + w2 / delta[i])
+  })
+  return (x) => {
+    if (x <= xs[0]) return ys[0]
+    if (x >= xs[n - 1]) return ys[n - 1]
+    let i = 1
+    while (x > xs[i]) i++
+    const t = (x - xs[i - 1]) / h[i - 1]
+    const t2 = t * t
+    const t3 = t2 * t
+    return (2 * t3 - 3 * t2 + 1) * ys[i - 1] + (t3 - 2 * t2 + t) * h[i - 1] * d[i - 1] + (-2 * t3 + 3 * t2) * ys[i] + (t3 - t2) * h[i - 1] * d[i]
+  }
+}
+
+/** Identity on [0.8, 1.3]; beyond that eases toward a bound (0.5 / 1.7), so an extreme girth fattens a limb without a spike. */
+export function softClampRatio(r: number): number {
+  if (r > 1.3) return 1.3 + 0.4 * (1 - Math.exp(-(r - 1.3) / 0.4))
+  if (r < 0.8) return 0.8 - 0.3 * (1 - Math.exp(-(0.8 - r) / 0.3))
+  return r
+}
+
+/** Slope-limits `ratio` between neighbouring stations (change per unit y ≤ maxSlope). Pinned stations (the measured ones) stay put. */
+export function limitNeighbourRatios(stations: { y: number; ratio: number; pin?: boolean }[], maxSlope: number): number[] {
+  const r = stations.map((s) => s.ratio)
+  for (let pass = 0; pass < 50; pass++) {
+    let moved = false
+    for (let i = 1; i < stations.length; i++) {
+      const gap = r[i] - r[i - 1]
+      const excess = Math.abs(gap) - maxSlope * (stations[i].y - stations[i - 1].y)
+      if (excess <= 1e-9 || (stations[i - 1].pin && stations[i].pin)) continue
+      const dir = Math.sign(gap)
+      if (stations[i - 1].pin) r[i] -= dir * excess
+      else if (stations[i].pin) r[i - 1] += dir * excess
+      else {
+        r[i] -= (dir * excess) / 2
+        r[i - 1] += (dir * excess) / 2
+      }
+      moved = true
+    }
+    if (!moved) break
+  }
+  return r
+}
+
 /** How much of the body at (|x|, y) belongs to an arm: 1 outside the torso's half-width, 0 on the lower legs and fading out toward the neck. */
 function armWeight(L: (typeof LANDMARKS)[BodyModelId], minY: number, height: number, ax: number, y: number) {
   const half = torsoHalf(L.torsoHalf, (y - minY) / height) * height
@@ -154,6 +209,8 @@ interface Rig {
   waist: Slice
   hips: Slice
   thigh: Slice
+  /** One leg at the knee; empty (perimeter 0) when the mesh has no leg there. */
+  knee: Slice
   shoulderHalf: number
   jointY: number
   /** Half of the widest the body gets, the arms included. */
@@ -248,6 +305,7 @@ function buildRig(base: Float32Array, bounds: BodyBounds): Rig {
     waist: slice(L.waist),
     hips: slice(L.hips),
     thigh: slice(L.thigh, 1),
+    knee: slice(L.knee, 1),
     shoulderHalf,
     halfWidth,
     jointY: shoulderY,
@@ -323,10 +381,13 @@ export function applyMeasurements(
   const chestRatio = chestMeasured ?? bustMeasured ?? mult.chest
   const bustRatio = female ? (bustMeasured ?? chestMeasured ?? mult.chest) : 1
   const waistRatio = ratioFor('waist', rig.waist, mult.waist)
-  const hipsRatio = ratioFor('hips', rig.hips, mult.hips)
-  const thighRatio = ratioFor('thigh', rig.thigh, mult.thigh)
+  // The thigh eases off for extreme entries, so the leg fattens without a spike. The tape reads the same eased ratio.
+  const thighRatio = softClampRatio(ratioFor('thigh', rig.thigh, mult.thigh))
+  // A bigger thigh carries the pelvis with it unless the hips were measured, so the legs do not sit as barrels on a normal pelvis.
+  const hipsMeasured = measured('hips', rig.hips)
+  const hipsRatio = hipsMeasured ?? (thighRatio > 1 ? Math.max(mult.hips, 1 + 0.7 * (thighRatio - 1)) : mult.hips)
+  const crotchY = at(L.crotch)
   const stations: Station[] = [
-    { y: at(L.knee), ratio: 1, cz: rig.hips.cz },
     { y: rig.hips.y, ratio: hipsRatio, cz: rig.hips.cz },
     { y: rig.waist.y, ratio: waistRatio, cz: rig.waist.cz },
     // Hold the waist ratio until just under the chest, so the chest ramp stays at chest height. A big waist-vs-chest
@@ -342,16 +403,43 @@ export function applyMeasurements(
   // The upper chest, back and traps follow the chest through the shoulder line, then ease back to 1 at the neck.
   stations.push({ y: at(L.shoulder), ratio: female ? bustRatio : chestRatio, cz: rig.chest.cz })
   stations.push({ y: at(L.neck), ratio: 1, cz: rig.chest.cz })
+  // The leg: the whole thigh grows together, fullest at the thigh slice, then it eases out over a long
+  // smoothstep that runs past the knee into the upper calf (the knee keeps a share, the calf ends at 1). Above the thigh it
+  // eases halfway to the hips ratio at the crotch, then bridges to the hips. Neighbours may not differ too sharply.
+  if (rig.thigh.perimeter > 0) {
+    const d = thighRatio - 1
+    const calfY = at(L.knee - 0.14)
+    for (let i = 0; i < 8; i++) {
+      const t = i / 8
+      stations.push({ y: calfY + (rig.thigh.y - calfY) * t, ratio: 1 + d * t * t * (3 - 2 * t), cz: rig.hips.cz })
+    }
+    const bridge = [
+      { y: rig.thigh.y, ratio: thighRatio, pin: true },
+      { y: Math.max(rig.thigh.y + 0.005 * height, crotchY - 0.01 * height), ratio: thighRatio + (hipsRatio - thighRatio) * 0.5 },
+      { y: rig.hips.y, ratio: hipsRatio, pin: true },
+    ]
+    const limited = limitNeighbourRatios(bridge, MAX_RATIO_SLOPE / height)
+    for (let i = 0; i < bridge.length - 1; i++) stations.push({ y: bridge[i].y, ratio: limited[i], cz: rig.hips.cz })
+  } else stations.push({ y: at(L.knee), ratio: 1, cz: rig.hips.cz })
   stations.sort((a, b) => a.y - b.y)
-  const radial = (y: number): [number, number] => {
-    if (y <= stations[0].y || y >= stations[stations.length - 1].y) return [1, stations[0].cz]
-    let i = 1
-    while (y > stations[i].y) i++
-    const a = stations[i - 1]
-    const b = stations[i]
-    const t = smoothstep(y, a.y, b.y)
-    return [a.ratio + (b.ratio - a.ratio) * t, a.cz + (b.cz - a.cz) * t]
+  const ratioAt = monotoneCubic(stations.map((s) => s.y), stations.map((s) => s.ratio))
+  const czAt = monotoneCubic(stations.map((s) => s.y), stations.map((s) => s.cz))
+
+  // Each leg scales about its own axis (knee centre up to the thigh centre), not a vertical line, so the inner thigh grows with
+  // the rest. The axis gives way to the body's centre line between the crotch and the hips, where the legs become one torso.
+  const legSlice = rig.knee.perimeter > 0 ? rig.knee : rig.thigh
+  const legAxis = (y: number) => {
+    const t = clamp((y - legSlice.y) / (rig.thigh.y - legSlice.y || 1), 0, 1)
+    return [legSlice.cx + (rig.thigh.cx - legSlice.cx) * t, legSlice.cz + (rig.thigh.cz - legSlice.cz) * t]
   }
+  const innerEdge = Math.max(rig.thigh.cx - rig.thigh.rx, 0.01 * height) // legs closer to the midline than this blend toward it
+  const legOuter = rig.thigh.cx + rig.thigh.rx
+  // A leg that would grow across the midline moves outward by half the excess instead (the rest is squeezed against its neighbour), so the legs stay inside the pelvis width. Smooth at the threshold.
+  const legShift = (e: number) => {
+    const over = (e - 1) * rig.thigh.rx - (rig.thigh.cx - rig.thigh.rx)
+    return ((over + Math.sqrt(over * over + (0.005 * height) ** 2)) / 2 - 0.0025 * height) * 0.5
+  }
+  const clearance = 0.004 * height // legs never reach the midline
 
   // Shoulders and sleeves move the arm: a vertex counts as arm once it is outside the torso's half-width.
   const shoulderTargetCm = cm.shoulders
@@ -361,11 +449,6 @@ export function applyMeasurements(
   const wristCm = rig.armLength * k * WRIST_SHARE
   const sleeveRatio = cm.sleeve !== undefined && wristCm > 0 ? clamp(cm.sleeve / wristCm, 0.6, 1.6) : 1
   const [dirX, dirY] = rig.armDir
-  const crotchY = at(L.crotch)
-
-  // Thigh: scaled around each leg's own axis, fading out toward the knee and the crotch.
-  const thighLo = at(L.knee + 0.02)
-  const thighHi = at(L.thigh + 0.015)
 
   const count = base.length / 3
   for (let i = 0; i < count; i++) {
@@ -381,22 +464,23 @@ export function applyMeasurements(
     let y = remap(by)
     let z = bz
 
-    if (by < crotchY) {
-      const w = smoothstep(by, at(L.knee), thighLo) * (1 - smoothstep(by, thighHi, crotchY))
-      if (w > 0 && rig.thigh.cx > 0) {
-        const cx = side * rig.thigh.cx
-        const s = 1 + (thighRatio - 1) * w
-        x = cx + (x - cx) * s
-        z = rig.thigh.cz + (z - rig.thigh.cz) * s
-      }
-    }
-
-    const [ratio, cz] = radial(by)
-    const eff = 1 + (ratio - 1) * (1 - arm)
-    x *= eff
+    // One scale about an axis: the leg's below the crotch, the body's centre line above the hips, blended between.
+    const legWeight = 1 - smoothstep(by, crotchY, rig.hips.y)
+    const [legX, legZ] = legAxis(by)
+    const cx = side * legX * legWeight * smoothstep(ax, 0, innerEdge)
+    const cz = czAt(by) + (legZ - czAt(by)) * legWeight
+    // Up to the leg's outer edge below the crotch is leg, not arm, even where the torso's half-width says otherwise.
+    const legMask = legWeight * (1 - smoothstep(ax, legOuter, legOuter + 0.02 * height))
+    const eff = 1 + (ratioAt(by) - 1) * (1 - arm * (1 - legMask))
+    const shift = Math.max(legShift(eff), 0) * legWeight * smoothstep(ax, 0, innerEdge)
+    x = cx + (x - cx) * eff + side * shift
     z = cz + (z - cz) * eff
+    if (ax > clearance && side * x < clearance) x = side * clearance
 
     if (arm > 0) {
+      // Where the hips and thighs have grown, the hanging arm moves out with the body's edge instead of sinking into it.
+      const edge = torsoHalf(L.torsoHalf, (by - minY) / height) * height
+      x += side * (ratioAt(by) - 1) * edge * arm * (1 - smoothstep(by, rig.hips.y, rig.hips.y + 0.04 * height))
       const reach = (ax - rig.shoulderHalf) * dirX + (by - rig.jointY) * dirY
       const spread = shoulderDelta * (1 - SPREAD_FADE * clamp(reach / (rig.armLength || 1), 0, 1))
       const along = Math.max(reach, 0) * (sleeveRatio - 1)
@@ -425,18 +509,12 @@ export function applyMeasurements(
   ring('waist', rig.waist, waistRatio)
   ring('hips', rig.hips, hipsRatio)
 
-  const [thighBody, thighCz] = radial(rig.thigh.y)
   const thighY = remap(rig.thigh.y)
+  const thighEff = ratioAt(rig.thigh.y)
   regions.thigh = {
     y0: thighY - band,
     y1: thighY + band,
-    ring: {
-      y: thighY,
-      cx: rig.thigh.cx * thighBody,
-      cz: thighCz + (rig.thigh.cz - thighCz) * thighBody,
-      rx: rig.thigh.rx * thighRatio * thighBody,
-      rz: rig.thigh.rz * thighRatio * thighBody,
-    },
+    ring: { y: thighY, cx: rig.thigh.cx + Math.max(legShift(thighEff), 0), cz: rig.thigh.cz, rx: rig.thigh.rx * thighEff, rz: rig.thigh.rz * thighEff },
   }
 
   const front = Math.max(rig.chest.front, rig.waist.front, rig.hips.front) + 0.015 * height

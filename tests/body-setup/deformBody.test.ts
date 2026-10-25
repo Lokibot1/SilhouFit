@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { applyMeasurements, hullPerimeter, type BodyBounds } from '../../src/components/body-setup/deformBody'
+import { applyMeasurements, hullPerimeter, limitNeighbourRatios, monotoneCubic, softClampRatio, type BodyBounds } from '../../src/components/body-setup/deformBody'
 import type { Entered } from '../../src/components/body-setup/measurements'
 
 // Reference stature the deformer assumes for each mesh (cm per mesh height): male 175, female 165.
@@ -100,6 +100,64 @@ describe('hullPerimeter', () => {
     expect(hullPerimeter([1, 1, 2, 2])).toBe(0)
     expect(hullPerimeter([1, 1, 1, 1, 1, 1])).toBe(0)
     expect(hullPerimeter([0, 0, 1, 1, 2, 2, 3, 3])).toBe(0)
+  })
+})
+
+describe('monotoneCubic', () => {
+  it('passes through its points and never leaves the range of its neighbours', () => {
+    const xs = [0, 1, 1.001, 3, 4, 7]
+    const ys = [1, 2, 2, 0.5, 0.5, 3]
+    const f = monotoneCubic(xs, ys)
+    xs.forEach((x, i) => expect(f(x)).toBeCloseTo(ys[i], 9))
+    for (let i = 1; i < xs.length; i++) {
+      const lo = Math.min(ys[i - 1], ys[i])
+      const hi = Math.max(ys[i - 1], ys[i])
+      for (let t = 0; t <= 1; t += 0.05) {
+        const v = f(xs[i - 1] + (xs[i] - xs[i - 1]) * t)
+        expect(v).toBeGreaterThanOrEqual(lo - 1e-9)
+        expect(v).toBeLessThanOrEqual(hi + 1e-9)
+      }
+    }
+  })
+
+  it('holds the end values beyond the ends', () => {
+    const f = monotoneCubic([1, 2], [3, 5])
+    expect(f(-10)).toBe(3)
+    expect(f(10)).toBe(5)
+  })
+})
+
+describe('softClampRatio', () => {
+  it('is the identity on [0.8, 1.3], monotone, and bounded', () => {
+    for (let r = 0.8; r <= 1.3; r += 0.05) expect(softClampRatio(r)).toBeCloseTo(r, 9)
+    let prev = -Infinity
+    for (let r = 0.2; r <= 5; r += 0.01) {
+      const v = softClampRatio(r)
+      expect(v).toBeGreaterThan(prev)
+      prev = v
+    }
+    expect(softClampRatio(100)).toBeLessThanOrEqual(1.7 + 1e-9)
+    expect(softClampRatio(0)).toBeGreaterThanOrEqual(0.5)
+    expect(softClampRatio(2)).toBeLessThan(2)
+  })
+})
+
+describe('limitNeighbourRatios', () => {
+  it('limits the change between neighbours and keeps pinned stations exact', () => {
+    const stations = [
+      { y: 0, ratio: 1, pin: true },
+      { y: 1, ratio: 3 },
+      { y: 2, ratio: 3 },
+      { y: 3, ratio: 2, pin: true },
+    ]
+    const r = limitNeighbourRatios(stations, 0.5)
+    expect(r[0]).toBe(1)
+    expect(r[3]).toBe(2)
+    for (let i = 1; i < r.length; i++) expect(Math.abs(r[i] - r[i - 1])).toBeLessThanOrEqual(0.5 * (stations[i].y - stations[i - 1].y) + 1e-6)
+  })
+
+  it('leaves ratios already within the limit alone', () => {
+    expect(limitNeighbourRatios([{ y: 0, ratio: 1 }, { y: 1, ratio: 1.2 }], 0.5)).toEqual([1, 1.2])
   })
 })
 
@@ -297,9 +355,9 @@ async function loadRealBody(file: string) {
 // Heights are fractions of the mesh height, read off each scan (see LANDMARKS in deformBody.ts). `waistHalf` and `hipsHalf` are
 // the half-widths that keep a ring on the torso alone; `armX` is the x beyond which, between the knee and the shoulder, only an arm is.
 describe.each([
-  { file: 'body-male.glb', model: 'male' as const, waist: 0.62, waistHalf: 0.08, hips: 0.51, hipsHalf: 0.086, armX: 0.1 },
-  { file: 'body-female.glb', model: 'female' as const, waist: 0.655, waistHalf: 0.065, hips: 0.52, hipsHalf: 0.114, armX: 0.13 },
-])('applyMeasurements on the real $file', ({ file, model, waist, waistHalf, hips, hipsHalf, armX }) => {
+  { file: 'body-male.glb', model: 'male' as const, crotch: 0.41, thigh: 0.385, waist: 0.62, waistHalf: 0.08, hips: 0.51, hipsHalf: 0.086, armX: 0.1 },
+  { file: 'body-female.glb', model: 'female' as const, crotch: 0.49, thigh: 0.42, waist: 0.655, waistHalf: 0.065, hips: 0.52, hipsHalf: 0.114, armX: 0.13 },
+])('applyMeasurements on the real $file', ({ file, model, crotch, thigh, waist, waistHalf, hips, hipsHalf, armX }) => {
   let mesh: { base: Float32Array; bounds: BodyBounds; height: number }
 
   beforeAll(async () => {
@@ -376,6 +434,115 @@ describe.each([
       }
     }
     expect(worst).toBeLessThan(0.01 * mesh.height)
+  })
+
+  describe('smooth limbs and torso', () => {
+    // Out-over-base girth along the body: hull of the vertices of each base-height band, read from the output.
+    const profile = (cm: Entered, f0: number, f1: number, pick: (x: number) => boolean) => {
+      const h = mesh.height
+      const { out } = run(mesh, cm)
+      const ratios: number[] = []
+      for (let f = f0; f <= f1; f += 0.01) {
+        const a: number[] = []
+        const b: number[] = []
+        for (let i = 0; i < out.length; i += 3) {
+          if (Math.abs(mesh.base[i + 1] - mesh.bounds.minY - f * h) > 0.004 * h || !pick(mesh.base[i])) continue
+          a.push(out[i], out[i + 2])
+          b.push(mesh.base[i], mesh.base[i + 2])
+        }
+        ratios.push(hullPerimeter(a) / hullPerimeter(b))
+      }
+      return ratios
+    }
+    const steps = (r: number[]) => r.slice(1).map((v, i) => Math.abs(v - r[i]))
+
+    it.each([100, 30])('changes the leg girth gradually from knee to crotch for a %s cm thigh', (thighCm) => {
+      const ratios = profile({ thigh: thighCm }, 0.24, crotch - 0.02, (x) => x > 0 && x < (model === 'male' ? 0.1 : 0.106) * mesh.height)
+      expect(ratios.every(Number.isFinite)).toBe(true)
+      expect(Math.max(...steps(ratios))).toBeLessThan(0.12)
+    })
+
+    // Regression: a short thigh ramp inflated the male shorts as a flared band over a normal leg. The whole thigh grows together
+    // and eases out through the knee into the calf.
+    it.each([80, 100])('grows the whole thigh together and eases out through the knee into the calf for %s cm', (thighCm) => {
+      const ratios = profile({ thigh: thighCm }, 0.14, thigh, (x) => x > 0 && x < (model === 'male' ? 0.1 : 0.106) * mesh.height)
+      const at = (f: number) => ratios[Math.round((f - 0.14) / 0.01)]
+      const top = ratios[ratios.length - 1]
+      expect(at(0.14)).toBeLessThan(1.03)
+      expect(at(0.28)).toBeGreaterThan(1 + 0.1 * (top - 1))
+      expect(at(0.28)).toBeLessThan(top)
+      for (let i = 1; i < ratios.length; i++) expect(ratios[i]).toBeGreaterThanOrEqual(ratios[i - 1] - 0.005)
+      const st = steps(ratios).sort((a, b) => a - b)
+      expect(st[st.length - 1]).toBeLessThan(1.5 * st[Math.floor(st.length / 2)] + 0.01)
+    })
+
+    it('keeps an 80 cm thigh no wider than 15% past the hips, which grow with it when not entered', () => {
+      const h = mesh.height
+      const { out, deformed } = run(mesh, { thigh: 80 })
+      let legX = 0
+      let hipsX = 0
+      for (let i = 0; i < out.length; i += 3) {
+        const f = (mesh.base[i + 1] - mesh.bounds.minY) / h
+        const bx = Math.abs(mesh.base[i])
+        if (f > 0.25 && f < crotch && bx < (model === 'male' ? 0.1 : 0.106) * h) legX = Math.max(legX, Math.abs(out[i]))
+        if (Math.abs(f - hips) < 0.004 && bx < armX * h) hipsX = Math.max(hipsX, Math.abs(out[i]))
+      }
+      expect(legX).toBeLessThan(1.15 * hipsX)
+      expect(deformed.regions.hips!.ring!.rx / run(mesh, {}).deformed.regions.hips!.ring!.rx).toBeGreaterThan(1.1)
+    })
+
+    // Silhouette, not hull girth: the widest x of each row, whose second difference shows a cuff, ledge or kink that a hull hides.
+    it.each(model === 'male' ? [60, 80, 100] : [80, 100])('has no kink in the leg outline from calf to crotch for a %s cm thigh', (thighCm) => {
+      const h = mesh.height
+      const { out } = run(mesh, { thigh: thighCm })
+      const cut = (model === 'male' ? 0.1 : 0.106) * h
+      const edge: number[] = []
+      for (let f = 0.14; f <= thigh + 0.02; f += 0.005) {
+        let widest = 0
+        for (let i = 0; i < out.length; i += 3) {
+          if (Math.abs(mesh.base[i + 1] - mesh.bounds.minY - f * h) < 0.0025 * h && mesh.base[i] > 0 && mesh.base[i] < cut) widest = Math.max(widest, out[i])
+        }
+        edge.push(widest / h)
+      }
+      let worst = 0
+      for (let i = 1; i < edge.length - 1; i++) worst = Math.max(worst, Math.abs(edge[i + 1] - 2 * edge[i] + edge[i - 1]))
+      expect(worst).toBeLessThan(0.006)
+    })
+
+    it('goes from chest to waist to hips without a step', () => {
+      const ratios = profile({ chest: 120, waist: 70, hips: 115 }, hips - 0.03, 0.8, (x) => Math.abs(x) < armX * mesh.height)
+      expect(ratios.every(Number.isFinite)).toBe(true)
+      expect(Math.max(...steps(ratios))).toBeLessThan(0.15)
+    })
+
+    it('scales the whole thigh together, the knee less, and keeps each leg on its own side', () => {
+      const h = mesh.height
+      const rest = run(mesh, {})
+      const big = run(mesh, { thigh: 100 })
+      const growth = (f: number) => {
+        const y = mesh.bounds.minY + f * h
+        const ring = (positions: Float32Array) => {
+          const flat: number[] = []
+          for (let i = 0; i < positions.length; i += 3) {
+            if (Math.abs(mesh.base[i + 1] - y) < 0.004 * h && mesh.base[i] > 0) flat.push(positions[i], positions[i + 2])
+          }
+          return hullPerimeter(flat)
+        }
+        return ring(big.out) / ring(rest.out)
+      }
+      const kneeF = 0.28
+      const span = thigh - kneeF
+      const [low, mid, high] = [0.25, 0.5, 0.75].map((p) => growth(kneeF + span * p))
+      const thighGrowth = growth(thigh)
+      expect(low).toBeGreaterThan(1.1)
+      expect(mid).toBeGreaterThan(low)
+      expect(high).toBeGreaterThanOrEqual(mid - 0.02)
+      expect(growth(kneeF)).toBeLessThan(thighGrowth)
+      expect(growth(kneeF)).toBeGreaterThan(1)
+      for (let i = 0; i < big.out.length; i += 3) {
+        if (Math.abs(mesh.base[i]) > 0.004 * h) expect(Math.sign(big.out[i])).toBe(Math.sign(mesh.base[i]))
+      }
+    })
   })
 
   describe('hanging arms', () => {
