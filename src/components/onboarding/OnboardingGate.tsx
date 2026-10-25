@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { useCookieConsent } from '../../contexts/CookieConsentContext'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useOnboarding } from '../../hooks/useOnboarding'
 import { fetchMe } from '../../service/fetchMe'
@@ -32,13 +31,12 @@ async function isCustomer(email: string, signal: AbortSignal) {
 /** Offers the first-run tour once to a signed-in customer who has not seen it, and renders it while it is open. */
 export function OnboardingGate() {
   const user = useCurrentUser()
-  const { status: consent } = useCookieConsent()
   const { pathname } = useLocation()
   const { phase, exited, startTour } = useOnboarding()
   const email = user?.email
 
   useEffect(() => {
-    if (!email || consent === null || exited || phase !== null || !START_PATHS.test(pathname)) return
+    if (!email || exited || phase !== null || !START_PATHS.test(pathname)) return
     const controller = new AbortController()
     void getOnboardingStatus(email)
       .then((status) => (status === 'none' ? isCustomer(email, controller.signal) : false))
@@ -46,7 +44,7 @@ export function OnboardingGate() {
         if (customer && !controller.signal.aborted) startTour()
       })
     return () => controller.abort()
-  }, [email, consent, exited, phase, pathname, startTour])
+  }, [email, exited, phase, pathname, startTour])
 
   if (!user || phase === null) return null
   return (

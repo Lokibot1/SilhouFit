@@ -5,7 +5,7 @@ vi.mock('../../src/service/supabase', () => ({
   getSupabase: async () => ({ auth: { getSession } }),
 }))
 
-const { BodyProfileError, getBodyProfile, saveBodyProfile, saveGender } = await import('../../src/service/bodyProfile')
+const { BodyProfileError, getBodyProfile, saveBodyProfile } = await import('../../src/service/bodyProfile')
 
 const PROFILE = {
   heightCm: 171.3,
@@ -328,19 +328,3 @@ describe('privacy', () => {
   })
 })
 
-describe('saveGender', () => {
-  it('PATCHes the gender to /users/me with the bearer token', async () => {
-    fetchMock.mockResolvedValue(json({}))
-    await saveGender('female')
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toMatch(/\/users\/me$/)
-    expect(init.method).toBe('PATCH')
-    expect(init.headers).toEqual({ Authorization: 'Bearer token-123', 'Content-Type': 'application/json' })
-    expect(JSON.parse(init.body)).toEqual({ gender: 'female' })
-  })
-
-  it('rejects when the server refuses it', async () => {
-    fetchMock.mockResolvedValue(json({}, 400))
-    await expect(saveGender('male')).rejects.toMatchObject({ kind: 'invalid' })
-  })
-})

@@ -9,6 +9,8 @@ const SIZES = [
   { name: 'laptop 1280', width: 1280, height: 800 },
 ]
 
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' }
+
 test.beforeEach(async ({ page }) => {
   await mockAuth(page, { brandNew: true })
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
@@ -27,6 +29,12 @@ for (const size of SIZES) {
     test.use({ viewport: { width: size.width, height: size.height } })
 
     test('a new user is offered the tour, steps through it and finishes', async ({ page }) => {
+      // No profile saved yet (404), so the tour offers the body measurements page after the address step.
+      await page.route('**/users/me/body-profile', (route) =>
+        route.request().method() === 'OPTIONS'
+          ? route.fulfill({ status: 204, headers: CORS })
+          : route.fulfill({ status: 404, json: {}, headers: CORS }),
+      )
       await signIn(page)
       const welcome = page.getByRole('dialog', { name: 'Welcome to SilhouFit' })
       await expect(welcome).toBeVisible()
@@ -51,8 +59,10 @@ for (const size of SIZES) {
         await current.getByRole('button', { name: 'Next', exact: true }).click()
       }
       await current.getByRole('button', { name: 'Finish', exact: true }).click()
-      // The optional address step comes first; skipping it goes on to the completion card.
+      // The optional address step comes first, then the optional body measurements page; skipping both goes on to the completion card.
       await page.getByRole('dialog', { name: 'Save your delivery address' }).getByRole('button', { name: 'Skip this step' }).click()
+      await expect(page).toHaveURL(/\/profile\/measurements$/)
+      await page.getByRole('button', { name: 'Skip for now', exact: true }).click()
       await expect(page.getByRole('dialog', { name: "You're Ready to Shop!" })).toBeVisible()
       await page.getByRole('button', { name: 'Start Shopping' }).click()
       await expect(page).toHaveURL(/\/shop$/)

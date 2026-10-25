@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CookieConsentBanner } from '../../src/components/CookieConsentBanner'
 import { OnboardingGate } from '../../src/components/onboarding/OnboardingGate'
 import { fetchMe, MeError, type Me } from '../../src/service/fetchMe'
 import { getOnboardingStatus } from '../../src/service/onboarding'
@@ -15,7 +16,10 @@ vi.mock('../../src/service/onboarding', async (original) => ({
   ...(await original<typeof import('../../src/service/onboarding')>()),
   getOnboardingStatus: vi.fn(),
 }))
-vi.mock('../../src/contexts/CookieConsentContext', () => ({ useCookieConsent: () => ({ status: 'accepted' }) }))
+// Cookie consent is unanswered (null) for a first-time visitor; the tour must not wait for it.
+vi.mock('../../src/contexts/CookieConsentContext', () => ({
+  useCookieConsent: () => ({ status: null, accept: vi.fn(), reject: vi.fn() }),
+}))
 vi.mock('../../src/components/onboarding/OnboardingTour', () => ({
   OnboardingTour: () => <div role="dialog" aria-label="Tour is open" />,
 }))
@@ -50,6 +54,20 @@ describe('OnboardingGate roles', () => {
     vi.mocked(fetchMe).mockResolvedValue(me('customer'))
     renderGate(`c${n}@x.com`)
     expect(await screen.findByRole('dialog', { name: 'Tour is open' })).toBeInTheDocument()
+  })
+
+  it('opens the tour while the cookie banner is unanswered and hides the banner meanwhile', async () => {
+    vi.mocked(fetchMe).mockResolvedValue(me('customer'))
+    act(() => setSession({ name: 'A B', email: `banner${n}@x.com` }))
+    render(
+      <MemoryRouter initialEntries={['/shop']}>
+        <CookieConsentBanner />
+        <OnboardingGate />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('region', { name: 'Cookie notice' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Tour is open' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Cookie notice' })).not.toBeInTheDocument()
   })
 
   it.each(['staff', 'admin', 'superadmin'] as const)('never opens the tour for %s', async (role) => {

@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useCookieConsent } from '../contexts/CookieConsentContext'
+import { useOnboarding } from '../hooks/useOnboarding'
 
 export function CookieConsentBanner() {
   const { status, accept, reject } = useCookieConsent()
+  const { phase } = useOnboarding()
 
-  if (status !== null) return null
+  // Held back while the tour is open so the two never overlap; it returns afterwards if still unanswered.
+  if (status !== null || phase !== null) return null
 
   return (
     <div className="fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 px-4">

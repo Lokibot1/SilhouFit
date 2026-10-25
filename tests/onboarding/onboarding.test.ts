@@ -10,7 +10,8 @@ const { getOnboardingStatus, saveOnboardingStatus } = await import('../../src/se
 
 const EMAIL = 'anne@example.com'
 const CACHE = 'silhoufit-onboarding'
-const sessionWith = (user_metadata: object) => ({ data: { session: { user: { user_metadata } } } })
+const ID = 'user-1'
+const sessionWith = (user_metadata: object, id = ID) => ({ data: { session: { user: { id, user_metadata } } } })
 const cached = () => JSON.parse(localStorage.getItem(CACHE) ?? 'null')
 
 beforeEach(() => {
@@ -31,23 +32,35 @@ describe('getOnboardingStatus', () => {
 
     getSession.mockResolvedValue(sessionWith({ onboarding: { status: 'skipped', at: '2026-01-01T00:00:00.000Z' } }))
     expect(await getOnboardingStatus(EMAIL)).toBe('skipped')
-    expect(cached()).toEqual({ email: EMAIL, status: 'skipped', synced: true })
+    expect(cached()).toEqual({ email: EMAIL, userId: ID, status: 'skipped', synced: true })
   })
 
-  it('answers from the local cache without asking Supabase', async () => {
-    localStorage.setItem(CACHE, JSON.stringify({ email: 'ANNE@example.com', status: 'completed', synced: true }))
+  it('answers from the local cache of this account', async () => {
+    localStorage.setItem(CACHE, JSON.stringify({ email: 'ANNE@example.com', userId: ID, status: 'completed', synced: true }))
+    getSession.mockResolvedValue(sessionWith({}))
     expect(await getOnboardingStatus(EMAIL)).toBe('completed')
-    expect(getSession).not.toHaveBeenCalled()
   })
 
-  it('ignores the cache of another account', async () => {
-    localStorage.setItem(CACHE, JSON.stringify({ email: 'other@example.com', status: 'completed', synced: true }))
+  it('ignores the cache of another email', async () => {
+    localStorage.setItem(CACHE, JSON.stringify({ email: 'other@example.com', userId: ID, status: 'completed', synced: true }))
+    getSession.mockResolvedValue(sessionWith({}))
+    expect(await getOnboardingStatus(EMAIL)).toBe('none')
+  })
+
+  it('ignores a cache left by an earlier account that used the same email, such as a deleted one', async () => {
+    localStorage.setItem(CACHE, JSON.stringify({ email: EMAIL, userId: 'old-account', status: 'completed', synced: true }))
+    getSession.mockResolvedValue(sessionWith({}))
+    expect(await getOnboardingStatus(EMAIL)).toBe('none')
+  })
+
+  it('ignores a cache from before accounts were recorded', async () => {
+    localStorage.setItem(CACHE, JSON.stringify({ email: EMAIL, status: 'completed', synced: true }))
     getSession.mockResolvedValue(sessionWith({}))
     expect(await getOnboardingStatus(EMAIL)).toBe('none')
   })
 
   it('retries a save that never reached the account', async () => {
-    localStorage.setItem(CACHE, JSON.stringify({ email: EMAIL, status: 'skipped', synced: false }))
+    localStorage.setItem(CACHE, JSON.stringify({ email: EMAIL, userId: ID, status: 'skipped', synced: false }))
     getSession.mockResolvedValue(sessionWith({ plan: 'free' }))
     expect(await getOnboardingStatus(EMAIL)).toBe('skipped')
     await vi.waitFor(() => expect(updateUser).toHaveBeenCalledTimes(1))
@@ -68,13 +81,13 @@ describe('saveOnboardingStatus', () => {
     expect(data.name).toBe('Anne')
     expect(data.onboarding.status).toBe('completed')
     expect(typeof data.onboarding.at).toBe('string')
-    expect(cached()).toEqual({ email: EMAIL, status: 'completed', synced: true })
+    expect(cached()).toEqual({ email: EMAIL, userId: ID, status: 'completed', synced: true })
   })
 
   it('fails, but keeps the choice on this device, when the account cannot be updated', async () => {
     getSession.mockResolvedValue(sessionWith({}))
     updateUser.mockResolvedValue({ error: { message: 'down' } })
     expect(await saveOnboardingStatus(EMAIL, 'skipped')).toBe('failed')
-    expect(cached()).toEqual({ email: EMAIL, status: 'skipped', synced: false })
+    expect(cached()).toEqual({ email: EMAIL, userId: ID, status: 'skipped', synced: false })
   })
 })

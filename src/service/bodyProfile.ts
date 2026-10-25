@@ -51,10 +51,9 @@ const NUMBER_KEYS = [
 ] as const
 
 async function request(
-  method: 'GET' | 'PUT' | 'PATCH',
-  body: BodyProfile | { gender: BodyModelId } | undefined,
+  method: 'GET' | 'PUT',
+  body: BodyProfile | undefined,
   signal?: AbortSignal,
-  path = '/users/me/body-profile',
 ) {
   let token: string | undefined
   try {
@@ -67,7 +66,7 @@ async function request(
   if (!token) throw new BodyProfileError('unauthorized')
 
   try {
-    return await fetch(`${import.meta.env.VITE_API_URL}${path}`, {
+    return await fetch(`${import.meta.env.VITE_API_URL}/users/me/body-profile`, {
       method,
       headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
@@ -152,10 +151,4 @@ export async function saveBodyProfile(profile: BodyProfile, { signal }: RequestO
   const saved = await parse(response)
   pending = null // a GET still on the wire may carry the old profile
   return saved
-}
-
-/** Records the chosen body model as the account's gender, the one place the backend keeps it. */
-export async function saveGender(gender: BodyModelId, { signal }: RequestOptions = {}): Promise<void> {
-  const response = await request('PATCH', { gender }, signal, '/users/me')
-  if (!response.ok) throw new BodyProfileError(STATUS_KIND[response.status] ?? 'server')
 }

@@ -59,9 +59,21 @@ async function stubGeolocation(page: Page, mode: 'deny' | 'timeout') {
   }, mode === 'deny' ? 1 : 3)
 }
 
+// A saved body profile means the tour leaves out its body measurements step, so the address step is followed by the completion card.
+const SAVED_PROFILE = {
+  heightCm: 168, weightKg: null, shoulderWidthCm: null, chestCm: 90, bustCm: null, torsoLengthCm: null, waistCm: null,
+  hipsCm: null, inseamCm: null, outseamCm: null, thighCm: null, armLengthCm: 59, bodyModel: 'female', bodyBuild: 'lean',
+}
+const BODY_CORS = { ...CORS, 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' }
+
 test.beforeEach(async ({ page }) => {
   await mockAuth(page, { brandNew: true })
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
+  await page.route('**/users/me/body-profile', (route) =>
+    route.request().method() === 'OPTIONS'
+      ? route.fulfill({ status: 204, headers: BODY_CORS })
+      : route.fulfill({ json: SAVED_PROFILE, headers: BODY_CORS }),
+  )
 })
 
 /** Signs in, runs the tour to its last stop and presses Finish. */
