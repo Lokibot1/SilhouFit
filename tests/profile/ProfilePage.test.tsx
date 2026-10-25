@@ -147,12 +147,12 @@ describe('ProfilePage', () => {
     expect(signOutSupabase).toHaveBeenCalled()
   })
 
-  it('signs out to the home page, not the sign-in page', async () => {
+  it('signs out to the sign-in page', async () => {
     const user = userEvent.setup()
     load.mockResolvedValue(ME)
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Sign out' }))
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/$/))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/login$/))
     expect(getSession()).toBeNull()
     expect(signOutSupabase).toHaveBeenCalled()
     expect(screen.getByText('Signed out')).toBeInTheDocument()

@@ -578,7 +578,7 @@ test('the signed-in avatar opens an account panel and Sign out ends the session'
   await avatar.click()
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page.getByText('Signed out')).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
+  await expect(page).toHaveURL(/\/login/)
 })
 
 test('search shows the empty state and "Clear search and filters" brings the catalogue back', async ({ page }) => {

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { CurrentUser } from '../hooks/useCurrentUser'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { signOut as endSession } from '../service/signOut'
@@ -33,6 +33,7 @@ export function AccountMenu({
   themeSwitch?: boolean
 }) {
   const toast = useToast()
+  const navigate = useNavigate()
   const panelId = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -95,8 +96,7 @@ export function AccountMenu({
     onSignOut?.()
     endSession()
     close(false)
-    // The avatar is replaced by the Sign in icon: put focus there rather than on the page.
-    requestAnimationFrame(() => document.getElementById('shop-sign-in')?.focus())
+    navigate('/login', { replace: true })
     toast.show({ kind: 'success', message: 'Signed out' })
   }
 

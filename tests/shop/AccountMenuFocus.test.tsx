@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ShopNavbar } from '../../src/components/ShopNavbar'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
@@ -30,11 +30,16 @@ beforeEach(() => {
   act(() => setSession({ name: 'Ana Reyes', email: 'ana@example.com' }))
 })
 
+function Where() {
+  return <p data-testid="where">{useLocation().pathname}</p>
+}
+
 function renderBar() {
   return render(
     <MemoryRouter initialEntries={['/shop']}>
       <ThemeProvider>
         <ToastProvider>
+          <Where />
           <ShopNavbar />
         </ToastProvider>
       </ThemeProvider>
@@ -64,7 +69,7 @@ describe('account menu focus', () => {
     expect(screen.getByRole('button', { name: 'Account, Ana Reyes' })).toHaveFocus()
   })
 
-  it('moves focus to the Sign in icon after signing out, and forgets a placed order', async () => {
+  it('goes to the login page after signing out, and forgets a placed order', async () => {
     saveLastOrder({
       orderId: 'SF-261011-ABCD',
       items: [{ name: 'Heritage Polo', size: 'M', color: 'Navy', qty: 1, price: 1890, arReady: false }],
@@ -81,8 +86,7 @@ describe('account menu focus', () => {
     renderBar()
     await user.click(screen.getByRole('button', { name: 'Account, Ana Reyes' }))
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
-    const signIn = await screen.findByRole('link', { name: 'Sign in' })
-    await waitFor(() => expect(signIn).toHaveFocus())
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/login'))
     expect(loadLastOrder()).toBeNull()
     act(() => clearSession())
   })

@@ -103,7 +103,7 @@ export function ProfilePage() {
   }
 
   if (!user) {
-    return <Navigate to={hadUser && !expired ? '/' : '/login?next=%2Fprofile'} replace />
+    return <Navigate to={hadUser && !expired ? '/login' : '/login?next=%2Fprofile'} replace />
   }
 
   function retry() {
