@@ -1,15 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
+import { mockAddresses } from '../shared/addresses'
 import { DEMO, mockAuth } from '../shared/session'
+import { ADDRESS } from '../fixtures/addresses'
 
 // The optional "Body Measurements & Avatar Setup" phase that follows the address step of the tour.
 // Supabase Auth, /users/me and /users/me/body-profile are mocked; the app code under test is real.
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' }
 const DRAFT_KEY = 'silhoufit-body-setup'
-const ADDRESS_KEY = `silhoufit-address:${DEMO.email}`
-const ADDRESS = {
-  regionCode: '130000000', region: 'NCR', province: '', cityCode: '133900000', city: 'City of Manila',
-  barangayCode: '133901176', barangay: 'Barangay 176', street: '12 Rizal Avenue', postal: '1000',
-}
 const SAVED_PROFILE = {
   heightCm: 168, weightKg: null, shoulderWidthCm: null, chestCm: 90, bustCm: null, torsoLengthCm: null, waistCm: null,
   hipsCm: null, inseamCm: null, outseamCm: null, thighCm: null, armLengthCm: 59, bodyModel: 'female', bodyBuild: 'lean',
@@ -120,10 +117,7 @@ test.describe('as a brand-new customer in the tour', () => {
   })
 
   test('skip path: nothing is sent, the saved address is kept and the tour still completes', async ({ page }) => {
-    await page.addInitScript(
-      ([key, address]) => localStorage.setItem(key, JSON.stringify(address)),
-      [ADDRESS_KEY, ADDRESS] as const,
-    )
+    const addresses = await mockAddresses(page, [ADDRESS])
     const puts = await mockBodyProfile(page)
     await signIn(page)
     await finishTour(page)
@@ -144,15 +138,12 @@ test.describe('as a brand-new customer in the tour', () => {
 
     const dump = await storageDump(page)
     expect(dump.draft).toBeNull()
-    expect(dump.local).toContain(ADDRESS.street)
+    expect(addresses.calls.filter((c) => c.method !== 'GET')).toEqual([])
     expect(dump.local).not.toContain('175')
   })
 
   test('a replay skips the body step when a profile is already saved', async ({ page }) => {
-    await page.addInitScript(
-      ([key, address]) => localStorage.setItem(key, JSON.stringify(address)),
-      [ADDRESS_KEY, ADDRESS] as const,
-    )
+    await mockAddresses(page, [ADDRESS])
     const puts = await mockBodyProfile(page, SAVED_PROFILE)
     await signIn(page)
     await finishTour(page)
@@ -275,7 +266,7 @@ test.describe('as a returning customer', () => {
     await expect(page).toHaveURL(/\/profile$/)
     expect((await storageDump(page)).draft).not.toBeNull() // still this tab's draft until the user signs out
     await page.getByRole('button', { name: 'Sign out' }).click()
-    await expect(page).toHaveURL(/\/$/)
+    await expect(page).toHaveURL(/\/login$/)
     expect((await storageDump(page)).draft).toBeNull()
     expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull()
   })

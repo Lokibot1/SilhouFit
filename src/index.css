@@ -1071,6 +1071,10 @@
     --field-pad-l: 102px;
   }
 
+  .field--prefix-compact {
+    --field-pad-l: 48px;
+  }
+
   .field__prefix {
     position: absolute;
     left: 6px;

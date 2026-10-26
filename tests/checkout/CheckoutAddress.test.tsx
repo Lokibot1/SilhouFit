@@ -6,30 +6,32 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { PRODUCTS } from '../../src/data/products'
 import { resetProductsCache } from '../../src/hooks/useProducts'
-import { saveAddress, type SavedAddress } from '../../src/service/address'
 import { fetchProducts } from '../../src/service/fetchProducts'
 import { clearSession, setSession } from '../../src/service/session'
 import { CheckoutPage } from '../../src/views/private/CheckoutPage'
+import { ADDRESS, address } from '../fixtures/addresses'
 
-const addressApi = vi.hoisted(() => ({ getAddress: vi.fn() }))
-vi.mock('../../src/service/address', async (original) => ({
-  ...(await original<typeof import('../../src/service/address')>()),
-  getAddress: addressApi.getAddress,
+const api = vi.hoisted(() => ({ loadAddresses: vi.fn(), onAddressesChanged: vi.fn() }))
+vi.mock('../../src/service/addresses', async (original) => ({
+  ...(await original<typeof import('../../src/service/addresses')>()),
+  ...api,
 }))
 vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: vi.fn() }))
 vi.mock('../../src/service/placeOrder', () => ({ placeOrder: vi.fn() }))
 
-const SAVED: SavedAddress = {
-  regionCode: '130000000',
-  region: 'NCR',
-  province: '',
-  cityCode: '133900000',
-  city: 'City of Manila',
-  barangayCode: '133901176',
-  barangay: 'Barangay 176',
-  street: '12 Rizal Avenue',
-  postal: '1000',
-}
+const OFFICE = address({
+  id: '22222222-2222-4222-8222-222222222222',
+  label: null,
+  recipientName: 'Ben Cruz',
+  phone: '09181234567',
+  cityMunicipality: 'Quezon City',
+  barangay: 'Bagumbayan',
+  streetAddress: '9 Ayala Avenue',
+  addressLine2: 'Floor 5',
+  postalCode: '1110',
+  isDefault: false,
+})
+let changed: Array<() => void> = []
 
 vi.setConfig({ testTimeout: 30000 })
 
@@ -44,7 +46,14 @@ beforeEach(() => {
   resetProductsCache()
   act(() => setSession({ name: 'Demo Shopper', email: 'demo@silhoufit.com' }))
   vi.mocked(fetchProducts).mockResolvedValue({ products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' })
-  addressApi.getAddress.mockResolvedValue(SAVED)
+  changed = []
+  api.loadAddresses.mockResolvedValue([ADDRESS])
+  api.onAddressesChanged.mockImplementation((run: () => void) => {
+    changed.push(run)
+    return () => {
+      changed = changed.filter((c) => c !== run)
+    }
+  })
 })
 afterEach(() => {
   vi.clearAllMocks()
@@ -64,76 +73,164 @@ function renderCheckout() {
 }
 
 const street = () => screen.findByLabelText('Street address')
+const fullName = () => screen.getByLabelText('Full name')
 
 describe('Checkout fills in the saved address', () => {
-  it('fills street (with the barangay), city and postal, and leaves name and phone alone', async () => {
+  it('fills name, phone, street (with the barangay), city and postal from the default address', async () => {
     renderCheckout()
     await waitFor(async () => expect(await street()).toHaveValue('12 Rizal Avenue, Barangay 176'))
+    expect(fullName()).toHaveValue('Anne Santos')
+    expect(screen.getByLabelText('Phone number')).toHaveValue('9171234567')
     expect(screen.getByLabelText('City')).toHaveValue('City of Manila')
     expect(screen.getByLabelText('Postal code')).toHaveValue('1000')
-    expect(screen.getByLabelText('Phone number')).toHaveValue('')
-    expect(addressApi.getAddress).toHaveBeenCalledWith('demo@silhoufit.com')
+    expect(api.loadAddresses).toHaveBeenCalled()
+  })
+
+  it('puts address line 2 between the street and the barangay', async () => {
+    api.loadAddresses.mockResolvedValue([address({ addressLine2: 'Unit 4B' })])
+    renderCheckout()
+    await waitFor(async () => expect(await street()).toHaveValue('12 Rizal Avenue, Unit 4B, Barangay 176'))
   })
 
   it('does not add a second "Barangay" and drops a parenthetical from the city', async () => {
-    addressApi.getAddress.mockResolvedValue({ ...SAVED, city: 'Bacolod City (Capital)', barangay: 'Pio V. Corpuz (Limbuhan)' })
+    api.loadAddresses.mockResolvedValue([address({ cityMunicipality: 'Bacolod City (Capital)', barangay: 'Pio V. Corpuz (Limbuhan)' })])
     renderCheckout()
     await waitFor(async () => expect(await street()).toHaveValue('12 Rizal Avenue, Barangay Pio V. Corpuz'))
     expect(screen.getByLabelText('City')).toHaveValue('Bacolod City')
   })
 
   it('never overwrites what the shopper typed before it arrived', async () => {
-    let arrive: (a: SavedAddress) => void = () => {}
-    addressApi.getAddress.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
+    let arrive: (list: object[]) => void = () => {}
+    api.loadAddresses.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await user.type(await street(), '99 Mabini Street')
-    act(() => arrive(SAVED))
+    await user.clear(fullName())
+    await user.type(fullName(), 'Carlo Reyes')
+    act(() => arrive([ADDRESS]))
     await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue('City of Manila'))
     expect(screen.getByLabelText('Street address')).toHaveValue('99 Mabini Street')
+    expect(fullName()).toHaveValue('Carlo Reyes')
   })
 
-  it('reserves a status line, and says when the saved address cannot be read', async () => {
-    addressApi.getAddress.mockRejectedValue(new Error('blocked'))
+  it('reserves a status line, and says when the saved addresses cannot be loaded', async () => {
+    api.loadAddresses.mockRejectedValue(new Error('offline'))
     renderCheckout()
-    const note = await screen.findByText("We couldn't read your saved address on this device, so type it below.")
+    const note = await screen.findByText("We couldn't load your saved addresses, so type your delivery address below.")
     expect(note).toHaveAttribute('role', 'status')
     expect(screen.getByLabelText('City')).toHaveValue('')
+  })
+
+  it('offers Try again after a failed read: it reads afresh, fills the untouched fields and never the typed ones', async () => {
+    api.loadAddresses.mockRejectedValueOnce(new Error('offline'))
+    const user = userEvent.setup({ delay: null })
+    renderCheckout()
+    await screen.findByText("We couldn't load your saved addresses, so type your delivery address below.")
+    await user.type(screen.getByLabelText('Street address'), '99 Mabini Street')
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue('City of Manila'))
+    expect(api.loadAddresses).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }))
+    expect(screen.getByLabelText('Street address')).toHaveValue('99 Mabini Street')
+    expect(screen.getByLabelText('Postal code')).toHaveValue('1000')
+    expect(screen.queryByText(/couldn't load your saved addresses/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the note, and the control, when Try again fails too', async () => {
+    api.loadAddresses.mockRejectedValue(new Error('offline'))
+    const user = userEvent.setup({ delay: null })
+    renderCheckout()
+    await user.click(await screen.findByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(api.loadAddresses).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText("We couldn't load your saved addresses, so type your delivery address below.")).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('holds the Deliver to slot open while the list loads, and folds it away when there is nothing to pick', async () => {
+    let arrive: (list: object[]) => void = () => {}
+    api.loadAddresses.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
+    renderCheckout()
+    const slot = (await street()).closest('section')!.querySelector('.grid-rows-\\[1fr\\]')
+    expect(slot).toHaveTextContent('Deliver to')
+    expect(screen.queryByRole('combobox', { name: 'Deliver to' })).not.toBeInTheDocument()
+    act(() => arrive([ADDRESS]))
+    await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue('City of Manila'))
+    expect(slot).toHaveClass('grid-rows-[0fr]')
+    expect(slot).not.toHaveTextContent('Deliver to')
   })
 
   it('shows a note while a slow read is still going, then clears it', async () => {
-    let arrive: (a: SavedAddress | null) => void = () => {}
-    addressApi.getAddress.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
+    let arrive: (list: object[]) => void = () => {}
+    api.loadAddresses.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
     renderCheckout()
     const note = await screen.findByText('Filling in your saved address…')
     expect(note).toHaveAttribute('role', 'status')
-    act(() => arrive(null))
+    act(() => arrive([]))
     await waitFor(() => expect(screen.queryByText('Filling in your saved address…')).not.toBeInTheDocument())
   })
 
-  it('fills the empty fields when an address is saved while checkout is open, never over typing', async () => {
-    addressApi.getAddress.mockResolvedValue(null)
+  it('leaves the form empty when nothing is saved', async () => {
+    api.loadAddresses.mockResolvedValue([])
+    renderCheckout()
+    expect(await street()).toHaveValue('')
+    expect(screen.getByLabelText('City')).toHaveValue('')
+    expect(screen.queryByRole('combobox', { name: 'Deliver to' })).not.toBeInTheDocument()
+  })
+
+  it('re-applies when the addresses change while checkout is open, never over typing', async () => {
+    api.loadAddresses.mockResolvedValue([])
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await user.type(await street(), '99 Mabini Street')
-    await act(() => saveAddress('demo@silhoufit.com', SAVED))
+    api.loadAddresses.mockResolvedValue([ADDRESS])
+    await act(async () => changed.forEach((run) => run()))
     await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue('City of Manila'))
     expect(screen.getByLabelText('Postal code')).toHaveValue('1000')
     expect(screen.getByLabelText('Street address')).toHaveValue('99 Mabini Street')
+    expect(api.loadAddresses).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }))
   })
 
-  it('ignores an address saved for another account', async () => {
-    addressApi.getAddress.mockResolvedValue(null)
-    renderCheckout()
-    expect(await street()).toHaveValue('')
-    await act(() => saveAddress('someone@else.com', SAVED))
-    expect(screen.getByLabelText('City')).toHaveValue('')
+  it('stops listening when checkout closes', async () => {
+    const { unmount } = renderCheckout()
+    await street()
+    expect(changed).toHaveLength(1)
+    unmount()
+    expect(changed).toHaveLength(0)
   })
 
-  it('leaves the form empty when nothing is saved', async () => {
-    addressApi.getAddress.mockResolvedValue(null)
-    renderCheckout()
-    expect(await street()).toHaveValue('')
-    expect(screen.getByLabelText('City')).toHaveValue('')
+  describe('with more than one address', () => {
+    beforeEach(() => api.loadAddresses.mockResolvedValue([ADDRESS, OFFICE]))
+
+    it('offers a Deliver to picker, default marked, and fills from the default', async () => {
+      renderCheckout()
+      const picker = await screen.findByRole('combobox', { name: 'Deliver to' })
+      expect(picker).toHaveTextContent('Home (Default)')
+      await waitFor(async () => expect(await street()).toHaveValue('12 Rizal Avenue, Barangay 176'))
+    })
+
+    it('fills the untouched fields from the address picked, labelled by its street when it has no label', async () => {
+      const user = userEvent.setup({ delay: null })
+      renderCheckout()
+      await user.click(await screen.findByRole('combobox', { name: 'Deliver to' }))
+      expect(screen.getByRole('option', { name: 'Home (Default)' })).toBeInTheDocument()
+      await user.click(screen.getByRole('option', { name: '9 Ayala Avenue' }))
+      await waitFor(async () => expect(await street()).toHaveValue('9 Ayala Avenue, Floor 5, Barangay Bagumbayan'))
+      expect(fullName()).toHaveValue('Ben Cruz')
+      expect(screen.getByLabelText('Phone number')).toHaveValue('9181234567')
+      expect(screen.getByLabelText('City')).toHaveValue('Quezon City')
+      expect(screen.getByLabelText('Postal code')).toHaveValue('1110')
+    })
+
+    it('keeps what the shopper edited when another address is picked', async () => {
+      const user = userEvent.setup({ delay: null })
+      renderCheckout()
+      await waitFor(async () => expect(await street()).toHaveValue('12 Rizal Avenue, Barangay 176'))
+      await user.clear(screen.getByLabelText('Postal code'))
+      await user.type(screen.getByLabelText('Postal code'), '1234')
+      await user.click(await screen.findByRole('combobox', { name: 'Deliver to' }))
+      await user.click(screen.getByRole('option', { name: '9 Ayala Avenue' }))
+      await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue('Quezon City'))
+      expect(screen.getByLabelText('Postal code')).toHaveValue('1234')
+    })
   })
 })

@@ -40,6 +40,8 @@ export async function mockAuth(page: Page, { brandNew = false }: { brandNew?: bo
       headers: CORS,
     })
   })
+  // No saved addresses by default; a test that needs some registers mockAddresses, which wins as the later route.
+  await page.route('**/users/me/addresses', (route) => route.fulfill({ json: [], headers: CORS }))
   await page.route('**/users/me', (route) =>
     route.fulfill({
       json: {

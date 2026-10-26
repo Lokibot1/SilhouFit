@@ -9,6 +9,7 @@ import { AlertIcon, SpinnerIcon } from '../../components/form/icons'
 import { SHOP_PRIMARY } from '../../components/shop/shopControls'
 import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
 import { IconEditButton } from '../../components/ui/IconEditButton'
+import { Select } from '../../components/ui/Select'
 import { DEFAULT_COUNTRY_CODE, findCountry } from '../../data/countries'
 import { lineKey, useCart } from '../../hooks/useCart'
 import { useCurrentUser, type CurrentUser } from '../../hooks/useCurrentUser'
@@ -16,7 +17,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProducts } from '../../hooks/useProducts'
 import { useWishlist } from '../../hooks/useWishlist'
-import { getAddress, onAddressSaved, type SavedAddress } from '../../service/address'
+import { getDefaultAddress, loadAddresses, onAddressesChanged, type Address } from '../../service/addresses'
 import { placeOrder } from '../../service/placeOrder'
 import {
   computeTotals,
@@ -47,6 +48,7 @@ import {
   filterPhone,
   filterPostal,
   filterStreet,
+  toNationalPhone,
   validateCity,
   validateFullName,
   validatePostal,
@@ -177,41 +179,65 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   // The saved address fills only what the shopper has not touched, and never what they typed.
   const edited = useRef<Partial<Record<AddressField, boolean>>>({})
   const [saved, setSaved] = useState<'loading' | 'filled' | 'none' | 'failed'>(user.email ? 'loading' : 'none')
+  // Every saved address, and the one the fields were last filled from.
+  const [addresses, setAddresses] = useState<Address[]>([])
+  const [deliverTo, setDeliverTo] = useState('')
+  const deliverToRef = useRef('')
   // A read that is over at once never flashes the note; one that is slow (an API later) does.
   const [slow, setSlow] = useState(false)
+  const applyAddress = useRef<(address: Address) => void>(() => {})
+  const reload = useRef<() => void>(() => {})
 
   useEffect(() => () => controller.current?.abort(), [])
 
   useEffect(() => {
     if (!user.email) return
     let live = true
+    const controller = new AbortController()
     const timer = setTimeout(() => setSlow(true), 150)
-    const apply = (address: SavedAddress) => {
+    const apply = (address: Address) => {
       const barangay = cleanPlaceName(address.barangay)
       const area = /^(barangay|brgy)\b/i.test(barangay) ? barangay : `Barangay ${barangay}`
-      const fill = (name: AddressField, value: string) => (edited.current[name] ? undefined : FILTERS[name](value))
-      setValues((current) => ({
-        ...current,
-        street: current.street || fill('street', barangay ? `${address.street}, ${area}` : address.street) || '',
-        city: current.city || fill('city', cleanPlaceName(address.city)) || '',
-        postal: current.postal || fill('postal', address.postal) || '',
-      }))
+      const street = [address.streetAddress, address.addressLine2, barangay && area].filter(Boolean).join(', ')
+      const fill = (name: AddressField, value: string) => {
+        if (edited.current[name]) return
+        setValues((current) => ({ ...current, [name]: FILTERS[name](value) }))
+      }
+      fill('fullName', address.recipientName)
+      fill('phone', toNationalPhone(address.phone))
+      fill('street', street)
+      fill('city', cleanPlaceName(address.cityMunicipality))
+      fill('postal', address.postalCode)
+      if (!edited.current.phone) setPhoneCountry(DEFAULT_COUNTRY_CODE)
+      deliverToRef.current = address.id
+      setDeliverTo(address.id)
       setSaved('filled')
     }
-    // An address saved while this form is open (the tour's last step) fills the same way, still never over typing.
-    const unsubscribe = onAddressSaved(user.email, apply)
-    getAddress(user.email).then(
-      (address) => {
-        if (!live) return
-        if (!address) return setSaved('none')
-        apply(address)
-      },
-      () => {
-        if (live) setSaved('failed')
-      },
-    )
+    applyAddress.current = apply
+    // The default fills the form, or the one the shopper picked if it is still there. An address saved while this
+    // form is open (the tour's last step) fills the same way, still never over typing.
+    const load = (force: boolean) =>
+      loadAddresses({ signal: controller.signal, force }).then(
+        (list) => {
+          if (!live) return
+          setAddresses(list)
+          const target = list.find((a) => a.id === deliverToRef.current) ?? getDefaultAddress(list)
+          if (target) apply(target)
+          else setSaved('none')
+        },
+        () => {
+          if (live && !controller.signal.aborted) setSaved('failed')
+        },
+      )
+    reload.current = () => {
+      setSaved('loading')
+      void load(true)
+    }
+    void load(false)
+    const unsubscribe = onAddressesChanged(() => void load(true))
     return () => {
       live = false
+      controller.abort()
       clearTimeout(timer)
       unsubscribe()
     }
@@ -223,6 +249,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const totals = computeTotals(items, fulfilment)
   const eta = fulfilment === 'delivery' ? deliveryEta() : pickupEta(items)
   const delivery = fulfilment === 'delivery'
+  const picking = saved === 'loading' || addresses.length > 1
 
   const allErrors: AddressErrors = {}
   for (const name of ADDRESS_FIELD_ORDER) {
@@ -396,10 +423,45 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                 </p>
               )}
               {saved === 'failed' && (
-                <p role="status" className="text-base text-fg-muted">
-                  We couldn&apos;t read your saved address on this device, so type it below.
-                </p>
+                <div className="flex flex-wrap items-center gap-x-3">
+                  <p role="status" className="text-base text-fg-muted">
+                    We couldn&apos;t load your saved addresses, so type your delivery address below.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => reload.current()}
+                    className="font-ui min-h-11 cursor-pointer rounded-xl text-base font-semibold text-fg underline underline-offset-4 hover:text-chrome-strong"
+                  >
+                    Try again
+                  </button>
+                </div>
               )}
+            </div>
+            {/* Held open while the list loads, so a picker arriving does not push the fields down; it folds away
+                when there is nothing to choose between (one address or none). */}
+            <div className={`grid transition-[grid-template-rows] duration-200 motion-reduce:transition-none ${picking ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+              <div className={`min-h-0 ${picking ? '' : 'overflow-hidden'}`}>
+                {picking && (
+                  <div className="pt-3">
+                    <p aria-hidden="true" className="font-ui mb-1 text-sm text-fg-muted">
+                      Deliver to
+                    </p>
+                    {addresses.length > 1 ? (
+                      <Select
+                        label="Deliver to"
+                        value={deliverTo}
+                        options={addresses.map((a) => ({ value: a.id, label: `${a.label || a.streetAddress}${a.isDefault ? ' (Default)' : ''}` }))}
+                        onChange={(id) => {
+                          const picked = addresses.find((a) => a.id === id)
+                          if (picked) applyAddress.current(picked)
+                        }}
+                      />
+                    ) : (
+                      <div aria-hidden="true" className="h-9 animate-pulse rounded-xl bg-line pointer-coarse:h-11" />
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">

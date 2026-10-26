@@ -31,7 +31,7 @@ export class UpdateMeError extends Error {
 const STATUS_KIND: Record<number, UpdateMeErrorKind> = { 400: 'invalid', 401: 'unauthorized', 404: 'not-found', 422: 'invalid', 429: 'rate-limit' }
 
 /** The server's own message (Nest sends a string or a list of them), or undefined when the body is not that. */
-async function errorDetail(response: Response): Promise<string | undefined> {
+export async function errorDetail(response: Response): Promise<string | undefined> {
   try {
     const { message } = (await response.json()) as { message?: unknown }
     const text = Array.isArray(message) ? message.filter((m) => typeof m === 'string').join('; ') : message

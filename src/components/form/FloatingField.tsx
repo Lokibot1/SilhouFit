@@ -8,6 +8,8 @@ interface FloatingFieldProps {
   icon?: ReactNode
   /** Interactive leading control (country picker), drawn inside the outline. */
   prefix?: ReactNode
+  /** For a static prefix like "+63" that needs less room than a country picker. */
+  compactPrefix?: boolean
   value: string
   onChange: (value: string) => void
   onBlur?: () => void
@@ -28,6 +30,7 @@ export function FloatingField({
   label,
   icon,
   prefix,
+  compactPrefix,
   value,
   onChange,
   onBlur,
@@ -47,7 +50,7 @@ export function FloatingField({
 
   return (
     <div
-      className={`field scroll-mt-28 ${prefix ? 'field--prefix' : icon ? '' : 'field--plain'}`}
+      className={`field scroll-mt-28 ${prefix ? (compactPrefix ? 'field--prefix-compact' : 'field--prefix') : icon ? '' : 'field--plain'}`}
       data-invalid={error ? '' : undefined}
       data-locked={locked ? '' : undefined}
     >

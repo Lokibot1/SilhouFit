@@ -6,10 +6,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { loadDraft, newDraft, saveDraft } from '../../src/components/body-setup/draft'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { resetTour, useOnboarding } from '../../src/hooks/useOnboarding'
-import { getAddress, saveAddress, type SavedAddress } from '../../src/service/address'
+import { createAddress, deleteAddress, loadAddresses, updateAddress } from '../../src/service/addresses'
 import { BodyProfileError, getBodyProfile, saveBodyProfile, type BodyProfile } from '../../src/service/bodyProfile'
 import { clearSession, setSession } from '../../src/service/session'
 import { BodySetupPage } from '../../src/views/private/BodySetupPage'
+import { ADDRESS } from '../fixtures/addresses'
 
 const motion = vi.hoisted(() => ({ reduced: false }))
 const crash = vi.hoisted(() => ({ studio: false, step: false }))
@@ -45,6 +46,13 @@ vi.mock('../../src/components/body-setup/ChoiceSteps', async (original) => {
     },
   }
 })
+vi.mock('../../src/service/addresses', async (original) => ({
+  ...(await original<typeof import('../../src/service/addresses')>()),
+  loadAddresses: vi.fn(),
+  createAddress: vi.fn(),
+  updateAddress: vi.fn(),
+  deleteAddress: vi.fn(),
+}))
 vi.mock('../../src/service/bodyProfile', async (original) => ({
   ...(await original<typeof import('../../src/service/bodyProfile')>()),
   getBodyProfile: vi.fn(),
@@ -54,17 +62,6 @@ vi.mock('../../src/service/bodyProfile', async (original) => ({
 vi.setConfig({ testTimeout: 60000 }) // step-by-step flows re-render the whole page on every click; slow when the suite runs in parallel
 
 const EMAIL = 'anne@example.com'
-const ADDRESS: SavedAddress = {
-  regionCode: '040000000',
-  region: 'CALABARZON',
-  province: 'Batangas',
-  cityCode: '041005000',
-  city: 'Batangas City',
-  barangayCode: '041005001',
-  barangay: 'Alangilan',
-  street: '12 P. Burgos Street',
-  postal: '4200',
-}
 const SAVED_PROFILE: BodyProfile = {
   heightCm: 168,
   weightKg: null,
@@ -540,7 +537,7 @@ describe('BodySetupPage Skip for now', () => {
   ]
 
   it.each(screens)('is on the %s screen, leaves the saved address alone and calls no save', async (_name, go) => {
-    await saveAddress(EMAIL, ADDRESS)
+    vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
     const user = await open()
     await modelHeading()
     await go(user)
@@ -549,7 +546,7 @@ describe('BodySetupPage Skip for now', () => {
 
     await waitFor(() => expect(where()).toBe('/profile'))
     expect(save).not.toHaveBeenCalled()
-    expect(await getAddress(EMAIL)).toEqual(ADDRESS)
+    for (const mutate of [createAddress, updateAddress, deleteAddress]) expect(mutate).not.toHaveBeenCalled()
     expect(loadDraft(EMAIL)).toBeNull()
     expect(sessionStorage.getItem('silhoufit-body-setup')).toBeNull()
     expect(await screen.findByText('You can add your measurements any time from your profile.')).toBeInTheDocument()

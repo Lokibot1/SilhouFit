@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -8,9 +8,10 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { PRODUCTS } from '../../src/data/products'
 import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
 import { resetTour, useOnboarding } from '../../src/hooks/useOnboarding'
-import { getAddress, saveAddress, type SavedAddress } from '../../src/service/address'
+import { createAddress, loadAddresses, type Address } from '../../src/service/addresses'
 import { saveOnboardingStatus } from '../../src/service/onboarding'
 import { clearSession, setSession } from '../../src/service/session'
+import { ADDRESS } from '../fixtures/addresses'
 
 // motion reads the media query once per process, so the preference is switched here instead.
 const motion = vi.hoisted(() => ({ reduced: false }))
@@ -19,6 +20,13 @@ vi.mock('motion/react', async (importOriginal) => ({
   useReducedMotion: () => motion.reduced,
 }))
 vi.mock('../../src/service/onboarding', () => ({ saveOnboardingStatus: vi.fn() }))
+vi.mock('../../src/service/addresses', async (original) => ({
+  ...(await original<typeof import('../../src/service/addresses')>()),
+  loadAddresses: vi.fn(),
+  createAddress: vi.fn(),
+  updateAddress: vi.fn(),
+  deleteAddress: vi.fn(),
+}))
 // A saved body profile skips the body step, so these tests end on the completion card. The body step has its own tests.
 vi.mock('../../src/service/bodyProfile', async (original) => ({
   ...(await original<typeof import('../../src/service/bodyProfile')>()),
@@ -54,6 +62,7 @@ beforeAll(() => {
 beforeEach(() => {
   motion.reduced = false
   save.mockResolvedValue('ok')
+  vi.mocked(loadAddresses).mockResolvedValue([])
   localStorage.clear()
   resetProductsCache()
   primeProductsCache({ products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' })
@@ -202,18 +211,6 @@ describe('OnboardingTour', () => {
   })
 
   describe('address step', () => {
-    const SAVED: SavedAddress = {
-      regionCode: '130000000',
-      region: 'NCR',
-      province: '',
-      cityCode: '133900000',
-      city: 'City of Manila',
-      barangayCode: '133901176',
-      barangay: 'Barangay 176',
-      street: '12 Rizal Avenue',
-      postal: '1000',
-    }
-
     async function finishTour() {
       const user = await open({ welcome: false })
       for (let i = 0; i < 10; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
@@ -232,7 +229,7 @@ describe('OnboardingTour', () => {
       const user = await finishTour()
       await user.click(await screen.findByRole('button', { name: 'Skip this step' }))
       expect(screen.getByRole('dialog', { name: "You're Ready to Shop!" })).toBeInTheDocument()
-      expect(await getAddress('anne@example.com')).toBeNull()
+      expect(createAddress).not.toHaveBeenCalled()
       expect(save).toHaveBeenCalledTimes(1)
       expect(save).toHaveBeenCalledWith('anne@example.com', 'completed')
     })
@@ -242,11 +239,36 @@ describe('OnboardingTour', () => {
       await screen.findByRole('dialog', { name: 'Save your delivery address' })
       await user.keyboard('{Escape}')
       expect(screen.getByRole('dialog', { name: "You're Ready to Shop!" })).toBeInTheDocument()
-      expect(await getAddress('anne@example.com')).toBeNull()
+      expect(createAddress).not.toHaveBeenCalled()
+    })
+
+    it('ignores Escape, the close button and Skip while the address is saving, then goes on with its result', async () => {
+      let finish: (a: Address) => void = () => {}
+      vi.mocked(createAddress).mockReturnValue(new Promise((resolve) => (finish = resolve)))
+      const user = await finishTour()
+      const dialog = within(await screen.findByRole('dialog', { name: 'Save your delivery address' }))
+      await user.click(dialog.getByRole('button', { name: 'Type it instead' }))
+      await user.type(dialog.getByLabelText('Phone number'), '9171234567')
+      await user.type(dialog.getByLabelText('Region'), 'NCR')
+      await user.type(dialog.getByLabelText('City or municipality'), 'City of Manila')
+      await user.type(dialog.getByLabelText('Barangay'), 'Barangay 176')
+      await user.type(dialog.getByLabelText('Street address'), '12 Rizal Avenue')
+      await user.type(dialog.getByLabelText('Postal code'), '1000')
+      await user.click(dialog.getByRole('button', { name: 'Save address' }))
+
+      await waitFor(() => expect(dialog.getByRole('button', { name: 'Skip this step' })).toBeDisabled())
+      await user.keyboard('{Escape}')
+      await user.click(dialog.getByRole('button', { name: 'Close Save your delivery address' }))
+      expect(screen.getByRole('dialog', { name: 'Save your delivery address' })).toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: "You're Ready to Shop!" })).not.toBeInTheDocument()
+
+      await act(async () => finish(ADDRESS))
+      expect(await screen.findByText('Address saved.')).toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: "You're Ready to Shop!" })).toBeInTheDocument()
     })
 
     it('is left out on a replay when an address is already saved', async () => {
-      await saveAddress('anne@example.com', SAVED)
+      vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
       await finishTour()
       expect(await screen.findByRole('dialog', { name: "You're Ready to Shop!" })).toBeInTheDocument()
       expect(screen.queryByRole('dialog', { name: 'Save your delivery address' })).not.toBeInTheDocument()

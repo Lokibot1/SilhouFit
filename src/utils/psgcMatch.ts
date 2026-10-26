@@ -53,3 +53,17 @@ export function matchRegion<T extends { name: string; regionName: string }>(regi
   if (hits.length === 1) return hits[0]
   return hits.length ? null : matchPlace(regions, target)
 }
+
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
+/** A saved name back onto its list: the exact name first, then the fuzzy match. Null when none or more than one fit. */
+export function findByName<T extends { name: string }>(list: T[], name: string): T | null {
+  const exact = list.filter((item) => same(item.name, name))
+  return exact.length ? (exact.length === 1 ? exact[0] : null) : matchPlace(list, name)
+}
+
+/** Like findByName for regions, which answer to either of their two names. */
+export function findRegion<T extends { name: string; regionName: string }>(regions: T[], name: string): T | null {
+  const exact = regions.filter((r) => same(r.name, name) || same(r.regionName, name))
+  return exact.length ? (exact.length === 1 ? exact[0] : null) : matchRegion(regions, name)
+}

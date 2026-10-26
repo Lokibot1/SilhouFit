@@ -1,12 +1,9 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
+import type { Address } from '../../src/service/addresses'
+import { ADDRESS } from '../fixtures/addresses'
 import { DEMO, mockAuth } from '../shared/session'
-import batangasBarangays from '../fixtures/psgc/batangas-city-barangays.json' with { type: 'json' }
-import calabarzonCities from '../fixtures/psgc/calabarzon-cities.json' with { type: 'json' }
-import calabarzonProvinces from '../fixtures/psgc/calabarzon-provinces.json' with { type: 'json' }
-import manilaBarangays from '../fixtures/psgc/manila-barangays.json' with { type: 'json' }
-import ncrCities from '../fixtures/psgc/ncr-cities.json' with { type: 'json' }
-import ncrProvinces from '../fixtures/psgc/ncr-provinces.json' with { type: 'json' }
-import regions from '../fixtures/psgc/regions.json' with { type: 'json' }
+import { mockAddresses } from '../shared/addresses'
+import { mockPsgc } from '../shared/psgc'
 import batangas from '../fixtures/nominatim/batangas.json' with { type: 'json' }
 import manila from '../fixtures/nominatim/manila.json' with { type: 'json' }
 import singapore from '../fixtures/nominatim/singapore.json' with { type: 'json' }
@@ -16,7 +13,6 @@ import unmatched from '../fixtures/nominatim/unmatched.json' with { type: 'json'
 const CORS = { 'access-control-allow-origin': '*' }
 const TILE = 'tests/fixtures/tiles/1x1.png'
 const PLACES = { manila, batangas, unmatched, singapore }
-const ADDRESS_KEY = `silhoufit-address:${DEMO.email}`
 
 interface Mocks {
   psgc?: 'ok' | 'error'
@@ -24,28 +20,19 @@ interface Mocks {
   place?: 'manila' | 'batangas' | 'unmatched' | 'singapore'
   tiles?: 'ok' | 'aborted'
   geolocation?: 'grant' | 'deny' | 'timeout' | 'none'
+  /** What GET /users/me/addresses already holds. */
+  saved?: Address[]
 }
 
-async function mockServices(page: Page, { psgc = 'ok', place = 'manila', tiles = 'ok' }: Mocks = {}) {
+/** Mocks every outside service and the addresses API; returns the API mock so a test can read what was sent. */
+async function mockServices(page: Page, { psgc = 'ok', place = 'manila', tiles = 'ok', saved = [] }: Mocks = {}) {
   const json = (route: Route, body: unknown) => route.fulfill({ json: body, headers: CORS })
-  await page.route('**/psgc.gitlab.io/api/**', (route) => {
-    if (psgc === 'error') return route.fulfill({ status: 500, body: 'Internal error', headers: CORS })
-    const path = new URL(route.request().url()).pathname.replace('/api', '')
-    const table: Record<string, unknown> = {
-      '/regions/': regions,
-      '/regions/130000000/provinces/': ncrProvinces,
-      '/regions/130000000/cities-municipalities/': ncrCities,
-      '/cities-municipalities/133900000/barangays/': manilaBarangays,
-      '/regions/040000000/provinces/': calabarzonProvinces,
-      '/regions/040000000/cities-municipalities/': calabarzonCities,
-      '/cities-municipalities/041005000/barangays/': batangasBarangays,
-    }
-    return path in table ? json(route, table[path]) : route.fulfill({ status: 404, body: 'Not found', headers: CORS })
-  })
+  await mockPsgc(page, psgc)
   await page.route('**/nominatim.openstreetmap.org/reverse**', (route) => json(route, PLACES[place]))
   await page.route('**/tile.openstreetmap.org/**', (route) =>
     tiles === 'aborted' ? route.abort() : route.fulfill({ path: TILE, contentType: 'image/png' }),
   )
+  return mockAddresses(page, saved)
 }
 
 async function stubGeolocation(page: Page, mode: 'deny' | 'timeout') {
@@ -106,18 +93,19 @@ async function fillFromLists(page: Page) {
   await pick(page, /^Region/, /NCR/)
   await pick(page, /^City or municipality/, 'City of Manila')
   await pick(page, /^Barangay/, 'Barangay 176')
+  await addressDialog(page).getByLabel('Phone number', { exact: true }).fill('917 123 4567')
   await addressDialog(page).getByLabel('Street address', { exact: true }).fill('12 Rizal Avenue')
   await addressDialog(page).getByLabel('Postal code', { exact: true }).fill('1000')
 }
 
 test.describe('address step', () => {
   test('is skippable: nothing is saved and the tour goes on to the completion card', async ({ page }) => {
-    await mockServices(page)
+    const api = await mockServices(page)
     await finishTour(page)
     await expect(addressDialog(page)).toBeVisible()
     await addressDialog(page).getByRole('button', { name: 'Skip this step' }).click()
     await expect(completion(page)).toBeVisible()
-    expect(await page.evaluate((key) => localStorage.getItem(key), ADDRESS_KEY)).toBeNull()
+    expect(api.calls.filter((c) => c.method !== 'GET')).toEqual([])
   })
 
   test('Escape skips it too, and the dropdown takes Escape first', async ({ page }) => {
@@ -133,7 +121,7 @@ test.describe('address step', () => {
   })
 
   test('saves an address picked from the lists, with a toast', async ({ page }) => {
-    await mockServices(page)
+    const api = await mockServices(page)
     await finishTour(page)
     await fillFromLists(page)
     await expect(addressDialog(page).getByLabel('Province')).toHaveValue('Not applicable')
@@ -147,9 +135,58 @@ test.describe('address step', () => {
       return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
     })
     expect(reachable).toBe(true)
-    const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), ADDRESS_KEY)
-    expect(saved).toMatchObject({ region: 'NCR', city: 'City of Manila', barangay: 'Barangay 176', street: '12 Rizal Avenue', postal: '1000' })
-    expect(JSON.stringify(saved)).not.toMatch(/lat|lon/i)
+    // Exactly the API's keys: no PSGC codes, no coordinates. The first address is the default.
+    expect(api.bodies).toEqual([
+      {
+        recipientName: 'Demo Shopper',
+        phone: '+639171234567',
+        region: 'NCR',
+        cityMunicipality: 'City of Manila',
+        barangay: 'Barangay 176',
+        streetAddress: '12 Rizal Avenue',
+        postalCode: '1000',
+        isDefault: true,
+      },
+    ])
+  })
+
+  test('Escape, the close button and Skip are ignored while the address saves, and the result still arrives', async ({ page }) => {
+    const api = await mockServices(page)
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    await page.route('**/users/me/addresses', async (route) => {
+      if (route.request().method() === 'POST') await gate
+      await route.fallback()
+    })
+    await finishTour(page)
+    await fillFromLists(page)
+    const dialog = addressDialog(page)
+    await dialog.getByRole('button', { name: 'Save address' }).click()
+    await expect(dialog.getByRole('button', { name: 'Skip this step' })).toBeDisabled()
+    await page.keyboard.press('Escape')
+    await dialog.getByRole('button', { name: 'Close Save your delivery address' }).click()
+    await expect(dialog).toBeVisible()
+    release()
+    await expect(page.getByText('Address saved.')).toBeVisible()
+    await expect(completion(page)).toBeVisible()
+    expect(api.calls.filter((c) => c.method === 'POST')).toHaveLength(1)
+  })
+
+  test('the +63 prefix sits close to the digits and the counter reads out of 10', async ({ page }) => {
+    await mockServices(page)
+    await finishTour(page)
+    const phone = addressDialog(page).getByLabel('Phone number', { exact: true })
+    await phone.fill('09171234567')
+    await expect(phone).toHaveValue('9171234567')
+    await expect(addressDialog(page).getByText('10/10')).toBeVisible()
+    // The gap between the "+63" glyphs (not their box) and the first digit.
+    const gap = await phone.evaluate((input) => {
+      const range = document.createRange()
+      range.selectNodeContents(input.closest('.field')!.querySelector('.field__prefix span')!)
+      return input.getBoundingClientRect().left + parseFloat(getComputedStyle(input).paddingLeft) - range.getBoundingClientRect().right
+    })
+    expect(gap).toBeGreaterThanOrEqual(4)
+    expect(gap).toBeLessThanOrEqual(16)
   })
 
   test('shows the province as a muted value that Tab skips, and the placeholders stay readable', async ({ page }) => {
@@ -178,22 +215,14 @@ test.describe('address step', () => {
   })
 
   test('is left out on a replay when an address is already saved', async ({ page }) => {
-    await mockServices(page)
-    await page.addInitScript(
-      ([key]) =>
-        localStorage.setItem(
-          key,
-          JSON.stringify({ regionCode: null, region: 'NCR', province: '', cityCode: null, city: 'Manila', barangayCode: null, barangay: 'Barangay 1', street: '1 Test Street', postal: '1000' }),
-        ),
-      [ADDRESS_KEY],
-    )
+    await mockServices(page, { saved: [ADDRESS] })
     await finishTour(page)
     await expect(completion(page)).toBeVisible()
     await expect(addressDialog(page)).toHaveCount(0)
   })
 
   test('when the lists fail it says why, offers Try again, and the address can be typed instead', async ({ page }) => {
-    await mockServices(page, { psgc: 'error' })
+    const api = await mockServices(page, { psgc: 'error' })
     await finishTour(page)
     const alert = addressDialog(page).getByRole('alert').first()
     await expect(alert).toContainText("We couldn't load the list of regions", { timeout: 15_000 })
@@ -201,6 +230,7 @@ test.describe('address step', () => {
     await alert.getByRole('button', { name: 'Type it instead' }).click()
 
     const dialog = addressDialog(page)
+    await dialog.getByLabel('Phone number', { exact: true }).fill('9171234567')
     await dialog.getByLabel('Region', { exact: true }).fill('Central Visayas')
     await dialog.getByLabel('City or municipality', { exact: true }).fill('Mandaue City')
     await dialog.getByLabel('Barangay', { exact: true }).fill('Subangdaku')
@@ -208,8 +238,8 @@ test.describe('address step', () => {
     await dialog.getByLabel('Postal code', { exact: true }).fill('6014')
     await dialog.getByRole('button', { name: 'Save address' }).click()
     await expect(completion(page)).toBeVisible()
-    const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), ADDRESS_KEY)
-    expect(saved).toMatchObject({ regionCode: null, city: 'Mandaue City', barangay: 'Subangdaku' })
+    expect(api.bodies[0]).toMatchObject({ region: 'Central Visayas', cityMunicipality: 'Mandaue City', barangay: 'Subangdaku' })
+    expect(api.bodies[0]).not.toHaveProperty('regionCode')
   })
 })
 

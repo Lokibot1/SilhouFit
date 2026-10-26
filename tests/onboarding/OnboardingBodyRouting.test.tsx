@@ -8,15 +8,23 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { PRODUCTS } from '../../src/data/products'
 import { resetTour, useOnboarding } from '../../src/hooks/useOnboarding'
 import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
-import { saveAddress, type SavedAddress } from '../../src/service/address'
+import { loadAddresses } from '../../src/service/addresses'
 import { BodyProfileError, getBodyProfile, type BodyProfile } from '../../src/service/bodyProfile'
 import { saveOnboardingStatus } from '../../src/service/onboarding'
 import { clearSession, setSession } from '../../src/service/session'
+import { ADDRESS } from '../fixtures/addresses'
 
 // Where the tour sends the user after Finish depends on two stored facts: a delivery address and a body profile.
 // These tests drive the real tour through its public surface and read the outcome from the router and the dialogs.
 
 vi.mock('../../src/service/onboarding', () => ({ saveOnboardingStatus: vi.fn() }))
+vi.mock('../../src/service/addresses', async (original) => ({
+  ...(await original<typeof import('../../src/service/addresses')>()),
+  loadAddresses: vi.fn(),
+  createAddress: vi.fn(),
+  updateAddress: vi.fn(),
+  deleteAddress: vi.fn(),
+}))
 vi.mock('../../src/service/bodyProfile', async (original) => ({
   ...(await original<typeof import('../../src/service/bodyProfile')>()),
   getBodyProfile: vi.fn(),
@@ -30,17 +38,6 @@ vi.mock('../../src/service/psgc', () => ({
 }))
 
 const EMAIL = 'anne@example.com'
-const ADDRESS: SavedAddress = {
-  regionCode: '130000000',
-  region: 'NCR',
-  province: '',
-  cityCode: '133900000',
-  city: 'City of Manila',
-  barangayCode: '133901176',
-  barangay: 'Barangay 176',
-  street: '12 Rizal Avenue',
-  postal: '1000',
-}
 const PROFILE = { heightCm: 170 } as BodyProfile
 const getProfile = vi.mocked(getBodyProfile)
 const BODY = '/profile/measurements'
@@ -54,6 +51,7 @@ beforeAll(() => {
 beforeEach(() => {
   vi.mocked(saveOnboardingStatus).mockResolvedValue('ok')
   getProfile.mockResolvedValue(null)
+  vi.mocked(loadAddresses).mockResolvedValue([])
   localStorage.clear()
   sessionStorage.clear()
   resetProductsCache()
@@ -148,7 +146,7 @@ const addressDialog = () => screen.queryByRole('dialog', { name: 'Save your deli
 describe('tour routing after Finish', () => {
   describe('with a saved address', () => {
     beforeEach(async () => {
-      await saveAddress(EMAIL, ADDRESS)
+      vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
     })
 
     it('goes straight to the completion card when a body profile is saved', async () => {
@@ -227,7 +225,7 @@ describe('tour routing after Finish', () => {
 
   describe('the body phase', () => {
     it('navigates to the measurements page once, so leaving it is not undone', async () => {
-      await saveAddress(EMAIL, ADDRESS)
+      vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
       const user = await finishTour()
       await waitFor(() => expect(where()).toBe(BODY))
       // The user leaves (Back, a link). The tour must not drag them back.
@@ -239,7 +237,7 @@ describe('tour routing after Finish', () => {
     })
 
     it('ends the tour when the page is left with the browser Back button, so it is not parked in the body phase', async () => {
-      await saveAddress(EMAIL, ADDRESS)
+      vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
       const user = await finishTour()
       await waitFor(() => expect(where()).toBe(BODY))
       await user.click(screen.getByRole('button', { name: 'browser back' }))
@@ -250,7 +248,7 @@ describe('tour routing after Finish', () => {
     })
 
     it('lets a new tour start after the page was left that way', async () => {
-      await saveAddress(EMAIL, ADDRESS)
+      vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
       const user = await finishTour()
       await waitFor(() => expect(where()).toBe(BODY))
       await user.click(screen.getByRole('button', { name: 'browser back' }))
@@ -261,7 +259,7 @@ describe('tour routing after Finish', () => {
     })
 
     it('does not end the tour for the way out it provides itself: Skip and Finish go on to the completion card', async () => {
-      await saveAddress(EMAIL, ADDRESS)
+      vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
       const user = await finishTour()
       await waitFor(() => expect(where()).toBe(BODY))
       await user.click(screen.getByRole('button', { name: 'skip setup' }))
@@ -271,7 +269,7 @@ describe('tour routing after Finish', () => {
     })
 
     it('renders nothing of its own while the page runs', async () => {
-      await saveAddress(EMAIL, ADDRESS)
+      vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
       await finishTour()
       await waitFor(() => expect(where()).toBe(BODY))
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -280,7 +278,7 @@ describe('tour routing after Finish', () => {
 
   describe('the completion card', () => {
     async function toCompletionCard() {
-      await saveAddress(EMAIL, ADDRESS)
+      vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
       getProfile.mockResolvedValue(PROFILE)
       const user = await finishTour()
       await screen.findByRole('dialog', { name: "You're Ready to Shop!" })
@@ -323,7 +321,7 @@ describe('tour routing after Finish', () => {
   })
 
   it('does not ask for the profile again after the tour is closed', async () => {
-    await saveAddress(EMAIL, ADDRESS)
+    vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
     getProfile.mockResolvedValue(PROFILE)
     await finishTour()
     await screen.findByRole('dialog', { name: "You're Ready to Shop!" })
@@ -331,7 +329,7 @@ describe('tour routing after Finish', () => {
   })
 
   it('opens the measurements page again for a second tour in the same tab, after the first was reset in the body phase', async () => {
-    await saveAddress(EMAIL, ADDRESS)
+    vi.mocked(loadAddresses).mockResolvedValue([ADDRESS])
     const user = await finishTour()
     await waitFor(() => expect(where()).toBe(BODY))
     await user.click(screen.getByRole('link', { name: 'leave' }))

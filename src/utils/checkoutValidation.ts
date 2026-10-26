@@ -1,6 +1,8 @@
-import { LIMITS, sanitizePhoneDigits, stripEmoji } from './signUpValidation'
+import { LIMITS, normalizePhone, sanitizePhoneDigits, stripEmoji } from './signUpValidation'
 
-export const ADDRESS_LIMITS = { name: 60, street: 120, city: 40, place: 80, postal: 4, note: 200 } as const
+export const ADDRESS_LIMITS = { name: 60, street: 120, city: 40, place: 80, postal: 4, note: 200, label: 50, line2: 120, word: 30 } as const
+/** Digits after +63 (no trunk 0): a mobile is 10, and no landline with its area code is longer. */
+export const NATIONAL_PHONE_MAX = 10
 
 export interface AddressValues {
   fullName: string
@@ -27,6 +29,11 @@ export const filterFullName = (input: string) =>
   input.replace(/[^\p{L}\p{M} '’-]/gu, '').replace(/ {2,}/g, ' ').slice(0, ADDRESS_LIMITS.name)
 export const filterStreet = (input: string) =>
   stripEmoji(input.replace(CONTROL, '')).replace(/ {2,}/g, ' ').slice(0, ADDRESS_LIMITS.street)
+/** A label ("Home", "Office") or an optional second line: like a street, with its own cap. */
+export const filterLabel = (input: string) =>
+  stripEmoji(input.replace(CONTROL, '')).replace(/ {2,}/g, ' ').slice(0, ADDRESS_LIMITS.label)
+export const filterLine2 = (input: string) =>
+  stripEmoji(input.replace(CONTROL, '')).replace(/ {2,}/g, ' ').slice(0, ADDRESS_LIMITS.line2)
 export const filterCity = (input: string) =>
   input.replace(/[^\p{L}\p{M} .'’-]/gu, '').replace(/ {2,}/g, ' ').slice(0, ADDRESS_LIMITS.city)
 /** A region or barangay typed by hand: letters, marks, digits and the punctuation PSGC names use ("Barangay 176-A"). */
@@ -40,20 +47,27 @@ export const filterPostal = (input: string) => input.replace(/\D/g, '').slice(0,
  * "+63 (912) 345-6789" or "639123456789" drops the dial code; while the code is still being typed ("+", "+6") the
  * lead-in is kept so the next digit can finish it. Everything else is digits, capped like the sign-up phone field.
  * A trunk 0 ("0917...") is dropped once more digits follow it, so every way of typing the same number gives the same
- * national number; the sign-up field and normalizePhone keep working on that form.
+ * national number; the sign-up field and normalizePhone keep working on that form. `max` caps the national digits.
  */
-export function filterPhone(raw: string, dial: string): string {
+export function filterPhone(raw: string, dial: string, max: number = LIMITS.phoneMaxDigits): string {
   const dialDigits = dial.replace(/\D/g, '')
   const digits = raw.replace(/\D/g, '')
   const plus = raw.trim().startsWith('+')
   if (plus && digits.length < dialDigits.length && dialDigits.startsWith(digits)) return `+${digits}`
   const national =
-    digits.startsWith(dialDigits) && (plus || digits.length > LIMITS.phoneMaxDigits) ? digits.slice(dialDigits.length) : digits
-  return sanitizePhoneDigits(national.length > 1 ? national.replace(/^0/, '') : national)
+    digits.startsWith(dialDigits) && (plus || digits.length > max) ? digits.slice(dialDigits.length) : digits
+  return (national.length > 1 ? national.replace(/^0/, '') : national).slice(0, max)
 }
 
 /** Emoji are fine in a note (it is not a credential field); only control characters go. */
 export const filterNote = (input: string) => input.replace(CONTROL, '').slice(0, ADDRESS_LIMITS.note)
+
+/** One unbroken run longer than the cap would overflow a narrow card, so it is refused with a message. */
+function longWord(text: string, label: string): string | null {
+  return text.split(' ').some((word) => word.length > ADDRESS_LIMITS.word)
+    ? `Each word in ${label} can be at most ${ADDRESS_LIMITS.word} characters. Add a space or shorten it.`
+    : null
+}
 
 export function validateFullName(value: string): string | null {
   const name = cleanText(value)
@@ -63,7 +77,7 @@ export function validateFullName(value: string): string | null {
   }
   if (name.length < 2) return 'Enter your full name, at least 2 letters.'
   if (name.length > ADDRESS_LIMITS.name) return `Full name can be at most ${ADDRESS_LIMITS.name} characters.`
-  return null
+  return longWord(name, 'Full name')
 }
 
 export function validateStreet(value: string): string | null {
@@ -71,7 +85,7 @@ export function validateStreet(value: string): string | null {
   if (!street) return 'Street address is required.'
   if (street.length < 5) return 'Enter the house number, street and barangay, at least 5 characters.'
   if (street.length > ADDRESS_LIMITS.street) return `Street address can be at most ${ADDRESS_LIMITS.street} characters.`
-  return null
+  return longWord(street, 'Street address')
 }
 
 export function validateCity(value: string): string | null {
@@ -97,4 +111,35 @@ export function validatePostal(value: string): string | null {
   if (!value) return 'Postal code is required.'
   if (!/^\d{4}$/.test(value)) return 'Postal code is 4 digits, like 1100.'
   return null
+}
+
+/** Optional. Emoji are filtered as typed; this catches a paste that got past it. */
+export function validateLabel(value: string): string | null {
+  const label = cleanText(value)
+  if (stripEmoji(label) !== label) return 'Label cannot contain emoji.'
+  if (label.length > ADDRESS_LIMITS.label) return `Label can be at most ${ADDRESS_LIMITS.label} characters.`
+  return longWord(label, 'Label')
+}
+
+/** Optional. */
+export function validateLine2(value: string): string | null {
+  const line2 = cleanText(value)
+  if (line2.length > ADDRESS_LIMITS.line2) return `Unit, floor or landmark can be at most ${ADDRESS_LIMITS.line2} characters.`
+  return longWord(line2, 'Unit, floor or landmark')
+}
+
+// A copy of the API's PH_PHONE_REGEX (silhoufit-api/src/addresses/dto/address.constants.ts): the server is the authority.
+const PH_PHONE_REGEX =
+  /^(?:(?:\+63|0)[\s.-]?9(?:[\s.-]?\d){9}|(?:\+63|0)[\s.-]?[2-8]\d{0,2}(?:[\s.-]?\d{3,4}){2}|\(0[2-8]\d{0,2}\)[\s.-]?(?:\d{3,4}[\s.-]?){1,2}\d{4})$/
+
+/** `national` is what follows the fixed "+63". */
+export function validateAddressPhone(national: string): string | null {
+  if (!national.trim()) return 'Phone number is required.'
+  return PH_PHONE_REGEX.test(normalizePhone(national, '+63')) ? null : 'Enter a Philippine mobile number like 917 123 4567.'
+}
+
+/** The digits after +63 (or the trunk 0) of a saved phone, however it was written. */
+export function toNationalPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  return sanitizePhoneDigits(phone.trim().startsWith('+63') ? digits.slice(2) : digits.replace(/^0/, ''))
 }

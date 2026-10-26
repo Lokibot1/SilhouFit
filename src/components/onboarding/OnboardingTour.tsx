@@ -7,7 +7,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useOnboarding } from '../../hooks/useOnboarding'
 import { useProducts } from '../../hooks/useProducts'
 import { DURATION, EASE_OUT, SPRING } from '../../motion/tokens'
-import { getAddress } from '../../service/address'
+import { loadAddresses } from '../../service/addresses'
 import { getBodyProfile } from '../../service/bodyProfile'
 import { saveOnboardingStatus, type OnboardingChoice } from '../../service/onboarding'
 import { CheckIcon, SpinnerIcon, XIcon } from '../form/icons'
@@ -221,7 +221,7 @@ export function OnboardingTour() {
   // The address step is offered once: not again on a replay when one is already saved.
   async function finish() {
     void save('completed')
-    const saved = user?.email ? await getAddress(user.email).catch(() => null) : null
+    const saved = await loadAddresses().then((list) => list.length > 0).catch(() => false)
     if (saved) await afterAddress()
     else tour.askAddress()
   }

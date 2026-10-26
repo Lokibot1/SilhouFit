@@ -41,9 +41,9 @@ vi.mock('../../src/service/bodyProfile', async (original) => ({
   ...(await original<typeof import('../../src/service/bodyProfile')>()),
   getBodyProfile: vi.fn(),
 }))
-vi.mock('../../src/service/address', async (original) => ({
-  ...(await original<typeof import('../../src/service/address')>()),
-  getAddress: () => Promise.resolve(null),
+vi.mock('../../src/service/addresses', async (original) => ({
+  ...(await original<typeof import('../../src/service/addresses')>()),
+  loadAddresses: () => Promise.resolve([]),
 }))
 
 const ME: Me = {

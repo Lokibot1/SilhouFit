@@ -1,26 +1,39 @@
 import { Component, lazy, Suspense, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { usePsgcList, type ListState } from '../../hooks/usePsgcList'
-import { saveAddress, type SavedAddress } from '../../service/address'
+import { createAddress, updateAddress, type Address, type AddressError, type AddressErrorKind, type AddressInput, type AddressPatch } from '../../service/addresses'
 import { getBarangays, getCities, getProvinces, getRegions, type Barangay, type City, type Region } from '../../service/psgc'
 import { ReverseGeocodeError, reverseGeocode, type ReverseErrorKind } from '../../service/reverseGeocode'
 import {
   ADDRESS_LIMITS,
+  NATIONAL_PHONE_MAX,
   cleanText,
   filterCity,
+  filterFullName,
+  filterLabel,
+  filterLine2,
+  filterPhone,
   filterPlace,
   filterPostal,
   filterStreet,
+  validateAddressPhone,
   validateCity,
+  validateFullName,
+  validateLabel,
+  validateLine2,
   validatePlace,
   validatePostal,
+  toNationalPhone,
   validateStreet,
 } from '../../utils/checkoutValidation'
 import { matchPlace, matchRegion } from '../../utils/psgcMatch'
+import { resolveAddressCodes, type Place, type ResolvedAddress } from '../../utils/resolveAddressCodes'
+import { normalizePhone } from '../../utils/signUpValidation'
 import { FloatingField } from '../form/FloatingField'
 import { AlertIcon, SpinnerIcon } from '../form/icons'
 import { SearchSelect } from '../form/SearchSelect'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
+import { Checkbox } from '../ui/Checkbox'
 
 // Leaflet and its stylesheet are only fetched once someone asks for the map. A failed import is cached by React for
 // the life of a lazy component, so Back to form swaps in a fresh one and the next Pin on a map fetches again.
@@ -58,13 +71,12 @@ class MapBoundary extends Component<{ onBack: () => void; children: ReactNode },
   }
 }
 
-interface Place {
-  code: string | null
-  name: string
-}
 const NONE: Place = { code: null, name: '' }
 type Level = 'region' | 'city' | 'barangay'
-type Touched = Partial<Record<Level | 'street' | 'postal', boolean>>
+type Field = 'label' | 'recipientName' | 'phone' | Level | 'street' | 'line2' | 'postal'
+type Touched = Partial<Record<Field, boolean>>
+// The order of the fields on screen, so a failed submit focuses the first one the user sees.
+const FIELD_ORDER: Field[] = ['label', 'recipientName', 'phone', 'region', 'city', 'barangay', 'street', 'line2', 'postal']
 
 const LOOKUP_ERRORS: Record<ReverseErrorKind, string> = {
   network: "We couldn't look up that spot. The connection to OpenStreetMap dropped. Check your connection and try again, or fill in the form yourself.",
@@ -76,6 +88,13 @@ const LIST_ERRORS = {
   network: 'The connection to the address list dropped.',
   timeout: 'The address list took too long to answer.',
   server: 'The address list service had a problem on its side.',
+}
+
+const FAILURE_COPY: Record<Exclude<AddressErrorKind, 'unauthorized' | 'invalid'>, string> = {
+  network: "We couldn't save your address. The connection dropped before we got a response. Check your connection, then try Save address again.",
+  'rate-limit': "We couldn't save your address. Our servers are limiting requests right now. Wait a minute, then try Save address again.",
+  server: "We couldn't save your address. Something went wrong on our side. Try Save address again in a moment.",
+  'not-found': "We couldn't save your address. It was deleted from another device. Close this window to see your current addresses.",
 }
 
 type Lookup =
@@ -167,25 +186,87 @@ const regionLabel = (item: { code: string; name: string }) => {
 
 interface AddressFormProps {
   /** The saved address to edit; null for a new one. */
-  initial: SavedAddress | null
-  onSaved: (address: SavedAddress) => void
+  initial: Address | null
+  /** How many addresses are saved, so the first one is always the default. */
+  existingCount?: number
+  /** Leaves out the default checkbox (the tour's step only ever adds the first address). */
+  hideDefault?: boolean
+  /** The saved address. An edit with nothing changed sends no request and returns `initial` itself. */
+  onSaved: (address: Address) => void
+  /** The token was rejected: the caller ends the session. */
+  onUnauthorized?: () => void
+  /** The address no longer exists: the caller closes the form and reloads. */
+  onGone?: () => void
+  /** Told when a save starts and ends, so the caller can keep the dialog open meanwhile. */
+  onPendingChange?: (pending: boolean) => void
   /** Draws the row of buttons under the form; `submit` is the form's own Save button. */
   footer: (submit: ReactNode) => ReactNode
 }
 
-export function AddressForm({ initial, onSaved, footer }: AddressFormProps) {
+/** Puts a saved address's places back on the lists first (the form is a skeleton meanwhile); a new address needs no lookup. */
+export function AddressForm(props: AddressFormProps) {
+  const { initial, footer } = props
+  const [resolved, setResolved] = useState<ResolvedAddress | null>(null)
+
+  useEffect(() => {
+    if (!initial) return
+    const controller = new AbortController()
+    resolveAddressCodes(initial, controller.signal).then(setResolved, () => {})
+    return () => controller.abort()
+  }, [initial])
+
+  if (initial && !resolved) {
+    return (
+      <div className="pt-3 pb-5">
+        <div role="status" aria-label="Loading your address" className="grid animate-pulse grid-cols-[minmax(0,1fr)] gap-4">
+          <div className={SKELETON_LINE} />
+          {Array.from({ length: 10 }, (_, i) => (
+            <div key={i} className={SKELETON_LINE} />
+          ))}
+        </div>
+        <div className="mt-5">
+          {footer(
+            <button type="button" disabled className={`${PRIMARY_BUTTON} w-full sm:w-auto`}>
+              Save address
+            </button>,
+          )}
+        </div>
+      </div>
+    )
+  }
+  return <AddressFormBody {...props} resolved={resolved} />
+}
+
+function AddressFormBody({
+  initial,
+  existingCount,
+  hideDefault,
+  resolved,
+  onSaved,
+  onUnauthorized,
+  onGone,
+  onPendingChange,
+  footer,
+}: AddressFormProps & { resolved: ResolvedAddress | null }) {
   const user = useCurrentUser()
   const base = useId()
   const fieldId = (name: string) => `${base}-${name}`
-  const [typed, setTyped] = useState(initial !== null && initial.regionCode === null)
-  const [region, setRegion] = useState<Place>(initial ? { code: initial.regionCode, name: initial.region } : NONE)
-  const [city, setCity] = useState<Place>(initial ? { code: initial.cityCode, name: initial.city } : NONE)
-  const [barangay, setBarangay] = useState<Place>(initial ? { code: initial.barangayCode, name: initial.barangay } : NONE)
-  const [street, setStreet] = useState(initial?.street ?? '')
-  const [postal, setPostal] = useState(initial?.postal ?? '')
+  const [typed, setTyped] = useState(resolved?.typed ?? false)
+  const [region, setRegion] = useState<Place>(resolved?.region ?? NONE)
+  const [city, setCity] = useState<Place>(resolved?.city ?? NONE)
+  const [barangay, setBarangay] = useState<Place>(resolved?.barangay ?? NONE)
+  const [note, setNote] = useState(resolved?.note ?? null)
+  const [label, setLabel] = useState(initial?.label ?? '')
+  const [recipient, setRecipient] = useState(initial?.recipientName ?? filterFullName(user?.name ?? ''))
+  const [phone, setPhone] = useState(initial ? toNationalPhone(initial.phone) : '')
+  const [street, setStreet] = useState(initial?.streetAddress ?? '')
+  const [line2, setLine2] = useState(initial?.addressLine2 ?? '')
+  const [postal, setPostal] = useState(initial?.postalCode ?? '')
+  const [makeDefault, setMakeDefault] = useState(initial ? initial.isDefault : existingCount === 0)
   const [touched, setTouched] = useState<Touched>({})
   const [pending, setPending] = useState(false)
-  const [saveFailed, setSaveFailed] = useState(false)
+  // A failed save, shown inside the dialog so it stays in view while the dialog traps focus.
+  const [failure, setFailure] = useState<string | null>(null)
   const [mapOpen, setMapOpen] = useState(false)
   const [lookup, setLookup] = useState<Lookup>({ status: 'idle' })
   const inFlight = useRef(false)
@@ -211,11 +292,18 @@ export function AddressForm({ initial, onSaved, footer }: AddressFormProps) {
     if (found && found.provinceCode === false) province = ''
     else if (found && provinces.state.status === 'success') {
       province = provinces.state.data.find((p) => p.code === found.provinceCode)?.name ?? ''
-    } else if (initial && initial.cityCode === city.code) province = initial.province
+    } else if (resolved?.city.code === city.code) province = resolved.province
   }
   const provinceText = typed || !city.code ? '' : province === null ? 'Looking it up…' : province || 'Not applicable'
 
-  const errors: Partial<Record<Level | 'street' | 'postal', string>> = {}
+  const errors: Partial<Record<Field, string>> = {}
+  const labelError = validateLabel(label)
+  // The validator names the field "Full name"; this one is the recipient's.
+  const recipientError = validateFullName(recipient)?.replace('Full name', 'Recipient name')
+  const phoneError = validateAddressPhone(phone)
+  if (labelError) errors.label = labelError
+  if (recipientError) errors.recipientName = recipientError
+  if (phoneError) errors.phone = phoneError
   if (typed) {
     const r = validatePlace(region.name, 'Region')
     const c = validateCity(city.name)
@@ -229,8 +317,10 @@ export function AddressForm({ initial, onSaved, footer }: AddressFormProps) {
     if (!barangay.code) errors.barangay = 'Choose your barangay.'
   }
   const streetError = validateStreet(street)
+  const line2Error = validateLine2(line2)
   const postalError = validatePostal(postal)
   if (streetError) errors.street = streetError
+  if (line2Error) errors.line2 = line2Error
   if (postalError) errors.postal = postalError
   const shown = (name: keyof Touched) => (touched[name] ? errors[name] : undefined)
   const touch = (name: keyof Touched) => () => setTouched((current) => ({ ...current, [name]: true }))
@@ -257,12 +347,14 @@ export function AddressForm({ initial, onSaved, footer }: AddressFormProps) {
   }
 
   function typeInstead() {
+    setNote(null)
     setTyped(true)
     setRegion((current) => ({ code: null, name: current.name }))
     setCity((current) => ({ code: null, name: current.name }))
     setBarangay((current) => ({ code: null, name: current.name }))
   }
   function useLists() {
+    setNote(null)
     setTyped(false)
     setRegion(NONE)
     setCity(NONE)
@@ -306,6 +398,7 @@ export function AddressForm({ initial, onSaved, footer }: AddressFormProps) {
       const foundStreet = filterStreet(found.street)
       const foundPostal = filterPostal(found.postal)
       if (!foundPostal) notes.push('The map has no postal code for this spot. Enter it below.')
+      setNote(null)
       setTyped(false)
       setRegion(nextRegion)
       setCity(nextCity)
@@ -330,37 +423,84 @@ export function AddressForm({ initial, onSaved, footer }: AddressFormProps) {
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (inFlight.current) return
-    setTouched({ region: true, city: true, barangay: true, street: true, postal: true })
-    const first = (['region', 'city', 'barangay', 'street', 'postal'] as const).find((name) => errors[name])
+    setTouched(Object.fromEntries(FIELD_ORDER.map((name) => [name, true])))
+    const first = FIELD_ORDER.find((name) => errors[name])
     if (first) {
       document.getElementById(fieldId(first))?.focus()
       return
     }
     inFlight.current = true
-    setSaveFailed(false)
+    setFailure(null)
     setPending(true)
-    const address: SavedAddress = {
-      regionCode: typed ? null : region.code,
+    onPendingChange?.(true)
+    const next = {
+      label: cleanText(label),
+      recipientName: cleanText(recipient),
+      phone: normalizePhone(phone, '+63'),
       region: cleanText(region.name),
-      province: typed ? '' : (province ?? ''),
-      cityCode: typed ? null : city.code,
-      city: cleanText(city.name),
-      barangayCode: typed ? null : barangay.code,
+      province: '',
+      cityMunicipality: cleanText(city.name),
       barangay: cleanText(barangay.name),
-      street: cleanText(street),
-      postal,
+      streetAddress: cleanText(street),
+      addressLine2: cleanText(line2),
+      postalCode: postal,
     }
+    // Typed places have no province field: keep the saved one only while the area is the same.
+    if (!typed) next.province = province ?? ''
+    else if (initial && next.region === initial.region && next.cityMunicipality === initial.cityMunicipality) next.province = initial.province ?? ''
     try {
-      if (!user?.email) throw new Error('signed out')
-      await saveAddress(user.email, address)
-      onSaved(address)
-    } catch {
-      setSaveFailed(true)
+      let saved: Address
+      if (!initial) {
+        const input: AddressInput = {
+          recipientName: next.recipientName,
+          phone: next.phone,
+          region: next.region,
+          cityMunicipality: next.cityMunicipality,
+          barangay: next.barangay,
+          streetAddress: next.streetAddress,
+          postalCode: next.postalCode,
+        }
+        if (next.label) input.label = next.label
+        if (next.province) input.province = next.province
+        if (next.addressLine2) input.addressLine2 = next.addressLine2
+        if (makeDefault) input.isDefault = true
+        saved = await createAddress(input)
+      } else {
+        const patch: AddressPatch = {}
+        // A phone saved as 09181234567 is the same number as +639181234567: only a different number is a change.
+        if (next.phone !== normalizePhone(toNationalPhone(initial.phone), '+63')) patch.phone = next.phone
+        for (const key of ['recipientName', 'region', 'cityMunicipality', 'barangay', 'streetAddress', 'postalCode'] as const) {
+          if (next[key] !== initial[key]) patch[key] = next[key]
+        }
+        for (const key of ['label', 'province', 'addressLine2'] as const) {
+          if (next[key] !== (initial[key] ?? '')) patch[key] = next[key] || null
+        }
+        if (makeDefault && !initial.isDefault) patch.isDefault = true
+        saved = Object.keys(patch).length ? await updateAddress(initial.id, patch) : initial
+      }
+      onPendingChange?.(false)
+      onSaved(saved)
+    } catch (error) {
+      const { kind, detail } = error as Partial<AddressError>
       setPending(false)
+      onPendingChange?.(false)
+      if (kind === 'unauthorized') onUnauthorized?.()
+      else if (kind === 'invalid') {
+        setFailure(
+          detail
+            ? `We couldn't save your address. The server said: ${detail}. Fix it, then try Save address again.`
+            : "We couldn't save your address. The server didn't accept these details. Check each field, then try Save address again.",
+        )
+      } else {
+        setFailure(FAILURE_COPY[kind ?? 'server'])
+        if (kind === 'not-found') onGone?.()
+      }
     } finally {
       inFlight.current = false
     }
   }
+
+  const lockedDefault = existingCount === 0 || (initial?.isDefault ?? false)
 
   if (mapOpen) {
     return (
@@ -386,8 +526,50 @@ export function AddressForm({ initial, onSaved, footer }: AddressFormProps) {
   )
 
   return (
-    <form noValidate onSubmit={(event) => void submit(event)} aria-busy={pending} className="pb-5">
-      <button ref={pinButton} type="button" onClick={() => setMapOpen(true)} className={`${SECONDARY_BUTTON} w-full`}>
+    <form noValidate onSubmit={(event) => void submit(event)} aria-busy={pending} className="pt-3 pb-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
+        <FloatingField
+          id={fieldId('label')}
+          label="Label (optional)"
+          value={label}
+          onChange={(v) => setLabel(filterLabel(v))}
+          onBlur={touch('label')}
+          error={shown('label')}
+          enterKeyHint="next"
+          counter={{ current: label.length, max: ADDRESS_LIMITS.label }}
+          readOnly={pending}
+        />
+        <FloatingField
+          id={fieldId('recipientName')}
+          label="Recipient name"
+          value={recipient}
+          onChange={(v) => setRecipient(filterFullName(v))}
+          onBlur={touch('recipientName')}
+          error={shown('recipientName')}
+          autoComplete="name"
+          enterKeyHint="next"
+          counter={{ current: recipient.length, max: ADDRESS_LIMITS.name }}
+          readOnly={pending}
+        />
+        <FloatingField
+          id={fieldId('phone')}
+          label="Phone number"
+          type="tel"
+          prefix={<span className="flex h-8 w-10 items-center justify-center text-base text-fg-muted">+63</span>}
+          compactPrefix
+          value={phone}
+          onChange={(v) => setPhone(filterPhone(v, '+63', NATIONAL_PHONE_MAX))}
+          onBlur={touch('phone')}
+          error={shown('phone')}
+          autoComplete="tel-national"
+          inputMode="tel"
+          enterKeyHint="next"
+          counter={{ current: phone.length, max: NATIONAL_PHONE_MAX }}
+          readOnly={pending}
+        />
+      </div>
+
+      <button ref={pinButton} type="button" onClick={() => setMapOpen(true)} className={`${SECONDARY_BUTTON} mt-4 w-full`}>
         Pin on a map
       </button>
       <p className="mt-2 text-sm leading-snug text-fg-muted">Drop a pin and we will fill in the fields below.</p>
@@ -421,6 +603,12 @@ export function AddressForm({ initial, onSaved, footer }: AddressFormProps) {
           </div>
         )}
       </>
+
+      {note && (
+        <p role="status" className="mt-3 text-base leading-snug text-fg">
+          {note}
+        </p>
+      )}
 
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4">
         {typed ? (
@@ -518,6 +706,18 @@ export function AddressForm({ initial, onSaved, footer }: AddressFormProps) {
           readOnly={pending}
         />
         <FloatingField
+          id={fieldId('line2')}
+          label="Unit, floor or landmark (optional)"
+          value={line2}
+          onChange={(v) => setLine2(filterLine2(v))}
+          onBlur={touch('line2')}
+          error={shown('line2')}
+          autoComplete="address-line2"
+          enterKeyHint="next"
+          counter={{ current: line2.length, max: ADDRESS_LIMITS.line2 }}
+          readOnly={pending}
+        />
+        <FloatingField
           id={fieldId('postal')}
           label="Postal code"
           value={postal}
@@ -540,13 +740,29 @@ export function AddressForm({ initial, onSaved, footer }: AddressFormProps) {
         {typed ? 'Pick from the lists instead' : 'Type it instead'}
       </button>
 
-      {saveFailed && (
+      {!hideDefault && (
+        <div className="mt-3">
+          <Checkbox
+            checked={makeDefault}
+            onChange={setMakeDefault}
+            disabled={pending || lockedDefault}
+            label="Set as default address"
+            className="justify-start"
+          >
+            Set as default address
+          </Checkbox>
+          {lockedDefault && (
+            <p className="text-sm leading-snug text-fg-muted">
+              {existingCount === 0 ? 'Your first address is always your default.' : 'To change your default, set another address as default.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      {failure && (
         <p role="alert" className="mt-3 flex items-start gap-2 text-base leading-snug text-danger">
           <AlertIcon className="mt-1 shrink-0" />
-          <span>
-            We couldn&apos;t save your address. Your browser is blocking storage on this device, or you were signed out.
-            Allow site storage or sign in again, then try Save address.
-          </span>
+          <span>{failure}</span>
         </p>
       )}
 
