@@ -1,4 +1,4 @@
-import { ProductListError, request, type Gender, type ProductListErrorKind } from './fetchProductList'
+import { ProductListError, request, toVariant, type Gender, type MeasurementKey, type ProductListErrorKind, type ProductVariant } from './fetchProductList'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
@@ -70,15 +70,87 @@ export interface NewProductInput {
  * Backend needs: `Product.arReady` (boolean) on create, update, list and detail. Today AR readiness is only implied by variants having a
  * garmentMeasurement, and the DTO would reject an unknown field, so `arReady` is left out of the body until the API has it.
  */
-export async function createProduct({ arReady: _arReady, ...input }: NewProductInput, { signal }: RequestOptions = {}): Promise<{ id: string; name: string }> {
+export async function createProduct({ arReady: _arReady, basePrice, ...input }: NewProductInput, { signal }: RequestOptions = {}): Promise<{ id: string; name: string }> {
   const body = await request(
     'POST',
     '/products',
-    { ...input, isActive: true, images: input.images.map((image, displayOrder) => ({ ...image, displayOrder })) },
+    // The API calls it `defaultPrice` (the price of any variant that has none of its own); an unknown `basePrice` key would be a 400.
+    { ...input, defaultPrice: basePrice, isActive: true, images: input.images.map((image, displayOrder) => ({ ...image, displayOrder })) },
     signal,
   )
   if (!isRecord(body) || typeof body.id !== 'string' || typeof body.name !== 'string') throw new ProductListError('server')
   return { id: body.id, name: body.name }
+}
+
+/** DELETE /products/:id. Permanent: the API removes the product with its images, variants, measurements and cart items. */
+export async function deleteProduct(productId: string, { signal }: RequestOptions = {}): Promise<void> {
+  const body = await request('DELETE', path(productId), undefined, signal)
+  if (!isRecord(body) || body.success !== true) throw new ProductListError('server')
+}
+
+/** Garment measurements in cm; on a patch, `null` clears one. */
+export type MeasurementsInput<T = number> = Partial<Record<MeasurementKey, T>>
+
+export interface VariantInput {
+  /** Blank or left out: the API generates one. */
+  sku?: string
+  name?: string
+  size?: string
+  color?: string
+  /** Required with `color`. */
+  colorHex?: string
+  price: number
+  stock?: number
+  imageUrl?: string
+  measurements?: MeasurementsInput
+}
+
+/** Only the keys that changed. `null` clears a name, size or colour (clearing the colour clears its hex); a new colour needs its `colorHex` in the same patch. */
+export interface VariantPatch {
+  sku?: string
+  name?: string | null
+  size?: string | null
+  color?: string | null
+  colorHex?: string | null
+  price?: number
+  imageUrl?: string
+  measurements?: MeasurementsInput<number | null>
+}
+
+/** POST /products/:id/variants. Answers with the new variant; a 400 says which rule it broke and a 409 names the SKU that is taken. */
+export async function addVariant(productId: string, input: VariantInput, { signal }: RequestOptions = {}): Promise<ProductVariant> {
+  return toVariant(await request('POST', `${path(productId)}/variants`, input, signal))
+}
+
+/** PATCH /products/:id/variants/:variantId. The API merges the patch into the variant and checks the whole again. */
+export async function updateVariant(productId: string, variantId: string, patch: VariantPatch, { signal }: RequestOptions = {}): Promise<ProductVariant> {
+  return toVariant(await request('PATCH', path(productId, variantId), patch, signal))
+}
+
+/** DELETE /products/:id/variants/:variantId. The last variant of a product can go too; the product is then left with no price or stock. */
+export async function deleteVariant(productId: string, variantId: string, { signal }: RequestOptions = {}): Promise<void> {
+  const body = await request('DELETE', path(productId, variantId), undefined, signal)
+  if (!isRecord(body) || body.success !== true) throw new ProductListError('server')
+}
+
+export interface ProductPatch {
+  name?: string
+  description?: string
+  category?: string
+  /** Cannot be cleared; send '' to empty it. */
+  brand?: string
+  gender?: Gender
+  /** Replaces every image of the product, so send the whole ordered list or leave it out. */
+  images?: { url: string; altText?: string; displayOrder: number; isPrimary: boolean }[]
+}
+
+/**
+ * PATCH /products/:id with the fields that changed. Never `isActive` (see setProductActive), and `images` only when they changed, since the API
+ * replaces them all. A new name makes a new slug.
+ */
+export async function updateProduct(productId: string, patch: ProductPatch, { signal }: RequestOptions = {}): Promise<void> {
+  const body = await request('PATCH', path(productId), patch, signal)
+  if (!isRecord(body) || typeof body.id !== 'string') throw new ProductListError('server')
 }
 
 const IMAGE_BUCKET = 'products'

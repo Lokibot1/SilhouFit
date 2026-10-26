@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CATEGORIES, SIZES_BY_CATEGORY, type Category } from '../../../data/products'
 import type { Gender } from '../../../service/fetchProductList'
-import { addProduct, createFailureReason, knownSkus, uploadImage } from '../../../service/inventoryActions'
+import { addProduct, createFailureReason, knownSkus, manageFailureReason, saveProduct, uploadImage } from '../../../service/inventoryActions'
 import { INVENTORY_SAMPLE_DATA } from '../../../service/sampleInventory'
 import { GENDERS } from '../../../utils/inventoryQuery'
 import {
   buildProductInput,
+  buildProductPatch,
   buildSkus,
   describedBy,
   newColor,
@@ -15,6 +16,7 @@ import {
   PRODUCT_LIMITS,
   validateProductForm,
   variantRows,
+  type ProductEditSource,
   type ProductFormValues,
 } from '../../../utils/productValidation'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
@@ -45,6 +47,19 @@ const initialValues = (): ProductFormValues => ({
   edits: {},
 })
 
+/** The form for an existing product: its own fields only, and its current images as drafts (no file, so they are not uploaded again). */
+const editValues = (p: ProductEditSource): ProductFormValues => ({
+  ...initialValues(),
+  name: p.name,
+  brand: p.brand ?? '',
+  category: p.category as Category,
+  gender: p.gender ?? '',
+  description: p.description ?? '',
+  images: p.images.map((image, index) => ({ id: `existing${index}`, preview: image.url, url: image.url, alt: image.altText })),
+  sizes: [],
+  colors: [],
+})
+
 const snapshot = (v: ProductFormValues) => JSON.stringify({ ...v, images: v.images.map((i) => [i.id, i.alt]) })
 
 interface Banner {
@@ -58,12 +73,17 @@ interface ProductFormSheetProps {
   /** Called when the sheet should close (Cancel, Escape, the backdrop), once any unsaved work has been dropped. */
   onClose: () => void
   /** The product was created. The page closes the sheet, refreshes the list and shows the toast. */
-  onCreated: (product: { id: string; name: string }) => void
+  onCreated?: (product: { id: string; name: string }) => void
+  /** Set to edit this product instead of adding one; the sheet then saves only what changed. */
+  product?: ProductEditSource
+  /** The edits were saved (edit mode). */
+  onSaved?: (name: string) => void
 }
 
-/** The Add product sheet. Mount it with a new `key` each time it opens so it starts empty. */
-export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetProps) {
-  const [values, setValues] = useState(initialValues)
+/** The Add product sheet, or with `product` the Edit details sheet. Mount it with a new `key` each time it opens so it starts fresh. */
+export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }: ProductFormSheetProps) {
+  const editing = product !== undefined
+  const [values, setValues] = useState(() => (product ? editValues(product) : initialValues()))
   const [initial] = useState(() => snapshot(values))
   const [existing] = useState(knownSkus)
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set())
@@ -93,8 +113,11 @@ export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetP
     [],
   )
 
-  const errors = validateProductForm(values, { existingSkus: existing, conflictSku })
-  const skus = buildSkus(values, existing)
+  // An edited product's own category is listed even when the shop does not know it, so saving never changes it by accident.
+  const categoryOptions = product && !CATEGORY_OPTIONS.some((o) => o.value === product.category) ? [{ value: product.category, label: product.category }, ...CATEGORY_OPTIONS] : CATEGORY_OPTIONS
+  const errors = validateProductForm(values, { existingSkus: existing, conflictSku, mode: editing ? 'edit' : 'create' })
+  // An edited product's category may not be one of ours, which has no sizes to build SKUs from.
+  const skus = editing ? {} : buildSkus(values, existing)
   const dirty = snapshot(values) !== initial
   const error = (key: string) => (attempted || touched.has(key) ? errors[key] : undefined)
   const touch = (key: string) => setTouched((old) => new Set(old).add(key))
@@ -163,23 +186,28 @@ export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetP
       const urls: Record<string, string> = {}
       for (const image of latest.current.images) {
         let url = image.url
-        if (!url) {
+        if (!url && image.file) {
           uploading = image.file.name
           setProgress((old) => ({ ...old, [image.id]: 0 }))
           const uploaded = await uploadImage(image.file, (percent) => setProgress((old) => ({ ...old, [image.id]: percent })), controller.signal)
           url = uploaded
           setValues((old) => ({ ...old, images: old.images.map((i) => (i.id === image.id ? { ...i, url: uploaded } : i)) }))
         }
-        urls[image.id] = url
+        urls[image.id] = url ?? ''
       }
       stage = 'create'
-      const created = await addProduct(buildProductInput(latest.current, urls, existing), { signal: controller.signal })
-      onCreated(created)
+      if (product) {
+        await saveProduct(product.id, buildProductPatch(latest.current, urls, product), { signal: controller.signal })
+        onSaved?.(latest.current.name.trim())
+      } else {
+        const created = await addProduct(buildProductInput(latest.current, urls, existing), { signal: controller.signal })
+        onCreated?.(created)
+      }
     } catch (failure) {
       if (controller.signal.aborted) return
       const { kind = '', detail = '' } = failure as { kind?: string; detail?: string }
       const name = latest.current.name.trim()
-      const conflict = kind === 'conflict' ? Object.entries(skus).find(([, sku]) => detail.toUpperCase().includes(sku.toUpperCase())) : undefined
+      const conflict = kind === 'conflict' && !editing ? Object.entries(skus).find(([, sku]) => detail.toUpperCase().includes(sku.toUpperCase())) : undefined
       if (conflict) {
         setConflictSku(conflict[1])
         touch(`sku:${conflict[0]}`)
@@ -190,8 +218,10 @@ export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetP
             ? `Couldn't upload ${uploading}.`
             : conflict
               ? `${conflict[1]} is already used, so ${name} wasn't created.`
-              : `Couldn't create ${name}.`,
-        why: createFailureReason(failure, stage),
+              : editing
+                ? `Couldn't save the changes to ${product.name}.`
+                : `Couldn't create ${name}.`,
+        why: editing && stage === 'create' ? manageFailureReason(failure, 'save-product') : createFailureReason(failure, stage),
         retry: RETRYABLE.includes(kind),
       })
       if (conflict) setTimeout(() => focusField(`sku:${conflict[0]}`))
@@ -210,7 +240,7 @@ export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetP
 
   const row = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'
   const footer = discarding ? (
-    <div className={row}>
+    <div key="discard" className={row}>
       <button type="button" autoFocus onClick={() => setDiscarding(false)} className={PRIMARY_BUTTON}>
         Cancel
       </button>
@@ -223,20 +253,24 @@ export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetP
       <button type="button" disabled={pending} onClick={requestClose} className={SECONDARY_BUTTON}>
         Cancel
       </button>
-      <button type="submit" form={FORM_ID} disabled={pending} className={PRIMARY_BUTTON}>
+      <button type="submit" form={FORM_ID} disabled={pending || (editing && !dirty)} className={PRIMARY_BUTTON}>
         {pending && <SpinnerIcon />}
-        {pending ? 'Creating…' : 'Create product'}
+        {editing ? (pending ? 'Saving…' : 'Save changes') : pending ? 'Creating…' : 'Create product'}
       </button>
     </div>
   )
 
   const shown = attempted ? errorKeys : []
   return (
-    <Modal variant="sheet" open={open} onClose={requestClose} title={discarding ? 'Are you sure?' : 'Add product'} footer={footer}>
+    <Modal variant="sheet" open={open} onClose={requestClose} title={discarding ? 'Are you sure?' : editing ? 'Edit details' : 'Add product'} footer={footer}>
       {discarding ? (
         <p className="pb-5 text-base leading-relaxed text-fg-muted">
-          {values.name.trim() ? `${values.name.trim()} hasn't been created yet.` : "This product hasn't been created yet."} Closing now discards everything you
-          entered, including the chosen images.
+          {editing
+            ? `Your changes to ${product.name} haven't been saved yet.`
+            : values.name.trim()
+              ? `${values.name.trim()} hasn't been created yet.`
+              : "This product hasn't been created yet."}{' '}
+          Closing now discards {editing ? 'them' : 'everything you entered'}, including any chosen images.
         </p>
       ) : (
         <form id={FORM_ID} noValidate onSubmit={submit} className="pb-5">
@@ -245,7 +279,7 @@ export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetP
               <div ref={summaryRef} role="alert" tabIndex={-1} className="rounded-xl border border-danger p-3 outline-none">
                 <p className="flex items-center gap-2 text-sm font-semibold text-fg">
                   <AlertIcon size={20} className="shrink-0 text-danger" />
-                  {shown.length === 1 ? 'Fix 1 problem' : `Fix ${shown.length} problems`} before creating the product
+                  {shown.length === 1 ? 'Fix 1 problem' : `Fix ${shown.length} problems`} before {editing ? 'saving the changes' : 'creating the product'}
                 </p>
                 <ul className="mt-2 grid gap-1 text-sm">
                   {shown.slice(0, 6).map((key) => (
@@ -288,20 +322,39 @@ export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetP
                 autoComplete="off"
                 value={values.name}
                 aria-invalid={Boolean(error('name'))}
-                aria-describedby={describedBy('pf-name', error('name'), true)}
+                aria-describedby={[describedBy('pf-name', error('name'), true), editing && 'pf-name-note'].filter(Boolean).join(' ') || undefined}
                 onChange={(event) => set({ name: filterText(event.target.value, PRODUCT_LIMITS.nameMax) })}
                 onBlur={() => touch('name')}
                 className={FIELD_INPUT}
               />
+              {editing && (
+                <p id="pf-name-note" className="text-sm text-fg-muted">
+                  Changing the name also changes the product&apos;s web address.
+                </p>
+              )}
             </Field>
+
+            {editing && (
+              <Field id="pf-brand" label="Brand" optional count={{ value: (values.brand ?? '').length, max: PRODUCT_LIMITS.brandMax }}>
+                <input
+                  id="pf-brand"
+                  type="text"
+                  autoComplete="off"
+                  value={values.brand ?? ''}
+                  aria-describedby="pf-brand-count"
+                  onChange={(event) => set({ brand: filterText(event.target.value, PRODUCT_LIMITS.brandMax) })}
+                  className={FIELD_INPUT}
+                />
+              </Field>
+            )}
 
             <div className="grid gap-1">
               <p className="text-sm font-semibold text-fg">Category</p>
-              <Select label="Category" value={values.category as string} options={CATEGORY_OPTIONS} onChange={(category) => set({ category: category as Category })} />
+              <Select label="Category" value={values.category as string} options={categoryOptions} onChange={(category) => set({ category: category as Category })} />
             </div>
 
             {/* The sample catalogue has no gender; the API has no arReady field yet, so it can't be saved there. */}
-            {INVENTORY_SAMPLE_DATA ? (
+            {INVENTORY_SAMPLE_DATA && editing ? null : INVENTORY_SAMPLE_DATA ? (
               <div className="grid gap-1">
                 <Checkbox label="AR Fitting ready" checked={values.arReady} onChange={(arReady) => set({ arReady })} className="justify-start">
                   <span className="text-base font-semibold">AR Fitting ready</span>
@@ -313,7 +366,10 @@ export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetP
                 <p className="text-sm font-semibold text-fg">
                   Gender <span className="font-normal text-fg-muted">(optional)</span>
                 </p>
-                <Select label="Gender" value={values.gender} options={GENDER_OPTIONS} onChange={(gender) => set({ gender: gender as Gender | '' })} />
+                <Select label="Gender" value={values.gender} options={product?.gender ? GENDER_OPTIONS.slice(1) : GENDER_OPTIONS}
+                  onChange={(gender) => set({ gender: gender as Gender | '' })}
+                />
+                {product?.gender && <p className="text-sm text-fg-muted">A gender can be changed but not removed once it is set.</p>}
               </div>
             )}
 
@@ -336,21 +392,23 @@ export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetP
               />
             </Field>
 
-            <Field id="pf-base-price" label="Base price (PHP)" error={error('basePrice')}>
-              <input
-                id="pf-base-price"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                placeholder="0.00"
-                value={values.basePrice}
-                aria-invalid={Boolean(error('basePrice'))}
-                aria-describedby={describedBy('pf-base-price', error('basePrice'))}
-                onChange={(event) => set({ basePrice: filterPrice(event.target.value) })}
-                onBlur={() => touch('basePrice')}
-                className={`${FIELD_INPUT} text-right tabular-nums`}
-              />
-            </Field>
+            {!editing && (
+              <Field id="pf-base-price" label="Base price (PHP)" error={error('basePrice')}>
+                <input
+                  id="pf-base-price"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="0.00"
+                  value={values.basePrice}
+                  aria-invalid={Boolean(error('basePrice'))}
+                  aria-describedby={describedBy('pf-base-price', error('basePrice'))}
+                  onChange={(event) => set({ basePrice: filterPrice(event.target.value) })}
+                  onBlur={() => touch('basePrice')}
+                  className={`${FIELD_INPUT} text-right tabular-nums`}
+                />
+              </Field>
+            )}
 
             <ImageUploader
               images={values.images}
@@ -365,7 +423,7 @@ export function ProductFormSheet({ open, onClose, onCreated }: ProductFormSheetP
               }}
             />
 
-            <VariantBuilder values={values} skus={skus} disabled={pending} error={error} touch={touch} set={set} />
+            {!editing && <VariantBuilder values={values} skus={skus} disabled={pending} error={error} touch={touch} set={set} />}
           </fieldset>
         </form>
       )}

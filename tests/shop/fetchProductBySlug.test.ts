@@ -21,8 +21,8 @@ const DETAIL = {
     { url: 'https://img/b.jpg', altText: 'Front', isPrimary: true },
   ],
   variants: [
-    { stock: 2, effectivePrice: 450 },
-    { stock: 3, effectivePrice: 600 },
+    { stock: 2, price: 450 },
+    { stock: 3, price: 600 },
   ],
 }
 const fetchMock = vi.fn()

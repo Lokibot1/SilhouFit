@@ -22,7 +22,7 @@ import { Field, FIELD_INPUT } from './FormField'
 import { StockCell } from './StockEditor'
 
 /** The 6-digit form the native colour picker needs. */
-const pickerValue = (hex: string) =>
+export const pickerValue = (hex: string) =>
   HEX_COLOR.test(hex) ? (hex.length === 4 ? `#${[...hex.slice(1)].map((c) => c + c).join('')}` : hex.toLowerCase()) : DEFAULT_HEX
 
 interface VariantBuilderProps {
@@ -245,7 +245,7 @@ export function VariantBuilder({ values, skus, disabled, error, touch, set }: Va
                 <div id={`pf-stock-${key}`} tabIndex={-1} className="grid gap-1 outline-none">
                   <span className="text-sm font-semibold text-fg">Stock</span>
                   <StockCell
-                    variant={{ color, size }}
+                    variant={{ color, size, name: null, sku: '' }}
                     text={values.edits[key]?.stock ?? '0'}
                     disabled={disabled}
                     onChange={(text) => edit(key, { stock: filterStock(text) })}

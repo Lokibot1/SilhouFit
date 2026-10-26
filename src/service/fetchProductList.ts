@@ -71,7 +71,7 @@ async function errorDetail(response: Response): Promise<string | undefined> {
 }
 
 // Same request shape as fetchMe: the Supabase token rides along, and an abort rejects with the AbortError itself.
-export async function request(method: 'GET' | 'PATCH' | 'POST', path: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
+export async function request(method: 'GET' | 'PATCH' | 'POST' | 'DELETE', path: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
   let token: string | undefined
   try {
     const supabase = await getSupabase()
@@ -121,6 +121,7 @@ function toListItem(value: unknown): ProductListItem {
     totalStock: totalStock as number,
     primaryImage: isRecord(image) && typeof image.url === 'string' ? { url: image.url, altText: typeof image.altText === 'string' ? image.altText : null } : null,
     createdAt: typeof createdAt === 'string' ? createdAt : '',
+    ...(typeof value.isActive === 'boolean' && { isActive: value.isActive }),
   }
 }
 
@@ -170,26 +171,99 @@ export async function fetchProductBySlug(slug: string, { signal }: RequestOption
   return toDetailItem(await request('GET', `/products/slug/${encodeURIComponent(slug)}`, undefined, signal))
 }
 
+export const MEASUREMENT_KEYS = [
+  'chestWidthCm',
+  'waistWidthCm',
+  'hipWidthCm',
+  'totalLengthCm',
+  'inseamCm',
+  'shoulderWidthCm',
+  'sleeveLengthCm',
+  'neckCm',
+  'thighCm',
+] as const
+export type MeasurementKey = (typeof MEASUREMENT_KEYS)[number]
+/** A variant's garment measurements in cm for AR Fitting; a measurement never filled in is null. */
+export type Measurements = Record<MeasurementKey, number | null>
+
 export interface ProductVariant {
   id: string
   sku: string
-  size: string
-  color: string
+  name: string | null
+  size: string | null
+  color: string | null
+  colorHex: string | null
+  price: number
   stock: number
-  effectivePrice: number
+  imageUrl: string | null
+  measurements: Measurements | null
 }
 
-/** GET /products/:id, reduced to the variants a staff member checks stock against. */
-export async function fetchProductDetail(id: string, { signal }: RequestOptions = {}): Promise<{ variants: ProductVariant[] }> {
+const text = (value: unknown) => (typeof value === 'string' && value ? value : null)
+
+/** Shapes one variant from the API (a product detail, or the answer to adding or editing a variant). Size, colour and name may each be missing. */
+export function toVariant(value: unknown): ProductVariant {
+  if (!isRecord(value)) throw new ProductListError('server')
+  const { id, sku, stock, price, measurements } = value
+  if (typeof id !== 'string' || typeof sku !== 'string' || !isCount(stock) || !isCount(price)) throw new ProductListError('server')
+  return {
+    id,
+    sku,
+    name: text(value.name),
+    size: text(value.size),
+    color: text(value.color),
+    colorHex: text(value.colorHex),
+    price: price as number,
+    stock: stock as number,
+    imageUrl: text(value.imageUrl),
+    measurements: isRecord(measurements)
+      ? (Object.fromEntries(MEASUREMENT_KEYS.map((key) => [key, isCount(measurements[key]) ? measurements[key] : null])) as Measurements)
+      : null,
+  }
+}
+
+export interface ProductImageInfo {
+  url: string
+  altText: string | null
+  displayOrder: number
+  isPrimary: boolean
+}
+
+/** What the edit form starts from. */
+export interface ProductDetailFields {
+  description: string | null
+  gender: Gender | null
+  brand: string | null
+  category: string
+  images: ProductImageInfo[]
+}
+
+const GENDERS: readonly string[] = ['male', 'female', 'other', 'unisex']
+
+/** GET /products/:id, reduced to the variants a staff member checks stock against and the fields the edit form needs. */
+export async function fetchProductDetail(
+  id: string,
+  { signal }: RequestOptions = {},
+): Promise<{ variants: ProductVariant[]; product?: ProductDetailFields }> {
   const body = await request('GET', `/products/${encodeURIComponent(id)}`, undefined, signal)
   if (!isRecord(body) || !Array.isArray(body.variants)) throw new ProductListError('server')
+  const images = Array.isArray(body.images) ? body.images.filter(isRecord) : []
   return {
-    variants: body.variants.map((value) => {
-      if (!isRecord(value)) throw new ProductListError('server')
-      const { id, sku, size, color, stock, effectivePrice } = value
-      if (typeof id !== 'string' || typeof sku !== 'string' || typeof size !== 'string' || typeof color !== 'string') throw new ProductListError('server')
-      if (!isCount(stock) || !isCount(effectivePrice)) throw new ProductListError('server')
-      return { id, sku, size, color, stock: stock as number, effectivePrice: effectivePrice as number }
-    }),
+    variants: body.variants.map(toVariant),
+    product: {
+      description: text(body.description),
+      gender: typeof body.gender === 'string' && GENDERS.includes(body.gender) ? (body.gender as Gender) : null,
+      brand: text(body.brand),
+      category: typeof body.category === 'string' ? body.category : '',
+      images: images
+        .filter((image) => typeof image.url === 'string')
+        .map((image, index) => ({
+          url: image.url as string,
+          altText: text(image.altText),
+          displayOrder: isCount(image.displayOrder) ? (image.displayOrder as number) : index,
+          isPrimary: image.isPrimary === true,
+        }))
+        .sort((a, b) => a.displayOrder - b.displayOrder),
+    },
   }
 }

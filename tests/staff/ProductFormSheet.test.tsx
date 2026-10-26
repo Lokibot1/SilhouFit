@@ -155,3 +155,46 @@ describe('Add product sheet', () => {
     expect(sku).toHaveAttribute('aria-invalid', 'true')
   })
 })
+
+describe('Edit details sheet (sample catalogue)', () => {
+  async function openEdit(user: ReturnType<typeof userEvent.setup>) {
+    renderPage()
+    await user.click(await waitFor(() => within(screen.getAllByRole('table')[0]).getByRole('button', { name: /^Heritage Polo/ }), { timeout: 3000 }))
+    const drawer = await screen.findByRole('dialog', { name: 'Heritage Polo' })
+    await waitFor(() => expect(within(drawer).getByRole('button', { name: 'Edit details' })).toBeEnabled(), { timeout: 3000 })
+    await user.click(within(drawer).getByRole('button', { name: 'Edit details' }))
+    return screen.findByRole('dialog', { name: 'Edit details' })
+  }
+
+  it('is prefilled with the product, has no base price, variants or AR box, and keeps Save off until something changes', async () => {
+    const user = userEvent.setup()
+    const dialog = await openEdit(user)
+    expect(screen.queryByRole('dialog', { name: 'Heritage Polo' })).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('textbox', { name: /^Name/ })).toHaveValue('Heritage Polo')
+    expect(within(dialog).getByRole('textbox', { name: /^Brand/ })).toHaveValue('Ayala Atelier')
+    expect(within(dialog).getByText("Changing the name also changes the product's web address.")).toBeInTheDocument()
+    expect(within(dialog).queryByRole('textbox', { name: /Base price/ })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('checkbox', { name: 'AR Fitting ready' })).not.toBeInTheDocument()
+    expect(within(dialog).queryByText(/^Colours/)).not.toBeInTheDocument()
+    expect(within(dialog).getAllByRole('img').map((img) => img.getAttribute('alt'))).toEqual(['Preview of image 1', 'Preview of image 2', 'Preview of image 3'])
+    expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeDisabled()
+
+    await user.type(within(dialog).getByRole('textbox', { name: /^Name/ }), ' II')
+    expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeEnabled()
+  })
+
+  it('saves a new name into the list, and asks before discarding an edit', async () => {
+    const user = userEvent.setup()
+    const dialog = await openEdit(user)
+    await user.type(within(dialog).getByRole('textbox', { name: /^Name/ }), ' II')
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    const discard = await screen.findByRole('dialog', { name: 'Are you sure?' })
+    await user.click(within(discard).getByRole('button', { name: 'Cancel' }))
+    expect(await screen.findByRole('dialog', { name: 'Edit details' })).toBeInTheDocument()
+
+    await user.click(within(screen.getByRole('dialog', { name: 'Edit details' })).getByRole('button', { name: 'Save changes' }))
+    expect(await screen.findByText('Heritage Polo II updated', {}, { timeout: 4000 })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(await within(screen.getAllByRole('table')[0]).findByRole('button', { name: /^Heritage Polo II/ }, { timeout: 3000 })).toBeInTheDocument()
+  })
+})

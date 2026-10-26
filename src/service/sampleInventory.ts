@@ -1,8 +1,8 @@
 import { CATEGORIES, PRODUCTS, sizesFor, type Category, type Product } from '../data/products'
 import { payablePrice } from '../utils/productQuery'
 import { MAX_STOCK } from '../utils/stockEdit'
-import type { PaginatedProducts, ProductListItem, ProductListParams, ProductVariant } from './fetchProductList'
-import type { NewProductInput } from './productAdmin'
+import type { Gender, PaginatedProducts, ProductDetailFields, ProductListItem, ProductListParams, ProductVariant } from './fetchProductList'
+import type { NewProductInput, ProductPatch, VariantInput, VariantPatch } from './productAdmin'
 import type { RequestOptions } from './simulateRequest'
 import { simulateRequest } from './simulateRequest'
 
@@ -14,6 +14,7 @@ interface StoredProduct {
   product: Product
   active: boolean
   variants: ProductVariant[]
+  gender: Gender | null
 }
 
 let store: Map<string, StoredProduct> | null = null
@@ -27,15 +28,19 @@ function seedVariants(product: Product): ProductVariant[] {
   return combos.map(({ size, color }, n) => ({
     id: `${product.id}-${size}-${color}`,
     sku: `${product.id.toUpperCase()}-${size}-${color.toUpperCase()}`,
+    name: null,
     size,
     color,
+    colorHex: product.colors.find((c) => c.name === color)?.hex ?? null,
     stock: Math.floor(product.stock / combos.length) + (n < product.stock % combos.length ? 1 : 0),
-    effectivePrice: payablePrice(product),
+    price: payablePrice(product),
+    imageUrl: null,
+    measurements: null,
   }))
 }
 
 // The mock has no archived products to seed from, so every product starts active; archive one to try the Archived tab.
-const products = () => (store ??= new Map(PRODUCTS.map((product) => [product.id, { product, active: true, variants: seedVariants(product) }])))
+const products = () => (store ??= new Map(PRODUCTS.map((product) => [product.id, { product, active: true, variants: seedVariants(product), gender: null }])))
 
 /** Puts the sample catalogue back as it was on load. For tests. */
 export function resetSampleInventory() {
@@ -51,8 +56,9 @@ const toListItem = ({ product: p, active, variants }: StoredProduct): ProductLis
   name: p.name,
   category: p.category,
   brand: p.boutique || null,
-  minPrice: Math.min(...variants.map((v) => v.effectivePrice)),
-  maxPrice: Math.max(...variants.map((v) => v.effectivePrice)),
+  // A product with no variants has no price, as the API reports it.
+  minPrice: variants.length ? Math.min(...variants.map((v) => v.price)) : 0,
+  maxPrice: variants.length ? Math.max(...variants.map((v) => v.price)) : 0,
   totalStock: sumStock(variants),
   primaryImage: { url: p.image, altText: p.alt },
   createdAt: p.addedAt,
@@ -108,9 +114,22 @@ export async function sampleProductList(params: SampleListParams, { signal, dela
   }
 }
 
-export async function sampleProductDetail(id: string, { signal, delayMs = 400 }: RequestOptions = {}): Promise<{ variants: ProductVariant[] }> {
+export async function sampleProductDetail(
+  id: string,
+  { signal, delayMs = 400 }: RequestOptions = {},
+): Promise<{ variants: ProductVariant[]; product: ProductDetailFields }> {
   await simulateRequest(delayMs, signal, () => false)
-  return { variants: find(id).variants.map((v) => ({ ...v })) }
+  const { product: p, variants, gender } = find(id)
+  return {
+    variants: variants.map((v) => ({ ...v, measurements: v.measurements && { ...v.measurements } })),
+    product: {
+      description: p.description ?? null,
+      gender,
+      brand: p.boutique || null,
+      category: p.category,
+      images: [p.image, ...(p.images ?? [])].map((url, index) => ({ url, altText: p.alt, displayOrder: index, isPrimary: index === 0 })),
+    },
+  }
 }
 
 /** Sets each named variant's stock to exactly the given number, all or none (a bad change leaves every variant as it was). Answers with the product's variants. */
@@ -199,8 +218,119 @@ export async function sampleCreateProduct(
     size: v.size,
     color: v.color,
     stock: v.stock,
-    effectivePrice: v.price ?? input.basePrice,
+    price: v.price ?? input.basePrice,
+    name: null,
+    colorHex: v.colorHex,
+    imageUrl: null,
+    measurements: null,
   }))
-  products().set(id, { product, active: true, variants })
+  products().set(id, { product, active: true, variants, gender: input.gender ?? null })
   return { id, name: input.name }
+}
+
+const EMPTY_MEASUREMENTS = {
+  chestWidthCm: null,
+  waistWidthCm: null,
+  hipWidthCm: null,
+  totalLengthCm: null,
+  inseamCm: null,
+  shoulderWidthCm: null,
+  sleeveLengthCm: null,
+  neckCm: null,
+  thighCm: null,
+}
+
+const refuse = (kind: 'validation' | 'conflict', detail: string) => Object.assign(new Error(detail), { kind, detail })
+const blank = (text: string | null | undefined) => !text?.trim()
+
+/** The API's rules for a whole variant: something to tell it apart by, a hex with every colour, a price, and a SKU nobody else has. */
+function checkVariant(v: Pick<ProductVariant, 'sku' | 'name' | 'size' | 'color' | 'colorHex' | 'price'>, others: ProductVariant[]) {
+  if (blank(v.name) && blank(v.size) && blank(v.color)) throw refuse('validation', 'A variant needs a size, a colour or a name')
+  if (!blank(v.color) && blank(v.colorHex)) throw refuse('validation', 'colorHex is required when color is provided')
+  if (!Number.isFinite(v.price) || v.price < 0) throw refuse('validation', 'Price is required for the variant')
+  if (others.some((o) => o.sku.toUpperCase() === v.sku.toUpperCase())) throw refuse('conflict', `SKU ${v.sku} is already in use`)
+}
+
+const allVariants = () => [...products().values()].flatMap(({ variants }) => variants)
+
+/** Deletes a product with its variants. The shop catalogue it was seeded from is untouched. */
+export async function sampleDeleteProduct(productId: string, { signal, delayMs = 400 }: RequestOptions = {}): Promise<void> {
+  await simulateRequest(delayMs, signal, () => false)
+  find(productId)
+  products().delete(productId)
+}
+
+/** Adds a variant. A blank SKU is generated (`P-ID-SIZE-COLOUR`, then `-2`, `-3` if taken); a SKU typed by hand that is taken is a conflict. */
+export async function sampleAddVariant(productId: string, input: VariantInput, { signal, delayMs = 500 }: RequestOptions = {}): Promise<ProductVariant> {
+  await simulateRequest(delayMs, signal, () => false)
+  const stored = find(productId)
+  const taken = allVariants()
+  const { size = null, color = null, name = null, colorHex = null } = input
+  let sku = input.sku?.trim() ?? ''
+  if (!sku) {
+    const base = [productId.toUpperCase(), size, color?.toUpperCase(), !size && !color ? name : null].filter(Boolean).join('-')
+    sku = base
+    for (let n = 2; taken.some((t) => t.sku.toUpperCase() === sku.toUpperCase()); n++) sku = `${base}-${n}`
+  }
+  const variant: ProductVariant = {
+    id: `${productId}-${sku}`,
+    sku,
+    name,
+    size,
+    color,
+    colorHex: blank(color) ? null : colorHex,
+    price: input.price ?? NaN,
+    stock: input.stock ?? 0,
+    imageUrl: input.imageUrl ?? null,
+    measurements: input.measurements ? { ...EMPTY_MEASUREMENTS, ...input.measurements } : null,
+  }
+  checkVariant(variant, taken)
+  if (color && colorHex) SAMPLE_COLOR_HEX.set(color, colorHex)
+  stored.variants = [...stored.variants, variant]
+  return { ...variant }
+}
+
+/** Edits a variant: what the patch leaves out stays, `null` clears. The merged variant must still follow the rules, as on the API. */
+export async function sampleUpdateVariant(
+  productId: string,
+  variantId: string,
+  patch: VariantPatch,
+  { signal, delayMs = 500 }: RequestOptions = {},
+): Promise<ProductVariant> {
+  await simulateRequest(delayMs, signal, () => false)
+  const stored = find(productId)
+  const existing = stored.variants.find((v) => v.id === variantId)
+  if (!existing) throw Object.assign(new Error('Variant not found.'), { kind: 'not-found' })
+  const { measurements, ...fields } = patch
+  const merged: ProductVariant = { ...existing, ...Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) }
+  if (blank(merged.color)) merged.colorHex = null
+  if (measurements) merged.measurements = { ...(existing.measurements ?? EMPTY_MEASUREMENTS), ...measurements }
+  checkVariant(merged, allVariants().filter((v) => v.id !== variantId))
+  if (merged.color && merged.colorHex) SAMPLE_COLOR_HEX.set(merged.color, merged.colorHex)
+  stored.variants = stored.variants.map((v) => (v.id === variantId ? merged : v))
+  return { ...merged }
+}
+
+export async function sampleDeleteVariant(productId: string, variantId: string, { signal, delayMs = 400 }: RequestOptions = {}): Promise<void> {
+  await simulateRequest(delayMs, signal, () => false)
+  const stored = find(productId)
+  if (!stored.variants.some((v) => v.id === variantId)) throw Object.assign(new Error('Variant not found.'), { kind: 'not-found' })
+  stored.variants = stored.variants.filter((v) => v.id !== variantId)
+}
+
+/** Edits a product's own fields. Like the API, `images` replaces every image. The mock product is replaced, not mutated, so the shared catalogue stays as it was. */
+export async function sampleUpdateProduct(productId: string, patch: ProductPatch, { signal, delayMs = 500 }: RequestOptions = {}): Promise<void> {
+  await simulateRequest(delayMs, signal, () => false)
+  const stored = find(productId)
+  const { name, description, category, brand, gender, images } = patch
+  const main = images?.find((image) => image.isPrimary) ?? images?.[0]
+  stored.product = {
+    ...stored.product,
+    ...(name !== undefined && { name }),
+    ...(description !== undefined && { description }),
+    ...(category !== undefined && { category: category as Category }),
+    ...(brand !== undefined && { boutique: brand }),
+    ...(main && { image: main.url, alt: main.altText ?? stored.product.alt, images: images!.filter((image) => image !== main).map((image) => image.url) }),
+  }
+  if (gender !== undefined) stored.gender = gender
 }

@@ -4,6 +4,7 @@ import { InventoryPagerSkeleton } from "../../components/staff/InventorySkeleton
 import { InventoryCards } from "../../components/staff/inventory/InventoryCards";
 import { InventoryDrawer } from "../../components/staff/inventory/InventoryDrawer";
 import { ProductFormSheet } from "../../components/staff/inventory/ProductFormSheet";
+import { VariantSheet } from "../../components/staff/inventory/VariantSheet";
 import { InventoryTable } from "../../components/staff/inventory/InventoryTable";
 import { InventoryToolbar } from "../../components/staff/inventory/InventoryToolbar";
 import {
@@ -32,9 +33,16 @@ import {
   ProductListError,
   UUID,
   type PaginatedProducts,
+  type ProductDetailFields,
   type ProductListItem,
+  type ProductVariant,
 } from "../../service/fetchProductList";
-import { failureReason, setArchived } from "../../service/inventoryActions";
+import {
+  failureReason,
+  manageFailureReason,
+  removeProduct,
+  setArchived,
+} from "../../service/inventoryActions";
 import {
   INVENTORY_SAMPLE_DATA,
   sampleProductList,
@@ -47,6 +55,7 @@ import {
   withInventoryParams,
   type InventorySort,
 } from "../../utils/inventoryQuery";
+import type { ProductEditSource } from "../../utils/productValidation";
 
 const META_DESCRIPTION =
   "Search the SilhouFit product catalogue by name, brand or product ID, filter by category, gender and stock, and check the stock of every size and color.";
@@ -313,6 +322,29 @@ export function StaffInventoryPage() {
     return null;
   }
 
+  /** Deletes one product for good. Resolves to null when it worked (the drawer closes) or what went wrong. A product that is already gone counts as deleted. */
+  async function deleteProduct(
+    product: ProductListItem,
+  ): Promise<string | null> {
+    if (inFlight.current) return null;
+    inFlight.current = true;
+    setBusyId(product.id);
+    try {
+      await removeProduct(product.id);
+    } catch (error) {
+      if ((error as { kind?: string }).kind !== "not-found")
+        return `Couldn't delete ${product.name}. ${manageFailureReason(error, "delete-product")}`;
+    } finally {
+      inFlight.current = false;
+      setBusyId(null);
+    }
+    focusAdd.current = true;
+    setOpen(false);
+    refresh();
+    toast.show({ kind: "success", message: `${product.name} deleted` });
+    return null;
+  }
+
   /** `changeArchived` for callers with no place to show an error: it goes to a toast with a retry. */
   async function run(
     product: ProductListItem,
@@ -376,6 +408,31 @@ export function StaffInventoryPage() {
       },
     });
   }
+
+  // Edit details: the sheet opens as the drawer closes, and stays mounted while it slides out.
+  const [editTarget, setEditTarget] = useState<ProductEditSource | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSession, setEditSession] = useState(0);
+  const openEdit = (product: ProductListItem, fields: ProductDetailFields) => {
+    setEditTarget({ id: product.id, name: product.name, ...fields });
+    setEditSession((n) => n + 1);
+    setEditOpen(true);
+    setOpen(false);
+  };
+
+  // Add or edit a variant: the drawer steps aside for the sheet and comes back, with fresh variants, when it closes.
+  const [variantSheet, setVariantSheet] = useState<{
+    mode: "add" | "edit";
+    variant?: ProductVariant;
+  } | null>(null);
+  const openVariantSheet = (mode: "add" | "edit", variant?: ProductVariant) => {
+    setVariantSheet({ mode, variant });
+    setOpen(false);
+  };
+  const closeVariantSheet = () => {
+    setVariantSheet(null);
+    if (selected) openDetail(selected);
+  };
 
   const actions = {
     onRestock: (product: ProductListItem) => openDetail(product, true),
@@ -612,6 +669,39 @@ export function StaffInventoryPage() {
         onCreated={onCreated}
       />
 
+      {editTarget && (
+        <ProductFormSheet
+          key={editSession}
+          open={editOpen}
+          product={editTarget}
+          onClose={() => setEditOpen(false)}
+          onSaved={(name) => {
+            restoreFocus.current = editTarget.id;
+            setEditOpen(false);
+            refresh();
+            toast.show({ kind: "success", message: `${name} updated` });
+          }}
+        />
+      )}
+
+      {variantSheet && selected && (
+        <VariantSheet
+          mode={variantSheet.mode}
+          productId={selected.id}
+          variant={variantSheet.variant}
+          onSaved={() => {
+            toast.show({
+              kind: "success",
+              message:
+                variantSheet.mode === "add" ? "Variant added" : "Variant updated",
+            });
+            refresh();
+            closeVariantSheet();
+          }}
+          onClose={closeVariantSheet}
+        />
+      )}
+
       <InventoryDrawer
         product={selected}
         open={open}
@@ -620,6 +710,10 @@ export function StaffInventoryPage() {
         refreshKey={refreshKey}
         onClose={() => setOpen(false)}
         onArchive={changeArchived}
+        onDelete={deleteProduct}
+        onEditDetails={openEdit}
+        onAddVariant={() => openVariantSheet("add")}
+        onEditVariant={(variant) => openVariantSheet("edit", variant)}
         onStockChanged={() => {
           if (selected) restoreFocus.current = selected.id;
           refresh();

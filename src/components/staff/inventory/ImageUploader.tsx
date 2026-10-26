@@ -21,6 +21,9 @@ interface ImageUploaderProps {
 
 let nextId = 0
 
+/** What to call an image: its file name, or "image 2" for one the product already has. */
+const fileName = (image: ImageDraft, index: number) => image.file?.name ?? `image ${index + 1}`
+
 /** Up to five JPG, PNG or WebP photos. Files are checked here; they are uploaded when the product is created. */
 export function ImageUploader({ images, name, progress, disabled, error, errors, onChange }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -43,7 +46,7 @@ export function ImageUploader({ images, name, progress, disabled, error, errors,
   }
 
   function remove(image: ImageDraft) {
-    URL.revokeObjectURL(image.preview)
+    if (image.file) URL.revokeObjectURL(image.preview)
     onChange(images.filter((i) => i.id !== image.id))
     document.getElementById(IMAGES_ID)?.focus()
   }
@@ -96,7 +99,7 @@ export function ImageUploader({ images, name, progress, disabled, error, errors,
             const altId = `pf-alt-${image.id}`
             return (
               <li key={image.id} className="flex gap-3 rounded-xl border border-line p-3">
-                <img src={image.preview} alt={`Preview of ${image.file.name}`} className="size-16 shrink-0 rounded-xl bg-line object-cover" />
+                <img src={image.preview} alt={`Preview of ${fileName(image, index)}`} className="size-16 shrink-0 rounded-xl bg-line object-cover" />
                 <div className="grid min-w-0 flex-1 gap-2">
                   <Field id={altId} label="Alt text" error={errors[`alt:${image.id}`]}>
                     <input
@@ -116,7 +119,7 @@ export function ImageUploader({ images, name, progress, disabled, error, errors,
                   </Field>
                   {percent !== undefined && !image.url && (
                     <div className="flex items-center gap-2">
-                      <progress max={100} value={percent} aria-label={`Upload progress for ${image.file.name}`} className="h-2 min-w-0 flex-1" />
+                      <progress max={100} value={percent} aria-label={`Upload progress for ${fileName(image, index)}`} className="h-2 min-w-0 flex-1" />
                       <span className="w-10 text-right text-sm tabular-nums text-fg-muted">{percent}%</span>
                     </div>
                   )}
@@ -128,14 +131,14 @@ export function ImageUploader({ images, name, progress, disabled, error, errors,
                       <button
                         type="button"
                         disabled={disabled}
-                        aria-label={`Make ${image.file.name} the main photo`}
+                        aria-label={`Make ${fileName(image, index)} the main photo`}
                         onClick={() => onChange([image, ...images.filter((i) => i.id !== image.id)])}
                         className={SMALL_BUTTON}
                       >
                         Make primary
                       </button>
                     )}
-                    <button type="button" disabled={disabled} aria-label={`Remove ${image.file.name}`} onClick={() => remove(image)} className={SMALL_BUTTON}>
+                    <button type="button" disabled={disabled} aria-label={`Remove ${fileName(image, index)}`} onClick={() => remove(image)} className={SMALL_BUTTON}>
                       Remove
                     </button>
                   </div>

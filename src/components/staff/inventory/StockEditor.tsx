@@ -3,6 +3,7 @@ import type { ProductVariant } from '../../../service/fetchProductList'
 import { filterStock, parseStock, STOCK_ERROR, stepStock } from '../../../utils/stockEdit'
 import { MinusIcon, PlusIcon } from '../../form/icons'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { variantLabel } from './InventoryParts'
 
 const STEPPER =
   'flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg hover:bg-line/60 hover:text-chrome-strong disabled:cursor-not-allowed disabled:opacity-40'
@@ -15,13 +16,13 @@ export function StockCell({
   disabled,
   onChange,
 }: {
-  variant: Pick<ProductVariant, 'size' | 'color'>
+  variant: Pick<ProductVariant, 'size' | 'color' | 'name' | 'sku'>
   text: string
   disabled: boolean
   onChange: (text: string) => void
 }) {
   const errorId = useId()
-  const name = `${variant.color} ${variant.size}`
+  const name = variantLabel(variant)
   const empty = parseStock(text) === null
   return (
     <div className="flex flex-col items-end">

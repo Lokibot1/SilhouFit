@@ -1,6 +1,6 @@
 import { useState, type MouseEvent, type ReactNode } from 'react'
 import { LOW_STOCK } from '../../../data/products'
-import type { ProductListItem } from '../../../service/fetchProductList'
+import type { ProductListItem, ProductVariant } from '../../../service/fetchProductList'
 import { formatPeso } from '../../../utils/format'
 import { isArchived, isSoldOut } from '../../../utils/inventoryQuery'
 import { PlusIcon, RestoreIcon } from '../../form/icons'
@@ -20,6 +20,9 @@ export const rowTint = (product: ProductListItem) => {
   const level = stockLevel(product.totalStock)
   return level === 'out' ? 'row-out' : level === 'low' ? 'row-low' : ''
 }
+
+/** What to call a variant: "Navy M", or its name or SKU when it has neither colour nor size. */
+export const variantLabel = (v: Pick<ProductVariant, 'color' | 'size' | 'name' | 'sku'>) => [v.color, v.size].filter(Boolean).join(' ') || v.name || v.sku
 
 const ADDED_SHORT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 const ADDED_FULL = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -112,7 +115,7 @@ export function ArchivedBadge() {
 }
 
 /** An icon button inside a row. Its click must not reach the row, which would also open the drawer. */
-function RowAction({ label, icon, onClick, disabled }: { label: string; icon: ReactNode; onClick: () => void; disabled?: boolean }) {
+export function RowAction({ label, icon, onClick, disabled }: { label: string; icon: ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
     <Tooltip label={label}>
       <button

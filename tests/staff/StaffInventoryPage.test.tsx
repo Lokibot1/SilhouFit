@@ -6,7 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { InventoryColgroup, rememberShowAlerts } from '../../src/components/staff/inventory/layout'
 import { needsAlert, rowTint, StockBadge } from '../../src/components/staff/inventory/InventoryParts'
-import { setProductActive, updateStocks } from '../../src/service/productAdmin'
+import { addVariant, deleteProduct, deleteVariant, setProductActive, updateProduct, updateStocks, updateVariant } from '../../src/service/productAdmin'
 import { resetSampleInventory, sampleSetArchived } from '../../src/service/sampleInventory'
 import {
   fetchProductById,
@@ -73,7 +73,7 @@ beforeEach(() => {
   rememberShowAlerts(true)
   vi.resetAllMocks()
   list.mockResolvedValue(answer([product(1), product(2)]))
-  detail.mockResolvedValue({ variants: [{ id: 'v1', sku: 'TEE-1-S-BLK', size: 'S', color: 'Black', stock: 3, effectivePrice: 1000 }] })
+  detail.mockResolvedValue({ variants: [{ id: 'v1', sku: 'TEE-1-S-BLK', size: 'S', color: 'Black', stock: 3, price: 1000, name: null, colorHex: null, imageUrl: null, measurements: null }] })
 })
 
 function Where() {
@@ -429,9 +429,9 @@ describe('StaffInventoryPage', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     detail.mockResolvedValue({
       variants: [
-        { id: 'v1', sku: 'T-S-BLK', size: 'S', color: 'Black', stock: 0, effectivePrice: 1000 },
-        { id: 'v2', sku: 'T-S-WHT', size: 'S', color: 'White', stock: 9, effectivePrice: 1000 },
-        { id: 'v3', sku: 'T-M-BLK', size: 'M', color: 'Black', stock: 4, effectivePrice: 1000 },
+        { id: 'v1', sku: 'T-S-BLK', size: 'S', color: 'Black', stock: 0, price: 1000, name: null, colorHex: null, imageUrl: null, measurements: null },
+        { id: 'v2', sku: 'T-S-WHT', size: 'S', color: 'White', stock: 9, price: 1000, name: null, colorHex: null, imageUrl: null, measurements: null },
+        { id: 'v3', sku: 'T-M-BLK', size: 'M', color: 'Black', stock: 4, price: 1000, name: null, colorHex: null, imageUrl: null, measurements: null },
       ],
     })
     renderPage()
@@ -794,8 +794,8 @@ describe('StaffInventoryPage archive, restore and restock (sample catalogue)', (
 describe('StaffInventoryPage archive and restock (real API path)', () => {
   const T = { timeout: 3000 }
   const variants = [
-    { id: 'v1', sku: 'TEE-1-S-BLK', size: 'S', color: 'Black', stock: 0, effectivePrice: 1000 },
-    { id: 'v2', sku: 'TEE-1-M-BLK', size: 'M', color: 'Black', stock: 4, effectivePrice: 1000 },
+    { id: 'v1', sku: 'TEE-1-S-BLK', size: 'S', color: 'Black', stock: 0, price: 1000, name: null, colorHex: null, imageUrl: null, measurements: null },
+    { id: 'v2', sku: 'TEE-1-M-BLK', size: 'M', color: 'Black', stock: 4, price: 1000, name: null, colorHex: null, imageUrl: null, measurements: null },
   ]
 
   beforeEach(() => {
@@ -866,6 +866,285 @@ describe('StaffInventoryPage archive and restock (real API path)', () => {
     await user.click(within(drawer).getByRole('button', { name: 'Retry' }))
     expect(updateStocks).toHaveBeenLastCalledWith(product(1).id, [{ variantId: 'v2', stock: 5 }], expect.anything())
     expect(await screen.findByText('Stock updated for 1 size', {}, T)).toBeInTheDocument()
+  })
+})
+
+describe('StaffInventoryPage delete, add and edit (real API path)', () => {
+  const T = { timeout: 3000 }
+  const variant = (over: Record<string, unknown>) => ({ price: 1000, name: null, colorHex: '#1b1d21', imageUrl: null, measurements: null, ...over })
+  const variants = [
+    variant({ id: 'v1', sku: 'TEE-1-S-BLK', size: 'S', color: 'Black', stock: 0 }),
+    variant({ id: 'v2', sku: 'TEE-1-M-BLK', size: 'M', color: 'Black', stock: 4 }),
+  ] as Awaited<ReturnType<typeof fetchProductDetail>>['variants']
+  const fields = {
+    description: 'Soft',
+    gender: null,
+    brand: 'Silhou',
+    category: 'Tops',
+    images: [
+      { url: 'https://x/a.jpg', altText: 'Front', displayOrder: 0, isPrimary: true },
+      { url: 'https://x/b.jpg', altText: 'Back', displayOrder: 1, isPrimary: false },
+    ],
+  }
+
+  beforeEach(() => {
+    sample.on = false
+    list.mockResolvedValue(answer([product(1, { totalStock: 4 })]))
+    detail.mockResolvedValue({ variants, product: fields })
+  })
+
+  async function openDrawer(user: ReturnType<typeof userEvent.setup>) {
+    renderPage()
+    await user.click(await within(table()).findByRole('button', { name: /^Tee 1/ }))
+    const drawer = await screen.findByRole('dialog', { name: 'Tee 1' })
+    await within(drawer).findByText('TEE-1-S-BLK', {}, T)
+    return drawer
+  }
+
+  it('asks "Are you sure?" before deleting a product, focuses Cancel, keeps an error in the modal and retries with the same button', async () => {
+    const user = userEvent.setup()
+    vi.mocked(deleteProduct).mockRejectedValueOnce(new ProductListError('forbidden')).mockResolvedValue(undefined)
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Delete product' }))
+
+    const confirm = await screen.findByRole('dialog', { name: 'Are you sure?' })
+    expect(within(confirm).getByText(/^Tee 1 and its 2 variants, images and AR measurements will be permanently deleted, and removed from shoppers' carts\. This can't be undone\. To hide it from the shop instead, archive it\.$/)).toBeInTheDocument()
+    expect(within(confirm).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    expect(deleteProduct).not.toHaveBeenCalled()
+
+    await user.click(within(confirm).getByRole('button', { name: 'Delete Product' }))
+    expect(deleteProduct).toHaveBeenCalledWith(product(1).id, expect.anything())
+    const alert = await within(confirm).findByRole('alert')
+    expect(alert).toHaveTextContent("Couldn't delete Tee 1. Your account is not allowed to delete products.")
+    expect(screen.getByRole('dialog', { name: 'Are you sure?' })).toBeInTheDocument()
+
+    await user.click(within(confirm).getByRole('button', { name: 'Delete Product' }))
+    expect(await screen.findByText('Tee 1 deleted', {}, T)).toBeInTheDocument()
+    expect(deleteProduct).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(list.mock.calls.length).toBeGreaterThan(1))
+  })
+
+  it('treats a product that is already gone as deleted', async () => {
+    const user = userEvent.setup()
+    vi.mocked(deleteProduct).mockRejectedValue(new ProductListError('not-found'))
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Delete product' }))
+    await user.click(within(await screen.findByRole('dialog', { name: 'Are you sure?' })).getByRole('button', { name: 'Delete Product' }))
+    expect(await screen.findByText('Tee 1 deleted', {}, T)).toBeInTheDocument()
+  })
+
+  it('cancelling the delete prompt goes back to the product without deleting', async () => {
+    const user = userEvent.setup()
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Delete product' }))
+    await user.click(within(await screen.findByRole('dialog', { name: 'Are you sure?' })).getByRole('button', { name: 'Cancel' }))
+    expect(await screen.findByRole('dialog', { name: 'Tee 1' })).toBeInTheDocument()
+    expect(deleteProduct).not.toHaveBeenCalled()
+  })
+
+  it('confirms before deleting a variant, warns about the last one, then refreshes and says so', async () => {
+    const user = userEvent.setup()
+    vi.mocked(deleteVariant).mockResolvedValue(undefined)
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Delete Black S' }))
+    const confirm = await screen.findByRole('dialog', { name: 'Are you sure?' })
+    expect(within(confirm).getByText("Black S (SKU TEE-1-S-BLK) will be permanently deleted, and removed from shoppers' carts. This can't be undone.")).toBeInTheDocument()
+    detail.mockResolvedValue({ variants: [variants[1]], product: fields })
+    await user.click(within(confirm).getByRole('button', { name: 'Delete Variant' }))
+    expect(deleteVariant).toHaveBeenCalledWith(product(1).id, 'v1', expect.anything())
+    expect(await screen.findByText('Variant deleted', {}, T)).toBeInTheDocument()
+    const back = await screen.findByRole('dialog', { name: 'Tee 1' })
+    await waitFor(() => expect(within(back).queryByText('TEE-1-S-BLK')).not.toBeInTheDocument())
+
+    await user.click(within(back).getByRole('button', { name: 'Delete Black M' }))
+    expect(await screen.findByText(/It is the last variant, so Tee 1 will have no price or stock\./)).toBeInTheDocument()
+  })
+
+  it('shows why a variant could not be deleted, inside the prompt', async () => {
+    const user = userEvent.setup()
+    vi.mocked(deleteVariant).mockRejectedValue(new ProductListError('network'))
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Delete Black S' }))
+    await user.click(within(await screen.findByRole('dialog', { name: 'Are you sure?' })).getByRole('button', { name: 'Delete Variant' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't delete Black S. The connection dropped")
+  })
+
+  it('adds a variant: validates inline, sends only what was filled in, and comes back to the product', async () => {
+    const user = userEvent.setup()
+    vi.mocked(addVariant).mockResolvedValue({ ...variants[0], id: 'v3', sku: 'AUTO-1', size: 'XL' })
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Add variant' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Add variant' })
+    expect(screen.queryByRole('dialog', { name: 'Tee 1' })).not.toBeInTheDocument()
+
+    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
+    expect(addVariant).not.toHaveBeenCalled()
+    expect(within(sheet).getByText(/Enter a size, a colour or a variant name/)).toBeInTheDocument()
+    expect(within(sheet).getByText(/Enter an amount above 0/)).toBeInTheDocument()
+    expect(within(sheet).getByRole('textbox', { name: /^Size/ })).toHaveFocus()
+
+    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'xl')
+    await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '500')
+    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
+    expect(addVariant).toHaveBeenCalledWith(product(1).id, { size: 'XL', price: 500, stock: 0 }, expect.anything())
+    expect(await screen.findByText('Variant added', {}, T)).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Tee 1' })).toBeInTheDocument()
+  })
+
+  it('puts a duplicate SKU (409) on the SKU field and keeps the sheet open', async () => {
+    const user = userEvent.setup()
+    vi.mocked(addVariant).mockRejectedValue(new ProductListError('conflict', 'SKU "DUP" is already in use'))
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Add variant' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Add variant' })
+    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'M')
+    await user.type(within(sheet).getByRole('textbox', { name: /^SKU/ }), 'dup')
+    await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
+    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
+
+    const sku = await within(sheet).findByRole('textbox', { name: /^SKU/ })
+    await waitFor(() => expect(sku).toHaveAttribute('aria-invalid', 'true'))
+    expect(within(sheet).getAllByText(/SKU DUP is already used by another variant/).length).toBeGreaterThan(0)
+    expect(within(sheet).getByRole('alert')).toHaveTextContent("Couldn't add the variant.")
+    await waitFor(() => expect(sku).toHaveFocus())
+    expect(screen.getByRole('dialog', { name: 'Add variant' })).toBeInTheDocument()
+  })
+
+  it('edits a variant with only the price in the body, and Save waits for a change', async () => {
+    const user = userEvent.setup()
+    vi.mocked(updateVariant).mockResolvedValue(variants[0])
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Edit Black S' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Edit variant' })
+    expect(within(sheet).getByRole('textbox', { name: /^SKU/ })).toHaveValue('TEE-1-S-BLK')
+    expect(within(sheet).queryByRole('textbox', { name: /^Stock/ })).not.toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Save variant' })).toBeDisabled()
+
+    const price = within(sheet).getByRole('textbox', { name: /^Price/ })
+    await user.clear(price)
+    await user.type(price, '1200')
+    await user.click(within(sheet).getByRole('button', { name: 'Save variant' }))
+    expect(updateVariant).toHaveBeenCalledWith(product(1).id, 'v1', { price: 1200 }, expect.anything())
+    expect(await screen.findByText('Variant updated', {}, T)).toBeInTheDocument()
+  })
+
+  it('shows Edit details only once the details loaded, prefilled without base price or variants, and sends only the name', async () => {
+    const user = userEvent.setup()
+    vi.mocked(updateProduct).mockResolvedValue(undefined)
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Edit details' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Edit details' })
+    expect(within(sheet).getByRole('textbox', { name: /^Name/ })).toHaveValue('Tee 1')
+    expect(within(sheet).getByRole('textbox', { name: /^Brand/ })).toHaveValue('Silhou')
+    expect(within(sheet).getByRole('textbox', { name: /^Description/ })).toHaveValue('Soft')
+    expect(within(sheet).getByText("Changing the name also changes the product's web address.")).toBeInTheDocument()
+    expect(within(sheet).queryByRole('textbox', { name: /Base price/ })).not.toBeInTheDocument()
+    expect(within(sheet).queryByText('Colours', { exact: false })).not.toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Save changes' })).toBeDisabled()
+
+    await user.type(within(sheet).getByRole('textbox', { name: /^Name/ }), 'X')
+    await user.click(within(sheet).getByRole('button', { name: 'Save changes' }))
+    expect(updateProduct).toHaveBeenCalledWith(product(1).id, { name: 'Tee 1X' }, expect.anything())
+    expect(await screen.findByText('Tee 1X updated', {}, T)).toBeInTheDocument()
+  })
+
+  it('sends the whole image list when an image is removed', async () => {
+    const user = userEvent.setup()
+    vi.mocked(updateProduct).mockResolvedValue(undefined)
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Edit details' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Edit details' })
+    await user.click(within(sheet).getByRole('button', { name: 'Remove image 2' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Save changes' }))
+    expect(updateProduct).toHaveBeenCalledWith(
+      product(1).id,
+      { images: [{ url: 'https://x/a.jpg', altText: 'Front', displayOrder: 0, isPrimary: true }] },
+      expect.anything(),
+    )
+  })
+
+  it('asks before discarding unsaved detail edits, and shows why a save failed', async () => {
+    const user = userEvent.setup()
+    vi.mocked(updateProduct).mockRejectedValue(new ProductListError('server'))
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Edit details' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Edit details' })
+    await user.type(within(sheet).getByRole('textbox', { name: /^Name/ }), 'X')
+    await user.click(within(sheet).getByRole('button', { name: 'Save changes' }))
+    const alert = await within(sheet).findByRole('alert')
+    expect(alert).toHaveTextContent("Couldn't save the changes to Tee 1.")
+    expect(within(sheet).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+
+    await user.click(within(sheet).getByRole('button', { name: 'Cancel' }))
+    const discard = await screen.findByRole('dialog', { name: 'Are you sure?' })
+    expect(within(discard).getByText(/Your changes to Tee 1 haven't been saved yet\./)).toBeInTheDocument()
+    await user.click(within(discard).getByRole('button', { name: 'Discard changes' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('does not offer the manage actions on an archived product, but still offers Delete product', async () => {
+    const user = userEvent.setup()
+    list.mockResolvedValue(answer([product(1, { isActive: false })]))
+    renderPage()
+    await user.click(await within(table()).findByRole('button', { name: /^Tee 1/ }))
+    const drawer = await screen.findByRole('dialog', { name: 'Tee 1' })
+    await within(drawer).findByText('TEE-1-S-BLK', {}, T)
+    expect(within(drawer).queryByRole('button', { name: 'Add variant' })).not.toBeInTheDocument()
+    expect(within(drawer).queryByRole('button', { name: 'Edit details' })).not.toBeInTheDocument()
+    expect(within(drawer).queryByRole('button', { name: 'Edit Black S' })).not.toBeInTheDocument()
+    expect(within(drawer).getByRole('button', { name: 'Delete product' })).toBeInTheDocument()
+    expect(within(drawer).getByRole('button', { name: 'Restore product' })).toBeInTheDocument()
+  })
+
+  it('offers Add variant from the empty state of a product with none', async () => {
+    const user = userEvent.setup()
+    detail.mockResolvedValue({ variants: [], product: fields })
+    renderPage()
+    await user.click(await within(table()).findByRole('button', { name: /^Tee 1/ }))
+    const drawer = await screen.findByRole('dialog', { name: 'Tee 1' })
+    expect(await within(drawer).findByText('This product has no variants yet.')).toBeInTheDocument()
+    await user.click(within(drawer).getByRole('button', { name: 'Add variant' }))
+    expect(await screen.findByRole('dialog', { name: 'Add variant' })).toBeInTheDocument()
+  })
+})
+
+describe('StaffInventoryPage delete and add variant (sample catalogue)', () => {
+  const T = { timeout: 4000 }
+
+  beforeEach(() => {
+    sample.on = true
+    resetSampleInventory()
+  })
+
+  it('deletes a product after the confirm step and drops it from the list', async () => {
+    const user = userEvent.setup()
+    renderPage('?q=p02')
+    await user.click(await waitFor(() => within(table()).getByRole('button', { name: /^Fence-Line Blazer/ }), T))
+    const drawer = await screen.findByRole('dialog', { name: 'Fence-Line Blazer' })
+    await within(drawer).findByText('P02-XS-BLACK', {}, T)
+    await user.click(within(drawer).getByRole('button', { name: 'Delete product' }))
+    await user.click(within(await screen.findByRole('dialog', { name: 'Are you sure?' })).getByRole('button', { name: 'Delete Product' }))
+    expect(await screen.findByText('Fence-Line Blazer deleted', {}, T)).toBeInTheDocument()
+    expect(await screen.findByText('No products match', {}, T)).toBeInTheDocument()
+  })
+
+  it('adds a variant with a generated SKU, which shows in the product when it comes back', async () => {
+    const user = userEvent.setup()
+    renderPage('?q=p01')
+    await user.click(await waitFor(() => within(table()).getByRole('button', { name: /^Heritage Polo/ }), T))
+    const drawer = await screen.findByRole('dialog', { name: 'Heritage Polo' })
+    await within(drawer).findByText('P01-S-WHITE', {}, T)
+    await user.click(within(drawer).getByRole('button', { name: 'Add variant' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Add variant' })
+    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'XXL')
+    await user.type(within(sheet).getByRole('textbox', { name: /^Colour name/ }), 'Teal')
+    await user.type(within(sheet).getByRole('textbox', { name: /^Colour hex/ }), '008080')
+    await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '99')
+    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
+    expect(await screen.findByText('Variant added', {}, T)).toBeInTheDocument()
+    const back = await screen.findByRole('dialog', { name: 'Heritage Polo' })
+    expect(await within(back).findByText('P01-XXL-TEAL', {}, T)).toBeInTheDocument()
   })
 })
 

@@ -1,6 +1,6 @@
 import { SIZES_BY_CATEGORY, type Category } from '../data/products'
-import type { Gender } from '../service/fetchProductList'
-import type { NewProductInput } from '../service/productAdmin'
+import type { Gender, MeasurementKey, ProductDetailFields, ProductListItem, ProductVariant } from '../service/fetchProductList'
+import type { NewProductInput, ProductPatch, VariantInput, VariantPatch } from '../service/productAdmin'
 import { cleanText } from './checkoutValidation'
 import { stripEmoji } from './signUpValidation'
 import { MAX_STOCK, parseStock, STOCK_ERROR } from './stockEdit'
@@ -18,6 +18,8 @@ export const PRODUCT_LIMITS = {
   imagesMax: 5,
   imageBytes: 5 * 1024 * 1024,
   variantsMax: 60,
+  variantNameMax: 60,
+  brandMax: 60,
 } as const
 
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -71,7 +73,8 @@ export function checkImageFile(file: { name: string; type: string; size: number 
 
 export interface ImageDraft {
   id: string
-  file: File
+  /** Missing for an image the product already has (its `url` is set and `preview` is that URL). */
+  file?: File
   /** Object URL for the thumbnail. */
   preview: string
   /** null follows the product name until the staff member edits it. */
@@ -89,8 +92,13 @@ export interface RowEdit {
   stock?: string
   price?: string
 }
+/** What the edit form starts from: the list row's id and name, and the rest from the product's detail. */
+export type ProductEditSource = Pick<ProductListItem, 'id' | 'name'> & ProductDetailFields
+
 export interface ProductFormValues {
   name: string
+  /** Edit mode only. */
+  brand?: string
   category: Category
   gender: Gender | ''
   arReady: boolean
@@ -159,6 +167,8 @@ export function findDuplicateSkus(skus: Record<string, string>): Set<string> {
 }
 
 export interface ValidationOptions {
+  /** 'edit' is the Edit details form: no base price, sizes, colours or SKUs, which belong to variants. */
+  mode?: 'create' | 'edit'
   /** SKUs the catalogue already has. */
   existingSkus?: ReadonlySet<string>
   /** A SKU the server said is taken. */
@@ -166,16 +176,17 @@ export interface ValidationOptions {
 }
 
 /** Every problem in the form, by field key, in on-screen order. An empty object means it can be sent. */
-export function validateProductForm(v: ProductFormValues, { existingSkus = new Set(), conflictSku }: ValidationOptions = {}): Record<string, string> {
+export function validateProductForm(v: ProductFormValues, { existingSkus = new Set(), conflictSku, mode = 'create' }: ValidationOptions = {}): Record<string, string> {
   const errors: Record<string, string> = {}
   const name = cleanText(stripEmoji(v.name))
   if (name.length < PRODUCT_LIMITS.nameMin || name.length > PRODUCT_LIMITS.nameMax) errors.name = 'Enter a product name of 2 to 100 characters.'
   if (v.description.trim().length > PRODUCT_LIMITS.descriptionMax) errors.description = 'Keep the description to 1,000 characters or fewer.'
-  const price = validatePrice(v.basePrice)
+  const price = mode === 'edit' ? null : validatePrice(v.basePrice)
   if (price) errors.basePrice = price
 
   if (v.images.length === 0) errors.images = 'Add at least one image.'
   for (const image of v.images) if ((image.alt ?? '').length > PRODUCT_LIMITS.altMax) errors[`alt:${image.id}`] = 'Keep the alt text to 120 characters or fewer.'
+  if (mode === 'edit') return errors
 
   if (v.sizes.length === 0) errors.sizes = 'Select at least one size.'
   if (v.colors.length === 0) errors.colors = 'Add at least one colour.'
@@ -232,6 +243,151 @@ export function buildProductInput(v: ProductFormValues, urls: Record<string, str
       return { sku: skus[key], size, color, colorHex: hex.toLowerCase(), stock: parseStock(v.edits[key]?.stock ?? '0')!, ...(price !== null && { price }) }
     }),
   }
+}
+
+/** The request body for an edited product: only what changed. `urls` is the public URL of each newly added image, by image id. */
+export function buildProductPatch(v: ProductFormValues, urls: Record<string, string>, original: ProductEditSource): ProductPatch {
+  const name = cleanText(stripEmoji(v.name))
+  const description = v.description.trim()
+  const brand = (v.brand ?? '').trim()
+  const urlOf = (image: ImageDraft) => urls[image.id] ?? image.url ?? ''
+  // Images are replaced as a whole, so they are sent only when the list, its order or an alt text changed.
+  const imagesChanged =
+    v.images.length !== original.images.length ||
+    v.images.some((image, i) => urlOf(image) !== original.images[i].url || (image.alt ?? null) !== original.images[i].altText)
+  return {
+    ...(name !== original.name && { name }),
+    ...(description !== (original.description ?? '') && { description }),
+    ...(brand !== (original.brand ?? '') && { brand }),
+    ...(v.category !== original.category && { category: v.category }),
+    ...(v.gender && v.gender !== original.gender && { gender: v.gender }),
+    ...(imagesChanged && {
+      images: v.images.map((image, index) => ({
+        url: urlOf(image),
+        altText: cleanText(stripEmoji(image.alt ?? '')) || name,
+        displayOrder: index,
+        isPrimary: index === 0,
+      })),
+    }),
+  }
+}
+
+export const MEASUREMENT_FIELDS: { key: MeasurementKey; label: string; min: number; max: number }[] = [
+  { key: 'chestWidthCm', label: 'Chest width', min: 5, max: 250 },
+  { key: 'waistWidthCm', label: 'Waist width', min: 5, max: 250 },
+  { key: 'hipWidthCm', label: 'Hip width', min: 5, max: 250 },
+  { key: 'totalLengthCm', label: 'Total length', min: 10, max: 300 },
+  { key: 'inseamCm', label: 'Inseam', min: 5, max: 200 },
+  { key: 'shoulderWidthCm', label: 'Shoulder width', min: 5, max: 150 },
+  { key: 'sleeveLengthCm', label: 'Sleeve length', min: 5, max: 150 },
+  { key: 'neckCm', label: 'Neck', min: 5, max: 100 },
+  { key: 'thighCm', label: 'Thigh', min: 5, max: 150 },
+]
+
+/** Digits and one dot, one decimal, three integer digits at most. */
+export function filterMeasurement(input: string) {
+  const cleaned = input.replace(/[^\d.]/g, '')
+  const dot = cleaned.indexOf('.')
+  if (dot < 0) return cleaned.slice(0, 3)
+  return `${cleaned.slice(0, dot).slice(0, 3)}.${cleaned.slice(dot + 1).replace(/\./g, '').slice(0, 1)}`
+}
+
+const parseMeasurement = (text: string): number | null => (/^(\d+\.?\d?|\.\d)$/.test(text) ? Number(text) : null)
+
+/** The Add / Edit variant form: every box holds text. */
+export interface VariantFormValues {
+  size: string
+  color: string
+  colorHex: string
+  name: string
+  sku: string
+  price: string
+  /** Add only: an existing variant's stock is changed in the stock editor. */
+  stock: string
+  measurements: Record<MeasurementKey, string>
+}
+
+/** The form for a variant being edited, or an empty one (stock 0) for a new variant. */
+export function variantFormValues(variant?: ProductVariant): VariantFormValues {
+  return {
+    size: variant?.size ?? '',
+    color: variant?.color ?? '',
+    colorHex: variant?.colorHex ?? '',
+    name: variant?.name ?? '',
+    sku: variant?.sku ?? '',
+    price: variant ? String(variant.price) : '',
+    stock: '0',
+    measurements: Object.fromEntries(MEASUREMENT_FIELDS.map(({ key }) => [key, String(variant?.measurements?.[key] ?? '')])) as VariantFormValues['measurements'],
+  }
+}
+
+/** Every problem in the variant form, by field key (`identity` is "none of size, colour and name filled in"). An empty object means it can be sent. */
+export function validateVariantForm(v: VariantFormValues, { mode }: { mode: 'add' | 'edit' }): Record<string, string> {
+  const errors: Record<string, string> = {}
+  const color = cleanText(v.color)
+  if (!cleanText(v.size) && !color && !cleanText(stripEmoji(v.name))) errors.identity = 'Enter a size, a colour or a variant name so this variant can be told apart.'
+  if (color && !HEX_COLOR.test(v.colorHex)) errors.colorHex = 'Enter a hex colour such as #1b1d21 or #fff.'
+  if (mode === 'edit' && !v.sku) errors.sku = 'Enter a SKU.'
+  const price = validatePrice(v.price)
+  if (price) errors.price = price
+  if (mode === 'add') {
+    const stock = parseStock(v.stock)
+    if (stock === null || stock > MAX_STOCK) errors.stock = STOCK_ERROR
+  }
+  for (const { key, label, min, max } of MEASUREMENT_FIELDS) {
+    const text = v.measurements[key]
+    if (!text) continue
+    const value = parseMeasurement(text)
+    if (value === null || value < min || value > max) errors[`m:${key}`] = `Enter ${label.toLowerCase()} from ${min} to ${max} cm.`
+  }
+  return errors
+}
+
+const variantText = (text: string) => cleanText(stripEmoji(text))
+
+/** The request for a new variant that passed validation: empty boxes are left out. `imageUrl` is the uploaded image's URL. */
+export function buildVariantInput(v: VariantFormValues, imageUrl?: string): VariantInput {
+  const color = variantText(v.color)
+  const measurements = Object.fromEntries(
+    MEASUREMENT_FIELDS.filter(({ key }) => v.measurements[key]).map(({ key }) => [key, parseMeasurement(v.measurements[key])!]),
+  )
+  return {
+    ...(v.sku && { sku: v.sku }),
+    ...(variantText(v.name) && { name: variantText(v.name) }),
+    ...(variantText(v.size) && { size: variantText(v.size) }),
+    ...(color && { color, colorHex: v.colorHex.toLowerCase() }),
+    price: parsePrice(v.price)!,
+    stock: parseStock(v.stock)!,
+    ...(imageUrl && { imageUrl }),
+    ...(Object.keys(measurements).length > 0 && { measurements }),
+  }
+}
+
+/** Only what differs from `original`. A colour change sends the colour with its hex; a cleared one sends `color: null` alone; a cleared measurement is `null`. An empty patch means nothing changed. */
+export function buildVariantPatch(v: VariantFormValues, original: ProductVariant, imageUrl?: string): VariantPatch {
+  const patch: VariantPatch = {}
+  if (v.sku !== original.sku) patch.sku = v.sku
+  for (const key of ['name', 'size'] as const) {
+    const next = variantText(v[key])
+    if (next !== (original[key] ?? '')) patch[key] = next || null
+  }
+  const color = variantText(v.color)
+  const hex = v.colorHex.toLowerCase()
+  if (color ? color !== (original.color ?? '') || hex !== (original.colorHex ?? '').toLowerCase() : original.color) {
+    if (color) {
+      patch.color = color
+      patch.colorHex = hex
+    } else patch.color = null
+  }
+  if (parsePrice(v.price) !== original.price) patch.price = parsePrice(v.price)!
+  if (imageUrl) patch.imageUrl = imageUrl
+  const measurements: NonNullable<VariantPatch['measurements']> = {}
+  for (const { key } of MEASUREMENT_FIELDS) {
+    const next = v.measurements[key] ? parseMeasurement(v.measurements[key]) : null
+    if (next !== (original.measurements?.[key] ?? null)) measurements[key] = next
+  }
+  if (Object.keys(measurements).length > 0) patch.measurements = measurements
+  return patch
 }
 
 /** aria-describedby for a control in a form field: its error and its counter, when it has them. */

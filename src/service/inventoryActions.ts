@@ -1,5 +1,35 @@
-import { createProduct, setProductActive, updateStocks, uploadProductImage, type NewProductInput, type StockChange, type StockResult } from './productAdmin'
-import { INVENTORY_SAMPLE_DATA, sampleCreateProduct, sampleRestockVariants, sampleSetArchived, sampleSetArReady, sampleSkus, sampleUploadImage } from './sampleInventory'
+import type { ProductVariant } from './fetchProductList'
+import {
+  addVariant,
+  createProduct,
+  deleteProduct,
+  deleteVariant,
+  setProductActive,
+  updateProduct,
+  updateStocks,
+  updateVariant,
+  uploadProductImage,
+  type NewProductInput,
+  type ProductPatch,
+  type StockChange,
+  type StockResult,
+  type VariantInput,
+  type VariantPatch,
+} from './productAdmin'
+import {
+  INVENTORY_SAMPLE_DATA,
+  sampleAddVariant,
+  sampleCreateProduct,
+  sampleDeleteProduct,
+  sampleDeleteVariant,
+  sampleRestockVariants,
+  sampleSetArchived,
+  sampleSetArReady,
+  sampleSkus,
+  sampleUpdateProduct,
+  sampleUpdateVariant,
+  sampleUploadImage,
+} from './sampleInventory'
 import type { RequestOptions } from './simulateRequest'
 
 /** Archives or restores a product, from the sample catalogue or the API. */
@@ -56,6 +86,46 @@ const UPLOAD_WHY: Record<string, string> = {
 export function createFailureReason(error: unknown, stage: 'upload' | 'create'): string {
   const { kind = '', detail } = (error ?? {}) as { kind?: string; detail?: string }
   if (kind === 'validation' && stage === 'create')
-    return `The server rejected the product${detail ? `: ${detail}` : ''}. Check the highlighted fields, then create it again.`
+    return `The server rejected the product${detail ? `: ${detail}` : ''}. Check what you entered, then create it again.`
   return (stage === 'upload' ? UPLOAD_WHY : CREATE_WHY)[kind] ?? WHY.server
+}
+
+/** Deletes a product for good, from the sample catalogue or the API. */
+export const removeProduct = (productId: string, options: RequestOptions = {}): Promise<void> =>
+  INVENTORY_SAMPLE_DATA ? sampleDeleteProduct(productId, options) : deleteProduct(productId, options)
+
+/** Adds a variant to a product. */
+export const createVariant = (productId: string, input: VariantInput, options: RequestOptions = {}): Promise<ProductVariant> =>
+  INVENTORY_SAMPLE_DATA ? sampleAddVariant(productId, input, options) : addVariant(productId, input, options)
+
+/** Saves the changed fields of a variant. */
+export const saveVariant = (productId: string, variantId: string, patch: VariantPatch, options: RequestOptions = {}): Promise<ProductVariant> =>
+  INVENTORY_SAMPLE_DATA ? sampleUpdateVariant(productId, variantId, patch, options) : updateVariant(productId, variantId, patch, options)
+
+/** Deletes a variant for good. */
+export const removeVariant = (productId: string, variantId: string, options: RequestOptions = {}): Promise<void> =>
+  INVENTORY_SAMPLE_DATA ? sampleDeleteVariant(productId, variantId, options) : deleteVariant(productId, variantId, options)
+
+/** Saves the changed fields of a product. */
+export const saveProduct = (productId: string, patch: ProductPatch, options: RequestOptions = {}): Promise<void> =>
+  INVENTORY_SAMPLE_DATA ? sampleUpdateProduct(productId, patch, options) : updateProduct(productId, patch, options)
+
+export type ManageAction = 'delete-product' | 'delete-variant' | 'add-variant' | 'save-variant' | 'save-product'
+
+const MANAGE_VERB: Record<ManageAction, string> = {
+  'delete-product': 'delete products',
+  'delete-variant': 'delete variants',
+  'add-variant': 'add variants',
+  'save-variant': 'edit variants',
+  'save-product': 'edit products',
+}
+
+/** Why deleting, adding or editing a product or variant failed and what to do next, for the "what happened" sentence before it. A 400 says what the server objected to. */
+export function manageFailureReason(error: unknown, action: ManageAction): string {
+  const { kind = '', detail } = (error ?? {}) as { kind?: string; detail?: string }
+  if (kind === 'validation') return `The server rejected the change${detail ? `: ${detail}` : ''}. Check what you entered, then try again.`
+  if (kind === 'conflict') return 'That SKU is already used by another variant. Change the SKU, then try again.'
+  if (kind === 'forbidden') return `Your account is not allowed to ${MANAGE_VERB[action]}. Sign in again, or ask an admin for access.`
+  if (kind === 'not-found') return 'It no longer exists, so someone may have deleted it. Reload the list to see what is there now.'
+  return WHY[kind] ?? WHY.server
 }

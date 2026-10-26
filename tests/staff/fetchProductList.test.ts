@@ -10,7 +10,7 @@ const reply = (body: unknown, status = 200) => fetchMock.mockResolvedValue(new R
 const requested = () => new URL(String(fetchMock.mock.calls[0][0]), 'http://api.test')
 
 const ITEM = { id: 'p1', name: 'Tee', category: 'Tops', brand: 'Silhou', minPrice: 100, maxPrice: 200, totalStock: 4, primaryImage: null, createdAt: '2026-01-01T00:00:00.000Z' }
-const VARIANT = { id: 'v1', sku: 'TEE-S-BLK', size: 'S', color: 'Black', stock: 3, effectivePrice: 1299 }
+const VARIANT = { id: 'v1', sku: 'TEE-S-BLK', name: null, size: 'S', color: 'Black', colorHex: '#1b1d21', price: 1299, stock: 3, imageUrl: null, measurements: null }
 
 beforeEach(() => vi.stubGlobal('fetch', fetchMock))
 afterEach(() => {
@@ -89,6 +89,53 @@ describe('fetchProductDetail', () => {
   it('reports an unknown product as not-found', async () => {
     reply({ message: 'Not found' }, 404)
     expect(await kindOf(fetchProductDetail('p1'))).toBe('not-found')
+  })
+
+  it('reads the API price, a stock of 0 and variants with no size, colour or name', async () => {
+    reply({ variants: [{ id: 'v3', sku: 'X', name: null, size: null, color: null, colorHex: null, price: 0, stock: 0, imageUrl: null, measurements: null }] })
+    expect((await fetchProductDetail('p1')).variants).toEqual([
+      { id: 'v3', sku: 'X', name: null, size: null, color: null, colorHex: null, price: 0, stock: 0, imageUrl: null, measurements: null },
+    ])
+  })
+
+  it('reads garment measurements, with the ones never filled in as null', async () => {
+    reply({ variants: [{ ...VARIANT, measurements: { id: 'm1', variantId: 'v1', chestWidthCm: 52.5, neckCm: null } }] })
+    const { measurements } = (await fetchProductDetail('p1')).variants[0]
+    expect(measurements).toMatchObject({ chestWidthCm: 52.5, neckCm: null, thighCm: null })
+    expect(Object.keys(measurements!)).toHaveLength(9)
+  })
+
+  it('returns the product fields the edit form starts from, images in display order', async () => {
+    reply({
+      variants: [],
+      description: 'Soft',
+      gender: 'female',
+      brand: null,
+      category: 'Tops',
+      images: [
+        { url: 'https://x/b.jpg', altText: null, displayOrder: 1, isPrimary: false },
+        { url: 'https://x/a.jpg', altText: 'Tee', displayOrder: 0, isPrimary: true },
+      ],
+    })
+    expect((await fetchProductDetail('p1')).product).toEqual({
+      description: 'Soft',
+      gender: 'female',
+      brand: null,
+      category: 'Tops',
+      images: [
+        { url: 'https://x/a.jpg', altText: 'Tee', displayOrder: 0, isPrimary: true },
+        { url: 'https://x/b.jpg', altText: null, displayOrder: 1, isPrimary: false },
+      ],
+    })
+  })
+})
+
+describe('isActive', () => {
+  it('is copied onto a list item when the API sends it, so an archived product shows as archived', async () => {
+    reply({ data: [{ ...ITEM, isActive: false }, ITEM], meta: { total: 2, page: 1, limit: 25, totalPages: 1, hasNextPage: false, hasPreviousPage: false } })
+    const { data } = await fetchProductList({})
+    expect(data[0].isActive).toBe(false)
+    expect(data[1]).not.toHaveProperty('isActive')
   })
 })
 

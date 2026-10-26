@@ -1,7 +1,20 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { PRODUCTS } from '../../src/data/products'
 import type { NewProductInput } from '../../src/service/productAdmin'
-import { resetSampleInventory, sampleCreateProduct, sampleProductDetail, sampleProductList, sampleRestockVariants, sampleSetArchived, sampleSetArReady } from '../../src/service/sampleInventory'
+import {
+  resetSampleInventory,
+  sampleAddVariant,
+  sampleCreateProduct,
+  sampleDeleteProduct,
+  sampleDeleteVariant,
+  sampleProductDetail,
+  sampleProductList,
+  sampleRestockVariants,
+  sampleSetArchived,
+  sampleSetArReady,
+  sampleUpdateProduct,
+  sampleUpdateVariant,
+} from '../../src/service/sampleInventory'
 
 const now = { delayMs: 0 }
 
@@ -202,5 +215,100 @@ describe('sampleCreateProduct', () => {
     await sampleCreateProduct(input(), now)
     resetSampleInventory()
     expect((await sampleProductList({}, now)).meta.total).toBe(PRODUCTS.length)
+  })
+})
+
+describe('managing products and variants', () => {
+  const variantsOf = async (id: string) => (await sampleProductDetail(id, now)).variants
+
+  it('deletes a product for good, leaving the shared catalogue alone', async () => {
+    await sampleDeleteProduct('p01', now)
+    expect((await sampleProductList({ search: 'p01' }, now)).data).toEqual([])
+    await expect(sampleProductDetail('p01', now)).rejects.toMatchObject({ kind: 'not-found' })
+    await expect(sampleDeleteProduct('p01', now)).rejects.toMatchObject({ kind: 'not-found' })
+    expect(PRODUCTS.find((p) => p.id === 'p01')).toBeDefined()
+    resetSampleInventory()
+    expect((await sampleProductList({ search: 'p01' }, now)).data).toHaveLength(1)
+  })
+
+  it('adds a variant with an auto SKU that is bumped -2, -3 when taken', async () => {
+    const first = await sampleAddVariant('p01', { size: 'XXL', color: 'Teal', colorHex: '#008080', price: 100, stock: 2 }, now)
+    expect(first).toMatchObject({ sku: 'P01-XXL-TEAL', size: 'XXL', color: 'Teal', colorHex: '#008080', price: 100, stock: 2, measurements: null })
+    const second = await sampleAddVariant('p01', { size: 'XXL', color: 'Teal', colorHex: '#008080', price: 100 }, now)
+    const third = await sampleAddVariant('p01', { size: 'XXL', color: 'Teal', colorHex: '#008080', price: 100 }, now)
+    expect([second.sku, third.sku]).toEqual(['P01-XXL-TEAL-2', 'P01-XXL-TEAL-3'])
+    expect(second.stock).toBe(0)
+    expect((await sampleProductList({ search: 'p01' }, now)).data[0].variantCount).toBe((await variantsOf('p01')).length)
+  })
+
+  it('refuses a taken explicit SKU, a variant with nothing to tell it apart, a colour without a hex and a missing price', async () => {
+    await expect(sampleAddVariant('p01', { sku: 'p01-s-white', size: 'S', price: 1 }, now)).rejects.toMatchObject({ kind: 'conflict', detail: 'SKU p01-s-white is already in use' })
+    await expect(sampleAddVariant('p01', { price: 1 }, now)).rejects.toMatchObject({ kind: 'validation' })
+    await expect(sampleAddVariant('p01', { color: 'Teal', price: 1 }, now)).rejects.toMatchObject({ kind: 'validation', detail: expect.stringContaining('colorHex') })
+    await expect(sampleAddVariant('p01', { size: 'S' } as never, now)).rejects.toMatchObject({ kind: 'validation' })
+    await expect(sampleAddVariant('nope', { size: 'S', price: 1 }, now)).rejects.toMatchObject({ kind: 'not-found' })
+  })
+
+  it('updates only what the patch names, and null clears', async () => {
+    const [before] = await variantsOf('p01')
+    const priced = await sampleUpdateVariant('p01', before.id, { price: 777 }, now)
+    expect(priced).toMatchObject({ price: 777, sku: before.sku, stock: before.stock, color: before.color })
+    const measured = await sampleUpdateVariant('p01', before.id, { measurements: { chestWidthCm: 52 } }, now)
+    expect(measured.measurements).toMatchObject({ chestWidthCm: 52, neckCm: null })
+    const cleared = await sampleUpdateVariant('p01', before.id, { measurements: { chestWidthCm: null } }, now)
+    expect(cleared.measurements?.chestWidthCm).toBeNull()
+    const noColour = await sampleUpdateVariant('p01', before.id, { color: null }, now)
+    expect(noColour).toMatchObject({ color: null, colorHex: null })
+  })
+
+  it('re-checks the merged variant: SKU clash, colour needs a hex, something to tell it apart', async () => {
+    const [a, b] = await variantsOf('p01')
+    await expect(sampleUpdateVariant('p01', a.id, { sku: b.sku }, now)).rejects.toMatchObject({ kind: 'conflict', detail: expect.stringContaining(b.sku) })
+    await expect(sampleUpdateVariant('p01', a.id, { sku: a.sku }, now)).resolves.toBeDefined()
+    await expect(sampleUpdateVariant('p01', a.id, { color: 'Teal' }, now)).resolves.toBeDefined()
+    const [only] = await variantsOf('p01')
+    await expect(sampleUpdateVariant('p01', only.id, { size: null, color: null, name: null }, now)).rejects.toMatchObject({ kind: 'validation' })
+    await expect(sampleUpdateVariant('p01', 'nope', { price: 1 }, now)).rejects.toMatchObject({ kind: 'not-found' })
+  })
+
+  it('deletes a variant, and a product left with none has no price or stock', async () => {
+    const variants = await variantsOf('p01')
+    await sampleDeleteVariant('p01', variants[0].id, now)
+    expect(await variantsOf('p01')).toHaveLength(variants.length - 1)
+    await expect(sampleDeleteVariant('p01', variants[0].id, now)).rejects.toMatchObject({ kind: 'not-found' })
+    for (const v of variants.slice(1)) await sampleDeleteVariant('p01', v.id, now)
+    expect((await sampleProductList({ search: 'p01' }, now)).data[0]).toMatchObject({ minPrice: 0, maxPrice: 0, totalStock: 0, variantCount: 0 })
+  })
+
+  it('edits a product replacing its images, without touching the shared catalogue', async () => {
+    const before = PRODUCTS.find((p) => p.id === 'p01')!.name
+    await sampleUpdateProduct(
+      'p01',
+      {
+        name: 'Renamed',
+        brand: 'New Boutique',
+        description: 'Fresh',
+        gender: 'unisex',
+        images: [
+          { url: 'https://x/b.jpg', altText: 'Back', displayOrder: 0, isPrimary: true },
+          { url: 'https://x/c.jpg', altText: 'Side', displayOrder: 1, isPrimary: false },
+        ],
+      },
+      now,
+    )
+    const item = (await sampleProductList({ search: 'p01' }, now)).data[0]
+    expect(item).toMatchObject({ name: 'Renamed', brand: 'New Boutique', primaryImage: { url: 'https://x/b.jpg', altText: 'Back' } })
+    const { product } = await sampleProductDetail('p01', now)
+    expect(product).toMatchObject({ description: 'Fresh', gender: 'unisex', brand: 'New Boutique' })
+    expect(product.images.map((i) => i.url)).toEqual(['https://x/b.jpg', 'https://x/c.jpg'])
+    expect(PRODUCTS.find((p) => p.id === 'p01')!.name).toBe(before)
+    await expect(sampleUpdateProduct('nope', { name: 'x' }, now)).rejects.toMatchObject({ kind: 'not-found' })
+  })
+
+  it('puts everything back on reset', async () => {
+    await sampleDeleteVariant('p01', (await variantsOf('p01'))[0].id, now)
+    await sampleUpdateProduct('p01', { name: 'Renamed' }, now)
+    resetSampleInventory()
+    expect((await sampleProductList({ search: 'p01' }, now)).data[0].name).toBe(PRODUCTS.find((p) => p.id === 'p01')!.name)
   })
 })

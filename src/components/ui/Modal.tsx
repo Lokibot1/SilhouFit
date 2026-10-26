@@ -11,6 +11,10 @@ const FOCUSABLE =
 /** Drawer curve: eases in and out, so the slide has no jump at either end. */
 const SHEET_EASE: [number, number, number, number] = [0.32, 0.72, 0, 1]
 
+/** How many modals hold the page's scroll lock, and the body styles to put back when the last lets go. */
+let locks = 0
+let restore: { overflow: string; paddingRight: string } | null = null
+
 interface ModalProps {
   open: boolean
   /** Called for Escape, the backdrop and the close button. */
@@ -36,12 +40,14 @@ export function Modal({ open, onClose, title, icon, variant = 'center', children
 
   // The scroll lock is released once the exit animation ends: unlocking at the start would reflow the whole page
   // (the scrollbar comes back) in the middle of the slide and stall it.
-  const saved = useRef<{ overflow: string; paddingRight: string } | null>(null)
+  const locked = useRef(false)
   function unlock() {
-    if (!saved.current) return
-    document.body.style.overflow = saved.current.overflow
-    document.body.style.paddingRight = saved.current.paddingRight
-    saved.current = null
+    if (!locked.current) return
+    locked.current = false
+    if (--locks > 0 || !restore) return
+    document.body.style.overflow = restore.overflow
+    document.body.style.paddingRight = restore.paddingRight
+    restore = null
   }
   useEffect(() => unlock, [])
 
@@ -49,12 +55,16 @@ export function Modal({ open, onClose, title, icon, variant = 'center', children
     if (!open) return
     const returnTo = document.activeElement as HTMLElement | null
     const { style } = document.body
-    if (!saved.current) {
-      saved.current = { overflow: style.overflow, paddingRight: style.paddingRight }
-      // Hiding the scrollbar would widen the page, so pad by its width.
-      const scrollbar = window.innerWidth - document.documentElement.clientWidth
-      style.overflow = 'hidden'
-      if (scrollbar > 0) style.paddingRight = `calc(${getComputedStyle(document.body).paddingRight} + ${scrollbar}px)`
+    if (!locked.current) {
+      locked.current = true
+      // A sheet may open while the one it replaces is still sliding out: only the first lock reads the page's own styles.
+      if (locks++ === 0) {
+        restore = { overflow: style.overflow, paddingRight: style.paddingRight }
+        // Hiding the scrollbar would widen the page, so pad by its width.
+        const scrollbar = window.innerWidth - document.documentElement.clientWidth
+        style.overflow = 'hidden'
+        if (scrollbar > 0) style.paddingRight = `calc(${getComputedStyle(document.body).paddingRight} + ${scrollbar}px)`
+      }
     }
     panelRef.current?.focus()
 
