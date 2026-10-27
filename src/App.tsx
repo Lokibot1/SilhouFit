@@ -10,6 +10,7 @@ import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
 import { InventoryPageSkeleton } from './components/staff/InventorySkeleton'
 import { StaffShellSkeleton } from './components/staff/StaffSkeleton'
+import { MeasurementsPageSkeleton } from './components/staff/MeasurementsSkeleton'
 import { TransactionsPageSkeleton } from './components/staff/TransactionsSkeleton'
 import { ToastProvider } from './components/toast/ToastProvider'
 import { ProfileSkeleton } from './components/profile/ProfileSkeleton'
@@ -75,6 +76,9 @@ const StaffDashboardPage = lazy(() =>
 )
 const StaffInventoryPage = lazy(() =>
   import('./views/staff/StaffInventoryPage').then((m) => ({ default: m.StaffInventoryPage })),
+)
+const StaffMeasurementsPage = lazy(() =>
+  import('./views/staff/StaffMeasurementsPage').then((m) => ({ default: m.StaffMeasurementsPage })),
 )
 const StaffTransactionsPage = lazy(() =>
   import('./views/staff/StaffTransactionsPage').then((m) => ({ default: m.StaffTransactionsPage })),
@@ -236,6 +240,14 @@ function App() {
                 element={
                   <Suspense fallback={<InventoryPageSkeleton />}>
                     <StaffInventoryPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="measurements"
+                element={
+                  <Suspense fallback={<MeasurementsPageSkeleton />}>
+                    <StaffMeasurementsPage />
                   </Suspense>
                 }
               />

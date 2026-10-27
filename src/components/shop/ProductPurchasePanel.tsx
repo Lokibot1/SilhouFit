@@ -3,6 +3,7 @@ import { choiceOf, LOW_STOCK, sizesFor, type Product } from '../../data/products
 import { formatPeso } from '../../utils/format'
 import { BagIcon, CameraIcon, CartIcon, MinusIcon, PaletteIcon, PlusIcon, RulerIcon, StarIcon } from '../form/icons'
 import { Tooltip } from '../ui/Tooltip'
+import { SizeGuideModal } from './SizeGuideModal'
 import { PRODUCT_ACTIONS, PRODUCT_PANEL } from './ProductSkeleton'
 import { CHANNEL_LABEL, SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 import { OPTION_BASE, type Choice } from './SpecSheet'
@@ -39,6 +40,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
   const [wanted, setWanted] = useState(1)
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const longDescription = (product.description?.length ?? 0) > DESCRIPTION_PREVIEW
   const descRef = useRef<HTMLParagraphElement>(null)
   // Below lg the clamp can cut short copy too, so View more also appears when the text is really cut off.
@@ -250,6 +252,20 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
           <p id="product-error" role="alert" className="mt-2 text-base text-danger lg:text-sm">
             {error}
           </p>
+        )}
+        {product.variants && product.variants.length > 0 && (
+          <>
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={() => setGuideOpen(true)}
+              className="font-ui mt-2 flex min-h-11 w-fit cursor-pointer items-center gap-2 text-base font-semibold lg:text-sm text-fg underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-chrome-strong"
+            >
+              <RulerIcon size={16} />
+              Size guide
+            </button>
+            <SizeGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} category={product.category} variants={product.variants} selected={size} />
+          </>
         )}
       </fieldset>
 

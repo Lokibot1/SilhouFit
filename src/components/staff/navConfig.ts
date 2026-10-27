@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { BagIcon, CartIcon, GridIcon, ListIcon, UserIcon } from '../form/icons'
+import { BagIcon, CartIcon, GridIcon, ListIcon, RulerIcon, UserIcon } from '../form/icons'
 import type { Area } from '../../utils/staffRole'
 
 export interface NavItem {
@@ -14,6 +14,7 @@ export const NAV: Record<Area, NavItem[]> = {
   staff: [
     { label: 'Dashboard', to: '/staff', icon: GridIcon },
     { label: 'Inventory', to: '/staff/inventory', icon: BagIcon },
+    { label: 'Measurements', to: '/staff/measurements', icon: RulerIcon },
     { label: 'Transactions', to: '/staff/transactions', icon: ListIcon },
     // Online Orders has no backend module yet.
     { label: 'Online Orders', icon: CartIcon },

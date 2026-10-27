@@ -294,7 +294,7 @@ export function filterMeasurement(input: string) {
   return `${cleaned.slice(0, dot).slice(0, 3)}.${cleaned.slice(dot + 1).replace(/\./g, '').slice(0, 1)}`
 }
 
-const parseMeasurement = (text: string): number | null => (/^(\d+\.?\d?|\.\d)$/.test(text) ? Number(text) : null)
+export const parseMeasurement = (text: string): number | null => (/^(\d+\.?\d?|\.\d)$/.test(text) ? Number(text) : null)
 
 /** The Add / Edit variant form: every box holds text. */
 export interface VariantFormValues {
