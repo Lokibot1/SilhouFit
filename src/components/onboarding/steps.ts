@@ -1,4 +1,4 @@
-import { sizesFor, type Product } from '../../data/products'
+import type { Product } from '../../data/products'
 import { fulfilmentAvailability } from '../../utils/checkout'
 
 export interface TourStop {
@@ -20,30 +20,17 @@ export interface TourStep {
   stops: TourStop[]
 }
 
-/** The piece the tour shows: in stock, AR-ready and sold both online and in store; else the nearest thing to it. */
-export function tourProduct(catalogue: Product[] | null): Product | null {
-  const inStock = (catalogue ?? []).filter((p) => p.stock > 0)
-  return (
-    inStock.find((p) => p.arReady && p.channels.includes('online') && p.channels.includes('store')) ??
-    inStock.find((p) => p.arReady) ??
-    inStock[0] ??
-    null
-  )
-}
-
 /**
  * The real checkout for one piece, opened the way Buy now does plus `tour=1`, so a real Buy now is never mistaken for
  * the tour's sample. The cart is never touched.
  */
 export function tourCheckoutPath(product: Product) {
-  const size = sizesFor(product)[0]
-  const color = product.colors[0].name
-  return `/checkout?item=${product.id}&size=${encodeURIComponent(size)}&color=${encodeURIComponent(color)}&qty=1&tour=1`
+  const variant = product.variants!.find((v) => v.stock > 0)!
+  return `/checkout?item=${product.id}&variant=${variant.id}&qty=1&tour=1`
 }
 
 const pickupAvailable = (product: Product | null) =>
-  !product ||
-  fulfilmentAvailability([{ product, size: sizesFor(product)[0], color: product.colors[0].name, qty: 1 }]).pickup === null
+  !product || fulfilmentAvailability([{ product, variantId: '', size: '', color: '', qty: 1, unit: product.price }]).pickup === null
 
 const STEPS: TourStep[] = [
   {

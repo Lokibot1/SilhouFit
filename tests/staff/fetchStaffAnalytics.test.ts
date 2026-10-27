@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { LOW_STOCK, PRODUCTS } from '../../src/data/products'
+import { LOW_STOCK } from '../../src/data/products'
 import { stockLabel } from '../../src/components/staff/TrendingItems'
 import {
   fetchOrderLog,
@@ -7,7 +7,9 @@ import {
   fetchSalesSeries,
   fetchStaffSummary,
   fetchTrendingItems,
+  setSampleProducts,
 } from '../../src/service/fetchStaffAnalytics'
+import { SAMPLE_PRODUCTS as PRODUCTS } from '../fixtures/sampleProducts'
 import type { Period } from '../../src/utils/period'
 
 const NO_DELAY = { delayMs: 0 }
@@ -17,6 +19,7 @@ const sum = (nums: number[]) => nums.reduce((a, b) => a + b, 0)
 const forYear = (period: Period, year = 2026) => ({ ...NO_DELAY, filter: { period, year } })
 
 beforeEach(() => {
+  setSampleProducts(PRODUCTS)
   // 3:45 PM in Manila on Oct 22, 2026. Only Date is faked, so the request timers still run.
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-10-22T07:45:00Z'))
@@ -63,7 +66,7 @@ describe('fetchStaffAnalytics', () => {
     for (const t of trending) {
       const product = PRODUCTS.find((p) => p.id === t.productId)!
       expect(Number.isInteger(t.stock) && t.stock >= 0).toBe(true)
-      expect(t.stock).toBeLessThanOrEqual(product.stock) // sample mode may lower it to show the low and sold-out states
+      expect(t.stock).toBe(product.stock)
       expect(t.orders).toBeLessThanOrEqual(summary.orderCount)
       if (product.arReady) expect(Number.isInteger(t.arConversion) && t.arConversion! >= 0 && t.arConversion! <= 100).toBe(true)
       else expect(t.arConversion).toBeNull()
@@ -71,10 +74,17 @@ describe('fetchStaffAnalytics', () => {
     expect(await fetchTrendingItems(NO_DELAY)).toEqual(trending)
   })
 
-  it('shows a low-stock and a sold-out item in the sample set', async () => {
-    const trending = await fetchTrendingItems(NO_DELAY)
-    expect(trending.some((t) => t.stock >= 1 && t.stock <= LOW_STOCK)).toBe(true)
-    expect(trending.some((t) => t.stock === 0)).toBe(true)
+  it('reports the real stock, never a made-up low or sold-out one', async () => {
+    const trending = await fetchTrendingItems({ ...NO_DELAY, filter: { period: 'year', year: 2026 } })
+    for (const t of trending) expect(t.stock).toBe(PRODUCTS.find((p) => p.id === t.productId)!.stock)
+  })
+
+  it('has no orders, and so empty figures, while the shop has no products', async () => {
+    setSampleProducts([])
+    expect(await fetchOrderLog(NO_DELAY)).toEqual([])
+    expect(await fetchTrendingItems(NO_DELAY)).toEqual([])
+    expect(await fetchProductMix(NO_DELAY)).toEqual([])
+    expect(await fetchStaffSummary(NO_DELAY)).toMatchObject({ orderCount: 0, salesTotal: 0, unitsSold: 0 })
   })
 
   it('rejects with a network error on a ?fail hook, and only for that section', async () => {
@@ -196,7 +206,7 @@ describe('fetchStaffAnalytics with a period filter', () => {
 
   it('shows current stock whatever the period', async () => {
     for (const t of await fetchTrendingItems(forYear('year', 2025))) {
-      expect(t.stock).toBeLessThanOrEqual(PRODUCTS.find((p) => p.id === t.productId)!.stock)
+      expect(t.stock).toBe(PRODUCTS.find((p) => p.id === t.productId)!.stock)
     }
   })
 })

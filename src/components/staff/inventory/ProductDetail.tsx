@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react'
-import { PRODUCTS } from '../../../data/products'
 import type { SectionState } from '../../../hooks/useSection'
 import type { ProductListItem, ProductVariant } from '../../../service/fetchProductList'
-import { SAMPLE_COLOR_HEX } from '../../../service/sampleInventory'
 import { isArchived } from '../../../utils/inventoryQuery'
 import { parseStock } from '../../../utils/stockEdit'
 import { PencilIcon, PlusIcon, TrashIcon } from '../../form/icons'
@@ -19,18 +17,16 @@ const VARIANT_ROW = 'h-14'
 // Below sm the two actions stack so the SKU keeps its room.
 const MANAGED_ROW = 'h-24 sm:h-14'
 const FACT_LABEL = 'text-sm text-fg-muted'
-// The API sends colour names only; the shop catalogue knows their hex.
-const HEX = new Map(PRODUCTS.flatMap((p) => p.colors).map((c) => [c.name, c.hex]))
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
-function Swatch({ color, colorHex }: { color: string; colorHex?: string | null }) {
-  const hex = colorHex ?? HEX.get(color) ?? SAMPLE_COLOR_HEX.get(color)
+/** The variant's swatch colour; a neutral dot when it has none. */
+function Swatch({ colorHex }: { colorHex?: string | null }) {
   return (
     <span
       aria-hidden="true"
-      style={hex ? { backgroundColor: hex } : undefined}
-      className={`size-4 shrink-0 rounded-full border border-line-strong ${hex ? '' : 'bg-line'}`}
+      style={colorHex ? { backgroundColor: colorHex } : undefined}
+      className={`size-4 shrink-0 rounded-full border border-line-strong ${colorHex ? '' : 'bg-line'}`}
     />
   )
 }
@@ -145,7 +141,7 @@ function Facts({ variants }: { variants: ProductVariant[] }) {
       <dd className="min-h-6 text-sm text-fg tabular-nums">{variants.length}</dd>
       <dd className="flex min-h-6 flex-wrap items-center gap-1.5" aria-label={colors.join(', ')}>
         {colors.map((color) => (
-          <Swatch key={color} color={color} colorHex={variants.find((v) => v.color === color)?.colorHex} />
+          <Swatch key={color} colorHex={variants.find((v) => v.color === color)?.colorHex} />
         ))}
       </dd>
       <dd className="min-h-6 text-sm text-fg">{sizes.join(', ')}</dd>
@@ -181,7 +177,7 @@ export interface StockEdit {
   disabled: boolean
   onChange: (variantId: string, text: string) => void
   onSetSoldOut: (stock: number) => void
-  /** The AR Fitting checkbox; absent where the API cannot save it. */
+  /** The AR Fitting checkbox. Inert: the API has no field to save it in. */
   ar?: { checked: boolean; onChange: (checked: boolean) => void }
 }
 
@@ -222,7 +218,7 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
           <tr className={GROUP_ROW}>
             <th scope="rowgroup" colSpan={manage ? 4 : 3} className="border-b border-line text-left font-semibold text-fg">
               <span className="flex items-center gap-2">
-                <Swatch color={color} colorHex={items[0].colorHex} />
+                <Swatch colorHex={items[0].colorHex} />
                 <span className="min-w-0 flex-1 truncate">{color || 'No colour'}</span>
                 <span className="font-normal text-fg-muted tabular-nums">{items.reduce((sum, v) => sum + v.stock, 0)} in stock</span>
               </span>
@@ -295,7 +291,7 @@ export function ProductDetail({
           <Checkbox label="AR Fitting ready" checked={edit.ar.checked} onChange={edit.ar.onChange} className="justify-start">
             <span className="text-base font-semibold">AR Fitting ready</span>
           </Checkbox>
-          <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
+          <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting. Saving this needs a backend field, so it is not stored yet.</p>
         </div>
       )}
       <div className="mt-4">

@@ -7,7 +7,6 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { InventoryColgroup, rememberShowAlerts } from '../../src/components/staff/inventory/layout'
 import { needsAlert, rowTint, StockBadge } from '../../src/components/staff/inventory/InventoryParts'
 import { addVariant, deleteProduct, deleteVariant, setProductActive, updateProduct, updateStocks, updateVariant } from '../../src/service/productAdmin'
-import { resetSampleInventory, sampleSetArchived } from '../../src/service/sampleInventory'
 import {
   fetchProductById,
   fetchProductDetail,
@@ -27,13 +26,6 @@ vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
 
 vi.mock('../../src/service/productAdmin')
 
-// The page defaults to the sample catalogue; these tests flip it off for the real-API path and on for the sample path.
-const sample = vi.hoisted(() => ({ on: false }))
-vi.mock('../../src/service/sampleInventory', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../../src/service/sampleInventory')>()
-  return Object.defineProperty({ ...original }, 'INVENTORY_SAMPLE_DATA', { get: () => sample.on, enumerable: true })
-})
-
 const list = vi.mocked(fetchProductList)
 const byId = vi.mocked(fetchProductById)
 const detail = vi.mocked(fetchProductDetail)
@@ -41,7 +33,7 @@ const detail = vi.mocked(fetchProductDetail)
 const product = (n: number, overrides: Partial<ProductListItem> = {}): ProductListItem => ({
   id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
   name: `Tee ${n}`,
-  category: 'Tops',
+  category: 'Hoodie',
   brand: 'Silhou',
   minPrice: 1000,
   maxPrice: 1000,
@@ -69,7 +61,6 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
-  sample.on = false
   rememberShowAlerts(true)
   vi.resetAllMocks()
   list.mockResolvedValue(answer([product(1), product(2)]))
@@ -107,8 +98,6 @@ function renderPage(search = '') {
 
 const where = () => screen.getByTestId('where').textContent ?? ''
 const table = () => screen.getByRole('table')
-// The drawer has a table of its own, so once it is open `table()` finds two.
-const listTable = () => screen.getAllByRole('table')[0]
 const lastParams = () => list.mock.calls.at(-1)![0]
 
 async function choose(user: ReturnType<typeof userEvent.setup>, combobox: string, option: string) {
@@ -117,23 +106,34 @@ async function choose(user: ReturnType<typeof userEvent.setup>, combobox: string
 }
 
 describe('StaffInventoryPage', () => {
-  it('shows an AR Fitting column: a badge for ready and not ready, and a dash where the API has no field', async () => {
-    list.mockResolvedValue(answer([product(1, { arReady: true }), product(2, { arReady: false }), product(3)]))
+  it('offers exactly the four categories in the Category filter', async () => {
+    const user = userEvent.setup()
     renderPage()
     await within(await screen.findByRole('table')).findByRole('button', { name: /^Tee 1/ })
-    const header = within(table()).getByRole('columnheader', { name: 'AR Fitting' })
-    expect(header).not.toHaveAttribute('aria-sort')
-    expect(within(header).queryByRole('button')).not.toBeInTheDocument()
-    const cell = (name: RegExp) => within(within(table()).getByRole('button', { name }).closest('tr')!).getAllByRole('cell')[2]
-    expect(within(cell(/^Tee 1/)).getByText('AR ready')).toBeInTheDocument()
-    expect(within(cell(/^Tee 2/)).getByText('Not AR ready')).toBeInTheDocument()
-    expect(within(cell(/^Tee 3/)).getByText('Not specified')).toBeInTheDocument()
-    expect(within(cell(/^Tee 3/)).queryByText(/AR ready/)).not.toBeInTheDocument()
-    // The cards show the same badges on the category line.
-    const card = (name: string) => screen.getAllByRole('list', { name: 'Products' })[0].querySelector(`[data-product$="${name}"]`) as HTMLElement
-    expect(within(card('000000000001')).getByText('AR ready')).toBeInTheDocument()
-    expect(within(card('000000000002')).getByText('Not AR ready')).toBeInTheDocument()
-    expect(within(card('000000000003')).queryByText(/AR ready/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('combobox', { name: 'Category' }))
+    const options = (await screen.findAllByRole('option')).map((o) => o.textContent)
+    expect(options).toEqual(['All categories', 'Hoodie', 'Pants', 'Headwear', 'Shorts'])
+  })
+
+  it('keeps the Gender, Stock and AR Fitting filters, and sends only what the API accepts', async () => {
+    renderPage('?gender=male&ar=yes&stock=out&sort=name')
+    await within(await screen.findByRole('table')).findByRole('button', { name: /^Tee 1/ })
+    // The API has no AR flag, so the AR column shows a dash and the AR filter is kept but sends nothing.
+    expect(within(table()).getByRole('columnheader', { name: 'AR Fitting' })).toBeInTheDocument()
+    expect(screen.queryByText(/AR ready/)).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Gender' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'AR Fitting' })).toBeInTheDocument()
+    expect(screen.getByText('Filters (3)')).toBeInTheDocument()
+    expect(lastParams()).toMatchObject({ gender: 'male' })
+    for (const [params] of list.mock.calls) {
+      expect(params).not.toHaveProperty('arReady')
+      expect(params).not.toHaveProperty('ar')
+      expect(params).not.toHaveProperty('outOfStockOnly')
+      expect(params).not.toHaveProperty('sizesOutOnly')
+      expect(params.inStockOnly).toBeUndefined()
+    }
+    await userEvent.click(screen.getByRole('combobox', { name: 'Stock' }))
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['All stock levels', 'In stock', 'Out of stock', 'Has out-of-stock sizes'])
   })
 
   it('shows skeleton rows while loading, then the products and their count', async () => {
@@ -189,13 +189,13 @@ describe('StaffInventoryPage', () => {
     list.mockResolvedValue(answer([]))
     const { unmount } = renderPage()
     expect(await screen.findByText('No products yet')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear all' })).not.toBeInTheDocument()
     unmount()
 
     renderPage('?q=zzz')
     expect(await screen.findByText('No products match')).toBeInTheDocument()
     expect(screen.getByText(/clear the search and filters and try again/)).toBeInTheDocument()
-    await userEvent.click(screen.getAllByRole('button', { name: 'Clear filters' }).at(-1)!)
+    await userEvent.click(screen.getAllByRole('button', { name: 'Clear all' }).at(-1)!)
     expect(where()).toBe('/staff/inventory')
     expect(screen.getByRole('textbox', { name: /Search products/ })).toHaveValue('')
   })
@@ -204,19 +204,34 @@ describe('StaffInventoryPage', () => {
     const user = userEvent.setup()
     renderPage()
     await within(table()).findByRole('button', { name: /Tee 1/ })
-    const price = within(table()).getByRole('columnheader', { name: 'Price' })
-    expect(price).not.toHaveAttribute('aria-sort')
+    const name = within(table()).getByRole('columnheader', { name: 'Product' })
+    expect(name).not.toHaveAttribute('aria-sort')
 
-    await user.click(within(price).getByRole('button'))
-    expect(where()).toContain('sort=price')
+    await user.click(within(name).getByRole('button'))
+    expect(where()).toContain('sort=name')
     expect(where()).toContain('dir=asc')
-    await waitFor(() => expect(price).toHaveAttribute('aria-sort', 'ascending'))
-    expect(lastParams()).toMatchObject({ sortBy: 'basePrice', sortOrder: 'asc' })
+    await waitFor(() => expect(name).toHaveAttribute('aria-sort', 'ascending'))
+    expect(lastParams()).toMatchObject({ sortBy: 'name', sortOrder: 'asc' })
 
-    await user.click(within(price).getByRole('button'))
-    await waitFor(() => expect(price).toHaveAttribute('aria-sort', 'descending'))
+    await user.click(within(name).getByRole('button'))
+    await waitFor(() => expect(name).toHaveAttribute('aria-sort', 'descending'))
     expect(where()).toContain('dir=desc')
-    expect(lastParams()).toMatchObject({ sortBy: 'basePrice', sortOrder: 'desc' })
+    expect(lastParams()).toMatchObject({ sortBy: 'name', sortOrder: 'desc' })
+  })
+
+  it('keeps the price sort, but the API is asked for the default order and never for basePrice', async () => {
+    const user = userEvent.setup()
+    renderPage('?sort=price&dir=asc')
+    await within(table()).findByRole('button', { name: /Tee 1/ })
+    const price = within(table()).getByRole('columnheader', { name: 'Price' })
+    expect(within(price).getByRole('button')).toBeInTheDocument()
+    expect(price).toHaveAttribute('aria-sort', 'ascending')
+    expect(where()).toContain('sort=price')
+    expect(lastParams()).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
+    await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
+    expect(screen.getByRole('option', { name: 'Price: low to high' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Price: high to low' })).toBeInTheDocument()
+    for (const [params] of list.mock.calls) expect(params.sortBy).not.toBe('basePrice')
   })
 
   it('shows the range of the page, and a page size change goes back to page 1', async () => {
@@ -279,25 +294,23 @@ describe('StaffInventoryPage', () => {
     unmount()
   })
 
-  it('filters by category, gender and stock, and clears them together', async () => {
+  it('filters by category and stock, and clears them together', async () => {
     const user = userEvent.setup()
     renderPage('?sort=name')
     await within(table()).findByRole('button', { name: /Tee 1/ })
 
-    await choose(user, 'Category', 'Tops')
-    await waitFor(() => expect(lastParams()).toMatchObject({ category: 'Tops' }))
-    await choose(user, 'Gender', 'Women')
-    await waitFor(() => expect(lastParams()).toMatchObject({ gender: 'female' }))
+    await choose(user, 'Category', 'Hoodie')
+    await waitFor(() => expect(lastParams()).toMatchObject({ category: 'Hoodie' }))
     await choose(user, 'Stock', 'In stock')
     await waitFor(() => expect(lastParams()).toMatchObject({ inStockOnly: true }))
-    expect(where()).toBe('/staff/inventory?sort=name&category=Tops&gender=female&stock=in')
-    expect(screen.getByText('Filters (3)')).toBeInTheDocument()
+    expect(where()).toBe('/staff/inventory?sort=name&category=Hoodie&stock=in')
+    expect(screen.getByText('Filters (2)')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+    await user.click(screen.getByRole('button', { name: 'Clear all' }))
     expect(where()).toBe('/staff/inventory?sort=name')
     await waitFor(() => expect(lastParams().category).toBeUndefined())
     expect(lastParams().inStockOnly).toBeUndefined()
-    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear all' })).not.toBeInTheDocument()
   })
 
   it('keeps the previous rows, dimmed, while the next request loads', async () => {
@@ -383,7 +396,7 @@ describe('StaffInventoryPage', () => {
     renderPage()
     const opener = await within(table()).findByRole('button', { name: /Tee 1/ })
 
-    await user.click(within(opener.closest('tr')!).getByText('Tops'))
+    await user.click(within(opener.closest('tr')!).getByText('Hoodie'))
     await screen.findByRole('dialog', { name: 'Tee 1' })
     expect(detail).toHaveBeenCalledTimes(1)
     await user.keyboard('{Escape}')
@@ -413,7 +426,7 @@ describe('StaffInventoryPage', () => {
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(detail).toHaveBeenCalledTimes(1)
 
-    expect(within(drawer).getByText('Tops, Silhou')).toBeInTheDocument()
+    expect(within(drawer).getByText('Hoodie, Silhou')).toBeInTheDocument()
     expect(within(drawer).getByText(/1,000/)).toBeInTheDocument()
     expect(within(drawer).getByText('Out of stock')).toBeInTheDocument()
     expect(within(drawer).getByText(product(1).id)).toBeInTheDocument()
@@ -458,339 +471,6 @@ describe('StaffInventoryPage', () => {
   })
 })
 
-describe('StaffInventoryPage with the sample catalogue', () => {
-  beforeEach(() => {
-    sample.on = true
-  })
-
-  it('lists the shop catalogue without calling the API, hides Gender and says the data is a sample', async () => {
-    renderPage('?gender=male')
-    expect(await within(table()).findByRole('button', { name: /Heritage Polo/ }, { timeout: 3000 })).toBeInTheDocument()
-    expect(list).not.toHaveBeenCalled()
-    expect(screen.getByText('Sample data')).toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: 'Gender' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/Filters \(1\)/)).not.toBeInTheDocument()
-  })
-
-  it('searches by ID, filters by stock and opens variants that add up to the stock', async () => {
-    const user = userEvent.setup()
-    renderPage('?q=p02')
-    const open = await within(table()).findByRole('button', { name: /Fence-Line Blazer/ }, { timeout: 3000 })
-    expect(within(table()).getAllByRole('row')).toHaveLength(2)
-    await user.click(open)
-    const drawer = await screen.findByRole('dialog', { name: 'Fence-Line Blazer' })
-    expect(await within(drawer).findByText('P02-XS-BLACK', {}, { timeout: 3000 })).toBeInTheDocument()
-  })
-
-  it('lists only sold-out products with the out of stock filter', async () => {
-    renderPage('?stock=out')
-    expect(await within(table()).findByRole('button', { name: /^Field Denim Jacket/ }, { timeout: 3000 })).toBeInTheDocument()
-    expect(within(table()).getAllByText('Out of stock').length).toBe(within(table()).getAllByRole('row').length - 1)
-    expect(screen.getByText('Filters (1)')).toBeInTheDocument()
-  })
-})
-
-describe('StaffInventoryPage archive, restore and restock (sample catalogue)', () => {
-  const T = { timeout: 4000 }
-
-  beforeEach(() => {
-    sample.on = true
-    resetSampleInventory()
-  })
-
-  // The table is absent while the list is empty, so it is looked up again on each try.
-  const row = (name: RegExp) => waitFor(() => within(table()).getByRole('button', { name }), T)
-
-  it('switches between the Active and Archived tabs with the mouse and the arrow keys, in the URL', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    const tabs = screen.getByRole('tablist', { name: 'Product status' })
-    const active = within(tabs).getByRole('tab', { name: 'Active' })
-    const archived = within(tabs).getByRole('tab', { name: 'Archived' })
-    expect(active).toHaveAttribute('aria-selected', 'true')
-    expect(archived).toHaveAttribute('tabindex', '-1')
-    await row(/^Heritage Polo/)
-
-    await user.click(archived)
-    expect(where()).toBe('/staff/inventory?status=archived')
-    expect(await screen.findByText('No archived products', {}, T)).toBeInTheDocument()
-    expect(screen.getByText(/hidden from the shop and listed here/)).toBeInTheDocument()
-    expect(screen.getByText('Hidden from the shop until you restore them.')).toBeInTheDocument()
-    expect(archived).toHaveAttribute('aria-selected', 'true')
-
-    archived.focus()
-    await user.keyboard('{ArrowLeft}')
-    expect(where()).toBe('/staff/inventory')
-    expect(active).toHaveFocus()
-    await user.keyboard('{End}')
-    expect(where()).toBe('/staff/inventory?status=archived')
-    expect(archived).toHaveFocus()
-  })
-
-  it('shows the size chip only on products that still have stock, and filters to them', async () => {
-    const user = userEvent.setup()
-    renderPage('?q=p02')
-    const open = await row(/^Fence-Line Blazer/)
-    expect(within(open.closest('tr')!).getByText('1 size out')).toBeInTheDocument()
-    // Sold out products get Restock instead of the chip.
-    expect(screen.queryByRole('button', { name: /^Restock Fence-Line Blazer/ })).not.toBeInTheDocument()
-
-    await user.clear(screen.getByRole('textbox', { name: /Search products/ }))
-    await choose(user, 'Stock', 'Has out-of-stock sizes')
-    await waitFor(() => expect(where()).toContain('stock=sizes'))
-    await row(/^Field Denim Jacket/)
-    const names = within(table()).getAllByRole('row').slice(1).length
-    expect(names).toBeGreaterThan(1)
-    expect(within(table()).queryByText('Heritage Polo')).not.toBeInTheDocument()
-  })
-
-  it('archives from the drawer after a confirm step, then undoes it from the toast', async () => {
-    const user = userEvent.setup()
-    renderPage('?q=p02')
-    await user.click(await row(/^Fence-Line Blazer/))
-    const drawer = await screen.findByRole('dialog', { name: 'Fence-Line Blazer' })
-    await within(drawer).findByText('P02-XS-BLACK', {}, T)
-
-    await user.click(within(drawer).getByRole('button', { name: 'Archive product' }))
-    const confirm = await screen.findByRole('dialog', { name: 'Are you sure?' })
-    expect(within(confirm).getByText('Fence-Line Blazer will be hidden from the shop and from Active inventory. You can restore it from the Archived tab.')).toBeInTheDocument()
-    expect(within(confirm).getByRole('button', { name: 'Cancel' })).toHaveFocus()
-
-    // Cancel goes back to the product, nothing archived.
-    await user.click(within(confirm).getByRole('button', { name: 'Cancel' }))
-    expect(await screen.findByRole('dialog', { name: 'Fence-Line Blazer' })).toBeInTheDocument()
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-
-    await user.click(await row(/^Fence-Line Blazer/))
-    await user.click(await screen.findByRole('button', { name: 'Archive product' }))
-    const sure = await screen.findByRole('dialog', { name: 'Are you sure?' })
-    await user.click(within(sure).getByRole('button', { name: 'Archive product' }))
-    expect(within(sure).getByRole('button', { name: 'Archiving…' })).toBeDisabled()
-
-    expect(await screen.findByText('Fence-Line Blazer archived', {}, T)).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(await screen.findByText('No products match', {}, T)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(await screen.findByText('Fence-Line Blazer restored', {}, T)).toBeInTheDocument()
-    await row(/^Fence-Line Blazer/)
-  })
-
-  it('restores from a row without a confirm step, keeps the drawer shut, and undoes with a re-archive', async () => {
-    const user = userEvent.setup()
-    await sampleSetArchived('p02', true, { delayMs: 0 })
-    renderPage('?status=archived')
-    const open = await row(/^Fence-Line Blazer/)
-    const tr = open.closest('tr')!
-    expect(within(tr).getByText('Archived')).toBeInTheDocument()
-    expect(within(tr).queryByText(/sizes? out/)).not.toBeInTheDocument()
-    expect(document.body).toHaveTextContent('1 archived product')
-
-    await user.click(within(tr).getByRole('button', { name: 'Restore Fence-Line Blazer' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(await screen.findByText('Fence-Line Blazer restored', {}, T)).toBeInTheDocument()
-    expect(await screen.findByText('No archived products', {}, T)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(await screen.findByText('Fence-Line Blazer archived', {}, T)).toBeInTheDocument()
-    await row(/^Fence-Line Blazer/)
-  })
-
-  it('restores from the drawer of an archived product', async () => {
-    const user = userEvent.setup()
-    await sampleSetArchived('p02', true, { delayMs: 0 })
-    renderPage('?status=archived')
-    await user.click(await row(/^Fence-Line Blazer/))
-    const drawer = await screen.findByRole('dialog', { name: 'Fence-Line Blazer' })
-    expect(within(drawer).queryByRole('button', { name: 'Edit product' })).not.toBeInTheDocument()
-    await user.click(within(drawer).getByRole('button', { name: 'Restore product' }))
-    expect(await screen.findByText('Fence-Line Blazer restored', {}, T)).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-  })
-
-  it('opens the stock editor from a sold-out row without opening the drawer twice, then saves and undoes', async () => {
-    const user = userEvent.setup()
-    renderPage('?stock=out')
-    const open = await row(/^Field Denim Jacket/)
-    expect(within(table()).queryByRole('button', { name: /^Restock Heritage Polo/ })).not.toBeInTheDocument()
-
-    await user.click(within(open.closest('tr')!).getByRole('button', { name: 'Restock Field Denim Jacket' }))
-    const drawer = await screen.findByRole('dialog', { name: 'Field Denim Jacket' })
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    const box = await within(drawer).findByRole('textbox', { name: 'Stock for Indigo XS' }, T)
-    expect(box).toHaveFocus()
-    expect(within(drawer).getByRole('button', { name: 'Save changes' })).toBeDisabled()
-
-    // Digits only, five at most; a step changes it by one.
-    await user.clear(box)
-    expect(within(drawer).getByText('Enter a number from 0 to 99,999.')).toBeInTheDocument()
-    await user.type(box, '7a8')
-    expect(box).toHaveValue('78')
-    await user.click(within(drawer).getByRole('button', { name: 'Decrease stock for Indigo XS' }))
-    expect(box).toHaveValue('77')
-    expect(within(drawer).getByText('Was 0')).toBeInTheDocument()
-    await user.type(box, '9999999')
-    expect(box).toHaveValue('77999')
-    await user.clear(box)
-    await user.type(box, '8')
-    await user.click(within(drawer).getByRole('button', { name: 'Increase stock for Indigo XS' }))
-    expect(box).toHaveValue('9')
-
-    await user.click(within(drawer).getByRole('button', { name: 'Save changes' }))
-    expect(await screen.findByText('Stock updated for 1 size', {}, T)).toBeInTheDocument()
-    // The list and drawer load again: the jacket is no longer sold out.
-    expect(await screen.findByText('No products match', {}, T)).toBeInTheDocument()
-    expect(await within(drawer).findByRole('button', { name: 'Edit product' }, T)).toBeInTheDocument()
-    expect(within(drawer).getByText('9 in total')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(await screen.findByText('Stock change undone for Field Denim Jacket.', {}, T)).toBeInTheDocument()
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await row(/^Field Denim Jacket/)
-  })
-
-  it('sets every sold-out size at once, and only the changed sizes are saved', async () => {
-    const user = userEvent.setup()
-    renderPage('?q=p02')
-    await user.click(await row(/^Fence-Line Blazer/))
-    const drawer = await screen.findByRole('dialog', { name: 'Fence-Line Blazer' })
-    await within(drawer).findByText('P02-XS-BLACK', {}, T)
-    await user.click(within(drawer).getByRole('button', { name: 'Edit product' }))
-
-    const helper = within(drawer).getByLabelText('Set all sold-out sizes to')
-    expect(helper).toHaveValue('10')
-    await user.click(within(drawer).getByRole('button', { name: 'Set 1 sold-out size to 10' }))
-    expect(within(drawer).getByRole('textbox', { name: 'Stock for Black XL' })).toHaveValue('10')
-    expect(within(drawer).getByRole('textbox', { name: 'Stock for Black XS' })).toHaveValue('1')
-    await user.click(within(drawer).getByRole('button', { name: 'Save changes' }))
-    expect(await screen.findByText('Stock updated for 1 size', {}, T)).toBeInTheDocument()
-    expect(await within(drawer).findByText('14 in total', {}, T)).toBeInTheDocument()
-  })
-
-  it('asks before dropping unsaved edits, on Discard and on Escape, and keeps them on Cancel', async () => {
-    const user = userEvent.setup()
-    renderPage('?q=p08')
-    await user.click(await row(/^Everyday Crew Tee/))
-    const drawer = await screen.findByRole('dialog', { name: 'Everyday Crew Tee' })
-    await within(drawer).findByText('P08-XS-BLACK', {}, T)
-    // Nothing edited: Discard just leaves the editor.
-    await user.click(within(drawer).getByRole('button', { name: 'Edit product' }))
-    await user.click(within(drawer).getByRole('button', { name: 'Discard' }))
-    expect(within(drawer).getByRole('button', { name: 'Edit product' })).toHaveFocus()
-
-    await user.click(within(drawer).getByRole('button', { name: 'Edit product' }))
-    const box = within(drawer).getByRole('textbox', { name: 'Stock for Black XS' })
-    await user.click(within(drawer).getByRole('button', { name: 'Increase stock for Black XS' }))
-    const edited = (box as HTMLInputElement).value
-
-    await user.click(within(drawer).getByRole('button', { name: 'Discard' }))
-    const sure = await screen.findByRole('dialog', { name: 'Are you sure?' })
-    expect(within(sure).getByText('Your changes to 1 size of Everyday Crew Tee will be lost.')).toBeInTheDocument()
-    await user.click(within(sure).getByRole('button', { name: 'Cancel' }))
-    expect(within(screen.getByRole('dialog')).getByRole('textbox', { name: 'Stock for Black XS' })).toHaveValue(edited)
-
-    // Escape asks too, and a second Escape cancels the question.
-    await user.keyboard('{Escape}')
-    await screen.findByRole('dialog', { name: 'Are you sure?' })
-    await user.keyboard('{Escape}')
-    expect(await screen.findByRole('dialog', { name: 'Everyday Crew Tee' })).toBeInTheDocument()
-    await user.keyboard('{Escape}')
-    await user.click(within(await screen.findByRole('dialog', { name: 'Are you sure?' })).getByRole('button', { name: 'Discard changes' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.queryByText(/Stock updated/)).not.toBeInTheDocument()
-  })
-
-  it('filters by AR Fitting from the Select, in the URL, the list and the Filters count, on both tabs', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await row(/^Heritage Polo/)
-    await choose(user, 'AR Fitting', 'AR Fitting ready')
-    expect(where()).toBe('/staff/inventory?ar=yes')
-    await waitFor(() => expect(within(table()).queryByRole('button', { name: /^Heritage Polo/ })).not.toBeInTheDocument(), T)
-    expect(within(table()).getByRole('button', { name: /^Fence-Line Blazer/ })).toBeInTheDocument()
-    expect(screen.getByText('Filters (1)')).toBeInTheDocument()
-
-    await choose(user, 'AR Fitting', 'Not AR ready')
-    expect(where()).toBe('/staff/inventory?ar=no')
-    await row(/^Heritage Polo/)
-    expect(within(table()).queryByRole('button', { name: /^Fence-Line Blazer/ })).not.toBeInTheDocument()
-
-    await sampleSetArchived('p01', true, { delayMs: 0 })
-    await user.click(screen.getByRole('tab', { name: 'Archived' }))
-    expect(where()).toBe('/staff/inventory?ar=no&status=archived')
-    await row(/^Heritage Polo/)
-
-    await user.click(screen.getAllByRole('button', { name: 'Clear filters' }).at(-1)!)
-    expect(where()).toBe('/staff/inventory?status=archived')
-    expect(screen.queryByText(/Filters \(1\)/)).not.toBeInTheDocument()
-  })
-
-  it('turns AR Fitting on from the drawer, shows the badge, and undoes it', async () => {
-    const user = userEvent.setup()
-    renderPage('?q=p01')
-    await user.click(await row(/^Heritage Polo/))
-    const drawer = await screen.findByRole('dialog', { name: 'Heritage Polo' })
-    await within(drawer).findByText('P01-XS-WHITE', {}, T)
-    expect(within(drawer).queryByText('AR ready')).not.toBeInTheDocument()
-    await user.click(within(drawer).getByRole('button', { name: 'Edit product' }))
-    expect(within(drawer).getByText('Shoppers can try this item on in AR Fitting.')).toBeInTheDocument()
-    expect(within(drawer).getByRole('button', { name: 'Save changes' })).toBeDisabled()
-
-    await user.click(within(drawer).getByRole('checkbox', { name: 'AR Fitting ready' }))
-    await user.click(within(drawer).getByRole('button', { name: 'Save changes' }))
-    expect(await screen.findByText('AR Fitting ready turned on', {}, T)).toBeInTheDocument()
-    expect(await within(drawer).findByText('AR ready', {}, T)).toBeInTheDocument()
-    await waitFor(() => expect(within(listTable()).getByText('AR ready')).toBeInTheDocument(), T)
-
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(await screen.findByText('AR Fitting change undone for Heritage Polo.', {}, T)).toBeInTheDocument()
-    await waitFor(() => expect(within(listTable()).queryByText('AR ready')).not.toBeInTheDocument(), T)
-    expect(within(drawer).queryByText('AR ready')).not.toBeInTheDocument()
-  })
-
-  it('turns AR Fitting off with a stock change in one save, and asks before dropping an AR-only edit', async () => {
-    const user = userEvent.setup()
-    renderPage('?q=p02')
-    await user.click(await row(/^Fence-Line Blazer/))
-    const drawer = await screen.findByRole('dialog', { name: 'Fence-Line Blazer' })
-    await within(drawer).findByText('P02-XS-BLACK', {}, T)
-    expect(within(drawer).getByText('AR ready')).toBeInTheDocument()
-    await user.click(within(drawer).getByRole('button', { name: 'Edit product' }))
-    expect(within(drawer).getByRole('checkbox', { name: 'AR Fitting ready' })).toBeChecked()
-
-    // Only AR changed: Discard asks first.
-    await user.click(within(drawer).getByRole('checkbox', { name: 'AR Fitting ready' }))
-    await user.click(within(drawer).getByRole('button', { name: 'Discard' }))
-    const sure = await screen.findByRole('dialog', { name: 'Are you sure?' })
-    expect(within(sure).getByText('Your change to AR Fitting for Fence-Line Blazer will be lost.')).toBeInTheDocument()
-    await user.click(within(sure).getByRole('button', { name: 'Cancel' }))
-    expect(within(screen.getByRole('dialog')).getByRole('checkbox', { name: 'AR Fitting ready' })).not.toBeChecked()
-
-    await user.click(within(drawer).getByRole('button', { name: 'Increase stock for Black XS' }))
-    await user.click(within(drawer).getByRole('button', { name: 'Save changes' }))
-    expect(await screen.findByText('Stock and AR Fitting updated', {}, T)).toBeInTheDocument()
-    await waitFor(() => expect(within(drawer).queryByText('AR ready')).not.toBeInTheDocument(), T)
-    await waitFor(() => expect(within(listTable()).queryByText('AR ready')).not.toBeInTheDocument(), T)
-
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(await screen.findByText('Changes undone for Fence-Line Blazer.', {}, T)).toBeInTheDocument()
-    await waitFor(() => expect(within(listTable()).getByText('AR ready')).toBeInTheDocument(), T)
-  })
-
-  it('keeps opening the drawer from a click on the row, once', async () => {
-    const user = userEvent.setup()
-    renderPage('?stock=out')
-    const open = await row(/^Field Denim Jacket/)
-    await user.click(within(open.closest('tr')!).getByText('Outerwear'))
-    await screen.findByRole('dialog', { name: 'Field Denim Jacket' })
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    // A read-only start: no stock boxes until Edit product.
-    expect(screen.queryByRole('textbox', { name: /^Stock for/ })).not.toBeInTheDocument()
-  })
-})
-
 describe('StaffInventoryPage archive and restock (real API path)', () => {
   const T = { timeout: 3000 }
   const variants = [
@@ -799,12 +479,11 @@ describe('StaffInventoryPage archive and restock (real API path)', () => {
   ]
 
   beforeEach(() => {
-    sample.on = false
     list.mockResolvedValue(answer([product(1, { totalStock: 4 })]))
     detail.mockResolvedValue({ variants })
   })
 
-  it('tells the Archived tab is not available yet instead of listing, and hides the unsupported filters', async () => {
+  it('tells the Archived tab is not available yet instead of listing, and keeps the filters', async () => {
     const user = userEvent.setup()
     renderPage('?status=archived&stock=sizes')
     expect(await screen.findByText("Archived products can't be listed yet")).toBeInTheDocument()
@@ -813,9 +492,10 @@ describe('StaffInventoryPage archive and restock (real API path)', () => {
     await user.click(screen.getByRole('button', { name: 'Show active products' }))
     expect(where()).toBe('/staff/inventory?stock=sizes')
     await within(table()).findByRole('button', { name: /^Tee 1/ })
+    // The sizes-out filter needs a backend field: it stays selected and sends nothing.
     expect(lastParams().inStockOnly).toBeUndefined()
     await user.click(screen.getByRole('combobox', { name: 'Stock' }))
-    expect(screen.queryByRole('option', { name: 'Has out-of-stock sizes' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Has out-of-stock sizes' })).toBeInTheDocument()
   })
 
   it('archives with only { isActive: false }, and shows why when it fails', async () => {
@@ -846,9 +526,11 @@ describe('StaffInventoryPage archive and restock (real API path)', () => {
     await user.click(await within(table()).findByRole('button', { name: /^Tee 1/ }))
     const drawer = await screen.findByRole('dialog', { name: 'Tee 1' })
     await user.click(await within(drawer).findByRole('button', { name: 'Edit product' }))
-    // The API has no arReady field, so neither the filter nor the checkbox is offered.
-    expect(within(drawer).queryByRole('checkbox', { name: 'AR Fitting ready' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: 'AR Fitting' })).not.toBeInTheDocument()
+    // The API has no arReady field to save, so the AR Fitting checkbox is inert: it ticks, but is no edit to save.
+    const ar = within(drawer).getByRole('checkbox', { name: 'AR Fitting ready' })
+    await user.click(ar)
+    expect(ar).toBeChecked()
+    expect(within(drawer).getByRole('button', { name: 'Save changes' })).toBeDisabled()
     await user.click(within(drawer).getByRole('button', { name: 'Increase stock for Black S' }))
     await user.click(within(drawer).getByRole('button', { name: 'Increase stock for Black M' }))
     // What the reload after the save will say: v1 is saved, v2 is not.
@@ -880,7 +562,7 @@ describe('StaffInventoryPage delete, add and edit (real API path)', () => {
     description: 'Soft',
     gender: null,
     brand: 'Silhou',
-    category: 'Tops',
+    category: 'Hoodie',
     images: [
       { url: 'https://x/a.jpg', altText: 'Front', displayOrder: 0, isPrimary: true },
       { url: 'https://x/b.jpg', altText: 'Back', displayOrder: 1, isPrimary: false },
@@ -888,7 +570,6 @@ describe('StaffInventoryPage delete, add and edit (real API path)', () => {
   }
 
   beforeEach(() => {
-    sample.on = false
     list.mockResolvedValue(answer([product(1, { totalStock: 4 })]))
     detail.mockResolvedValue({ variants, product: fields })
   })
@@ -1109,45 +790,6 @@ describe('StaffInventoryPage delete, add and edit (real API path)', () => {
   })
 })
 
-describe('StaffInventoryPage delete and add variant (sample catalogue)', () => {
-  const T = { timeout: 4000 }
-
-  beforeEach(() => {
-    sample.on = true
-    resetSampleInventory()
-  })
-
-  it('deletes a product after the confirm step and drops it from the list', async () => {
-    const user = userEvent.setup()
-    renderPage('?q=p02')
-    await user.click(await waitFor(() => within(table()).getByRole('button', { name: /^Fence-Line Blazer/ }), T))
-    const drawer = await screen.findByRole('dialog', { name: 'Fence-Line Blazer' })
-    await within(drawer).findByText('P02-XS-BLACK', {}, T)
-    await user.click(within(drawer).getByRole('button', { name: 'Delete product' }))
-    await user.click(within(await screen.findByRole('dialog', { name: 'Are you sure?' })).getByRole('button', { name: 'Delete Product' }))
-    expect(await screen.findByText('Fence-Line Blazer deleted', {}, T)).toBeInTheDocument()
-    expect(await screen.findByText('No products match', {}, T)).toBeInTheDocument()
-  })
-
-  it('adds a variant with a generated SKU, which shows in the product when it comes back', async () => {
-    const user = userEvent.setup()
-    renderPage('?q=p01')
-    await user.click(await waitFor(() => within(table()).getByRole('button', { name: /^Heritage Polo/ }), T))
-    const drawer = await screen.findByRole('dialog', { name: 'Heritage Polo' })
-    await within(drawer).findByText('P01-S-WHITE', {}, T)
-    await user.click(within(drawer).getByRole('button', { name: 'Add variant' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Add variant' })
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'XXL')
-    await user.type(within(sheet).getByRole('textbox', { name: /^Colour name/ }), 'Teal')
-    await user.type(within(sheet).getByRole('textbox', { name: /^Colour hex/ }), '008080')
-    await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '99')
-    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
-    expect(await screen.findByText('Variant added', {}, T)).toBeInTheDocument()
-    const back = await screen.findByRole('dialog', { name: 'Heritage Polo' })
-    expect(await within(back).findByText('P01-XXL-TEAL', {}, T)).toBeInTheDocument()
-  })
-})
-
 describe('Stock alert column', () => {
   const alertHeader = () => within(table()).queryByRole('columnheader', { name: 'Stock alert' })
   const rowOf = (name: RegExp) => within(table()).getByRole('button', { name }).closest('tr')!
@@ -1293,5 +935,143 @@ describe('InventoryColgroup', () => {
     cols.slice(1, -1).forEach((col) => expect(col.className).toMatch(/^w-\[[\d.]+%\]( @\[\d+px\]:w-\[[\d.]+%\]){3}$/))
     expect(cols.at(-1)).toHaveClass('w-12')
     cols.forEach((col) => expect(col.className).not.toContain('@6xl'))
+  })
+})
+
+describe('StaffInventoryPage brand, size, colour and price filters (real API)', () => {
+  it('sends them to the API, shows a chip for each, and removes one at a time', async () => {
+    const user = userEvent.setup()
+    renderPage('?brand=Nike&size=M&color=Black&minPrice=100&maxPrice=900&page=2')
+    await within(table()).findByRole('button', { name: /Tee 1/ })
+    expect(lastParams()).toMatchObject({ brand: 'Nike', size: 'M', color: 'Black', minPrice: 100, maxPrice: 900, page: 2 })
+    expect(screen.getByText('Filters (4)')).toBeInTheDocument()
+
+    const chips = within(screen.getByRole('list', { name: 'Active filters' }))
+    expect(chips.getByRole('button', { name: 'Remove brand Nike' })).toBeInTheDocument()
+    expect(chips.getByRole('button', { name: 'Remove size M' })).toBeInTheDocument()
+    expect(chips.getByRole('button', { name: 'Remove color Black' })).toBeInTheDocument()
+    expect(chips.getByRole('button', { name: /^Remove price / })).toHaveAccessibleName(/₱100\.00 to ₱900\.00/)
+
+    await user.click(chips.getByRole('button', { name: 'Remove brand Nike' }))
+    expect(where()).not.toContain('brand')
+    expect(where()).not.toContain('page=')
+    await waitFor(() => expect(lastParams().brand).toBeUndefined())
+    expect(lastParams()).toMatchObject({ size: 'M', minPrice: 100 })
+
+    await user.click(screen.getByRole('button', { name: /^Remove price / }))
+    expect(where()).not.toContain('Price')
+    await waitFor(() => expect(lastParams().minPrice).toBeUndefined())
+    expect(lastParams().maxPrice).toBeUndefined()
+
+    await user.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(where()).toBe('/staff/inventory')
+    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument()
+  })
+
+  it('applies the panel in one go, with the size chips and typed values, and goes back to page 1', async () => {
+    const user = userEvent.setup()
+    renderPage('?page=3')
+    await within(table()).findByRole('button', { name: /Tee 1/ })
+    await user.click(screen.getByRole('button', { name: /More filters/ }))
+    const panel = await screen.findByRole('dialog', { name: 'More filters' })
+
+    await user.type(within(panel).getByRole('textbox', { name: /^Brand/ }), 'Nike')
+    await user.click(within(panel).getByRole('button', { name: 'M' }))
+    expect(within(panel).getByRole('button', { name: 'M' })).toHaveAttribute('aria-pressed', 'true')
+    await user.type(within(panel).getByRole('textbox', { name: /^Colour/ }), 'Black')
+    await user.type(within(panel).getByRole('textbox', { name: 'Minimum' }), '0')
+    await user.type(within(panel).getByRole('textbox', { name: 'Maximum' }), '500.505abc')
+    expect(within(panel).getByRole('textbox', { name: 'Maximum' })).toHaveValue('500.50')
+    // Nothing is asked until Apply.
+    expect(lastParams()).not.toMatchObject({ brand: 'Nike' })
+
+    await user.click(within(panel).getByRole('button', { name: 'Apply filters' }))
+    expect(where()).toBe('/staff/inventory?brand=Nike&size=M&color=Black&minPrice=0&maxPrice=500.5')
+    await waitFor(() => expect(lastParams()).toMatchObject({ brand: 'Nike', size: 'M', color: 'Black', minPrice: 0, maxPrice: 500.5, page: 1 }))
+  })
+
+  it('refuses a minimum above the maximum in the panel, with an inline error', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await within(table()).findByRole('button', { name: /Tee 1/ })
+    await user.click(screen.getByRole('button', { name: /More filters/ }))
+    const panel = await screen.findByRole('dialog', { name: 'More filters' })
+    await user.type(within(panel).getByRole('textbox', { name: 'Minimum' }), '900')
+    await user.type(within(panel).getByRole('textbox', { name: 'Maximum' }), '100')
+    expect(within(panel).getByRole('alert')).toHaveTextContent('The minimum is higher than the maximum')
+    expect(within(panel).getByRole('button', { name: 'Apply filters' })).toBeDisabled()
+  })
+
+  it('does not ask the API for a URL whose minimum is above its maximum, and says so', async () => {
+    const user = userEvent.setup()
+    renderPage('?minPrice=900&maxPrice=100')
+    expect(await screen.findByRole('alert')).toHaveTextContent('The minimum price (₱900.00) is higher than the maximum (₱100.00)')
+    expect(list).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Clear price range' }))
+    expect(where()).toBe('/staff/inventory')
+    await within(table()).findByRole('button', { name: /Tee 1/ })
+    expect(list).toHaveBeenCalled()
+  })
+
+  it('shows only the alert for a bad price range, with no empty-state copy and no second Clear all', async () => {
+    renderPage('?minPrice=900&maxPrice=100')
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByText('No products match')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^Clear all$/ })).toHaveLength(1)
+  })
+
+  it('hands focus to the next chip, then the previous, then More filters as chips are removed', async () => {
+    const user = userEvent.setup()
+    renderPage('?brand=Nike&size=M&minPrice=1')
+    await within(table()).findByRole('button', { name: /Tee 1/ })
+    await user.click(screen.getByRole('button', { name: 'Remove brand Nike' }))
+    expect(screen.getByRole('button', { name: 'Remove size M' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: /^Remove price / }))
+    expect(screen.getByRole('button', { name: 'Remove size M' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Remove size M' }))
+    expect(screen.getByRole('button', { name: /More filters/ })).toHaveFocus()
+  })
+
+  it('keeps focus on More filters after Clear price range', async () => {
+    const user = userEvent.setup()
+    renderPage('?minPrice=900&maxPrice=100')
+    await user.click(await screen.findByRole('button', { name: 'Clear price range' }))
+    expect(screen.getByRole('button', { name: /More filters/ })).toHaveFocus()
+  })
+
+  it('refuses - and e in a price, caps 9 whole digits with or without a dot, and collapses brand whitespace', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await within(table()).findByRole('button', { name: /Tee 1/ })
+    await user.click(screen.getByRole('button', { name: /More filters/ }))
+    const panel = await screen.findByRole('dialog', { name: 'More filters' })
+    const min = within(panel).getByRole('textbox', { name: 'Minimum' })
+    await user.type(min, '-5')
+    expect(min).toHaveValue('5')
+    await user.clear(min)
+    await user.type(min, '1e5')
+    expect(min).toHaveValue('15')
+    await user.clear(min)
+    await user.type(min, '12345678901')
+    expect(min).toHaveValue('123456789')
+    await user.clear(min)
+    await user.click(min)
+    await user.paste('-5')
+    expect(min).toHaveValue('')
+    await user.type(within(panel).getByRole('textbox', { name: /^Brand/ }), '  Ayala    Atelier  ')
+    await user.click(within(panel).getByRole('button', { name: 'Apply filters' }))
+    expect(where()).toContain('brand=Ayala+Atelier')
+  })
+
+  it('names the active filters in the empty state and clears them all', async () => {
+    const user = userEvent.setup()
+    list.mockResolvedValue(answer([]))
+    renderPage('?q=tee&brand=Zzz&size=XXL')
+    expect(await screen.findByText('No products match')).toBeInTheDocument()
+    expect(screen.getByText(/search "tee", brand Zzz, size XXL\./)).toBeInTheDocument()
+    list.mockResolvedValue(answer([product(1)]))
+    await user.click(screen.getAllByRole('button', { name: 'Clear all' }).at(-1)!)
+    expect(where()).toBe('/staff/inventory')
+    expect(await within(table()).findByRole('button', { name: /Tee 1/ })).toBeInTheDocument()
   })
 })

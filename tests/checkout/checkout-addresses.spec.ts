@@ -1,11 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
 import { ADDRESS, address } from '../fixtures/addresses'
 import { mockAddresses } from '../shared/addresses'
-import { DEMO, mockAuth } from '../shared/session'
+import { buyNow, NAVY_M, POLO as POLO_PIECE, setupShop } from '../shared/checkoutShop'
+import { DEMO } from '../shared/session'
 
 // Checkout reads the saved addresses with a real Supabase token, so these specs sign in through the login form
 // (mockAuth stands in for Supabase) instead of seeding the session store the way checkout.spec.ts does.
-const POLO = '/checkout?item=p01&size=M&color=Navy&qty=1'
+const POLO = buyNow(POLO_PIECE, NAVY_M.id)
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' }
 
 const OFFICE = address({
@@ -20,8 +21,7 @@ const OFFICE = address({
 })
 
 test.beforeEach(async ({ page }) => {
-  await mockAuth(page)
-  await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
+  await setupShop(page)
 })
 
 async function openCheckout(page: Page) {

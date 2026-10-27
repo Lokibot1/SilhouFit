@@ -50,7 +50,7 @@ export function ShopToolbar(props: ShopToolbarProps) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 sm:gap-3">
       <div className="flex items-center gap-3">
-        <button type="button" data-tour="shop-filters" onClick={props.onOpenFilters} className={SHOP_SECONDARY}>
+        <button type="button" data-tour="shop-filters" data-filters-trigger onClick={props.onOpenFilters} className={SHOP_SECONDARY}>
           <FilterIcon />
           Filters
           {props.activeFilters + Number(props.categoryActive) > 0 && (

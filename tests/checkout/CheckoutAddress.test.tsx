@@ -4,19 +4,19 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { PRODUCTS } from '../../src/data/products'
-import { resetProductsCache } from '../../src/hooks/useProducts'
-import { fetchProducts } from '../../src/service/fetchProducts'
+import { clearProductCache } from '../../src/hooks/useProducts'
 import { clearSession, setSession } from '../../src/service/session'
 import { CheckoutPage } from '../../src/views/private/CheckoutPage'
 import { ADDRESS, address } from '../fixtures/addresses'
+import { POLO } from '../fixtures/shopProducts'
+import { wireShopProducts } from '../fixtures/wireCartApi'
 
 const api = vi.hoisted(() => ({ loadAddresses: vi.fn(), onAddressesChanged: vi.fn() }))
 vi.mock('../../src/service/addresses', async (original) => ({
   ...(await original<typeof import('../../src/service/addresses')>()),
   ...api,
 }))
-vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: vi.fn() }))
+vi.mock('../../src/service/fetchShopProducts')
 vi.mock('../../src/service/placeOrder', () => ({ placeOrder: vi.fn() }))
 
 const OFFICE = address({
@@ -43,9 +43,9 @@ beforeAll(() => {
 })
 beforeEach(() => {
   sessionStorage.clear()
-  resetProductsCache()
+  clearProductCache()
   act(() => setSession({ name: 'Demo Shopper', email: 'demo@silhoufit.com' }))
-  vi.mocked(fetchProducts).mockResolvedValue({ products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' })
+  wireShopProducts([POLO])
   changed = []
   api.loadAddresses.mockResolvedValue([ADDRESS])
   api.onAddressesChanged.mockImplementation((run: () => void) => {
@@ -62,7 +62,7 @@ afterEach(() => {
 
 function renderCheckout() {
   return render(
-    <MemoryRouter initialEntries={['/checkout?item=p01&size=M&color=Navy&qty=2']}>
+    <MemoryRouter initialEntries={['/checkout?item=p01&variant=p01-m-navy&qty=2']}>
       <ToastProvider>
         <Routes>
           <Route path="/checkout" element={<CheckoutPage />} />

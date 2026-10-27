@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test'
+import { createCartStore, type CartStore } from '../fixtures/cartStore'
 import { DEMO, mockAuth } from './session'
 
 const CORS = {
@@ -84,7 +85,7 @@ export const product = (overrides: Partial<MockProduct> = {}): MockProduct => {
     id,
     name,
     slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-    category: 'Tops',
+    category: 'Hoodie',
     brand: 'Atelier Manila',
     description: 'A breathable linen shirt.',
     gender: null,
@@ -101,11 +102,14 @@ export const product = (overrides: Partial<MockProduct> = {}): MockProduct => {
 
 export interface ProductCall {
   method: string
-  /** list: /products, product: /products/:id, variants: /products/:id/variants, variant: /products/:id/variants/:variantId. */
-  kind: 'list' | 'product' | 'variants' | 'variant'
+  /** list: /products, product: /products/:id, slug: /products/slug/:slug, variants: /products/:id/variants, variant: /products/:id/variants/:variantId. */
+  kind: 'list' | 'product' | 'slug' | 'variants' | 'variant'
+  /** For a slug lookup, the slug. */
   productId: string | null
   variantId: string | null
   body: Record<string, unknown> | null
+  /** The query string of a list request, as the API received it. */
+  query: Record<string, string>
 }
 
 export interface ProductsMock {
@@ -140,6 +144,41 @@ const listItem = (p: MockProduct) => {
 
 const detail = (p: MockProduct) => ({ ...p, ...priceRange(p) })
 
+const LIST_KEYS = ['search', 'category', 'gender', 'brand', 'size', 'color', 'minPrice', 'maxPrice', 'page', 'inStockOnly', 'sortBy', 'sortOrder', 'limit']
+
+/** GET /products as the API answers it: active products only, one value per size and colour, and size, colour, price and stock must all hold for the same variant. */
+function listPage(rows: MockProduct[], params: URLSearchParams) {
+  const text = (key: string) => params.get(key)?.toLowerCase()
+  const num = (key: string) => (params.has(key) ? Number(params.get(key)) : undefined)
+  const search = text('search')
+  const [min, max] = [num('minPrice'), num('maxPrice')]
+  const inStock = params.get('inStockOnly') === 'true'
+  const variantMatches = (v: MockVariant) =>
+    (!text('size') || v.size?.toLowerCase() === text('size')) &&
+    (!text('color') || v.color?.toLowerCase() === text('color')) &&
+    (min === undefined || v.price >= min) &&
+    (max === undefined || v.price <= max) &&
+    (!inStock || v.stock > 0)
+  const needsVariant = ['size', 'color', 'minPrice', 'maxPrice', 'inStockOnly'].some((key) => params.has(key))
+  const matched = rows
+    .filter((p) => p.isActive)
+    .filter((p) => !search || [p.name, p.brand ?? '', p.category].some((t) => t.toLowerCase().includes(search)))
+    .filter((p) => !text('category') || p.category.toLowerCase() === text('category'))
+    .filter((p) => !text('brand') || p.brand?.toLowerCase() === text('brand'))
+    .filter((p) => !text('gender') || p.gender === text('gender'))
+    .filter((p) => !needsVariant || p.variants.some(variantMatches))
+  const by = params.get('sortBy') === 'name' ? 'name' : 'createdAt'
+  const sign = params.get('sortOrder') === 'asc' ? 1 : -1
+  matched.sort((a, b) => sign * (by === 'name' ? a.name.localeCompare(b.name) : a.createdAt.localeCompare(b.createdAt)))
+  const limit = Math.min(Number(params.get('limit')) || 25, 100)
+  const pageNo = Number(params.get('page')) || 1
+  const totalPages = Math.ceil(matched.length / limit)
+  return {
+    data: matched.slice((pageNo - 1) * limit, pageNo * limit).map(listItem),
+    meta: { total: matched.length, page: pageNo, limit, totalPages, hasNextPage: pageNo < totalPages, hasPreviousPage: pageNo > 1 },
+  }
+}
+
 /**
  * Stands in for the products API (GET /products, GET/PATCH/DELETE /products/:id, and the variant routes) with an in-memory
  * catalogue that follows the API's rules: the list is active products only; a variant needs a size, colour or name, a price,
@@ -162,20 +201,21 @@ export async function mockProducts(page: Page, initial: MockProduct[] = []): Pro
     const url = new URL(request.url())
     const [, , productId = null, section = null, variantId = null] = url.pathname.split('/')
     const body = (['POST', 'PATCH'].includes(method) ? request.postDataJSON() : null) as Record<string, unknown> | null
-    const kind = !productId ? 'list' : !section ? 'product' : variantId ? 'variant' : 'variants'
-    mock.calls.push({ method, kind, productId, variantId, body })
+    const isSlug = productId === 'slug' && section !== null
+    const kind = isSlug ? 'slug' : !productId ? 'list' : !section ? 'product' : variantId ? 'variant' : 'variants'
+    mock.calls.push({ method, kind, productId: isSlug ? section : productId, variantId, body, query: Object.fromEntries(url.searchParams) })
     const reply = (status: number, json: unknown) => route.fulfill({ status, json, headers: CORS })
 
+    if (isSlug) {
+      // Public, and answers for archived products too.
+      const bySlug = mock.rows.find((p) => p.slug === section)
+      return bySlug ? reply(200, detail(bySlug)) : reply(404, { message: 'Product not found' })
+    }
+
     if (!productId) {
-      const q = url.searchParams.get('search')?.toLowerCase()
-      const limit = Number(url.searchParams.get('limit')) || 25
-      const pageNo = Number(url.searchParams.get('page')) || 1
-      const matched = mock.rows.filter((p) => p.isActive && (!q || p.name.toLowerCase().includes(q)))
-      const totalPages = Math.ceil(matched.length / limit)
-      return reply(200, {
-        data: matched.slice((pageNo - 1) * limit, pageNo * limit).map(listItem),
-        meta: { total: matched.length, page: pageNo, limit, totalPages, hasNextPage: pageNo < totalPages, hasPreviousPage: pageNo > 1 },
-      })
+      const bad = [...url.searchParams.keys()].find((key) => !LIST_KEYS.includes(key))
+      if (bad) return reply(400, { message: [`property ${bad} should not exist`] })
+      return reply(200, listPage(mock.rows, url.searchParams))
     }
 
     const row = mock.rows.find((p) => p.id === productId)
@@ -257,21 +297,41 @@ export async function mockProducts(page: Page, initial: MockProduct[] = []): Pro
   return mock
 }
 
+export interface CartCall {
+  method: string
+  /** The cart item id, for PATCH and DELETE of one item. */
+  itemId: string | null
+  body: Record<string, unknown> | null
+}
+
+export interface CartMock extends CartStore {
+  /** Every request that reached the cart API, OPTIONS excluded. */
+  calls: CartCall[]
+}
+
 /**
- * The inventory page picks between the shop's placeholder catalogue and the real products API with the build-time constant
- * INVENTORY_SAMPLE_DATA in src/service/sampleInventory.ts (true today). It cannot be flipped from a test through the app, so
- * this rewrites that one module as the dev server sends it to the browser. The app source is not touched. Needs the Vite dev
- * server (the playwright config starts it); a production build has no such module to rewrite.
+ * Stands in for the cart API (GET /cart, POST /cart/items, PATCH/DELETE /cart/items/:itemId, DELETE /cart) over the products
+ * mock's rows, with the API's rules: 400 past a variant's stock or for an inactive product, 404 for an unknown variant or item.
+ * Register it after mockAuth. `cart.seed(variantId, qty)` puts a piece in the server cart before the page loads.
  */
-export async function useRealInventoryApi(page: Page) {
-  await page.route('**/src/service/sampleInventory.ts*', async (route) => {
-    const response = await route.fetch()
-    const source = await response.text()
-    await route.fulfill({
-      response,
-      body: source.replace(/INVENTORY_SAMPLE_DATA\s*=\s*true/, 'INVENTORY_SAMPLE_DATA = false'),
-    })
+export async function mockCart(page: Page, products: ProductsMock): Promise<CartMock> {
+  const store = createCartStore(() => products.rows)
+  const cart = Object.assign(store, { calls: [] as CartCall[] }) as CartMock
+  await page.route((url) => url.origin !== PAGE_ORIGIN && /^\/cart(\/|$)/.test(url.pathname), async (route) => {
+    const request = route.request()
+    const method = request.method()
+    if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    const [, , section = null, itemId = null] = new URL(request.url()).pathname.split('/')
+    const body = (['POST', 'PATCH'].includes(method) ? request.postDataJSON() : null) as Record<string, unknown> | null
+    cart.calls.push({ method, itemId, body })
+    const answer = (r: { status: number; json: unknown }) => route.fulfill({ status: r.status, json: r.json, headers: CORS })
+    if (!section) return answer(method === 'DELETE' ? store.clear() : store.get())
+    if (method === 'POST') return answer(store.add(body?.variantId as string, body?.quantity))
+    if (method === 'PATCH' && itemId) return answer(store.patch(itemId, body?.quantity))
+    if (method === 'DELETE' && itemId) return answer(store.remove(itemId))
+    return route.fulfill({ status: 405, json: {}, headers: CORS })
   })
+  return cart
 }
 
 /** Keeps the staff session but makes /users/me answer with `role` (staff by default). Register it after mockAuth. */
@@ -299,11 +359,50 @@ export async function mockStaffMe(page: Page, role: 'staff' | 'admin' | 'custome
   })
 }
 
-/** Everything a staff inventory test needs before it signs in: auth, the staff profile, real-API mode and the products mock. */
+/** Everything a staff inventory test needs before it signs in: auth, the staff profile and the products mock. */
 export async function setupInventory(page: Page, products: MockProduct[]) {
   await mockAuth(page)
   await mockStaffMe(page)
-  await useRealInventoryApi(page)
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
   return mockProducts(page, products)
+}
+
+const SEED = (n: number) => `00000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}`
+
+/** A seeded variant: fixed id and SKU, so a test can name them. */
+const seeded = (n: number, sku: string, overrides: Partial<MockVariant>) => variant({ id: SEED(n), sku, ...overrides })
+const BLACK = { color: 'Black', colorHex: '#111111' }
+const NAVY = { color: 'Navy', colorHex: '#1b2a49' }
+const SAND = { color: 'Sand', colorHex: '#d8c3a5' }
+
+/**
+ * A small catalogue that is the same on every run, for the shop and the product page. Newest first it is: Linen Shirt and Cotton Tee
+ * (Hoodie), Wool Trousers (Pants), Linen Vest (Hoodie, sold out) and Archived Cardigan (Hoodie, archived: only its detail answers).
+ * Colours across the active products are Black, Navy and Sand, with Navy spelled "navy" on the tee to prove they count once.
+ * Prices run from 1,200 to 2,600. Nothing in it has a sale price, rating, badge or AR flag, as the API has none.
+ */
+export function seedCatalogue(): MockProduct[] {
+  const at = (day: number) => `2026-05-${String(day).padStart(2, '0')}T08:00:00.000Z`
+  const img = (id: string, name: string): MockImage[] => [
+    { url: `${IMAGE_HOST}/${id}-1.svg`, altText: `${name} front`, displayOrder: 0, isPrimary: true },
+    { url: `${IMAGE_HOST}/${id}-2.svg`, altText: `${name} back`, displayOrder: 1, isPrimary: false },
+  ]
+  const make = (n: number, name: string, category: string, day: number, variants: MockVariant[], extra: Partial<MockProduct> = {}): MockProduct => {
+    const id = SEED(n)
+    return product({ id, name, category, createdAt: at(day), images: img(id, name), variants, description: `${name}, made to last.`, ...extra })
+  }
+  return [
+    make(1, 'Linen Shirt', 'Hoodie', 5, [
+      seeded(11, 'LS-BLK-S', { ...BLACK, size: 'S', price: 1500, stock: 10 }),
+      seeded(12, 'LS-BLK-M', { ...BLACK, size: 'M', price: 1500, stock: 10 }),
+      seeded(13, 'LS-NVY-M', { ...NAVY, size: 'M', price: 1800, stock: 5 }),
+    ]),
+    make(2, 'Wool Trousers', 'Pants', 4, [
+      seeded(21, 'WT-SND-30', { ...SAND, size: '30', price: 2400, stock: 8 }),
+      seeded(22, 'WT-BLK-30', { ...BLACK, size: '30', price: 2600, stock: 3 }),
+    ]),
+    make(3, 'Cotton Tee', 'Hoodie', 3, [seeded(31, 'CT-NVY-S', { color: 'navy', colorHex: '#1b2a49', size: 'S', price: 1200, stock: 4 })]),
+    make(4, 'Linen Vest', 'Hoodie', 2, [seeded(41, 'LV-SND-S', { ...SAND, size: 'S', price: 1300, stock: 0 })]),
+    make(5, 'Archived Cardigan', 'Hoodie', 1, [seeded(51, 'AC-BLK-M', { ...BLACK, size: 'M', price: 2000, stock: 6 })], { isActive: false }),
+  ]
 }

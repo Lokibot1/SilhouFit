@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
+import { POLO, TANK } from '../shared/checkoutShop'
+import { mockCart, mockProducts } from '../shared/products'
 import { DEMO, mockAuth } from '../shared/session'
 import { DEVICE_MATRIX } from '../shared/viewports'
 
@@ -13,6 +15,7 @@ const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers
 
 test.beforeEach(async ({ page }) => {
   await mockAuth(page, { brandNew: true })
+  await mockCart(page, await mockProducts(page, [POLO, TANK])) // the tour's sample piece is the newest one in stock
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
 })
 
@@ -136,8 +139,9 @@ test('the cart stop still highlights the top bar cart when the catalogue fails t
   await signIn(page)
   await page.getByRole('dialog', { name: 'Welcome to SilhouFit' }).getByRole('button', { name: 'Start the tour' }).click()
   await expect(page.getByRole('dialog', { name: 'Explore the shop' })).toBeVisible()
-  // The tour resumes from sessionStorage; the dev-only ?fail makes the catalogue request fail, so there is no sample piece.
-  await page.goto('/shop?fail')
+  // The tour resumes from sessionStorage; the product requests now fail, so there is no sample piece.
+  await page.route((url) => url.origin !== 'http://localhost:5173' && url.pathname.startsWith('/products'), (route) => route.abort())
+  await page.goto('/shop')
   const card = page.getByRole('dialog').filter({ hasText: /Step \d of \d/ })
   await expect(card).toBeVisible()
   for (let i = 0; i < 5; i += 1) await card.getByRole('button', { name: 'Next', exact: true }).click()

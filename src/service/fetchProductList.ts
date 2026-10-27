@@ -13,11 +13,11 @@ export interface ProductListItem {
   totalStock: number
   primaryImage: { url: string; altText: string | null } | null
   createdAt: string
-  // Optional until the API sends them (see the note on `fetchProductList`); the sample catalogue fills all three.
+  // Optional until the API sends them (see the note on `fetchProductList`); hidden in the UI while they are missing.
   isActive?: boolean
   outOfStockVariants?: number
   variantCount?: number
-  /** Needs a backend `Product.arReady` boolean on list and detail; until then only the sample catalogue fills it. */
+  /** Needs a backend `Product.arReady` boolean on list and detail; until then it is never set and the AR column shows a dash. */
   arReady?: boolean
 }
 
@@ -32,9 +32,19 @@ export interface ProductListParams {
   search?: string
   category?: string
   gender?: Gender
+  /** Exact match, ignoring case. */
+  brand?: string
+  /** Exact match, ignoring case. Size, colour, price and stock must all hold for the same variant. */
+  size?: string
+  /** One colour, exact match ignoring case. */
+  color?: string
+  /** Bounds on a variant's price. */
+  minPrice?: number
+  maxPrice?: number
   page?: number
   inStockOnly?: boolean
-  sortBy?: 'createdAt' | 'basePrice' | 'name'
+  /** The API sorts by date or name only, never by price. */
+  sortBy?: 'createdAt' | 'name'
   sortOrder?: 'asc' | 'desc'
   limit?: number
 }
@@ -125,6 +135,8 @@ function toListItem(value: unknown): ProductListItem {
   }
 }
 
+const PRICE_KEYS = ['minPrice', 'maxPrice']
+
 /**
  * GET /products. Active products only; the API caps `limit` at 100.
  * Backend needs for staff Inventory: `?status=active|archived|all` (staff only) so archived products can be listed, `isActive`,
@@ -132,7 +144,14 @@ function toListItem(value: unknown): ProductListItem {
  */
 export async function fetchProductList(params: ProductListParams, { signal }: RequestOptions = {}): Promise<PaginatedProducts> {
   const query = new URLSearchParams()
-  for (const [key, value] of Object.entries(params)) if (value !== undefined) query.set(key, String(value))
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue
+    // The API rejects unknown values, so blanks, bad numbers and a price sort (`basePrice`) never go out.
+    if (typeof value === 'string' && !value.trim()) continue
+    if (typeof value === 'number' && (Number.isNaN(value) || (PRICE_KEYS.includes(key) && value < 0))) continue
+    if (key === 'sortBy' && value !== 'createdAt' && value !== 'name') continue
+    query.set(key, typeof value === 'string' ? value.trim() : String(value))
+  }
   const body = await request('GET', `/products?${query}`, undefined, signal)
   const meta = isRecord(body) ? body.meta : null
   if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(meta) || !isCount(meta.total)) throw new ProductListError('server')
@@ -240,12 +259,7 @@ export interface ProductDetailFields {
 
 const GENDERS: readonly string[] = ['male', 'female', 'other', 'unisex']
 
-/** GET /products/:id, reduced to the variants a staff member checks stock against and the fields the edit form needs. */
-export async function fetchProductDetail(
-  id: string,
-  { signal }: RequestOptions = {},
-): Promise<{ variants: ProductVariant[]; product?: ProductDetailFields }> {
-  const body = await request('GET', `/products/${encodeURIComponent(id)}`, undefined, signal)
+function toDetail(body: unknown): { variants: ProductVariant[]; product: ProductDetailFields } {
   if (!isRecord(body) || !Array.isArray(body.variants)) throw new ProductListError('server')
   const images = Array.isArray(body.images) ? body.images.filter(isRecord) : []
   return {
@@ -266,4 +280,25 @@ export async function fetchProductDetail(
         .sort((a, b) => a.displayOrder - b.displayOrder),
     },
   }
+}
+
+/** GET /products/:id, reduced to the variants a staff member checks stock against and the fields the edit form needs. */
+export async function fetchProductDetail(
+  id: string,
+  { signal }: RequestOptions = {},
+): Promise<{ variants: ProductVariant[]; product?: ProductDetailFields }> {
+  return toDetail(await request('GET', `/products/${encodeURIComponent(id)}`, undefined, signal))
+}
+
+/** A product's whole detail, for the product page: the list fields, its description and images, and every variant. */
+export interface ProductFull extends ProductDetailFields {
+  item: ProductListItem
+  variants: ProductVariant[]
+}
+
+/** GET /products/:idOrSlug (a UUID is an id, anything else a slug). It answers for archived products too, so check `item.isActive`. */
+export async function fetchProductFull(idOrSlug: string, { signal }: RequestOptions = {}): Promise<ProductFull> {
+  const body = await request('GET', UUID.test(idOrSlug) ? `/products/${encodeURIComponent(idOrSlug)}` : `/products/slug/${encodeURIComponent(idOrSlug)}`, undefined, signal)
+  const { variants, product } = toDetail(body)
+  return { item: toDetailItem(body), variants, ...product }
 }

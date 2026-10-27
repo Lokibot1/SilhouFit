@@ -6,6 +6,8 @@ import { InventoryDrawer } from "../../components/staff/inventory/InventoryDrawe
 import { ProductFormSheet } from "../../components/staff/inventory/ProductFormSheet";
 import { VariantSheet } from "../../components/staff/inventory/VariantSheet";
 import { InventoryTable } from "../../components/staff/inventory/InventoryTable";
+import { focusFiltersTrigger } from "../../utils/chipFocus";
+import { filterChips } from "../../components/staff/inventory/filterChips";
 import { InventoryToolbar } from "../../components/staff/inventory/InventoryToolbar";
 import {
   PAGER_FOOTER,
@@ -22,7 +24,6 @@ import {
   SECONDARY_BUTTON,
 } from "../../components/ui/buttonStyles";
 import { useToast } from "../../components/toast/useToast";
-import { Tooltip } from "../../components/ui/Tooltip";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useMetaDescription } from "../../hooks/useMetaDescription";
@@ -43,13 +44,14 @@ import {
   removeProduct,
   setArchived,
 } from "../../service/inventoryActions";
-import {
-  INVENTORY_SAMPLE_DATA,
-  sampleProductList,
-} from "../../service/sampleInventory";
 import type { RequestOptions } from "../../service/simulateRequest";
+import { formatPeso } from "../../utils/format";
 import {
+  activeFilterCount,
+  apiSortOrder,
+  CLEAR_FILTERS,
   DEFAULT_DIR,
+  priceRangeInvalid,
   readInventoryQuery,
   SORT_COLUMN,
   withInventoryParams,
@@ -66,44 +68,24 @@ export function StaffInventoryPage() {
 
   const [params, setParams] = useSearchParams();
   const toast = useToast();
-  // The sample catalogue has no gender; the API has no sold-out or sold-out-sizes filter yet.
-  const read = readInventoryQuery(params);
-  const query = {
-    ...read,
-    ...(INVENTORY_SAMPLE_DATA && { gender: "" as const }),
-    ...(!INVENTORY_SAMPLE_DATA ? { ar: "" as const } : {}),
-    ...(!INVENTORY_SAMPLE_DATA && read.stock !== "in"
-      ? { stock: "" as const }
-      : {}),
-  };
-  const { status, q, category, gender, stock, ar, sort, dir, page, per } = query;
+  const query = readInventoryQuery(params);
+  const { status, q, category, gender, brand, size, color, minPrice, maxPrice, stock, sort, dir, page, per } = query;
+  const badRange = priceRangeInvalid(query);
   const archivedView = status === "archived";
   // GET /products lists active products only, so the real API cannot fill the Archived tab yet (see the note on fetchProductList).
-  const archivedUnavailable = archivedView && !INVENTORY_SAMPLE_DATA;
+  const archivedUnavailable = archivedView;
   const [refreshKey, setRefreshKey] = useState(0);
-  const filtered = Boolean(q || category || gender || stock || ar);
+  const filtered = Boolean(q) || activeFilterCount(query) > 0;
 
   // The URL is the one source of truth. Only the primitives go into the fetcher, so it changes only when a value does.
   const load = useCallback(
     (options: RequestOptions): Promise<PaginatedProducts> => {
-      if (INVENTORY_SAMPLE_DATA) {
-        return sampleProductList(
-          {
-            search: q || undefined,
-            category: category || undefined,
-            inStockOnly: stock === "in" || undefined,
-            outOfStockOnly: stock === "out" || undefined,
-            sizesOutOnly: stock === "sizes" || undefined,
-            arReady: ar ? ar === "yes" : undefined,
-            status,
-            sortBy: SORT_COLUMN[sort],
-            sortOrder: dir,
-            page,
-            limit: per,
-          },
-          options,
-        );
-      }
+      // A minimum above the maximum matches nothing; the page says so instead of asking.
+      if (badRange)
+        return Promise.resolve({
+          data: [],
+          meta: { total: 0, page: 1, limit: per, totalPages: 0, hasNextPage: false, hasPreviousPage: false },
+        });
       if (archivedUnavailable)
         return Promise.resolve({
           data: [],
@@ -140,9 +122,14 @@ export function StaffInventoryPage() {
           search: q || undefined,
           category: category || undefined,
           gender: gender || undefined,
+          brand: brand || undefined,
+          size: size || undefined,
+          color: color || undefined,
+          minPrice,
+          maxPrice,
           inStockOnly: stock === "in" || undefined,
           sortBy: SORT_COLUMN[sort],
-          sortOrder: dir,
+          sortOrder: apiSortOrder(sort, dir),
           page,
           limit: per,
         },
@@ -157,8 +144,13 @@ export function StaffInventoryPage() {
       q,
       category,
       gender,
+      brand,
+      size,
+      color,
+      minPrice,
+      maxPrice,
+      badRange,
       stock,
-      ar,
       sort,
       dir,
       page,
@@ -235,7 +227,7 @@ export function StaffInventoryPage() {
   function clearFilters() {
     written.current = "";
     setText("");
-    update({ q: "", category: "", gender: "", stock: "", ar: "" });
+    update(CLEAR_FILTERS);
   }
 
   function sortBy(column: InventorySort) {
@@ -396,14 +388,7 @@ export function StaffInventoryPage() {
         onClick: () => {
           written.current = created.name;
           setText(created.name);
-          update({
-            q: created.name,
-            status: "",
-            category: "",
-            gender: "",
-            stock: "",
-            ar: "",
-          });
+          update({ ...CLEAR_FILTERS, q: created.name, status: "" });
         },
       },
     });
@@ -471,19 +456,6 @@ export function StaffInventoryPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {INVENTORY_SAMPLE_DATA && (
-            <Tooltip
-              label="These products are the shop's placeholder catalogue until the products backend is connected."
-              describe
-            >
-              <span
-                tabIndex={0}
-                className="font-ui inline-flex h-8 items-center rounded-full border border-line-strong px-3 text-sm font-medium text-fg-muted"
-              >
-                Sample data
-              </span>
-            </Tooltip>
-          )}
           <button
             ref={addButton}
             type="button"
@@ -524,6 +496,22 @@ export function StaffInventoryPage() {
           {state.status === "loading" ? "Loading products" : ""}
         </p>
 
+        {badRange && (
+          <div role="alert" className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-danger p-3 text-sm text-danger">
+            <p className="min-w-0">
+              The minimum price ({formatPeso(minPrice!)}) is higher than the maximum ({formatPeso(maxPrice!)}), so nothing can match.
+              Lower the minimum or raise the maximum.
+            </p>
+            <button type="button" onClick={() => {
+                focusFiltersTrigger();
+                update({ minPrice: "", maxPrice: "" });
+              }}
+              className={`${SECONDARY_BUTTON} min-h-9 text-sm`}>
+              Clear price range
+            </button>
+          </div>
+        )}
+
         {state.status === "error" && result && (
           <div className="mb-3 rounded-xl border border-line bg-canvas-sub p-3">
             <SectionError
@@ -558,7 +546,7 @@ export function StaffInventoryPage() {
               </button>
             </div>
           </div>
-        ) : state.status === "error" && !result ? (
+        ) : badRange ? null : state.status === "error" && !result ? (
           <SectionError what="the products" kind={state.kind} onRetry={retry} />
         ) : result && result.data.length === 0 ? (
           <div>
@@ -581,6 +569,7 @@ export function StaffInventoryPage() {
                   No products match
                 </p>
                 <p className="mt-1 text-base text-fg-muted">
+                  {[q && `search "${q}"`, ...filterChips(query).map((chip) => `${chip.kind} ${chip.text}`)].filter(Boolean).join(", ")}.
                   Check the spelling, or clear the search and filters and try
                   again.
                 </p>
@@ -589,7 +578,7 @@ export function StaffInventoryPage() {
                   onClick={clearFilters}
                   className={`${SECONDARY_BUTTON} mt-3`}
                 >
-                  Clear filters
+                  Clear all
                 </button>
               </>
             ) : archivedView ? (

@@ -8,23 +8,31 @@ import { ShopNavbar } from '../../src/components/ShopNavbar'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { CookieConsentProvider } from '../../src/contexts/CookieConsentContext'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
-import { PRODUCTS } from '../../src/data/products'
+import { clearCartCache } from '../../src/hooks/useCart'
 import { useCurrentUser } from '../../src/hooks/useCurrentUser'
-import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
-import { getSession, setSession } from '../../src/service/session'
+import { clearProductCache } from '../../src/hooks/useProducts'
+import { fetchCart } from '../../src/service/cartApi'
+import { ProductListError } from '../../src/service/fetchProductList'
+import { fetchShopProduct } from '../../src/service/fetchShopProducts'
+import { clearSession, getSession, setSession } from '../../src/service/session'
+import { createCartStore } from '../fixtures/cartStore'
+import { BLAZER, POLO, shopProduct, TROUSERS, variant } from '../fixtures/shopProducts'
+import { storeProducts, wireCartApi, wireShopProducts } from '../fixtures/wireCartApi'
 
 vi.mock('../../src/hooks/useCurrentUser', () => ({ useCurrentUser: vi.fn(() => null) }))
+vi.mock('../../src/service/cartApi')
+vi.mock('../../src/service/fetchShopProducts')
 const currentUser = vi.mocked(useCurrentUser)
 
 const KEY = 'silhoufit-wishlist'
 const CART_KEY = 'silhoufit-cart'
-function syncCart(lines: { id: string; qty: number; size?: string; color?: string }[]) {
+const PIECES = [POLO, BLAZER, TROUSERS]
+function syncCart(lines: { variantId: string; productId: string; qty: number }[]) {
   localStorage.setItem(CART_KEY, JSON.stringify(lines))
   act(() => {
     window.dispatchEvent(new StorageEvent('storage', { key: CART_KEY }))
   })
 }
-const CATALOGUE = { products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' }
 
 // The store re-reads localStorage on a storage event, which is also how another tab reaches it.
 function syncWishlist(ids?: string[]) {
@@ -55,10 +63,13 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  vi.resetAllMocks()
+  clearProductCache()
+  act(() => clearSession())
   syncWishlist()
   syncCart([])
-  resetProductsCache()
-  primeProductsCache(CATALOGUE)
+  clearCartCache()
+  wireShopProducts(PIECES)
   currentUser.mockReturnValue(null)
 })
 afterEach(() => {
@@ -153,10 +164,10 @@ describe('ShopNavbar', () => {
   })
 
   it('keeps the filters in the return path', () => {
-    renderNavbar('/shop?category=Tops&sort=newest')
+    renderNavbar('/shop?category=Hoodie&sort=newest')
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
       'href',
-      '/login?next=%2Fshop%3Fcategory%3DTops%26sort%3Dnewest',
+      '/login?next=%2Fshop%3Fcategory%3DHoodie%26sort%3Dnewest',
     )
   })
 
@@ -286,10 +297,10 @@ describe('ShopNavbar', () => {
     expect(urlSearch()).toBe('?q=polo')
   })
 
-  it('shows the wishlist count in the label and a badge, and links to the wishlist page', () => {
+  it('shows the wishlist count in the label and a badge, and links to the wishlist page', async () => {
     syncWishlist(['p01', 'p02'])
     renderNavbar('/shop?page=2')
-    const heart = screen.getByRole('link', { name: 'Wishlist, 2 saved' })
+    const heart = await screen.findByRole('link', { name: 'Wishlist, 2 saved' })
     expect(heart).toHaveTextContent('2')
     expect(heart).toHaveAttribute('href', '/wishlist')
     expect(heart).not.toHaveAttribute('aria-current')
@@ -300,32 +311,42 @@ describe('ShopNavbar', () => {
     expect(screen.getByRole('link', { name: 'Wishlist, 0 saved' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('counts only saved pieces that exist, without deleting the others from storage', () => {
+  it('counts products with API (UUID) ids', async () => {
+    const ids = ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002']
+    const pieces = ids.map((id, n) => shopProduct(id, `Linen ${n}`, [variant(`v${n}`, 'M', 'Navy')]))
+    wireShopProducts(pieces)
+    syncWishlist(ids)
+    renderNavbar()
+    expect(await screen.findByRole('link', { name: 'Wishlist, 2 saved' })).toHaveTextContent('2')
+  })
+
+  it('counts only saved pieces that can still be bought, without deleting the others from storage', async () => {
     syncWishlist(['p01', 'gone', 'also-gone'])
     renderNavbar()
-    expect(screen.getByRole('link', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(['p01', 'gone', 'also-gone'])
   })
 
-  it('shows no count until the catalogue is known', () => {
+  it('shows no count until the saved pieces are known', async () => {
     syncWishlist(['p01', 'gone'])
-    resetProductsCache()
+    let resolve!: (value: typeof POLO) => void
+    vi.mocked(fetchShopProduct).mockImplementation((id) => (id === 'p01' ? new Promise((r) => (resolve = r)) : Promise.reject(new ProductListError('not-found'))))
     renderNavbar()
     expect(screen.getByRole('link', { name: 'Wishlist' })).toHaveTextContent('')
-    act(() => primeProductsCache(CATALOGUE))
-    expect(screen.getByRole('link', { name: 'Wishlist, 1 saved' })).toHaveTextContent('1')
+    await act(async () => resolve(POLO))
+    expect(await screen.findByRole('link', { name: 'Wishlist, 1 saved' })).toHaveTextContent('1')
   })
 
-  it('follows a change made in another tab through the storage event', () => {
+  it('follows a change made in another tab through the storage event', async () => {
     renderNavbar()
     expect(screen.getByRole('link', { name: 'Wishlist, 0 saved' })).toBeInTheDocument()
-    syncWishlist(['p03', 'p04'])
-    expect(screen.getByRole('link', { name: 'Wishlist, 2 saved' })).toBeInTheDocument()
+    syncWishlist(['p03', 'p01'])
+    expect(await screen.findByRole('link', { name: 'Wishlist, 2 saved' })).toBeInTheDocument()
     syncWishlist(['p03'])
-    expect(screen.getByRole('link', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Wishlist, 1 saved' })).toBeInTheDocument()
   })
 
-  it('links to the cart page: no badge at zero, the count when there are lines, and the current page when on it', () => {
+  it('links to the cart page: no badge at zero, the count when there are lines, and the current page when on it', async () => {
     const { unmount } = renderNavbar()
     const empty = screen.getByRole('link', { name: 'Cart, 0 items' })
     expect(empty).toHaveAttribute('href', '/cart')
@@ -333,46 +354,34 @@ describe('ShopNavbar', () => {
     expect(empty.querySelector('span')).toBeNull() // no badge at zero
     unmount()
 
-    syncCart([{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
+    syncCart([{ variantId: 'p01-m-navy', productId: 'p01', qty: 1 }])
+    clearCartCache()
     renderNavbar('/cart')
-    const one = screen.getByRole('link', { name: 'Cart, 1 item' })
+    const one = await screen.findByRole('link', { name: 'Cart, 1 item' })
     expect(one).toHaveTextContent('1')
     expect(one).toHaveAttribute('aria-current', 'page')
   })
 
-  it('totals quantities, caps each at stock and ignores pieces outside the catalogue without deleting them', () => {
-    // p02 has 4 in stock; p03 is fine; "gone" is not in the catalogue.
+  it("totals the guest cart's quantities, without deleting anything from storage", async () => {
     syncCart([
-      { id: 'p02', size: 'M', color: 'Black', qty: 9 },
-      { id: 'p03', size: 'S', color: 'Black', qty: 2 },
-      { id: 'gone', size: 'M', color: 'Navy', qty: 5 },
+      { variantId: 'p02-m-black', productId: 'p02', qty: 4 },
+      { variantId: 'p03-30-black', productId: 'p03', qty: 2 },
     ])
+    clearCartCache()
     renderNavbar()
-    expect(screen.getByRole('link', { name: 'Cart, 6 items' })).toHaveTextContent('6')
-    expect(JSON.parse(localStorage.getItem(CART_KEY)!)).toHaveLength(3)
+    expect(await screen.findByRole('link', { name: 'Cart, 6 items' })).toHaveTextContent('6')
+    expect(JSON.parse(localStorage.getItem(CART_KEY)!)).toHaveLength(2)
   })
 
-  it('counts only what can be bought, the same as the cart page total', () => {
-    syncCart([
-      { id: 'p03', size: 'S', color: 'Black', qty: 2 }, // buyable
-      { id: 'gone', size: 'M', color: 'Navy', qty: 1 }, // not in the catalogue
-      { id: 'p24', size: 'M', color: 'Indigo', qty: 1 }, // sold out
-      { id: 'p01', size: '34', color: 'Navy', qty: 1 }, // a size this piece does not come in
-      { id: 'p01', qty: 3 }, // from before sizes existed
-      { id: 'p04', size: '30', color: 'Indigo', qty: 1 }, // buyable
-    ])
+  it("shows the server's totalItems when signed in", async () => {
+    const server = createCartStore(() => storeProducts(PIECES))
+    wireCartApi(server)
+    server.seed('p01-m-navy', 2)
+    server.seed('p03-30-black', 3)
+    act(() => setSession({ name: 'Ana Reyes', email: 'ana@example.com' }))
     renderNavbar()
-    expect(screen.getByRole('link', { name: 'Cart, 3 items' })).toBeInTheDocument()
-    expect(JSON.parse(localStorage.getItem(CART_KEY)!)).toHaveLength(6) // nothing was deleted
-  })
-
-  it('shows no cart count until the catalogue is known', () => {
-    syncCart([{ id: 'p01', size: 'M', color: 'Navy', qty: 2 }])
-    resetProductsCache()
-    renderNavbar()
-    expect(screen.getByRole('link', { name: 'Cart, 0 items' })).toBeInTheDocument()
-    act(() => primeProductsCache(CATALOGUE))
-    expect(screen.getByRole('link', { name: 'Cart, 2 items' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Cart, 5 items' })).toBeInTheDocument()
+    expect(fetchCart).toHaveBeenCalled()
   })
 
   it('has no menu button: the theme toggle sits in the bar', () => {
@@ -384,10 +393,11 @@ describe('ShopNavbar', () => {
 
   it('shows tooltips on keyboard focus with live counts and no native titles', async () => {
     syncWishlist(['p01', 'p02'])
-    syncCart([{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
+    syncCart([{ variantId: 'p01-m-navy', productId: 'p01', qty: 1 }])
+    clearCartCache()
     const user = userEvent.setup()
     renderNavbar()
-    const wishlist = screen.getByRole('link', { name: 'Wishlist, 2 saved' })
+    const wishlist = await screen.findByRole('link', { name: 'Wishlist, 2 saved' })
     const cart = screen.getByRole('link', { name: 'Cart, 1 item' })
     const signIn = screen.getByRole('link', { name: 'Sign in' })
     for (const control of [wishlist, cart, signIn]) expect(control).not.toHaveAttribute('title')

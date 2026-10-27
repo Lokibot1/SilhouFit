@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
+import { POLO, TANK } from '../shared/checkoutShop'
+import { mockCart, mockProducts } from '../shared/products'
 import { DEMO, mockAuth, mockGoogle, signedIn } from '../shared/session'
 
 // Supabase Auth, the Google redirect and /users/me are mocked (see mockGoogle); nothing leaves the browser.
@@ -7,6 +9,7 @@ const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers
 
 test.beforeEach(async ({ page }) => {
   await mockAuth(page)
+  await mockCart(page, await mockProducts(page, [POLO, TANK]))
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
 })
 
@@ -221,7 +224,7 @@ test('signing out clears a Google next path left in the stash', async ({ page })
   await expect(page).toHaveURL(/\/profile$/)
   await page.evaluate(() => sessionStorage.setItem('silhoufit-auth-next', '/shop'))
   await page.getByRole('button', { name: 'Sign out' }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/login$/)
   expect(await page.evaluate(() => sessionStorage.getItem('silhoufit-auth-next'))).toBeNull()
 })
 

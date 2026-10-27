@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RETURN_REASONS } from '../../src/service/fetchTransactions'
-import { buildOrderHistory, fetchOrderLog } from '../../src/service/fetchStaffAnalytics'
+import { buildOrderHistory, fetchOrderLog, setSampleProducts } from '../../src/service/fetchStaffAnalytics'
 import { resetSampleInvoices, sampleIssueInvoice } from '../../src/service/sampleInvoices'
 import { sampleTransactionDetail, sampleTransactionExport, sampleTransactionList, sampleTransactionSummary } from '../../src/service/sampleTransactions'
+
+import { SAMPLE_PRODUCTS } from '../fixtures/sampleProducts'
 
 const NO_DELAY = { delayMs: 0 }
 const all = { limit: 100000 }
 
 beforeEach(() => {
+  setSampleProducts(SAMPLE_PRODUCTS)
   // 3:45 PM in Manila on Oct 22, 2026. Only Date is faked, so the request timers still run.
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-10-22T07:45:00Z'))

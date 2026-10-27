@@ -1,47 +1,56 @@
 import { useState } from 'react'
-import { CATEGORIES, type Category, type Product } from '../../data/products'
-import { AVAILABILITY, colorOptions, type Availability, type ProductFilters } from '../../utils/productQuery'
+import type { Category, ProductGender } from '../../data/products'
+import { sameColour, useShopColours, validColour } from '../../hooks/useShopColours'
+import { filterPriceInput, parseFilterPrice } from '../../utils/format'
+import { AVAILABILITY, COMMON_SIZES, GENDER_OPTIONS, type Availability, type ProductFilters } from '../../utils/productQuery'
 import { Modal } from '../ui/Modal'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 
 interface FilterPanelProps {
   open: boolean
   onClose: () => void
-  products: Product[]
   filters: ProductFilters
   category: Category | 'all'
-  counts: Record<Category | 'all', number>
+  /** Every category to choose from on phones (from sm the pills above the grid do that). */
+  categories: readonly string[]
   onApply: (filters: ProductFilters, category: Category | 'all') => void
 }
 
 interface Draft {
   category: Category | 'all'
+  brand: string
+  gender: ProductGender | ''
+  size: string
   min: string
   max: string
-  colors: string[]
+  color: string
   availability: Availability[]
   arReady: boolean
 }
 
-const EMPTY: Draft = { category: 'all', min: '', max: '', colors: [], availability: [], arReady: false }
+const EMPTY: Draft = { category: 'all', brand: '', gender: '', size: '', min: '', max: '', color: '', availability: [], arReady: false }
 
 const toDraft = (f: ProductFilters, category: Category | 'all'): Draft => ({
   category,
+  brand: f.brand ?? '',
+  gender: f.gender ?? '',
+  size: f.size ?? '',
   min: f.minPrice?.toString() ?? '',
   max: f.maxPrice?.toString() ?? '',
-  colors: f.colors ?? [],
+  color: f.color ?? '',
   availability: f.availability ?? [],
   arReady: f.arReady ?? false,
 })
 
-const toggled = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item])
-
 const LEGEND = 'font-ui text-sm font-semibold text-fg max-sm:text-xs'
-const CHECK_ROW = 'flex min-h-11 max-sm:min-h-10 cursor-pointer items-center gap-3 max-sm:gap-2 text-base max-sm:text-sm text-fg'
+const CHECK_ROW = 'flex min-h-11 cursor-pointer items-center gap-3 max-sm:gap-2 text-base max-sm:text-sm text-fg'
 const PRICE_INPUT =
-  'skeuo-well font-ui mt-1 min-h-11 max-sm:min-h-10 w-full rounded-xl border border-line-strong bg-canvas px-3 text-base max-sm:text-sm text-fg tabular-nums'
+  'skeuo-well font-ui mt-1 min-h-11 w-full rounded-xl border border-line-strong bg-canvas px-3 text-base max-sm:text-sm text-fg tabular-nums'
 
-export function FilterPanel({ open, onClose, products, filters, category, counts, onApply }: FilterPanelProps) {
+const TEXT_INPUT = PRICE_INPUT.replace(' tabular-nums', '')
+const PRICE_FIELD = `${PRICE_INPUT} text-right`
+
+export function FilterPanel({ open, onClose, filters, category, categories, onApply }: FilterPanelProps) {
   const [draft, setDraft] = useState(() => toDraft(filters, category))
   const [wasOpen, setWasOpen] = useState(open)
   // Each opening starts from what is currently applied.
@@ -50,17 +59,21 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
     if (open) setDraft(toDraft(filters, category))
   }
 
+  const colours = useShopColours(open)
   const invalidRange = draft.min !== '' && draft.max !== '' && Number(draft.min) > Number(draft.max)
-  const digits = (value: string) => value.replace(/\D/g, '').slice(0, 6)
 
   function apply() {
     onApply(
       {
-        minPrice: draft.min === '' ? undefined : Number(draft.min),
-        maxPrice: draft.max === '' ? undefined : Number(draft.max),
-        colors: draft.colors,
-        availability: draft.availability,
-        arReady: draft.arReady,
+        minPrice: parseFilterPrice(draft.min),
+        maxPrice: parseFilterPrice(draft.max),
+        // Once the colours are known, a colour no product has is dropped.
+        color: (colours.status === 'ready' ? validColour(draft.color, colours.colours) : draft.color) || undefined,
+        availability: draft.availability.length ? draft.availability : undefined,
+        arReady: draft.arReady || undefined,
+        brand: draft.brand.trim().slice(0, 50) || undefined,
+        gender: draft.gender || undefined,
+        size: draft.size || undefined,
       },
       draft.category,
     )
@@ -88,7 +101,7 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
         <fieldset className="sm:hidden">
           <legend className={LEGEND}>Category</legend>
           <div className="mt-2 flex flex-wrap gap-2">
-            {(['all', ...CATEGORIES] as const).map((c) => (
+            {['all', ...categories].map((c) => (
               <button
                 key={c}
                 type="button"
@@ -97,7 +110,50 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
                 className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! gap-1.5 px-3 text-xs`}
               >
                 {c === 'all' ? 'All' : c}
-                <span className="tabular-nums">{counts[c]}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <label className="block font-ui text-sm font-semibold text-fg max-sm:text-xs">
+          Brand
+          <input
+            value={draft.brand}
+            onChange={(e) => setDraft({ ...draft, brand: e.target.value.trimStart().slice(0, 50) })}
+            autoComplete="off"
+            className={TEXT_INPUT}
+          />
+        </label>
+
+        <fieldset>
+          <legend className={LEGEND}>Gender</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {GENDER_OPTIONS.map((g) => (
+              <button
+                key={g.value}
+                type="button"
+                aria-pressed={draft.gender === g.value}
+                onClick={() => setDraft({ ...draft, gender: draft.gender === g.value ? '' : g.value })}
+                className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! px-3 text-xs`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend className={LEGEND}>Size</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {COMMON_SIZES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                aria-pressed={draft.size === s}
+                onClick={() => setDraft({ ...draft, size: draft.size === s ? '' : s })}
+                className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! min-w-11 px-3 text-xs`}
+              >
+                {s}
               </button>
             ))}
           </div>
@@ -109,25 +165,25 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
             <label className="font-ui text-xs text-fg-muted">
               Minimum
               <input
-                inputMode="numeric"
+                inputMode="decimal"
                 value={draft.min}
-                onChange={(e) => setDraft({ ...draft, min: digits(e.target.value) })}
+                onChange={(e) => setDraft({ ...draft, min: filterPriceInput(e.target.value) ?? draft.min })}
                 placeholder="0"
                 aria-invalid={invalidRange}
                 aria-describedby={invalidRange ? 'price-range-error' : undefined}
-                className={PRICE_INPUT}
+                className={PRICE_FIELD}
               />
             </label>
             <label className="font-ui text-xs text-fg-muted">
               Maximum
               <input
-                inputMode="numeric"
+                inputMode="decimal"
                 value={draft.max}
-                onChange={(e) => setDraft({ ...draft, max: digits(e.target.value) })}
+                onChange={(e) => setDraft({ ...draft, max: filterPriceInput(e.target.value) ?? draft.max })}
                 placeholder="Any"
                 aria-invalid={invalidRange}
                 aria-describedby={invalidRange ? 'price-range-error' : undefined}
-                className={PRICE_INPUT}
+                className={PRICE_FIELD}
               />
             </label>
           </div>
@@ -138,22 +194,41 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
           )}
         </fieldset>
 
-        <fieldset>
-          <legend className={LEGEND}>Colour</legend>
-          {colorOptions(products).map((color) => (
-            <label key={color.name} className={CHECK_ROW}>
-              <input
-                type="checkbox"
-                checked={draft.colors.includes(color.name)}
-                onChange={() => setDraft({ ...draft, colors: toggled(draft.colors, color.name) })}
-                className="skeuo-check size-5"
-              />
-              <span aria-hidden="true" className="size-4 rounded-full border border-fg-muted" style={{ backgroundColor: color.hex }} />
-              {color.name}
-            </label>
-          ))}
-        </fieldset>
+        {colours.status === 'loading' && (
+          <div aria-hidden="true" data-testid="colour-skeleton">
+            <div className="h-5 w-16 animate-pulse rounded-xl bg-line" />
+            <div className="mt-2 flex flex-wrap gap-2">
+              {[24, 20, 28].map((width) => (
+                <div key={width} className="h-9 animate-pulse rounded-full bg-line pointer-coarse:h-11" style={{ width: `${width * 4}px` }} />
+              ))}
+            </div>
+          </div>
+        )}
+        {/* The colours of the products on sale; the section is left out when there are none or they could not be read. */}
+        {colours.status === 'ready' && colours.colours.length > 0 && (
+          <fieldset>
+            <legend className={LEGEND}>Colour</legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {colours.colours.map((c) => {
+                const selected = sameColour(draft.color, c.name)
+                return (
+                  <button
+                    key={c.name}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setDraft({ ...draft, color: selected ? '' : c.name })}
+                    className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! gap-2 px-3 text-xs`}
+                  >
+                    <span aria-hidden="true" className="size-4 rounded-full border border-fg-muted" style={c.hex ? { backgroundColor: c.hex } : undefined} />
+                    {c.name}
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
+        )}
 
+        {/* Only Online reaches the API (as in stock); In store and Low stock need a backend field and change nothing yet. */}
         <fieldset>
           <legend className={LEGEND}>Availability</legend>
           {AVAILABILITY.map((option) => (
@@ -161,7 +236,14 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
               <input
                 type="checkbox"
                 checked={draft.availability.includes(option.value)}
-                onChange={() => setDraft({ ...draft, availability: toggled(draft.availability, option.value) })}
+                onChange={() =>
+                  setDraft({
+                    ...draft,
+                    availability: draft.availability.includes(option.value)
+                      ? draft.availability.filter((a) => a !== option.value)
+                      : [...draft.availability, option.value],
+                  })
+                }
                 className="skeuo-check size-5"
               />
               {option.label}
@@ -169,6 +251,7 @@ export function FilterPanel({ open, onClose, products, filters, category, counts
           ))}
         </fieldset>
 
+        {/* Needs a backend arReady field: kept in the URL, never sent. */}
         <fieldset>
           <legend className={LEGEND}>Try-on</legend>
           <label className={CHECK_ROW}>

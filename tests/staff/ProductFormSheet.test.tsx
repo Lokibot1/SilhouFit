@@ -4,10 +4,37 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { resetSampleInventory } from '../../src/service/sampleInventory'
+import { fetchProductDetail, fetchProductList, ProductListError, type PaginatedProducts } from '../../src/service/fetchProductList'
+import { addProduct, saveProduct, uploadImage } from '../../src/service/inventoryActions'
 import { StaffInventoryPage } from '../../src/views/staff/StaffInventoryPage'
 
-// These run against the real sample catalogue (INVENTORY_SAMPLE_DATA is on), so the sheet, the store and the list work together.
+vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/fetchProductList')>()),
+  fetchProductList: vi.fn(),
+  fetchProductDetail: vi.fn(),
+}))
+vi.mock('../../src/service/inventoryActions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/inventoryActions')>()),
+  addProduct: vi.fn(),
+  saveProduct: vi.fn(),
+  uploadImage: vi.fn(),
+}))
+
+const POLO = {
+  id: '00000000-0000-4000-8000-000000000001',
+  name: 'Heritage Polo',
+  category: 'Hoodie',
+  brand: 'Ayala Atelier',
+  minPrice: 1890,
+  maxPrice: 1890,
+  totalStock: 20,
+  primaryImage: null,
+  createdAt: '2026-01-05T00:00:00.000Z',
+}
+const page = (data: (typeof POLO)[]): PaginatedProducts => ({
+  data,
+  meta: { total: data.length, page: 1, limit: 25, totalPages: 1, hasNextPage: false, hasPreviousPage: false },
+})
 function Where() {
   const { search } = useLocation()
   return <p data-testid="where">{search}</p>
@@ -34,7 +61,21 @@ beforeAll(() => {
   URL.revokeObjectURL = vi.fn()
 })
 
-beforeEach(() => resetSampleInventory())
+beforeEach(() => {
+  vi.resetAllMocks()
+  vi.mocked(fetchProductList).mockResolvedValue(page([POLO]))
+  vi.mocked(uploadImage).mockResolvedValue('https://images.silhoufit.test/front.jpg')
+  vi.mocked(fetchProductDetail).mockResolvedValue({
+    variants: [{ id: 'v1', sku: 'P01-S-WHITE', size: 'S', color: 'White', colorHex: '#ffffff', price: 1890, stock: 20, name: null, imageUrl: null, measurements: null }],
+    product: {
+      description: 'A polo.',
+      gender: null,
+      brand: 'Ayala Atelier',
+      category: 'Hoodie',
+      images: [1, 2, 3].map((n) => ({ url: `https://images.silhoufit.test/${n}.jpg`, altText: null, displayOrder: n, isPrimary: n === 1 })),
+    },
+  })
+})
 
 const file = (name: string, type: string, size = 10) => {
   const f = new File(['x'], name, { type })
@@ -44,7 +85,7 @@ const file = (name: string, type: string, size = 10) => {
 
 async function openSheet(user: ReturnType<typeof userEvent.setup>, render = true) {
   if (render) renderPage()
-  await screen.findAllByRole('table', {}, { timeout: 3000 })
+  await screen.findAllByRole('table')
   await user.click(screen.getByRole('button', { name: 'Add product' }))
   return screen.findByRole('dialog', { name: 'Add product' })
 }
@@ -111,57 +152,55 @@ describe('Add product sheet', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
-  it('creates the product once on a double click, shows it first in the list and offers View', async () => {
+  it('creates the product once on a double click and offers View', async () => {
     const user = userEvent.setup()
+    vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })
     const dialog = await openSheet(user)
     await fillValid(user)
     const create = within(dialog).getByRole('button', { name: 'Create product' })
     await user.dblClick(create)
-    expect(await within(dialog).findByRole('button', { name: 'Creating…' })).toBeDisabled()
 
-    expect(await screen.findByText('Linen Shirt added', {}, { timeout: 4000 })).toBeInTheDocument()
+    expect(await screen.findByText('Linen Shirt added')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await waitFor(() => expect(screen.getAllByRole('row')[1]).toHaveTextContent('Linen Shirt'), { timeout: 3000 })
-    expect(screen.getAllByText('Linen Shirt')).toHaveLength(1 + 1) // the table row's name and the toast
+    expect(addProduct).toHaveBeenCalledTimes(1)
+    expect(addProduct).toHaveBeenCalledWith(expect.objectContaining({ name: 'Linen Shirt', basePrice: 1250 }), expect.anything())
     expect(screen.getByRole('button', { name: 'Add product' })).toHaveFocus()
 
     await user.click(screen.getByRole('button', { name: 'View' }))
     expect(screen.getByTestId('where').textContent).toContain('q=Linen+Shirt')
   })
 
-  it('has no Brand field, and an AR Fitting ready box that puts an AR ready badge on the new row', async () => {
+  it('has no Brand field, an optional Gender and an AR Fitting box that can be ticked (nothing is sent for it)', async () => {
     const user = userEvent.setup()
     const dialog = await openSheet(user)
     expect(within(dialog).queryByRole('textbox', { name: /Brand/ })).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('combobox', { name: 'Gender' })).toBeInTheDocument()
     const ar = within(dialog).getByRole('checkbox', { name: 'AR Fitting ready' })
     expect(ar).not.toBeChecked()
-    expect(within(dialog).getByText('Shoppers can try this item on in AR Fitting.')).toBeInTheDocument()
-    await fillValid(user)
     await user.click(ar)
-    await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), { timeout: 4000 })
-    await waitFor(() => expect(within(screen.getAllByRole('row')[1]).getByText('AR ready')).toBeInTheDocument(), { timeout: 3000 })
+    expect(ar).toBeChecked()
   })
 
-  it('flags a SKU that is already in the catalogue on its row', async () => {
+  it('flags a SKU the server says is already in use on its row', async () => {
     const user = userEvent.setup()
     const dialog = await openSheet(user)
     await fillValid(user)
     const sku = within(dialog).getByRole('textbox', { name: 'SKU for Sand S' })
     await user.clear(sku)
     await user.type(sku, 'P01-S-White')
+    vi.mocked(addProduct).mockRejectedValue(new ProductListError('conflict', 'SKU "P01-S-WHITE" is already in use'))
     await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
-    expect(await within(dialog).findAllByText(/SKU P01-S-WHITE is already used by another product/)).toHaveLength(2)
+    expect((await within(dialog).findAllByText(/P01-S-WHITE is already used/)).length).toBeGreaterThan(0)
     expect(sku).toHaveAttribute('aria-invalid', 'true')
   })
 })
 
-describe('Edit details sheet (sample catalogue)', () => {
+describe('Edit details sheet', () => {
   async function openEdit(user: ReturnType<typeof userEvent.setup>) {
     renderPage()
-    await user.click(await waitFor(() => within(screen.getAllByRole('table')[0]).getByRole('button', { name: /^Heritage Polo/ }), { timeout: 3000 }))
+    await user.click(await waitFor(() => within(screen.getAllByRole('table')[0]).getByRole('button', { name: /^Heritage Polo/ })))
     const drawer = await screen.findByRole('dialog', { name: 'Heritage Polo' })
-    await waitFor(() => expect(within(drawer).getByRole('button', { name: 'Edit details' })).toBeEnabled(), { timeout: 3000 })
+    await waitFor(() => expect(within(drawer).getByRole('button', { name: 'Edit details' })).toBeEnabled())
     await user.click(within(drawer).getByRole('button', { name: 'Edit details' }))
     return screen.findByRole('dialog', { name: 'Edit details' })
   }
@@ -192,9 +231,12 @@ describe('Edit details sheet (sample catalogue)', () => {
     await user.click(within(discard).getByRole('button', { name: 'Cancel' }))
     expect(await screen.findByRole('dialog', { name: 'Edit details' })).toBeInTheDocument()
 
+    vi.mocked(saveProduct).mockResolvedValue(undefined)
+    vi.mocked(fetchProductList).mockResolvedValue(page([{ ...POLO, name: 'Heritage Polo II' }]))
     await user.click(within(screen.getByRole('dialog', { name: 'Edit details' })).getByRole('button', { name: 'Save changes' }))
-    expect(await screen.findByText('Heritage Polo II updated', {}, { timeout: 4000 })).toBeInTheDocument()
+    expect(await screen.findByText('Heritage Polo II updated')).toBeInTheDocument()
+    expect(saveProduct).toHaveBeenCalledWith(POLO.id, expect.objectContaining({ name: 'Heritage Polo II' }), expect.anything())
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(await within(screen.getAllByRole('table')[0]).findByRole('button', { name: /^Heritage Polo II/ }, { timeout: 3000 })).toBeInTheDocument()
+    expect(await within(screen.getAllByRole('table')[0]).findByRole('button', { name: /^Heritage Polo II/ })).toBeInTheDocument()
   })
 })

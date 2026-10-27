@@ -48,13 +48,13 @@ beforeEach(() => {
     { date: '2026-10-01', total: 2500 },
   ])
   vi.mocked(analytics.fetchProductMix).mockResolvedValue([
-    { category: 'Tops', units: 60 },
-    { category: 'Bottoms', units: 40 },
+    { category: 'Hoodie', units: 60 },
+    { category: 'Pants', units: 40 },
   ])
   vi.mocked(analytics.fetchTrendingItems).mockResolvedValue([
-    { productId: 'p1', name: 'Washed Black Tee', category: 'Tops', orders: 30, stock: 20, arConversion: 42 },
-    { productId: 'p2', name: 'Weekend Tapered Jean', category: 'Bottoms', orders: 12, stock: 3, arConversion: 0 },
-    { productId: 'p3', name: 'Atelier Gown', category: 'Dresses', orders: 1, stock: 0, arConversion: null },
+    { productId: 'p1', name: 'Washed Black Tee', category: 'Hoodie', orders: 30, stock: 20, arConversion: 42 },
+    { productId: 'p2', name: 'Weekend Tapered Jean', category: 'Pants', orders: 12, stock: 3, arConversion: 0 },
+    { productId: 'p3', name: 'Atelier Gown', category: 'Shorts', orders: 1, stock: 0, arConversion: null },
   ])
   vi.mocked(analytics.fetchOrderLog).mockResolvedValue(ORDERS)
 })
@@ -80,7 +80,7 @@ describe('StaffDashboardPage', () => {
     expect(await screen.findByText('37', { selector: '.sr-only' })).toBeInTheDocument()
     expect(await screen.findByText('₱482,350', { selector: '.sr-only' })).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: /Monthly sales, 2026 so far\. Peak ₱4,000 in September 2026; total ₱7,500\./ })).toBeInTheDocument()
-    expect((await screen.findAllByText('Tops')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Hoodie')).length).toBeGreaterThan(0)
     expect(screen.getByText('60%')).toBeInTheDocument()
     expect(screen.getByText('Washed Black Tee')).toBeInTheDocument()
   })
@@ -136,11 +136,11 @@ describe('StaffDashboardPage', () => {
   it('pins a category from the donut legend and shows its units and share in the centre', async () => {
     renderPage()
     const region = await screen.findByRole('region', { name: 'Products sold' })
-    const row = within(region).getByRole('button', { name: /Bottoms/ })
+    const row = within(region).getByRole('button', { name: /Pants/ })
     expect(row).toHaveAttribute('aria-pressed', 'false')
     await userEvent.click(row)
     expect(row).toHaveAttribute('aria-pressed', 'true')
-    expect(within(region).getByText('Bottoms · 40%')).toBeInTheDocument()
+    expect(within(region).getByText('Pants · 40%')).toBeInTheDocument()
     // The pointer is still over the row, so it keeps previewing; only the pin is released.
     await userEvent.click(row)
     expect(row).toHaveAttribute('aria-pressed', 'false')

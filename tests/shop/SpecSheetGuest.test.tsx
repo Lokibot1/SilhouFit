@@ -4,7 +4,7 @@ import { MotionGlobalConfig } from 'motion/react'
 import { useState } from 'react'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { SpecSheet } from '../../src/components/shop/SpecSheet'
-import { PRODUCTS } from '../../src/data/products'
+import { POLO } from '../fixtures/shopProducts'
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
@@ -12,7 +12,7 @@ beforeAll(() => {
     ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList
 })
 
-const polo = PRODUCTS.find((p) => p.id === 'p01')! // two colours
+const polo = POLO // two colours
 
 function Harness({ action = 'buy', guest = false }: { action?: 'cart' | 'buy'; guest?: boolean }) {
   const [open, setOpen] = useState(false)
@@ -21,7 +21,7 @@ function Harness({ action = 'buy', guest = false }: { action?: 'cart' | 'buy'; g
       <button type="button" onClick={() => setOpen(true)}>
         Open sheet
       </button>
-      <SpecSheet open={open} onClose={() => setOpen(false)} product={polo} action={action} inCart={0} onConfirm={() => {}} guest={guest} />
+      <SpecSheet open={open} onClose={() => setOpen(false)} product={polo} action={action} inCart={() => 0} onConfirm={() => {}} guest={guest} />
     </>
   )
 }

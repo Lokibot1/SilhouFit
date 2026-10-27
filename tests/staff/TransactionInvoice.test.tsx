@@ -35,8 +35,8 @@ const detail: TransactionDetail = {
   subtotal: 4580,
   paymentMethod: 'gcash',
   lines: [
-    { productId: 'p1', name: 'Heritage Polo', category: 'Tops', units: 2, unitPrice: 1290 },
-    { productId: 'p2', name: 'Fence-Line Blazer', category: 'Outerwear', units: 1, unitPrice: 2000, vatClass: 'exempt' },
+    { productId: 'p1', name: 'Heritage Polo', category: 'Hoodie', units: 2, unitPrice: 1290 },
+    { productId: 'p2', name: 'Fence-Line Blazer', category: 'Hoodie', units: 1, unitPrice: 2000, vatClass: 'exempt' },
   ],
 }
 

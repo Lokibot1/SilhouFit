@@ -1,7 +1,8 @@
 import { animate, MotionConfig, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { CategoryPills } from '../../components/shop/CategoryPills'
+import { FilterChips } from '../../components/shop/FilterChips'
 import { FilterPanel } from '../../components/shop/FilterPanel'
 import { Pagination } from '../../components/shop/Pagination'
 import { ProductCard } from '../../components/shop/ProductCard'
@@ -11,41 +12,34 @@ import { ProductGridSkeleton, SummarySkeleton } from '../../components/shop/Shop
 import { ShopSummary, ShopToolbar } from '../../components/shop/ShopToolbar'
 import { TryOnPromo } from '../../components/shop/TryOnPromo'
 import { useToast } from '../../components/toast/useToast'
+import { SHOP_SECONDARY } from '../../components/shop/shopControls'
 import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
-import { CATEGORIES, type Product } from '../../data/products'
+import { CATEGORIES, choiceOf, type Product } from '../../data/products'
 import { DURATION } from '../../motion/tokens'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
-import { useProducts } from '../../hooks/useProducts'
-import { lineKey, useCart } from '../../hooks/useCart'
+import { loadProduct } from '../../hooks/useProducts'
+import { useShopCatalogue } from '../../hooks/useShopCatalogue'
+import { useCart } from '../../hooks/useCart'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useSavedIds, useWishlist } from '../../hooks/useWishlist'
-import {
-  AVAILABILITY,
-  categoryCounts,
-  PER_PAGE_OPTIONS,
-  queryProducts,
-  shopTitle,
-  SORT_OPTIONS,
-  type Availability,
-  type ProductFilters,
-} from '../../utils/productQuery'
+import { AVAILABILITY, GENDER_OPTIONS, PER_PAGE_OPTIONS, shopTitle, SORT_OPTIONS, type Availability, type ProductFilters } from '../../utils/productQuery'
+import { focusFiltersTrigger } from '../../utils/chipFocus'
+import { formatPeso, parseFilterPrice } from '../../utils/format'
 import { playAddToCart } from '../../utils/sound'
 
 const DESCRIPTION =
   'Browse the SilhouFit catalogue: filter by category, check online and in-store stock, and preview how each piece fits with browser-based AR before you buy it.'
 
-// Params holding their default are dropped from the URL.
-const DEFAULTS: Record<string, string> = { category: 'all', sort: 'featured', perPage: '12', view: 'grid', page: '1' }
-const FILTER_KEYS = ['category', 'q', 'min', 'max', 'colors', 'avail', 'ar', 'page']
-
-const price = (value: string | null) => (value !== null && /^\d+$/.test(value) ? Number(value) : undefined)
+// Params holding their default are dropped from the URL. The API has no featured order, so Featured asks for newest first.
+const DEFAULT_SORT = SORT_OPTIONS[0].value
+const DEFAULTS: Record<string, string> = { category: 'all', sort: DEFAULT_SORT, perPage: '12', view: 'grid', page: '1' }
+const FILTER_KEYS = ['category', 'q', 'min', 'max', 'color', 'avail', 'ar', 'brand', 'gender', 'size', 'page']
 
 export function ShopPage() {
   useDocumentTitle('Shop the catalogue — SilhouFit')
   useMetaDescription(DESCRIPTION)
 
-  const products = useProducts()
   const wishlist = useWishlist()
   const savedIds = useSavedIds()
   const cart = useCart()
@@ -63,23 +57,30 @@ export function ShopPage() {
   const urlState = params.toString()
   const shownUrlState = useRef(urlState)
 
-  const category = CATEGORIES.find((c) => c === params.get('category')) ?? 'all'
+  const category = params.get('category')?.trim().slice(0, 50) || 'all'
   const q = params.get('q') ?? ''
-  const sort = SORT_OPTIONS.find((o) => o.value === params.get('sort'))?.value ?? 'featured'
+  const sort = SORT_OPTIONS.find((o) => o.value === params.get('sort'))?.value ?? DEFAULT_SORT
   const perPage = PER_PAGE_OPTIONS.find((n) => String(n) === params.get('perPage')) ?? 12
   const view = params.get('view') === 'list' ? 'list' : 'grid'
   const filters: ProductFilters = {
-    minPrice: price(params.get('min')),
-    maxPrice: price(params.get('max')),
-    colors: params.get('colors')?.split(',').filter(Boolean),
+    minPrice: parseFilterPrice(params.get('min')),
+    maxPrice: parseFilterPrice(params.get('max')),
+    color: params.get('color')?.trim().slice(0, 50) || undefined,
     availability: params.get('avail')?.split(',').filter((a): a is Availability => AVAILABILITY.some((o) => o.value === a)),
-    arReady: params.get('ar') === '1',
+    arReady: params.get('ar') === '1' || undefined,
+    brand: params.get('brand')?.trim().slice(0, 50) || undefined,
+    gender: GENDER_OPTIONS.find((g) => g.value === params.get('gender'))?.value,
+    size: params.get('size')?.trim().slice(0, 50) || undefined,
   }
+  const badRange = filters.minPrice !== undefined && filters.maxPrice !== undefined && filters.minPrice > filters.maxPrice
   const activeFilters =
     Number(filters.minPrice !== undefined || filters.maxPrice !== undefined) +
-    Number(!!filters.colors?.length) +
+    Number(!!filters.color) +
     Number(!!filters.availability?.length) +
-    Number(filters.arReady)
+    Number(!!filters.arReady) +
+    Number(!!filters.brand) +
+    Number(!!filters.gender) +
+    Number(!!filters.size)
 
   // Every change resets to page 1 unless it sets the page itself.
   function update(changes: Record<string, string | undefined>, replace = false) {
@@ -97,17 +98,16 @@ export function ShopPage() {
     )
   }
 
-  const result =
-    products.status === 'success'
-      ? queryProducts(products.data.products, {
-          ...filters,
-          category,
-          q,
-          sort,
-          perPage,
-          page: Number(params.get('page')),
-        })
-      : null
+  const products = useShopCatalogue({
+    ...filters,
+    category,
+    q,
+    sort,
+    perPage,
+    page: Number(params.get('page')),
+  })
+  const { result } = products
+  const noPiecesYet = result?.total === 0 && !q && category === 'all' && activeFilters === 0
 
   useEffect(() => {
     if (!scrollOnPage.current) return
@@ -147,9 +147,28 @@ export function ShopPage() {
   }
 
   // Everyone can add to the cart or start a purchase; signing in is asked for at checkout.
-  function openSheet(product: Product, action: 'cart' | 'buy') {
-    setSheet({ product, action })
-    setSheetOpen(true)
+  // The sheet needs the piece's sizes and colours, which only its detail has, so that loads first.
+  function openSheet(piece: Pick<Product, 'id' | 'name'>, action: 'cart' | 'buy') {
+    loadProduct(piece.id).then(
+      (product) => {
+        if (product.stock === 0) {
+          toast.show({ kind: 'info', message: `${product.name} is sold out.` })
+          return
+        }
+        setSheet({ product, action })
+        setSheetOpen(true)
+      },
+      (error: unknown) =>
+        toast.show(
+          (error as { kind?: string }).kind === 'not-found'
+            ? { kind: 'info', message: 'That piece is no longer in the catalogue.' }
+            : {
+                kind: 'error',
+                message: `Couldn't load ${piece.name}. Check your connection, then try again.`,
+                action: { label: 'Try again', onClick: () => openSheet(piece, action) },
+              },
+        ),
+    )
   }
 
   // A link (the checkout's Change link, or a shared one) arrives with ?item=&action=. Read it once, drop it from the
@@ -171,36 +190,35 @@ export function ShopPage() {
     // Only the first arrival carries the link.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const catalogue = products.status === 'success' ? products.data.products : null
   useEffect(() => {
     const link = deepLink.current
-    if (!link || !catalogue) return
+    if (!link) return
     deepLink.current = null
-    const product = catalogue.find((p) => p.id === link.id)
-    if (!product) toast.show({ kind: 'info', message: 'That piece is no longer in the catalogue.' })
-    else if (product.stock === 0) toast.show({ kind: 'info', message: `${product.name} is sold out.` })
-    else openSheet(product, link.action)
+    openSheet({ id: link.id, name: 'that piece' }, link.action)
+    // Only the first arrival carries the link.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalogue])
+  }, [])
 
-  function confirmChoice({ size, color, qty }: Choice) {
+  async function confirmChoice({ size, color, qty, variantId }: Choice) {
     if (!sheet) return
     const { product, action } = sheet
     if (action === 'buy') {
       setSheetOpen(false)
-      navigate(`/checkout?${new URLSearchParams({ item: product.id, size, color, qty: String(qty) })}`)
+      navigate(`/checkout?${new URLSearchParams({ item: product.id, variant: variantId, qty: String(qty) })}`)
       return
     }
-    if (cart.add({ product, size, color, qty }) === 'limit') {
-      toast.show({ kind: 'info', message: `All ${product.stock} in stock of ${product.name} are already in your cart.` })
+    const outcome = await cart.add({ product, variantId, qty })
+    if (outcome === 'failed') return
+    if (outcome === 'limit') {
+      toast.show({ kind: 'info', message: `All ${choiceOf(product, size, color).stock} in stock of ${product.name} in that size and colour are already in your cart.` })
       return
     }
     setSheetOpen(false)
     playAddToCart()
     toast.show({
       kind: 'success',
-      message: `Added to cart: ${product.name}, ${size}, ${color} × ${qty}`,
-      action: { label: 'Undo', onClick: () => cart.remove(lineKey({ id: product.id, size, color }), qty) },
+      message: `Added to cart: ${[product.name, size, color].filter(Boolean).join(', ')} × ${qty}`,
+      action: { label: 'Undo', onClick: () => void cart.remove(variantId, qty) },
     })
   }
 
@@ -214,7 +232,7 @@ export function ShopPage() {
         title={shopTitle(params)}
         summary={
           result && products.status === 'success' ? (
-            <ShopSummary total={result.total} savedCount={savedIds?.length ?? 0} syncedAt={products.data.syncedAt} />
+            <ShopSummary total={result.total} savedCount={savedIds?.length ?? 0} syncedAt={products.syncedAt} />
           ) : products.status === 'loading' ? (
             <SummarySkeleton />
           ) : undefined
@@ -237,13 +255,25 @@ export function ShopPage() {
           </div>
         )}
 
-        {products.status === 'success' && result && (
+        {products.status === 'success' && noPiecesYet && (
+          <div className="glass-card rounded-2xl p-6 sm:p-8">
+            <h2 className="display text-2xl text-fg">No pieces yet</h2>
+            <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+              The shop has nothing on sale right now. New pieces appear here as soon as they are added, so check back soon.
+            </p>
+            <Link to="/" className={`${PRIMARY_BUTTON} mt-6 w-fit`}>
+              Back to home
+            </Link>
+          </div>
+        )}
+
+        {products.status === 'success' && result && !noPiecesYet && (
           <>
             {/* On phones the categories live in the Filters modal instead. */}
             <div data-tour="shop-categories" className="hidden sm:block">
               <CategoryPills
                 value={category}
-                counts={categoryCounts(products.data.products)}
+                categories={CATEGORIES}
                 onChange={(next) => update({ category: next })}
               />
             </div>
@@ -258,13 +288,32 @@ export function ShopPage() {
               categoryActive={category !== 'all'}
               onOpenFilters={() => setFiltersOpen(true)}
             />
+            <FilterChips filters={filters} onClear={(clears) => update(clears)} onClearAll={clearAll} />
+            {badRange && (
+              <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-danger p-3 text-sm text-danger">
+                <p className="min-w-0">
+                  The minimum price ({formatPeso(filters.minPrice!)}) is higher than the maximum ({formatPeso(filters.maxPrice!)}), so nothing can match.
+                  Lower the minimum or raise the maximum.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    focusFiltersTrigger()
+                    update({ min: undefined, max: undefined })
+                  }}
+                  className={`${SHOP_SECONDARY} text-sm`}
+                >
+                  Clear price range
+                </button>
+              </div>
+            )}
             {sheet && (
               <SpecSheet
                 open={sheetOpen}
                 onClose={() => setSheetOpen(false)}
                 product={sheet.product}
                 action={sheet.action}
-                inCart={cart.qtyOfProduct(sheet.product.id)}
+                inCart={cart.qtyOfVariant}
                 onConfirm={confirmChoice}
                 guest={!user}
               />
@@ -272,23 +321,25 @@ export function ShopPage() {
             <FilterPanel
               open={filtersOpen}
               onClose={() => setFiltersOpen(false)}
-              products={products.data.products}
               filters={filters}
               category={category}
-              counts={categoryCounts(products.data.products)}
+              categories={CATEGORIES}
               onApply={(next, nextCategory) =>
                 update({
                   category: nextCategory,
                   min: next.minPrice?.toString(),
                   max: next.maxPrice?.toString(),
-                  colors: next.colors?.join(','),
+                  color: next.color,
                   avail: next.availability?.join(','),
                   ar: next.arReady ? '1' : undefined,
+                  brand: next.brand,
+                  gender: next.gender,
+                  size: next.size,
                 })
               }
             />
 
-            {result.total === 0 ? (
+            {badRange ? null : result.total === 0 ? (
               <div className="glass-card mt-6 rounded-2xl p-6 sm:p-8">
                 <h3 className="display text-xl text-fg">
                   {!q

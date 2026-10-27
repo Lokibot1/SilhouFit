@@ -42,3 +42,19 @@ export const formatPlacedAt = (iso: string) => PLACED_AT.format(new Date(iso))
 
 /** 1 -> "1 item", 3 -> "3 items". */
 export const itemsLabel = (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`
+
+/** A price typed into a filter, as a number: up to 9 whole digits and 2 decimals, otherwise undefined. */
+export const parseFilterPrice = (value: string | null) => (value !== null && /^\d{1,9}(\.\d{1,2})?$/.test(value.trim()) ? Number(value) : undefined)
+
+/**
+ * What a filter price field keeps of a typed or pasted value: digits and one decimal point, 9 whole digits and 2 decimals at most.
+ * Returns null when the value holds "-" or "e", so the field keeps what it had instead of turning -5 into 5 or 1e5 into 15.
+ */
+export function filterPriceInput(value: string): string | null {
+  if (/[-eE]/.test(value)) return null
+  const [whole, ...rest] = value.replace(/[^\d.]/g, '').split('.')
+  return rest.length ? `${whole.slice(0, 9)}.${rest.join('').slice(0, 2)}` : whole.slice(0, 9)
+}
+
+/** "Size M · Navy"; a variant without a size or colour leaves that part out. */
+export const variantLabel = (size: string | null, color: string | null) => [size && `Size ${size}`, color].filter(Boolean).join(' · ')

@@ -22,10 +22,6 @@ export async function setProductActive(productId: string, isActive: boolean, { s
   if (!isRecord(body) || body.isActive !== isActive) throw new ProductListError('server')
 }
 
-// Backend needs for editing AR Fitting on an existing product: `arReady` (boolean) accepted by PATCH /products/:id and returned by list and
-// detail, plus an `arReady` query filter on GET /products. Until then the API would reject the unknown field, so Inventory hides the
-// AR Fitting edit and filter outside the sample catalogue.
-
 export interface StockChange {
   variantId: string
   stock: number
@@ -56,7 +52,7 @@ export interface NewProductInput {
   category: string
   basePrice: number
   gender?: Gender
-  /** Sample catalogue only: createProduct does not send it. */
+  /** Not sent: the API has no `arReady` field yet, so the form's checkbox is inert. */
   arReady: boolean
   description?: string
   /** The first image is the primary one. */
@@ -67,8 +63,6 @@ export interface NewProductInput {
 /**
  * POST /products. Answers with the new product's id and name; anything else is a server fault. A 400 carries the server's message
  * in `detail`, and a 409 (a SKU already in the catalogue) names the SKU there.
- * Backend needs: `Product.arReady` (boolean) on create, update, list and detail. Today AR readiness is only implied by variants having a
- * garmentMeasurement, and the DTO would reject an unknown field, so `arReady` is left out of the body until the API has it.
  */
 export async function createProduct({ arReady: _arReady, basePrice, ...input }: NewProductInput, { signal }: RequestOptions = {}): Promise<{ id: string; name: string }> {
   const body = await request(
@@ -184,7 +178,20 @@ export async function uploadProductImage(file: File, onProgress: (percent: numbe
     xhr.setRequestHeader('x-upsert', 'false')
     xhr.setRequestHeader('Content-Type', file.type)
     xhr.upload.onprogress = (event) => event.lengthComputable && onProgress(Math.round((event.loaded / event.total) * 100))
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new ProductListError(UPLOAD_KIND[xhr.status] ?? 'server')))
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve()
+      // Storage answers a policy rejection as HTTP 400 and puts the real code (403) in the body, so read that first.
+      let status = xhr.status
+      let detail: string | undefined
+      try {
+        const body = JSON.parse(xhr.responseText) as { statusCode?: string | number; message?: string }
+        status = Number(body.statusCode) || status
+        detail = body.message
+      } catch {
+        // Not JSON; the HTTP status stands.
+      }
+      reject(new ProductListError(UPLOAD_KIND[status] ?? 'server', detail))
+    }
     xhr.onerror = () => reject(new ProductListError('network'))
     xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'))
     signal?.addEventListener('abort', () => xhr.abort(), { once: true })

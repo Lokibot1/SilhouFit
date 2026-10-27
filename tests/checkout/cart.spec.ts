@@ -1,13 +1,19 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { DEMO, mockAuth, signedIn } from '../shared/session'
+import { buyNow, DRESS, JACKET, JEAN, NAVY_M, POLO, SHIRT, setupShop, TROUSERS } from '../shared/checkoutShop'
+import type { CartMock, ProductsMock } from '../shared/products'
+import { DEMO, signedIn } from '../shared/session'
 
 const MIN_TARGET = 44
 const COMPACT_TARGET = 36
 
+let api: ProductsMock
+let cart: CartMock
 test.beforeEach(async ({ page }) => {
-  await mockAuth(page)
-  await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
+  ;({ api, cart } = await setupShop(page))
 })
+
+// A piece's only variant, for seeding the server cart.
+const only = (p: { variants: { id: string }[] }) => p.variants[0].id
 
 const overflows = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
@@ -15,10 +21,6 @@ const placeOrderButton = (page: Page) => page.getByRole('button', { name: /Place
 const cartButton = (page: Page, label: string) => page.getByRole('link', { name: `Cart, ${label}` })
 // Radio cards hide the native input; a user clicks the card, so the test does too.
 const choose = (page: Page, name: RegExp) => page.getByRole('radio', { name }).locator('xpath=ancestor::label').click()
-
-async function seedCart(page: Page, lines: { id: string; size: string; color: string; qty: number }[]) {
-  await page.addInitScript((value) => localStorage.setItem('silhoufit-cart', JSON.stringify(value)), lines)
-}
 
 async function signInOnLoginPage(page: Page) {
   await page.getByLabel('Email', { exact: true }).fill(DEMO.email)
@@ -61,9 +63,9 @@ test('a guest who taps Buy now signs in at checkout and lands on that item', asy
   await sheet.getByRole('radio', { name: 'Navy' }).check({ force: true })
   await sheet.getByRole('button', { name: 'Buy now' }).click()
 
-  await expect(page).toHaveURL(/\/login\?next=%2Fcheckout%3Fitem%3Dp01%26size%3DM%26color%3DNavy%26qty%3D1$/)
+  await expect(page).toHaveURL((url) => url.pathname === '/login' && url.searchParams.get('next') === buyNow(POLO, NAVY_M.id))
   await signInOnLoginPage(page)
-  await expect(page).toHaveURL(/\/checkout\?item=p01&size=M&color=Navy&qty=1$/)
+  await expect(page).toHaveURL((url) => url.pathname + url.search === buyNow(POLO, NAVY_M.id))
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible()
 })
 
@@ -86,6 +88,7 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
   await expect(page).toHaveURL(/\/checkout\?source=cart&line=/)
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Rail Tank Set' })).toBeVisible()
+  expect(cart.items).toHaveLength(2) // the guest's cart moved to the server on sign-in
   await expect(page.getByRole('complementary')).toContainText('Subtotal (2 items)')
   await expect(page.getByRole('link', { name: 'Edit cart' })).toBeVisible()
 
@@ -101,6 +104,7 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
   await expect(page.getByText('+639171234567')).toBeVisible()
   await expect(page.getByText('Gift wrap, please.')).toBeVisible()
   await expect(cartButton(page, '0 items')).toBeVisible() // the ordered lines left the cart
+  expect(cart.items).toHaveLength(0)
 
   // Personal details do not outlive the page: a reload shows the empty state.
   await page.reload()
@@ -109,10 +113,8 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
 
 test('a signed-in cart checkout with pieces from two boutiques can only be delivered', async ({ page }) => {
   await signedIn(page)
-  await seedCart(page, [
-    { id: 'p01', size: 'M', color: 'Navy', qty: 1 }, // Ayala Atelier
-    { id: 'p04', size: '30', color: 'Indigo', qty: 1 }, // Lumban Loom
-  ])
+  cart.seed(NAVY_M.id, 1) // Ayala Atelier
+  cart.seed(only(TROUSERS), 1) // Lumban Loom
   await page.goto('/checkout?source=cart')
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
   await expect(page.getByRole('radio', { name: /Delivery/ })).toBeChecked()
@@ -123,10 +125,8 @@ test('a signed-in cart checkout with pieces from two boutiques can only be deliv
 
 test('several pieces from one boutique can be picked up: free shipping and one pickup ETA', async ({ page }) => {
   await signedIn(page)
-  await seedCart(page, [
-    { id: 'p01', size: 'M', color: 'Navy', qty: 1 },
-    { id: 'p17', size: 'L', color: 'White', qty: 1 },
-  ])
+  cart.seed(NAVY_M.id, 1)
+  cart.seed(only(SHIRT), 1)
   await page.goto('/checkout?source=cart')
   await expect(page.getByRole('heading', { name: 'Rail White Shirt' })).toBeVisible({ timeout: 15000 })
   await expect(page.getByRole('complementary')).toContainText('₱3,779.00') // 1,890 + 1,790 + 99
@@ -139,20 +139,19 @@ test('several pieces from one boutique can be picked up: free shipping and one p
   await expect(page.getByText('Waiting for you at')).toBeVisible()
 })
 
-test('a store-only and an online-only piece cannot be ordered together', async ({ page }) => {
+test('a piece archived since it was added shows as no longer available and cannot be checked out', async ({ page }) => {
   await signedIn(page)
-  await seedCart(page, [
-    { id: 'p12', size: 'M', color: 'Olive', qty: 1 },
-    { id: 'p05', size: 'M', color: 'Sand', qty: 1 },
-  ])
-  await page.goto('/checkout?source=cart')
-  await expect(page.getByRole('alert')).toContainText("These pieces can't go in one order", { timeout: 15000 })
-  await expect(placeOrderButton(page)).toBeDisabled()
+  cart.seed(NAVY_M.id, 1)
+  api.rows.find((p) => p.id === POLO.id)!.isActive = false
+  await page.goto('/cart')
+  await expect(page.getByText('No longer available')).toBeVisible({ timeout: 15000 })
+  await page.getByText('Select all items').click()
+  await expect(page.getByRole('button', { name: 'Checkout' })).toBeDisabled()
 })
 
 test('the shopping bar on checkout has the cart and the account menu, and signing out there goes to login', async ({ page }) => {
   await signedIn(page)
-  await seedCart(page, [{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
+  cart.seed(NAVY_M.id, 1)
   await page.goto('/checkout?source=cart')
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
   await expect(page.getByRole('link', { name: 'Sign Up now!' })).toHaveCount(0)
@@ -166,7 +165,7 @@ test('the shopping bar on checkout has the cart and the account menu, and signin
 
 test('can be done with the keyboard alone: cart page to the success page', async ({ page }) => {
   await signedIn(page)
-  await seedCart(page, [{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
+  cart.seed(NAVY_M.id, 1)
   await page.goto('/shop')
   await expect(page.getByRole('article').first()).toBeVisible({ timeout: 15000 })
   await tabTo(page, cartButton(page, '1 item'))
@@ -188,14 +187,12 @@ test('can be done with the keyboard alone: cart page to the success page', async
 
 test.describe('narrow screens', () => {
   for (const width of [320, 340, 360, 375]) {
-    test(`checkout rows fit ${width}px with a sale piece in quantity and long names`, async ({ page }) => {
+    test(`checkout rows fit ${width}px with big quantities and long names`, async ({ page }) => {
       await page.setViewportSize({ width, height: 700 })
       await signedIn(page)
-      await seedCart(page, [
-        { id: 'p07', size: 'M', color: 'Blush', qty: 5 }, // on sale, so two prices per row
-        { id: 'p09', size: 'XL', color: 'Indigo', qty: 12 }, // a long name, a big quantity
-        { id: 'p22', size: '36', color: 'Sand', qty: 9 }, // sale again
-      ])
+      cart.seed(only(DRESS), 5)
+      cart.seed(only(JACKET), 12) // a long name, a big quantity
+      cart.seed(only(JEAN), 9)
       await page.goto('/checkout?source=cart')
       await expect(page.getByRole('heading', { name: 'Showroom Denim Jacket' })).toBeVisible({ timeout: 15000 })
       expect(await overflows(page), `/checkout overflows at ${width}px`).toBe(false)
@@ -208,10 +205,10 @@ test.describe('narrow screens', () => {
     })
   }
 
-  test('the single-item repro: a sale piece in quantity 2 does not overflow at 320px', async ({ page }) => {
+  test('the single-item repro: a piece in quantity 2 does not overflow at 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 })
     await signedIn(page)
-    await page.goto('/checkout?item=p07&size=M&color=Blush&qty=2')
+    await page.goto(buyNow(DRESS, only(DRESS), 2))
     await expect(page.getByRole('heading', { name: 'Garden Print Dress' })).toBeVisible({ timeout: 15000 })
     expect(await overflows(page)).toBe(false)
   })
@@ -219,10 +216,8 @@ test.describe('narrow screens', () => {
   test('the cart page and the success page fit 320px, with controls of at least 36px (44px on touch)', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 })
     await signedIn(page)
-    await seedCart(page, [
-      { id: 'p07', size: 'M', color: 'Blush', qty: 2 },
-      { id: 'p01', size: 'M', color: 'Navy', qty: 1 },
-    ])
+    cart.seed(only(DRESS), 2)
+    cart.seed(NAVY_M.id, 1)
     await page.goto('/cart')
     const cartPage = page.locator('main')
     await expect(cartPage.getByRole('button', { name: 'Checkout' })).toBeInViewport({ ratio: 1, timeout: 15000 })
@@ -260,7 +255,7 @@ test.describe('narrow screens', () => {
   test('the success page fits 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 })
     await signedIn(page)
-    await seedCart(page, [{ id: 'p07', size: 'M', color: 'Blush', qty: 5 }])
+    cart.seed(only(DRESS), 5)
     await page.goto('/checkout?source=cart')
     await expect(page.getByRole('heading', { name: 'Garden Print Dress' })).toBeVisible({ timeout: 15000 })
     await fillAddress(page)
@@ -278,7 +273,7 @@ test.describe('dark mode', () => {
 
   test('renders the cart page, cart checkout and success page readably', async ({ page }) => {
     await signedIn(page)
-    await seedCart(page, [{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
+    cart.seed(NAVY_M.id, 1)
     await page.goto('/cart')
     await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
     await page.goto('/checkout?source=cart')

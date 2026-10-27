@@ -284,7 +284,7 @@ describe('updateProduct', () => {
 describe('createProduct', () => {
   const input = {
     name: 'Tee',
-    category: 'Tops',
+    category: 'Hoodie',
     basePrice: 500,
     arReady: true,
     images: [

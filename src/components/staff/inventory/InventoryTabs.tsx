@@ -22,7 +22,7 @@ export function InventoryTabs({ value, onChange }: { value: InventoryStatus; onC
   }
 
   return (
-    <div role="tablist" aria-label="Product status" onKeyDown={onKeyDown} className="font-ui inline-flex h-9 rounded-xl border border-line-strong p-0.5">
+    <div role="tablist" aria-label="Product status" onKeyDown={onKeyDown} className="font-ui inline-flex h-9 rounded-xl pointer-coarse:h-auto border border-line-strong p-0.5">
       {STATUSES.map((status) => {
         const selected = status === value
         return (
@@ -37,8 +37,8 @@ export function InventoryTabs({ value, onChange }: { value: InventoryStatus; onC
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(status)}
-            // On touch the hit area grows past the 36px control to 44px, without making the control taller.
-            className={`relative h-8 min-w-20 cursor-pointer rounded-xl px-3 text-sm font-semibold transition-colors duration-150 pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:-inset-y-1.5 ${selected ? 'text-canvas' : 'text-fg hover:bg-line/60 hover:text-chrome-strong'}`}
+            // 44px tall on touch screens.
+            className={`relative h-8 min-w-20 cursor-pointer rounded-xl px-3 text-sm font-semibold transition-colors duration-150 pointer-coarse:h-11 ${selected ? 'text-canvas' : 'text-fg hover:bg-line/60 hover:text-chrome-strong'}`}
           >
             {selected && (
               <motion.span

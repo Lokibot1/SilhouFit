@@ -14,9 +14,9 @@ const detail: TransactionDetail = {
   subtotal: 3010,
   paymentMethod: 'cash',
   lines: [
-    { productId: 'a', name: 'Polo', category: 'Tops', units: 2, unitPrice: 1120 },
+    { productId: 'a', name: 'Polo', category: 'Hoodie', units: 2, unitPrice: 1120 },
     { productId: 'b', name: 'Textbook', category: 'Books', units: 1, unitPrice: 500, vatClass: 'exempt' },
-    { productId: 'c', name: 'Export tee', category: 'Tops', units: 1, unitPrice: 270, vatClass: 'zero' },
+    { productId: 'c', name: 'Export tee', category: 'Hoodie', units: 1, unitPrice: 270, vatClass: 'zero' },
   ],
 }
 

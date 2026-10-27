@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { LOW_STOCK, sizesFor, type Product } from '../../data/products'
+import { choiceOf, LOW_STOCK, sizesFor, type Product } from '../../data/products'
 import { formatPeso } from '../../utils/format'
 import { BagIcon, CameraIcon, CartIcon, MinusIcon, PaletteIcon, PlusIcon, RulerIcon, StarIcon } from '../form/icons'
 import { Tooltip } from '../ui/Tooltip'
@@ -9,8 +9,8 @@ import { OPTION_BASE, type Choice } from './SpecSheet'
 
 interface ProductPurchasePanelProps {
   product: Product
-  /** Pieces of this product already in the cart: Add can only take what is left. */
-  inCart: number
+  /** Pieces of a variant already in the cart: Add can only take what is left. */
+  inCart: (variantId: string | undefined) => number
   onAdd: (choice: Choice) => void
   onBuy: (choice: Choice) => void
 }
@@ -28,13 +28,14 @@ const DESCRIPTION_PREVIEW = 200
 const ACTION = 'min-h-12! w-full text-base! max-lg:min-h-11!'
 
 export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductPurchasePanelProps) {
-  const { name, stock, salePrice } = product
+  const { name, salePrice } = product
   const sizes = sizesFor(product)
-  const left = stock - inCart
-  const soldOut = left <= 0
-  const unit = salePrice ?? product.price
   const [color, setColor] = useState(product.colors.length === 1 ? product.colors[0].name : '')
   const [size, setSize] = useState('')
+  // Once size and colour are chosen, stock and price are those of that variant.
+  const { variant, stock, price: unit } = choiceOf(product, size, color)
+  const left = stock - inCart(variant?.id)
+  const soldOut = left <= 0
   const [wanted, setWanted] = useState(1)
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState(false)
@@ -46,7 +47,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
   const colorGroup = useRef<HTMLFieldSetElement>(null)
   // Adding to the cart can lower what is left below the chosen quantity.
   const qty = Math.max(1, Math.min(wanted, left))
-  const channel = product.channels.length === 2 ? CHANNEL_LABEL.both : CHANNEL_LABEL[product.channels[0]]
+  const channel = product.channels.length === 2 ? CHANNEL_LABEL.both : product.channels.length === 1 ? CHANNEL_LABEL[product.channels[0]] : null
 
   useEffect(() => {
     const el = descRef.current
@@ -59,17 +60,17 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
 
   function submit(act: (choice: Choice) => void) {
     if (soldOut) return
-    if (!size) {
+    if (!size && sizes.length > 0) {
       setError(SIZE_ERROR)
       sizeGroup.current?.querySelector('input')?.focus()
       return
     }
-    if (!color) {
+    if (!color && product.colors.length > 0) {
       setError(COLOR_ERROR)
       colorGroup.current?.querySelector('input')?.focus()
       return
     }
-    act({ size, color, qty })
+    act({ size, color, qty, variantId: variant!.id })
   }
 
   const addButton = (
@@ -111,7 +112,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
       >
       <div className="flex flex-col gap-2 max-lg:flex-row max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1">
         <p className="font-ui text-sm tracking-[0.16em] text-fg-muted uppercase max-lg:sr-only lg:text-xs">
-          {product.category} · {product.boutique}
+          {[product.category, product.boutique].filter(Boolean).join(' · ')}
         </p>
         <div className="flex items-start justify-between gap-x-6 gap-y-1 max-lg:basis-full max-sm:flex-wrap">
           <h2 className="min-w-0 text-xl leading-tight lg:text-2xl font-semibold [overflow-wrap:anywhere] text-fg">{name}</h2>
@@ -123,27 +124,34 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
                 <span className="sr-only">Sale price </span>
               </>
             )}
-            <span>{formatPeso(unit)}</span>
+            <span>
+              {product.priceMax !== undefined && !variant && 'From '}
+              {formatPeso(unit)}
+            </span>
           </p>
         </div>
-        <p className="flex items-center gap-1 text-sm text-fg-muted tabular-nums">
-          <StarIcon className="text-fg" />
-          <span aria-hidden="true">
-            {product.rating.toFixed(1)} · {product.reviews.toLocaleString('en-PH')} reviews
-          </span>
-          <span className="sr-only">
-            Rated {product.rating.toFixed(1)} out of 5 from {product.reviews.toLocaleString('en-PH')} reviews
-          </span>
-        </p>
-        <p className="font-ui text-sm text-fg-muted">
-          {stock <= LOW_STOCK && (
-            <>
-              <span className="font-semibold text-danger">{stock === 0 ? 'Sold out' : `Only ${stock} left`}</span>
-              {' · '}
-            </>
-          )}
-          {channel}
-        </p>
+        {product.reviews > 0 && (
+          <p className="flex items-center gap-1 text-sm text-fg-muted tabular-nums">
+            <StarIcon className="text-fg" />
+            <span aria-hidden="true">
+              {product.rating.toFixed(1)} · {product.reviews.toLocaleString('en-PH')} reviews
+            </span>
+            <span className="sr-only">
+              Rated {product.rating.toFixed(1)} out of 5 from {product.reviews.toLocaleString('en-PH')} reviews
+            </span>
+          </p>
+        )}
+        {(product.stock <= LOW_STOCK || channel) && (
+          <p className="font-ui text-sm text-fg-muted">
+            {product.stock <= LOW_STOCK && (
+              <>
+                <span className="font-semibold text-danger">{product.stock === 0 ? 'Sold out' : `Only ${product.stock} left`}</span>
+                {channel && ' · '}
+              </>
+            )}
+            {channel}
+          </p>
+        )}
       </div>
 
       {product.description && (
@@ -171,7 +179,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
         </div>
       )}
 
-      <fieldset ref={colorGroup} data-tour="product-options" aria-describedby={error === COLOR_ERROR ? 'product-error' : undefined}>
+      <fieldset ref={colorGroup} hidden={product.colors.length === 0} data-tour="product-options" aria-describedby={error === COLOR_ERROR ? 'product-error' : undefined}>
         <legend className={LEGEND}>
           <PaletteIcon size={16} className={LEGEND_ICON} />
           Colour
@@ -213,7 +221,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
         )}
       </fieldset>
 
-      <fieldset ref={sizeGroup} data-tour="product-options" aria-describedby={error === SIZE_ERROR ? 'product-error' : undefined}>
+      <fieldset ref={sizeGroup} hidden={sizes.length === 0} data-tour="product-options" aria-describedby={error === SIZE_ERROR ? 'product-error' : undefined}>
         <legend className={LEGEND}>
           <RulerIcon size={16} className={LEGEND_ICON} />
           Size{size ? <span className="font-normal text-fg-muted">: {size}</span> : <span className="font-normal text-fg-muted"> (required)</span>}
@@ -251,7 +259,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
         </p>
         {soldOut ? (
           <p className="mt-2 text-base text-fg-muted max-lg:mt-0 lg:text-sm">
-            {stock === 0 ? 'This piece is sold out.' : `All ${stock} in stock are already in your cart, so no more can be added.`}
+            {stock === 0 ? (product.stock === 0 ? 'This piece is sold out.' : 'This size and colour is sold out.') : `All ${stock} in stock are already in your cart, so no more can be added.`}
           </p>
         ) : (
           <div role="group" aria-labelledby="product-qty-label" className="mt-3 flex items-center gap-2 max-lg:mt-0">

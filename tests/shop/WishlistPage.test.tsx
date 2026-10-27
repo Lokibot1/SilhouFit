@@ -4,21 +4,24 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { PRODUCTS } from '../../src/data/products'
-import { resetProductsCache } from '../../src/hooks/useProducts'
-import { fetchProducts } from '../../src/service/fetchProducts'
+import { clearCartCache } from '../../src/hooks/useCart'
+import { clearProductCache } from '../../src/hooks/useProducts'
+import { ProductListError } from '../../src/service/fetchProductList'
+import { fetchShopProduct } from '../../src/service/fetchShopProducts'
 import { clearSession, setSession } from '../../src/service/session'
 import { WishlistPage } from '../../src/views/private/WishlistPage'
+import { BLAZER, POLO, SOLD_OUT, TROUSERS } from '../fixtures/shopProducts'
+import { wireShopProducts } from '../fixtures/wireCartApi'
 
-vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: vi.fn() }))
-const fetchMock = vi.mocked(fetchProducts)
-const CATALOGUE = { products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' }
+vi.mock('../../src/service/fetchShopProducts')
+const fetchMock = vi.mocked(fetchShopProduct)
 
 function seed(key: 'wishlist' | 'cart', value: unknown) {
   localStorage.setItem(`silhoufit-${key}`, JSON.stringify(value))
   act(() => {
     window.dispatchEvent(new StorageEvent('storage', { key: `silhoufit-${key}` }))
   })
+  if (key === 'cart') clearCartCache()
 }
 
 class Stub {
@@ -37,12 +40,13 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
-  resetProductsCache()
+  vi.resetAllMocks()
+  clearProductCache()
   localStorage.clear()
   seed('wishlist', [])
   seed('cart', [])
   act(() => clearSession())
-  fetchMock.mockResolvedValue(CATALOGUE)
+  wireShopProducts([POLO, BLAZER, TROUSERS, SOLD_OUT])
 })
 afterEach(() => {
   vi.clearAllMocks()
@@ -75,25 +79,37 @@ async function choose(user: ReturnType<typeof userEvent.setup>, size: string, co
 }
 
 describe('WishlistPage', () => {
-  it('shows the skeleton while loading, then only the saved pieces in the order they were saved', async () => {
+  it('shows the skeleton while loading, then only the saved pieces that exist, in the order they were saved', async () => {
     seed('wishlist', ['p02', 'p01', 'gone'])
-    let resolve!: (value: typeof CATALOGUE) => void
-    fetchMock.mockReturnValueOnce(new Promise((r) => (resolve = r)))
     renderPage()
     expect(screen.getByRole('status', { name: 'Loading your wishlist' })).toBeInTheDocument()
-    resolve(CATALOGUE)
     const cards = await screen.findAllByRole('article')
     expect(cards.map((c) => within(c).getByRole('heading').textContent)).toEqual(['Fence-Line Blazer', 'Heritage Polo'])
     expect(screen.getByText('2 pieces saved')).toBeInTheDocument()
+    // The id of the piece that has gone is hidden, not deleted.
+    expect(JSON.parse(localStorage.getItem('silhoufit-wishlist')!)).toEqual(['p02', 'p01', 'gone'])
   })
 
-  it('offers a retry when the catalogue fails to load', async () => {
-    fetchMock.mockRejectedValueOnce(new Error('offline'))
+  it('hides a piece that was archived, without deleting it from the list', async () => {
+    seed('wishlist', ['p01', 'p02'])
+    fetchMock.mockImplementation(async (id) => {
+      if (id === 'p02') throw new ProductListError('not-found')
+      return POLO
+    })
+    renderPage()
+    const cards = await screen.findAllByRole('article')
+    expect(cards).toHaveLength(1)
+    expect(JSON.parse(localStorage.getItem('silhoufit-wishlist')!)).toEqual(['p01', 'p02'])
+  })
+
+  it('offers a retry when the pieces fail to load', async () => {
+    seed('wishlist', ['p01'])
+    fetchMock.mockRejectedValueOnce(new ProductListError('network'))
     const user = userEvent.setup()
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('Your wishlist did not load')
     await user.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(await screen.findByRole('heading', { name: 'Nothing saved yet' })).toBeInTheDocument()
+    expect(await screen.findAllByRole('article')).toHaveLength(1)
   })
 
   describe('empty state', () => {
@@ -105,10 +121,10 @@ describe('WishlistPage', () => {
     })
 
     it('points a guest with a cart at the category of what they added last', async () => {
-      seed('cart', [{ id: 'p02', size: 'M', color: 'Black', qty: 1 }])
+      seed('cart', [{ variantId: 'p02-m-black', productId: 'p02', qty: 1 }])
       renderPage()
       expect(await screen.findByRole('heading', { name: 'Nothing saved yet' })).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: 'Browse Outerwear' })).toHaveAttribute('href', '/shop?category=Outerwear')
+      expect(screen.getByRole('link', { name: 'Browse Hoodie' })).toHaveAttribute('href', '/shop?category=Hoodie')
       expect(screen.getByRole('link', { name: 'Browse all pieces' })).toHaveAttribute('href', '/shop')
     })
   })
@@ -136,7 +152,7 @@ describe('WishlistPage', () => {
     expect(remove).toBeDisabled()
 
     await user.click(screen.getByRole('checkbox', { name: 'Select Heritage Polo' }))
-    await user.click(screen.getByRole('checkbox', { name: 'Select Rail Tank Set' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Select Wool Trousers' }))
     expect(screen.getByText('2 selected')).toBeInTheDocument()
 
     await user.click(remove)
@@ -173,8 +189,8 @@ describe('WishlistPage', () => {
 
     await waitFor(() =>
       expect(JSON.parse(localStorage.getItem('silhoufit-cart')!)).toEqual([
-        { id: 'p01', size: 'M', color: 'Navy', qty: 1 },
-        { id: 'p02', size: 'M', color: 'Black', qty: 1 },
+        { variantId: 'p01-m-navy', productId: 'p01', qty: 1 },
+        { variantId: 'p02-m-black', productId: 'p02', qty: 1 },
       ]),
     )
     expect(screen.getByText('Added 2 pieces to cart')).toBeInTheDocument()
@@ -185,7 +201,7 @@ describe('WishlistPage', () => {
 
     // Undo puts them back in both places.
     await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(JSON.parse(localStorage.getItem('silhoufit-cart')!)).toEqual([])
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('silhoufit-cart') ?? '[]')).toEqual([]))
     expect(JSON.parse(localStorage.getItem('silhoufit-wishlist')!)).toEqual(['p01', 'p02'])
     expect(screen.getAllByRole('article')).toHaveLength(2)
   })
@@ -203,7 +219,7 @@ describe('WishlistPage', () => {
     await screen.findByText('another page')
     const query = new URLSearchParams(screen.getByTestId('where').textContent!.split('?')[1])
     expect(query.getAll('item')).toEqual(['p01', 'p02'])
-    expect(query.getAll('color')).toEqual(['Navy', 'Black'])
+    expect(query.getAll('variant')).toEqual(['p01-m-navy', 'p02-m-black'])
     expect(query.getAll('qty')).toEqual(['1', '1'])
   })
 

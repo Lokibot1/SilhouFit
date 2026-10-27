@@ -1,147 +1,100 @@
 import { describe, expect, it } from 'vitest'
-import { PRODUCTS } from '../../src/data/products'
-import { categoryCounts, colorOptions, payablePrice, queryProducts, type ProductQuery } from '../../src/utils/productQuery'
+import { CATEGORIES, choiceOf, sizesFor, type Product } from '../../src/data/products'
+import { sameColour, validColour } from '../../src/hooks/useShopColours'
+import { SORT_OPTIONS, shopTitle, toApiParams, type ProductQuery } from '../../src/utils/productQuery'
 
-const BASE: ProductQuery = { category: 'all', q: '', sort: 'featured', page: 1, perPage: 100 }
-const run = (changes: Partial<ProductQuery> = {}) => queryProducts(PRODUCTS, { ...BASE, ...changes })
-// Empty results must not pass: an `every` over nothing is true.
-const allOf = <T,>(items: T[], test: (item: T) => boolean) => items.length > 0 && items.every(test)
-const ids = (changes: Partial<ProductQuery>) => run(changes).items.map((p) => p.id)
+const BASE: ProductQuery = { category: 'all', q: '', sort: 'newest', page: 1, perPage: 12 }
+const api = (changes: Partial<ProductQuery> = {}) => toApiParams({ ...BASE, ...changes })
 
-describe('mock catalogue', () => {
-  it('has about two dozen pieces with unique ids and sane fields', () => {
-    expect(PRODUCTS.length).toBeGreaterThanOrEqual(24)
-    expect(new Set(PRODUCTS.map((p) => p.id)).size).toBe(PRODUCTS.length)
-    for (const p of PRODUCTS) {
-      expect(p.alt.length).toBeGreaterThan(10)
-      expect(p.image).toMatch(/^\/images\/gallery\/.+\.webp$/)
-      if (p.salePrice !== undefined) expect(p.salePrice).toBeLessThan(p.price)
-      expect(p.arReady).toBe(p.badges.includes('AR-ready'))
-    }
+describe('toApiParams', () => {
+  it('maps the filters, paging and the one colour', () => {
+    expect(api({ q: ' tee ', category: 'Hoodie', brand: 'Nike', gender: 'male', size: 'M', color: 'Black', minPrice: 0, maxPrice: 900, availability: ['online'], page: 3 })).toEqual({
+      search: 'tee',
+      category: 'Hoodie',
+      brand: 'Nike',
+      gender: 'male',
+      size: 'M',
+      color: 'Black',
+      minPrice: 0,
+      maxPrice: 900,
+      inStockOnly: true,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+      page: 3,
+      limit: 12,
+    })
+    expect(api()).toMatchObject({ search: undefined, category: undefined, color: undefined, inStockOnly: undefined, page: 1 })
+  })
+
+  it('sends Online as inStockOnly, and never an availability, AR, store or low stock key', () => {
+    expect(api({ availability: ['online'] }).inStockOnly).toBe(true)
+    for (const availability of [['store'], ['low'], ['store', 'low'], []] as const) expect(api({ availability: [...availability], arReady: true }).inStockOnly).toBeUndefined()
+    const params = api({ availability: ['store', 'online', 'low'], arReady: true })
+    for (const key of ['availability', 'avail', 'ar', 'arReady']) expect(params).not.toHaveProperty(key)
+  })
+
+  it('sends date and name sorts, and newest first for Featured and the price sorts, never basePrice', () => {
+    expect(api({ sort: 'newest' })).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
+    expect(api({ sort: 'name-asc' })).toMatchObject({ sortBy: 'name', sortOrder: 'asc' })
+    expect(api({ sort: 'name-desc' })).toMatchObject({ sortBy: 'name', sortOrder: 'desc' })
+    for (const sort of ['featured', 'price-asc', 'price-desc'] as const) expect(api({ sort })).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
+    expect(SORT_OPTIONS.map((o) => o.label)).toEqual(['Featured', 'Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A'])
   })
 })
 
-describe('queryProducts category and search', () => {
-  it('returns everything for "all" and only that category otherwise', () => {
-    expect(run().total).toBe(PRODUCTS.length)
-    const jackets = run({ category: 'Outerwear' })
-    expect(jackets.total).toBeGreaterThan(0)
-    expect(allOf(jackets.items, (p) => p.category === 'Outerwear')).toBe(true)
+describe('shopTitle and CATEGORIES', () => {
+  it('titles the page with any category in the URL, or All pieces', () => {
+    expect(shopTitle(new URLSearchParams('category=Hoodie'))).toBe('Hoodie')
+    expect(shopTitle(new URLSearchParams('category=Hats'))).toBe('Hats')
+    expect(shopTitle(new URLSearchParams(''))).toBe('All pieces')
   })
 
-  it('searches name, boutique and colour case-insensitively and trims the text', () => {
-    expect(ids({ q: '  HERITAGE polo ' })).toEqual(['p01'])
-    expect(allOf(run({ q: 'lumban' }).items, (p) => p.boutique === 'Lumban Loom')).toBe(true)
-    expect(allOf(run({ q: 'rust' }).items, (p) => p.colors.some((c) => c.name === 'Rust'))).toBe(true)
-    expect(run({ q: '   ' }).total).toBe(PRODUCTS.length)
-    expect(run({ q: 'zzzz' }).total).toBe(0)
-  })
-
-  it('combines category and search', () => {
-    const result = run({ category: 'Bottoms', q: 'jean' })
-    expect(allOf(result.items, (p) => p.category === 'Bottoms' && /jean/i.test(p.name))).toBe(true)
+  it('has exactly the four categories', () => {
+    expect([...CATEGORIES]).toEqual(['Hoodie', 'Pants', 'Headwear', 'Shorts'])
   })
 })
 
-describe('queryProducts sorting', () => {
-  it('keeps catalogue order for featured', () => {
-    expect(ids({ sort: 'featured' })).toEqual(PRODUCTS.map((p) => p.id))
+describe('colours of the filter dialog', () => {
+  const options = [
+    { name: 'Black', hex: '#111' },
+    { name: 'Navy', hex: null },
+  ]
+
+  it('matches colours ignoring case', () => {
+    expect(sameColour('navy', 'Navy')).toBe(true)
+    expect(sameColour('Navy', 'Sand')).toBe(false)
   })
 
-  it('puts the newest first', () => {
-    const dates = run({ sort: 'newest' }).items.map((p) => p.addedAt)
-    expect(dates).toEqual([...dates].sort().reverse())
-  })
-
-  it('sorts by the price paid, sale price included', () => {
-    const asc = run({ sort: 'price-asc' }).items.map(payablePrice)
-    expect(asc).toEqual([...asc].sort((a, b) => a - b))
-    const desc = run({ sort: 'price-desc' }).items.map(payablePrice)
-    expect(desc).toEqual([...desc].sort((a, b) => b - a))
-    // p02 lists at 6,490 but sells at 4,990, so it ranks below the 5,290 blazer.
-    expect(ids({ sort: 'price-desc' }).indexOf('p19')).toBeLessThan(ids({ sort: 'price-desc' }).indexOf('p02'))
-  })
-
-  it('does not mutate the input list', () => {
-    const before = PRODUCTS.map((p) => p.id)
-    run({ sort: 'price-desc' })
-    expect(PRODUCTS.map((p) => p.id)).toEqual(before)
+  it('keeps a URL colour that a product has, spelled as the product spells it, and drops an unknown one', () => {
+    expect(validColour('black', options)).toBe('Black')
+    expect(validColour('Chartreuse', options)).toBeUndefined()
+    expect(validColour(undefined, options)).toBeUndefined()
+    expect(validColour('Black', [])).toBeUndefined()
   })
 })
 
-describe('queryProducts filters', () => {
-  it('bounds the price paid', () => {
-    const result = run({ minPrice: 1000, maxPrice: 2000 })
-    expect(result.total).toBeGreaterThan(0)
-    expect(allOf(result.items, (p) => payablePrice(p) >= 1000 && payablePrice(p) <= 2000)).toBe(true)
-    expect(ids({ maxPrice: 1600 })).toContain('p22') // 1,990 list, 1,590 sale
+describe('sizes, price and stock of a product from the API', () => {
+  const v = (size: string, color: string, price: number, stock: number) => ({
+    id: `${size}-${color}`, sku: `${size}-${color}`, name: null, size, color, colorHex: null, price, stock, imageUrl: null, measurements: null,
+  })
+  const piece: Product = {
+    id: 'a', name: 'Shirt', category: 'Hats', boutique: '', price: 1000, priceMax: 1400, image: '', alt: '',
+    colors: [{ name: 'Black', hex: '' }, { name: 'Navy', hex: '' }],
+    badges: [], stock: 9, channels: [], arReady: false, addedAt: '', rating: 0, reviews: 0,
+    variants: [v('S', 'Black', 1000, 4), v('M', 'Black', 1400, 0), v('M', 'Navy', 1200, 5)],
+  }
+
+  it('takes sizes from the variants, not from the category', () => {
+    expect(sizesFor(piece)).toEqual(['S', 'M'])
   })
 
-  it('matches any selected colour', () => {
-    const result = run({ colors: ['Rust', 'Blush'] })
-    expect(allOf(result.items, (p) => p.colors.some((c) => ['Rust', 'Blush'].includes(c.name)))).toBe(true)
-    expect(run({ colors: [] }).total).toBe(PRODUCTS.length)
+  it('answers for the whole piece until size and colour are chosen, then for that variant', () => {
+    expect(choiceOf(piece, '', '')).toMatchObject({ stock: 9, price: 1000, variant: undefined })
+    expect(choiceOf(piece, 'M', 'navy')).toMatchObject({ stock: 5, price: 1200, variant: { id: 'M-Navy' } })
+    expect(choiceOf(piece, 'M', 'Black')).toMatchObject({ stock: 0, price: 1400 })
   })
 
-  it('filters by availability: store, online, low stock', () => {
-    expect(allOf(run({ availability: ['store'] }).items, (p) => p.channels.includes('store'))).toBe(true)
-    expect(allOf(run({ availability: ['online'] }).items, (p) => p.channels.includes('online'))).toBe(true)
-    const low = run({ availability: ['low'] }).items
-    expect(low.length).toBeGreaterThan(0)
-    expect(allOf(low, (p) => p.stock >= 1 && p.stock <= 5)).toBe(true)
-    // p24 is listed online but sold out, so it is not available online.
-    expect(ids({ availability: ['online'] })).not.toContain('p24')
-    expect(ids({ availability: ['store'] })).not.toContain('p24')
-    const either = run({ availability: ['store', 'low'] }).total
-    expect(either).toBeGreaterThanOrEqual(run({ availability: ['store'] }).total)
-  })
-
-  it('keeps only AR-ready pieces when asked', () => {
-    expect(allOf(run({ arReady: true }).items, (p) => p.arReady)).toBe(true)
-    expect(run({ arReady: false }).total).toBe(PRODUCTS.length)
-  })
-
-  it('stacks filters with AND', () => {
-    const result = run({ category: 'Outerwear', arReady: true, availability: ['store'] })
-    expect(allOf(result.items, (p) => p.category === 'Outerwear' && p.arReady && p.channels.includes('store'))).toBe(true)
-  })
-})
-
-describe('queryProducts paging', () => {
-  it('slices by perPage and reports the page count', () => {
-    const first = run({ perPage: 10 })
-    expect(first.items).toHaveLength(10)
-    expect(first.pageCount).toBe(Math.ceil(PRODUCTS.length / 10))
-    const last = run({ perPage: 10, page: first.pageCount })
-    expect(last.items).toHaveLength(PRODUCTS.length - 10 * (first.pageCount - 1))
-    expect(first.items[0].id).not.toBe(run({ perPage: 10, page: 2 }).items[0].id)
-  })
-
-  it('clamps the page into 1..pageCount', () => {
-    expect(run({ perPage: 10, page: 0 }).page).toBe(1)
-    expect(run({ perPage: 10, page: -3 }).page).toBe(1)
-    expect(run({ perPage: 10, page: Number.NaN }).page).toBe(1)
-    const high = run({ perPage: 10, page: 99 })
-    expect(high.page).toBe(high.pageCount)
-    expect(high.items.length).toBeGreaterThan(0)
-  })
-
-  it('reports one empty page when nothing matches', () => {
-    expect(run({ q: 'zzzz' })).toEqual({ items: [], total: 0, page: 1, pageCount: 1 })
-  })
-})
-
-describe('categoryCounts and colorOptions', () => {
-  it('counts each category and the whole list', () => {
-    const counts = categoryCounts(PRODUCTS)
-    expect(counts.all).toBe(PRODUCTS.length)
-    expect(counts.Tops).toBe(PRODUCTS.filter((p) => p.category === 'Tops').length)
-    expect(counts.Tops + counts.Bottoms + counts.Dresses + counts.Outerwear + counts.Knitwear).toBe(counts.all)
-  })
-
-  it('lists each colour once', () => {
-    const names = colorOptions(PRODUCTS).map((c) => c.name)
-    expect(new Set(names).size).toBe(names.length)
-    expect(names).toContain('Indigo')
+  it('counts a size and colour no variant has as sold out', () => {
+    expect(choiceOf(piece, 'S', 'Navy')).toMatchObject({ stock: 0, variant: undefined })
   })
 })

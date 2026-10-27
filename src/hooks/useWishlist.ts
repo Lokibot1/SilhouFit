@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { useCatalogue } from './useProducts'
+import { useProductsByIds } from './useProducts'
 
 const KEY = 'silhoufit-wishlist'
 
@@ -66,11 +66,11 @@ export function useWishlist() {
 }
 
 /**
- * Saved ids that exist in the catalogue, or null until the catalogue is known. Ids for pieces that have gone are
- * hidden here, not deleted, so a piece that returns is still saved.
+ * Saved ids whose product can still be bought, or null until they are known (or if loading them failed). Ids for pieces that are
+ * archived or gone are hidden here, not deleted, so a piece that returns is still saved.
  */
 export function useSavedIds() {
   const { ids: saved } = useWishlist()
-  const catalogue = useCatalogue()
-  return catalogue ? saved.filter((id) => catalogue.some((p) => p.id === id)) : null
+  const found = useProductsByIds(saved)
+  return found.status === 'success' ? saved.filter((id) => found.products.some((p) => p.id === id)) : null
 }

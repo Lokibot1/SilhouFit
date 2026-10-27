@@ -48,6 +48,8 @@ export function filterPrice(input: string) {
   if (dot < 0) return cleaned.slice(0, 7)
   return `${cleaned.slice(0, dot).slice(0, 7)}.${cleaned.slice(dot + 1).replace(/\./g, '').slice(0, 2)}`
 }
+/** A filtered price with thousands commas for display (`1234.5` -> `1,234.5`). The stored value stays comma-free. */
+export const formatPriceInput = (value: string) => value.replace(/^\d+/, (int) => int.replace(/\B(?=(\d{3})+$)/g, ','))
 export { filterStock } from './stockEdit'
 
 /** The amount typed in a price box, rounded to cents, or null when it is empty or not a number. */
@@ -136,7 +138,7 @@ export function variantRows(v: ProductFormValues): VariantRowInfo[] {
 const alnum = (text: string) => text.replace(/[^a-z0-9]/gi, '').toUpperCase()
 
 /**
- * A SKU for every row, by key: what was typed, or `CAT-NAME-COL-SIZE` ("TOP-HERI-NAV-M"). A generated SKU that
+ * A SKU for every row, by key: what was typed, or `CAT-NAME-COL-SIZE` ("HOO-HERI-NAV-M"). A generated SKU that
  * collides with another row or with `taken` gets `-2`, `-3`... A typed SKU is kept as is, so its clash can be flagged.
  */
 export function buildSkus(v: ProductFormValues, taken: ReadonlySet<string> = new Set()): Record<string, string> {

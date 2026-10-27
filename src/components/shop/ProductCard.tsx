@@ -42,7 +42,8 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
     e.stopPropagation()
     setCurrent((c) => (c + by + images.length) % images.length)
   }
-  const channel = product.channels.length === 2 ? CHANNEL_LABEL.both : CHANNEL_LABEL[product.channels[0]]
+  const channel = product.channels.length === 2 ? CHANNEL_LABEL.both : product.channels.length === 1 ? CHANNEL_LABEL[product.channels[0]] : null
+  const href = `/shop/${product.slug ?? product.id}`
 
   return (
     <article className={`h-full ${list ? 'flex gap-4' : 'flex flex-col'}`}>
@@ -52,7 +53,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
         }`}
       >
         {/* The photo is a second route to the page; the name below is the keyboard one. The controls stay outside the anchor. */}
-        <Link to={`/shop/${product.id}`} tabIndex={-1} className="block size-full">
+        <Link to={href} tabIndex={-1} className="block size-full">
         {failed ? (
           <div
             role="img"
@@ -82,16 +83,18 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
         )}
         </Link>
 
-        <ul className="pointer-events-none absolute top-2 left-2 flex max-w-[calc(100%-3.5rem)] flex-wrap items-start gap-1">
-          {product.badges.map((badge) => (
-            <li
-              key={badge}
-              className={`skeuo-gloss font-ui rounded-full whitespace-nowrap ${list ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}`}
-            >
-              {badge}
-            </li>
-          ))}
-        </ul>
+        {product.badges.length > 0 && (
+          <ul className="pointer-events-none absolute top-2 left-2 flex max-w-[calc(100%-3.5rem)] flex-wrap items-start gap-1">
+            {product.badges.map((badge) => (
+              <li
+                key={badge}
+                className={`skeuo-gloss font-ui rounded-full whitespace-nowrap ${list ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}`}
+              >
+                {badge}
+              </li>
+            ))}
+          </ul>
+        )}
 
         <button
           type="button"
@@ -161,34 +164,38 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
       <div className={`flex min-w-0 flex-1 flex-col gap-3 ${list ? '' : 'mt-3'}`}>
         <div className="flex flex-col gap-1">
           <h3 className="text-sm leading-snug font-semibold text-fg sm:text-base">
-            <Link to={`/shop/${product.id}`} className="tap hover:underline">
+            <Link to={href} className="tap hover:underline">
               {name}
             </Link>
           </h3>
-          <p className="flex items-center gap-1 text-xs text-fg-muted tabular-nums sm:text-sm">
-            <StarIcon className="text-fg" />
-            <span aria-hidden="true">
-              {product.rating.toFixed(1)} ({product.reviews.toLocaleString('en-PH')})
-            </span>
-            <span className="sr-only">
-              Rated {product.rating.toFixed(1)} out of 5 from {product.reviews.toLocaleString('en-PH')} reviews
-            </span>
-          </p>
+          {product.reviews > 0 && (
+            <p className="flex items-center gap-1 text-xs text-fg-muted tabular-nums sm:text-sm">
+              <StarIcon className="text-fg" />
+              <span aria-hidden="true">
+                {product.rating.toFixed(1)} ({product.reviews.toLocaleString('en-PH')})
+              </span>
+              <span className="sr-only">
+                Rated {product.rating.toFixed(1)} out of 5 from {product.reviews.toLocaleString('en-PH')} reviews
+              </span>
+            </p>
+          )}
         </div>
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <p>
-              <span className="sr-only">Available in {product.colors.map((c) => c.name).join(', ')}</span>
-              <span aria-hidden="true" className="flex gap-1">
-                {product.colors.map((c) => (
-                  <span
-                    key={c.name}
-                    className="size-3 rounded-full border border-fg-muted sm:size-4"
-                    style={{ backgroundColor: c.hex }}
-                  />
-                ))}
-              </span>
-            </p>
+            {product.colors.length > 0 && (
+              <p>
+                <span className="sr-only">Available in {product.colors.map((c) => c.name).join(', ')}</span>
+                <span aria-hidden="true" className="flex gap-1">
+                  {product.colors.map((c) => (
+                    <span
+                      key={c.name}
+                      className="size-3 rounded-full border border-fg-muted sm:size-4"
+                      style={{ backgroundColor: c.hex }}
+                    />
+                  ))}
+                </span>
+              </p>
+            )}
             <p className="ml-auto flex flex-wrap justify-end gap-x-2 text-sm font-semibold text-fg tabular-nums sm:text-base">
               {salePrice !== undefined ? (
                 <>
@@ -198,19 +205,24 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
                   <span>{formatPeso(salePrice)}</span>
                 </>
               ) : (
-                <span>{formatPeso(product.price)}</span>
+                <span>
+                  {product.priceMax !== undefined && 'From '}
+                  {formatPeso(product.price)}
+                </span>
               )}
             </p>
           </div>
-          <p className="font-ui text-[11px] text-fg-muted sm:text-xs">
-            {stock <= LOW_STOCK && (
-              <>
-                <span className="font-semibold text-danger">{soldOut ? 'Sold out' : `Only ${stock} left`}</span>
-                {' · '}
-              </>
-            )}
-            {channel}
-          </p>
+          {(stock <= LOW_STOCK || channel) && (
+            <p className="font-ui text-[11px] text-fg-muted sm:text-xs">
+              {stock <= LOW_STOCK && (
+                <>
+                  <span className="font-semibold text-danger">{soldOut ? 'Sold out' : `Only ${stock} left`}</span>
+                  {channel && ' · '}
+                </>
+              )}
+              {channel}
+            </p>
+          )}
         </div>
         {/* Pinned to the bottom so cards in a row end together; stacked until there is room for two. */}
         <div className="mt-auto flex flex-col gap-2 pt-1 sm:flex-row">

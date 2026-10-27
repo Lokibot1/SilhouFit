@@ -11,31 +11,30 @@ import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
 import { Checkbox } from '../../components/ui/Checkbox'
 import { Modal } from '../../components/ui/Modal'
 import { RowMenu } from '../../components/ui/RowMenu'
-import { sizesFor, type Product } from '../../data/products'
+import { choiceOf, sizesFor, type Product } from '../../data/products'
 import { lineKey, useCart, type Line } from '../../hooks/useCart'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
-import { useProducts } from '../../hooks/useProducts'
+import { loadProduct } from '../../hooks/useProducts'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
-import { resolveCartItems } from '../../utils/checkout'
-import { formatPeso } from '../../utils/format'
+import { formatPeso, variantLabel } from '../../utils/format'
 
 const DESCRIPTION =
   'Your SilhouFit cart: review the pieces you added, change quantities, remove what you do not want, then check out the ones you pick.'
 
-type Row = { line: Line; product: Product | undefined; problem: string | null }
+type Row = { line: Line; problem: string | null }
 
 /** Why a line cannot be bought, or null when it can. */
-function problemWith(line: Line, product: Product | undefined) {
-  if (!product) return 'No longer in the catalogue'
-  if (product.stock === 0) return 'Sold out'
-  if (!line.size || !line.color || !sizesFor(product).includes(line.size) || !product.colors.some((c) => c.name === line.color)) {
-    return 'Size and colour were not chosen. Choose them to buy it, or remove it.'
-  }
+function problemWith(line: Line) {
+  if (!line.active) return 'No longer available'
+  if (line.stock === 0) return 'Sold out'
   return null
 }
+
+/** What a line can be bought for: its quantity, lowered to the variant's stock. */
+const buyableQty = (line: Line) => Math.min(line.qty, line.stock)
 
 // A removed row slides away, then the gap closes. Motion's reduced-motion setting drops the slide and keeps the fade.
 // A swiped row is already off screen, so it only closes the gap. A row that only changed variation gets a new key,
@@ -112,7 +111,6 @@ export function CartPage() {
   useDocumentTitle('Your cart — SilhouFit')
   useMetaDescription(DESCRIPTION)
 
-  const products = useProducts()
   const cart = useCart()
   const user = useCurrentUser()
   const navigate = useNavigate()
@@ -122,58 +120,50 @@ export function CartPage() {
   const [confirming, setConfirming] = useState(false)
   const [leaving, setLeaving] = useState<Leaving>('slide')
   // The row being edited is kept after the drawer closes so its content stays put while it slides out.
-  const [editing, setEditing] = useState<{ row: Row; id: number } | null>(null)
+  const [editing, setEditing] = useState<{ row: Row; product: Product; id: number } | null>(null)
   const [editOpen, setEditOpen] = useState(false)
 
-  const catalogue = products.status === 'success' ? products.data.products : null
-  const rows: Row[] = catalogue
-    ? cart.lines.map((line) => {
-        const product = catalogue.find((p) => p.id === line.id)
-        return { line, product, problem: problemWith(line, product) }
-      })
-    : []
+  const ready = cart.status === 'ready'
+  const rows: Row[] = ready ? cart.lines.map((line) => ({ line, problem: problemWith(line) })) : []
   // Only keys still in the cart count as selected, so a line removed elsewhere drops out by itself.
   const chosen = rows.filter((row) => selected.includes(lineKey(row.line)))
   const buyableLines = chosen.filter((row) => !row.problem).map((row) => row.line)
-  // The count and total use the same resolution as the navbar badge and the checkout, so all three agree.
-  const bought = catalogue ? resolveCartItems(buyableLines, catalogue).items : []
-  const count = bought.reduce((sum, item) => sum + item.qty, 0)
-  const total = bought.reduce((sum, item) => sum + (item.product.salePrice ?? item.product.price) * item.qty, 0)
+  // The same quantities the checkout takes: lowered to the variant's stock.
+  const count = buyableLines.reduce((sum, line) => sum + buyableQty(line), 0)
+  const total = buyableLines.reduce((sum, line) => sum + line.unitPrice * buyableQty(line), 0)
   const allSelected = rows.length > 0 && chosen.length === rows.length
 
   function removeOne(row: Row, how: Leaving = 'slide') {
     setLeaving(how)
     const key = lineKey(row.line)
-    const { line, product } = row
-    cart.removeLines([key])
+    const { line } = row
+    void cart.removeLines([key])
     setSelected((current) => current.filter((k) => k !== key))
     // The row disappears, so keep focus on the heading.
     headingRef.current?.focus()
     toast.show({
       kind: 'info',
-      message: `Removed ${product?.name ?? 'a piece'} from cart`,
+      message: `Removed ${line.name} from cart`,
       // Only a line that could be bought gets an Undo; a broken one is simply cleared.
-      action:
-        row.problem || !product
-          ? undefined
-          : {
-              label: 'Undo',
-              // Back through the stock check, in case the cart changed in the meantime.
-              onClick: () =>
-                cart.add({
-                  product,
-                  size: line.size,
-                  color: line.color,
-                  qty: line.qty,
-                }),
-            },
+      action: row.problem
+        ? undefined
+        : {
+            label: 'Undo',
+            // Back through the stock check, in case the cart changed in the meantime.
+            onClick: () =>
+              loadProduct(line.productId)
+                .then((product) => cart.add({ product, variantId: line.variantId, qty: line.qty }))
+                .catch(() =>
+                  toast.show({ kind: 'error', message: `Couldn't put ${line.name} back. The request failed, most likely because the connection dropped. Add it again from the shop.` }),
+                ),
+          },
     })
   }
 
   function removeChosen() {
     setLeaving('slide')
     const keys = chosen.map((row) => lineKey(row.line))
-    cart.removeLines(keys)
+    void cart.removeLines(keys)
     setSelected([])
     setConfirming(false)
     headingRef.current?.focus()
@@ -183,10 +173,14 @@ export function CartPage() {
     })
   }
 
-  function changeVariant(row: Row, size: string, color: string) {
+  async function changeVariant(row: Row, size: string, color: string) {
     setLeaving('instant')
     const key = lineKey(row.line)
-    const nextKey = cart.changeVariant(key, size, color)
+    const nextKey = await cart.changeVariant(key, size, color)
+    if (nextKey === key) {
+      setEditOpen(false)
+      return
+    }
     // The line's key changed, so a ticked line stays ticked under its new key.
     setSelected((current) => {
       const rest = current.filter((k) => k !== key)
@@ -196,13 +190,24 @@ export function CartPage() {
     headingRef.current?.focus()
     toast.show({
       kind: 'success',
-      message: `Updated ${row.product?.name ?? 'piece'} to size ${size}, ${color}`,
+      message: `Updated ${row.line.name} to ${variantLabel(size, color).toLowerCase()}`,
     })
   }
 
+  // The editor needs the piece's sizes and colours, which its detail has.
   function openEditor(row: Row) {
-    setEditing((current) => ({ row, id: (current?.id ?? 0) + 1 }))
-    setEditOpen(true)
+    loadProduct(row.line.productId).then(
+      (product) => {
+        setEditing((current) => ({ row, product, id: (current?.id ?? 0) + 1 }))
+        setEditOpen(true)
+      },
+      () =>
+        toast.show({
+          kind: 'error',
+          message: `Couldn't load ${row.line.name}. Check your connection, then try again.`,
+          action: { label: 'Try again', onClick: () => openEditor(row) },
+        }),
+    )
   }
 
   function toggle(key: string, on: boolean) {
@@ -222,24 +227,24 @@ export function CartPage() {
       <ShopHeader ref={headingRef} title="Your cart" icon={<CartIcon className="size-[1.1em]" />} crumb="Cart" backToShop />
 
       <div className="mx-auto max-w-6xl px-6 pb-24 max-sm:pb-36 2xl:max-w-[88rem]">
-        {cart.lines.length === 0 && <EmptyCart signedIn={!!user} />}
+        {ready && cart.lines.length === 0 && <EmptyCart signedIn={!!user} />}
 
-        {cart.lines.length > 0 && products.status === 'loading' && <CartListSkeleton count={Math.min(cart.lines.length, 4)} />}
+        {cart.status === 'loading' && <CartListSkeleton count={Math.min(cart.count || 1, 4)} />}
 
-        {cart.lines.length > 0 && products.status === 'error' && (
+        {cart.status === 'error' && (
           <div role="alert" className="glass-card rounded-2xl p-6 sm:p-8">
             <h2 className="display text-2xl text-fg">Your cart did not load</h2>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
               The request for stock and prices failed, most likely because the connection dropped or the service is briefly unavailable. The
               pieces in your cart are kept. Check your connection, then try again.
             </p>
-            <button type="button" onClick={products.retry} className={`${PRIMARY_BUTTON} mt-6`}>
+            <button type="button" onClick={cart.retry} className={`${PRIMARY_BUTTON} mt-6`}>
               Try again
             </button>
           </div>
         )}
 
-        {catalogue && (
+        {ready && (
           <>
             {unbuyable > 0 && (
               <p className="mt-2 text-sm text-fg-muted">
@@ -276,9 +281,9 @@ export function CartPage() {
             <ul className="divide-y divide-line">
               <AnimatePresence initial={false} custom={leaving}>
                 {rows.map((row) => {
-                  const { line, product, problem } = row
+                  const { line, problem } = row
                   const key = lineKey(line)
-                  const name = product?.name ?? 'this piece'
+                  const name = line.name
                   const picker = (
                     <Checkbox
                       checked={selected.includes(key)}
@@ -287,21 +292,21 @@ export function CartPage() {
                       className="-ml-2.5 shrink-0 self-center sm:ml-0"
                     />
                   )
-                  if (problem || !product) {
+                  if (problem) {
                     return (
                       <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className="py-5">
                         <SwipeRow onRemove={() => removeOne(row, 'collapse')}>
                         {picker}
                         <div className="min-w-0 flex-1 rounded-xl border border-line-strong p-3">
                           <div className="flex items-start justify-between gap-3">
-                            <p className="min-w-0 text-base font-semibold break-words text-fg">{product?.name ?? 'A piece in your cart'}</p>
+                            <p className="min-w-0 text-base font-semibold break-words text-fg">{line.name}</p>
                             <div className="max-sm:sr-only max-sm:focus-within:not-sr-only">
                               <RowMenu label={`More actions for ${name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
                             </div>
                           </div>
                           <p className="mt-1 text-sm text-danger">{problem}</p>
                           <p className="mt-1 text-sm text-fg-muted">It is left out of the total and the count.</p>
-                          {product && product.stock > 0 && (
+                          {line.active && (
                             <button type="button" onClick={() => openEditor(row)} className={`${SHOP_SECONDARY} mt-2`}>
                               Choose size and colour
                             </button>
@@ -311,42 +316,41 @@ export function CartPage() {
                       </motion.li>
                     )
                   }
-                  const unit = product.salePrice ?? product.price
-                  const room = product.stock - (cart.qtyOfProduct(product.id) - line.qty)
-                  const qty = Math.min(line.qty, product.stock)
+                  const unit = line.unitPrice
+                  const qty = buyableQty(line)
                   return (
                     <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className="py-5">
                       <SwipeRow onRemove={() => removeOne(row, 'collapse')}>
                       {picker}
                       <img
-                        src={product.image}
-                        alt={product.alt}
+                        src={line.image}
+                        alt={line.name}
                         className="photo-mono h-20 w-16 shrink-0 sm:h-24 sm:w-18 rounded-xl border border-line object-cover"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
-                          <h2 className="min-w-0 text-base leading-snug font-semibold break-words text-fg">{product.name}</h2>
+                          <h2 className="min-w-0 text-base leading-snug font-semibold break-words text-fg">{line.name}</h2>
                           <div className="max-sm:sr-only max-sm:focus-within:not-sr-only">
-                            <RowMenu label={`More actions for ${product.name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
+                            <RowMenu label={`More actions for ${line.name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
                           </div>
                         </div>
                         <button
                           type="button"
-                          aria-label={`Change variation of ${product.name}, currently size ${line.size}, ${line.color}`}
+                          aria-label={`Change variation of ${line.name}, currently ${variantLabel(line.size, line.color)}`}
                           onClick={() => openEditor(row)}
                           className="font-ui mt-1 inline-flex min-h-8 max-w-full cursor-pointer items-center gap-1.5 rounded-lg border border-line px-2 text-sm text-fg-muted hover:text-fg pointer-coarse:min-h-11"
                         >
                           <span className="truncate">
-                            Size {line.size} · {line.color}
+                            {variantLabel(line.size, line.color)}
                           </span>
                           <ChevronDownIcon size={16} className="shrink-0" />
                         </button>
                         <p className="mt-0.5 text-sm text-fg-muted tabular-nums">{formatPeso(unit)} each</p>
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                          <div role="group" aria-label={`Quantity of ${product.name}`} className="flex items-center gap-2">
+                          <div role="group" aria-label={`Quantity of ${line.name}`} className="flex items-center gap-2">
                             <button
                               type="button"
-                              aria-label={`Decrease quantity of ${product.name}`}
+                              aria-label={`Decrease quantity of ${line.name}`}
                               disabled={qty <= 1}
                               onClick={() => cart.setQty(key, qty - 1)}
                               className={`${SHOP_SECONDARY} size-9 pointer-coarse:size-11 px-0`}
@@ -358,8 +362,8 @@ export function CartPage() {
                             </output>
                             <button
                               type="button"
-                              aria-label={`Increase quantity of ${product.name}`}
-                              disabled={qty >= room}
+                              aria-label={`Increase quantity of ${line.name}`}
+                              disabled={qty >= line.stock}
                               onClick={() => cart.setQty(key, qty + 1)}
                               className={`${SHOP_SECONDARY} size-9 pointer-coarse:size-11 px-0`}
                             >
@@ -389,13 +393,13 @@ export function CartPage() {
                         <span className="text-sm text-fg-muted">Total ({plural(count)}) </span>
                         <span className="text-xl font-semibold text-fg">{formatPeso(total)}</span>
                       </p>
-                      <button type="button" onClick={checkout} disabled={bought.length === 0} className={`${SHOP_PRIMARY} shrink-0`}>
+                      <button type="button" onClick={checkout} disabled={count === 0} className={`${SHOP_PRIMARY} shrink-0`}>
                         <CartIcon />
                         Checkout
                       </button>
                     </div>
                   </div>
-                  {!user && bought.length > 0 && (
+                  {!user && count > 0 && (
                     <p className="mt-1 text-sm text-fg-muted sm:text-right">You&apos;ll sign in before you pay.</p>
                   )}
                 </div>
@@ -404,11 +408,11 @@ export function CartPage() {
           </>
         )}
 
-        {editing?.row.product && (
+        {editing && (
           <VariationModal
             key={editing.id}
             open={editOpen}
-            product={editing.row.product}
+            product={editing.product}
             line={editing.row.line}
             onClose={() => setEditOpen(false)}
             onSave={(size, color) => changeVariant(editing.row, size, color)}
@@ -457,7 +461,10 @@ function VariationModal({
         ? product.colors[0].name
         : '',
   )
-  const changed = size !== line.size || color !== line.color
+  const changed = size !== (line.size ?? '') || color !== (line.color ?? '')
+  // The size and colour have to come to a variant that is in stock.
+  const { stock } = choiceOf(product, size, color)
+  const unavailable = !!size && !!color && stock === 0
 
   return (
     <Modal
@@ -471,7 +478,7 @@ function VariationModal({
           <button type="button" onClick={onClose} className={SHOP_SECONDARY}>
             Cancel
           </button>
-          <button type="button" disabled={!size || !color || !changed} onClick={() => onSave(size, color)} className={SHOP_PRIMARY}>
+          <button type="button" disabled={!size || !color || !changed || unavailable} onClick={() => onSave(size, color)} className={SHOP_PRIMARY}>
             Update variation
           </button>
         </div>
@@ -496,15 +503,11 @@ function VariationModal({
           </p>
           <p className="mt-1 text-sm text-fg-muted tabular-nums">
             Quantity {line.qty}
-            {line.size && line.color && (
-              <>
-                {' '}
-                · Now Size {line.size}, {line.color}
-              </>
-            )}
+            {(line.size || line.color) && <> · Now {variantLabel(line.size, line.color)}</>}
           </p>
         </div>
       </div>
+      {unavailable && <p className="pb-5 text-sm text-danger">That size and colour is not available. Choose another.</p>}
       <fieldset className="pb-5">
         <legend className="font-ui text-xs font-semibold tracking-[0.12em] text-fg uppercase">
           <PaletteIcon size={16} className="mr-2 -mt-0.5 inline align-middle" />
@@ -558,7 +561,7 @@ function VariationModal({
   )
 }
 
-/** No lines in the cart. It needs no catalogue, so it shows whatever the products request is doing. */
+/** No lines in the cart. */
 function EmptyCart({ signedIn }: { signedIn: boolean }) {
   return (
     <motion.div

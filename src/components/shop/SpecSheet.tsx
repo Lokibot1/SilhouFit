@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useRef, useState } from 'react'
-import { sizesFor, type Product } from '../../data/products'
+import { choiceOf, sizesFor, type Product } from '../../data/products'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { formatPeso } from '../../utils/format'
 import { BagIcon, CartIcon, FilterIcon, HashIcon, MinusIcon, PaletteIcon, PlusIcon, RulerIcon } from '../form/icons'
@@ -11,6 +11,8 @@ export interface Choice {
   size: string
   color: string
   qty: number
+  /** The variant the size and colour come to. */
+  variantId: string
 }
 
 interface SpecSheetProps {
@@ -18,8 +20,8 @@ interface SpecSheetProps {
   onClose: () => void
   product: Product
   action: 'cart' | 'buy'
-  /** Pieces of this product already in the cart: Add can only take what is left. */
-  inCart: number
+  /** Pieces of a variant already in the cart: Add can only take what is left. */
+  inCart: (variantId: string | undefined) => number
   onConfirm: (choice: Choice) => void
   /** Not signed in: Buy now says they will sign in before paying. */
   guest?: boolean
@@ -39,9 +41,10 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
   const sizes = sizesFor(product)
   const reduced = useReducedMotion()
   const drift = reduced ? 0 : 24
-  const left = action === 'cart' ? product.stock - inCart : product.stock
   const [color, setColor] = useState(product.colors.length === 1 ? product.colors[0].name : '')
   const [size, setSize] = useState('')
+  const { variant, stock, price: unit } = choiceOf(product, size, color)
+  const left = action === 'cart' ? stock - inCart(variant?.id) : stock
   const [qty, setQty] = useState(1)
   const [error, setError] = useState('')
   const sizeGroup = useRef<HTMLFieldSetElement>(null)
@@ -60,22 +63,21 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
     }
   }
 
-  const unit = product.salePrice ?? product.price
   const last = !step || step.index === step.total
   const verb = !last ? 'Next piece' : action === 'cart' ? 'Add to cart' : 'Buy now'
 
   function confirm() {
-    if (!size) {
+    if (!size && sizes.length > 0) {
       setError(SIZE_ERROR)
       sizeGroup.current?.querySelector('input')?.focus()
       return
     }
-    if (!color) {
+    if (!color && product.colors.length > 0) {
       setError(COLOR_ERROR)
       colorGroup.current?.querySelector('input')?.focus()
       return
     }
-    onConfirm({ size, color, qty })
+    onConfirm({ size, color, qty, variantId: variant!.id })
   }
 
   return (
@@ -112,7 +114,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
           />
           <div className="min-w-0 flex-1">
             <p className="font-ui truncate text-[11px] tracking-[0.16em] text-fg-muted uppercase">
-              {product.category} · {product.boutique}
+              {[product.category, product.boutique].filter(Boolean).join(' · ')}
             </p>
             <h3 className="mt-1 text-2xl leading-tight font-semibold text-fg">{product.name}</h3>
             <p className="mt-3 flex flex-wrap gap-x-2 text-lg font-semibold text-fg tabular-nums">
@@ -128,7 +130,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
           </div>
         </div>
 
-        <fieldset ref={colorGroup} aria-describedby={error === COLOR_ERROR ? 'spec-error' : undefined}>
+        <fieldset ref={colorGroup} hidden={product.colors.length === 0} aria-describedby={error === COLOR_ERROR ? 'spec-error' : undefined}>
           <legend className={LEGEND}>
             <PaletteIcon size={16} className={LEGEND_ICON} />
             Colour
@@ -170,7 +172,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
           )}
         </fieldset>
 
-        <fieldset ref={sizeGroup} aria-describedby={error === SIZE_ERROR ? 'spec-error' : undefined}>
+        <fieldset ref={sizeGroup} hidden={sizes.length === 0} aria-describedby={error === SIZE_ERROR ? 'spec-error' : undefined}>
           <legend className={LEGEND}>
             <RulerIcon size={16} className={LEGEND_ICON} />
             Size{size ? <span className="font-normal text-fg-muted">: {size}</span> : <span className="font-normal text-fg-muted"> (required)</span>}
@@ -189,7 +191,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
                   }}
                   className="peer sr-only"
                 />
-                <span data-checked={size === s} className={`${OPTION_BASE} min-w-8 pointer-coarse:min-w-11 tabular-nums`}>
+                <span data-checked={size === s} className={`${OPTION_BASE} min-w-8 pointer-coarse:min-w-11 max-lg:min-h-11 max-lg:min-w-11 tabular-nums`}>
                   {s}
                 </span>
               </label>
@@ -209,7 +211,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
           </p>
           {left <= 0 ? (
             <p className="mt-2 text-sm text-fg-muted">
-              All {product.stock} in stock are already in your cart, so no more can be added.
+              {stock === 0 ? 'This size and colour is sold out.' : `All ${stock} in stock are already in your cart, so no more can be added.`}
             </p>
           ) : (
             <div role="group" aria-labelledby="spec-qty-label" className="mt-3 flex items-center gap-2">
@@ -218,7 +220,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
                 aria-label="Decrease quantity"
                 disabled={qty <= 1}
                 onClick={() => setQty(qty - 1)}
-                className={`${SHOP_SECONDARY} size-8 pointer-coarse:size-11 px-0`}
+                className={`${SHOP_SECONDARY} size-8 pointer-coarse:size-11 max-lg:size-11 px-0`}
               >
                 <MinusIcon />
               </button>
@@ -230,7 +232,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
                 aria-label="Increase quantity"
                 disabled={qty >= left}
                 onClick={() => setQty(qty + 1)}
-                className={`${SHOP_SECONDARY} size-8 pointer-coarse:size-11 px-0`}
+                className={`${SHOP_SECONDARY} size-8 pointer-coarse:size-11 max-lg:size-11 px-0`}
               >
                 <PlusIcon />
               </button>

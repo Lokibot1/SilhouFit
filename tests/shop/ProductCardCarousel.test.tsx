@@ -3,9 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { ProductCard } from '../../src/components/shop/ProductCard'
-import { PRODUCTS, productImages, type Product } from '../../src/data/products'
+import { productImages, type Product } from '../../src/data/products'
+import { BLAZER } from '../fixtures/shopProducts'
 
-const base: Product = { ...PRODUCTS.find((p) => p.id === 'p02')!, images: undefined }
+const base: Product = { ...BLAZER, images: undefined }
 const three: Product = { ...base, images: ['/images/gallery/a.webp', '/images/gallery/b.webp'] }
 
 function setup(product: Product) {

@@ -5,7 +5,7 @@ import { useCartCount } from '../../hooks/useCart'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useOnboarding } from '../../hooks/useOnboarding'
-import { useProducts } from '../../hooks/useProducts'
+import { useTourProduct } from '../../hooks/useTourProduct'
 import { DURATION, EASE_OUT, SPRING } from '../../motion/tokens'
 import { loadAddresses } from '../../service/addresses'
 import { getBodyProfile } from '../../service/bodyProfile'
@@ -19,7 +19,7 @@ import { Tooltip } from '../ui/Tooltip'
 import { AddressStep } from './AddressStep'
 import { Confetti } from './Confetti'
 import { Spotlight } from './Spotlight'
-import { tourProduct, tourSteps } from './steps'
+import { tourSteps } from './steps'
 import { dockFor, freeArea, PAD, useTourTarget, type Box } from './useTourTarget'
 
 const SKIPPED_TOAST = 'Tour skipped. Replay it any time from your profile.'
@@ -80,7 +80,7 @@ function WelcomeMark() {
 export function OnboardingTour() {
   const tour = useOnboarding()
   const user = useCurrentUser()
-  const products = useProducts()
+  const { ready, product } = useTourProduct()
   const cartCount = useCartCount()
   const toast = useToast()
   const navigate = useNavigate()
@@ -91,11 +91,8 @@ export function OnboardingTour() {
   const cardRef = useRef<HTMLDivElement>(null)
   const [cardHeight, setCardHeight] = useState(0)
 
-  const catalogue = products.status === 'success' ? products.data.products : null
-  const product = useMemo(() => tourProduct(catalogue), [catalogue])
   const steps = useMemo(() => tourSteps(product), [product])
   const counts = useMemo(() => steps.map((s) => s.stops.length), [steps])
-  const ready = products.status !== 'loading'
 
   const stepIndex = Math.min(tour.step, steps.length - 1)
   const step = steps[stepIndex]

@@ -1,18 +1,19 @@
 import { motion } from 'motion/react'
-import { CATEGORIES, type Category } from '../../data/products'
+import type { Category } from '../../data/products'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 
 interface CategoryPillsProps {
   value: Category | 'all'
-  counts: Record<Category | 'all', number>
+  /** Every category to offer, in display order. */
+  categories: readonly string[]
   onChange: (category: Category | 'all') => void
 }
 
-export function CategoryPills({ value, counts, onChange }: CategoryPillsProps) {
+export function CategoryPills({ value, categories, onChange }: CategoryPillsProps) {
   return (
     <div role="group" aria-label="Filter by category" className="-mx-6 -mb-2 overflow-x-auto px-6 pt-1 pb-3">
       <div className="flex w-max gap-2">
-        {(['all', ...CATEGORIES] as const).map((category) => {
+        {['all', ...categories].map((category) => {
           const active = category === value
           return (
             <button
@@ -31,7 +32,6 @@ export function CategoryPills({ value, counts, onChange }: CategoryPillsProps) {
                 />
               )}
               <span className="relative">{category === 'all' ? 'All' : category}</span>
-              <span className="relative tabular-nums">{counts[category]}</span>
             </button>
           )
         })}

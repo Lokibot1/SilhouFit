@@ -7,11 +7,11 @@ import { ShopHeader } from '../../components/shop/ShopHeader'
 import type { Choice } from '../../components/shop/SpecSheet'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
-import type { Product } from '../../data/products'
+import { choiceOf, type Product } from '../../data/products'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
-import { useProducts } from '../../hooks/useProducts'
-import { lineKey, useCart } from '../../hooks/useCart'
+import { useProduct } from '../../hooks/useProducts'
+import { useCart } from '../../hooks/useCart'
 import { useWishlist } from '../../hooks/useWishlist'
 import { formatPeso } from '../../utils/format'
 import { playAddToCart } from '../../utils/sound'
@@ -19,22 +19,24 @@ import { playAddToCart } from '../../utils/sound'
 const NOT_FOUND_DESCRIPTION =
   'This piece is no longer in the SilhouFit catalogue. Browse the shop to see what is in stock online and in store, and preview how each piece fits with AR.'
 
-// Name, category, boutique and price in a sentence of 150-160 characters; short names get the brand added.
+// Name, category, brand and price in a sentence of about 150-160 characters; short names get the brand added.
 function describe(product: Product) {
-  const text = `${product.name}, a ${product.category.toLowerCase()} piece from ${product.boutique} at ${formatPeso(product.salePrice ?? product.price)}. Check stock online and in store, choose your size and colour, and add it to your cart.`
+  const from = product.boutique ? ` from ${product.boutique}` : ''
+  const text = `${product.name}, a ${product.category.toLowerCase()} piece${from} at ${formatPeso(product.price)}. Check the stock, choose your size and colour, and add it to your cart.`
   return text.length < 150 ? text.replace('your cart', 'your SilhouFit cart') : text
 }
 
 export function ProductPage() {
+  // The route param is the product's slug, or its id from older links.
   const { id } = useParams()
-  const products = useProducts()
+  const products = useProduct(id)
   const wishlist = useWishlist()
   const cart = useCart()
   const navigate = useNavigate()
   const toast = useToast()
 
-  const product = products.status === 'success' ? products.data.products.find((p) => p.id === id) : undefined
-  const missing = products.status === 'success' && !product
+  const product = products.status === 'success' ? products.product : undefined
+  const missing = products.status === 'missing'
 
   useDocumentTitle(
     product ? `${product.name} — SilhouFit` : missing ? 'Piece not found — SilhouFit' : 'Loading the piece — SilhouFit',
@@ -51,21 +53,23 @@ export function ProductPage() {
     )
   }
 
-  function add(item: Product, { size, color, qty }: Choice) {
-    if (cart.add({ product: item, size, color, qty }) === 'limit') {
-      toast.show({ kind: 'info', message: `All ${item.stock} in stock of ${item.name} are already in your cart.` })
+  async function add(item: Product, { size, color, qty, variantId }: Choice) {
+    const outcome = await cart.add({ product: item, variantId, qty })
+    if (outcome === 'failed') return
+    if (outcome === 'limit') {
+      toast.show({ kind: 'info', message: `All ${choiceOf(item, size, color).stock} in stock of ${item.name} in that size and colour are already in your cart.` })
       return
     }
     playAddToCart()
     toast.show({
       kind: 'success',
-      message: `Added to cart: ${item.name}, ${size}, ${color} × ${qty}`,
-      action: { label: 'Undo', onClick: () => cart.remove(lineKey({ id: item.id, size, color }), qty) },
+      message: `Added to cart: ${[item.name, size, color].filter(Boolean).join(', ')} × ${qty}`,
+      action: { label: 'Undo', onClick: () => void cart.remove(variantId, qty) },
     })
   }
 
-  function buy(item: Product, { size, color, qty }: Choice) {
-    navigate(`/checkout?${new URLSearchParams({ item: item.id, size, color, qty: String(qty) })}`)
+  function buy(item: Product, { qty, variantId }: Choice) {
+    navigate(`/checkout?${new URLSearchParams({ item: item.id, variant: variantId, qty: String(qty) })}`)
   }
 
   return (
@@ -117,7 +121,7 @@ export function ProductPage() {
             <ProductPurchasePanel
               key={`panel-${product.id}`}
               product={product}
-              inCart={cart.qtyOfProduct(product.id)}
+              inCart={cart.qtyOfVariant}
               onAdd={(choice) => add(product, choice)}
               onBuy={(choice) => buy(product, choice)}
             />

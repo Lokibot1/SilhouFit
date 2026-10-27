@@ -1,17 +1,27 @@
-import { CATEGORIES, LOW_STOCK, type Category, type Product } from '../data/products'
+import { LOW_STOCK, type Category, type Product, type ProductGender } from '../data/products'
+import type { ProductListParams } from '../service/fetchProductList'
 
-export type SortKey = 'featured' | 'newest' | 'price-asc' | 'price-desc'
+export type SortKey = 'featured' | 'newest' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc'
 export type Availability = 'store' | 'online' | 'low'
 
+/** Sizes offered as one-tap choices in filters; any other size can be typed where the screen allows. */
+export const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+
 export interface ProductFilters {
-  /** Compared against the price a shopper pays (sale price when there is one). */
+  /** Bounds on a variant's price. */
   minPrice?: number
   maxPrice?: number
-  /** Matches any listed colour name. */
-  colors?: string[]
-  /** Matches any listed availability. */
+  /** One colour name (the API takes one). */
+  color?: string
+  /** Matches any listed availability. Only `online` reaches the API (as inStockOnly); store and low stock need a backend field. */
   availability?: Availability[]
+  /** Needs a backend `arReady` field on products: kept in the URL and the dialog, never sent. */
   arReady?: boolean
+  /** Exact match, ignoring case. */
+  brand?: string
+  gender?: ProductGender
+  /** Exact match, ignoring case. */
+  size?: string
 }
 
 export interface ProductQuery extends ProductFilters {
@@ -29,11 +39,14 @@ export interface ProductPage {
   pageCount: number
 }
 
+// The API sorts by date or name only. Featured and the price sorts have no backend field, so they ask for newest first.
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'featured', label: 'Featured' },
   { value: 'newest', label: 'Newest' },
   { value: 'price-asc', label: 'Price: low to high' },
   { value: 'price-desc', label: 'Price: high to low' },
+  { value: 'name-asc', label: 'Name: A to Z' },
+  { value: 'name-desc', label: 'Name: Z to A' },
 ]
 export const PER_PAGE_OPTIONS = [12, 24, 48]
 
@@ -43,66 +56,42 @@ export const AVAILABILITY: { value: Availability; label: string }[] = [
   { value: 'low', label: `Low stock (${LOW_STOCK} or fewer)` },
 ]
 
+export const GENDER_OPTIONS: { value: ProductGender; label: string }[] = [
+  { value: 'male', label: 'Men' },
+  { value: 'female', label: 'Women' },
+  { value: 'unisex', label: 'Unisex' },
+  { value: 'other', label: 'Other' },
+]
+
 /** The page heading for a shop URL, so the route fallback can show it before any data arrives. */
 export function shopTitle(params: URLSearchParams) {
-  return CATEGORIES.find((c) => c === params.get('category')) ?? 'All pieces'
+  return params.get('category')?.trim().slice(0, 50) || 'All pieces'
 }
 
-export const payablePrice = (product: Product) => product.salePrice ?? product.price
-
-function hasAvailability(product: Product, wanted: Availability) {
-  if (wanted === 'low') return product.stock > 0 && product.stock <= LOW_STOCK
-  return product.stock > 0 && product.channels.includes(wanted)
+const NEWEST = { sortBy: 'createdAt', sortOrder: 'desc' } as const
+const API_SORT: Record<SortKey, Pick<ProductListParams, 'sortBy' | 'sortOrder'>> = {
+  featured: NEWEST,
+  'price-asc': NEWEST,
+  'price-desc': NEWEST,
+  newest: { sortBy: 'createdAt', sortOrder: 'desc' },
+  'name-asc': { sortBy: 'name', sortOrder: 'asc' },
+  'name-desc': { sortBy: 'name', sortOrder: 'desc' },
 }
 
-function matchesSearch(product: Product, needle: string) {
-  if (!needle) return true
-  const haystack = [product.name, product.category, product.boutique, ...product.colors.map((c) => c.name)]
-  return haystack.some((text) => text.toLowerCase().includes(needle))
-}
-
-const SORTERS: Record<SortKey, (a: Product, b: Product) => number> = {
-  featured: () => 0,
-  newest: (a, b) => b.addedAt.localeCompare(a.addedAt),
-  'price-asc': (a, b) => payablePrice(a) - payablePrice(b),
-  'price-desc': (a, b) => payablePrice(b) - payablePrice(a),
-}
-
-export function queryProducts(list: Product[], query: ProductQuery): ProductPage {
-  const { category, sort, perPage, minPrice, maxPrice, colors, availability, arReady } = query
-  const needle = query.q.trim().toLowerCase()
-
-  const matched = list
-    .filter((p) => category === 'all' || p.category === category)
-    .filter((p) => matchesSearch(p, needle))
-    .filter((p) => minPrice === undefined || payablePrice(p) >= minPrice)
-    .filter((p) => maxPrice === undefined || payablePrice(p) <= maxPrice)
-    .filter((p) => !colors?.length || p.colors.some((c) => colors.includes(c.name)))
-    .filter((p) => !availability?.length || availability.some((a) => hasAvailability(p, a)))
-    .filter((p) => !arReady || p.arReady)
-    // Array.prototype.sort is stable, so equal keys keep the catalogue (featured) order.
-    .sort(SORTERS[sort])
-
-  const pageCount = Math.max(1, Math.ceil(matched.length / perPage))
-  const page = Math.min(Math.max(1, Math.trunc(query.page) || 1), pageCount)
+/** The shop query as GET /products takes it. */
+export function toApiParams(query: ProductQuery): ProductListParams {
   return {
-    items: matched.slice((page - 1) * perPage, page * perPage),
-    total: matched.length,
-    page,
-    pageCount,
+    search: query.q.trim() || undefined,
+    category: query.category === 'all' ? undefined : query.category,
+    brand: query.brand,
+    gender: query.gender,
+    size: query.size,
+    color: query.color,
+    minPrice: query.minPrice,
+    maxPrice: query.maxPrice,
+    inStockOnly: query.availability?.includes('online') || undefined,
+    ...API_SORT[query.sort],
+    page: Math.max(1, Math.trunc(query.page) || 1),
+    limit: query.perPage,
   }
-}
-
-/** Per-category counts for the pill row; "all" is the whole list. */
-export function categoryCounts(list: Product[]): Record<Category | 'all', number> {
-  const counts = { all: list.length } as Record<Category | 'all', number>
-  for (const category of CATEGORIES) counts[category] = list.filter((p) => p.category === category).length
-  return counts
-}
-
-/** Distinct colour names (with a swatch) for the filter panel, in first-seen order. */
-export function colorOptions(list: Product[]) {
-  const seen = new Map<string, string>()
-  for (const product of list) for (const color of product.colors) if (!seen.has(color.name)) seen.set(color.name, color.hex)
-  return [...seen].map(([name, hex]) => ({ name, hex }))
 }

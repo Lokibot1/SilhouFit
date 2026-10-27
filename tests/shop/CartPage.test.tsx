@@ -4,34 +4,50 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { PRODUCTS } from '../../src/data/products'
-import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
+import { clearCartCache } from '../../src/hooks/useCart'
+import { clearProductCache } from '../../src/hooks/useProducts'
+import { addCartItem, fetchCart, setCartItemQuantity } from '../../src/service/cartApi'
+import { ProductListError } from '../../src/service/fetchProductList'
 import { clearSession, setSession } from '../../src/service/session'
 import { CartPage } from '../../src/views/private/CartPage'
+import { createCartStore, type CartStore, type StoreProduct } from '../fixtures/cartStore'
+import { BLAZER, POLO, SOLD_OUT, TROUSERS } from '../fixtures/shopProducts'
+import { storeProducts, wireCartApi, wireShopProducts } from '../fixtures/wireCartApi'
+
+vi.mock('../../src/service/cartApi')
+vi.mock('../../src/service/fetchShopProducts')
 
 const KEY = 'silhoufit-cart'
-const CATALOGUE = { products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' }
+const PIECES = [POLO, BLAZER, SOLD_OUT, TROUSERS]
+const NAVY = 'p01-m-navy' // 2,100, 5 in stock
+const WHITE_S = 'p01-s-white' // 1,890
+const BLACK = 'p02-m-black' // 4,990, 4 in stock
+const TROUSER = 'p03-30-black' // 2,600
 
-function seed(lines: { id: string; size?: string | null; color?: string | null; qty: number }[]) {
-  localStorage.setItem(KEY, JSON.stringify(lines))
-  act(() => {
-    window.dispatchEvent(new StorageEvent('storage', { key: KEY }))
-  })
+const seed = (entries: { variantId: string; productId: string; qty: number }[]) => {
+  localStorage.setItem(KEY, JSON.stringify(entries))
+  clearCartCache() // the store reads storage when it starts, and on a storage event
 }
 const stored = () => JSON.parse(localStorage.getItem(KEY) ?? '[]')
+const signIn = () => act(() => setSession({ name: 'Ana Reyes', email: 'ana@silhoufit.com' }))
+
+let rows: StoreProduct[]
+let server: CartStore
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
   vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }))
 })
 beforeEach(() => {
+  vi.resetAllMocks()
   localStorage.clear()
-  act(() => {
-    window.dispatchEvent(new StorageEvent('storage', { key: null }))
-    clearSession()
-  })
-  resetProductsCache()
-  primeProductsCache(CATALOGUE)
+  act(() => clearSession())
+  clearProductCache()
+  rows = storeProducts(PIECES)
+  server = createCartStore(() => rows)
+  wireCartApi(server)
+  wireShopProducts(PIECES)
+  clearCartCache()
 })
 
 function Where() {
@@ -53,128 +69,110 @@ function renderPage() {
   )
 }
 
-describe('CartPage', () => {
+describe('CartPage as a guest', () => {
   it('shows each line with its spec, price, quantity and line total; the total is for ticked lines only', async () => {
-    seed([
-      { id: 'p01', size: 'M', color: 'Navy', qty: 2 },
-      { id: 'p07', size: 'S', color: 'Blush', qty: 1 }, // 2,890 listed, 2,290 on sale
-    ])
+    seed([{ variantId: NAVY, productId: 'p01', qty: 2 }, { variantId: TROUSER, productId: 'p03', qty: 1 }])
     const user = userEvent.setup()
     renderPage()
-    expect(screen.getByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
     expect(screen.getByText('Size M · Navy')).toBeInTheDocument()
-    expect(screen.getByText('₱1,890.00 each')).toBeInTheDocument()
-    expect(screen.getByText('₱3,780.00')).toBeInTheDocument() // 2 × 1,890
+    expect(screen.getByText('₱2,100.00 each')).toBeInTheDocument()
+    expect(screen.getByText('₱4,200.00')).toBeInTheDocument() // 2 × 2,100
     expect(screen.getByText('0 selected')).toBeInTheDocument()
     expect(screen.getByText('Total (0 items)')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Checkout' })).toBeDisabled()
 
     await user.click(screen.getByRole('checkbox', { name: 'Select Heritage Polo' }))
-    await user.click(screen.getByRole('checkbox', { name: 'Select Garden Print Dress' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Select Wool Trousers' }))
     expect(screen.getByText('Total (3 items)')).toBeInTheDocument()
-    expect(screen.getByText('₱6,070.00')).toBeInTheDocument() // the sale price is what counts
+    expect(screen.getByText('₱6,800.00', { selector: 'span.text-xl' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Checkout' })).toBeEnabled()
   })
 
-  it('changes a quantity with the stepper, capped by stock', async () => {
-    seed([{ id: 'p02', size: 'M', color: 'Black', qty: 3 }]) // 4 in stock
+  it("changes a quantity with the stepper, capped by the variant's stock", async () => {
+    seed([{ variantId: BLACK, productId: 'p02', qty: 3 }])
     const user = userEvent.setup()
     renderPage()
-    const up = screen.getByRole('button', { name: 'Increase quantity of Fence-Line Blazer' })
+    const up = await screen.findByRole('button', { name: 'Increase quantity of Fence-Line Blazer' })
     const down = screen.getByRole('button', { name: 'Decrease quantity of Fence-Line Blazer' })
     await user.click(up)
-    expect(stored()[0].qty).toBe(4)
+    await waitFor(() => expect(stored()[0].qty).toBe(4))
     expect(up).toBeDisabled()
     await user.click(down)
     await user.click(down)
     await user.click(down)
-    expect(stored()[0].qty).toBe(1)
+    await waitFor(() => expect(stored()[0].qty).toBe(1))
     expect(down).toBeDisabled()
   })
 
   it('changes the size and colour of a line, keeping its quantity and ticked state', async () => {
-    seed([{ id: 'p01', size: 'M', color: 'Navy', qty: 2 }])
+    seed([{ variantId: NAVY, productId: 'p01', qty: 2 }])
     const user = userEvent.setup()
     renderPage()
-    await user.click(screen.getByRole('checkbox', { name: 'Select Heritage Polo' }))
+    await user.click(await screen.findByRole('checkbox', { name: 'Select Heritage Polo' }))
     await user.click(screen.getByRole('button', { name: /Change variation of Heritage Polo/ }))
-    const dialog = screen.getByRole('dialog', { name: 'Change variation' })
+    const dialog = await screen.findByRole('dialog', { name: 'Change variation' })
     expect(within(dialog).getByRole('button', { name: 'Update variation' })).toBeDisabled()
     await user.click(within(dialog).getByRole('radio', { name: 'White' }))
-    await user.click(within(dialog).getByRole('radio', { name: 'L' }))
+    await user.click(within(dialog).getByRole('radio', { name: 'S' }))
     await user.click(within(dialog).getByRole('button', { name: 'Update variation' }))
-    expect(stored()).toEqual([{ id: 'p01', size: 'L', color: 'White', qty: 2 }])
+    await waitFor(() => expect(stored()).toEqual([{ variantId: WHITE_S, productId: 'p01', qty: 2 }]))
     // The old row leaves as the new one arrives, so wait for just one.
     await waitFor(() => expect(screen.getAllByRole('checkbox', { name: 'Select Heritage Polo' })).toHaveLength(1))
-    expect(screen.getByText('Size L · White')).toBeInTheDocument()
+    expect(screen.getByText('Size S · White')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Select Heritage Polo' })).toBeChecked()
   })
 
-  it('merges into the line already in the chosen size and colour', async () => {
-    seed([
-      { id: 'p01', size: 'M', color: 'Navy', qty: 1 },
-      { id: 'p01', size: 'L', color: 'Navy', qty: 2 },
-    ])
+  it('will not update to a size and colour that no variant has', async () => {
+    seed([{ variantId: NAVY, productId: 'p01', qty: 1 }])
     const user = userEvent.setup()
     renderPage()
-    await user.click(screen.getAllByRole('button', { name: /Change variation of Heritage Polo/ })[0])
-    await user.click(screen.getByRole('radio', { name: 'L' }))
-    await user.click(screen.getByRole('button', { name: 'Update variation' }))
-    expect(stored()).toEqual([{ id: 'p01', size: 'L', color: 'Navy', qty: 3 }])
+    await user.click(await screen.findByRole('button', { name: /Change variation of Heritage Polo/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Change variation' })
+    await user.click(within(dialog).getByRole('radio', { name: 'Navy' }))
+    await user.click(within(dialog).getByRole('radio', { name: 'S' })) // Navy comes in M only
+    expect(within(dialog).getByText(/That size and colour is not available/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Update variation' })).toBeDisabled()
   })
 
-  it("caps one line by what the piece's other lines already hold", async () => {
-    seed([
-      { id: 'p02', size: 'S', color: 'Black', qty: 1 },
-      { id: 'p02', size: 'M', color: 'Black', qty: 2 },
-    ])
+  it('merges into the line already in the chosen size and colour', async () => {
+    seed([{ variantId: NAVY, productId: 'p01', qty: 1 }, { variantId: WHITE_S, productId: 'p01', qty: 2 }])
     const user = userEvent.setup()
     renderPage()
-    const [first] = screen.getAllByRole('button', { name: 'Increase quantity of Fence-Line Blazer' })
-    await user.click(first) // 4 in stock: 2 held by the other line, so this one stops at 2
-    expect(first).toBeDisabled()
-    expect(stored().find((l: { size: string }) => l.size === 'S').qty).toBe(2)
+    await user.click((await screen.findAllByRole('button', { name: /Change variation of Heritage Polo/ }))[0])
+    await user.click(await screen.findByRole('radio', { name: 'White' }))
+    await user.click(screen.getByRole('radio', { name: 'S' }))
+    await user.click(screen.getByRole('button', { name: 'Update variation' }))
+    await waitFor(() => expect(stored()).toEqual([{ variantId: WHITE_S, productId: 'p01', qty: 3 }]))
   })
 
   it('removes a line at once and offers Undo in a toast, which puts it back', async () => {
-    seed([{ id: 'p01', size: 'M', color: 'Navy', qty: 2 }])
+    seed([{ variantId: NAVY, productId: 'p01', qty: 2 }])
     const user = userEvent.setup()
     renderPage()
-    await user.click(screen.getByRole('button', { name: 'More actions for Heritage Polo' }))
+    await user.click(await screen.findByRole('button', { name: 'More actions for Heritage Polo' }))
     await user.click(screen.getByRole('menuitem', { name: 'Remove' }))
-    expect(stored()).toEqual([])
+    await waitFor(() => expect(stored()).toEqual([]))
     expect(screen.getByText('Removed Heritage Polo from cart')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Your cart is currently empty' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Your cart is currently empty' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Undo/ }))
-    expect(stored()).toEqual([{ id: 'p01', size: 'M', color: 'Navy', qty: 2 }])
-    expect(screen.getByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
+    await waitFor(() => expect(stored()).toEqual([{ variantId: NAVY, productId: 'p01', qty: 2 }]))
+    expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
   })
 
-  it('shows the empty state for a signed-in user, with Shop now and no Log in', () => {
-    act(() => setSession({ name: 'Ana Reyes', email: 'ana@silhoufit.com' }))
+  it('shows the empty state for a guest, with a Log in link that returns to the cart', async () => {
     renderPage()
-    expect(screen.getByRole('heading', { name: 'Your cart is currently empty' })).toBeInTheDocument()
-    expect(screen.getByText('Add items to place an order.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Shop now' })).toHaveAttribute('href', '/shop')
-    expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull()
-  })
-
-  it('shows the empty state for a guest, with a Log in link that returns to the cart', () => {
-    renderPage()
-    expect(screen.getByText('Add items to place an order or log in to retrieve your cart.')).toBeInTheDocument()
+    expect(await screen.findByText('Add items to place an order or log in to retrieve your cart.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Shop now' })).toHaveAttribute('href', '/shop')
     expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login?next=%2Fcart')
   })
 
   it('selects and clears every line with Select all items', async () => {
-    seed([
-      { id: 'p01', size: 'M', color: 'Navy', qty: 1 },
-      { id: 'p03', size: 'S', color: 'Black', qty: 1 },
-    ])
+    seed([{ variantId: NAVY, productId: 'p01', qty: 1 }, { variantId: TROUSER, productId: 'p03', qty: 1 }])
     const user = userEvent.setup()
     renderPage()
-    const all = screen.getByRole('checkbox', { name: 'Select all items' })
+    const all = await screen.findByRole('checkbox', { name: 'Select all items' })
     await user.click(all)
     expect(all).toBeChecked()
     expect(screen.getByText('2 selected')).toBeInTheDocument()
@@ -186,13 +184,10 @@ describe('CartPage', () => {
   })
 
   it('asks before removing the selected lines, and Cancel keeps them', async () => {
-    seed([
-      { id: 'p01', size: 'M', color: 'Navy', qty: 1 },
-      { id: 'p03', size: 'S', color: 'Black', qty: 1 },
-    ])
+    seed([{ variantId: NAVY, productId: 'p01', qty: 1 }, { variantId: TROUSER, productId: 'p03', qty: 1 }])
     const user = userEvent.setup()
     renderPage()
-    expect(screen.getByRole('button', { name: 'Remove selected' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: 'Remove selected' })).toBeDisabled()
     await user.click(screen.getByRole('checkbox', { name: 'Select Heritage Polo' }))
     await user.click(screen.getByRole('button', { name: 'Remove selected' }))
     const dialog = await screen.findByRole('dialog', { name: 'Are you sure?' })
@@ -202,71 +197,119 @@ describe('CartPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Remove selected' }))
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove 1 item' }))
-    expect(stored()).toEqual([{ id: 'p03', size: 'S', color: 'Black', qty: 1 }])
+    await waitFor(() => expect(stored()).toEqual([{ variantId: TROUSER, productId: 'p03', qty: 1 }]))
     expect(screen.getByText('0 selected')).toBeInTheDocument()
   })
 
   it('shows lines that cannot be bought with their reason, leaves them out of the total, and lets them be removed', async () => {
     seed([
-      { id: 'p03', size: 'S', color: 'Black', qty: 1 }, // 790
-      { id: 'gone', size: 'M', color: 'Navy', qty: 1 },
-      { id: 'p24', size: 'M', color: 'Indigo', qty: 1 }, // sold out
-      { id: 'p01', qty: 1 }, // a line from before sizes existed
+      { variantId: TROUSER, productId: 'p03', qty: 1 }, // 2,600
+      { variantId: 'gone-v', productId: 'gone', qty: 1 },
+      { variantId: 'p24-m-indigo', productId: 'p24', qty: 1 }, // sold out
     ])
     const user = userEvent.setup()
     renderPage()
-    expect(screen.getByText('No longer in the catalogue')).toBeInTheDocument()
+    expect(await screen.findByText('No longer available')).toBeInTheDocument()
     expect(screen.getByText('Sold out')).toBeInTheDocument()
-    expect(screen.getByText(/Size and colour were not chosen/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('checkbox', { name: 'Select all items' }))
     expect(screen.getByText('Total (1 item)')).toBeInTheDocument()
-    expect(screen.getByText('₱790.00', { selector: 'span.text-xl' })).toBeInTheDocument()
-    expect(screen.getByText(/3 selected pieces cannot be bought/)).toBeInTheDocument()
+    expect(screen.getByText('₱2,600.00', { selector: 'span.text-xl' })).toBeInTheDocument()
+    expect(screen.getByText(/2 selected pieces cannot be bought/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'More actions for Field Denim Jacket' }))
     await user.click(screen.getByRole('menuitem', { name: 'Remove' }))
-    expect(stored()).toHaveLength(3)
+    await waitFor(() => expect(stored()).toHaveLength(2))
     await waitFor(() => expect(screen.queryByText('Sold out')).toBeNull()) // the row slides out first
   })
 
-  it('shows skeleton lines while the catalogue loads, then the lines', async () => {
-    seed([{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
-    resetProductsCache()
+  it('shows skeleton lines while the pieces load, then the lines', async () => {
+    seed([{ variantId: NAVY, productId: 'p01', qty: 1 }])
     renderPage()
     expect(screen.getByRole('status', { name: 'Loading your cart' })).toBeInTheDocument()
-    act(() => primeProductsCache(CATALOGUE))
     expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
   })
 
-  it('sends only the ticked buyable lines to the checkout', async () => {
+  it('shows an error with a retry when the pieces cannot be loaded', async () => {
+    seed([{ variantId: NAVY, productId: 'p01', qty: 1 }])
+    const { fetchShopProduct } = await import('../../src/service/fetchShopProducts')
+    vi.mocked(fetchShopProduct).mockRejectedValueOnce(new ProductListError('network'))
+    const user = userEvent.setup()
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'Your cart did not load' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
+  })
+
+  it('sends only the ticked buyable lines to the checkout, keyed by variant', async () => {
     seed([
-      { id: 'p01', size: 'M', color: 'Navy', qty: 1 },
-      { id: 'p03', size: 'S', color: 'Black', qty: 1 },
-      { id: 'p07', size: 'S', color: 'Blush', qty: 1 },
+      { variantId: NAVY, productId: 'p01', qty: 1 },
+      { variantId: TROUSER, productId: 'p03', qty: 1 },
+      { variantId: BLACK, productId: 'p02', qty: 1 },
     ])
     const user = userEvent.setup()
     renderPage()
-    await user.click(screen.getByRole('checkbox', { name: 'Select Heritage Polo' }))
-    await user.click(screen.getByRole('checkbox', { name: 'Select Rail Tank Set' }))
+    await user.click(await screen.findByRole('checkbox', { name: 'Select Heritage Polo' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Select Wool Trousers' }))
     await user.click(screen.getByRole('button', { name: 'Checkout' }))
     const url = new URL(screen.getByTestId('where').textContent!, 'http://x')
     expect(url.pathname).toBe('/checkout')
     expect(url.searchParams.get('source')).toBe('cart')
-    expect(url.searchParams.getAll('line')).toEqual(['p01|M|Navy', 'p03|S|Black'])
+    expect(url.searchParams.getAll('line')).toEqual([NAVY, TROUSER])
   })
 
-  it('tells a guest they will sign in before paying, and nobody else', async () => {
-    seed([{ id: 'p01', size: 'M', color: 'Navy', qty: 1 }])
+  it('tells a guest they will sign in before paying', async () => {
+    seed([{ variantId: NAVY, productId: 'p01', qty: 1 }])
     const user = userEvent.setup()
-    const { unmount } = renderPage()
-    await user.click(screen.getByRole('checkbox', { name: 'Select all items' }))
-    expect(screen.getByText("You'll sign in before you pay.")).toBeInTheDocument()
-    unmount()
-
-    act(() => setSession({ name: 'Ana Reyes', email: 'ana@silhoufit.com' }))
     renderPage()
+    await user.click(await screen.findByRole('checkbox', { name: 'Select all items' }))
+    expect(screen.getByText("You'll sign in before you pay.")).toBeInTheDocument()
+  })
+})
+
+describe('CartPage signed in', () => {
+  beforeEach(signIn)
+
+  it("shows the server's cart, with the empty state for a signed-in user", async () => {
+    renderPage()
+    expect(await screen.findByText('Add items to place an order.')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull()
+    expect(fetchCart).toHaveBeenCalled()
+  })
+
+  it('shows the lines, sends the quantity change to the API, and does not say they will sign in', async () => {
+    server.seed(NAVY, 2)
+    const user = userEvent.setup()
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
+    expect(screen.getByText('₱4,200.00')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Increase quantity of Heritage Polo' }))
+    await waitFor(() => expect(server.items[0].quantity).toBe(3))
+    expect(setCartItemQuantity).toHaveBeenCalledWith(server.items[0].id, 3)
     await user.click(screen.getByRole('checkbox', { name: 'Select all items' }))
     expect(screen.queryByText("You'll sign in before you pay.")).toBeNull()
+  })
+
+  it('shows "No longer available" for an archived piece and does not let it be checked out', async () => {
+    server.seed(NAVY, 1)
+    rows[0].isActive = false
+    const user = userEvent.setup()
+    renderPage()
+    expect(await screen.findByText('No longer available')).toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: 'Select all items' }))
+    expect(screen.getByText(/1 selected piece cannot be bought/)).toBeInTheDocument()
+    expect(screen.getByText('Total (0 items)')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Checkout' })).toBeDisabled()
+  })
+
+  it('toasts the reason when the server refuses a change, and keeps the cart as the server has it', async () => {
+    server.seed(NAVY, 2)
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    vi.mocked(setCartItemQuantity).mockRejectedValueOnce(new ProductListError('validation', 'Only 2 in stock'))
+    await user.click(screen.getByRole('button', { name: 'Increase quantity of Heritage Polo' }))
+    expect(await screen.findByText(/Couldn't update your cart: Only 2 in stock/)).toBeInTheDocument()
+    expect(addCartItem).not.toHaveBeenCalled()
   })
 })

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSection } from '../../../hooks/useSection'
 import { fetchProductDetail, type ProductDetailFields, type ProductListItem, type ProductVariant } from '../../../service/fetchProductList'
-import { failureReason, manageFailureReason, removeVariant, saveArReady, saveStocks } from '../../../service/inventoryActions'
-import { INVENTORY_SAMPLE_DATA, sampleProductDetail } from '../../../service/sampleInventory'
+import { failureReason, manageFailureReason, removeVariant, saveStocks } from '../../../service/inventoryActions'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { editedVariants, parseStock } from '../../../utils/stockEdit'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
@@ -81,7 +80,7 @@ export function InventoryDrawer({
   if (open && loadedRefresh !== refreshKey) setLoadedRefresh(refreshKey)
 
   const fetcher = useCallback(
-    (options: RequestOptions) => (id ? (INVENTORY_SAMPLE_DATA ? sampleProductDetail : fetchProductDetail)(id, options) : IDLE),
+    (options: RequestOptions) => (id ? fetchProductDetail(id, options) : IDLE),
     // A new session or refresh is a new request, though neither is read inside.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [id, session, loadedRefresh],
@@ -95,9 +94,8 @@ export function InventoryDrawer({
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<{ title: string; why: string } | null>(null)
-  // Whether AR Fitting is ticked in the editor (null until touched), and the last value saved here, which shows before the list loads again.
+  // The AR Fitting box is inert (the API cannot store it): it only shows what was ticked, and a change to it is not an edit to save.
   const [arDraft, setArDraft] = useState<boolean | null>(null)
-  const [arSaved, setArSaved] = useState<{ id: string; value: boolean } | null>(null)
   const [prompt, setPrompt] = useState<Prompt | null>(null)
   const [archiving, setArchiving] = useState(false)
   const [archiveError, setArchiveError] = useState<string | null>(null)
@@ -108,7 +106,6 @@ export function InventoryDrawer({
     setEditing(startEditing)
     setDraft({})
     setArDraft(null)
-    setArSaved(null)
     setSaving(false)
     setSaveError(null)
     setPrompt(null)
@@ -119,11 +116,9 @@ export function InventoryDrawer({
   }
 
   // The header's total and price follow the variants, so a saved change shows at once even when the list no longer has the row.
-  const arNow = (arSaved?.id === product?.id ? arSaved?.value : product?.arReady) ?? false
   const header = product
     ? {
         ...product,
-        arReady: arNow,
         ...(variants && {
           totalStock: variants.reduce((sum, v) => sum + v.stock, 0),
           ...(variants.length > 0 && { minPrice: Math.min(...variants.map((v) => v.price)), maxPrice: Math.max(...variants.map((v) => v.price)) }),
@@ -131,8 +126,7 @@ export function InventoryDrawer({
       }
     : product
   const changed = variants ? editedVariants(variants, draft) : []
-  const arChanged = arDraft !== null && arDraft !== arNow
-  const dirty = changed.length > 0 || arChanged
+  const dirty = changed.length > 0
   const hasEmpty = changed.some((v) => parseStock(draft[v.id]) === null)
   const busy = saving || archiving || removing
   const showEditor = editing && !archived
@@ -175,25 +169,19 @@ export function InventoryDrawer({
 
   function discard() {
     setDraft({})
-    setArDraft(null)
     setSaveError(null)
     setEditing(false)
     setPrompt(null)
     if (prompt?.kind === 'discard' && prompt.close) onClose()
   }
 
-  /** Puts back the stock of `previous` and, when `previousAr` is set, AR Fitting. */
-  async function undoEdit(productId: string, name: string, previous: { variantId: string; stock: number }[], previousAr?: boolean) {
-    const what = previousAr === undefined ? 'stock change' : previous.length > 0 ? 'changes' : 'AR Fitting change'
+  /** Puts back the stock of `previous`. */
+  async function undoEdit(productId: string, name: string, previous: { variantId: string; stock: number }[]) {
     try {
-      if (previousAr !== undefined) {
-        await saveArReady(productId, previousAr)
-        setArSaved({ id: productId, value: previousAr })
-      }
-      const result = previous.length > 0 ? await saveStocks(productId, previous) : { saved: [], failed: [] }
+      const result = await saveStocks(productId, previous)
       onStockChanged()
       if (result.failed.length === 0) {
-        toast.show({ kind: 'success', message: `${what[0].toUpperCase()}${what.slice(1)} undone for ${name}.` })
+        toast.show({ kind: 'success', message: `Stock change undone for ${name}.` })
         return
       }
       const left = previous.filter((p) => result.failed.some((f) => f.variantId === p.variantId))
@@ -205,8 +193,8 @@ export function InventoryDrawer({
     } catch (error) {
       toast.show({
         kind: 'error',
-        message: `Couldn't undo the ${what} for ${name}. ${failureReason(error)}`,
-        action: { label: 'Retry', onClick: () => void undoEdit(productId, name, previous, previousAr) },
+        message: `Couldn't undo the stock change for ${name}. ${failureReason(error)}`,
+        action: { label: 'Retry', onClick: () => void undoEdit(productId, name, previous) },
       })
     }
   }
@@ -216,39 +204,24 @@ export function InventoryDrawer({
     const changes = changed.map((v) => ({ variantId: v.id, stock: parseStock(draft[v.id])! }))
     setSaving(true)
     setSaveError(null)
-    let savingAr = false
     try {
-      if (changes.length > 0) {
-        const result = await saveStocks(product.id, changes)
-        if (result.saved.length > 0) onStockChanged()
-        if (result.failed.length > 0) {
-          const title = result.saved.length > 0 ? `${result.saved.length} of ${changes.length} saved.` : `Couldn't save the stock for ${product.name}.`
-          setSaveError({ title, why: `${sizes(result.failed.length)} didn't save and stay edited below. ${failureReason(result.failed[0].error)}` })
-          return
-        }
-      }
-      if (arChanged) {
-        savingAr = true
-        await saveArReady(product.id, arDraft!)
-        setArSaved({ id: product.id, value: arDraft! })
-        onStockChanged()
+      const result = await saveStocks(product.id, changes)
+      if (result.saved.length > 0) onStockChanged()
+      if (result.failed.length > 0) {
+        const title = result.saved.length > 0 ? `${result.saved.length} of ${changes.length} saved.` : `Couldn't save the stock for ${product.name}.`
+        setSaveError({ title, why: `${sizes(result.failed.length)} didn't save and stay edited below. ${failureReason(result.failed[0].error)}` })
+        return
       }
       setEditing(false)
       setDraft({})
-      setArDraft(null)
       const previous = changed.map((v) => ({ variantId: v.id, stock: v.stock }))
       toast.show({
         kind: 'success',
-        message:
-          changes.length === 0
-            ? `AR Fitting ready turned ${arDraft ? 'on' : 'off'}`
-            : arChanged
-              ? 'Stock and AR Fitting updated'
-              : `Stock updated for ${sizes(changes.length)}`,
-        action: { label: 'Undo', onClick: () => void undoEdit(product.id, product.name, previous, arChanged ? arNow : undefined) },
+        message: `Stock updated for ${sizes(changes.length)}`,
+        action: { label: 'Undo', onClick: () => void undoEdit(product.id, product.name, previous) },
       })
     } catch (error) {
-      setSaveError({ title: `Couldn't save ${savingAr ? 'AR Fitting' : 'the stock'} for ${product.name}.`, why: failureReason(error) })
+      setSaveError({ title: `Couldn't save the stock for ${product.name}.`, why: failureReason(error) })
     } finally {
       setSaving(false)
     }
@@ -307,10 +280,9 @@ export function InventoryDrawer({
         draft,
         disabled: saving,
         onChange: (variantId: string, text: string) => setDraft((old) => ({ ...old, [variantId]: text })),
+        ar: { checked: arDraft ?? product?.arReady ?? false, onChange: (checked: boolean) => !saving && setArDraft(checked) },
         onSetSoldOut: (stock: number) =>
           setDraft((old) => ({ ...old, ...Object.fromEntries((variants ?? []).filter((v) => v.stock <= 0).map((v) => [v.id, String(stock)])) })),
-        // The API has no arReady field to save yet, so the checkbox only exists on the sample catalogue.
-        ar: INVENTORY_SAMPLE_DATA ? { checked: arDraft ?? arNow, onChange: (checked: boolean) => !saving && setArDraft(checked) } : undefined,
       }
     : undefined
 
@@ -414,9 +386,7 @@ export function InventoryDrawer({
                 ? `${product.name} and its ${variants ? `${variants.length} ${variants.length === 1 ? 'variant' : 'variants'}` : 'variants'}, images and AR measurements will be permanently deleted, and removed from shoppers' carts. This can't be undone.${archived ? '' : ' To hide it from the shop instead, archive it.'}`
                 : prompt.kind === 'delete-variant'
                   ? `${variantLabel(prompt.variant)} (SKU ${prompt.variant.sku}) will be permanently deleted, and removed from shoppers' carts. This can't be undone.${variants?.length === 1 ? ` It is the last variant, so ${product.name} will have no price or stock.` : ''}`
-                  : changed.length === 0
-                    ? `Your change to AR Fitting for ${product.name} will be lost.`
-                    : `Your changes to ${sizes(changed.length)} of ${product.name}${arChanged ? ' and to AR Fitting' : ''} will be lost.`}
+                  : `Your changes to ${sizes(changed.length)} of ${product.name} will be lost.`}
           </p>
           {archiveError && prompt.kind === 'archive' && <ErrorNote>{archiveError}</ErrorNote>}
           {removeError && (prompt.kind === 'delete' || prompt.kind === 'delete-variant') && <ErrorNote>{removeError}</ErrorNote>}

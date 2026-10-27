@@ -6,8 +6,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ShopNavbar } from '../../src/components/ShopNavbar'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
-import { PRODUCTS } from '../../src/data/products'
-import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
+import { clearCartCache } from '../../src/hooks/useCart'
+import { clearProductCache } from '../../src/hooks/useProducts'
 import { clearSession, setSession } from '../../src/service/session'
 import { loadLastOrder, saveLastOrder } from '../../src/utils/checkout'
 
@@ -25,8 +25,8 @@ beforeAll(() => {
 })
 beforeEach(() => {
   sessionStorage.clear()
-  resetProductsCache()
-  primeProductsCache({ products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' })
+  clearProductCache()
+  clearCartCache()
   act(() => setSession({ name: 'Ana Reyes', email: 'ana@example.com' }))
 })
 

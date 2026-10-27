@@ -70,7 +70,7 @@ const detail: TransactionDetail = {
   subtotal: 2580,
   paymentMethod: 'gcash',
   lines: [
-    { productId: 'a', name: 'Polo', category: 'Tops', units: 2, unitPrice: 645.5 },
+    { productId: 'a', name: 'Polo', category: 'Hoodie', units: 2, unitPrice: 645.5 },
     { productId: 'b', name: 'Notebook', category: 'Books', units: 1, unitPrice: 1289, vatClass: 'exempt' },
   ],
 }

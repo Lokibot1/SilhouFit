@@ -1,18 +1,25 @@
 import { CATEGORIES, type Category } from '../data/products'
 import type { Gender, ProductListItem } from '../service/fetchProductList'
+import { parseFilterPrice } from './format'
 
 export const INVENTORY_SORTS = ['date', 'name', 'price'] as const
 export type InventorySort = (typeof INVENTORY_SORTS)[number]
 export type InventoryDir = 'asc' | 'desc'
 
-/** The API's `sortBy` for each URL sort. */
-export const SORT_COLUMN = { date: 'createdAt', name: 'name', price: 'basePrice' } as const
+/**
+ * The API's `sortBy` for each URL sort. It cannot sort by price (that needs a backend field, and `basePrice` is a 400), so a price
+ * sort asks for the default order, newest first, whatever its direction (see `apiSortOrder`).
+ */
+export const SORT_COLUMN = { date: 'createdAt', name: 'name', price: 'createdAt' } as const
+export const apiSortOrder = (sort: InventorySort, dir: InventoryDir): InventoryDir => (sort === 'price' ? 'desc' : dir)
 /** The way a column sorts when first chosen: newest first, A to Z, cheapest first. */
 export const DEFAULT_DIR: Record<InventorySort, InventoryDir> = { date: 'desc', name: 'asc', price: 'asc' }
 
 export const PER_PAGE_OPTIONS = [10, 25, 50]
 const DEFAULT_PER_PAGE = 25
 export const MAX_SEARCH = 100
+/** Longest brand, size or colour typed into a filter. */
+export const MAX_FILTER_TEXT = 50
 
 export const GENDERS: { value: Gender; label: string }[] = [
   { value: 'male', label: 'Men' },
@@ -21,9 +28,11 @@ export const GENDERS: { value: Gender; label: string }[] = [
   { value: 'other', label: 'Other' },
 ]
 
+// Only `in` reaches the API (as inStockOnly). Out and sizes need backend fields, so they are kept but send nothing.
 export const STOCK_FILTERS = ['in', 'out', 'sizes'] as const
 export type StockFilter = (typeof STOCK_FILTERS)[number]
 
+// Needs a backend `arReady` filter: kept in the URL and the toolbar, never sent.
 export const AR_FILTERS = ['yes', 'no'] as const
 export type ArFilter = (typeof AR_FILTERS)[number]
 
@@ -36,6 +45,13 @@ export interface InventoryQuery {
   q: string
   category: Category | ''
   gender: Gender | ''
+  /** Exact match on the brand, ignoring case; '' lists all. Likewise size and colour. */
+  brand: string
+  size: string
+  color: string
+  /** Bounds on a variant's price, when the URL has a valid amount. */
+  minPrice?: number
+  maxPrice?: number
   /** Only products with stock, only those sold out, or only those with a size sold out; '' lists all. */
   stock: StockFilter | ''
   /** Only AR Fitting ready products (`yes`) or only those that are not (`no`); '' lists all. */
@@ -45,6 +61,15 @@ export interface InventoryQuery {
   page: number
   per: number
 }
+
+/** Inner runs of whitespace become one space and the ends are trimmed, so "Ayala   Atelier " matches "Ayala Atelier". */
+export const cleanFilterText = (value: string) => value.replace(/\s+/g, ' ').trim()
+const text = (value: string | null) => cleanFilterText(value ?? '').slice(0, MAX_FILTER_TEXT)
+export const parsePrice = parseFilterPrice
+
+/** True when the minimum price is above the maximum, which can match nothing: the page shows an error instead of asking the API. */
+export const priceRangeInvalid = ({ minPrice, maxPrice }: Pick<InventoryQuery, 'minPrice' | 'maxPrice'>) =>
+  minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice
 
 /** Reads the inventory URL. Anything not on a whitelist falls back to its default, so a hand-edited URL cannot reach the API. */
 export function readInventoryQuery(params: URLSearchParams): InventoryQuery {
@@ -57,6 +82,11 @@ export function readInventoryQuery(params: URLSearchParams): InventoryQuery {
     q: (params.get('q') ?? '').trim().slice(0, MAX_SEARCH),
     category: CATEGORIES.find((c) => c.toLowerCase() === params.get('category')?.toLowerCase()) ?? '',
     gender: GENDERS.find((g) => g.value === params.get('gender'))?.value ?? '',
+    brand: text(params.get('brand')),
+    size: text(params.get('size')),
+    color: text(params.get('color')),
+    minPrice: parsePrice(params.get('minPrice')),
+    maxPrice: parsePrice(params.get('maxPrice')),
     stock: STOCK_FILTERS.find((s) => s === params.get('stock')) ?? '',
     ar: AR_FILTERS.find((a) => a === params.get('ar')) ?? '',
     sort,
@@ -67,7 +97,15 @@ export function readInventoryQuery(params: URLSearchParams): InventoryQuery {
 }
 
 // Changing what is listed starts again from the first page; paging and sorting keep the page they are on.
-const RESETS_PAGE = ['status', 'q', 'category', 'gender', 'stock', 'ar', 'per']
+const RESETS_PAGE = ['status', 'q', 'category', 'gender', 'brand', 'size', 'color', 'minPrice', 'maxPrice', 'stock', 'ar', 'per']
+
+/** `withInventoryParams` changes that remove the search and every filter. */
+export const CLEAR_FILTERS = { q: '', category: '', gender: '', brand: '', size: '', color: '', minPrice: '', maxPrice: '', stock: '', ar: '' }
+
+/** How many filters are set (search not included). The two price bounds count as one. */
+export const activeFilterCount = (query: InventoryQuery) =>
+  [query.category, query.gender, query.brand, query.size, query.color, query.stock, query.ar].filter(Boolean).length +
+  Number(query.minPrice !== undefined || query.maxPrice !== undefined)
 
 /** The URL after `changes` (an empty value removes its key). Search, filter and page size writes reset the page. */
 export function withInventoryParams(current: URLSearchParams, changes: Partial<Record<string, string>>): URLSearchParams {

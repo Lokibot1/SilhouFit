@@ -1,13 +1,13 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { DEMO, mockAuth, signedIn } from '../shared/session'
+import { buyNow, NAVY_M, POLO as POLO_PIECE, setupShop } from '../shared/checkoutShop'
+import { DEMO, signedIn } from '../shared/session'
 
 const MIN_TARGET = 44
 const COMPACT_TARGET = 36
-const POLO = '/checkout?item=p01&size=M&color=Navy&qty=1' // 1,890, online and in store, Ayala Atelier
+const POLO = buyNow(POLO_PIECE, NAVY_M.id) // 1,890, Ayala Atelier
 
 test.beforeEach(async ({ page }) => {
-  await mockAuth(page)
-  await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
+  await setupShop(page)
 })
 
 const placeOrderButton = (page: Page) => page.getByRole('button', { name: /Place order|Placing order/ })
@@ -50,17 +50,17 @@ async function fillAddress(page: Page) {
 
 test('a signed-out visitor is sent to login and returns to the same checkout', async ({ page }) => {
   await page.goto(POLO)
-  await expect(page).toHaveURL(/\/login\?next=%2Fcheckout%3Fitem%3Dp01%26size%3DM%26color%3DNavy%26qty%3D1$/)
+  await expect(page).toHaveURL((url) => url.pathname === '/login' && url.searchParams.get('next') === POLO)
   await page.getByLabel('Email', { exact: true }).fill(DEMO.email)
   await page.getByLabel('Password', { exact: true }).fill(DEMO.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page).toHaveURL(/\/checkout\?item=p01/)
+  await expect(page).toHaveURL(/\/checkout\?item=/)
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible()
 })
 
 test('shows "Nothing to check out" for a link that does not match a piece', async ({ page }) => {
   await signedIn(page)
-  await page.goto('/checkout?item=p01&size=99&color=Navy&qty=1')
+  await page.goto(`/checkout?item=${POLO_PIECE.id}&variant=no-such-variant&qty=1`)
   await expect(page.getByRole('heading', { name: 'Nothing to check out' })).toBeVisible({ timeout: 15000 })
   await page.getByRole('link', { name: 'Back to shop' }).click()
   await expect(page).toHaveURL(/\/shop$/)
@@ -76,7 +76,7 @@ test('Buy now to success: pickup changes the total and ETA, then Back does not r
   await sheet.getByRole('radio', { name: 'M', exact: true }).check({ force: true })
   await sheet.getByRole('radio', { name: 'Navy' }).check({ force: true })
   await sheet.getByRole('button', { name: 'Buy now' }).click()
-  await expect(page).toHaveURL(/\/checkout\?item=p01&size=M&color=Navy&qty=1$/)
+  await expect(page).toHaveURL((url) => url.pathname + url.search === POLO)
 
   await expect(summary(page)).toContainText('₱1,989.00') // 1,890 + 99 delivery
   await expect(summary(page)).toContainText(/Arrives \w{3}, \w{3} \d+ – \w{3}, \w{3} \d+/)
@@ -163,7 +163,7 @@ test('can be completed with the keyboard alone, from the sheet to the success pa
   await tabTo(page, sheet.getByRole('button', { name: 'Buy now' }))
   await page.keyboard.press('Enter')
 
-  await expect(page).toHaveURL(/\/checkout\?item=p01&size=M&color=Navy/)
+  await expect(page).toHaveURL(/\/checkout\?item=/)
   await tabTo(page, page.getByRole('radio', { name: /Delivery/ })) // the checked radio holds the tab stop
   await page.keyboard.press('ArrowRight')
   await expect(page.getByRole('radio', { name: /Pick up in store/ })).toBeChecked()
@@ -190,7 +190,7 @@ test.describe('at 320px', () => {
     expect(box.x + box.width).toBeLessThanOrEqual(320)
     expect(await overflows(page)).toBe(false)
 
-    for (const name of ['M', 'XS', 'XL']) await expectTarget(sheet.getByRole('radio', { name, exact: true }).locator('xpath=following-sibling::span'), `size ${name}`, true)
+    for (const name of ['M', 'XS', 'S']) await expectTarget(sheet.getByRole('radio', { name, exact: true }).locator('xpath=following-sibling::span'), `size ${name}`, true)
     await expectTarget(sheet.getByRole('button', { name: 'Increase quantity' }), 'increase', true)
     await expectTarget(sheet.getByRole('button', { name: 'Add to cart' }), 'Add to cart', true)
     await expect(sheet.getByRole('button', { name: 'Add to cart' })).toBeInViewport({ ratio: 1 }) // the action stays in view

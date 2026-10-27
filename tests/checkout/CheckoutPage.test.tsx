@@ -4,22 +4,28 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { PRODUCTS } from '../../src/data/products'
-import { resetProductsCache } from '../../src/hooks/useProducts'
-import { fetchProducts } from '../../src/service/fetchProducts'
+import { clearCartCache } from '../../src/hooks/useCart'
+import { clearProductCache } from '../../src/hooks/useProducts'
+import { ProductListError } from '../../src/service/fetchProductList'
+import { fetchShopProduct } from '../../src/service/fetchShopProducts'
 import { placeOrder } from '../../src/service/placeOrder'
 import { clearSession, setSession } from '../../src/service/session'
 import { loadLastOrder } from '../../src/utils/checkout'
 import { CheckoutPage } from '../../src/views/private/CheckoutPage'
+import { POLO as POLO_PIECE, shopProduct, variant } from '../fixtures/shopProducts'
+import { wireShopProducts } from '../fixtures/wireCartApi'
 
-vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: vi.fn() }))
+vi.mock('../../src/service/fetchShopProducts')
 vi.mock('../../src/service/placeOrder', () => ({ placeOrder: vi.fn() }))
-const fetchMock = vi.mocked(fetchProducts)
+const fetchMock = vi.mocked(fetchShopProduct)
 const placeMock = vi.mocked(placeOrder)
-const CATALOGUE = { products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' }
 
-const POLO = '/checkout?item=p01&size=M&color=Navy&qty=2' // 1,890 each, online and in store
-const JACKET = '/checkout?item=p12&size=M&color=Olive&qty=1' // store only
+const JACKET_PIECE = shopProduct('p12', 'Hook Wall Jacket', [variant('p12-m-olive', 'M', 'Olive', { price: 3790, stock: 3 })], { boutique: 'Lumban Loom', channels: ['store'] })
+const PULLOVER_PIECE = shopProduct('p05', 'Cable Knit Pullover', [variant('p05-m-sand', 'M', 'Sand', { price: 1500 })], { channels: ['online'] })
+const PIECES = [POLO_PIECE, JACKET_PIECE, PULLOVER_PIECE]
+
+const POLO = '/checkout?item=p01&variant=p01-m-navy&qty=2' // 2,100 each, no channels listed
+const JACKET = '/checkout?item=p12&variant=p12-m-olive&qty=1' // store only
 
 vi.setConfig({ testTimeout: 30000 }) // typing a whole address is slow when the suite runs in parallel
 
@@ -31,10 +37,13 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  vi.resetAllMocks()
   sessionStorage.clear()
-  resetProductsCache()
+  localStorage.clear()
+  clearProductCache()
   act(() => setSession({ name: 'Demo Shopper', email: 'demo@silhoufit.com' }))
-  fetchMock.mockResolvedValue(CATALOGUE)
+  clearCartCache()
+  wireShopProducts(PIECES)
   placeMock.mockResolvedValue({ orderId: 'SF-261011-ABCD' })
 })
 afterEach(() => vi.clearAllMocks())
@@ -77,20 +86,20 @@ describe('CheckoutPage gate and states', () => {
     expect(new URLSearchParams(where()!.split('?')[1]).get('next')).toBe(POLO)
   })
 
-  it('shows a skeleton while the catalogue loads, then the form', async () => {
-    let resolve!: (value: typeof CATALOGUE) => void
+  it('shows a skeleton while the pieces load, then the form', async () => {
+    let resolve!: (value: typeof POLO_PIECE) => void
     fetchMock.mockReturnValueOnce(new Promise((r) => (resolve = r)))
     renderCheckout()
     expect(screen.getByRole('status', { name: 'Loading your order' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Checkout' })).toBeInTheDocument()
-    resolve(CATALOGUE)
+    resolve(POLO_PIECE)
     expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
     expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('explains a failed catalogue load and recovers on retry', async () => {
     const user = userEvent.setup({ delay: null })
-    fetchMock.mockRejectedValueOnce(new Error('network'))
+    fetchMock.mockRejectedValueOnce(new ProductListError('network'))
     renderCheckout()
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/couldn't load your order/i)
@@ -99,10 +108,10 @@ describe('CheckoutPage gate and states', () => {
   })
 
   it.each([
-    ['an unknown piece', '/checkout?item=nope&size=M&color=Navy&qty=1'],
+    ['an unknown piece', '/checkout?item=nope&variant=p01-m-navy&qty=1'],
     ['no item at all', '/checkout'],
-    ['a size the piece does not offer', '/checkout?item=p01&size=34&color=Navy&qty=1'],
-    ['too many', '/checkout?item=p02&size=M&color=Black&qty=99'],
+    ['a variant the piece does not have', '/checkout?item=p01&variant=p05-m-sand&qty=1'],
+    ['too many', '/checkout?item=p01&variant=p01-m-navy&qty=99'],
   ])('shows "Nothing to check out" for %s', async (_label, url) => {
     renderCheckout(url)
     expect(await screen.findByRole('heading', { name: 'Nothing to check out' })).toBeInTheDocument()
@@ -135,9 +144,9 @@ describe('CheckoutPage options and totals', () => {
     expect(screen.getByRole('radio', { name: /Delivery/ })).toBeChecked()
     expect(screen.getByText(/Arrives \w{3}, \w{3} \d+ – \w{3}, \w{3} \d+/, { selector: 'p' })).toBeInTheDocument()
     const summary = screen.getByRole('complementary')
-    expect(summary).toHaveTextContent('₱3,780.00') // subtotal, 2 × 1,890
+    expect(summary).toHaveTextContent('₱4,200.00') // subtotal, 2 × 2,100
     expect(summary).toHaveTextContent('₱99.00')
-    expect(summary).toHaveTextContent('₱3,879.00')
+    expect(summary).toHaveTextContent('₱4,299.00')
   })
 
   it('switches to pickup: no shipping, the pickup ETA, no address, and "Pay at pickup"', async () => {
@@ -150,20 +159,16 @@ describe('CheckoutPage options and totals', () => {
     await user.click(screen.getByRole('radio', { name: /Pick up in store/ }))
     const summary = screen.getByRole('complementary')
     expect(summary).toHaveTextContent('Free')
-    expect(summary).toHaveTextContent('₱3,780.00')
+    expect(summary).toHaveTextContent('₱4,200.00')
     expect(summary).toHaveTextContent('Ready at Ayala Atelier tomorrow from 2:00 PM')
     expect(screen.queryByRole('heading', { name: 'Delivery address' })).toBeNull()
     expect(screen.getByRole('radio', { name: /Pay at pickup/ })).toBeInTheDocument()
   })
 
-  it('shows the sale discount line for a sale piece', async () => {
-    renderCheckout('/checkout?item=p07&size=M&color=Blush&qty=2') // 2,890 listed, 2,290 on sale
-    await screen.findByRole('heading', { name: 'Garden Print Dress' })
-    const summary = screen.getByRole('complementary')
-    expect(summary).toHaveTextContent('Sale discount')
-    expect(summary).toHaveTextContent('₱5,780.00')
-    expect(summary).toHaveTextContent('−₱1,200.00')
-    expect(summary).toHaveTextContent('₱4,679.00')
+  it('has no sale discount line, since the API has no sale price', async () => {
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    expect(screen.getByRole('complementary')).not.toHaveTextContent('Sale discount')
   })
 
   it('disables delivery for a store-only piece, says why, and preselects pickup', async () => {
@@ -176,7 +181,7 @@ describe('CheckoutPage options and totals', () => {
   })
 
   it('disables pickup for an online-only piece', async () => {
-    renderCheckout('/checkout?item=p05&size=M&color=Sand&qty=1')
+    renderCheckout('/checkout?item=p05&variant=p05-m-sand&qty=1')
     await screen.findByRole('heading', { name: 'Cable Knit Pullover' })
     expect(screen.getByRole('radio', { name: /Pick up in store/ })).toBeDisabled()
     expect(screen.getByText('Sold online only.')).toBeInTheDocument()
@@ -317,11 +322,11 @@ describe('CheckoutPage placing the order', () => {
     expect(order).toMatchObject({
       fulfilment: 'delivery',
       payment: 'E-Wallet (GCash)',
-      total: 3879,
+      total: 4299,
       items: [{ id: 'p01', size: 'M', color: 'Navy', qty: 2 }],
       address: { fullName: 'Demo Shopper', phone: '+639171234567', city: 'Marikina City', postal: '1800' },
     })
-    expect(loadLastOrder()).toMatchObject({ orderId: 'SF-261011-ABCD', total: 3879, payment: 'E-Wallet (GCash)', fulfilment: 'Delivery' })
+    expect(loadLastOrder()).toMatchObject({ orderId: 'SF-261011-ABCD', total: 4299, payment: 'E-Wallet (GCash)', fulfilment: 'Delivery' })
     expect(loadLastOrder()).toMatchObject({ recipient: 'Demo Shopper', address: '12 Mabini Street, Brgy. San Roque, Marikina City 1800', phone: '+639171234567', shipping: 99 })
   })
 

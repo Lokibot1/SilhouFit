@@ -16,35 +16,23 @@ import {
   type VariantInput,
   type VariantPatch,
 } from './productAdmin'
-import {
-  INVENTORY_SAMPLE_DATA,
-  sampleAddVariant,
-  sampleCreateProduct,
-  sampleDeleteProduct,
-  sampleDeleteVariant,
-  sampleRestockVariants,
-  sampleSetArchived,
-  sampleSetArReady,
-  sampleSkus,
-  sampleUpdateProduct,
-  sampleUpdateVariant,
-  sampleUploadImage,
-} from './sampleInventory'
+import { invalidateShopColours } from '../hooks/useShopColours'
 import type { RequestOptions } from './simulateRequest'
 
-/** Archives or restores a product, from the sample catalogue or the API. */
-export const setArchived = (productId: string, archived: boolean, options: RequestOptions = {}): Promise<void> =>
-  INVENTORY_SAMPLE_DATA ? sampleSetArchived(productId, archived, options) : setProductActive(productId, !archived, options)
-
-/** Sets variants to exact stock numbers. The sample catalogue saves all or none; the API saves one by one, so some may fail while others are saved. */
-export async function saveStocks(productId: string, changes: StockChange[], options: RequestOptions = {}): Promise<StockResult> {
-  if (!INVENTORY_SAMPLE_DATA) return updateStocks(productId, changes, options)
-  await sampleRestockVariants(productId, changes, options)
-  return { saved: changes.map((c) => c.variantId), failed: [] }
+// Every change below that alters what the shop shows (a product or variant created, edited, archived or deleted) also drops the shop's
+// remembered products and colour filter options, so the shop reads them again. Stock changes leave the colours as they are.
+const refreshShop = async <T,>(change: Promise<T>): Promise<T> => {
+  const result = await change
+  invalidateShopColours()
+  return result
 }
 
-/** Turns AR Fitting on or off. Sample catalogue only: the API has no `arReady` field to PATCH (see productAdmin), so the drawer hides the checkbox there. */
-export const saveArReady = (productId: string, arReady: boolean, options: RequestOptions = {}): Promise<void> => sampleSetArReady(productId, arReady, options)
+/** Archives or restores a product. */
+export const setArchived = (productId: string, archived: boolean, options: RequestOptions = {}): Promise<void> =>
+  refreshShop(setProductActive(productId, !archived, options))
+
+/** Sets variants to exact stock numbers, one by one, so some may fail while others are saved. */
+export const saveStocks = (productId: string, changes: StockChange[], options: RequestOptions = {}): Promise<StockResult> => updateStocks(productId, changes, options)
 
 const WHY: Record<string, string> = {
   network: 'The connection dropped before the server answered. Check your connection, then try again.',
@@ -60,15 +48,10 @@ const WHY: Record<string, string> = {
 export const failureReason = (error: unknown): string => WHY[(error as { kind?: string } | null)?.kind ?? ''] ?? WHY.server
 
 /** Uploads one product image and answers with its URL. */
-export const uploadImage = (file: File, onProgress: (percent: number) => void, signal?: AbortSignal): Promise<string> =>
-  INVENTORY_SAMPLE_DATA ? sampleUploadImage(file, onProgress, { signal }) : uploadProductImage(file, onProgress, signal)
+export const uploadImage = (file: File, onProgress: (percent: number) => void, signal?: AbortSignal): Promise<string> => uploadProductImage(file, onProgress, signal)
 
-/** Creates a product from the sample catalogue or the API. Never retried on its own: the caller decides. */
-export const addProduct = (input: NewProductInput, options: RequestOptions = {}): Promise<{ id: string; name: string }> =>
-  INVENTORY_SAMPLE_DATA ? sampleCreateProduct(input, options) : createProduct(input, options)
-
-/** SKUs known to be taken before sending. Only the sample catalogue can say; the API answers 409 for one that is. */
-export const knownSkus = (): Set<string> => (INVENTORY_SAMPLE_DATA ? sampleSkus() : new Set())
+/** Creates a product. Never retried on its own: the caller decides. */
+export const addProduct = (input: NewProductInput, options: RequestOptions = {}): Promise<{ id: string; name: string }> => refreshShop(createProduct(input, options))
 
 const CREATE_WHY: Record<string, string> = {
   ...WHY,
@@ -87,28 +70,27 @@ export function createFailureReason(error: unknown, stage: 'upload' | 'create'):
   const { kind = '', detail } = (error ?? {}) as { kind?: string; detail?: string }
   if (kind === 'validation' && stage === 'create')
     return `The server rejected the product${detail ? `: ${detail}` : ''}. Check what you entered, then create it again.`
-  return (stage === 'upload' ? UPLOAD_WHY : CREATE_WHY)[kind] ?? WHY.server
+  const why = (stage === 'upload' ? UPLOAD_WHY : CREATE_WHY)[kind] ?? WHY.server
+  return stage === 'upload' && detail ? `${why} (Server said: ${detail})` : why
 }
 
-/** Deletes a product for good, from the sample catalogue or the API. */
-export const removeProduct = (productId: string, options: RequestOptions = {}): Promise<void> =>
-  INVENTORY_SAMPLE_DATA ? sampleDeleteProduct(productId, options) : deleteProduct(productId, options)
+/** Deletes a product for good. */
+export const removeProduct = (productId: string, options: RequestOptions = {}): Promise<void> => refreshShop(deleteProduct(productId, options))
 
 /** Adds a variant to a product. */
 export const createVariant = (productId: string, input: VariantInput, options: RequestOptions = {}): Promise<ProductVariant> =>
-  INVENTORY_SAMPLE_DATA ? sampleAddVariant(productId, input, options) : addVariant(productId, input, options)
+  refreshShop(addVariant(productId, input, options))
 
 /** Saves the changed fields of a variant. */
 export const saveVariant = (productId: string, variantId: string, patch: VariantPatch, options: RequestOptions = {}): Promise<ProductVariant> =>
-  INVENTORY_SAMPLE_DATA ? sampleUpdateVariant(productId, variantId, patch, options) : updateVariant(productId, variantId, patch, options)
+  refreshShop(updateVariant(productId, variantId, patch, options))
 
 /** Deletes a variant for good. */
 export const removeVariant = (productId: string, variantId: string, options: RequestOptions = {}): Promise<void> =>
-  INVENTORY_SAMPLE_DATA ? sampleDeleteVariant(productId, variantId, options) : deleteVariant(productId, variantId, options)
+  refreshShop(deleteVariant(productId, variantId, options))
 
 /** Saves the changed fields of a product. */
-export const saveProduct = (productId: string, patch: ProductPatch, options: RequestOptions = {}): Promise<void> =>
-  INVENTORY_SAMPLE_DATA ? sampleUpdateProduct(productId, patch, options) : updateProduct(productId, patch, options)
+export const saveProduct = (productId: string, patch: ProductPatch, options: RequestOptions = {}): Promise<void> => refreshShop(updateProduct(productId, patch, options))
 
 export type ManageAction = 'delete-product' | 'delete-variant' | 'add-variant' | 'save-variant' | 'save-product'
 

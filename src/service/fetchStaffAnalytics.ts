@@ -1,7 +1,7 @@
-import { LOW_STOCK, PRODUCTS } from '../data/products'
 import { addDays, defaultFilter, manilaToday, mondayOf, resolvePeriod, resolveSalesWindow, type Granularity, type PeriodFilterValue } from '../utils/period'
 import type { VatClass } from '../utils/invoiceTax'
 import { PAYMENT_METHODS, type Buyer, type PaymentMethod } from './fetchTransactions'
+import { fetchProductList } from './fetchProductList'
 import { simulateRequest, type RequestOptions } from './simulateRequest'
 
 // Stand-in for the analytics endpoints behind the staff dashboard. Nothing on the backend can answer these yet:
@@ -15,7 +15,8 @@ import { simulateRequest, type RequestOptions } from './simulateRequest'
 //   fetchOrderLog      -> GET /orders?limit=&sort=-placedAt
 // The three charts take a per-card filter. On Products sold and Trendy items, from and to are inclusive dates in Asia/Manila, resolved from period and
 // year by the shared client helper (utils/period).
-// Until then the figures are generated from the month, so a given month always shows the same numbers.
+// Until then the figures are generated from the month, so a given month always shows the same numbers. The orders are drawn from the
+// shop's real products (the first 100, fetched once), so with no products there are no orders and every widget shows its empty state.
 
 /** True while the figures are placeholders; the dashboard says so. Set to false when the real endpoints are wired. */
 export const SAMPLE_DATA = true
@@ -94,6 +95,41 @@ export const seedOf = (text: string) => [...text].reduce((h, c) => Math.imul(h ^
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
+/** What the sample orders need of a product. */
+export interface SampleProduct {
+  id: string
+  name: string
+  category: string
+  price: number
+  stock: number
+  arReady: boolean
+}
+
+let sampleProducts: SampleProduct[] = []
+let sampleProductsLoad: Promise<void> | null = null
+
+/** Test seam: the products the sample orders are drawn from. */
+export function setSampleProducts(products: SampleProduct[]) {
+  sampleProducts = products
+  sampleProductsLoad = Promise.resolve()
+  pastMonths.clear()
+}
+
+/** Loads the shop's products (GET /products, the API's cap of 100) once; a failed load is tried again on the next call. */
+export function loadSampleProducts(): Promise<void> {
+  sampleProductsLoad ??= fetchProductList({ limit: 100 }).then(
+    ({ data }) => {
+      sampleProducts = data.map((item) => ({ id: item.id, name: item.name, category: item.category, price: item.minPrice, stock: item.totalStock, arReady: item.arReady === true }))
+      pastMonths.clear()
+    },
+    (error: unknown) => {
+      sampleProductsLoad = null
+      throw error
+    },
+  )
+  return sampleProductsLoad
+}
+
 interface MonthOrder extends LoggedOrder {
   date: string
   /** Unique across months (order ids restart every month), for counting orders over several months. */
@@ -120,7 +156,7 @@ function buildMonthOrders(monthKey: string, lastDay: number, cutoffMinutes: numb
   // Each AR-ready item has its own steady share of orders that started in AR Fitting.
   const rateOf = (id: string) => 0.2 + 0.4 * ((seedOf(id) % 100) / 100)
   // A fixed shuffle per month, then a long-tailed pick, gives clear best sellers.
-  const ranked = PRODUCTS.map((product) => ({ product, key: rand() }))
+  const ranked = sampleProducts.map((product) => ({ product, key: rand() }))
     .sort((a, b) => a.key - b.key)
     .map((r) => r.product)
   const weights = ranked.map((_, i) => 1 / (i + 1) ** 0.9)
@@ -138,7 +174,7 @@ function buildMonthOrders(monthKey: string, lastDay: number, cutoffMinutes: numb
     days.push(date)
     arUsers += 3 + arRand() * 5
     const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()
-    const count = 4 + Math.floor(rand() * 7) + (weekday === 0 || weekday >= 5 ? 3 : 0)
+    const count = ranked.length === 0 ? 0 : 4 + Math.floor(rand() * 7) + (weekday === 0 || weekday >= 5 ? 3 : 0)
     const dayOrders: MonthOrder[] = []
     for (let n = 0; n < count; n++) {
       const minute = 9 * 60 + Math.floor(rand() * 12 * 60)
@@ -146,7 +182,7 @@ function buildMonthOrders(monthKey: string, lastDay: number, cutoffMinutes: numb
       const lines = Array.from({ length: 1 + Math.floor(rand() * 3) }, () => {
         const product = pick()
         const usedAr = convRand() < rateOf(product.id) && product.arReady
-        return { productId: product.id, name: product.name, category: product.category, units: rand() < 0.8 ? 1 : 2, price: product.salePrice ?? product.price, usedAr }
+        return { productId: product.id, name: product.name, category: product.category, units: rand() < 0.8 ? 1 : 2, price: product.price, usedAr }
       })
       // The last day's orders stop at the cutoff (today: the current time).
       if (day === lastDay && cutoffMinutes !== null && minute > cutoffMinutes) continue
@@ -207,6 +243,7 @@ function ordersFor(period: { start: string; end: string }): MonthOrder[] {
 
 export async function fetchStaffSummary({ signal, delayMs = 600 }: RequestOptions = {}): Promise<StaffSummary> {
   await respond('summary', signal, delayMs)
+  await loadSampleProducts()
   const month = buildMonth()
   const salesTotal = month.orders.reduce((sum, o) => sum + o.total, 0)
   // Last month, cut at the same day of the month, so the comparison is like for like.
@@ -254,6 +291,7 @@ function bucketOf(date: string, granularity: Granularity, start: string) {
 /** Sales per day, week, month, quarter or year, as the filter says; zero where nothing sold. Each entry is dated by its bucket's start. */
 export async function fetchSalesSeries({ signal, delayMs = 900, filter = defaultFilter() }: FilterOptions = {}): Promise<SalesDay[]> {
   await respond('sales', signal, delayMs)
+  await loadSampleProducts()
   const span = resolveSalesWindow(filter)
   // Every bucket of the span, in order, so quiet ones show as zero.
   const totals = new Map<string, number>()
@@ -268,6 +306,7 @@ export async function fetchSalesSeries({ signal, delayMs = 900, filter = default
 /** Units per category over the period, largest first. */
 export async function fetchProductMix({ signal, delayMs = 750, filter = defaultFilter() }: FilterOptions = {}): Promise<ProductMixItem[]> {
   await respond('mix', signal, delayMs)
+  await loadSampleProducts()
   const units = new Map<string, number>()
   for (const order of ordersFor(resolvePeriod(filter))) for (const line of order.lines) units.set(line.category, (units.get(line.category) ?? 0) + line.units)
   return [...units].map(([category, count]) => ({ category, units: count })).sort((a, b) => b.units - a.units)
@@ -276,6 +315,7 @@ export async function fetchProductMix({ signal, delayMs = 750, filter = defaultF
 /** The five most ordered products over the period, by the orders that contain them. */
 export async function fetchTrendingItems({ signal, delayMs = 850, filter = defaultFilter() }: FilterOptions = {}): Promise<TrendingItem[]> {
   await respond('trending', signal, delayMs)
+  await loadSampleProducts()
   const tally = new Map<string, { name: string; category: string; orders: Set<string>; arOrders: Set<string> }>()
   for (const order of ordersFor(resolvePeriod(filter))) {
     for (const line of order.lines) {
@@ -287,7 +327,7 @@ export async function fetchTrendingItems({ signal, delayMs = 850, filter = defau
   }
   const top = [...tally]
     .map(([productId, t]): TrendingItem => {
-      const product = PRODUCTS.find((p) => p.id === productId)
+      const product = sampleProducts.find((p) => p.id === productId)
       return {
         productId,
         name: t.name,
@@ -299,17 +339,13 @@ export async function fetchTrendingItems({ signal, delayMs = 850, filter = defau
     })
     .sort((a, b) => b.orders - a.orders || a.name.localeCompare(b.name))
     .slice(0, 5)
-  // Sample mode only: make sure the low-stock and sold-out states are visible. Real stock comes from the API.
-  if (SAMPLE_DATA && top.length === 5) {
-    if (!top.some((t) => t.stock >= 1 && t.stock <= LOW_STOCK)) top[2].stock = Math.min(top[2].stock, 3)
-    if (!top.some((t) => t.stock === 0)) top[4].stock = 0
-  }
   return top
 }
 
 /** The latest orders, newest first. The order is the API's; callers show it as it comes. */
 export async function fetchOrderLog({ signal, delayMs = 1000, limit = 48 }: RequestOptions & { limit?: number } = {}): Promise<LoggedOrder[]> {
   await respond('log', signal, delayMs)
+  await loadSampleProducts()
   return buildMonth()
     .orders.slice(-limit)
     .reverse()

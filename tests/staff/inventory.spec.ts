@@ -2,9 +2,8 @@ import { expect, test, type Locator, type Page, type Route } from '@playwright/t
 import { IMAGE_HOST, product, setupInventory, variant, type MockProduct, type ProductsMock } from '../shared/products'
 import { DEMO } from '../shared/session'
 
-// Staff Inventory against the real-API code path. The page decides between the sample catalogue and GET /products with a build
-// constant, so useRealInventoryApi (tests/shared/products.ts) rewrites that one module in the dev server's response; the products
-// API itself is the in-memory mockProducts. Auth and /users/me are mocked, and each test signs in through the real form.
+// Staff Inventory against GET /products, which is the in-memory mockProducts (tests/shared/products.ts). Auth and /users/me are mocked,
+// and each test signs in through the real form.
 
 const CORS = {
   'access-control-allow-origin': '*',
@@ -41,7 +40,7 @@ const wool = () =>
   product({
     id: WOOL_ID,
     name: 'Wool Coat',
-    category: 'Outerwear',
+    category: 'Hoodie',
     brand: 'Northline',
     createdAt: '2026-04-01T08:00:00.000Z',
     variants: [variant({ id: 'wool-m', sku: 'WC-GREY-M', size: 'M', color: 'Grey', colorHex: '#808080', price: 4200, stock: 3 })],
@@ -111,7 +110,7 @@ async function openDrawer(page: Page, name: string) {
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
 const toast = (page: Page, text: string) => page.getByText(text, { exact: true })
 
-test.describe('real-API mode', () => {
+test.describe('products API', () => {
   test('lists the active products from GET /products and has no sample-data badge', async ({ page }) => {
     const api = await start(page)
     await expect(rowButton(page, 'Linen Shirt')).toBeVisible()

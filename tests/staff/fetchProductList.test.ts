@@ -9,7 +9,7 @@ const fetchMock = vi.fn()
 const reply = (body: unknown, status = 200) => fetchMock.mockResolvedValue(new Response(JSON.stringify(body), { status }))
 const requested = () => new URL(String(fetchMock.mock.calls[0][0]), 'http://api.test')
 
-const ITEM = { id: 'p1', name: 'Tee', category: 'Tops', brand: 'Silhou', minPrice: 100, maxPrice: 200, totalStock: 4, primaryImage: null, createdAt: '2026-01-01T00:00:00.000Z' }
+const ITEM = { id: 'p1', name: 'Tee', category: 'Hoodie', brand: 'Silhou', minPrice: 100, maxPrice: 200, totalStock: 4, primaryImage: null, createdAt: '2026-01-01T00:00:00.000Z' }
 const VARIANT = { id: 'v1', sku: 'TEE-S-BLK', name: null, size: 'S', color: 'Black', colorHex: '#1b1d21', price: 1299, stock: 3, imageUrl: null, measurements: null }
 
 beforeEach(() => vi.stubGlobal('fetch', fetchMock))
@@ -29,15 +29,15 @@ describe('fetchProductList', () => {
 
   it('sends the filters, sort and paging as query parameters', async () => {
     reply({ data: [ITEM], meta: META })
-    await fetchProductList({ search: 'tee', category: 'Tops', gender: 'female', inStockOnly: true, sortBy: 'basePrice', sortOrder: 'asc', page: 2, limit: 10 })
+    await fetchProductList({ search: 'tee', category: 'Hoodie', gender: 'female', inStockOnly: true, sortBy: 'name', sortOrder: 'asc', page: 2, limit: 10 })
     const url = requested()
     expect(url.pathname).toBe('/products')
     expect(Object.fromEntries(url.searchParams)).toEqual({
       search: 'tee',
-      category: 'Tops',
+      category: 'Hoodie',
       gender: 'female',
       inStockOnly: 'true',
-      sortBy: 'basePrice',
+      sortBy: 'name',
       sortOrder: 'asc',
       page: '2',
       limit: '10',
@@ -49,6 +49,20 @@ describe('fetchProductList', () => {
     reply({ data: [], meta: { ...META, total: 0 } })
     await fetchProductList({ search: undefined, page: 1 })
     expect(Object.fromEntries(requested().searchParams)).toEqual({ page: '1' })
+  })
+
+  it('sends the brand, size, colour and price range filters', async () => {
+    reply({ data: [], meta: { ...META, total: 0 } })
+    await fetchProductList({ brand: ' Nike ', size: 'M', color: 'Black', minPrice: 0, maxPrice: 500.5 })
+    expect(Object.fromEntries(requested().searchParams)).toEqual({ brand: 'Nike', size: 'M', color: 'Black', minPrice: '0', maxPrice: '500.5' })
+  })
+
+  it('leaves out blank text, NaN and negative prices, and any sort the API does not have', async () => {
+    reply({ data: [], meta: { ...META, total: 0 } })
+    await fetchProductList({ brand: '   ', size: '', color: undefined, minPrice: NaN, maxPrice: -1, sortBy: 'basePrice' as never, sortOrder: 'asc', page: 1 })
+    const sent = Object.fromEntries(requested().searchParams)
+    expect(sent).toEqual({ sortOrder: 'asc', page: '1' })
+    expect(requested().search).not.toContain('basePrice')
   })
 
   it('rejects a body without data or a total as a server fault', async () => {
@@ -111,7 +125,7 @@ describe('fetchProductDetail', () => {
       description: 'Soft',
       gender: 'female',
       brand: null,
-      category: 'Tops',
+      category: 'Hoodie',
       images: [
         { url: 'https://x/b.jpg', altText: null, displayOrder: 1, isPrimary: false },
         { url: 'https://x/a.jpg', altText: 'Tee', displayOrder: 0, isPrimary: true },
@@ -121,7 +135,7 @@ describe('fetchProductDetail', () => {
       description: 'Soft',
       gender: 'female',
       brand: null,
-      category: 'Tops',
+      category: 'Hoodie',
       images: [
         { url: 'https://x/a.jpg', altText: 'Tee', displayOrder: 0, isPrimary: true },
         { url: 'https://x/b.jpg', altText: null, displayOrder: 1, isPrimary: false },

@@ -4,6 +4,7 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
+import { setSampleProducts } from '../../src/service/fetchStaffAnalytics'
 import { ProductListError } from '../../src/service/fetchProductList'
 import {
   fetchTransactionDetail,
@@ -13,6 +14,7 @@ import {
   type TransactionDetail,
   type TransactionListItem,
 } from '../../src/service/fetchTransactions'
+import { SAMPLE_PRODUCTS } from '../fixtures/sampleProducts'
 import { StaffTransactionsPage } from '../../src/views/staff/StaffTransactionsPage'
 
 vi.mock('../../src/service/fetchTransactions', async (importOriginal) => ({
@@ -53,8 +55,8 @@ const detailOf = (item: TransactionListItem, overrides: Partial<TransactionDetai
   ...item,
   subtotal: item.total,
   lines: [
-    { productId: 'p01', name: 'Heritage Polo', category: 'Tops', units: 2, unitPrice: 1290 },
-    { productId: 'p02', name: 'Fence-Line Blazer', category: 'Outerwear', units: 1, unitPrice: 2000 },
+    { productId: 'p01', name: 'Heritage Polo', category: 'Hoodie', units: 2, unitPrice: 1290 },
+    { productId: 'p02', name: 'Fence-Line Blazer', category: 'Hoodie', units: 1, unitPrice: 2000 },
   ],
   ...overrides,
 })
@@ -66,6 +68,7 @@ function deferred<T>() {
 }
 
 beforeAll(() => {
+  setSampleProducts(SAMPLE_PRODUCTS)
   MotionGlobalConfig.skipAnimations = true
   Element.prototype.scrollIntoView = vi.fn()
   vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }))

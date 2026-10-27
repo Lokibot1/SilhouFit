@@ -29,7 +29,7 @@ import {
 const image = { id: 'i1', file: new File(['x'], 'a.jpg', { type: 'image/jpeg' }), preview: 'blob:a', alt: null }
 const valid = (over: Partial<ProductFormValues> = {}): ProductFormValues => ({
   name: 'Heritage Polo',
-  category: 'Tops',
+  category: 'Hoodie',
   gender: '',
   arReady: false,
   description: '',
@@ -128,14 +128,14 @@ describe('validateProductForm', () => {
     expect(errors['sku:M|c1']).toBeDefined()
     const taken = validateProductForm(valid({ edits: { 'S|c1': { sku: 'OLD-1' } } }), { existingSkus: new Set(['old-1']) })
     expect(taken['sku:S|c1']).toMatch(/OLD-1/)
-    expect(validateProductForm(valid(), { conflictSku: 'TOP-HERI-NAV-S' })['sku:S|c1']).toBeDefined()
+    expect(validateProductForm(valid(), { conflictSku: 'HOO-HERI-NAV-S' })['sku:S|c1']).toBeDefined()
   })
 })
 
 describe('buildSkus', () => {
   it('builds CAT-NAME-COL-SIZE from letters and digits only', () => {
     const skus = buildSkus(valid({ name: 'Heritage Polo!', colors: [{ id: 'c1', name: 'Navy Blue', hex: '#fff' }] }))
-    expect(skus).toEqual({ 'S|c1': 'TOP-HERI-NAV-S', 'M|c1': 'TOP-HERI-NAV-M' })
+    expect(skus).toEqual({ 'S|c1': 'HOO-HERI-NAV-S', 'M|c1': 'HOO-HERI-NAV-M' })
   })
 
   it('numbers colliding SKUs -2, -3 and avoids taken ones', () => {
@@ -146,8 +146,8 @@ describe('buildSkus', () => {
       ],
       sizes: ['S'],
     })
-    expect(buildSkus(v)).toEqual({ 'S|c1': 'TOP-HERI-NAV-S', 'S|c2': 'TOP-HERI-NAV-S-2' })
-    expect(buildSkus(v, new Set(['top-heri-nav-s']))).toEqual({ 'S|c1': 'TOP-HERI-NAV-S-2', 'S|c2': 'TOP-HERI-NAV-S-3' })
+    expect(buildSkus(v)).toEqual({ 'S|c1': 'HOO-HERI-NAV-S', 'S|c2': 'HOO-HERI-NAV-S-2' })
+    expect(buildSkus(v, new Set(['hoo-heri-nav-s']))).toEqual({ 'S|c1': 'HOO-HERI-NAV-S-2', 'S|c2': 'HOO-HERI-NAV-S-3' })
   })
 
   it('keeps a typed SKU as typed', () => {
@@ -164,13 +164,13 @@ describe('buildProductInput', () => {
     const input = buildProductInput(valid({ basePrice: '1890.5', edits: { 'S|c1': { stock: '4', price: '2000' } } }), { i1: 'https://x/a.jpg' })
     expect(input).toEqual({
       name: 'Heritage Polo',
-      category: 'Tops',
+      category: 'Hoodie',
       basePrice: 1890.5,
       arReady: false,
       images: [{ url: 'https://x/a.jpg', altText: 'Heritage Polo', isPrimary: true }],
       variants: [
-        { sku: 'TOP-HERI-NAV-S', size: 'S', color: 'Navy', colorHex: '#26324a', stock: 4, price: 2000 },
-        { sku: 'TOP-HERI-NAV-M', size: 'M', color: 'Navy', colorHex: '#26324a', stock: 0 },
+        { sku: 'HOO-HERI-NAV-S', size: 'S', color: 'Navy', colorHex: '#26324a', stock: 4, price: 2000 },
+        { sku: 'HOO-HERI-NAV-M', size: 'M', color: 'Navy', colorHex: '#26324a', stock: 0 },
       ],
     })
   })
@@ -204,7 +204,7 @@ describe('validateProductForm in edit mode', () => {
 const ORIGINAL: ProductEditSource = {
   id: 'p1',
   name: 'Heritage Polo',
-  category: 'Tops',
+  category: 'Hoodie',
   brand: 'Ayala',
   description: 'Soft',
   gender: 'female',
@@ -217,7 +217,7 @@ const existing = (url: string, alt: string | null, id = url): ImageDraft => ({ i
 const editForm = (over: Partial<ProductFormValues> = {}): ProductFormValues => ({
   name: 'Heritage Polo',
   brand: 'Ayala',
-  category: 'Tops',
+  category: 'Hoodie',
   gender: 'female',
   arReady: false,
   description: 'Soft',
@@ -237,7 +237,7 @@ describe('buildProductPatch', () => {
 
   it('sends only the scalars that changed, and clears brand and description with an empty string', () => {
     expect(buildProductPatch(editForm({ name: ' Heritage Polo 2 ' }), {}, ORIGINAL)).toEqual({ name: 'Heritage Polo 2' })
-    expect(buildProductPatch(editForm({ brand: '', description: '', category: 'Bottoms' }), {}, ORIGINAL)).toEqual({ brand: '', description: '', category: 'Bottoms' })
+    expect(buildProductPatch(editForm({ brand: '', description: '', category: 'Pants' }), {}, ORIGINAL)).toEqual({ brand: '', description: '', category: 'Pants' })
   })
 
   it('cannot clear a gender, only change it', () => {

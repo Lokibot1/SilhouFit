@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PRODUCTS } from '../../src/data/products'
+import type { Line } from '../../src/hooks/useCart'
 import {
   computeTotals,
   defaultFulfilment,
@@ -10,59 +10,57 @@ import {
   type CheckoutItem,
 } from '../../src/utils/checkout'
 import { filterPhone } from '../../src/utils/checkoutValidation'
+import { BLAZER, POLO, SOLD_OUT, TROUSERS } from '../fixtures/shopProducts'
 
-const byId = (id: string) => PRODUCTS.find((p) => p.id === id)!
-const item = (id: string, qty = 1): CheckoutItem => ({ product: byId(id), size: 'M', color: byId(id).colors[0].name, qty })
-const line = (id: string, size: string | null, color: string | null, qty: number) => ({ id, size, color, qty })
+const PRODUCTS = [POLO, BLAZER, SOLD_OUT, TROUSERS]
+const storeOnly = { ...POLO, id: 'p12', name: 'Hook Wall Jacket', boutique: 'Lumban Loom', channels: ['store' as const] }
+const onlineOnly = { ...POLO, id: 'p05', name: 'Cable Knit Pullover', channels: ['online' as const] }
+const item = (product = POLO, qty = 1): CheckoutItem => {
+  const v = product.variants![0]
+  return { product, variantId: v.id, size: v.size ?? '', color: v.color ?? '', qty, unit: v.price }
+}
+const line = (variantId: string, qty: number, over: Partial<Line> = {}): Line => {
+  const product = PRODUCTS.find((p) => p.variants?.some((v) => v.id === variantId))!
+  const v = product.variants!.find((x) => x.id === variantId)!
+  return { variantId, productId: product.id, name: product.name, boutique: product.boutique, category: product.category, size: v.size, color: v.color, colorHex: v.colorHex, unitPrice: v.price, stock: v.stock, image: product.image, qty, active: true, ...over }
+}
 
 describe('resolveCartItems', () => {
-  it('turns valid lines into items, in order', () => {
-    const { items, notices } = resolveCartItems([line('p01', 'M', 'Navy', 2), line('p03', 'S', 'Black', 1)], PRODUCTS)
-    expect(items.map((i) => [i.product.id, i.size, i.color, i.qty])).toEqual([
-      ['p01', 'M', 'Navy', 2],
-      ['p03', 'S', 'Black', 1],
+  it('turns valid lines into items at the line price, in order', () => {
+    const { items, notices } = resolveCartItems([line('p01-m-navy', 2), line('p03-30-black', 1)], PRODUCTS)
+    expect(items.map((i) => [i.product.id, i.variantId, i.size, i.color, i.qty, i.unit])).toEqual([
+      ['p01', 'p01-m-navy', 'M', 'Navy', 2, 2100],
+      ['p03', 'p03-30-black', '30', 'Black', 1, 2600],
     ])
     expect(notices).toEqual([])
   })
 
-  it('leaves out unknown pieces, sold-out pieces and old lines with no size or colour, each with a notice', () => {
+  it('leaves out inactive lines, lines whose piece did not load and sold-out variants, each with a notice', () => {
     const { items, notices } = resolveCartItems(
       [
-        line('gone', 'M', 'Navy', 1),
-        line('p24', 'M', 'Indigo', 1),
-        line('p01', null, null, 1),
-        line('p01', 'M', 'Rust', 1),
-        line('p03', 'S', 'Black', 1),
+        line('p01-m-navy', 1, { active: false }),
+        line('p24-m-indigo', 1),
+        line('p02-m-black', 1, { productId: 'gone' }),
+        line('p03-30-black', 1),
       ],
       PRODUCTS,
     )
     expect(items.map((i) => i.product.id)).toEqual(['p03'])
-    expect(notices).toHaveLength(4)
-    expect(notices.join(' ')).toMatch(/no longer in the catalogue/)
-    expect(notices.join(' ')).toMatch(/Field Denim Jacket is sold out/)
-    expect(notices.join(' ')).toMatch(/Heritage Polo has no size or colour chosen/)
-  })
-
-  it('lowers a quantity to the stock, with the notice', () => {
-    const { items, notices } = resolveCartItems([line('p02', 'M', 'Black', 9)], PRODUCTS) // 4 in stock
-    expect(items[0].qty).toBe(4)
-    expect(notices).toEqual(['Fence-Line Blazer (M, Black): Quantity lowered to 4.'])
-  })
-
-  it('caps all lines of one piece together at its stock', () => {
-    const { items, notices } = resolveCartItems(
-      [line('p02', 'S', 'Black', 3), line('p02', 'M', 'Black', 3), line('p02', 'L', 'Black', 1)],
-      PRODUCTS,
-    )
-    expect(items.map((i) => i.qty)).toEqual([3, 1])
     expect(notices).toEqual([
-      'Fence-Line Blazer (M, Black): Quantity lowered to 1.',
-      'Fence-Line Blazer (L, Black): no more in stock, so it was left out.',
+      'Heritage Polo is no longer available, so it was left out.',
+      'Field Denim Jacket is sold out, so it was left out.',
+      'Fence-Line Blazer is no longer available, so it was left out.',
     ])
   })
 
+  it('lowers a quantity to the variant stock, with the notice', () => {
+    const { items, notices } = resolveCartItems([line('p02-m-black', 9)], PRODUCTS) // 4 in stock
+    expect(items[0].qty).toBe(4)
+    expect(notices).toEqual(['Fence-Line Blazer: Quantity lowered to 4.'])
+  })
+
   it('does not change the lines it was given', () => {
-    const lines = [line('p02', 'M', 'Black', 9)]
+    const lines = [line('p02-m-black', 9)]
     resolveCartItems(lines, PRODUCTS)
     expect(lines[0].qty).toBe(9)
   })
@@ -70,39 +68,39 @@ describe('resolveCartItems', () => {
 
 describe('several items together', () => {
   it('disables pickup when the pieces come from more than one boutique, and says which', () => {
-    const items = [item('p01'), item('p04')] // Ayala Atelier, Lumban Loom
+    const items = [item(POLO), item(TROUSERS)] // Ayala Atelier, Binondo Basics
     expect(fulfilmentAvailability(items)).toEqual({
       delivery: null,
-      pickup: 'Pickup works for one boutique per order. These pieces are at Ayala Atelier and Lumban Loom.',
+      pickup: 'Pickup works for one boutique per order. These pieces are at Ayala Atelier and Binondo Basics.',
     })
     expect(defaultFulfilment(items)).toBe('delivery')
     expect(orderBlock(items)).toBeNull()
   })
 
   it('allows pickup for several pieces from one boutique', () => {
-    expect(fulfilmentAvailability([item('p01'), item('p06')]).pickup).toBeNull() // both Ayala Atelier
+    expect(fulfilmentAvailability([item(POLO), item(BLAZER)]).pickup).toBeNull() // both Ayala Atelier
   })
 
   it('needs every piece to allow the option', () => {
-    const items = [item('p01'), item('p12')] // p12 is store only, at Lumban Loom
+    const items = [item(POLO), item(storeOnly)]
     expect(fulfilmentAvailability(items).delivery).toBe('Store-only piece. Pick it up at Lumban Loom.')
     expect(fulfilmentAvailability(items).pickup).toMatch(/one boutique per order/)
   })
 
   it('blocks the order when a store-only and an online-only piece are together, naming both', () => {
-    expect(orderBlock([item('p12'), item('p05')])).toBe(
+    expect(orderBlock([item(storeOnly), item(onlineOnly)])).toBe(
       "These pieces can't go in one order: Hook Wall Jacket is store-only and Cable Knit Pullover is online-only. Check them out separately.",
     )
   })
 
   it('blocks a store-only piece with pieces from another boutique, explaining the pickup limit', () => {
-    expect(orderBlock([item('p12'), item('p01')])).toMatch(
+    expect(orderBlock([item(storeOnly), item(POLO)])).toMatch(
       /Hook Wall Jacket is store-only, but the pieces come from Lumban Loom and Ayala Atelier/,
     )
   })
 
   it('charges one flat shipping fee per order, not per item', () => {
-    expect(computeTotals([item('p01'), item('p03')], 'delivery').shipping).toBe(SHIPPING_FEE)
+    expect(computeTotals([item(POLO), item(TROUSERS)], 'delivery').shipping).toBe(SHIPPING_FEE)
   })
 })
 

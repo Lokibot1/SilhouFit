@@ -1,4 +1,4 @@
-import { buildOrderHistory, seedOf, type HistoryOrder } from './fetchStaffAnalytics'
+import { buildOrderHistory, loadSampleProducts, seedOf, type HistoryOrder } from './fetchStaffAnalytics'
 import { computeTotals, toCentavos } from '../utils/invoiceTax'
 import {
   RETURN_REASONS,
@@ -64,6 +64,7 @@ function matching(params: TransactionFilterParams) {
 /** The same query the API takes, answered from the generated order history. */
 export async function sampleTransactionList(params: TransactionListParams, { signal, delayMs = 500 }: RequestOptions = {}): Promise<PaginatedTransactions> {
   await simulateRequest(delayMs, signal, () => false)
+  await loadSampleProducts()
   const matched = matching(params)
   const limit = params.limit ?? 25
   const page = params.page ?? 1
@@ -76,6 +77,7 @@ export async function sampleTransactionList(params: TransactionListParams, { sig
 
 export async function sampleTransactionDetail(id: string, { signal, delayMs = 400 }: RequestOptions = {}): Promise<TransactionDetail> {
   await simulateRequest(delayMs, signal, () => false)
+  await loadSampleProducts()
   const order = buildOrderHistory().find((o) => idOf(o.orderId) === id)
   if (!order) throw Object.assign(new Error('Order not found.'), { kind: 'not-found' })
   const lines = order.lines.map(({ productId, name, category, units, price, vatClass }) => ({ productId, name, category, units, unitPrice: price, ...(vatClass && { vatClass }) }))
@@ -89,6 +91,7 @@ const vatOf = (order: HistoryOrder) =>
 /** Every order the filters match, unpaged, for the CSV. */
 export async function sampleTransactionExport(params: TransactionFilterParams, { signal, delayMs = 600 }: RequestOptions = {}): Promise<TransactionExportRow[]> {
   await simulateRequest(delayMs, signal, () => false)
+  await loadSampleProducts()
   return matching(params).map(({ order }) => {
     const item = toListItem(order)
     const invoiceNo = invoiceNoFor(item.id)
@@ -99,6 +102,7 @@ export async function sampleTransactionExport(params: TransactionFilterParams, {
 /** The count of every order the filters match, and the gross and VAT of those not returned. */
 export async function sampleTransactionSummary(params: Pick<TransactionFilterParams, 'search' | 'from' | 'to'>, { signal, delayMs = 450 }: RequestOptions = {}): Promise<TransactionSummary> {
   await simulateRequest(delayMs, signal, () => false)
+  await loadSampleProducts()
   const orders = matching(params).map(({ order }) => order)
   const kept = orders.filter((o) => !returnOf(o).returnedAt)
   return {

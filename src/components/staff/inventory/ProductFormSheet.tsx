@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CATEGORIES, SIZES_BY_CATEGORY, type Category } from '../../../data/products'
 import type { Gender } from '../../../service/fetchProductList'
-import { addProduct, createFailureReason, knownSkus, manageFailureReason, saveProduct, uploadImage } from '../../../service/inventoryActions'
-import { INVENTORY_SAMPLE_DATA } from '../../../service/sampleInventory'
+import { addProduct, createFailureReason, manageFailureReason, saveProduct, uploadImage } from '../../../service/inventoryActions'
 import { GENDERS } from '../../../utils/inventoryQuery'
 import {
   buildProductInput,
@@ -12,6 +11,7 @@ import {
   newColor,
   filterMultiline,
   filterPrice,
+  formatPriceInput,
   filterText,
   PRODUCT_LIMITS,
   validateProductForm,
@@ -85,7 +85,6 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
   const editing = product !== undefined
   const [values, setValues] = useState(() => (product ? editValues(product) : initialValues()))
   const [initial] = useState(() => snapshot(values))
-  const [existing] = useState(knownSkus)
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set())
   const [attempted, setAttempted] = useState(false)
   const [pending, setPending] = useState(false)
@@ -115,9 +114,9 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
 
   // An edited product's own category is listed even when the shop does not know it, so saving never changes it by accident.
   const categoryOptions = product && !CATEGORY_OPTIONS.some((o) => o.value === product.category) ? [{ value: product.category, label: product.category }, ...CATEGORY_OPTIONS] : CATEGORY_OPTIONS
-  const errors = validateProductForm(values, { existingSkus: existing, conflictSku, mode: editing ? 'edit' : 'create' })
+  const errors = validateProductForm(values, { conflictSku, mode: editing ? 'edit' : 'create' })
   // An edited product's category may not be one of ours, which has no sizes to build SKUs from.
-  const skus = editing ? {} : buildSkus(values, existing)
+  const skus = editing ? {} : buildSkus(values)
   const dirty = snapshot(values) !== initial
   const error = (key: string) => (attempted || touched.has(key) ? errors[key] : undefined)
   const touch = (key: string) => setTouched((old) => new Set(old).add(key))
@@ -200,7 +199,7 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
         await saveProduct(product.id, buildProductPatch(latest.current, urls, product), { signal: controller.signal })
         onSaved?.(latest.current.name.trim())
       } else {
-        const created = await addProduct(buildProductInput(latest.current, urls, existing), { signal: controller.signal })
+        const created = await addProduct(buildProductInput(latest.current, urls), { signal: controller.signal })
         onCreated?.(created)
       }
     } catch (failure) {
@@ -353,23 +352,23 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
               <Select label="Category" value={values.category as string} options={categoryOptions} onChange={(category) => set({ category: category as Category })} />
             </div>
 
-            {/* The sample catalogue has no gender; the API has no arReady field yet, so it can't be saved there. */}
-            {INVENTORY_SAMPLE_DATA && editing ? null : INVENTORY_SAMPLE_DATA ? (
+            <div className="grid gap-1">
+              <p className="text-sm font-semibold text-fg">
+                Gender <span className="font-normal text-fg-muted">(optional)</span>
+              </p>
+              <Select label="Gender" value={values.gender} options={product?.gender ? GENDER_OPTIONS.slice(1) : GENDER_OPTIONS}
+                onChange={(gender) => set({ gender: gender as Gender | '' })}
+              />
+              {product?.gender && <p className="text-sm text-fg-muted">A gender can be changed but not removed once it is set.</p>}
+            </div>
+
+            {/* The API has no arReady field yet: the box is shown but nothing is sent. */}
+            {!editing && (
               <div className="grid gap-1">
                 <Checkbox label="AR Fitting ready" checked={values.arReady} onChange={(arReady) => set({ arReady })} className="justify-start">
                   <span className="text-base font-semibold">AR Fitting ready</span>
                 </Checkbox>
-                <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
-              </div>
-            ) : (
-              <div className="grid gap-1">
-                <p className="text-sm font-semibold text-fg">
-                  Gender <span className="font-normal text-fg-muted">(optional)</span>
-                </p>
-                <Select label="Gender" value={values.gender} options={product?.gender ? GENDER_OPTIONS.slice(1) : GENDER_OPTIONS}
-                  onChange={(gender) => set({ gender: gender as Gender | '' })}
-                />
-                {product?.gender && <p className="text-sm text-fg-muted">A gender can be changed but not removed once it is set.</p>}
+                <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting. Saving this needs a backend field, so it is not stored yet.</p>
               </div>
             )}
 
@@ -400,7 +399,7 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
                   inputMode="decimal"
                   autoComplete="off"
                   placeholder="0.00"
-                  value={values.basePrice}
+                  value={formatPriceInput(values.basePrice)}
                   aria-invalid={Boolean(error('basePrice'))}
                   aria-describedby={describedBy('pf-base-price', error('basePrice'))}
                   onChange={(event) => set({ basePrice: filterPrice(event.target.value) })}

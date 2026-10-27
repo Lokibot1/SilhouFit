@@ -1,74 +1,82 @@
-import { act, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, configure, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { clearSession, setSession } from '../../src/service/session'
 import { ShopNavbar } from '../../src/components/ShopNavbar'
+import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
-import { PRODUCTS } from '../../src/data/products'
-import { resetProductsCache } from '../../src/hooks/useProducts'
-import { fetchProducts } from '../../src/service/fetchProducts'
+import type { Product } from '../../src/data/products'
+import { invalidateShopColours } from '../../src/hooks/useShopColours'
+import { clearProductCache } from '../../src/hooks/useProducts'
+import { fetchProductList, ProductListError, type PaginatedProducts } from '../../src/service/fetchProductList'
+import { fetchShopProduct, fetchShopProducts } from '../../src/service/fetchShopProducts'
+import { clearSession } from '../../src/service/session'
 import { ShopPage } from '../../src/views/public/ShopPage'
 
-vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: vi.fn() }))
-const fetchMock = vi.mocked(fetchProducts)
-const CATALOGUE = { products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' }
+// The shop on the products API: the server filters and pages, so the page only asks and shows.
+vi.mock('../../src/service/fetchShopProducts', () => ({ fetchShopProducts: vi.fn(), fetchShopProduct: vi.fn() }))
+vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/fetchProductList')>()),
+  fetchProductList: vi.fn(),
+}))
+const shop = vi.mocked(fetchShopProducts)
+const detail = vi.mocked(fetchShopProduct)
+const list = vi.mocked(fetchProductList)
+const lastParams = () => shop.mock.calls.at(-1)![0]
 
-const scrollIntoView = vi.fn()
+const variant = (id: string, color: string, colorHex: string | null, size: string, price: number, stock: number) => ({
+  id, sku: id, name: null, size, color, colorHex, price, stock, imageUrl: null, measurements: null,
+})
 
-// The wishlist store re-reads localStorage on a storage event (how another tab reaches it).
-function seedCart(lines: { id: string; qty: number }[] = []) {
-  localStorage.setItem('silhoufit-cart', JSON.stringify(lines))
-  act(() => {
-    window.dispatchEvent(new StorageEvent('storage', { key: 'silhoufit-cart' }))
-  })
-}
+/** A product as the API adapter returns it: real price and stock, and none of the fields the API does not have. */
+const piece = (n: number, overrides: Partial<Product> = {}): Product => ({
+  id: `00000000-0000-4000-8000-00000000000${n}`,
+  slug: `piece-${n}`,
+  name: `Piece ${n}`,
+  category: 'Hoodie',
+  boutique: 'Ayala Atelier',
+  price: 1000 + n * 100,
+  image: `/p${n}.webp`,
+  alt: `Piece ${n} front`,
+  colors: [{ name: 'Black', hex: '#111111' }, { name: 'Navy', hex: '#1b2a49' }],
+  badges: [],
+  stock: 10,
+  channels: [],
+  arReady: false,
+  addedAt: '2026-05-05T08:00:00.000Z',
+  rating: 0,
+  reviews: 0,
+  variants: [variant(`v${n}a`, 'Black', '#111111', 'S', 1000 + n * 100, 5), variant(`v${n}b`, 'Navy', '#1b2a49', 'M', 1000 + n * 100, 5)],
+  ...overrides,
+})
 
-function seedWishlist(ids: string[] = []) {
-  localStorage.setItem('silhoufit-wishlist', JSON.stringify(ids))
-  act(() => {
-    window.dispatchEvent(new StorageEvent('storage', { key: 'silhoufit-wishlist' }))
-  })
-}
+const answer = (products: Product[], total = products.length) => ({ products, total, page: 1, pageCount: Math.max(1, Math.ceil(total / 12)) })
+const apiPage = (ids: string[]): PaginatedProducts => ({
+  data: ids.map((id) => ({ id, name: id, slug: id, category: 'Hoodie', brand: null, minPrice: 1, maxPrice: 1, totalStock: 1, primaryImage: null, createdAt: '' })),
+  meta: { total: ids.length, page: 1, limit: 100, totalPages: 1, hasNextPage: false, hasPreviousPage: false },
+})
 
 beforeAll(() => {
-  configure({ asyncUtilTimeout: 5000 }) // the search is debounced; a loaded machine can be slow
-  vi.setConfig({ testTimeout: 15000 })
+  configure({ asyncUtilTimeout: 5000 })
   MotionGlobalConfig.skipAnimations = true
-  vi.stubGlobal(
-    'IntersectionObserver',
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  )
-  vi.stubGlobal('ResizeObserver', class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  })
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: false,
-    media: query,
-    addEventListener() {},
-    removeEventListener() {},
-  }))
-  Element.prototype.scrollIntoView = scrollIntoView
+  vi.stubGlobal('IntersectionObserver', class { observe() {} unobserve() {} disconnect() {} })
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }))
+  Element.prototype.scrollIntoView = vi.fn()
 })
 
 beforeEach(() => {
-  resetProductsCache()
+  vi.resetAllMocks()
+  clearProductCache()
+  invalidateShopColours()
   localStorage.clear()
-  seedWishlist()
-  seedCart()
   act(() => clearSession())
-  fetchMock.mockResolvedValue(CATALOGUE)
+  shop.mockResolvedValue(answer([piece(1), piece(2), piece(3)]))
+  list.mockResolvedValue(apiPage(['a', 'b']))
+  detail.mockImplementation(async (id) => piece(Number(id.slice(-1)) || 1))
 })
 afterEach(() => {
-  vi.clearAllMocks()
   vi.restoreAllMocks()
 })
 
@@ -82,15 +90,6 @@ function Where() {
   )
 }
 
-function Back() {
-  const navigate = useNavigate()
-  return (
-    <button type="button" onClick={() => navigate(-1)}>
-      Back
-    </button>
-  )
-}
-
 function renderPage(url = '/shop') {
   return render(
     <MemoryRouter initialEntries={[url]}>
@@ -98,7 +97,6 @@ function renderPage(url = '/shop') {
         <ToastProvider>
           <ShopNavbar />
           <Where />
-          <Back />
           <Routes>
             <Route path="/shop" element={<ShopPage />} />
             <Route path="*" element={<p>another page</p>} />
@@ -112,528 +110,291 @@ function renderPage(url = '/shop') {
 const urlSearch = () => screen.getByTestId('search').textContent ?? ''
 const cards = () => screen.queryAllByRole('article')
 const loaded = () => screen.findAllByRole('article')
+const openFilters = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole('button', { name: /^Filters/ }))
+  return screen.findByRole('dialog', { name: 'Filters' })
+}
 
 describe('ShopPage states', () => {
-  it('shows the skeleton while loading, then the first 12 cards', async () => {
-    let resolve!: (value: typeof CATALOGUE) => void
-    fetchMock.mockReturnValueOnce(new Promise((r) => (resolve = r)))
+  it('shows the skeleton while loading, then the pieces with their real price and no rating, sale or badge', async () => {
+    let resolve!: (value: ReturnType<typeof answer>) => void
+    shop.mockReturnValueOnce(new Promise((r) => (resolve = r)))
     renderPage()
-
     expect(screen.getByRole('status', { name: 'Loading the catalogue' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toBeInTheDocument()
     expect(cards()).toHaveLength(0)
 
-    resolve(CATALOGUE)
-    expect(await loaded()).toHaveLength(12)
-    expect(screen.queryByRole('status')).toBeNull()
-    expect(screen.getByText('25 pieces')).toBeInTheDocument()
-    expect(screen.getByText(/^Stock synced \d{1,2}:\d{2}\s?[AP]M$/)).toBeInTheDocument()
+    resolve(answer([piece(1), piece(2), piece(3)]))
+    expect(await loaded()).toHaveLength(3)
+    expect(screen.getByText('3 pieces')).toBeInTheDocument()
+    expect(within(cards()[0]).getByText('Piece 1')).toBeInTheDocument()
+    expect(screen.queryByText(/reviews?\)?$/)).toBeNull()
+    expect(screen.queryByText(/% off|Sale|AR-ready/i)).toBeNull()
+  })
+
+  it('says there are no pieces yet when the database is empty, with a way home', async () => {
+    shop.mockResolvedValue(answer([]))
+    renderPage()
+    expect(await screen.findByText('No pieces yet')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to home' })).toBeInTheDocument()
+    expect(screen.queryByText('No pieces match your filters')).toBeNull()
   })
 
   it('explains a failed load and recovers on "Try again"', async () => {
     const user = userEvent.setup()
-    fetchMock.mockRejectedValueOnce(new Error('network'))
+    shop.mockRejectedValueOnce(new ProductListError('network'))
     renderPage()
-
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/did not load/i)
-    expect(alert).toHaveTextContent(/connection/i)
-    expect(cards()).toHaveLength(0)
-
-    await user.click(within(alert).getByRole('button', { name: 'Try again' }))
-    expect(await loaded()).toHaveLength(12)
-    expect(screen.queryByRole('alert')).toBeNull()
+    expect(await screen.findByText('The catalogue did not load')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await loaded()).toHaveLength(3)
   })
 
-  it('shows the empty state for a search with no hits and clears it', async () => {
+  it('shows the empty state with Clear all when filters match nothing, and a retry when the request then fails', async () => {
     const user = userEvent.setup()
-    renderPage()
-    await loaded()
+    shop.mockResolvedValue(answer([]))
+    renderPage('/shop?brand=Zzz')
+    expect(await screen.findByText('No pieces match your filters')).toBeInTheDocument()
 
-    await user.type(screen.getByRole('searchbox', { name: 'Search the catalogue' }), 'zzzz')
-    expect(await screen.findByText('No pieces match "zzzz"')).toBeInTheDocument()
-    expect(screen.getByText(/check the spelling/i)).toBeInTheDocument()
-    expect(cards()).toHaveLength(0)
-
+    shop.mockRejectedValueOnce(new Error('down'))
     await user.click(screen.getByRole('button', { name: 'Clear search and filters' }))
-    expect(await loaded()).toHaveLength(12)
-    expect(screen.getByRole('searchbox')).toHaveValue('')
+    expect(await screen.findByText('The catalogue did not load')).toBeInTheDocument()
+    shop.mockResolvedValue(answer([piece(1)]))
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(cards()).toHaveLength(1))
     expect(urlSearch()).toBe('')
   })
+})
 
-  it('restores the old search text when Back follows "Clear search and filters"', async () => {
-    const user = userEvent.setup()
+describe('ShopPage categories', () => {
+  it('offers exactly the four categories, and an unknown API category adds no pill', async () => {
+    shop.mockResolvedValue(answer([piece(1, { category: 'Hats' }), piece(2)]))
     renderPage()
     await loaded()
-    await user.type(screen.getByRole('searchbox'), 'zzzz')
-    await waitFor(() => expect(urlSearch()).toBe('?q=zzzz'))
-
-    await user.click(await screen.findByRole('button', { name: 'Clear search and filters' }))
-    expect(await loaded()).toHaveLength(12)
-    expect(screen.getByRole('searchbox')).toHaveValue('')
-    expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toHaveFocus()
-
-    await user.click(screen.getByRole('button', { name: 'Back' }))
-    await waitFor(() => expect(screen.getByRole('searchbox')).toHaveValue('zzzz'))
-    expect(await screen.findByText('No pieces match "zzzz"')).toBeInTheDocument()
-    await new Promise((resolve) => setTimeout(resolve, 400)) // let the debounce settle
-    expect(urlSearch()).toBe('?q=zzzz')
-  })
-
-  it('names the filters when they, not just the search, empty the list', async () => {
-    renderPage('/shop?q=polo&category=Bottoms')
-    expect(await screen.findByText('No pieces match "polo" with your filters')).toBeInTheDocument()
-  })
-
-  it('shows the last catalogue at once on a return visit while a fresh copy loads', async () => {
-    const first = renderPage()
-    await loaded()
-    first.unmount()
-
-    fetchMock.mockReturnValueOnce(new Promise(() => {}))
-    renderPage()
-    expect(cards()).toHaveLength(12)
-    expect(screen.queryByRole('status', { name: 'Loading the catalogue' })).toBeNull()
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-  })
-
-  it('aborts the request when the page unmounts', () => {
-    fetchMock.mockReturnValueOnce(new Promise(() => {}))
-    const { unmount } = renderPage()
-    const { signal } = fetchMock.mock.calls[0][0]!
-    expect(signal!.aborted).toBe(false)
-    unmount()
-    expect(signal!.aborted).toBe(true)
+    const pills = within(screen.getByRole('group', { name: 'Filter by category' })).getAllByRole('button')
+    expect(pills.map((b) => b.textContent)).toEqual(['All', 'Hoodie', 'Pants', 'Headwear', 'Shorts'])
   })
 })
 
-describe('ShopPage metadata', () => {
-  it('sets the title and a 150-160 character description, and restores both on leave', () => {
-    document.title = 'Before'
-    const meta = document.createElement('meta')
-    meta.name = 'description'
-    meta.content = 'Before description'
-    document.head.appendChild(meta)
-
-    const { unmount } = renderPage()
-    expect(document.title).toBe('Shop the catalogue — SilhouFit')
-    expect(meta.content.length).toBeGreaterThanOrEqual(150)
-    expect(meta.content.length).toBeLessThanOrEqual(160)
-
-    unmount()
-    expect(document.title).toBe('Before')
-    expect(meta.content).toBe('Before description')
-    meta.remove()
+describe('ShopPage requests', () => {
+  it('asks the server for the URL filters and one colour, newest first', async () => {
+    renderPage('/shop?brand=Nike&gender=male&size=M&color=Black&min=0&max=900&category=Hoodie')
+    await loaded()
+    expect(lastParams()).toEqual({
+      search: undefined,
+      category: 'Hoodie',
+      brand: 'Nike',
+      gender: 'male',
+      size: 'M',
+      color: 'Black',
+      minPrice: 0,
+      maxPrice: 900,
+      inStockOnly: undefined,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+      page: 1,
+      limit: 12,
+    })
   })
-})
 
-describe('ShopPage search, category and URL state', () => {
-  it('debounces typing into q and resets the page', async () => {
+  it('keeps the availability and AR filters in the URL and as chips, and sends only Online (as inStockOnly)', async () => {
+    renderPage('/shop?avail=store,online,low&ar=1')
+    await loaded()
+    const sent = lastParams()
+    expect(sent.inStockOnly).toBe(true)
+    for (const key of ['avail', 'availability', 'ar', 'arReady']) expect(sent).not.toHaveProperty(key)
+    expect(screen.getByRole('button', { name: 'Remove availability In store, Online, Low stock' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove AR AR-ready only' })).toBeInTheDocument()
+    expect(urlSearch()).toBe('?avail=store,online,low&ar=1')
+  })
+
+  it('sends no stock filter and no ar key for the store, low stock and AR choices alone', async () => {
+    renderPage('/shop?avail=store,low&ar=1')
+    await loaded()
+    expect(lastParams().inStockOnly).toBeUndefined()
+    expect(Object.keys(lastParams())).not.toContain('ar')
+  })
+
+  it('keeps Featured and the price sorts, and asks for newest first for them; name sorts reach the API', async () => {
     const user = userEvent.setup()
-    renderPage('/shop?page=2')
+    renderPage()
     await loaded()
-
-    await user.type(screen.getByRole('searchbox'), 'polo')
-    await waitFor(() => expect(urlSearch()).toBe('?q=polo'))
-    expect(cards().length).toBeGreaterThan(0)
-    expect(cards().length > 0 && cards().every((card) => /polo/i.test(card.textContent ?? ''))).toBe(true)
-  })
-
-  it('marks the active pill, writes the category to the URL and drops the page', async () => {
-    const user = userEvent.setup()
-    renderPage('/shop?page=2')
-    await loaded()
-
-    const all = screen.getByRole('button', { name: /^All\s*25$/ })
-    expect(all).toHaveAttribute('aria-pressed', 'true')
-
-    const topsPill = screen.getByRole('button', { name: /^Tops/ })
-    await user.click(topsPill)
-    expect(topsPill).toHaveAttribute('aria-pressed', 'true')
-    expect(all).toHaveAttribute('aria-pressed', 'false')
-    expect(urlSearch()).toBe('?category=Tops')
-    expect(screen.getByRole('heading', { level: 1, name: 'Tops' })).toBeInTheDocument()
-    const topsNames = PRODUCTS.filter((p) => p.category === 'Tops').map((p) => p.name)
-    expect(cards().length > 0 && cards().every((card) => topsNames.includes(within(card).getByRole('heading').textContent ?? ''))).toBe(true)
-  })
-
-  it('reads its state from the URL', async () => {
-    renderPage('/shop?category=Bottoms&sort=price-asc&view=list&perPage=24')
-    await loaded()
-    expect(screen.getByRole('button', { name: /^Bottoms/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByLabelText('Sort by')).toHaveTextContent('Sort: Price: low to high')
-    expect(screen.getByLabelText('Pieces per page')).toHaveTextContent('24 per page')
-    expect(screen.getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('changes sort through the select and resets the page', async () => {
-    const user = userEvent.setup()
-    renderPage('/shop?page=2')
-    await loaded()
-    await user.click(screen.getByLabelText('Sort by'))
+    await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Featured',
+      'Newest',
+      'Price: low to high',
+      'Price: high to low',
+      'Name: A to Z',
+      'Name: Z to A',
+    ])
     await user.click(screen.getByRole('option', { name: 'Price: high to low' }))
     expect(urlSearch()).toBe('?sort=price-desc')
-    expect(within(cards()[0]).getByText('₱8,900.00')).toBeInTheDocument()
-  })
-})
+    await waitFor(() => expect(lastParams()).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' }))
+    for (const [params] of shop.mock.calls) expect(params.sortBy).not.toBe('basePrice')
 
-describe('ShopPage pagination', () => {
-  it('moves between pages, focuses the results heading and scrolls to it', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await loaded()
-    const nav = screen.getByRole('navigation', { name: 'Pagination' })
-    expect(within(nav).getByRole('button', { name: 'Prev' })).toBeDisabled()
-    expect(within(nav).getByRole('button', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument()
-    expect(screen.getByText('Displaying 1–12 of 25')).toBeInTheDocument()
-
-    await user.click(within(nav).getByRole('button', { name: 'Next' }))
-    expect(urlSearch()).toBe('?page=2')
-    expect(screen.getByText('Displaying 13–24 of 25')).toBeInTheDocument()
-    expect(within(nav).getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page')
-
-    await user.click(within(nav).getByRole('button', { name: 'Next' }))
-    expect(screen.getByText('Displaying 25–25 of 25')).toBeInTheDocument()
-    expect(within(nav).getByRole('button', { name: 'Next' })).toBeDisabled()
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toHaveFocus())
-    expect(scrollIntoView).toHaveBeenCalled()
+    await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
+    await user.click(screen.getByRole('option', { name: 'Name: Z to A' }))
+    await waitFor(() => expect(lastParams()).toMatchObject({ sortBy: 'name', sortOrder: 'desc' }))
   })
 
-  it('shows more pieces per page and drops the extra page', async () => {
+  it('debounces typing into the search, resets the page, and sends the text', async () => {
     const user = userEvent.setup()
     renderPage('/shop?page=2')
     await loaded()
-    await user.click(screen.getByLabelText('Pieces per page'))
-    await user.click(screen.getByRole('option', { name: '24 per page' }))
-    expect(urlSearch()).toBe('?perPage=24')
-    expect(cards()).toHaveLength(24)
-    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
+    await user.type(screen.getAllByRole('searchbox')[0], 'linen')
+    await waitFor(() => expect(lastParams()).toMatchObject({ search: 'linen', page: 1 }))
+    expect(urlSearch()).toContain('q=linen')
   })
 })
 
-describe('ShopPage cards', () => {
-  it('shows price, sale price, low stock, swatch names and loads the first four images eagerly', async () => {
-    renderPage()
-    await loaded()
-    // The first photo of each card; the carousel's extra photos come after it and are always lazy.
-    const images = cards().map((card) => card.querySelector('img')!)
-    expect(images.slice(0, 4).every((img) => img.getAttribute('loading') === 'eager')).toBe(true)
-    expect(images[4]).toHaveAttribute('loading', 'lazy')
-    expect(images[0]).toHaveAttribute('decoding', 'async')
-
-    const blazer = cards().find((c) => c.textContent?.includes('Fence-Line Blazer'))!
-    expect(within(blazer).getByText(/Original price/)).toBeInTheDocument()
-    expect(blazer.querySelector('s')).toHaveTextContent('₱6,490.00')
-    expect(blazer).toHaveTextContent('₱4,990.00')
-    expect(within(blazer).getByText('Only 4 left')).toBeInTheDocument()
-    expect(within(blazer).getByText('Available in Black')).toBeInTheDocument()
-  })
-
-  it('swaps a broken photo for a placeholder with the product name', async () => {
-    renderPage()
-    await loaded()
-    const first = cards()[0]
-    fireEvent.error(within(first).getByRole('img', { name: PRODUCTS[0].alt }))
-    expect(first.querySelector('img')).toBeNull()
-    expect(within(first).getByRole('img', { name: 'Heritage Polo (photo unavailable)' })).toBeInTheDocument()
-  })
-
-  it('toggles a wishlist heart, updates the count and persists it', async () => {
+describe('ShopPage filter dialog', () => {
+  it('offers Availability and the AR-ready toggle, and writes them to the URL on Apply', async () => {
     const user = userEvent.setup()
     renderPage()
     await loaded()
-    const heart = screen.getByRole('button', { name: 'Save Heritage Polo to wishlist' })
-    expect(heart).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByText('Saved 0')).toBeInTheDocument()
+    const dialog = await openFilters(user)
+    for (const name of [/In store/, /Online/, /Low stock/, /AR-ready/]) expect(within(dialog).getByRole('checkbox', { name })).toBeInTheDocument()
 
-    await user.click(heart)
-    expect(heart).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByText('Saved 1')).toBeInTheDocument()
-    expect(screen.getByText('Saved to wishlist')).toBeInTheDocument()
-    expect(JSON.parse(localStorage.getItem('silhoufit-wishlist')!)).toEqual(['p01'])
-
-    await user.click(heart)
-    expect(heart).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByText('Saved 0')).toBeInTheDocument()
-    expect(screen.getByText('Removed from wishlist')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(heart).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByText('Saved 1')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('checkbox', { name: /Online/ }))
+    await user.click(within(dialog).getByRole('checkbox', { name: /AR-ready/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
+    expect(urlSearch()).toBe('?avail=online&ar=1')
+    await waitFor(() => expect(lastParams().inStockOnly).toBe(true))
+    expect(screen.getByRole('button', { name: /^Filters/ })).toHaveTextContent('2')
   })
 
-  it('ignores saved ids that are not in the catalogue when counting', async () => {
-    seedWishlist(['p01', 'gone'])
-    renderPage()
-    await loaded()
-    expect(screen.getByText('Saved 1')).toBeInTheDocument()
-    // Hidden from the count, not deleted: a piece that comes back is still saved.
-    expect(JSON.parse(localStorage.getItem('silhoufit-wishlist')!)).toEqual(['p01', 'gone'])
-  })
-
-  it('restores saved pieces from storage and survives storage being blocked', async () => {
-    seedWishlist(['p02'])
-    const { unmount } = renderPage()
-    await loaded()
-    expect(screen.getByRole('button', { name: 'Save Fence-Line Blazer to wishlist' })).toHaveAttribute('aria-pressed', 'true')
-    unmount()
-
-    resetProductsCache()
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key) => {
-      if (key === 'silhoufit-wishlist') throw new Error('blocked')
-    })
+  it('removes the availability and AR chips one by one, and Clear all clears the rest', async () => {
     const user = userEvent.setup()
-    renderPage()
+    renderPage('/shop?avail=online&ar=1&brand=Nike')
     await loaded()
-    await user.click(screen.getByRole('button', { name: 'Save Heritage Polo to wishlist' }))
-    expect(screen.getByText('Saved 2')).toBeInTheDocument()
-  })
-})
-
-describe('ShopPage header and motion', () => {
-  it('has a breadcrumb back home and a heading that follows the view', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await loaded()
-    const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
-    expect(within(crumbs).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
-    expect(within(crumbs).getByText('Shop')).toHaveAttribute('aria-current', 'page')
-    expect(screen.queryByText('Shop the rail')).toBeNull()
-    expect(screen.getByRole('heading', { level: 1, name: 'All pieces' })).toBeInTheDocument()
-    expect(screen.getByText('25 pieces')).toBeInTheDocument() // the summary sits beside the heading
-
-    await user.click(screen.getByRole('button', { name: /^Outerwear/ }))
-    expect(screen.getByRole('heading', { level: 1, name: 'Outerwear' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { level: 2, name: 'Outerwear' })).toBeNull()
-  })
-
-  it('derives the heading from the URL before any data arrives', () => {
-    fetchMock.mockReturnValueOnce(new Promise(() => {}))
-    renderPage('/shop?category=Knitwear')
-    expect(screen.getByRole('heading', { level: 1, name: 'Knitwear' })).toBeInTheDocument()
-    expect(screen.getByRole('status', { name: 'Loading the catalogue' })).toBeInTheDocument()
-  })
-
-  it('moves the sliding indicator with the pressed view and category', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await loaded()
-    const indicator = (button: HTMLElement) => button.querySelector('.skeuo-ink-face')
-    const grid = screen.getByRole('button', { name: 'Grid view' })
-    const list = screen.getByRole('button', { name: 'List view' })
-    expect(indicator(grid)).not.toBeNull()
-    expect(indicator(list)).toBeNull()
-    await user.click(list)
-    expect(indicator(list)).not.toBeNull()
-    expect(indicator(grid)).toBeNull()
-
-    await user.click(screen.getByRole('button', { name: /^Tops/ }))
-    expect(indicator(screen.getByRole('button', { name: /^Tops/ }))).not.toBeNull()
-    expect(indicator(screen.getByRole('button', { name: /^All/ }))).toBeNull()
-  })
-})
-
-describe('ShopPage cart buttons', () => {
-  const path = () => screen.getByTestId('path').textContent
-  const signedIn = () => act(() => setSession({ name: 'Demo Shopper', email: 'demo@silhoufit.com' }))
-  const dialog = () => screen.findByRole('dialog', { name: 'Choose options' })
-
-  it("opens the sheet for a guest's Add to cart, with no sign-in hint and no redirect", async () => {
-    const user = userEvent.setup()
-    renderPage('/shop?category=Tops')
-    await loaded()
-    await user.click(screen.getByRole('button', { name: 'Add Heritage Polo to cart' }))
-    const sheet = await dialog()
-    expect(path()).toBe('/shop')
-    expect(within(sheet).getByRole('button', { name: 'Add to cart' })).toBeInTheDocument()
-    expect(within(sheet).queryByText("You'll sign in before you pay.")).toBeNull()
-  })
-
-  it("opens the sheet for a guest's Buy, says they will sign in before paying, and goes to checkout", async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await loaded()
-    await user.click(screen.getByRole('button', { name: 'Buy Heritage Polo' }))
-    const sheet = await dialog()
-    expect(within(sheet).getByText("You'll sign in before you pay.")).toBeInTheDocument()
-    await user.click(within(sheet).getByRole('radio', { name: 'M' }))
-    await user.click(within(sheet).getByRole('radio', { name: 'Navy' }))
-    await user.click(within(sheet).getByRole('button', { name: 'Buy now' }))
-    expect(path()).toBe('/checkout') // the checkout page itself asks for the sign-in
-    expect(urlSearch()).toBe('?item=p01&size=M&color=Navy&qty=1')
-  })
-
-  it('lets a guest add to the cart and raises the badge', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await loaded()
-    await user.click(screen.getByRole('button', { name: 'Add Heritage Polo to cart' }))
-    const sheet = await dialog()
-    await user.click(within(sheet).getByRole('radio', { name: 'S' }))
-    await user.click(within(sheet).getByRole('radio', { name: 'White' }))
-    await user.click(within(sheet).getByRole('button', { name: 'Add to cart' }))
-    expect(await screen.findByText('Added to cart: Heritage Polo, S, White × 1')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Cart, 1 item' })).toBeInTheDocument()
-  })
-
-  it('opens the spec sheet for a signed-in shopper, requires a size, then adds with an Undo', async () => {
-    signedIn()
-    const user = userEvent.setup()
-    renderPage()
-    await loaded()
-    expect(screen.getByRole('link', { name: 'Cart, 0 items' })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Add Heritage Polo to cart' }))
-    const sheet = await dialog()
-    await user.click(within(sheet).getByRole('button', { name: 'Add to cart' }))
-    expect(within(sheet).getByRole('alert')).toHaveTextContent('Choose a size to continue.')
-
-    await user.click(within(sheet).getByRole('radio', { name: 'M' }))
-    await user.click(within(sheet).getByRole('radio', { name: 'Navy' }))
-    await user.click(within(sheet).getByRole('button', { name: 'Increase quantity' }))
-    await user.click(within(sheet).getByRole('button', { name: 'Add to cart' }))
-
-    expect(await screen.findByText('Added to cart: Heritage Polo, M, Navy × 2')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Cart, 2 items' })).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(screen.getByRole('link', { name: 'Cart, 0 items' })).toBeInTheDocument()
-  })
-
-  it('takes Buy now from the sheet to checkout with the chosen specs', async () => {
-    signedIn()
-    const user = userEvent.setup()
-    renderPage()
-    await loaded()
-    await user.click(screen.getByRole('button', { name: 'Buy Heritage Polo' }))
-    const sheet = await dialog()
-    await user.click(within(sheet).getByRole('radio', { name: 'L' }))
-    await user.click(within(sheet).getByRole('radio', { name: 'White' }))
-    await user.click(within(sheet).getByRole('button', { name: 'Buy now' }))
-    expect(path()).toBe('/checkout')
-    expect(urlSearch()).toBe('?item=p01&size=L&color=White&qty=1')
-    expect(screen.getByRole('link', { name: 'Cart, 0 items' })).toBeInTheDocument() // Buy does not touch the cart
-  })
-
-  it('opens the sheet from a ?item=&action= link and cleans the URL', async () => {
-    signedIn()
-    renderPage('/shop?category=Bottoms&item=p04&action=cart')
-    const sheet = await dialog()
-    expect(within(sheet).getByRole('heading', { name: 'Straight Leg Jean' })).toBeInTheDocument()
-    expect(urlSearch()).toBe('?category=Bottoms')
-  })
-
-  it('opens the sheet from a link for a guest too', async () => {
-    renderPage('/shop?item=p04&action=cart')
-    const sheet = await dialog()
-    expect(within(sheet).getByRole('heading', { name: 'Straight Leg Jean' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remove AR AR-ready only' }))
+    expect(urlSearch()).toBe('?avail=online&brand=Nike')
+    await user.click(screen.getByRole('button', { name: 'Remove availability Online' }))
+    expect(urlSearch()).toBe('?brand=Nike')
+    await user.click(screen.getByRole('button', { name: 'Clear all' }))
     expect(urlSearch()).toBe('')
   })
 
-  it('says so when the linked piece is gone or sold out, for anyone', async () => {
-    const first = renderPage('/shop?item=nope&action=buy')
-    expect(await screen.findByText('That piece is no longer in the catalogue.')).toBeInTheDocument()
-    expect(urlSearch()).toBe('')
+  it('lists the colours of the real products once each, with a swatch, and sends the chosen one', async () => {
+    const user = userEvent.setup()
+    detail.mockImplementation(async (id) =>
+      id === 'a'
+        ? piece(1, { variants: [variant('x1', 'Black', '#111111', 'S', 1, 1), variant('x2', 'Navy', null, 'M', 1, 1)] })
+        : piece(2, { variants: [variant('x3', 'black', null, 'S', 1, 1), variant('x4', 'Navy', '#1b2a49', 'S', 1, 1), variant('x5', 'Sand', '#d8c3a5', 'S', 1, 1)] }),
+    )
+    renderPage()
+    await loaded()
+    const dialog = await openFilters(user)
+    await within(dialog).findByRole('button', { name: 'Sand' })
+    const colourNames = ['Black', 'Navy', 'Sand']
+    const names = within(dialog).getAllByRole('button').map((b) => b.textContent ?? '')
+    expect(names.filter((n) => colourNames.includes(n))).toEqual(colourNames)
+    expect(within(dialog).getAllByRole('button', { name: /^(Black|black)$/ })).toHaveLength(1)
+
+    await user.click(within(dialog).getByRole('button', { name: 'Navy' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
+    expect(urlSearch()).toBe('?color=Navy')
+    await waitFor(() => expect(lastParams()).toMatchObject({ color: 'Navy' }))
+  })
+
+  it('hides the Colour section when no product has a colour, or the colours cannot be read', async () => {
+    const user = userEvent.setup()
+    detail.mockImplementation(async () => piece(1, { variants: [] }))
+    const first = renderPage()
+    await loaded()
+    let dialog = await openFilters(user)
+    await waitFor(() => expect(within(dialog).queryByTestId('colour-skeleton')).toBeNull())
+    expect(within(dialog).queryByText('Colour')).toBeNull()
     first.unmount()
 
-    renderPage('/shop?item=p24&action=cart')
-    expect(await screen.findByText('Field Denim Jacket is sold out.')).toBeInTheDocument()
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('falls back to Add to cart for an unknown action', async () => {
-    renderPage('/shop?item=p04&action=zzz')
-    const sheet = await dialog()
-    expect(within(sheet).getByRole('button', { name: 'Add to cart' })).toBeInTheDocument()
-  })
-
-  it('disables both buttons on a sold-out piece', async () => {
-    signedIn()
-    const user = userEvent.setup()
-    renderPage('/shop?perPage=24')
-    await loaded()
-    const add = screen.getByRole('button', { name: 'Add Field Denim Jacket to cart, sold out' })
-    expect(add).toHaveAttribute('aria-disabled', 'true')
-    await user.click(add)
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByRole('link', { name: 'Cart, 0 items' })).toBeInTheDocument()
-  })
-})
-
-describe('ShopPage filter panel and view', () => {
-  it('opens as a dialog, closes on Escape and returns focus to the Filters button', async () => {
-    const user = userEvent.setup()
+    invalidateShopColours()
+    list.mockRejectedValue(new ProductListError('network'))
     renderPage()
     await loaded()
-    const open = screen.getByRole('button', { name: 'Filters' })
-    await user.click(open)
-
-    const dialog = await screen.findByRole('dialog', { name: 'Filters' })
-    expect(within(dialog).getByRole('checkbox', { name: 'AR-ready pieces only' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('checkbox', { name: 'In store' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('checkbox', { name: /Indigo/ })).toBeInTheDocument()
-
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(open).toHaveFocus()
-    expect(urlSearch()).toBe('')
+    dialog = await openFilters(user)
+    await waitFor(() => expect(within(dialog).queryByTestId('colour-skeleton')).toBeNull())
+    expect(within(dialog).queryByText('Colour')).toBeNull()
+    expect(within(dialog).getByRole('button', { name: 'Apply' })).toBeEnabled()
   })
 
-  it('applies filters to the URL and results, shows the badge, and clears them', async () => {
+  it('drops a URL colour that no product has when the filters are applied', async () => {
     const user = userEvent.setup()
-    renderPage('/shop?page=2')
+    renderPage('/shop?color=Chartreuse')
     await loaded()
-    await user.click(screen.getByRole('button', { name: 'Filters' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Filters' })
-
-    await user.click(within(dialog).getByRole('checkbox', { name: 'AR-ready pieces only' }))
-    await user.type(within(dialog).getByLabelText('Maximum'), '3000')
+    const dialog = await openFilters(user)
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Black' })).toBeInTheDocument())
     await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
-
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(urlSearch()).toBe('?max=3000&ar=1')
-    const expected = PRODUCTS.filter((p) => p.arReady && (p.salePrice ?? p.price) <= 3000)
-    expect(cards()).toHaveLength(expected.length)
-    expect(screen.getByRole('button', { name: /^Filters.*2 active$/ })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /^Filters/ }))
-    const reopened = await screen.findByRole('dialog', { name: 'Filters' })
-    expect(within(reopened).getByRole('checkbox', { name: 'AR-ready pieces only' })).toBeChecked()
-    await user.click(within(reopened).getByRole('button', { name: 'Reset' }))
-    await user.click(within(reopened).getByRole('button', { name: 'Apply' }))
-    await waitFor(() => expect(urlSearch()).toBe(''))
-    expect(cards()).toHaveLength(12)
+    expect(urlSearch()).toBe('')
   })
 
   it('blocks Apply when the minimum price is above the maximum', async () => {
     const user = userEvent.setup()
     renderPage()
     await loaded()
-    await user.click(screen.getByRole('button', { name: 'Filters' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Filters' })
-    await user.type(within(dialog).getByLabelText('Minimum'), '5000')
-    await user.type(within(dialog).getByLabelText('Maximum'), '1000')
-    expect(within(dialog).getByRole('alert')).toHaveTextContent(/minimum is higher/i)
+    const dialog = await openFilters(user)
+    await user.type(within(dialog).getByRole('textbox', { name: 'Minimum' }), '900')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Maximum' }), '100')
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('The minimum is higher than the maximum')
     expect(within(dialog).getByRole('button', { name: 'Apply' })).toBeDisabled()
   })
+})
 
-  it('switches between grid and list view through the URL', async () => {
+describe('ShopPage cards and cart', () => {
+  it('toggles a wishlist heart and persists it', async () => {
     const user = userEvent.setup()
     renderPage()
     await loaded()
-    const grid = screen.getByRole('button', { name: 'Grid view' })
-    const list = screen.getByRole('button', { name: 'List view' })
-    expect(grid).toHaveAttribute('aria-pressed', 'true')
+    const heart = screen.getByRole('button', { name: 'Save Piece 1 to wishlist' })
+    await user.click(heart)
+    expect(heart).toHaveAttribute('aria-pressed', 'true')
+    expect(JSON.parse(localStorage.getItem('silhoufit-wishlist') ?? '[]')).toContain(piece(1).id)
+  })
 
-    await user.click(list)
-    expect(list).toHaveAttribute('aria-pressed', 'true')
-    expect(grid).toHaveAttribute('aria-pressed', 'false')
-    expect(urlSearch()).toBe('?view=list')
-    expect(cards()[0]).toHaveClass('flex', 'gap-4')
+  it('loads the piece, then opens the sheet with the sizes and colours its variants have', async () => {
+    const user = userEvent.setup()
+    detail.mockResolvedValue(piece(1))
+    renderPage()
+    await loaded()
+    await user.click(screen.getByRole('button', { name: 'Add Piece 1 to cart' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Choose options' })
+    expect(within(sheet).getByRole('radio', { name: 'S' })).toBeInTheDocument()
+    expect(within(sheet).queryByRole('radio', { name: 'XL' })).toBeNull()
 
-    await user.click(grid)
+    await user.click(within(sheet).getByRole('radio', { name: 'M' }))
+    await user.click(within(sheet).getByRole('radio', { name: 'Navy' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Add to cart' }))
+    expect(await screen.findByText('Added to cart: Piece 1, M, Navy × 1')).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('silhoufit-cart') ?? '[]')).toEqual([{ variantId: 'v1b', productId: piece(1).id, qty: 1 }])
+  })
+
+  it('takes Buy now from the sheet to checkout with the chosen specs', async () => {
+    const user = userEvent.setup()
+    detail.mockResolvedValue(piece(1))
+    renderPage()
+    await loaded()
+    await user.click(screen.getByRole('button', { name: 'Buy Piece 1' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Choose options' })
+    await user.click(within(sheet).getByRole('radio', { name: 'S' }))
+    await user.click(within(sheet).getByRole('radio', { name: 'Black' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Buy now' }))
+    expect(screen.getByTestId('path').textContent).toBe('/checkout')
+    expect(urlSearch()).toBe(`?item=${piece(1).id}&variant=v1a&qty=1`)
+  })
+
+  it('disables both buttons on a sold-out piece', async () => {
+    const user = userEvent.setup()
+    shop.mockResolvedValue(answer([piece(1, { stock: 0 })]))
+    renderPage()
+    await loaded()
+    const add = screen.getByRole('button', { name: 'Add Piece 1 to cart, sold out' })
+    expect(add).toHaveAttribute('aria-disabled', 'true')
+    await user.click(add)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('says so when a linked piece is gone, and cleans the URL', async () => {
+    detail.mockRejectedValue(new ProductListError('not-found'))
+    renderPage('/shop?item=nope&action=buy')
+    expect(await screen.findByText('That piece is no longer in the catalogue.')).toBeInTheDocument()
     expect(urlSearch()).toBe('')
   })
 })

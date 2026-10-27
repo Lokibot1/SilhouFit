@@ -13,7 +13,7 @@ const invoice: Invoice = {
   seller: SAMPLE_MERCHANT,
   buyer: { name: 'Maria Santos', tin: '123-456-789', address: '1 Rizal St, Manila' },
   paymentMethod: 'gcash',
-  lines: [{ description: 'Heritage Polo', category: 'Tops', units: 1, unitPrice: 129000, amount: 129000, vatClass: 'vatable' }],
+  lines: [{ description: 'Heritage Polo', category: 'Hoodie', units: 1, unitPrice: 129000, amount: 129000, vatClass: 'vatable' }],
   totals: { vatableSales: 115179, vatExempt: 0, zeroRated: 0, vatAmount: 13821, totalDue: 129000 },
   reprintCount: 0,
 }

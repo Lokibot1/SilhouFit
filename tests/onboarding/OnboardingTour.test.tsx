@@ -5,13 +5,12 @@ import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OnboardingTour } from '../../src/components/onboarding/OnboardingTour'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { PRODUCTS } from '../../src/data/products'
-import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
 import { resetTour, useOnboarding } from '../../src/hooks/useOnboarding'
 import { createAddress, loadAddresses, type Address } from '../../src/service/addresses'
 import { saveOnboardingStatus } from '../../src/service/onboarding'
 import { clearSession, setSession } from '../../src/service/session'
 import { ADDRESS } from '../fixtures/addresses'
+import { POLO } from '../fixtures/shopProducts'
 
 // motion reads the media query once per process, so the preference is switched here instead.
 const motion = vi.hoisted(() => ({ reduced: false }))
@@ -32,7 +31,9 @@ vi.mock('../../src/service/bodyProfile', async (original) => ({
   ...(await original<typeof import('../../src/service/bodyProfile')>()),
   getBodyProfile: () => Promise.resolve({ heightCm: 170 }),
 }))
-vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: () => new Promise(() => {}) }))
+// The sample piece the tour shows; null stands for a shop with nothing in stock. Loading it has its own test in useTourProduct.test.ts.
+const sample = vi.hoisted(() => ({ product: null as import('../../src/data/products').Product | null }))
+vi.mock('../../src/hooks/useTourProduct', () => ({ useTourProduct: () => ({ ready: true, product: sample.product }) }))
 // The address step's lists never arrive here; its own behaviour is covered in AddressForm.test.tsx.
 vi.mock('../../src/service/psgc', () => ({
   getRegions: () => new Promise(() => {}),
@@ -64,8 +65,7 @@ beforeEach(() => {
   save.mockResolvedValue('ok')
   vi.mocked(loadAddresses).mockResolvedValue([])
   localStorage.clear()
-  resetProductsCache()
-  primeProductsCache({ products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' })
+  sample.product = POLO
   act(() => setSession({ name: 'Anne Santos', email: 'anne@example.com' }))
 })
 afterEach(() => {
@@ -102,7 +102,7 @@ async function open({ welcome = true, url = '/shop' }: { welcome?: boolean; url?
     <MemoryRouter initialEntries={[url]}>
       <ToastProvider>
         <Where />
-        <Link to={`/checkout?item=${PRODUCTS[0].id}&size=S&color=x&qty=1`}>real buy now</Link>
+        <Link to={`/checkout?item=p01&variant=p01-s-white&qty=1`}>real buy now</Link>
         <Begin welcome={welcome} />
         <Routes>
           <Route path="*" element={<p>page</p>} />
@@ -276,7 +276,7 @@ describe('OnboardingTour', () => {
   })
 
   it('shows fallback cards without navigating when there is no sample piece', async () => {
-    primeProductsCache({ products: PRODUCTS.map((p) => ({ ...p, stock: 0 })), syncedAt: '2026-10-10T15:05:00' })
+    sample.product = null
     const user = await open({ welcome: false, url: '/profile' })
     // The first step still opens the shop; the ones after it have no page to go to.
     for (let i = 0; i < 3; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
@@ -295,10 +295,7 @@ describe('OnboardingTour', () => {
   })
 
   it('drops the pickup step when the sample piece cannot be collected', async () => {
-    primeProductsCache({
-      products: PRODUCTS.map((p) => ({ ...p, channels: ['online' as const] })),
-      syncedAt: '2026-10-10T15:05:00',
-    })
+    sample.product = { ...POLO, channels: ['online'] }
     await open({ welcome: false })
     expect(stepLabel(1, 4)).toBeInTheDocument()
   })
@@ -318,7 +315,7 @@ describe('OnboardingTour', () => {
   })
 
   it('uses the fallback at once, with no waiting copy, when there is no sample piece', async () => {
-    primeProductsCache({ products: PRODUCTS.map((p) => ({ ...p, stock: 0 })), syncedAt: '2026-10-10T15:05:00' })
+    sample.product = null
     const user = await open({ welcome: false, url: '/profile' })
     for (let i = 0; i < 3; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
     expect(screen.getByText(/On a piece page you choose a colour/)).toBeInTheDocument()
@@ -326,7 +323,7 @@ describe('OnboardingTour', () => {
   })
 
   it('still points at the cart in the top bar when the catalogue has no sample piece', async () => {
-    primeProductsCache({ products: PRODUCTS.map((p) => ({ ...p, stock: 0 })), syncedAt: '2026-10-10T15:05:00' })
+    sample.product = null
     const cart = addTarget('cart')
     const user = await open({ welcome: false, url: '/profile' })
     for (let i = 0; i < 5; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))

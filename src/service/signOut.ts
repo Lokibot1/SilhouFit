@@ -1,4 +1,5 @@
 import { clearBodyDraft } from '../components/body-setup/draft'
+import { clearCartCache } from '../hooks/useCart'
 import { resetTour } from '../hooks/useOnboarding'
 import { clearLastOrder } from '../utils/checkout'
 import { clearAddressCache } from './addresses'
@@ -11,6 +12,7 @@ export function signOut() {
   void getSupabase().then((supabase) => supabase.auth.signOut()).catch(() => {})
   clearSession()
   clearAddressCache() // saved addresses must not outlive the session
+  clearCartCache() // nor the server cart held in memory
   clearStashedNext() // a pending Google `next` belongs to the session that is ending
   clearLastOrder() // an order's address and phone must not outlive the session
   clearBodyDraft() // measurements must not outlive the session

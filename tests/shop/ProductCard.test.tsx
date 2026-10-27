@@ -3,10 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { ProductCard } from '../../src/components/shop/ProductCard'
-import { PRODUCTS } from '../../src/data/products'
-
-const blazer = PRODUCTS.find((p) => p.id === 'p02')!
-const soldOut = PRODUCTS.find((p) => p.id === 'p24')!
+import { BLAZER as blazer, SOLD_OUT as soldOut } from '../fixtures/shopProducts'
 
 function setup(product = blazer, list = false) {
   const handlers = { onToggleSaved: vi.fn(), onAddToCart: vi.fn(), onBuy: vi.fn() }
@@ -66,7 +63,7 @@ describe('ProductCard cart buttons', () => {
     setup()
     const warning = screen.getByText('Only 4 left')
     expect(warning).toHaveClass('text-danger')
-    expect(warning.closest('p')).toHaveTextContent('Only 4 left · In store only')
+    expect(warning.closest('p')).toHaveTextContent('Only 4 left')
     expect(screen.getByRole('img', { name: blazer.alt }).parentElement).not.toContainElement(warning)
   })
 })

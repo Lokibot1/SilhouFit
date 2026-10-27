@@ -5,9 +5,7 @@ import { Link, MemoryRouter, Route, Routes, useLocation, useNavigate } from 'rea
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OnboardingTour } from '../../src/components/onboarding/OnboardingTour'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { PRODUCTS } from '../../src/data/products'
 import { resetTour, useOnboarding } from '../../src/hooks/useOnboarding'
-import { primeProductsCache, resetProductsCache } from '../../src/hooks/useProducts'
 import { loadAddresses } from '../../src/service/addresses'
 import { BodyProfileError, getBodyProfile, type BodyProfile } from '../../src/service/bodyProfile'
 import { saveOnboardingStatus } from '../../src/service/onboarding'
@@ -29,7 +27,10 @@ vi.mock('../../src/service/bodyProfile', async (original) => ({
   ...(await original<typeof import('../../src/service/bodyProfile')>()),
   getBodyProfile: vi.fn(),
 }))
-vi.mock('../../src/service/fetchProducts', () => ({ fetchProducts: () => new Promise(() => {}) }))
+vi.mock('../../src/hooks/useTourProduct', async () => {
+  const { POLO } = await import('../fixtures/shopProducts')
+  return { useTourProduct: () => ({ ready: true, product: POLO }) }
+})
 vi.mock('../../src/service/psgc', () => ({
   getRegions: () => new Promise(() => {}),
   getProvinces: () => new Promise(() => {}),
@@ -54,8 +55,6 @@ beforeEach(() => {
   vi.mocked(loadAddresses).mockResolvedValue([])
   localStorage.clear()
   sessionStorage.clear()
-  resetProductsCache()
-  primeProductsCache({ products: PRODUCTS, syncedAt: '2026-10-10T15:05:00' })
   act(() => setSession({ name: 'Anne Santos', email: EMAIL }))
 })
 afterEach(() => {

@@ -4,16 +4,15 @@ import { MotionGlobalConfig } from 'motion/react'
 import { useState } from 'react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { SpecSheet } from '../../src/components/shop/SpecSheet'
-import { PRODUCTS } from '../../src/data/products'
+import { BLAZER, POLO } from '../fixtures/shopProducts'
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
   vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }))
 })
 
-const byId = (id: string) => PRODUCTS.find((p) => p.id === id)!
-const polo = byId('p01') // Tops, White and Navy, 24 in stock
-const blazer = byId('p02') // Outerwear, one colour (Black), sale 4,990 from 6,490, 4 in stock
+const polo = POLO // White and Navy in S and M; Navy M has 5 in stock
+const blazer = BLAZER // one colour (Black), size M, 4,990, 4 in stock
 
 function Harness({
   product = polo,
@@ -25,7 +24,7 @@ function Harness({
   product?: typeof polo
   action?: 'cart' | 'buy'
   inCart?: number
-  onConfirm?: (choice: { size: string; color: string; qty: number }) => void
+  onConfirm?: (choice: { size: string; color: string; qty: number; variantId: string }) => void
   onClose?: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -42,7 +41,7 @@ function Harness({
         }}
         product={product}
         action={action}
-        inCart={inCart}
+        inCart={() => inCart}
         onConfirm={onConfirm}
       />
     </>
@@ -55,13 +54,13 @@ async function openSheet(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('SpecSheet', () => {
-  it('shows the piece with its colours and category sizes', async () => {
+  it('shows the piece with its colours and the sizes of its variants', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     const sheet = await openSheet(user)
     expect(within(sheet).getByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
     expect(within(sheet).getAllByRole('radio').map((r) => (r as HTMLInputElement).value)).toEqual([
-      'White', 'Navy', 'XS', 'S', 'M', 'L', 'XL',
+      'White', 'Navy', 'S', 'M',
     ])
   })
 
@@ -73,7 +72,7 @@ describe('SpecSheet', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Add to cart' }))
     expect(within(sheet).getByRole('alert')).toHaveTextContent('Choose a size to continue.')
     expect(onConfirm).not.toHaveBeenCalled()
-    expect(within(sheet).getByRole('radio', { name: 'XS' })).toHaveFocus()
+    expect(within(sheet).getByRole('radio', { name: 'M' })).toHaveFocus()
 
     await user.click(within(sheet).getByRole('radio', { name: 'M' }))
     expect(within(sheet).queryByRole('alert')).toBeNull()
@@ -101,16 +100,16 @@ describe('SpecSheet', () => {
     expect(within(sheet).getByRole('alert')).toHaveTextContent('Choose a colour to continue.')
   })
 
-  it('confirms with the chosen size, colour and quantity', async () => {
+  it('confirms with the chosen size, colour, quantity and the variant they come to', async () => {
     const onConfirm = vi.fn()
     const user = userEvent.setup()
     render(<Harness action="buy" onConfirm={onConfirm} />)
     const sheet = await openSheet(user)
-    await user.click(within(sheet).getByRole('radio', { name: 'L' }))
+    await user.click(within(sheet).getByRole('radio', { name: 'M' }))
     await user.click(within(sheet).getByRole('radio', { name: 'Navy' }))
     await user.click(within(sheet).getByRole('button', { name: 'Increase quantity' }))
     await user.click(within(sheet).getByRole('button', { name: 'Buy now' }))
-    expect(onConfirm).toHaveBeenCalledWith({ size: 'L', color: 'Navy', qty: 2 })
+    expect(onConfirm).toHaveBeenCalledWith({ size: 'M', color: 'Navy', qty: 2, variantId: 'p01-m-navy' })
   })
 
   it('keeps the quantity between 1 and the stock, announcing it', async () => {
@@ -150,11 +149,11 @@ describe('SpecSheet', () => {
     expect(within(sheet).getByRole('button', { name: 'Increase quantity' })).toBeEnabled()
   })
 
-  it('shows the sale price against the original and a live total', async () => {
+  it('shows the price (the API has no sale price) and a live total', async () => {
     const user = userEvent.setup()
     render(<Harness product={blazer} />)
     const sheet = await openSheet(user)
-    expect(sheet.querySelector('s')).toHaveTextContent('₱6,490.00')
+    expect(sheet.querySelector('s')).toBeNull()
     expect(within(sheet).getAllByText('₱4,990.00').length).toBeGreaterThan(0)
     await user.click(within(sheet).getByRole('button', { name: 'Increase quantity' }))
     expect(within(sheet).getByText('₱4,990.00 × 2')).toBeInTheDocument()

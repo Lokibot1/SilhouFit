@@ -15,7 +15,7 @@ import { lineKey, useCart } from '../../hooks/useCart'
 import { useCurrentUser, type CurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
-import { useProducts } from '../../hooks/useProducts'
+import { useProductsByIds } from '../../hooks/useProducts'
 import { useWishlist } from '../../hooks/useWishlist'
 import { getDefaultAddress, loadAddresses, onAddressesChanged, type Address } from '../../service/addresses'
 import { placeOrder } from '../../service/placeOrder'
@@ -57,7 +57,7 @@ import {
   type AddressField,
   type AddressValues,
 } from '../../utils/checkoutValidation'
-import { formatPeso } from '../../utils/format'
+import { formatPeso, variantLabel } from '../../utils/format'
 import { LIMITS, normalizePhone, sanitizePhoneDigits, validatePhone } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
@@ -104,8 +104,7 @@ function Breadcrumb() {
 }
 
 function ItemRow({ item, change }: { item: CheckoutItem; change: boolean }) {
-  const { product, size, color, qty } = item
-  const unit = product.salePrice ?? product.price
+  const { product, size, color, qty, unit } = item
   return (
     <li className="flex min-w-0 gap-4">
       <img
@@ -118,9 +117,7 @@ function ItemRow({ item, change }: { item: CheckoutItem; change: boolean }) {
           {product.category} · {product.boutique}
         </p>
         <h3 className="mt-1 text-base leading-snug font-semibold break-words text-fg">{product.name}</h3>
-        <p className="mt-1 text-sm text-fg-muted">
-          Size {size} · {color}
-        </p>
+        <p className="mt-1 text-sm text-fg-muted">{variantLabel(size, color)}</p>
         {/* Wraps instead of overflowing: a sale piece shows two prices, and quantities make them long. */}
         <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           {change ? (
@@ -325,7 +322,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           size: i.size,
           color: i.color,
           qty: i.qty,
-          price: i.product.salePrice ?? i.product.price,
+          price: i.unit,
           arReady: i.product.arReady,
         })),
         total: totals.total,
@@ -340,7 +337,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
         note: cleanText(note) || undefined,
       })
       // Only what was ordered leaves the cart: a line added in another tab meanwhile stays. Buy now never touches it.
-      if (fromCart) cart.removeLines(items.map((i) => lineKey({ id: i.product.id, size: i.size, color: i.color })))
+      if (fromCart) await cart.removeLines(items.map((i) => i.variantId))
       // Bought pieces are no longer wanted on the wishlist.
       wishlist.remove(items.map((i) => i.product.id))
       // Replace, so Back from the success page does not return to a filled form.
@@ -382,7 +379,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           </div>
           <ul className="mt-4 space-y-4">
             {items.map((item) => (
-              <ItemRow key={`${item.product.id}|${item.size}|${item.color}`} item={item} change={!fromCart && items.length === 1} />
+              <ItemRow key={item.variantId} item={item} change={!fromCart && items.length === 1} />
             ))}
           </ul>
         </section>
@@ -636,18 +633,27 @@ export function CheckoutPage() {
   const cart = useCart()
   const { pathname, search } = useLocation()
   const [params] = useSearchParams()
-  const products = useProducts()
   const fromCart = params.get('source') === 'cart'
+
+  // `line` keys narrow the cart to the ticked lines; without them the whole cart is ordered.
+  const only = params.getAll('line')
+  const cartLines = only.length > 0 ? cart.lines.filter((line) => only.includes(lineKey(line))) : cart.lines
+  const waitingForCart = fromCart && cart.status !== 'ready'
+  // The pieces to load in full are fixed once per URL: after the order the cart is emptied, and they must not load again.
+  const [wanted, setWanted] = useState<{ search: string; ids: string[] } | null>(null)
+  if (!waitingForCart && wanted?.search !== search) {
+    setWanted({ search, ids: [...new Set(fromCart ? cartLines.map((line) => line.productId) : params.getAll('item'))] })
+  }
+  const products = useProductsByIds(wanted?.search === search ? wanted.ids : [])
+  const status = waitingForCart ? (cart.status === 'error' ? 'error' : 'loading') : wanted?.search !== search ? 'loading' : products.status
+  const retry = waitingForCart ? cart.retry : products.retry
 
   // Resolved once per URL: after the order the cart is emptied, and the page must not flash "nothing to check out".
   const [snapshot, setSnapshot] = useState<{ search: string; items: CheckoutItem[]; notices: string[] } | null>(null)
-  if (products.status === 'success' && snapshot?.search !== search) {
-    // `line` keys narrow the cart to the ticked lines; without them the whole cart is ordered.
-    const only = params.getAll('line')
-    const lines = only.length > 0 ? cart.lines.filter((line) => only.includes(lineKey(line))) : cart.lines
+  if (status === 'success' && products.status === 'success' && snapshot?.search !== search) {
     const resolved = fromCart
-      ? resolveCartItems(lines, products.data.products)
-      : { items: parseCheckoutItems(params, products.data.products), notices: [] }
+      ? resolveCartItems(cartLines, products.products)
+      : { items: parseCheckoutItems(params, products.products), notices: [] }
     setSnapshot({ search, ...resolved })
   }
 
@@ -660,22 +666,22 @@ export function CheckoutPage() {
       <Breadcrumb />
       <h1 className="display mt-1 text-3xl text-fg sm:text-4xl">Checkout</h1>
 
-      {products.status === 'loading' && <CheckoutSkeleton />}
+      {status === 'loading' && <CheckoutSkeleton />}
 
-      {products.status === 'error' && (
+      {status === 'error' && (
         <div role="alert" className="glass-card mt-6 rounded-2xl p-6 sm:p-8">
           <h2 className="display text-2xl text-fg">We couldn&apos;t load your order</h2>
           <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
             The request for the catalogue failed, most likely because the connection dropped. Your choices are kept in
             the address. Check your connection, then try again.
           </p>
-          <button type="button" onClick={products.retry} className={`${PRIMARY_BUTTON} mt-6`}>
+          <button type="button" onClick={retry} className={`${PRIMARY_BUTTON} mt-6`}>
             Try again
           </button>
         </div>
       )}
 
-      {products.status === 'success' && items.length === 0 && (
+      {status === 'success' && items.length === 0 && (
         <>
           {snapshot && snapshot.notices.length > 0 && (
             <div role="status" className="glass-card mt-6 rounded-2xl p-5">
@@ -700,7 +706,7 @@ export function CheckoutPage() {
         </>
       )}
 
-      {products.status === 'success' && items.length > 0 && (
+      {status === 'success' && items.length > 0 && (
         <CheckoutForm key={search} items={items} user={user} fromCart={fromCart} notices={snapshot?.notices ?? []} />
       )}
     </div>

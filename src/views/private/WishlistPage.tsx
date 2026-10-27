@@ -10,11 +10,11 @@ import { SpecSheet, type Choice } from '../../components/shop/SpecSheet'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
 import type { Product } from '../../data/products'
-import { lineKey, useCart } from '../../hooks/useCart'
+import { useCart } from '../../hooks/useCart'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
-import { useProducts } from '../../hooks/useProducts'
+import { useProductsByIds } from '../../hooks/useProducts'
 import { useWishlist } from '../../hooks/useWishlist'
 import { playAddToCart } from '../../utils/sound'
 
@@ -38,8 +38,8 @@ export function WishlistPage() {
   useDocumentTitle('Your wishlist — SilhouFit')
   useMetaDescription(DESCRIPTION)
 
-  const products = useProducts()
   const wishlist = useWishlist()
+  const products = useProductsByIds(wishlist.ids)
   const cart = useCart()
   const user = useCurrentUser()
   const navigate = useNavigate()
@@ -49,9 +49,8 @@ export function WishlistPage() {
   const [flow, setFlow] = useState<Flow | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  const catalogue = products.status === 'success' ? products.data.products : null
-  // In the order they were saved. Ids for pieces that have gone are hidden, not deleted.
-  const saved = catalogue ? wishlist.ids.flatMap((id) => catalogue.find((p) => p.id === id) ?? []) : []
+  // In the order they were saved. Ids for pieces that are archived or gone are hidden, not deleted.
+  const saved = products.status === 'success' ? products.products : []
   const chosen = saved.filter((p) => selected.includes(p.id))
   const buyable = chosen.filter((p) => p.stock > 0)
   const allSelected = saved.length > 0 && chosen.length === saved.length
@@ -80,7 +79,7 @@ export function WishlistPage() {
     setSheetOpen(true)
   }
 
-  function confirmChoice(choice: Choice) {
+  async function confirmChoice(choice: Choice) {
     if (!flow) return
     const picks = [...flow.picks, { product: flow.queue[flow.picks.length], ...choice }]
     if (picks.length < flow.queue.length) {
@@ -90,18 +89,20 @@ export function WishlistPage() {
     setSheetOpen(false)
     if (flow.action === 'buy') {
       const query = new URLSearchParams()
-      for (const { product, size, color, qty } of picks) {
+      for (const { product, variantId, qty } of picks) {
         query.append('item', product.id)
-        query.append('size', size)
-        query.append('color', color)
+        query.append('variant', variantId)
         query.append('qty', String(qty))
       }
       navigate(`/checkout?${query}`)
       return
     }
-    const added = picks.filter(({ product, size, color, qty }) => cart.add({ product, size, color, qty }) === 'added')
-    if (added.length < picks.length) {
-      toast.show({ kind: 'info', message: `${plural(picks.length - added.length)} already at the stock limit in your cart, so ${picks.length - added.length === 1 ? 'it was' : 'they were'} not added.` })
+    const outcomes: Awaited<ReturnType<typeof cart.add>>[] = []
+    for (const { product, variantId, qty } of picks) outcomes.push(await cart.add({ product, variantId, qty }))
+    const added = picks.filter((_, i) => outcomes[i] === 'added')
+    const limited = outcomes.filter((outcome) => outcome === 'limit').length
+    if (limited > 0) {
+      toast.show({ kind: 'info', message: `${plural(limited)} already at the stock limit in your cart, so ${limited === 1 ? 'it was' : 'they were'} not added.` })
     }
     if (added.length === 0) return
     // In the cart now, so no longer wanted here; Undo puts them back in both.
@@ -111,11 +112,11 @@ export function WishlistPage() {
     playAddToCart()
     toast.show({
       kind: 'success',
-      message: added.length === 1 ? `Added to cart: ${added[0].product.name}, ${added[0].size}, ${added[0].color} × ${added[0].qty}` : `Added ${plural(added.length)} to cart`,
+      message: added.length === 1 ? `Added to cart: ${[added[0].product.name, added[0].size, added[0].color].filter(Boolean).join(', ')} × ${added[0].qty}` : `Added ${plural(added.length)} to cart`,
       action: {
         label: 'Undo',
         onClick: () => {
-          added.forEach(({ product, size, color, qty }) => cart.remove(lineKey({ id: product.id, size, color }), qty))
+          added.forEach(({ variantId, qty }) => void cart.remove(variantId, qty))
           wishlist.add(movedIds)
         },
       },
@@ -159,9 +160,9 @@ export function WishlistPage() {
           </div>
         )}
 
-        {catalogue && saved.length === 0 && <EmptyWishlist name={user?.name} catalogue={catalogue} />}
+        {products.status === 'success' && saved.length === 0 && <EmptyWishlist name={user?.name} />}
 
-        {catalogue && saved.length > 0 && (
+        {products.status === 'success' && saved.length > 0 && (
           <>
             {/* Sticks just under the navbar (its 61px height) so the actions stay in reach while scrolling a long list. */}
             <div
@@ -244,7 +245,7 @@ export function WishlistPage() {
             onClose={() => setSheetOpen(false)}
             product={sheetProduct}
             action={flow.action}
-            inCart={cart.qtyOfProduct(sheetProduct.id)}
+            inCart={cart.qtyOfVariant}
             onConfirm={confirmChoice}
             guest={!user}
             step={step}
@@ -256,10 +257,10 @@ export function WishlistPage() {
 }
 
 /** Nothing saved: greets by first name and points at the category already in their cart, else the newest pieces. */
-function EmptyWishlist({ name, catalogue }: { name?: string; catalogue: Product[] }) {
+function EmptyWishlist({ name }: { name?: string }) {
   const cart = useCart()
   const first = name?.trim().split(/\s+/)[0]
-  const inCart = cart.lines.flatMap((line) => catalogue.find((p) => p.id === line.id)?.category ?? []).at(-1)
+  const inCart = cart.lines.flatMap((line) => line.category || []).at(-1)
   const target = inCart ? `/shop?${new URLSearchParams({ category: inCart })}` : '/shop?sort=newest'
   return (
     <div className="mx-auto flex max-w-xl flex-col items-center px-2 py-12 text-center sm:py-16">

@@ -11,7 +11,7 @@ const DETAIL = {
   id: 'p-1',
   name: 'Linen Shirt',
   slug: 'linen-shirt',
-  category: 'Tops',
+  category: 'Hoodie',
   brand: 'Acme',
   minPrice: 450,
   maxPrice: 600,
