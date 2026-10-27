@@ -1,11 +1,13 @@
-import { useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import type { Me } from '../../service/fetchMe'
 import { updateMe, type MePatch, type UpdateMeErrorKind } from '../../service/updateMe'
+import { AVATAR_MAX_BYTES, AVATAR_TYPES, AvatarUploadError, deleteAvatar, uploadAvatar, type AvatarUploadErrorKind } from '../../service/uploadAvatar'
 import { normalizeName, stripEmoji } from '../../utils/signUpValidation'
 import { FloatingField } from '../form/FloatingField'
 import { AlertIcon, SpinnerIcon } from '../form/icons'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
 import { Select } from '../ui/Select'
+import { AvatarPicker } from './AvatarPicker'
 
 const NAME = /^[\p{L}][\p{L} '-]*$/u
 const WORD_MAX = 30
@@ -28,6 +30,13 @@ const FAILURE_COPY: Record<Exclude<UpdateMeErrorKind, 'unauthorized' | 'invalid'
   'rate-limit': "We couldn't save your profile. Our servers are limiting requests right now. Wait a minute, then try again.",
   server: "We couldn't save your profile. Something went wrong on our side. Try again in a moment.",
   'not-found': "We couldn't save your profile. No profile is saved for this account. Sign out and sign in again.",
+}
+
+const UPLOAD_FAILURE_COPY: Record<Exclude<AvatarUploadErrorKind, 'unauthorized'>, string> = {
+  network: "We couldn't upload your photo. The connection dropped before it finished. Check your connection and try again.",
+  'rate-limit': "We couldn't upload your photo. Our servers are limiting requests right now. Wait a minute, then try again.",
+  server: "We couldn't upload your photo. Something went wrong on our side. Try again in a moment.",
+  invalid: "We couldn't upload your photo. The server didn't accept this file. Choose a JPG, PNG or WebP photo under 5 MB, then save again.",
 }
 
 type Field = 'firstName' | 'middleName' | 'lastName' | 'suffix' | 'birthday'
@@ -94,8 +103,57 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
   // A failed save, shown inside the dialog so its Try again stays reachable while the dialog traps focus.
   const [failure, setFailure] = useState<{ message: string; retry: boolean } | null>(null)
   const inFlight = useRef(false)
+  // A chosen photo with its local preview URL, or a removal of the saved one.
+  const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null)
+  const [removed, setRemoved] = useState(false)
+  const [progress, setProgress] = useState<number | null>(null)
+  const [photoError, setPhotoError] = useState<string>()
+  // The photo already uploaded, so Try again after a failed PATCH does not upload it twice.
+  const uploaded = useRef<{ file: File; url: string } | null>(null)
 
-  const set = (patch: Partial<Values>) => {
+  useEffect(() => {
+    if (photo) return () => URL.revokeObjectURL(photo.url)
+  }, [photo])
+
+  // An upload that was never saved (dialog closed after a failed save) is deleted from the bucket.
+  useEffect(
+    () => () => {
+      if (uploaded.current) void deleteAvatar(uploaded.current.url, me.id)
+    },
+    [me.id],
+  )
+
+  /** Deletes the photo uploaded for a failed save once the user picks another or removes it. */
+  function discardUpload() {
+    if (uploaded.current) void deleteAvatar(uploaded.current.url, me.id)
+    uploaded.current = null
+  }
+
+  function pickPhoto(file: File) {
+    if (!AVATAR_TYPES[file.type]) {
+      setPhotoError(`"${file.name}" isn't a supported photo type. Choose a JPG, PNG or WebP image.`)
+      return
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setPhotoError(`"${file.name}" is ${(Math.ceil((file.size / 1024 / 1024) * 10) / 10).toFixed(1)} MB, over the 5 MB limit. Choose a smaller photo.`)
+      return
+    }
+    setPhotoError(undefined)
+    setFailure(null)
+    setRemoved(false)
+    discardUpload()
+    setPhoto({ file, url: URL.createObjectURL(file) })
+  }
+
+  function removePhoto() {
+    setPhotoError(undefined)
+    setFailure(null)
+    discardUpload()
+    setPhoto(null)
+    setRemoved(Boolean(me.avatarUrl))
+  }
+
+  const set =(patch: Partial<Values>) => {
     setFailure(null)
     setValues((current) => ({ ...current, ...patch }))
   }
@@ -115,7 +173,7 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
   if (values.suffix.trim() !== saved.suffix) patch.suffix = values.suffix.trim() || null
   if (values.birthday !== saved.birthday) patch.birthday = values.birthday || null
   if (values.gender !== saved.gender) patch.gender = values.gender || null
-  const changed = Object.keys(patch).length > 0
+  const changed = Object.keys(patch).length > 0 || photo !== null || removed
 
   async function save() {
     if (inFlight.current) return
@@ -129,10 +187,30 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
     setFailure(null)
     busy(true)
     try {
-      onSaved(await updateMe(patch))
+      const body: MePatch = { ...patch }
+      if (removed) body.avatarUrl = null
+      if (photo) {
+        if (uploaded.current?.file !== photo.file) {
+          setProgress(0)
+          uploaded.current = { file: photo.file, url: await uploadAvatar(photo.file, me.id, setProgress) }
+          setProgress(null)
+        }
+        body.avatarUrl = uploaded.current.url
+      }
+      const updated = await updateMe(body)
+      // Saved: the uploaded file is now in use, and the photo it replaced or removed is deleted.
+      uploaded.current = null
+      if (me.avatarUrl && me.avatarUrl !== updated.avatarUrl) void deleteAvatar(me.avatarUrl, me.id)
+      onSaved(updated)
     } catch (error) {
-      const { kind, detail } = error as { kind?: UpdateMeErrorKind; detail?: string }
+      setProgress(null)
       busy(false)
+      if (error instanceof AvatarUploadError) {
+        if (error.kind === 'unauthorized') onUnauthorized()
+        else setFailure({ message: UPLOAD_FAILURE_COPY[error.kind], retry: error.kind !== 'invalid' })
+        return
+      }
+      const { kind, detail } = error as { kind?: UpdateMeErrorKind; detail?: string }
       if (kind === 'unauthorized') onUnauthorized()
       else if (kind === 'invalid') {
         setFailure({ message: detail ?? "The server didn't accept these details. Check each field, then save again.", retry: false })
@@ -152,6 +230,16 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
   return (
     <form noValidate onSubmit={submit} aria-busy={pending} className="pb-5">
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
+        <AvatarPicker
+          name={`${saved.firstName} ${saved.lastName}`}
+          src={photo?.url ?? (removed ? undefined : (me.avatarUrl ?? undefined))}
+          onPick={pickPhoto}
+          onRemove={removePhoto}
+          removable={photo !== null || (Boolean(me.avatarUrl) && !removed)}
+          progress={progress}
+          error={photoError}
+          disabled={pending}
+        />
         <FloatingField
           id={fieldId('firstName')}
           label="First name"
