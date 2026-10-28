@@ -611,6 +611,33 @@ describe.each([
       expect(rangeOf(mesh.base, arm(h)).lowest).toBeLessThan(mesh.bounds.minY + 0.43 * h)
     })
 
+    it('keeps the hand and arm from deforming when the waist, hips or thighs change', () => {
+      const h = mesh.height
+      const girthCm = (field: 'waist' | 'hips' | 'thigh') => {
+        const probe = run(mesh, { [field]: 100 })
+        return 100 / (probe.deformed.regions[field]!.ring!.rx / run(mesh, {}).deformed.regions[field]!.ring!.rx)
+      }
+      for (const field of ['waist', 'hips', 'thigh'] as const) {
+        for (const factor of [0.85, 1.2]) {
+          const { out } = run(mesh, { [field]: Math.round(girthCm(field) * factor) })
+          // The hand and forearm may be carried sideways with the hips, but as one piece: within a height band every vertex moves
+          // alike, and none moves up, down or front to back.
+          for (let f = 0.38; f < 0.6; f += 0.02) {
+            let lo = Infinity
+            let hi = -Infinity
+            for (let i = 0; i < out.length; i += 3) {
+              const y = (mesh.base[i + 1] - mesh.bounds.minY) / h
+              if (y < f || y >= f + 0.02 || Math.abs(mesh.base[i]) <= armX * h) continue
+              const dx = ((out[i] - mesh.base[i]) * Math.sign(mesh.base[i])) / h
+              lo = Math.min(lo, dx)
+              hi = Math.max(hi, dx)
+            }
+            if (hi >= lo) expect(hi - lo).toBeLessThan(0.004)
+          }
+        }
+      }
+    })
+
     it('reads the chest, waist and hips rings off the torso alone, not the arms beside it', () => {
       const { deformed } = run(mesh, {})
       for (const field of ['chest', 'waist', 'hips'] as const) {
@@ -677,7 +704,7 @@ describe.each([
         }
         return worst / mesh.height
       }
-      const chestFrac = model === 'male' ? 0.73 : 0.69
+      const chestFrac = model === 'male' ? 0.73 : 0.755
       // The waist ratio holds up to 3% of the height under the chest. The female waist sits only 3.5% under hers, so her
       // hold is a 0.5% sliver just above the waist, and the torso is read there.
       const [torsoLo, torsoHi] = model === 'male' ? [waist + 0.01, chestFrac - 0.05] : [waist + 0.001, chestFrac - 0.03 - 0.001]

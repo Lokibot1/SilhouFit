@@ -70,7 +70,7 @@ const LANDMARKS: Record<
     torsoHalf: [[0.33, 0.08], [0.41, 0.09], [0.45, 0.093], [0.5, 0.088], [0.55, 0.082], [0.6, 0.08], [0.65, 0.082], [0.7, 0.088], [0.74, 0.095], [0.76, 0.1], [0.8, 0.09], [0.83, 0.1], [1, 0.1]],
   },
   female: {
-    ankle: 0.04, knee: 0.28, crotch: 0.49, thigh: 0.42, hips: 0.52, waist: 0.655, chest: 0.69, bust: 0.735, shoulder: 0.77, neck: 0.84,
+    ankle: 0.04, knee: 0.28, crotch: 0.49, thigh: 0.42, hips: 0.52, waist: 0.655, chest: 0.755, bust: 0.735, shoulder: 0.77, neck: 0.84,
     torsoHalf: [[0.33, 0.087], [0.37, 0.099], [0.4, 0.107], [0.42, 0.1115], [0.44, 0.1236], [0.45, 0.1285], [0.46, 0.1145], [0.5, 0.1176], [0.54, 0.11], [0.58, 0.098], [0.62, 0.08], [0.64, 0.069], [0.66, 0.063], [0.68, 0.069], [0.7, 0.0758], [0.73, 0.08], [0.76, 0.078], [0.8, 0.088], [0.83, 0.1], [1, 0.1]],
   },
 }
@@ -150,10 +150,23 @@ export function limitNeighbourRatios(stations: { y: number; ratio: number; pin?:
 }
 
 /** How much of the body at (|x|, y) belongs to an arm: 1 outside the torso's half-width, 0 on the lower legs and fading out toward the neck. */
-function armWeight(L: (typeof LANDMARKS)[BodyModelId], minY: number, height: number, ax: number, y: number) {
-  const half = torsoHalf(L.torsoHalf, (y - minY) / height) * height
+function armWeight(L: (typeof LANDMARKS)[BodyModelId], minY: number, height: number, ax: number, y: number, z?: number) {
+  let half = torsoHalf(L.torsoHalf, (y - minY) / height) * height
+  let ramp = 0.025 * height
+  // The hand and arm rest against the hips and waist, so the hand-over from torso to arm is short from the hand's height up; a long
+  // one would scale the hand with the hips and waist. On the female model the breast bulges beside the arm at the chest, but the arm
+  // lies behind the front of the body, so there (z <= 0) the hand-over stays short and the torso also ends sooner, while toward the
+  // front (the breast) the full torso width and long hand-over stay, so it scales as one.
+  if (z !== undefined) {
+    const female = L === LANDMARKS.female
+    const behind = female ? 1 - smoothstep(z, 0, 0.03 * height) : 1
+    const atChest = smoothstep(y, minY + 0.62 * height, minY + 0.66 * height)
+    const short = smoothstep(y, minY + 0.38 * height, minY + 0.42 * height) * (1 - atChest * (1 - behind))
+    if (female) half -= behind * smoothstep(y, minY + 0.68 * height, minY + 0.72 * height) * Math.max(0, half - 0.066 * height)
+    ramp -= short * 0.017 * height
+  }
   return (
-    smoothstep(ax, half, half + 0.025 * height) *
+    smoothstep(ax, half, half + ramp) *
     smoothstep(y, minY + 0.33 * height, minY + 0.38 * height) *
     (1 - smoothstep(y, minY + L.shoulder * height, minY + L.neck * height))
   )
@@ -400,7 +413,7 @@ export function applyMeasurements(
   ]
   if (female) stations.push({ y: rig.bust.y, ratio: bustRatio, cz: rig.bust.cz })
   // The upper chest, back and traps follow the chest through the shoulder line, then ease back to 1 at the neck.
-  stations.push({ y: at(L.shoulder), ratio: female ? bustRatio : chestRatio, cz: rig.chest.cz })
+  stations.push({ y: at(L.shoulder), ratio: chestRatio, cz: rig.chest.cz })
   stations.push({ y: at(L.neck), ratio: 1, cz: rig.chest.cz })
   // The leg: the whole thigh grows together, fullest at the thigh slice, then it eases out over a long
   // smoothstep that runs past the knee into the upper calf (the knee keeps a share, the calf ends at 1). Above the thigh it
@@ -449,6 +462,8 @@ export function applyMeasurements(
   const sleeveRatio = cm.sleeve !== undefined && wristCm > 0 ? clamp(cm.sleeve / wristCm, 0.6, 1.6) : 1
   const [dirX, dirY] = rig.armDir
 
+  const hipsEdge = torsoHalf(L.torsoHalf, (rig.hips.y - minY) / height) * height
+
   const count = base.length / 3
   for (let i = 0; i < count; i++) {
     const bx = base[i * 3]
@@ -457,7 +472,7 @@ export function applyMeasurements(
     const side = bx < 0 ? -1 : 1
     const ax = Math.abs(bx)
 
-    const arm = armWeight(L, minY, height, ax, by)
+    const arm = armWeight(L, minY, height, ax, by, bz)
 
     let x = bx
     let y = remap(by)
@@ -478,8 +493,9 @@ export function applyMeasurements(
 
     if (arm > 0) {
       // Where the hips and thighs have grown, the hanging arm moves out with the body's edge instead of sinking into it.
-      const edge = torsoHalf(L.torsoHalf, (by - minY) / height) * height
-      x += side * (ratioAt(by) - 1) * edge * arm * (1 - smoothstep(by, rig.hips.y, rig.hips.y + 0.04 * height))
+      // The whole hand and forearm take the hips' move as one, easing off only up the arm to the shoulder, so the hand keeps its
+      // shape instead of bending where the body's ratio changes from one height to the next.
+      x += side * (hipsRatio - 1) * hipsEdge * arm * (1 - smoothstep(by, rig.hips.y, rig.jointY))
       const reach = (ax - rig.shoulderHalf) * dirX + (by - rig.jointY) * dirY
       const spread = shoulderDelta * (1 - SPREAD_FADE * clamp(reach / (rig.armLength || 1), 0, 1))
       const along = Math.max(reach, 0) * (sleeveRatio - 1)

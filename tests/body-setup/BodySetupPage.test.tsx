@@ -8,6 +8,7 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { resetTour, useOnboarding } from '../../src/hooks/useOnboarding'
 import { createAddress, deleteAddress, loadAddresses, updateAddress } from '../../src/service/addresses'
 import { BodyProfileError, getBodyProfile, saveBodyProfile, type BodyProfile } from '../../src/service/bodyProfile'
+import { updateMe, UpdateMeError } from '../../src/service/updateMe'
 import { clearSession, setSession } from '../../src/service/session'
 import { BodySetupPage } from '../../src/views/private/BodySetupPage'
 import { ADDRESS } from '../fixtures/addresses'
@@ -57,6 +58,10 @@ vi.mock('../../src/service/bodyProfile', async (original) => ({
   ...(await original<typeof import('../../src/service/bodyProfile')>()),
   getBodyProfile: vi.fn(),
   saveBodyProfile: vi.fn(),
+}))
+vi.mock('../../src/service/updateMe', async (original) => ({
+  ...(await original<typeof import('../../src/service/updateMe')>()),
+  updateMe: vi.fn(),
 }))
 
 vi.setConfig({ testTimeout: 60000 }) // step-by-step flows re-render the whole page on every click; slow when the suite runs in parallel
@@ -232,6 +237,18 @@ describe('BodySetupPage flow', () => {
       bodyBuild: 'muscular',
     })
     expect(await screen.findByText('Measurements saved. SilhouFit can now recommend sizes.')).toBeInTheDocument()
+    expect(updateMe).toHaveBeenCalledWith({ gender: 'male' })
+  })
+
+  it('still finishes, and says so, when the profile gender cannot be updated', async () => {
+    vi.mocked(updateMe).mockRejectedValueOnce(new UpdateMeError('network'))
+    const user = await openAtReview(175)
+    await user.click(consent())
+    await user.click(finishButton())
+
+    await waitFor(() => expect(where()).toBe('/profile'))
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText(/profile gender could not be updated/)).toBeInTheDocument()
   })
 
   it('offers a bust step for the female model and no sleeve-named API field', async () => {

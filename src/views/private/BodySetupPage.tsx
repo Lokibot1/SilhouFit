@@ -27,6 +27,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOnboarding } from '../../hooks/useOnboarding'
 import { BodyProfileError, getBodyProfile, saveBodyProfile, type BodyProfileErrorKind } from '../../service/bodyProfile'
+import { updateMe } from '../../service/updateMe'
 
 // Three.js stays out of every other chunk: the studio loads here, and its import starts as soon as the page mounts.
 const loadStudio = () => import('../../components/body-setup/BodyStudio').then((m) => ({ default: m.BodyStudio }))
@@ -249,8 +250,21 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
       setPending(false)
       return
     }
+    // The avatar's gender is the profile's gender too. A failure here does not undo the saved measurements.
+    let genderSynced = true
+    if (model) {
+      try {
+        await updateMe({ gender: model })
+      } catch {
+        genderSynced = false
+      }
+    }
     clearBodyDraft()
-    toast.show({ kind: 'success', message: 'Measurements saved. SilhouFit can now recommend sizes.' })
+    toast.show(
+      genderSynced
+        ? { kind: 'success', message: 'Measurements saved. SilhouFit can now recommend sizes.' }
+        : { kind: 'info', message: 'Measurements saved, but your profile gender could not be updated. Set it from Edit profile.' },
+    )
     if (inTour) onFinished()
     navigate('/profile', { replace: true })
   }
