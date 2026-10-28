@@ -144,7 +144,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
           </main>
         </div>
       </div>
-      <Modal open={menuOpen && !wide} onClose={() => setMenuOpen(false)} title="Menu" variant="sheet-left">
+      <Modal open={menuOpen && !wide} onClose={() => setMenuOpen(false)} title="Menu" variant="drawer-left">
         <div className="staff-shell flex min-h-full flex-col pb-5">
           <StaffNav area={area} onNavigate={() => setMenuOpen(false)} />
         </div>

@@ -1,7 +1,6 @@
 import { addDays, defaultFilter, manilaToday, mondayOf, resolvePeriod, resolveSalesWindow, type Granularity, type PeriodFilterValue } from '../utils/period'
 import type { VatClass } from '../utils/invoiceTax'
 import { PAYMENT_METHODS, type Buyer, type PaymentMethod } from './fetchTransactions'
-import { fetchProductList } from './fetchProductList'
 import { simulateRequest, type RequestOptions } from './simulateRequest'
 
 // Stand-in for the analytics endpoints behind the staff dashboard. Nothing on the backend can answer these yet:
@@ -15,8 +14,8 @@ import { simulateRequest, type RequestOptions } from './simulateRequest'
 //   fetchOrderLog      -> GET /orders?limit=&sort=-placedAt
 // The three charts take a per-card filter. On Products sold and Trendy items, from and to are inclusive dates in Asia/Manila, resolved from period and
 // year by the shared client helper (utils/period).
-// Until then the figures are generated from the month, so a given month always shows the same numbers. The orders are drawn from the
-// shop's real products (the first 100, fetched once), so with no products there are no orders and every widget shows its empty state.
+// Until then the figures are generated from the month, so a given month always shows the same numbers. The orders are drawn from a
+// built-in list of mock products (MOCK_PRODUCTS), so the dashboard never calls the API.
 
 /** True while the figures are placeholders; the dashboard says so. Set to false when the real endpoints are wired. */
 export const SAMPLE_DATA = true
@@ -105,29 +104,32 @@ export interface SampleProduct {
   arReady: boolean
 }
 
-let sampleProducts: SampleProduct[] = []
-let sampleProductsLoad: Promise<void> | null = null
+const MOCK_PRODUCTS: SampleProduct[] = [
+  { id: 'mock-01', name: 'Fence-Line Blazer', category: 'Jackets', price: 3490, stock: 4, arReady: true },
+  { id: 'mock-02', name: 'Washed Black Tee', category: 'Tops', price: 790, stock: 0, arReady: true },
+  { id: 'mock-03', name: 'Heritage Polo', category: 'Tops', price: 1290, stock: 6, arReady: true },
+  { id: 'mock-04', name: 'Tapered Chino', category: 'Bottoms', price: 1890, stock: 32, arReady: true },
+  { id: 'mock-05', name: 'Relaxed Denim', category: 'Bottoms', price: 2290, stock: 25, arReady: true },
+  { id: 'mock-06', name: 'Coach Jacket', category: 'Jackets', price: 2790, stock: 18, arReady: false },
+  { id: 'mock-07', name: 'Linen Overshirt', category: 'Tops', price: 1990, stock: 14, arReady: true },
+  { id: 'mock-08', name: 'Pleated Midi Skirt', category: 'Skirts', price: 1590, stock: 21, arReady: true },
+  { id: 'mock-09', name: 'Ribbed Knit Dress', category: 'Dresses', price: 2490, stock: 9, arReady: true },
+  { id: 'mock-10', name: 'Wrap Dress', category: 'Dresses', price: 2690, stock: 12, arReady: false },
+  { id: 'mock-11', name: 'Canvas Belt', category: 'Accessories', price: 590, stock: 40, arReady: false },
+  { id: 'mock-12', name: 'Bucket Hat', category: 'Accessories', price: 690, stock: 27, arReady: false },
+]
+
+let sampleProducts: SampleProduct[] = MOCK_PRODUCTS
 
 /** Test seam: the products the sample orders are drawn from. */
 export function setSampleProducts(products: SampleProduct[]) {
   sampleProducts = products
-  sampleProductsLoad = Promise.resolve()
   pastMonths.clear()
 }
 
-/** Loads the shop's products (GET /products, the API's cap of 100) once; a failed load is tried again on the next call. */
+/** The sample orders use the built-in products above, so the dashboard needs no backend; kept async so callers need not change. */
 export function loadSampleProducts(): Promise<void> {
-  sampleProductsLoad ??= fetchProductList({ limit: 100 }).then(
-    ({ data }) => {
-      sampleProducts = data.map((item) => ({ id: item.id, name: item.name, category: item.category, price: item.minPrice, stock: item.totalStock, arReady: item.arReady === true }))
-      pastMonths.clear()
-    },
-    (error: unknown) => {
-      sampleProductsLoad = null
-      throw error
-    },
-  )
-  return sampleProductsLoad
+  return Promise.resolve()
 }
 
 interface MonthOrder extends LoggedOrder {
