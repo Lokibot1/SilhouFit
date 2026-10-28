@@ -12,16 +12,19 @@ export function StaffSection({
   title,
   description,
   filter,
+  action,
   children,
 }: {
   id: string
   title: string
   description?: string
   filter?: { name: string; value: PeriodFilterValue; onChange: (value: PeriodFilterValue) => void }
+  /** A control on the right of the title row; the title and description shorten before it is pushed out. */
+  action?: ReactNode
   children: ReactNode
 }) {
   const heading = (
-    <h2 id={id} className="display text-xl text-fg">
+    <h2 id={id} className={`display text-xl text-fg ${action ? 'truncate' : ''}`}>
       {title}
     </h2>
   )
@@ -39,13 +42,16 @@ export function StaffSection({
           <PeriodSegments {...filter} />
         </div>
       ) : (
-        <div className="mb-3">
-          {heading}
-          {description && (
-            <p id={`${id}-desc`} className="mt-0.5 truncate text-xs leading-4 text-fg-muted">
-              {description}
-            </p>
-          )}
+        <div className={action ? 'mb-3 flex items-center justify-between gap-3' : 'mb-3'}>
+          <div className={action ? 'min-w-0' : undefined}>
+            {heading}
+            {description && (
+              <p id={`${id}-desc`} className="mt-0.5 truncate text-xs leading-4 text-fg-muted">
+                {description}
+              </p>
+            )}
+          </div>
+          {action}
         </div>
       )}
       {children}

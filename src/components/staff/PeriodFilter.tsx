@@ -6,7 +6,7 @@ import { Select } from '../ui/Select'
 // year, the description, then the segments; tiles from 672px put the segments and year beside the title block.
 export const FILTER_HEAD = 'mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 @2xl:grid-cols-[minmax(0,1fr)_auto_auto]'
 export const FILTER_DESCRIPTION = 'col-span-full h-4 @2xl:col-span-1'
-const CONTROL_HEIGHT = 'h-9 pointer-coarse:h-11'
+const CONTROL_HEIGHT = 'h-9 pointer-coarse:h-11 max-md:h-11'
 export const SEGMENTS_BOX = `col-span-full ${CONTROL_HEIGHT} @2xl:col-span-1 @2xl:col-start-2 @2xl:row-span-2 @2xl:row-start-1 @2xl:w-80`
 export const YEAR_BOX = `w-24 ${CONTROL_HEIGHT} @2xl:col-start-3 @2xl:row-span-2 @2xl:row-start-1`
 

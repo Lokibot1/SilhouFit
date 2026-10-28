@@ -1,4 +1,5 @@
 import { motion } from 'motion/react'
+import type { ReactNode } from 'react'
 import { useReveal } from '../../hooks/useReveal'
 import { useSection } from '../../hooks/useSection'
 import { DURATION, EASE_OUT, staggerDelay } from '../../motion/tokens'
@@ -7,18 +8,19 @@ import { formatOrderTime, formatPeso } from '../../utils/format'
 import { EmptyNote, SectionBody, StaffSection } from './StaffSection'
 import { LOG_ROW, LOG_ROWS, LOG_ROWS_NARROW, LOG_ROW_HIDDEN, OrderLogSkeleton } from './StaffSkeleton'
 
-/** Who ordered, newest first. The list keeps the order the data comes in. */
-export function OrderLog() {
+/** Who ordered, newest first. The list keeps the order the data comes in. `compact` is for a tile that shares its column: from xl the list fills the tile's height and scrolls, instead of setting it. */
+export function OrderLog({ compact = false }: { compact?: boolean }) {
   const section = useSection(fetchOrderLog)
+  const body = (content: ReactNode) => (compact ? <div className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto">{content}</div> : content)
 
   return (
     <StaffSection id="order-log" title="Recent orders" description="Newest first">
-      <SectionBody section={section} what="the recent orders" skeleton={<OrderLogSkeleton />}>
+      <SectionBody section={section} what="the recent orders" skeleton={body(<OrderLogSkeleton />)}>
         {(orders) =>
           orders.length === 0 ? (
             <EmptyNote>No orders yet. Customers who order show here as soon as they check out.</EmptyNote>
           ) : (
-            <Log orders={orders} />
+            body(<Log orders={orders} />)
           )
         }
       </SectionBody>

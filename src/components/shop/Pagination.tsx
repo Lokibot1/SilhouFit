@@ -16,7 +16,7 @@ function pageWindow(page: number, count: number) {
   return shown.flatMap((n, i) => (i > 0 && n - shown[i - 1] > 1 ? [0, n] : [n]))
 }
 
-const STEP = `${SHOP_SECONDARY} min-w-9 pointer-coarse:min-w-11 px-4 disabled:pointer-events-none`
+const STEP = `${SHOP_SECONDARY} min-w-9 pointer-coarse:min-w-11 max-md:min-h-11 max-md:min-w-11 px-4 disabled:pointer-events-none`
 
 export function Pagination({ page, pageCount, from, to, total, onPage }: PaginationProps) {
   return (
@@ -44,7 +44,7 @@ export function Pagination({ page, pageCount, from, to, total, onPage }: Paginat
                   aria-current={n === page ? 'page' : undefined}
                   aria-label={`Page ${n}`}
                   onClick={() => onPage(n)}
-                  className={`${SHOP_SECONDARY} min-w-9 pointer-coarse:min-w-11 tabular-nums`}
+                  className={`${SHOP_SECONDARY} min-w-9 pointer-coarse:min-w-11 max-md:min-h-11 max-md:min-w-11 tabular-nums`}
                 >
                   {n}
                 </button>

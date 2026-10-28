@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { OrderLog } from '../../components/staff/OrderLog'
 import { ProductMixChart } from '../../components/staff/ProductMixChart'
 import { SalesChart } from '../../components/staff/SalesChart'
@@ -12,6 +13,36 @@ import { useStaffMe } from './StaffLayout'
 
 const META_DESCRIPTION =
   'Track sales this month, how many people tried the AR Fitting, products sold, the most ordered items and the latest orders on the SilhouFit staff dashboard.'
+
+/** The dashboard's figures and charts, shared with the admin dashboard. `asideTop` stacks another tile above the order log, which then fills the rest of the column's height and scrolls. */
+export function StaffDashboardWidgets({ asideTop }: { asideTop?: ReactNode }) {
+  return (
+    <>
+      <StatCards />
+      {/* Bento: sales over two half tiles on the left, the order log as a tall tile on the right (from xl). */}
+      <div className="grid gap-3 xl:grid-cols-12">
+        <div className="grid gap-3 xl:col-span-8 xl:grid-rows-[auto_1fr]">
+          <SalesChart />
+          <div className="grid gap-3 md:grid-cols-2 [&>section]:h-full">
+            <ProductMixChart />
+            <TrendingItems />
+          </div>
+        </div>
+        <div className={asideTop ? 'relative xl:col-span-4' : 'xl:col-span-4 [&>section]:h-full'}>
+          {asideTop ? (
+            // From xl this column takes the height of the left one instead of adding to it: the order log fills what the top tile leaves and scrolls.
+            <div className="grid gap-3 xl:absolute xl:inset-0 xl:grid-rows-[auto_minmax(0,1fr)] [&>section:last-child]:flex [&>section:last-child]:flex-col xl:[&>section:last-child]:min-h-0">
+              {asideTop}
+              <OrderLog compact />
+            </div>
+          ) : (
+            <OrderLog />
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
 
 export function StaffDashboardPage() {
   useDocumentTitle('Staff dashboard — SilhouFit')
@@ -37,20 +68,7 @@ export function StaffDashboardPage() {
           </Tooltip>
         )}
       </header>
-      <StatCards />
-      {/* Bento: sales over two half tiles on the left, the order log as a tall tile on the right (from xl). */}
-      <div className="grid gap-3 xl:grid-cols-12">
-        <div className="grid gap-3 xl:col-span-8 xl:grid-rows-[auto_1fr]">
-          <SalesChart />
-          <div className="grid gap-3 md:grid-cols-2 [&>section]:h-full">
-            <ProductMixChart />
-            <TrendingItems />
-          </div>
-        </div>
-        <div className="xl:col-span-4 [&>section]:h-full">
-          <OrderLog />
-        </div>
-      </div>
+      <StaffDashboardWidgets />
     </div>
   )
 }

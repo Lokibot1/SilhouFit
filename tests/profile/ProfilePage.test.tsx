@@ -100,6 +100,28 @@ describe('ProfilePage', () => {
     expect(screen.queryByText('Member since')).not.toBeInTheDocument()
   })
 
+  it('keeps a simulated session simulated, shows the account and a note, and never signs out', async () => {
+    act(() => setSession({ name: 'Sam Reyes', email: 'sam@silhoufit.dev', role: 'staff', simulated: true, accountId: 'stf-001', mustChangePassword: false }))
+    load.mockResolvedValue({ ...ME, id: 'stf-001', email: 'sam@silhoufit.dev', firstName: 'Sam', lastName: 'Reyes', fullName: 'Sam Reyes', role: 'staff', phone: '+639171234567' })
+    render(
+      <MemoryRouter initialEntries={['/staff/profile']}>
+        <ToastProvider>
+          <Routes>
+            <Route path="/staff/profile" element={<ProfilePage />} />
+            <Route path="*" element={<p>somewhere else</p>} />
+          </Routes>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+    expect(await screen.findByRole('heading', { level: 1, name: 'Sam Reyes' })).toBeInTheDocument()
+    expect(screen.getByText('staff')).toBeInTheDocument()
+    expect(screen.getByText('+639171234567')).toBeInTheDocument()
+    expect(screen.getByRole('note')).toHaveTextContent('demo account saved in this browser')
+    expect(screen.queryByRole('button', { name: 'Replay the tour' })).not.toBeInTheDocument()
+    expect(getSession()).toMatchObject({ simulated: true, accountId: 'stf-001', initials: 'SR' })
+    expect(signOutSupabase).not.toHaveBeenCalled()
+  })
+
   it('redirects to sign in, returning here, when nobody is signed in', async () => {
     act(() => clearSession())
     renderPage()

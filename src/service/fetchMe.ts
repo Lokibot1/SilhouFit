@@ -1,3 +1,5 @@
+import { SIMULATED_AUTH } from '../config/accountPolicy'
+import { getSession } from './session'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
@@ -16,6 +18,14 @@ export interface Me {
   gender: 'male' | 'female' | 'other' | 'unisex' | null
   createdAt: string
   updatedAt: string
+  /** Only on the dev-only simulated accounts for now; the API will return them with /users/me. */
+  status?: 'active' | 'inactive' | 'archived'
+  /** Only on the dev-only simulated accounts for now. */
+  phone?: string
+  /** Staff and admin accounts get a temporary password and must replace it at first sign-in. */
+  mustChangePassword?: boolean
+  /** False when the first-login screen must not offer "Skip for now". */
+  passwordChangeSkippable?: boolean
 }
 
 export type MeErrorKind = 'unauthorized' | 'not-found' | 'rate-limit' | 'network' | 'server'
@@ -47,6 +57,8 @@ export function toMe(body: Partial<Me> | null): Me | null {
 
 // Loads the signed-in user's profile with the Supabase access token. An abort rejects with the AbortError itself.
 export async function fetchMe({ signal }: RequestOptions = {}): Promise<Me> {
+  // A simulated account has no Supabase token; a production build drops this branch unless SIMULATED_AUTH is on.
+  if (SIMULATED_AUTH && getSession()?.simulated) return (await import('./devAuth')).simulatedMe(getSession()!)
   let token: string | undefined
   try {
     const supabase = await getSupabase()

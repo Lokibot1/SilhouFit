@@ -6,14 +6,16 @@ interface SortHeaderProps<C extends string> {
   column: C
   active: { sort: C; dir: 'asc' | 'desc' }
   onSort: (column: C) => void
+  /** For a numeric column: the label and arrow sit at the right edge, over the figures. */
+  right?: boolean
 }
 
 /** `C` is the page's own union of sortable columns. */
-export function SortHeader<C extends string>({ label, column, active, onSort }: SortHeaderProps<C>) {
+export function SortHeader<C extends string>({ label, column, active, onSort, right }: SortHeaderProps<C>) {
   const on = active.sort === column
   const Arrow = !on ? SortIcon : active.dir === 'asc' ? ChevronUpIcon : ChevronDownIcon
   return (
-    <th scope="col" aria-sort={on ? (active.dir === 'asc' ? 'ascending' : 'descending') : undefined} className={TH}>
+    <th scope="col" aria-sort={on ? (active.dir === 'asc' ? 'ascending' : 'descending') : undefined} className={right ? TH.replace('text-left', 'text-right') : TH}>
       <button
         type="button"
         onClick={() => onSort(column)}

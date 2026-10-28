@@ -353,3 +353,38 @@ export const TrendDownIcon = ({ size = 16, className }: IconProps) => (
     <path d="M3 7l6 6 4-4 8 8M15 17h6v-6" />
   </Icon>
 )
+
+export const UsersIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+    <path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14a6.5 6.5 0 0 1 3.5 6" />
+  </Icon>
+)
+
+export const CopyIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+  </Icon>
+)
+
+export const DownloadIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M12 4v11M7 11l5 5 5-5M5 20h14" />
+  </Icon>
+)
+
+export const PrinterIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M7 9V4h10v5M7 17H5a1 1 0 0 1-1-1v-5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v5a1 1 0 0 1-1 1h-2" />
+    <rect x="7" y="14" width="10" height="6" rx="1" />
+  </Icon>
+)
+
+export const ArchiveIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <rect x="3" y="4" width="18" height="4.5" rx="1" />
+    <path d="M5 8.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5M10 13h4" />
+  </Icon>
+)

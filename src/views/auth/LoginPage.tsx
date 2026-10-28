@@ -25,6 +25,11 @@ import { nextQuery } from "../../utils/safeNext";
 const META_DESCRIPTION =
   "Sign in to SilhouFit to open your saved fit profile, pick up AR fitting where you left off and shop boutiques and online with one secure SilhouFit account.";
 
+const ARCHIVED_COPY = {
+  title: "This account has been archived.",
+  body: "Contact an administrator to have it restored.",
+};
+
 const GAPS = "[&>*+*]:mt-4 short:[&>*+*]:mt-3";
 
 export function LoginPage() {
@@ -46,7 +51,8 @@ export function LoginPage() {
     onGoogle,
   } = useLoginForm();
   const pending = status === "pending";
-  const next = nextQuery(useSearchParams()[0].get("next"));
+  const params = useSearchParams()[0];
+  const next = nextQuery(params.get("next"));
 
   const field = (name: LoginField) => ({
     id: fieldId(name),
@@ -67,9 +73,13 @@ export function LoginPage() {
           title: "We couldn't sign you in.",
           body: "The email or password doesn't match our records. Check both and try again, or reset your password.",
         }
-      : status === "error"
-        ? SIGN_IN_ERROR_COPY[errorKind]
-        : null;
+      : status === "archived"
+        ? ARCHIVED_COPY
+        : status === "error"
+          ? SIGN_IN_ERROR_COPY[errorKind]
+          : params.get("archived") === "1"
+            ? ARCHIVED_COPY
+            : null;
 
   return (
     <div className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 max-[359px]:px-3 sm:px-6">

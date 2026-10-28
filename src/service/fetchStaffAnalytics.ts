@@ -121,6 +121,9 @@ const MOCK_PRODUCTS: SampleProduct[] = [
 
 let sampleProducts: SampleProduct[] = MOCK_PRODUCTS
 
+/** The products the sample orders are drawn from. */
+export const getSampleProducts = () => sampleProducts
+
 /** Test seam: the products the sample orders are drawn from. */
 export function setSampleProducts(products: SampleProduct[]) {
   sampleProducts = products

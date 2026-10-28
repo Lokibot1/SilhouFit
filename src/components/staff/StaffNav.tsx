@@ -1,8 +1,9 @@
+import { Fragment } from 'react'
 import { NavLink } from 'react-router-dom'
 import type { Area } from '../../utils/staffRole'
 import { BrandMark } from '../BrandMark'
 import { Tooltip } from '../ui/Tooltip'
-import { NAV } from './navConfig'
+import { NAV, NAV_GROUP_LABEL } from './navConfig'
 
 export const AREA_LABEL: Record<Area, string> = { staff: 'Staff', admin: 'Admin', superadmin: 'Super Admin' }
 
@@ -13,7 +14,7 @@ const ROW_COLLAPSED = 'font-ui flex size-11 items-center justify-center rounded-
 export function StaffBrand({ area = 'staff' }: { area?: Area }) {
   return (
     <BrandMark bold inline>
-      <span className="font-ui text-sm font-semibold tracking-normal text-fg-muted">{AREA_LABEL[area]}</span>
+      <span className="font-ui text-sm font-semibold tracking-normal text-fg-muted max-[399px]:hidden">{AREA_LABEL[area]}</span>
     </BrandMark>
   )
 }
@@ -31,7 +32,7 @@ export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps)
     <div className="flex min-h-0 flex-1 flex-col">
       <nav aria-label={AREA_LABEL[area]} className="flex-1">
         <ul className={`grid gap-1 ${collapsed ? 'justify-center' : ''}`}>
-          {NAV[area].map((item) => {
+          {NAV[area].map((item, index) => {
             const Icon = item.icon
             const row = collapsed ? ROW_COLLAPSED : ROW
             const content = (
@@ -57,10 +58,22 @@ export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps)
                 {content}
               </span>
             )
+            // Only grouped lists (the admin's) have headings: a divider stands in for one while the rail is collapsed.
+            const heading =
+              item.group && item.group !== NAV[area][index - 1]?.group ? (
+                collapsed ? (
+                  index > 0 && <li aria-hidden="true" className="my-1 h-px w-8 justify-self-center bg-line-strong" />
+                ) : (
+                  <li role="presentation" className="font-ui px-2.5 pt-3 pb-1 text-xs font-semibold text-fg-muted first:pt-0">
+                    {NAV_GROUP_LABEL[item.group]}
+                  </li>
+                )
+              ) : null
             return (
-              <li key={item.label}>
-                {collapsed ? <Tooltip label={item.to ? item.label : `${item.label} (coming soon)`}>{entry}</Tooltip> : entry}
-              </li>
+              <Fragment key={item.label}>
+                {heading}
+                <li>{collapsed ? <Tooltip label={item.to ? item.label : `${item.label} (coming soon)`}>{entry}</Tooltip> : entry}</li>
+              </Fragment>
             )
           })}
         </ul>

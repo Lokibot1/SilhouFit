@@ -1,3 +1,4 @@
+import { SIMULATED_AUTH } from '../config/accountPolicy'
 import type { Me } from './fetchMe'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
@@ -8,7 +9,9 @@ export interface SignInPayload {
   remember?: boolean
 }
 
-export type SignInResult = { ok: true; user: { name: string; email: string; avatarUrl?: string; role?: Me['role'] } } | { ok: false; reason: 'invalid' }
+export type SignInResult =
+  | { ok: true; user: { name: string; email: string; avatarUrl?: string; role?: Me['role']; simulated?: boolean; accountId?: string; mustChangePassword?: boolean } }
+  | { ok: false; reason: 'invalid' | 'archived' }
 
 // Wrong password, unknown email and unconfirmed email all read the same, so the form never reveals which emails exist.
 const INVALID_CODES = ['invalid_credentials', 'email_not_confirmed']
@@ -39,6 +42,11 @@ export async function submitSignIn(
   { email, password }: SignInPayload,
   { signal }: RequestOptions = {},
 ): Promise<SignInResult> {
+  // A saved dev account signs in here; any other email carries on to Supabase. A production build drops this unless SIMULATED_AUTH is on.
+  if (SIMULATED_AUTH) {
+    const simulated = (await import('./devAuth')).trySimulatedSignIn(email, password)
+    if (simulated) return simulated
+  }
   const supabase = await getSupabase()
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) {

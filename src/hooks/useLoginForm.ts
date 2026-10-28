@@ -18,7 +18,7 @@ import { normalizeEmail, stripEmoji } from '../utils/signUpValidation'
 
 const EMPTY: LoginValues = { email: '', password: '' }
 
-export type LoginStatus = 'editing' | 'pending' | 'invalid' | 'error'
+export type LoginStatus = 'editing' | 'pending' | 'invalid' | 'archived' | 'error'
 export type LoginMethod = 'email' | 'google'
 
 // What happened, why and the next step, per failure kind. 'invalid' stays generic so emails are never revealed.
@@ -169,7 +169,7 @@ export function useLoginForm() {
       } else if (++invalidCount.current >= MAX_INVALID) {
         startCooldown()
       } else {
-        setStatus('invalid')
+        setStatus(result.reason === 'archived' ? 'archived' : 'invalid')
       }
     } catch (failure) {
       if (abort.signal.aborted) return

@@ -12,6 +12,7 @@ import { InventoryPageSkeleton } from './components/staff/InventorySkeleton'
 import { StaffShellSkeleton } from './components/staff/StaffSkeleton'
 import { MeasurementsPageSkeleton } from './components/staff/MeasurementsSkeleton'
 import { TransactionsPageSkeleton } from './components/staff/TransactionsSkeleton'
+import { AccountsPageSkeleton } from './components/admin/users/AccountSkeleton'
 import { ToastProvider } from './components/toast/ToastProvider'
 import { ProfileSkeleton } from './components/profile/ProfileSkeleton'
 import { ProductRouteSkeleton } from './components/shop/ProductSkeleton'
@@ -84,6 +85,13 @@ const StaffTransactionsPage = lazy(() =>
   import('./views/staff/StaffTransactionsPage').then((m) => ({ default: m.StaffTransactionsPage })),
 )
 
+const AdminDashboardPage = lazy(() =>
+  import('./views/admin/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
+)
+const UserManagementPage = lazy(() =>
+  import('./views/admin/UserManagementPage').then((m) => ({ default: m.UserManagementPage })),
+)
+
 const BodySetupPage = lazy(() =>
   import('./views/private/BodySetupPage').then((m) => ({ default: m.BodySetupPage })),
 )
@@ -98,6 +106,36 @@ function StaffProfile() {
     </div>
   )
 }
+
+// The pages staff and admins share. An admin has all of them under /admin.
+const operationsRoutes = (
+  <>
+    <Route
+      path="inventory"
+      element={
+        <Suspense fallback={<InventoryPageSkeleton />}>
+          <StaffInventoryPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="measurements"
+      element={
+        <Suspense fallback={<MeasurementsPageSkeleton />}>
+          <StaffMeasurementsPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="transactions"
+      element={
+        <Suspense fallback={<TransactionsPageSkeleton />}>
+          <StaffTransactionsPage />
+        </Suspense>
+      }
+    />
+  </>
+)
 
 function prefersReducedMotion() {
   return (
@@ -235,46 +273,40 @@ function App() {
               }
             >
               <Route index element={<StaffDashboardPage />} />
+              {operationsRoutes}
+              <Route path="profile" element={<StaffProfile />} />
+            </Route>
+            <Route
+              path="admin"
+              element={
+                <Suspense fallback={<StaffShellSkeleton />}>
+                  <StaffLayout area="admin" />
+                </Suspense>
+              }
+            >
+              <Route index element={<AdminDashboardPage />} />
+              {operationsRoutes}
               <Route
-                path="inventory"
+                path="users"
                 element={
-                  <Suspense fallback={<InventoryPageSkeleton />}>
-                    <StaffInventoryPage />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="measurements"
-                element={
-                  <Suspense fallback={<MeasurementsPageSkeleton />}>
-                    <StaffMeasurementsPage />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="transactions"
-                element={
-                  <Suspense fallback={<TransactionsPageSkeleton />}>
-                    <StaffTransactionsPage />
+                  <Suspense fallback={<AccountsPageSkeleton />}>
+                    <UserManagementPage />
                   </Suspense>
                 }
               />
               <Route path="profile" element={<StaffProfile />} />
             </Route>
-            {(['admin', 'superadmin'] as const).map((area) => (
-              <Route
-                key={area}
-                path={area}
-                element={
-                  <Suspense fallback={<StaffShellSkeleton />}>
-                    <StaffLayout area={area} />
-                  </Suspense>
-                }
-              >
-                <Route index element={<RoleDashboardPlaceholder area={area} />} />
-                <Route path="profile" element={<StaffProfile />} />
-              </Route>
-            ))}
+            <Route
+              path="superadmin"
+              element={
+                <Suspense fallback={<StaffShellSkeleton />}>
+                  <StaffLayout area="superadmin" />
+                </Suspense>
+              }
+            >
+              <Route index element={<RoleDashboardPlaceholder area="superadmin" />} />
+              <Route path="profile" element={<StaffProfile />} />
+            </Route>
             <Route element={<Layout bare />}>
               <Route path="*" element={<NotFoundPage />} />
             </Route>

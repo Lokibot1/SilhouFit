@@ -15,7 +15,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOnboarding } from '../../hooks/useOnboarding'
 import { fetchMe, type Me, type MeErrorKind } from '../../service/fetchMe'
-import { setSession } from '../../service/session'
+import { getSession, setSession } from '../../service/session'
 import { signOut } from '../../service/signOut'
 import { isStaffRole } from '../../utils/staffRole'
 
@@ -48,6 +48,12 @@ type State =
 
 /** First letter of the first name and of the last name, so "Anna Maria Cruz Jr." is "AC". */
 const initialsOf = (me: Me) => `${me.firstName[0]}${me.lastName[0]}`.toUpperCase()
+
+/** A simulated account's session keeps its flags when the profile refreshes it, or the next /users/me call would go to Supabase and sign it out. */
+const simulatedFlags = () => {
+  const current = getSession()
+  return current?.simulated ? { simulated: true, accountId: current.accountId, mustChangePassword: current.mustChangePassword } : {}
+}
 
 function formatDate(iso: string) {
   const date = new Date(iso)
@@ -84,6 +90,7 @@ export function ProfilePage() {
           avatarUrl: me.avatarUrl ?? undefined,
           initials: initialsOf(me),
           role: me.role,
+          ...simulatedFlags(),
         })
         setState({ status: 'success', me })
       },
@@ -132,6 +139,7 @@ export function ProfilePage() {
       avatarUrl: me.avatarUrl ?? undefined,
       initials: initialsOf(me),
       role: me.role,
+      ...simulatedFlags(),
     })
     setState({ status: 'success', me })
     setSaving(false)
@@ -179,6 +187,7 @@ export function ProfilePage() {
   const { me } = state
   const name = me.fullName ?? `${me.firstName} ${me.lastName}`
   const since = formatDate(me.createdAt)
+  const simulated = Boolean(getSession()?.simulated)
 
   return (
     <div className={PROFILE_SHELL}>
@@ -199,11 +208,32 @@ export function ProfilePage() {
             <IconEditButton label="Edit profile" onClick={() => setEditing(true)} className="-mt-2 -mr-2 self-start" />
           )}
         </div>
-        {since && (
-          <dl className="mt-6">
-            <dt className="text-sm text-fg-muted">Member since</dt>
-            <dd className="text-base text-fg">{since}</dd>
+        {(since || simulated) && (
+          <dl className="mt-6 grid gap-3">
+            {simulated && (
+              <div>
+                <dt className="text-sm text-fg-muted">Role</dt>
+                <dd className="text-base text-fg capitalize">{me.role}</dd>
+              </div>
+            )}
+            {simulated && me.phone && (
+              <div>
+                <dt className="text-sm text-fg-muted">Phone</dt>
+                <dd className="text-base text-fg tabular-nums">{me.phone}</dd>
+              </div>
+            )}
+            {since && (
+              <div>
+                <dt className="text-sm text-fg-muted">Member since</dt>
+                <dd className="text-base text-fg">{since}</dd>
+              </div>
+            )}
           </dl>
+        )}
+        {simulated && (
+          <p role="note" className="mt-4 text-sm text-fg-muted">
+            This is a demo account saved in this browser. Photo upload, body measurements and delivery addresses need the shop account, so they are not available here.
+          </p>
         )}
         <div className="mt-6 flex flex-wrap gap-3">
           {me.role === 'customer' && (

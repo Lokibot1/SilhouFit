@@ -14,6 +14,10 @@ export interface Session {
   initials?: string
   /** Only decides where the navbar's account button goes; the pages and the API check the role again. */
   role?: Me['role']
+  /** Signed in with a saved dev account instead of Supabase (see SIMULATED_AUTH). */
+  simulated?: boolean
+  accountId?: string
+  mustChangePassword?: boolean
 }
 
 function load(): Session | null {
@@ -27,6 +31,9 @@ function load(): Session | null {
       avatarUrl: typeof user.avatarUrl === 'string' ? user.avatarUrl : undefined,
       initials: typeof user.initials === 'string' ? user.initials : undefined,
       role: ROLES.includes(user.role as string) ? user.role : undefined,
+      simulated: user.simulated === true ? true : undefined,
+      accountId: typeof user.accountId === 'string' ? user.accountId : undefined,
+      mustChangePassword: typeof user.mustChangePassword === 'boolean' ? user.mustChangePassword : undefined,
     }
   } catch {
     return null
@@ -58,7 +65,7 @@ if (typeof window !== 'undefined') {
 }
 
 export const getSession = () => session
-export const setSession = (user: Session) => commit({ name: user.name, email: user.email, avatarUrl: user.avatarUrl, initials: user.initials, role: user.role })
+export const setSession = (user: Session) => commit({ name: user.name, email: user.email, avatarUrl: user.avatarUrl, initials: user.initials, role: user.role, simulated: user.simulated, accountId: user.accountId, mustChangePassword: user.mustChangePassword })
 export const clearSession = () => commit(null)
 
 export function subscribe(listener: () => void) {

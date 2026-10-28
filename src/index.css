@@ -1646,3 +1646,48 @@ html.comet-active * {
     padding: 0 !important;
   }
 }
+
+/* Printing account credentials: only the card stays, the same way the invoice sheet does. */
+@media print {
+  html.printing-credentials,
+  html.printing-credentials body {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  html.printing-credentials body *:not(:has(.credentials-sheet), .credentials-sheet, .credentials-sheet *) {
+    display: none !important;
+  }
+  html.printing-credentials body *:has(.credentials-sheet) {
+    position: static !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    transform: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  html.printing-credentials body *:has(.credentials-sheet)::before,
+  html.printing-credentials body *:has(.credentials-sheet)::after {
+    display: none !important;
+  }
+  html.printing-credentials .credentials-sheet {
+    max-width: 120mm;
+    break-inside: avoid;
+    margin: 8mm 0 0 !important;
+    border: 1px solid black !important;
+    background: white !important;
+  }
+  html.printing-credentials .credentials-sheet * {
+    color: black !important;
+    border-color: black !important;
+  }
+}

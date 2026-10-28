@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, useLocation, useOutletContext } from 'react-router-dom'
+import { FirstLoginPasswordGate } from '../../components/auth/FirstLoginPasswordGate'
 import { AlertIcon } from '../../components/form/icons'
 import { SkipLink } from '../../components/SkipLink'
 import { StaffNav } from '../../components/staff/StaffNav'
@@ -14,6 +15,7 @@ import { useStaffArea } from '../../hooks/useStaffArea'
 import { useSidebarCollapsed } from '../../hooks/useSidebarCollapsed'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { fetchMe, type Me, type MeErrorKind } from '../../service/fetchMe'
+import { getSession } from '../../service/session'
 import { signOut } from '../../service/signOut'
 import { homeFor, isStaffRole, type Area } from '../../utils/staffRole'
 
@@ -60,6 +62,9 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
   const signedIn = user !== null
   const role = state.status === 'success' ? state.me.role : undefined
   const denied = state.status === 'success' && role !== area
+  const archived = state.status === 'success' && state.me.status === 'archived'
+  // A simulated account is read again on every navigation, so archiving it elsewhere ends this session at the next page.
+  const recheck = getSession()?.simulated ? pathname : ''
 
   useEffect(() => {
     if (!signedIn) return
@@ -75,7 +80,9 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
       },
     )
     return () => controller.abort()
-  }, [attempt, signedIn])
+    // `recheck` only triggers the request again; it is not read inside.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt, signedIn, recheck])
 
   useEffect(() => {
     if (!denied || notified.current) return
@@ -85,6 +92,13 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
       message: isStaffRole(role) ? 'That page is for another role. This is your dashboard.' : 'Staff pages need a staff account.',
     })
   }, [denied, role, toast])
+
+  // An archived account cannot use the dashboard: end the session and say why on the sign-in page.
+  useEffect(() => {
+    if (!archived) return
+    signOut()
+    toast.show({ kind: 'info', message: 'This account has been archived. Contact an administrator.' })
+  }, [archived, toast])
 
   function retry() {
     setState({ status: 'loading' })
@@ -97,9 +111,10 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
     toast.show({ kind: 'success', message: 'Signed out' })
   }
 
-  if (!user) return <Navigate to={leaving ? '/login' : `/login?next=${encodeURIComponent(pathname)}`} replace />
+  if (!user) return <Navigate to={leaving ? '/login' : archived ? '/login?archived=1' : `/login?next=${encodeURIComponent(pathname)}`} replace />
   if (state.status === 'loading') return <StaffShellSkeleton />
   if (denied) return <Navigate to={homeFor(role)} replace />
+  if (archived) return <StaffShellSkeleton />
 
   if (state.status === 'error') {
     const copy = ERROR_COPY[state.kind]
@@ -149,6 +164,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
           <StaffNav area={area} onNavigate={() => setMenuOpen(false)} />
         </div>
       </Modal>
+      <FirstLoginPasswordGate me={me} onChanged={() => setState({ status: 'success', me: { ...me, mustChangePassword: false } })} />
     </div>
   )
 }
