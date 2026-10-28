@@ -14,7 +14,7 @@ import {
 } from '../body-setup/measurements'
 import { SectionBoundary } from '../body-setup/SectionBoundary'
 import { StudioFlat, StudioFrame } from '../body-setup/StudioFallback'
-import { AlertIcon } from '../form/icons'
+import { AlertIcon, RulerIcon } from '../form/icons'
 import { PRIMARY_BUTTON } from '../ui/buttonStyles'
 import { IconEditButton } from '../ui/IconEditButton'
 import { PROFILE_CARD } from './ProfileSkeleton'
@@ -67,7 +67,8 @@ export function BodyMeasurements() {
   return (
     <section aria-labelledby={headingId} className={PROFILE_CARD}>
       <div className="flex items-start justify-between gap-3">
-        <h2 id={headingId} className="display text-xl text-fg">
+        <h2 id={headingId} className="display flex items-center gap-3 text-xl text-fg">
+          <RulerIcon />
           Body measurements
         </h2>
         {saved && <IconEditButton to="/profile/measurements" label="Edit measurements" className="-mt-2 -mr-2" />}

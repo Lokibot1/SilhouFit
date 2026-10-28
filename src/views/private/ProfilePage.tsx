@@ -217,8 +217,11 @@ export function ProfilePage() {
         </div>
       </section>
       {me.role === 'customer' && (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[24rem_minmax(0,1fr)] lg:items-start">
-          <DeliveryAddress onUnauthorized={expire} />
+        <div className="mt-6 grid gap-6 lg:grid-cols-[24rem_minmax(0,1fr)]">
+          {/* From lg the addresses fill the row at the height of Body measurements and scroll inside it. */}
+          <div className="lg:relative lg:min-h-112">
+            <DeliveryAddress onUnauthorized={expire} />
+          </div>
           <BodyMeasurements />
         </div>
       )}

@@ -9,7 +9,7 @@ import {
   type AddressErrorKind,
 } from '../../service/addresses'
 import { AddressForm } from '../address/AddressForm'
-import { AlertIcon, SpinnerIcon, TrashIcon } from '../form/icons'
+import { AlertIcon, MapPinIcon, SpinnerIcon, TrashIcon } from '../form/icons'
 import { useToast } from '../toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
 import { IconEditButton } from '../ui/IconEditButton'
@@ -218,9 +218,10 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
   const promoted = deleting?.address.isDefault && (addresses?.length ?? 0) > 1
 
   return (
-    <section aria-labelledby={headingId} className={`${PROFILE_CARD} w-full max-w-sm min-w-0`}>
+    <section aria-labelledby={headingId} className={`${PROFILE_CARD} w-full max-w-sm min-w-0 lg:absolute! lg:inset-0 lg:flex lg:max-w-none lg:flex-col`}>
       <div className="flex items-start justify-between gap-3">
-        <h2 id={headingId} className="display text-xl text-fg">
+        <h2 id={headingId} className="display flex items-center gap-3 text-xl text-fg">
+          <MapPinIcon />
           Delivery address
         </h2>
         {!!addresses?.length && (
@@ -274,7 +275,12 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
       )}
 
       {!!addresses?.length && (
-        <ul className="mt-4 space-y-3">
+        // Two cards show; the rest scroll. From lg the list takes the card's height instead (see ProfilePage).
+        <ul
+          tabIndex={0}
+          aria-label="Saved delivery addresses"
+          className="mt-4 max-h-112 space-y-3 overflow-y-auto overscroll-contain lg:max-h-none lg:min-h-0 lg:flex-1"
+        >
           {addresses.map((a) => (
             <li key={a.id} className="rounded-xl border border-line p-4">
               <div className="flex items-start justify-between gap-2">
