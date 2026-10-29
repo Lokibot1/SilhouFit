@@ -1,0 +1,70 @@
+import { fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { RouteErrorBoundary } from '../../src/components/RouteErrorBoundary'
+import { ServerErrorPage } from '../../src/views/public/ServerErrorPage'
+
+afterEach(() => vi.restoreAllMocks())
+
+describe('ServerErrorPage', () => {
+  it('shows the heading, page title, meta description and both actions', () => {
+    render(
+      <MemoryRouter>
+        <ServerErrorPage />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('heading', { level: 1, name: /torn at the\s+seams/i })).toBeInTheDocument()
+    expect(document.title).toBe('500: Torn at the seams — SilhouFit')
+    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toMatch(/something went wrong/i)
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to the main floor' })).toHaveAttribute('href', '/')
+  })
+
+  it('runs the retry action when Try again is pressed', () => {
+    const onRetry = vi.fn()
+    render(
+      <MemoryRouter>
+        <ServerErrorPage onRetry={onRetry} />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+})
+
+describe('RouteErrorBoundary', () => {
+  function Crash(): never {
+    throw new Error('secret stack detail')
+  }
+
+  it('shows the 500 page for a crashing child without exposing the error', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(
+      <MemoryRouter>
+        <RouteErrorBoundary resetKey="/">
+          <Crash />
+        </RouteErrorBoundary>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('heading', { level: 1, name: /torn at the\s+seams/i })).toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/secret stack detail|at Crash|\.tsx/)
+  })
+
+  it('renders children normally and recovers when the reset key changes', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    let broken = true
+    const Maybe = () => (broken ? <Crash /> : <p>All good</p>)
+    const tree = (key: string) => (
+      <MemoryRouter>
+        <RouteErrorBoundary resetKey={key}>
+          <Maybe />
+        </RouteErrorBoundary>
+      </MemoryRouter>
+    )
+    const { rerender } = render(tree('/a'))
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    broken = false
+    rerender(tree('/b'))
+    expect(screen.getByText('All good')).toBeInTheDocument()
+  })
+})

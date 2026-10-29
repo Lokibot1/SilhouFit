@@ -8,6 +8,7 @@ import { LoginSkeleton } from './components/form/LoginSkeleton'
 import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
+import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { InventoryPageSkeleton } from './components/staff/InventorySkeleton'
 import { OrderLogSkeleton, StaffShellSkeleton } from './components/staff/StaffSkeleton'
 import { MeasurementsPageSkeleton } from './components/staff/MeasurementsSkeleton'
@@ -21,6 +22,7 @@ import { AboutPage } from './views/public/AboutPage'
 import { CookiePolicyPage } from './views/legal/CookiePolicyPage'
 import { LandingPage } from './views/public/LandingPage'
 import { NotFoundPage } from './views/public/NotFoundPage'
+import { ServerErrorPage } from './views/public/ServerErrorPage'
 import { PrivacyPolicyPage } from './views/legal/PrivacyPolicyPage'
 import { RefundPolicyPage } from './views/legal/RefundPolicyPage'
 import { TermsOfServicePage } from './views/legal/TermsOfServicePage'
@@ -173,6 +175,7 @@ function App() {
 
       <div inert={!introDone} aria-hidden={!introDone}>
         <ToastProvider>
+          <RouteErrorBoundary resetKey={pathname}>
           <Routes>
             <Route element={<Layout />}>
               <Route index element={<LandingPage />} />
@@ -330,9 +333,11 @@ function App() {
               <Route path="profile" element={<StaffProfile />} />
             </Route>
             <Route element={<Layout bare />}>
+              <Route path="500" element={<ServerErrorPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
+          </RouteErrorBoundary>
         </ToastProvider>
       </div>
     </>
