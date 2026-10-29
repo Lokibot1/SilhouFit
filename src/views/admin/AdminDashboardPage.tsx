@@ -35,7 +35,7 @@ export function AdminDashboardPage() {
         </Link>
       </header>
       <AdminSummaryCards />
-      <StaffDashboardWidgets asideTop={<ActivityLogs />} />
+      <StaffDashboardWidgets base="/admin" asideTop={<ActivityLogs />} />
     </div>
   )
 }

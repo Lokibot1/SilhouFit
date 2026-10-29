@@ -50,6 +50,18 @@ export const STAT_CARD = 'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 ro
 export const STAT_LABEL = 'col-start-1 row-start-1 truncate text-sm font-medium text-fg-muted'
 export const STAT_CONTEXT = 'col-start-1 row-start-2 mt-0.5 truncate text-xs text-fg-muted'
 export const STAT_ICON = 'col-start-2 row-span-2 row-start-1 flex size-8 items-center justify-center rounded-xl bg-line text-fg'
+/** What the icon chip shows for a card's meaning; plain cards keep the neutral chip. */
+export type StatTone = 'success' | 'warning' | 'danger' | 'info' | 'violet' | 'teal' | 'rose'
+export const STAT_TONE: Record<StatTone, string> = {
+  success: 'bg-success/15 text-success',
+  warning: 'bg-warning/15 text-warning',
+  danger: 'bg-danger/15 text-danger',
+  info: 'bg-info/15 text-info',
+  violet: 'bg-violet/15 text-violet',
+  teal: 'bg-teal/15 text-teal',
+  rose: 'bg-rose/15 text-rose',
+}
+export const statIcon = (tone?: StatTone) => (tone ? `${STAT_ICON.replace('bg-line text-fg', '')}${STAT_TONE[tone]}` : STAT_ICON)
 export const STAT_PILL_ROW = 'col-span-full row-start-4 mt-2 flex h-5 items-center'
 export const STAT_VALUE = 'display col-span-full row-start-3 mt-2 truncate text-2xl leading-none tabular-nums'
 export const CHART_PLOT = 'h-40 sm:h-48'

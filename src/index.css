@@ -34,6 +34,10 @@
   --color-danger: var(--danger);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-violet: var(--violet);
+  --color-teal: var(--teal);
+  --color-rose: var(--rose);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -54,6 +58,10 @@
   --danger: #b42318;
   --success: #0f7a43;
   --warning: #b45309;
+  --info: #1d5fd1;
+  --violet: #6d3fc7;
+  --teal: #0b7a75;
+  --rose: #c2305f;
   /* Inventory row tints (.row-low, .row-out): the colour and its strength at the row's edges. */
   --row-low: #eab308;
   --row-low-a: 26%;
@@ -155,6 +163,10 @@
   --line-strong: rgb(255 255 255 / 0.2);
   --danger: #ff8a80;
   --success: #6ee7a0;
+  --info: #7fb2ff;
+  --violet: #b79cff;
+  --teal: #5fd4cc;
+  --rose: #ff8fb1;
   --row-low: #f59e0b;
   --row-low-a: 32%;
   --row-out: #ef4444;
@@ -228,6 +240,10 @@
   --danger: #f28b82;
   --success: #6fcf97;
   --warning: #e8b04a;
+  --info: #7fb2ff;
+  --violet: #b79cff;
+  --teal: #5fd4cc;
+  --rose: #ff8fb1;
   --row-low: var(--warning);
   --row-low-a: 26%;
   --row-out: var(--danger);

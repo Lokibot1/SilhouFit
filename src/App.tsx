@@ -9,7 +9,7 @@ import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
 import { InventoryPageSkeleton } from './components/staff/InventorySkeleton'
-import { StaffShellSkeleton } from './components/staff/StaffSkeleton'
+import { OrderLogSkeleton, StaffShellSkeleton } from './components/staff/StaffSkeleton'
 import { MeasurementsPageSkeleton } from './components/staff/MeasurementsSkeleton'
 import { TransactionsPageSkeleton } from './components/staff/TransactionsSkeleton'
 import { AccountsPageSkeleton } from './components/admin/users/AccountSkeleton'
@@ -81,6 +81,12 @@ const StaffInventoryPage = lazy(() =>
 const StaffMeasurementsPage = lazy(() =>
   import('./views/staff/StaffMeasurementsPage').then((m) => ({ default: m.StaffMeasurementsPage })),
 )
+const StaffOnlineOrdersPage = lazy(() =>
+  import('./views/staff/StaffOnlineOrdersPage').then((m) => ({ default: m.StaffOnlineOrdersPage })),
+)
+const ActivityLogsPage = lazy(() =>
+  import('./views/admin/ActivityLogsPage').then((m) => ({ default: m.ActivityLogsPage })),
+)
 const StaffTransactionsPage = lazy(() =>
   import('./views/staff/StaffTransactionsPage').then((m) => ({ default: m.StaffTransactionsPage })),
 )
@@ -131,6 +137,14 @@ const operationsRoutes = (
       element={
         <Suspense fallback={<TransactionsPageSkeleton />}>
           <StaffTransactionsPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="online-orders"
+      element={
+        <Suspense fallback={<OrderLogSkeleton />}>
+          <StaffOnlineOrdersPage />
         </Suspense>
       }
     />
@@ -286,6 +300,14 @@ function App() {
             >
               <Route index element={<AdminDashboardPage />} />
               {operationsRoutes}
+              <Route
+                path="activity-logs"
+                element={
+                  <Suspense fallback={<OrderLogSkeleton />}>
+                    <ActivityLogsPage />
+                  </Suspense>
+                }
+              />
               <Route
                 path="users"
                 element={

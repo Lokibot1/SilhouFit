@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { BagIcon, CartIcon, GridIcon, ListIcon, RulerIcon, UserIcon, UsersIcon } from '../form/icons'
+import { BagIcon, CartIcon, ClockIcon, GridIcon, ListIcon, RulerIcon, UserIcon, UsersIcon } from '../form/icons'
 import type { Area } from '../../utils/staffRole'
 
 export interface NavItem {
@@ -22,8 +22,7 @@ export const NAV: Record<Area, NavItem[]> = {
     { label: 'Inventory', to: '/staff/inventory', icon: BagIcon },
     { label: 'Measurements', to: '/staff/measurements', icon: RulerIcon },
     { label: 'Transactions', to: '/staff/transactions', icon: ListIcon },
-    // Online Orders has no backend module yet.
-    { label: 'Online Orders', icon: CartIcon },
+    { label: 'Online Orders', to: '/staff/online-orders', icon: CartIcon },
     { label: 'Profile', to: '/staff/profile', icon: UserIcon },
   ],
   // An admin gets every staff page plus the admin tools.
@@ -32,9 +31,10 @@ export const NAV: Record<Area, NavItem[]> = {
     { label: 'Inventory', to: '/admin/inventory', icon: BagIcon, group: 'operations' },
     { label: 'Measurements', to: '/admin/measurements', icon: RulerIcon, group: 'operations' },
     { label: 'Transactions', to: '/admin/transactions', icon: ListIcon, group: 'operations' },
-    { label: 'Online Orders', icon: CartIcon, group: 'operations' },
+    { label: 'Online Orders', to: '/admin/online-orders', icon: CartIcon, group: 'operations' },
     { label: 'Profile', to: '/admin/profile', icon: UserIcon, group: 'operations' },
     { label: 'User Management', to: '/admin/users', icon: UsersIcon, group: 'admin' },
+    { label: 'Activity Logs', to: '/admin/activity-logs', icon: ClockIcon, group: 'admin' },
   ],
   superadmin: [
     { label: 'Dashboard', to: '/superadmin', icon: GridIcon },

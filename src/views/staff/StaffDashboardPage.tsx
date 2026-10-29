@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { OperationsSummary } from '../../components/admin/AdminSummaryCards'
 import { OrderLog } from '../../components/staff/OrderLog'
 import { ProductMixChart } from '../../components/staff/ProductMixChart'
 import { SalesChart } from '../../components/staff/SalesChart'
@@ -15,10 +16,11 @@ const META_DESCRIPTION =
   'Track sales this month, how many people tried the AR Fitting, products sold, the most ordered items and the latest orders on the SilhouFit staff dashboard.'
 
 /** The dashboard's figures and charts, shared with the admin dashboard. `asideTop` stacks another tile above the order log, which then fills the rest of the column's height and scrolls. */
-export function StaffDashboardWidgets({ asideTop }: { asideTop?: ReactNode }) {
+export function StaffDashboardWidgets({ asideTop, operations, base }: { asideTop?: ReactNode; operations?: boolean; base: '/admin' | '/staff' }) {
   return (
     <>
       <StatCards />
+      {operations && <OperationsSummary />}
       {/* Bento: sales over two half tiles on the left, the order log as a tall tile on the right (from xl). */}
       <div className="grid gap-3 xl:grid-cols-12">
         <div className="grid gap-3 xl:col-span-8 xl:grid-rows-[auto_1fr]">
@@ -30,13 +32,13 @@ export function StaffDashboardWidgets({ asideTop }: { asideTop?: ReactNode }) {
         </div>
         <div className={asideTop ? 'relative xl:col-span-4' : 'xl:col-span-4 [&>section]:h-full'}>
           {asideTop ? (
-            // From xl this column takes the height of the left one instead of adding to it: the order log fills what the top tile leaves and scrolls.
-            <div className="grid gap-3 xl:absolute xl:inset-0 xl:grid-rows-[auto_minmax(0,1fr)] [&>section:last-child]:flex [&>section:last-child]:flex-col xl:[&>section:last-child]:min-h-0">
+            // From xl this column takes the height of the left one instead of adding to it: the two tiles split it evenly and each list scrolls.
+            <div className="grid gap-3 xl:absolute xl:inset-0 xl:grid-rows-[minmax(0,1fr)_minmax(0,1fr)] [&>section]:flex [&>section]:flex-col xl:[&>section]:min-h-0">
               {asideTop}
-              <OrderLog compact />
+              <OrderLog compact viewAll={`${base}/online-orders`} />
             </div>
           ) : (
-            <OrderLog />
+            <OrderLog viewAll={`${base}/online-orders`} />
           )}
         </div>
       </div>
@@ -68,7 +70,7 @@ export function StaffDashboardPage() {
           </Tooltip>
         )}
       </header>
-      <StaffDashboardWidgets />
+      <StaffDashboardWidgets operations base="/staff" />
     </div>
   )
 }

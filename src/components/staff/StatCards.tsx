@@ -9,7 +9,7 @@ import { staggerDelay } from '../../motion/tokens'
 import { SectionBody } from './StaffSection'
 import { ArIcon, BanknoteIcon, BoxIcon, CartArrowIcon, TrendDownIcon, TrendUpIcon } from '../form/icons'
 import { Tooltip } from '../ui/Tooltip'
-import { STAFF_SECTION, StatCardsSkeleton, STAT_CARD, STAT_CONTEXT, STAT_ICON, STAT_LABEL, STAT_PILL_ROW, STAT_VALUE } from './StaffSkeleton'
+import { STAFF_SECTION, StatCardsSkeleton, STAT_CARD, STAT_CONTEXT, STAT_LABEL, STAT_PILL_ROW, STAT_VALUE, statIcon, type StatTone } from './StaffSkeleton'
 
 /** This month's three headline figures, from one request. */
 export function StatCards() {
@@ -31,10 +31,10 @@ function Cards({ summary }: { summary: StaffSummary }) {
   const since = `Since ${formatDay(summary.periodStart)}`
   return (
     <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <Card index={0} icon={ArIcon} label="AR Fitting Sessions" value={summary.arSessions} context="No. of users who tried AR Fitting" change={summary.arChange} />
-      <Card index={1} icon={BanknoteIcon} label="Sales this month" value={summary.salesTotal} context={since} change={summary.salesChange} peso />
-      <Card index={2} icon={BoxIcon} label="Orders this month" value={summary.orderCount} context={`Placed since ${formatDay(summary.periodStart)}`} change={summary.ordersChange} />
-      <Card index={3} icon={CartArrowIcon} label="Products sold" value={summary.unitsSold} context={`Units since ${formatDay(summary.periodStart)}`} aov={summary.orderCount > 0 ? summary.aov : null} />
+      <Card index={0} icon={ArIcon} tone="info" label="AR Fitting Sessions" value={summary.arSessions} context="No. of users who tried AR Fitting" change={summary.arChange} />
+      <Card index={1} icon={BanknoteIcon} tone="success" label="Sales this month" value={summary.salesTotal} context={since} change={summary.salesChange} peso />
+      <Card index={2} icon={BoxIcon} tone="violet" label="Orders this month" value={summary.orderCount} context={`Placed since ${formatDay(summary.periodStart)}`} change={summary.ordersChange} />
+      <Card index={3} icon={CartArrowIcon} tone="teal" label="Products sold" value={summary.unitsSold} context={`Units since ${formatDay(summary.periodStart)}`} aov={summary.orderCount > 0 ? summary.aov : null} />
     </dl>
   )
 }
@@ -50,9 +50,10 @@ interface CardProps {
   /** Average order value, shown instead of a change on the card that carries it. */
   aov?: number | null
   peso?: boolean
+  tone?: StatTone
 }
 
-function Card({ index, icon: Icon, label, value, context, change = null, aov = null, peso = false }: CardProps) {
+function Card({ index, icon: Icon, label, value, context, change = null, aov = null, peso = false, tone }: CardProps) {
   const { ref, fade } = useReveal<HTMLDivElement>(index)
   const shown = useCountUp(value, staggerDelay(index))
   const text = (n: number) => (peso ? formatPesoWhole(n) : n.toLocaleString('en-PH'))
@@ -66,7 +67,7 @@ function Card({ index, icon: Icon, label, value, context, change = null, aov = n
         <span className="sr-only">{text(value)}</span>
       </dd>
       <dd className={STAT_CONTEXT}>{context}</dd>
-      <span aria-hidden="true" className={STAT_ICON}>
+      <span aria-hidden="true" className={statIcon(tone)}>
         <Icon size={20} />
       </span>
       <div className={STAT_PILL_ROW}>

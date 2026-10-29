@@ -21,6 +21,7 @@ import {
 } from '../form/icons'
 import { EmptyNote, SectionBody, StaffSection } from '../staff/StaffSection'
 import { Select } from '../ui/Select'
+import { ViewAllLink } from '../staff/ViewAllLink'
 
 type Icon = ComponentType<{ size?: 16 | 20; className?: string }>
 
@@ -74,14 +75,14 @@ function when(iso: string, now = new Date()) {
   return `${label}, ${clock(at)}`
 }
 
-// One fixed height for loading, empty and loaded, so the tile never shifts and the order log under it has a known height to fill.
-const WINDOW = 'h-56'
+// One fixed height for loading, empty and loaded, so the tile never shifts. On the dashboard it matches the order log's: the same fixed height below xl, half the column from xl.
+const DASHBOARD_WINDOW = 'h-80 xl:h-auto xl:min-h-0 xl:flex-1'
 const ROW = 'min-h-14 py-2'
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
-function LogSkeleton() {
+function LogSkeleton({ window }: { window: string }) {
   return (
-    <div role="status" aria-label="Loading activity logs" className={`${WINDOW} animate-pulse divide-y divide-line overflow-hidden`}>
+    <div role="status" aria-label="Loading activity logs" className={`${window} animate-pulse divide-y divide-line overflow-hidden`}>
       {[0, 1, 2, 3].map((n) => (
         <div key={n} className={`${ROW} flex items-center gap-3`}>
           <div className="size-8 shrink-0 rounded-xl bg-line" />
@@ -95,8 +96,9 @@ function LogSkeleton() {
   )
 }
 
-/** What admins, staff and customers did across accounts, orders, transactions and products, newest first. */
-export function ActivityLogs() {
+/** What admins, staff and customers did across accounts, orders, transactions and products, newest first. `full` is the page's own list: every entry, no fixed window and no link to itself. */
+export function ActivityLogs({ full = false }: { full?: boolean }) {
+  const WINDOW = full ? '' : DASHBOARD_WINDOW
   const section = useSection(getActivityLogs)
   const [filter, setFilter] = useState<Filter>('all')
   return (
@@ -105,12 +107,15 @@ export function ActivityLogs() {
       title="Activity Logs"
       description={section.state.status === 'success' ? count(section.state.data.length, filter, section.state.data) : 'Recent actions across the shop'}
       action={
-        <div className="h-9 w-36 shrink-0 pointer-coarse:h-11 max-md:h-11">
-          <Select label="Filter activity logs by category" value={filter} options={FILTERS} onChange={setFilter} className="h-full" />
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-36 shrink-0 pointer-coarse:h-11 max-md:h-11">
+            <Select label="Filter activity logs by category" value={filter} options={FILTERS} onChange={setFilter} className="h-full" />
+          </div>
+          {!full && <ViewAllLink to="/admin/activity-logs" what="activity logs" />}
         </div>
       }
     >
-      <SectionBody section={section} what="the activity logs" skeleton={<LogSkeleton />}>
+      <SectionBody section={section} what="the activity logs" skeleton={<LogSkeleton window={WINDOW} />}>
         {(logs) => {
           const shown = logs.filter((log) => filter === 'all' || log.category === filter)
           return shown.length === 0 ? (
