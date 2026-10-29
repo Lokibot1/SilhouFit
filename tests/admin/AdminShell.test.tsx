@@ -56,16 +56,17 @@ describe('admin navigation', () => {
 
   it('lists every staff page, then the admin tools under their own heading', () => {
     nav('admin')
-    // The headings are presentation only, so the list still reads as the seven pages.
+    // The headings are presentation only, so the list still reads as the eight pages.
     expect(within(screen.getByRole('list')).getAllByRole('listitem').map((li) => li.textContent?.replace('Soon', '').trim())).toEqual([
-      'Dashboard', 'Inventory', 'Measurements', 'Transactions', 'Online Orders', 'Profile', 'User Management',
+      'Dashboard', 'Inventory', 'Measurements', 'Transactions', 'Online Orders', 'Profile', 'User Management', 'Activity Logs',
     ])
     const order = [...document.querySelectorAll('li')].map((li) => li.textContent?.replace('Soon', '').trim())
     expect(order.indexOf('Operations')).toBe(0)
     expect(order.indexOf('Admin tools')).toBe(order.indexOf('User Management') - 1)
     expect(screen.getByRole('link', { name: 'Inventory' })).toHaveAttribute('href', '/admin/inventory')
     expect(screen.getByRole('link', { name: 'User Management' })).toHaveAttribute('href', '/admin/users')
-    expect(screen.getByRole('link', { name: /Online Orders/ })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('link', { name: 'Online Orders' })).toHaveAttribute('href', '/admin/online-orders')
+    expect(screen.getByRole('link', { name: 'Activity Logs' })).toHaveAttribute('href', '/admin/activity-logs')
   })
 
   it('has no headings in the staff list', () => {
@@ -78,7 +79,7 @@ describe('admin navigation', () => {
     nav('admin', true)
     expect(screen.queryByText('Operations')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'User Management' })).toHaveAttribute('href', '/admin/users')
-    expect(screen.getAllByRole('link')).toHaveLength(7)
+    expect(screen.getAllByRole('link')).toHaveLength(8)
     expect(document.querySelectorAll('li[aria-hidden="true"]')).toHaveLength(1)
   })
 })
@@ -115,7 +116,7 @@ describe('admin dashboard', () => {
     expect(hrefOf(/^Customers: \d+, open customer list$/)).toBe('/admin/users?tab=customers')
     expect(hrefOf(/^Staff: \d+, open staff list$/)).toBe('/admin/users?tab=staff')
     expect(hrefOf(/^Admins: \d+, open admin list$/)).toBe('/admin/users?tab=admins')
-    expect(hrefOf(/^Refunds: .*open transactions$/)).toBe('/admin/transactions')
+    expect(hrefOf(/^Refunds: .*open returned transactions$/)).toBe('/admin/transactions?status=returned')
     expect(hrefOf(/^AR-ready products: 8, /)).toBe('/admin/inventory?ar=yes')
     expect(hrefOf(/^Low or out of stock: 2, /)).toBe('/admin/inventory')
     expect(screen.getByText('sales widgets')).toBeInTheDocument()

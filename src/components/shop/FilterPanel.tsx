@@ -48,7 +48,7 @@ const PRICE_INPUT =
   'skeuo-well font-ui mt-1 min-h-11 w-full rounded-xl border border-line-strong bg-canvas px-3 text-base max-sm:text-sm text-fg tabular-nums'
 
 const TEXT_INPUT = PRICE_INPUT.replace(' tabular-nums', '')
-const PRICE_FIELD = `${PRICE_INPUT} text-right`
+const PRICE_FIELD = `${PRICE_INPUT} text-right placeholder:text-fg-muted`
 
 export function FilterPanel({ open, onClose, filters, category, categories, onApply }: FilterPanelProps) {
   const [draft, setDraft] = useState(() => toDraft(filters, category))
@@ -111,7 +111,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
                 type="button"
                 aria-pressed={draft.category === c}
                 onClick={() => setDraft({ ...draft, category: c })}
-                className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! gap-1.5 px-3 text-xs`}
+                className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! min-w-11 gap-1.5 px-3 text-xs`}
               >
                 {c === 'all' ? 'All' : c}
               </button>

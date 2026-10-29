@@ -101,7 +101,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
           onClick={() => onToggleSaved(product)}
           aria-pressed={saved}
           aria-label={`Save ${name} to wishlist`}
-          className="absolute top-0 right-0 flex size-11 max-sm:size-9 items-center justify-center text-fg"
+          className="absolute top-0 right-0 flex size-11 items-center justify-center text-fg"
         >
           <span className="flex size-8 max-sm:size-7 items-center justify-center rounded-full bg-canvas">
             <HeartIcon filled={saved} />

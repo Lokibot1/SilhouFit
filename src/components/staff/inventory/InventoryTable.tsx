@@ -39,11 +39,11 @@ export function InventoryTable({ sorted, onSort, rows, skeletonRows, stale, onOp
           </th>
           <SortHeader label="Price" column="price" active={sorted} onSort={onSort} />
           <SortHeader label="Added" column="date" active={sorted} onSort={onSort} />
-          <th scope="col" className={`${TH} text-center!`}>
+          <th scope="col" className={TH}>
             Stock
           </th>
           {showAlerts && (
-            <th scope="col" className={`${TH} text-center!`}>
+            <th scope="col" className={TH}>
               Stock alert
             </th>
           )}
@@ -106,12 +106,12 @@ export function InventoryTable({ sorted, onSort, rows, skeletonRows, stale, onOp
                 <td className={`${TD} text-sm whitespace-nowrap text-fg-muted`}>
                   <AddedDate iso={product.createdAt} />
                 </td>
-                <td className={`${TD} text-center text-sm text-fg tabular-nums`}>
+                <td className={`${TD} text-sm text-fg tabular-nums`}>
                   <StockCount product={product} />
                 </td>
                 {showAlerts && (
                   <td className={TD}>
-                    <div className="flex flex-col items-center gap-0.5">
+                    <div className="flex flex-col items-start gap-0.5">
                       <StockAlerts product={product} />
                     </div>
                   </td>

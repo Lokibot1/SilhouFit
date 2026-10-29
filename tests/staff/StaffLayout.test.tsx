@@ -103,7 +103,7 @@ describe('StaffLayout', () => {
       expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
       expect(screen.getByRole('link', { name: 'Inventory' })).toHaveAttribute('href', '/staff/inventory')
       expect(screen.getByRole('link', { name: 'Transactions' })).toHaveAttribute('href', '/staff/transactions')
-      expect(screen.getByRole('link', { name: /Online Orders/ })).toHaveAttribute('aria-disabled', 'true')
+      expect(screen.getByRole('link', { name: 'Online Orders' })).toHaveAttribute('href', '/staff/online-orders')
     })
 
     it('marks the page as the staff area while mounted, and clears it on leaving', async () => {
