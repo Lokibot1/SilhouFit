@@ -67,3 +67,15 @@ describe('ProductCard cart buttons', () => {
     expect(screen.getByRole('img', { name: blazer.alt }).parentElement).not.toContainElement(warning)
   })
 })
+
+describe('ProductCard colours from the list', () => {
+  it('names each colour once, as the list sends them', () => {
+    setup({ ...blazer, colors: [{ name: 'Navy', hex: '#1b2a49' }, { name: 'Sand', hex: '#d8c3a5' }] })
+    expect(screen.getByText('Available in Navy, Sand')).toBeInTheDocument()
+  })
+
+  it('shows no colour row when the list sends none', () => {
+    setup({ ...blazer, colors: [] })
+    expect(screen.queryByText(/^Available in/)).not.toBeInTheDocument()
+  })
+})

@@ -9,20 +9,18 @@ import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import type { Product } from '../../src/data/products'
 import { invalidateShopColours } from '../../src/hooks/useShopColours'
 import { clearProductCache } from '../../src/hooks/useProducts'
-import { fetchProductList, ProductListError, type PaginatedProducts } from '../../src/service/fetchProductList'
+import { fetchProductFilters } from '../../src/service/fetchProductFilters'
+import { ProductListError } from '../../src/service/fetchProductList'
 import { fetchShopProduct, fetchShopProducts } from '../../src/service/fetchShopProducts'
 import { clearSession } from '../../src/service/session'
 import { ShopPage } from '../../src/views/public/ShopPage'
 
 // The shop on the products API: the server filters and pages, so the page only asks and shows.
 vi.mock('../../src/service/fetchShopProducts', () => ({ fetchShopProducts: vi.fn(), fetchShopProduct: vi.fn() }))
-vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../src/service/fetchProductList')>()),
-  fetchProductList: vi.fn(),
-}))
+vi.mock('../../src/service/fetchProductFilters', () => ({ fetchProductFilters: vi.fn() }))
 const shop = vi.mocked(fetchShopProducts)
 const detail = vi.mocked(fetchShopProduct)
-const list = vi.mocked(fetchProductList)
+const filters = vi.mocked(fetchProductFilters)
 const lastParams = () => shop.mock.calls.at(-1)![0]
 
 const variant = (id: string, color: string, colorHex: string | null, size: string, price: number, stock: number) => ({
@@ -52,10 +50,14 @@ const piece = (n: number, overrides: Partial<Product> = {}): Product => ({
 })
 
 const answer = (products: Product[], total = products.length) => ({ products, total, page: 1, pageCount: Math.max(1, Math.ceil(total / 12)) })
-const apiPage = (ids: string[]): PaginatedProducts => ({
-  data: ids.map((id) => ({ id, name: id, slug: id, category: 'Hoodie', brand: null, minPrice: 1, maxPrice: 1, totalStock: 1, primaryImage: null, createdAt: '' })),
-  meta: { total: ids.length, page: 1, limit: 100, totalPages: 1, hasNextPage: false, hasPreviousPage: false },
-})
+const facets = {
+  categories: ['Hoodie'],
+  brands: ['Ayala Atelier'],
+  sizes: ['L', 'M', 'S', 'XS'],
+  colors: [{ name: 'Black', hex: '#111111' }, { name: 'Navy', hex: '#1b2a49' }, { name: 'Sand', hex: '#d8c3a5' }],
+  minPrice: 1200,
+  maxPrice: 2600,
+}
 
 beforeAll(() => {
   configure({ asyncUtilTimeout: 5000 })
@@ -73,7 +75,7 @@ beforeEach(() => {
   localStorage.clear()
   act(() => clearSession())
   shop.mockResolvedValue(answer([piece(1), piece(2), piece(3)]))
-  list.mockResolvedValue(apiPage(['a', 'b']))
+  filters.mockResolvedValue(facets)
   detail.mockImplementation(async (id) => piece(Number(id.slice(-1)) || 1))
 })
 afterEach(() => {
@@ -274,13 +276,8 @@ describe('ShopPage filter dialog', () => {
     expect(urlSearch()).toBe('')
   })
 
-  it('lists the colours of the real products once each, with a swatch, and sends the chosen one', async () => {
+  it('lists the colours from the filters once each, with a swatch, and sends the chosen one', async () => {
     const user = userEvent.setup()
-    detail.mockImplementation(async (id) =>
-      id === 'a'
-        ? piece(1, { variants: [variant('x1', 'Black', '#111111', 'S', 1, 1), variant('x2', 'Navy', null, 'M', 1, 1)] })
-        : piece(2, { variants: [variant('x3', 'black', null, 'S', 1, 1), variant('x4', 'Navy', '#1b2a49', 'S', 1, 1), variant('x5', 'Sand', '#d8c3a5', 'S', 1, 1)] }),
-    )
     renderPage()
     await loaded()
     const dialog = await openFilters(user)
@@ -288,7 +285,8 @@ describe('ShopPage filter dialog', () => {
     const colourNames = ['Black', 'Navy', 'Sand']
     const names = within(dialog).getAllByRole('button').map((b) => b.textContent ?? '')
     expect(names.filter((n) => colourNames.includes(n))).toEqual(colourNames)
-    expect(within(dialog).getAllByRole('button', { name: /^(Black|black)$/ })).toHaveLength(1)
+    expect(within(dialog).getAllByRole('button', { name: 'Black' })).toHaveLength(1)
+    expect(within(dialog).getByRole('button', { name: 'Navy' }).firstElementChild).toHaveStyle({ backgroundColor: '#1b2a49' })
 
     await user.click(within(dialog).getByRole('button', { name: 'Navy' }))
     await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
@@ -296,9 +294,9 @@ describe('ShopPage filter dialog', () => {
     await waitFor(() => expect(lastParams()).toMatchObject({ color: 'Navy' }))
   })
 
-  it('hides the Colour section when no product has a colour, or the colours cannot be read', async () => {
+  it('hides the Colour section when there are no colours, or the filters cannot be read, and Apply still works', async () => {
     const user = userEvent.setup()
-    detail.mockImplementation(async () => piece(1, { variants: [] }))
+    filters.mockResolvedValue({ ...facets, colors: [] })
     const first = renderPage()
     await loaded()
     let dialog = await openFilters(user)
@@ -307,13 +305,31 @@ describe('ShopPage filter dialog', () => {
     first.unmount()
 
     invalidateShopColours()
-    list.mockRejectedValue(new ProductListError('network'))
+    filters.mockRejectedValue(new ProductListError('network'))
     renderPage()
     await loaded()
     dialog = await openFilters(user)
     await waitFor(() => expect(within(dialog).queryByTestId('colour-skeleton')).toBeNull())
     expect(within(dialog).queryByText('Colour')).toBeNull()
+    // Without the facets the usual sizes and the plain price hints stay.
+    expect(within(dialog).getByRole('button', { name: 'XXL' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('textbox', { name: 'Maximum' })).toHaveAttribute('placeholder', 'Any')
     expect(within(dialog).getByRole('button', { name: 'Apply' })).toBeEnabled()
+  })
+
+  it('offers the sizes in order, the brands as suggestions and the price range as hints, from the same one request', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await loaded()
+    const dialog = await openFilters(user)
+    await within(dialog).findByRole('button', { name: 'Sand' })
+    const sizes = ['XS', 'S', 'M', 'L'].map((name) => within(dialog).getByRole('button', { name }))
+    expect(sizes.every((chip, i) => i === 0 || sizes[i - 1].compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(within(dialog).queryByRole('button', { name: 'XXL' })).toBeNull()
+    expect(dialog.querySelector('datalist#shop-brand-options option')).toHaveValue('Ayala Atelier')
+    expect(within(dialog).getByRole('textbox', { name: 'Minimum' })).toHaveAttribute('placeholder', '1200')
+    expect(within(dialog).getByRole('textbox', { name: 'Maximum' })).toHaveAttribute('placeholder', '2600')
+    expect(filters).toHaveBeenCalledTimes(1)
   })
 
   it('drops a URL colour that no product has when the filters are applied', async () => {

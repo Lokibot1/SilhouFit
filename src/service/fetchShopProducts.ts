@@ -12,10 +12,13 @@ export interface ShopApiPage {
 const priceRange = (min: number, max: number) => ({ price: min, ...(max > min && { priceMax: max }) })
 
 /**
- * A list item as a shop product. The API sends no sale price, colours, badges, channels, ratings or boutique details, so those stay
- * empty (the UI hides them) and `brand` stands in for the boutique. Stock is the API's `totalStock`; colours and sizes come with the detail.
+ * A list item as a shop product. The API sends no sale price, badges, channels, ratings or boutique details, so those stay
+ * empty (the UI hides them) and `brand` stands in for the boutique. Stock is the API's `totalStock`; colours come with the list item
+ * (one per name, the first swatch wins) and sizes with the detail.
  */
 function toShopProduct(item: ProductListItem): Product {
+  const colors = new Map<string, { name: string; hex: string }>()
+  for (const colour of item.colors ?? []) if (!colors.has(colour.name.toLowerCase())) colors.set(colour.name.toLowerCase(), colour)
   return {
     id: item.id,
     slug: item.slug,
@@ -25,7 +28,7 @@ function toShopProduct(item: ProductListItem): Product {
     ...priceRange(item.minPrice, item.maxPrice),
     image: item.primaryImage?.url ?? '',
     alt: item.primaryImage?.altText ?? item.name,
-    colors: [],
+    colors: [...colors.values()],
     badges: [],
     stock: item.totalStock,
     channels: [],
@@ -64,7 +67,7 @@ export async function fetchShopProducts(params: ProductListParams, options: Requ
   return { products: data.map(toShopProduct), total: meta.total, page: meta.page, pageCount: Math.max(1, meta.totalPages) }
 }
 
-/** One product in full, by slug or id. The API also answers for archived products, which the shop treats as not found. */
+/** One product in full, by slug or id. The API answers a guest 404 for archived products already; a staff member's token still gets them, which the shop treats as not found. */
 export async function fetchShopProduct(idOrSlug: string, options: RequestOptions = {}): Promise<Product> {
   const full = await fetchProductFull(idOrSlug, options)
   if (full.item.isActive === false) throw new ProductListError('not-found')

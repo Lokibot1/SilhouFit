@@ -7,6 +7,23 @@ export type Availability = 'store' | 'online' | 'low'
 /** Sizes offered as one-tap choices in filters; any other size can be typed where the screen allows. */
 export const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 
+/** Sizes for display: XS to XXL first, then numbers ascending, then the rest alphabetically, and "One size" last. */
+export function orderSizes(sizes: readonly string[]): string[] {
+  const rank = (size: string) => {
+    const lower = size.toLowerCase()
+    if (lower === 'one size') return [3, 0]
+    const common = COMMON_SIZES.findIndex((s) => s.toLowerCase() === lower)
+    if (common >= 0) return [0, common]
+    const number = Number(size)
+    return size.trim() !== '' && Number.isFinite(number) ? [1, number] : [2, 0]
+  }
+  return [...sizes].sort((a, b) => {
+    const [groupA, valueA] = rank(a)
+    const [groupB, valueB] = rank(b)
+    return groupA - groupB || valueA - valueB || a.localeCompare(b)
+  })
+}
+
 export interface ProductFilters {
   /** Bounds on a variant's price. */
   minPrice?: number

@@ -4,7 +4,7 @@ import { mockAuth } from '../shared/session'
 import { DEVICE_MATRIX } from '../shared/viewports'
 
 // The shop on GET /products, answered by the in-memory mockProducts with seedCatalogue(): four active pieces (Linen Shirt, Wool Trousers,
-// Cotton Tee, Linen Vest, which is sold out) and one archived one (Archived Cardigan) that only its detail answers for.
+// Cotton Tee, Linen Vest, which is sold out) and one archived one (Archived Cardigan) that only staff can read.
 // Colours across them are Black, Navy and Sand; prices run from 1,200 to 2,600.
 
 const WIDTHS = [320, 640, 768, 1024, 1280, 1920]
@@ -268,21 +268,25 @@ test.describe('filters', () => {
   test('the dialog has Brand, Gender, Size, Price, the derived colours, Availability and the AR toggle', async ({ page }) => {
     await openShop(page)
     const dialog = await openFilters(page)
-    await expect(dialog.getByRole('textbox', { name: 'Brand' })).toBeVisible()
+    await expect(dialog.getByRole('combobox', { name: 'Brand' })).toBeVisible()
     for (const name of ['Men', 'Women', 'Unisex', 'Other']) await expect(dialog.getByRole('button', { name, exact: true })).toBeVisible()
-    for (const size of ['XS', 'S', 'M', 'L', 'XL', 'XXL']) await expect(dialog.getByRole('button', { name: size, exact: true })).toBeVisible()
+    // Once the filters arrive the sizes are the ones the pieces have, in order (letters, then numbers), not the usual XS to XXL.
+    for (const size of ['S', 'M', '30']) await expect(dialog.getByRole('button', { name: size, exact: true })).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'XXL', exact: true })).toHaveCount(0)
     await expect(dialog.getByRole('textbox', { name: 'Minimum' })).toBeVisible()
     for (const name of [/In store/, /Online/, /Low stock/, /AR-ready/]) await expect(dialog.getByRole('checkbox', { name })).toBeVisible()
   })
 
-  test('offers exactly the colours the active products have, once each, and not those of the archived one', async ({ page }) => {
+  test('offers the colours from /products/filters once each, with one request and no per-product detail calls', async ({ page }) => {
     await openShop(page)
     const dialog = await openFilters(page)
     const colours = ['Black', 'Navy', 'Sand']
     for (const name of colours) await expect(dialog.getByRole('button', { name, exact: true })).toHaveCount(1)
-    await expect(dialog.getByRole('button', { name: 'Navy', exact: true })).toBeVisible()
-    // Archived Cardigan is Black only, so nothing new could come from it; a colour it alone had would be absent.
+    // Cotton Tee spells it "navy", but the colour is listed once.
     await expect(dialog.getByRole('button', { name: /^navy$/ })).toHaveCount(0)
+    expect(api.of('GET', 'filters')).toHaveLength(1)
+    expect(api.of('GET', 'product')).toHaveLength(0)
+    expect(api.of('GET', 'slug')).toHaveLength(0)
   })
 
   test('a colour is sent to the API as it is spelled, and finds the pieces that have it (case-insensitive)', async ({ page }) => {
@@ -307,7 +311,7 @@ test.describe('filters', () => {
   test('brand, gender, size and price reach the API under its keys, show chips, and Clear all removes them', async ({ page }) => {
     await openShop(page)
     const dialog = await openFilters(page)
-    await dialog.getByRole('textbox', { name: 'Brand' }).fill('Atelier Manila')
+    await dialog.getByRole('combobox', { name: 'Brand' }).fill('Atelier Manila')
     await dialog.getByRole('button', { name: 'M', exact: true }).click()
     await dialog.getByRole('textbox', { name: 'Minimum' }).fill('1000')
     await dialog.getByRole('textbox', { name: 'Maximum' }).fill('2000')
@@ -441,7 +445,7 @@ test.describe('the product page', () => {
     expect(await overflows(page)).toBe(false)
   })
 
-  test('an archived piece is not found, though the API answers for it', async ({ page }) => {
+  test('an archived piece is not found for a guest, as the API answers 404', async ({ page }) => {
     await page.goto(`/shop/${api.rows[4].slug}`)
     await expect(page.getByRole('heading', { name: 'This piece is no longer in the catalogue' })).toBeVisible({ timeout: 15000 })
     await expect(page).toHaveTitle('Piece not found — SilhouFit')

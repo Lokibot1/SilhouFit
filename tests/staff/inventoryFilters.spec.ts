@@ -95,7 +95,9 @@ const CHIPS = [
       const dialog = await openPanel(page)
       await expect(dialog.getByLabel('Brand (optional)')).toBeVisible()
       await expect(dialog.getByLabel('Another size')).toBeVisible()
-      for (const size of ['XS', 'S', 'M', 'L', 'XL', 'XXL']) await expect(dialog.getByRole('button', { name: size, exact: true })).toBeVisible()
+      // The chips become the sizes the products have (here M and L) once the filters arrive.
+      await expect(dialog.getByRole('button', { name: 'XXL', exact: true })).toHaveCount(0)
+      for (const size of ['M', 'L']) await expect(dialog.getByRole('button', { name: size, exact: true })).toBeVisible()
       await expect(dialog.getByLabel('Colour (optional)')).toBeVisible()
       await expect(dialog.getByRole('textbox', { name: 'Minimum' })).toBeVisible()
       await expect(dialog.getByRole('textbox', { name: 'Maximum' })).toBeVisible()
@@ -142,7 +144,7 @@ const CHIPS = [
     })
 
     test('size chips toggle, stay in step with the typed size, and the price boxes take digits and two decimals only', async ({ page }) => {
-      await start(page)
+      await start(page, { products: [product({ name: 'Linen Shirt', variants: [variant({ size: 'M' }), variant({ size: 'XL' })] })] })
       const dialog = await openPanel(page)
       const m = dialog.getByRole('button', { name: 'M', exact: true })
       await expect(m).toHaveAttribute('aria-pressed', 'false')

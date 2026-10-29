@@ -102,8 +102,8 @@ export const product = (overrides: Partial<MockProduct> = {}): MockProduct => {
 
 export interface ProductCall {
   method: string
-  /** list: /products, product: /products/:id, slug: /products/slug/:slug, variants: /products/:id/variants, variant: /products/:id/variants/:variantId. */
-  kind: 'list' | 'product' | 'slug' | 'variants' | 'variant'
+  /** list: /products, filters: /products/filters, product: /products/:id, slug: /products/slug/:slug, variants: /products/:id/variants, variant: /products/:id/variants/:variantId. */
+  kind: 'list' | 'filters' | 'product' | 'slug' | 'variants' | 'variant'
   /** For a slug lookup, the slug. */
   productId: string | null
   variantId: string | null
@@ -127,6 +127,13 @@ const priceRange = (p: MockProduct) => {
 }
 
 const listItem = (p: MockProduct) => {
+  const seen = new Set<string>()
+  const colors = p.variants.flatMap((v) => {
+    const key = `${v.color}|${v.colorHex}`
+    if (!v.color || !v.colorHex || seen.has(key)) return []
+    seen.add(key)
+    return [{ name: v.color, hex: v.colorHex }]
+  })
   const main = p.images.find((i) => i.isPrimary) ?? p.images[0]
   return {
     id: p.id,
@@ -139,15 +146,39 @@ const listItem = (p: MockProduct) => {
     primaryImage: main ? { url: main.url, altText: main.altText } : null,
     createdAt: p.createdAt,
     isActive: p.isActive,
+    colors,
+    sizes: [...new Set(p.variants.flatMap((v) => (v.size ? [v.size] : [])))],
+    variantCount: p.variants.length,
+    outOfStockVariants: p.variants.filter((v) => v.stock <= 0).length,
+  }
+}
+
+/** GET /products/filters as the API answers it: active products only, sizes alphabetical, colours by name, 0 and 0 prices when empty. */
+function filtersBody(rows: MockProduct[]) {
+  const active = rows.filter((p) => p.isActive)
+  const variants = active.flatMap((p) => p.variants)
+  const prices = variants.map((v) => v.price)
+  const colours = new Map<string, { name: string; hex: string }>()
+  for (const v of variants) if (v.color && v.colorHex) colours.set(`${v.color}|${v.colorHex}`, { name: v.color, hex: v.colorHex })
+  const sorted = (values: string[]) => [...new Set(values)].sort((a, b) => a.localeCompare(b))
+  return {
+    categories: sorted(active.map((p) => p.category)),
+    brands: sorted(active.flatMap((p) => (p.brand ? [p.brand] : []))),
+    sizes: sorted(variants.flatMap((v) => (v.size ? [v.size] : []))),
+    colors: [...colours.values()].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
+    minPrice: prices.length ? Math.min(...prices) : 0,
+    maxPrice: prices.length ? Math.max(...prices) : 0,
   }
 }
 
 const detail = (p: MockProduct) => ({ ...p, ...priceRange(p) })
 
-const LIST_KEYS = ['search', 'category', 'gender', 'brand', 'size', 'color', 'minPrice', 'maxPrice', 'page', 'inStockOnly', 'sortBy', 'sortOrder', 'limit']
+const LIST_KEYS = ['search', 'category', 'gender', 'brand', 'size', 'color', 'minPrice', 'maxPrice', 'page', 'inStockOnly', 'sortBy', 'sortOrder', 'limit', 'status']
 
-/** GET /products as the API answers it: active products only, one value per size and colour, and size, colour, price and stock must all hold for the same variant. */
-function listPage(rows: MockProduct[], params: URLSearchParams) {
+/** GET /products as the API answers it: active products unless a staff member asks for `status`, one value per size and colour, and size, colour, price and stock must all hold for the same variant. */
+function listPage(rows: MockProduct[], params: URLSearchParams, staff: boolean) {
+  const status = params.get('status') ?? 'active'
+  if (status !== 'active' && !staff) return { status: 403, json: { message: 'Only staff members can view archived products' } }
   const text = (key: string) => params.get(key)?.toLowerCase()
   const num = (key: string) => (params.has(key) ? Number(params.get(key)) : undefined)
   const search = text('search')
@@ -161,7 +192,7 @@ function listPage(rows: MockProduct[], params: URLSearchParams) {
     (!inStock || v.stock > 0)
   const needsVariant = ['size', 'color', 'minPrice', 'maxPrice', 'inStockOnly'].some((key) => params.has(key))
   const matched = rows
-    .filter((p) => p.isActive)
+    .filter((p) => status === 'all' || p.isActive === (status === 'active'))
     .filter((p) => !search || [p.name, p.brand ?? '', p.category].some((t) => t.toLowerCase().includes(search)))
     .filter((p) => !text('category') || p.category.toLowerCase() === text('category'))
     .filter((p) => !text('brand') || p.brand?.toLowerCase() === text('brand'))
@@ -174,18 +205,22 @@ function listPage(rows: MockProduct[], params: URLSearchParams) {
   const pageNo = Number(params.get('page')) || 1
   const totalPages = Math.ceil(matched.length / limit)
   return {
-    data: matched.slice((pageNo - 1) * limit, pageNo * limit).map(listItem),
-    meta: { total: matched.length, page: pageNo, limit, totalPages, hasNextPage: pageNo < totalPages, hasPreviousPage: pageNo > 1 },
+    status: 200,
+    json: {
+      data: matched.slice((pageNo - 1) * limit, pageNo * limit).map(listItem),
+      meta: { total: matched.length, page: pageNo, limit, totalPages, hasNextPage: pageNo < totalPages, hasPreviousPage: pageNo > 1 },
+    },
   }
 }
 
 /**
  * Stands in for the products API (GET /products, GET/PATCH/DELETE /products/:id, and the variant routes) with an in-memory
- * catalogue that follows the API's rules: the list is active products only; a variant needs a size, colour or name, a price,
+ * catalogue that follows the API's rules: the list is active products only unless `staff` is set and `status` asks for more (anyone
+ * else gets 403), and an archived product's detail is 404 for non-staff; a variant needs a size, colour or name, a price,
  * and a colorHex with a colour; a SKU is unique across all products (409 `SKU "X" is already in use`); PATCH replaces `images`
  * whole when sent; DELETE answers `{ success: true }`. Register it after mockAuth.
  */
-export async function mockProducts(page: Page, initial: MockProduct[] = []): Promise<ProductsMock> {
+export async function mockProducts(page: Page, initial: MockProduct[] = [], { staff = false }: { staff?: boolean } = {}): Promise<ProductsMock> {
   const mock: ProductsMock = {
     rows: initial.map((p) => structuredClone(p)),
     calls: [],
@@ -202,23 +237,26 @@ export async function mockProducts(page: Page, initial: MockProduct[] = []): Pro
     const [, , productId = null, section = null, variantId = null] = url.pathname.split('/')
     const body = (['POST', 'PATCH'].includes(method) ? request.postDataJSON() : null) as Record<string, unknown> | null
     const isSlug = productId === 'slug' && section !== null
-    const kind = isSlug ? 'slug' : !productId ? 'list' : !section ? 'product' : variantId ? 'variant' : 'variants'
+    const kind = isSlug ? 'slug' : productId === 'filters' && !section ? 'filters' : !productId ? 'list' : !section ? 'product' : variantId ? 'variant' : 'variants'
     mock.calls.push({ method, kind, productId: isSlug ? section : productId, variantId, body, query: Object.fromEntries(url.searchParams) })
     const reply = (status: number, json: unknown) => route.fulfill({ status, json, headers: CORS })
 
     if (isSlug) {
-      // Public, and answers for archived products too.
-      const bySlug = mock.rows.find((p) => p.slug === section)
+      // Public, but an archived product is 404 for anyone who is not staff.
+      const bySlug = mock.rows.find((p) => p.slug === section && (p.isActive || staff))
       return bySlug ? reply(200, detail(bySlug)) : reply(404, { message: 'Product not found' })
     }
 
     if (!productId) {
       const bad = [...url.searchParams.keys()].find((key) => !LIST_KEYS.includes(key))
       if (bad) return reply(400, { message: [`property ${bad} should not exist`] })
-      return reply(200, listPage(mock.rows, url.searchParams))
+      const answer = listPage(mock.rows, url.searchParams, staff)
+      return reply(answer.status, answer.json)
     }
 
-    const row = mock.rows.find((p) => p.id === productId)
+    if (kind === 'filters') return reply(200, filtersBody(mock.rows))
+
+    const row = mock.rows.find((p) => p.id === productId && (p.isActive || staff || method !== 'GET'))
     if (!row) return reply(404, { message: 'Product not found' })
 
     if (!section) {
@@ -364,7 +402,7 @@ export async function setupInventory(page: Page, products: MockProduct[]) {
   await mockAuth(page)
   await mockStaffMe(page)
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
-  return mockProducts(page, products)
+  return mockProducts(page, products, { staff: true })
 }
 
 const SEED = (n: number) => `00000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}`
@@ -377,7 +415,7 @@ const SAND = { color: 'Sand', colorHex: '#d8c3a5' }
 
 /**
  * A small catalogue that is the same on every run, for the shop and the product page. Newest first it is: Linen Shirt and Cotton Tee
- * (Hoodie), Wool Trousers (Pants), Linen Vest (Hoodie, sold out) and Archived Cardigan (Hoodie, archived: only its detail answers).
+ * (Hoodie), Wool Trousers (Pants), Linen Vest (Hoodie, sold out) and Archived Cardigan (Hoodie, archived: only staff can read it).
  * Colours across the active products are Black, Navy and Sand, with Navy spelled "navy" on the tee to prove they count once.
  * Prices run from 1,200 to 2,600. Nothing in it has a sale price, rating, badge or AR flag, as the API has none.
  */

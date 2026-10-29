@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fetchProductFilters } from '../../src/service/fetchProductFilters'
 import { fetchProductDetail, fetchProductList, ProductListError, UUID } from '../../src/service/fetchProductList'
 
 vi.mock('../../src/service/supabase', () => ({
@@ -157,5 +158,105 @@ describe('UUID', () => {
   it('matches only a full product id', () => {
     expect(UUID.test('0b9c6f5e-1a2b-4c3d-8e9f-0123456789ab')).toBe(true)
     expect(UUID.test('0b9c6f5e')).toBe(false)
+  })
+})
+
+describe('list item stock, colours and sizes', () => {
+  const META = { total: 1, page: 1, limit: 25, totalPages: 1, hasNextPage: false, hasPreviousPage: false }
+  const first = async (extra: Record<string, unknown>) => {
+    reply({ data: [{ ...ITEM, ...extra }], meta: META })
+    return (await fetchProductList({})).data[0]
+  }
+
+  it('reads the counts, colours and sizes the list sends', async () => {
+    const item = await first({
+      outOfStockVariants: 2,
+      variantCount: 5,
+      colors: [{ name: 'Navy', hex: '#1b2a49' }, { name: 'Navy', hex: '#000080' }],
+      sizes: ['M', 'S'],
+    })
+    expect(item).toMatchObject({ outOfStockVariants: 2, variantCount: 5, sizes: ['M', 'S'] })
+    expect(item.colors).toEqual([{ name: 'Navy', hex: '#1b2a49' }, { name: 'Navy', hex: '#000080' }])
+  })
+
+  it('leaves them absent when the API sends none', async () => {
+    const item = await first({})
+    for (const key of ['outOfStockVariants', 'variantCount', 'colors', 'sizes']) expect(item).not.toHaveProperty(key)
+  })
+
+  it('drops malformed values instead of failing', async () => {
+    const item = await first({
+      outOfStockVariants: '2',
+      variantCount: NaN,
+      colors: [{ name: '', hex: '#fff' }, { name: 'Black' }, { name: 'Sand', hex: 7 }, null, 'Navy', { name: 'Ok', hex: '#111111' }],
+      sizes: ['S', '', 4, null, 'M'],
+    })
+    expect(item).not.toHaveProperty('outOfStockVariants')
+    expect(item).not.toHaveProperty('variantCount')
+    expect(item.colors).toEqual([{ name: 'Ok', hex: '#111111' }])
+    expect(item.sizes).toEqual(['S', 'M'])
+    expect(await first({ colors: 'Navy', sizes: {} })).not.toHaveProperty('colors')
+  })
+})
+
+describe('status', () => {
+  const EMPTY = { data: [], meta: { total: 0, page: 1, limit: 25, totalPages: 0, hasNextPage: false, hasPreviousPage: false } }
+
+  it.each(['active', 'archived', 'all'] as const)('is sent as %s', async (status) => {
+    reply(EMPTY)
+    await fetchProductList({ status })
+    expect(requested().searchParams.get('status')).toBe(status)
+  })
+
+  it('is left out when absent or not one of those', async () => {
+    reply(EMPTY)
+    await fetchProductList({ page: 1 })
+    expect(requested().searchParams.has('status')).toBe(false)
+    fetchMock.mockReset()
+    reply(EMPTY)
+    await fetchProductList({ status: 'deleted' as never })
+    expect(requested().searchParams.has('status')).toBe(false)
+  })
+
+  it('reports a 403 (not staff) as forbidden', async () => {
+    reply({ message: 'Only staff members can view archived products' }, 403)
+    const error = await fetchProductList({ status: 'archived' }).catch((e: unknown) => e)
+    expect(error).toMatchObject({ kind: 'forbidden', detail: 'Only staff members can view archived products' })
+  })
+})
+
+describe('fetchProductFilters', () => {
+  it('asks GET /products/filters and shapes the answer', async () => {
+    reply({
+      categories: ['Hoodie'],
+      brands: ['Nike', 7, ''],
+      sizes: ['L', 'S'],
+      colors: [{ name: 'Navy', hex: '#1b2a49' }, { name: 'navy', hex: '#000080' }, { name: 'Sand', hex: '' }, { name: 'Black' }, { hex: '#fff' }, null],
+      minPrice: 1200,
+      maxPrice: 2600,
+    })
+    const filters = await fetchProductFilters()
+    expect(requested().pathname).toBe('/products/filters')
+    expect(filters).toEqual({
+      categories: ['Hoodie'],
+      brands: ['Nike'],
+      sizes: ['L', 'S'],
+      colors: [{ name: 'Navy', hex: '#1b2a49' }, { name: 'Sand', hex: null }, { name: 'Black', hex: null }],
+      minPrice: 1200,
+      maxPrice: 2600,
+    })
+  })
+
+  it('turns missing lists into empty ones and non-finite prices into 0', async () => {
+    reply({ categories: 'x', colors: {}, minPrice: 'a', maxPrice: null })
+    expect(await fetchProductFilters()).toEqual({ categories: [], brands: [], sizes: [], colors: [], minPrice: 0, maxPrice: 0 })
+  })
+
+  it('fails as a server fault for a body that is not an object, and with the network kind when offline', async () => {
+    reply(null)
+    expect(await kindOf(fetchProductFilters())).toBe('server')
+    fetchMock.mockReset()
+    fetchMock.mockRejectedValue(new TypeError('offline'))
+    expect(await kindOf(fetchProductFilters())).toBe('network')
   })
 })

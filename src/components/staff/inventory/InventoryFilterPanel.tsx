@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { filterPriceInput } from '../../../utils/format'
-import { COMMON_SIZES } from '../../../utils/productQuery'
+import { useShopFacets } from '../../../hooks/useShopColours'
+import { COMMON_SIZES, orderSizes } from '../../../utils/productQuery'
 import { cleanFilterText, MAX_FILTER_TEXT, parsePrice, priceRangeInvalid, type InventoryQuery } from '../../../utils/inventoryQuery'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
@@ -38,6 +39,8 @@ export function InventoryFilterPanel({ open, onClose, query, onApply }: { open: 
     if (open) setDraft(toDraft(query))
   }
 
+  const facets = useShopFacets(open)
+  const sizes = facets?.sizes.length ? orderSizes(facets.sizes) : COMMON_SIZES
   const min = parsePrice(draft.min)
   const max = parsePrice(draft.max)
   const invalidRange = priceRangeInvalid({ minPrice: min, maxPrice: max })
@@ -79,9 +82,15 @@ export function InventoryFilterPanel({ open, onClose, query, onApply }: { open: 
             onChange={(event) => set({ brand: event.target.value })}
             maxLength={MAX_FILTER_TEXT}
             autoComplete="off"
+            list="filter-brand-options"
             aria-describedby="filter-brand-hint"
             className={FIELD_INPUT}
           />
+          <datalist id="filter-brand-options">
+            {facets?.brands.map((brand) => (
+              <option key={brand} value={brand} />
+            ))}
+          </datalist>
           <p id="filter-brand-hint" className={HINT}>
             Matches the whole brand name, in any capitalisation.
           </p>
@@ -92,7 +101,7 @@ export function InventoryFilterPanel({ open, onClose, query, onApply }: { open: 
             Size<span className="font-normal text-fg-muted"> (optional)</span>
           </legend>
           <div className="mt-1 flex flex-wrap gap-2">
-            {COMMON_SIZES.map((size) => (
+            {sizes.map((size) => (
               <button
                 key={size}
                 type="button"
@@ -125,9 +134,15 @@ export function InventoryFilterPanel({ open, onClose, query, onApply }: { open: 
             onChange={(event) => set({ color: event.target.value })}
             maxLength={MAX_FILTER_TEXT}
             autoComplete="off"
+            list="filter-color-options"
             aria-describedby="filter-variant-hint"
             className={FIELD_INPUT}
           />
+          <datalist id="filter-color-options">
+            {facets?.colors.map((colour) => (
+              <option key={colour.name} value={colour.name} />
+            ))}
+          </datalist>
           <p id="filter-variant-hint" className={HINT}>
             One colour at a time. Size, colour and price must all match the same variant.
           </p>

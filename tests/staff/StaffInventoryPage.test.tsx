@@ -15,6 +15,8 @@ import {
   type PaginatedProducts,
   type ProductListItem,
 } from '../../src/service/fetchProductList'
+import { fetchProductFilters } from '../../src/service/fetchProductFilters'
+import { invalidateShopColours } from '../../src/hooks/useShopColours'
 import { StaffInventoryPage } from '../../src/views/staff/StaffInventoryPage'
 
 vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
@@ -25,10 +27,12 @@ vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
 }))
 
 vi.mock('../../src/service/productAdmin')
+vi.mock('../../src/service/fetchProductFilters')
 
 const list = vi.mocked(fetchProductList)
 const byId = vi.mocked(fetchProductById)
 const detail = vi.mocked(fetchProductDetail)
+const filters = vi.mocked(fetchProductFilters)
 
 const product = (n: number, overrides: Partial<ProductListItem> = {}): ProductListItem => ({
   id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
@@ -63,6 +67,9 @@ beforeAll(() => {
 beforeEach(() => {
   rememberShowAlerts(true)
   vi.resetAllMocks()
+  invalidateShopColours()
+  // Without facets the panel falls back to the usual sizes and plain text fields.
+  filters.mockRejectedValue(new ProductListError('network'))
   list.mockResolvedValue(answer([product(1), product(2)]))
   detail.mockResolvedValue({ variants: [{ id: 'v1', sku: 'TEE-1-S-BLK', size: 'S', color: 'Black', stock: 3, price: 1000, name: null, colorHex: null, imageUrl: null, measurements: null }] })
 })
@@ -483,19 +490,26 @@ describe('StaffInventoryPage archive and restock (real API path)', () => {
     detail.mockResolvedValue({ variants })
   })
 
-  it('tells the Archived tab is not available yet instead of listing, and keeps the filters', async () => {
+  it('asks for archived products on the Archived tab, and for none of them on Active', async () => {
     const user = userEvent.setup()
+    list.mockResolvedValue(answer([product(1, { isActive: false, totalStock: 0 })]))
     renderPage('?status=archived&stock=sizes')
-    expect(await screen.findByText("Archived products can't be listed yet")).toBeInTheDocument()
-    expect(list).not.toHaveBeenCalled()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Show active products' }))
-    expect(where()).toBe('/staff/inventory?stock=sizes')
     await within(table()).findByRole('button', { name: /^Tee 1/ })
-    // The sizes-out filter needs a backend field: it stays selected and sends nothing.
+    expect(screen.queryByText(/can.t be listed yet/)).not.toBeInTheDocument()
+    expect(lastParams()).toMatchObject({ status: 'archived' })
+    await user.click(screen.getByRole('tab', { name: /^Active/ }))
+    expect(where()).toBe('/staff/inventory?stock=sizes')
+    await waitFor(() => expect(lastParams().status).toBeUndefined())
+    // The sizes-out filter has no API field: it stays selected and sends nothing.
     expect(lastParams().inStockOnly).toBeUndefined()
     await user.click(screen.getByRole('combobox', { name: 'Stock' }))
     expect(screen.getByRole('option', { name: 'Has out-of-stock sizes' })).toBeInTheDocument()
+  })
+
+  it('says so when there are no archived products', async () => {
+    list.mockResolvedValue(answer([]))
+    renderPage('?status=archived')
+    expect(await screen.findByText('No archived products')).toBeInTheDocument()
   })
 
   it('archives with only { isActive: false }, and shows why when it fails', async () => {
@@ -975,10 +989,10 @@ describe('StaffInventoryPage brand, size, colour and price filters (real API)', 
     await user.click(screen.getByRole('button', { name: /More filters/ }))
     const panel = await screen.findByRole('dialog', { name: 'More filters' })
 
-    await user.type(within(panel).getByRole('textbox', { name: /^Brand/ }), 'Nike')
+    await user.type(within(panel).getByRole('combobox', { name: /^Brand/ }), 'Nike')
     await user.click(within(panel).getByRole('button', { name: 'M' }))
     expect(within(panel).getByRole('button', { name: 'M' })).toHaveAttribute('aria-pressed', 'true')
-    await user.type(within(panel).getByRole('textbox', { name: /^Colour/ }), 'Black')
+    await user.type(within(panel).getByRole('combobox', { name: /^Colour/ }), 'Black')
     await user.type(within(panel).getByRole('textbox', { name: 'Minimum' }), '0')
     await user.type(within(panel).getByRole('textbox', { name: 'Maximum' }), '500.505abc')
     expect(within(panel).getByRole('textbox', { name: 'Maximum' })).toHaveValue('500.50')
@@ -988,6 +1002,26 @@ describe('StaffInventoryPage brand, size, colour and price filters (real API)', 
     await user.click(within(panel).getByRole('button', { name: 'Apply filters' }))
     expect(where()).toBe('/staff/inventory?brand=Nike&size=M&color=Black&minPrice=0&maxPrice=500.5')
     await waitFor(() => expect(lastParams()).toMatchObject({ brand: 'Nike', size: 'M', color: 'Black', minPrice: 0, maxPrice: 500.5, page: 1 }))
+  })
+
+  it('offers the sizes, brands and colours the products really have, still as free text', async () => {
+    const user = userEvent.setup()
+    filters.mockResolvedValue({ categories: [], brands: ['Atelier Manila'], sizes: ['30', 'L', 'M', 'One size', 'XS'], colors: [{ name: 'Navy', hex: '#1b2a49' }], minPrice: 1200, maxPrice: 2600 })
+    renderPage()
+    await within(table()).findByRole('button', { name: /Tee 1/ })
+    await user.click(screen.getByRole('button', { name: /More filters/ }))
+    const panel = await screen.findByRole('dialog', { name: 'More filters' })
+    await waitFor(() => expect(within(panel).getByRole('button', { name: 'One size' })).toBeInTheDocument())
+    const chips = ['XS', 'M', 'L', '30', 'One size'].map((name) => within(panel).getByRole('button', { name }))
+    expect(chips.every((chip, i) => i === 0 || chips[i - 1].compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(within(panel).queryByRole('button', { name: 'XXL' })).not.toBeInTheDocument()
+    expect(within(panel).getByRole('textbox', { name: 'Another size' })).toBeInTheDocument()
+    expect(panel.querySelector('datalist#filter-brand-options option')).toHaveValue('Atelier Manila')
+    expect(panel.querySelector('datalist#filter-color-options option')).toHaveValue('Navy')
+    await user.type(within(panel).getByRole('combobox', { name: /^Brand/ }), 'Other')
+    await user.click(within(panel).getByRole('button', { name: 'Apply filters' }))
+    expect(where()).toContain('brand=Other')
+    expect(filters).toHaveBeenCalledTimes(1)
   })
 
   it('refuses a minimum above the maximum in the panel, with an inline error', async () => {
@@ -1058,7 +1092,7 @@ describe('StaffInventoryPage brand, size, colour and price filters (real API)', 
     await user.click(min)
     await user.paste('-5')
     expect(min).toHaveValue('')
-    await user.type(within(panel).getByRole('textbox', { name: /^Brand/ }), '  Ayala    Atelier  ')
+    await user.type(within(panel).getByRole('combobox', { name: /^Brand/ }), '  Ayala    Atelier  ')
     await user.click(within(panel).getByRole('button', { name: 'Apply filters' }))
     expect(where()).toContain('brand=Ayala+Atelier')
   })

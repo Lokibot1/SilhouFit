@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CATEGORIES, choiceOf, sizesFor, type Product } from '../../src/data/products'
 import { sameColour, validColour } from '../../src/hooks/useShopColours'
-import { SORT_OPTIONS, shopTitle, toApiParams, type ProductQuery } from '../../src/utils/productQuery'
+import { orderSizes, SORT_OPTIONS, shopTitle, toApiParams, type ProductQuery } from '../../src/utils/productQuery'
 
 const BASE: ProductQuery = { category: 'all', q: '', sort: 'newest', page: 1, perPage: 12 }
 const api = (changes: Partial<ProductQuery> = {}) => toApiParams({ ...BASE, ...changes })
@@ -96,5 +96,19 @@ describe('sizes, price and stock of a product from the API', () => {
 
   it('counts a size and colour no variant has as sold out', () => {
     expect(choiceOf(piece, 'S', 'Navy')).toMatchObject({ stock: 0, variant: undefined })
+  })
+})
+
+describe('orderSizes', () => {
+  it('puts XS to XXL first, then numbers ascending, then the rest alphabetically, and One size last', () => {
+    expect(orderSizes(['One size', 'Wide', 'XL', '32', 'S', '4', 'Narrow', 'XXL', 'M', 'xs', '30.5', 'L'])).toEqual([
+      'xs', 'S', 'M', 'L', 'XL', 'XXL', '4', '30.5', '32', 'Narrow', 'Wide', 'One size',
+    ])
+  })
+
+  it('does not change the list it is given', () => {
+    const sizes = ['M', 'S']
+    orderSizes(sizes)
+    expect(sizes).toEqual(['M', 'S'])
   })
 })

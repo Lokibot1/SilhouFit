@@ -13,10 +13,14 @@ export interface ProductListItem {
   totalStock: number
   primaryImage: { url: string; altText: string | null } | null
   createdAt: string
-  // Optional until the API sends them (see the note on `fetchProductList`); hidden in the UI while they are missing.
+  // Optional: the list sends them, a product detail does not; hidden in the UI while they are missing.
   isActive?: boolean
   outOfStockVariants?: number
   variantCount?: number
+  /** Distinct colours across the product's variants (the list only). */
+  colors?: { name: string; hex: string }[]
+  /** Distinct sizes across the product's variants, in the order the API found them (the list only). */
+  sizes?: string[]
   /** Needs a backend `Product.arReady` boolean on list and detail; until then it is never set and the AR column shows a dash. */
   arReady?: boolean
 }
@@ -47,6 +51,8 @@ export interface ProductListParams {
   sortBy?: 'createdAt' | 'name'
   sortOrder?: 'asc' | 'desc'
   limit?: number
+  /** Staff only: the API answers 403 to anyone else when this is not `active`. Absent means active. */
+  status?: 'active' | 'archived' | 'all'
 }
 
 /** The shape of a full product id; anything else is searched by name. */
@@ -114,6 +120,9 @@ export async function request(method: 'GET' | 'PATCH' | 'POST' | 'DELETE', path:
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 const isCount = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
 
+const isColour = (value: unknown): value is { name: string; hex: string } =>
+  isRecord(value) && typeof value.name === 'string' && value.name !== '' && typeof value.hex === 'string'
+
 function toListItem(value: unknown): ProductListItem {
   if (!isRecord(value)) throw new ProductListError('server')
   const { id, name, category, minPrice, maxPrice, totalStock, createdAt } = value
@@ -132,15 +141,18 @@ function toListItem(value: unknown): ProductListItem {
     primaryImage: isRecord(image) && typeof image.url === 'string' ? { url: image.url, altText: typeof image.altText === 'string' ? image.altText : null } : null,
     createdAt: typeof createdAt === 'string' ? createdAt : '',
     ...(typeof value.isActive === 'boolean' && { isActive: value.isActive }),
+    ...(isCount(value.outOfStockVariants) && { outOfStockVariants: value.outOfStockVariants as number }),
+    ...(isCount(value.variantCount) && { variantCount: value.variantCount as number }),
+    ...(Array.isArray(value.colors) && { colors: value.colors.filter(isColour) }),
+    ...(Array.isArray(value.sizes) && { sizes: value.sizes.filter((size): size is string => typeof size === 'string' && size !== '') }),
   }
 }
 
 const PRICE_KEYS = ['minPrice', 'maxPrice']
 
 /**
- * GET /products. Active products only; the API caps `limit` at 100.
- * Backend needs for staff Inventory: `?status=active|archived|all` (staff only) so archived products can be listed, `isActive`,
- * `outOfStockVariants` and `variantCount` on each list item, and a bulk or atomic stock endpoint (restock now sends one PATCH per variant).
+ * GET /products. Active products unless `status` says otherwise (archived and all are staff only: anyone else gets a 'forbidden'
+ * error); the API caps `limit` at 100. Backend need still open: a bulk or atomic stock endpoint (restock sends one PATCH per variant).
  */
 export async function fetchProductList(params: ProductListParams, { signal }: RequestOptions = {}): Promise<PaginatedProducts> {
   const query = new URLSearchParams()
@@ -150,6 +162,7 @@ export async function fetchProductList(params: ProductListParams, { signal }: Re
     if (typeof value === 'string' && !value.trim()) continue
     if (typeof value === 'number' && (Number.isNaN(value) || (PRICE_KEYS.includes(key) && value < 0))) continue
     if (key === 'sortBy' && value !== 'createdAt' && value !== 'name') continue
+    if (key === 'status' && value !== 'active' && value !== 'archived' && value !== 'all') continue
     query.set(key, typeof value === 'string' ? value.trim() : String(value))
   }
   const body = await request('GET', `/products?${query}`, undefined, signal)

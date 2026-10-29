@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import type { Category, ProductGender } from '../../data/products'
-import { sameColour, useShopColours, validColour } from '../../hooks/useShopColours'
+import { sameColour, useShopColours, useShopFacets, validColour } from '../../hooks/useShopColours'
 import { filterPriceInput, parseFilterPrice } from '../../utils/format'
-import { AVAILABILITY, COMMON_SIZES, GENDER_OPTIONS, type Availability, type ProductFilters } from '../../utils/productQuery'
+import { AVAILABILITY, COMMON_SIZES, GENDER_OPTIONS, orderSizes, type Availability, type ProductFilters } from '../../utils/productQuery'
 import { Modal } from '../ui/Modal'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 
@@ -60,6 +60,10 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
   }
 
   const colours = useShopColours(open)
+  const facets = useShopFacets(open)
+  // The sizes the products really have; the usual ones until they are known.
+  const sizes = facets?.sizes.length ? orderSizes(facets.sizes) : COMMON_SIZES
+  const pricesKnown = facets !== null && facets.maxPrice > 0
   const invalidRange = draft.min !== '' && draft.max !== '' && Number(draft.min) > Number(draft.max)
 
   function apply() {
@@ -121,8 +125,14 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
             value={draft.brand}
             onChange={(e) => setDraft({ ...draft, brand: e.target.value.trimStart().slice(0, 50) })}
             autoComplete="off"
+            list="shop-brand-options"
             className={TEXT_INPUT}
           />
+          <datalist id="shop-brand-options">
+            {facets?.brands.map((brand) => (
+              <option key={brand} value={brand} />
+            ))}
+          </datalist>
         </label>
 
         <fieldset>
@@ -145,7 +155,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
         <fieldset>
           <legend className={LEGEND}>Size</legend>
           <div className="mt-2 flex flex-wrap gap-2">
-            {COMMON_SIZES.map((s) => (
+            {sizes.map((s) => (
               <button
                 key={s}
                 type="button"
@@ -168,7 +178,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
                 inputMode="decimal"
                 value={draft.min}
                 onChange={(e) => setDraft({ ...draft, min: filterPriceInput(e.target.value) ?? draft.min })}
-                placeholder="0"
+                placeholder={pricesKnown ? String(facets.minPrice) : '0'}
                 aria-invalid={invalidRange}
                 aria-describedby={invalidRange ? 'price-range-error' : undefined}
                 className={PRICE_FIELD}
@@ -180,7 +190,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
                 inputMode="decimal"
                 value={draft.max}
                 onChange={(e) => setDraft({ ...draft, max: filterPriceInput(e.target.value) ?? draft.max })}
-                placeholder="Any"
+                placeholder={pricesKnown ? String(facets.maxPrice) : 'Any'}
                 aria-invalid={invalidRange}
                 aria-describedby={invalidRange ? 'price-range-error' : undefined}
                 className={PRICE_FIELD}

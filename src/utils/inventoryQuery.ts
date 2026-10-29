@@ -28,7 +28,7 @@ export const GENDERS: { value: Gender; label: string }[] = [
   { value: 'other', label: 'Other' },
 ]
 
-// Only `in` reaches the API (as inStockOnly). Out and sizes need backend fields, so they are kept but send nothing.
+// Only `in` reaches the API (as inStockOnly). Out and sizes have no API filter, so they are kept but send nothing, and the list is not filtered on the client.
 export const STOCK_FILTERS = ['in', 'out', 'sizes'] as const
 export type StockFilter = (typeof STOCK_FILTERS)[number]
 
@@ -118,7 +118,7 @@ export function withInventoryParams(current: URLSearchParams, changes: Partial<R
   return next
 }
 
-// A product is active unless the list says otherwise (the real API only lists active ones and does not say).
+// A product is active unless the list says so otherwise (`isActive` comes with each list item; the Archived tab asks for status=archived).
 export const isArchived = (product: ProductListItem) => product.isActive === false
 /** Sold out and still for sale: the products a Restock action is for. */
 export const isSoldOut = (product: ProductListItem) => !isArchived(product) && product.totalStock <= 0

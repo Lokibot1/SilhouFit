@@ -53,6 +53,16 @@ describe('fetchShopProducts', () => {
     expect(result.products[1]).toMatchObject({ boutique: '', category: 'Hats', image: '', stock: 0 })
   })
 
+  it('takes colours from the list item once each (ignoring case, the first swatch wins), and none when the list sends none', async () => {
+    list.mockResolvedValue({
+      ...answer,
+      data: [{ ...answer.data[0], colors: [{ name: 'Navy', hex: '#1b2a49' }, { name: 'navy', hex: '#000080' }, { name: 'Sand', hex: '#d8c3a5' }] }, answer.data[1]],
+    })
+    const { products } = await fetchShopProducts({})
+    expect(products[0].colors).toEqual([{ name: 'Navy', hex: '#1b2a49' }, { name: 'Sand', hex: '#d8c3a5' }])
+    expect(products[1].colors).toEqual([])
+  })
+
   it('does not ask for a minimum above the maximum', async () => {
     expect(await fetchShopProducts({ minPrice: 900, maxPrice: 100 })).toMatchObject({ products: [], total: 0, page: 1, pageCount: 1 })
     expect(list).not.toHaveBeenCalled()

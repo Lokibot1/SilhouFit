@@ -14,7 +14,7 @@ import {
   PAGER_PAGINATION,
 } from "../../components/staff/inventory/layout";
 import { InventoryTabs } from "../../components/staff/inventory/InventoryTabs";
-import { AlertIcon, PlusIcon } from "../../components/form/icons";
+import { PlusIcon } from "../../components/form/icons";
 import { SectionError } from "../../components/staff/StaffSection";
 import { STAFF_SECTION } from "../../components/staff/StaffSkeleton";
 import { Pagination } from "../../components/shop/Pagination";
@@ -72,8 +72,6 @@ export function StaffInventoryPage() {
   const { status, q, category, gender, brand, size, color, minPrice, maxPrice, stock, sort, dir, page, per } = query;
   const badRange = priceRangeInvalid(query);
   const archivedView = status === "archived";
-  // GET /products lists active products only, so the real API cannot fill the Archived tab yet (see the note on fetchProductList).
-  const archivedUnavailable = archivedView;
   const [refreshKey, setRefreshKey] = useState(0);
   const filtered = Boolean(q) || activeFilterCount(query) > 0;
 
@@ -85,18 +83,6 @@ export function StaffInventoryPage() {
         return Promise.resolve({
           data: [],
           meta: { total: 0, page: 1, limit: per, totalPages: 0, hasNextPage: false, hasPreviousPage: false },
-        });
-      if (archivedUnavailable)
-        return Promise.resolve({
-          data: [],
-          meta: {
-            total: 0,
-            page: 1,
-            limit: per,
-            totalPages: 0,
-            hasNextPage: false,
-            hasPreviousPage: false,
-          },
         });
       if (UUID.test(q)) {
         // A pasted full ID opens that product, as in the dashboard's lookup. No product with that ID is an empty result.
@@ -132,6 +118,7 @@ export function StaffInventoryPage() {
           sortOrder: apiSortOrder(sort, dir),
           page,
           limit: per,
+          status: archivedView ? "archived" : undefined,
         },
         options,
       );
@@ -140,7 +127,6 @@ export function StaffInventoryPage() {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       status,
-      archivedUnavailable,
       q,
       category,
       gender,
@@ -445,7 +431,7 @@ export function StaffInventoryPage() {
               : "Active products, as the shop lists them."}
           </p>
           <p className="mt-1 h-5 text-sm text-fg-muted">
-            {total === undefined || archivedUnavailable ? null : (
+            {total === undefined ? null : (
               <>
                 <span className="tabular-nums">{total}</span>{" "}
                 {filtered ? "matching " : ""}
@@ -476,22 +462,16 @@ export function StaffInventoryPage() {
         <h2 id="inventory-list" className="sr-only">
           Products
         </h2>
-        {archivedUnavailable ? (
-          <div className="mb-3">{tabs}</div>
-        ) : (
-          <InventoryToolbar
-            text={text}
-            onText={setText}
-            query={query}
-            onFilter={(changes) => update(changes)}
-            onSort={(nextSort, nextDir) =>
-              update({ sort: nextSort, dir: nextDir })
-            }
-            onPer={(n) => update({ per: String(n) })}
-            onClear={clearFilters}
-            tabs={tabs}
-          />
-        )}
+        <InventoryToolbar
+          text={text}
+          onText={setText}
+          query={query}
+          onFilter={(changes) => update(changes)}
+          onSort={(nextSort, nextDir) => update({ sort: nextSort, dir: nextDir })}
+          onPer={(n) => update({ per: String(n) })}
+          onClear={clearFilters}
+          tabs={tabs}
+        />
         <p role="status" className="sr-only">
           {state.status === "loading" ? "Loading products" : ""}
         </p>
@@ -525,28 +505,7 @@ export function StaffInventoryPage() {
           </div>
         )}
 
-        {archivedUnavailable ? (
-          <div role="status" className="flex items-start gap-3">
-            <AlertIcon size={20} className="mt-0.5 shrink-0 text-fg-muted" />
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-fg">
-                Archived products can&apos;t be listed yet
-              </p>
-              <p className="mt-1 text-base text-fg-muted">
-                The products service only lists active products until the
-                backend can list archived ones. Switch to Active to keep
-                working.
-              </p>
-              <button
-                type="button"
-                onClick={() => update({ status: "" })}
-                className={`${SECONDARY_BUTTON} mt-3`}
-              >
-                Show active products
-              </button>
-            </div>
-          </div>
-        ) : badRange ? null : state.status === "error" && !result ? (
+        {badRange ? null : state.status === "error" && !result ? (
           <SectionError what="the products" kind={state.kind} onRetry={retry} />
         ) : result && result.data.length === 0 ? (
           <div>
