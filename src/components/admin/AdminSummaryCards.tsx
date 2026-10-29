@@ -112,8 +112,8 @@ export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'
         icon={RestoreIcon}
         tone="danger"
         label="Refunds"
-        to={`${base}/transactions`}
-        action="open transactions"
+        to={`${base}/transactions?status=returned`}
+        action="open returned transactions"
         read={({ returned, orders }: RefundFigures) => ({
           value: returned,
           context: `${orders > 0 ? ((returned / orders) * 100).toFixed(1) : '0.0'}% of ${orders.toLocaleString('en-PH')} orders returned`,

@@ -10,7 +10,15 @@ export function TransactionTableSkeletonRows({ count }: { count: number }) {
     <tr key={n} className={`${TABLE_ROW} animate-pulse`}>
       <td className={TD}>
         <Bar className="h-5 w-24" />
-        <Bar className="mt-1 h-4 w-1/2" />
+      </td>
+      <td className={TD}>
+        <Bar className="h-4 w-32" />
+      </td>
+      <td className={TD}>
+        <Bar className="h-4 w-16" />
+      </td>
+      <td className={TD}>
+        <Bar className="h-5 w-20" />
       </td>
       <td className={TD}>
         <Bar className="h-4 w-36" />
@@ -47,6 +55,7 @@ export function TransactionTotalsSkeleton() {
       <div className={`${TOTALS_GRID} animate-pulse`}>
         {[0, 1, 2, 3].map((n) => (
           <div key={n} className={TOTALS_TILE}>
+            <Bar className="absolute top-3 right-3 size-8 @sm:right-4" />
             <Bar className="h-4 w-16" />
             <Bar className="mt-1.5 h-5 w-24" />
           </div>
@@ -88,7 +97,7 @@ export function TransactionsPageSkeleton() {
           <TransactionColgroup />
           <thead>
             <tr className={TABLE_HEAD_ROW}>
-              {Array.from({ length: 4 }, (_, n) => (
+              {Array.from({ length: 7 }, (_, n) => (
                 <th key={n} className={TH}>
                   <Bar className="h-4 w-16" />
                 </th>

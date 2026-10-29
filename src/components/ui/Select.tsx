@@ -125,6 +125,8 @@ export function Select<T extends string | number>({ label, value, options, onCha
   // Show the pick at once; the parent (here the URL) may take a render or two to hand the new value back.
   // The pick only counts while the parent still holds the value it was made against.
   const [pick, setPick] = useState<{ value: T; from: T } | null>(null)
+  // Once the parent holds a different value the pick is spent; otherwise going back to the old value (a reset) would show the stale pick again.
+  if (pick && pick.from !== value) setPick(null)
   const shown = pick && pick.from === value ? pick.value : value
   const selectedIndex = Math.max(0, options.findIndex((option) => option.value === shown))
   const [active, setActive] = useState(selectedIndex)

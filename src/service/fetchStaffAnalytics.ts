@@ -102,19 +102,21 @@ export interface SampleProduct {
   price: number
   stock: number
   arReady: boolean
+  /** The product's photo; the built-in products borrow the landing gallery's pictures. */
+  imageUrl?: string
 }
 
 const MOCK_PRODUCTS: SampleProduct[] = [
-  { id: 'mock-01', name: 'Fence-Line Blazer', category: 'Jackets', price: 3490, stock: 4, arReady: true },
-  { id: 'mock-02', name: 'Washed Black Tee', category: 'Tops', price: 790, stock: 0, arReady: true },
-  { id: 'mock-03', name: 'Heritage Polo', category: 'Tops', price: 1290, stock: 6, arReady: true },
-  { id: 'mock-04', name: 'Tapered Chino', category: 'Bottoms', price: 1890, stock: 32, arReady: true },
-  { id: 'mock-05', name: 'Relaxed Denim', category: 'Bottoms', price: 2290, stock: 25, arReady: true },
-  { id: 'mock-06', name: 'Coach Jacket', category: 'Jackets', price: 2790, stock: 18, arReady: false },
-  { id: 'mock-07', name: 'Linen Overshirt', category: 'Tops', price: 1990, stock: 14, arReady: true },
+  { id: 'mock-01', name: 'Fence-Line Blazer', category: 'Jackets', price: 3490, stock: 4, arReady: true, imageUrl: '/images/gallery/blazer.webp' },
+  { id: 'mock-02', name: 'Washed Black Tee', category: 'Tops', price: 790, stock: 0, arReady: true, imageUrl: '/images/gallery/black-tees.webp' },
+  { id: 'mock-03', name: 'Heritage Polo', category: 'Tops', price: 1290, stock: 6, arReady: true, imageUrl: '/images/gallery/striped-polo.webp' },
+  { id: 'mock-04', name: 'Tapered Chino', category: 'Bottoms', price: 1890, stock: 32, arReady: true, imageUrl: '/images/gallery/folded-jeans.webp' },
+  { id: 'mock-05', name: 'Relaxed Denim', category: 'Bottoms', price: 2290, stock: 25, arReady: true, imageUrl: '/images/gallery/jeans-on-hanger.webp' },
+  { id: 'mock-06', name: 'Coach Jacket', category: 'Jackets', price: 2790, stock: 18, arReady: false, imageUrl: '/images/gallery/jackets-on-hooks.webp' },
+  { id: 'mock-07', name: 'Linen Overshirt', category: 'Tops', price: 1990, stock: 14, arReady: true, imageUrl: '/images/gallery/white-shirt-rail.webp' },
   { id: 'mock-08', name: 'Pleated Midi Skirt', category: 'Skirts', price: 1590, stock: 21, arReady: true },
-  { id: 'mock-09', name: 'Ribbed Knit Dress', category: 'Dresses', price: 2490, stock: 9, arReady: true },
-  { id: 'mock-10', name: 'Wrap Dress', category: 'Dresses', price: 2690, stock: 12, arReady: false },
+  { id: 'mock-09', name: 'Ribbed Knit Dress', category: 'Dresses', price: 2490, stock: 9, arReady: true, imageUrl: '/images/gallery/dress-on-hanger.webp' },
+  { id: 'mock-10', name: 'Wrap Dress', category: 'Dresses', price: 2690, stock: 12, arReady: false, imageUrl: '/images/gallery/floral-dresses.webp' },
   { id: 'mock-11', name: 'Canvas Belt', category: 'Accessories', price: 590, stock: 40, arReady: false },
   { id: 'mock-12', name: 'Bucket Hat', category: 'Accessories', price: 690, stock: 27, arReady: false },
 ]

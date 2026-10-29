@@ -16,6 +16,9 @@ export const MAX_SEARCH = 100
 export const RANGES = ['today', 'week', 'month', 'custom'] as const
 export type TransactionRange = (typeof RANGES)[number]
 
+export const STATUSES = ['completed', 'returned'] as const
+export type TransactionStatus = (typeof STATUSES)[number]
+
 export interface TransactionQuery {
   /** Order number or customer name (or, on the real API, a full order ID). */
   q: string
@@ -24,6 +27,8 @@ export interface TransactionQuery {
   /** YYYY-MM-DD in Asia/Manila. Only kept with `range=custom`; '' is open-ended. */
   from: string
   to: string
+  /** Completed orders or returned ones (refunded in full); '' lists both. */
+  status: TransactionStatus | ''
   sort: TransactionSort
   dir: TransactionDir
   page: number
@@ -52,6 +57,7 @@ export function readTransactionQuery(params: URLSearchParams): TransactionQuery 
     range,
     from,
     to,
+    status: STATUSES.find((v) => v === params.get('status')) ?? '',
     sort,
     dir: dir === 'asc' || dir === 'desc' ? dir : DEFAULT_DIR[sort],
     page: Number.isFinite(page) && page > 1 ? page : 1,
@@ -77,7 +83,7 @@ export function rangeDates({ range, from, to }: Pick<TransactionQuery, 'range' |
 }
 
 // Changing what is listed starts again from the first page; paging and sorting keep the page they are on.
-const RESETS_PAGE = ['q', 'range', 'from', 'to', 'per']
+const RESETS_PAGE = ['q', 'range', 'from', 'to', 'status', 'per']
 
 /** The URL after `changes` (an empty value removes its key). Search, date and page size writes reset the page; a preset other than custom drops from and to. */
 export function withTransactionParams(current: URLSearchParams, changes: Partial<Record<string, string>>): URLSearchParams {

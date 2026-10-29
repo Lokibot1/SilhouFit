@@ -132,8 +132,8 @@ describe('sampleTransactionDetail', () => {
 describe('sample invoice data', () => {
   it('gives every order a payment method, and exercises exempt, zero-rated and business-buyer orders', () => {
     const history = buildOrderHistory()
-    expect(history.every((o) => ['cash', 'gcash', 'card', 'cod'].includes(o.paymentMethod))).toBe(true)
-    expect(new Set(history.map((o) => o.paymentMethod)).size).toBe(4)
+    expect(history.every((o) => ['gcash', 'maya', 'cod'].includes(o.paymentMethod))).toBe(true)
+    expect(new Set(history.map((o) => o.paymentMethod)).size).toBe(3)
     const classes = new Set(history.flatMap((o) => o.lines.map((l) => l.vatClass)))
     expect(classes.has('exempt')).toBe(true)
     expect(classes.has('zero')).toBe(true)

@@ -5,7 +5,7 @@ const read = (search: string) => readTransactionQuery(new URLSearchParams(search
 
 describe('readTransactionQuery', () => {
   it('defaults to all time, newest first, 25 per page', () => {
-    expect(read('')).toEqual({ q: '', range: '', from: '', to: '', sort: 'date', dir: 'desc', page: 1, per: 25 })
+    expect(read('')).toEqual({ q: '', range: '', from: '', to: '', status: '', sort: 'date', dir: 'desc', page: 1, per: 25 })
   })
 
   it('falls back to the default for anything off the whitelist', () => {

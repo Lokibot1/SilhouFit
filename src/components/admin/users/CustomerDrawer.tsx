@@ -15,7 +15,7 @@ import { Avatar } from '../../ui/Avatar'
 import { Modal } from '../../ui/Modal'
 import { StatusBadge } from './StatusBadge'
 
-const METHOD: Record<PaymentMethod, string> = { cash: 'Cash', gcash: 'GCash', card: 'Card', cod: 'Cash on delivery' }
+const METHOD: Record<PaymentMethod, string> = { gcash: 'GCash', maya: 'Maya', cod: 'Cash on delivery' }
 
 const TABS = [
   { value: 'orders', label: 'Orders' },

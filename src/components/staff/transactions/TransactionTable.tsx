@@ -1,13 +1,14 @@
 import type { CSSProperties } from 'react'
 import type { TransactionListItem } from '../../../service/fetchTransactions'
 import { formatPeso } from '../../../utils/format'
+import { PAYMENT_LABELS } from '../../../utils/invoiceTax'
 import type { TransactionDir, TransactionSort } from '../../../utils/transactionQuery'
 import { openRow } from '../inventory/InventoryParts'
 import { TABLE_ROW, TD, TH } from '../inventory/layout'
 import { SortHeader } from '../inventory/SortHeader'
 import { TransactionTableSkeletonRows } from '../TransactionsSkeleton'
 import { TransactionColgroup } from './layout'
-import { PlacedAt, ReturnedBadge } from './TransactionParts'
+import { PlacedAt, StatusBadge } from './TransactionParts'
 
 interface TransactionTableProps {
   sorted: { sort: TransactionSort; dir: TransactionDir }
@@ -23,12 +24,19 @@ interface TransactionTableProps {
 export function TransactionTable({ sorted, onSort, rows, skeletonRows, stale, onOpen }: TransactionTableProps) {
   return (
     <table aria-busy={rows === null || stale} className="hidden w-full table-fixed border-separate border-spacing-0 @4xl:table">
-      <caption className="sr-only">Transactions with order number, customer, date and time, items and total</caption>
+      <caption className="sr-only">Transactions with order number, customer name, payment method, status, date and time, items and total</caption>
       <TransactionColgroup />
       <thead>
         <tr>
           <th scope="col" className={TH}>
             Order
+          </th>
+          <SortHeader label="Customer" column="customer" active={sorted} onSort={onSort} />
+          <th scope="col" className={TH}>
+            Payment
+          </th>
+          <th scope="col" className={TH}>
+            Status
           </th>
           <SortHeader label="Date and time" column="date" active={sorted} onSort={onSort} />
           <th scope="col" className={TH}>
@@ -53,14 +61,17 @@ export function TransactionTable({ sorted, onSort, rows, skeletonRows, stale, on
                 <button
                   type="button"
                   aria-haspopup="dialog"
-                  className="flex min-h-11 w-full min-w-0 cursor-pointer flex-col justify-center rounded-xl text-left hover:text-chrome-strong"
+                  className="flex min-h-11 w-full min-w-0 cursor-pointer items-center rounded-xl text-left hover:text-chrome-strong"
                 >
                   <span className="block truncate font-mono text-base font-semibold text-fg">{transaction.orderNo}</span>
-                  <span className="flex items-center gap-2">
-                    <span className="block min-w-0 truncate text-sm text-fg-muted">{transaction.customerName}</span>
-                    {transaction.returnedAt && <ReturnedBadge />}
-                  </span>
                 </button>
+              </td>
+              <td className={`${TD} text-sm text-fg`}>
+                <span className="block truncate">{transaction.customerName}</span>
+              </td>
+              <td className={`${TD} text-sm text-fg`}>{transaction.paymentMethod ? PAYMENT_LABELS[transaction.paymentMethod] : 'Not recorded'}</td>
+              <td className={TD}>
+                <StatusBadge returned={Boolean(transaction.returnedAt)} />
               </td>
               <td className={`${TD} text-sm text-fg-muted`}>
                 <PlacedAt iso={transaction.placedAt} />

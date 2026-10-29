@@ -12,7 +12,7 @@ export const INVOICE_NOTICE =
 /** Shown wherever a returned order's invoice is. The sample never issues a credit note. */
 export const RETURN_NOTICE = 'Credit note / BIR return handling is not generated yet; consult your accountant.'
 
-export const PAYMENT_LABELS: Record<PaymentMethod, string> = { cash: 'Cash', gcash: 'GCash', card: 'Card', cod: 'Cash on delivery' }
+export const PAYMENT_LABELS: Record<PaymentMethod, string> = { gcash: 'GCash', maya: 'Maya', cod: 'Cash on delivery' }
 
 /** 1290.5 -> 129050. */
 export const toCentavos = (pesos: number) => Math.round(pesos * 100)

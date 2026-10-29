@@ -1,7 +1,10 @@
-import { buildOrderHistory, loadSampleProducts, seedOf, type HistoryOrder } from './fetchStaffAnalytics'
+import { buildOrderHistory, getSampleProducts, loadSampleProducts, seedOf, type HistoryOrder } from './fetchStaffAnalytics'
+import { ADDRESSES } from '../data/mockAccounts'
 import { computeTotals, toCentavos } from '../utils/invoiceTax'
+import { getAccounts } from './accountStore'
 import {
   RETURN_REASONS,
+  type CustomerContact,
   type PaginatedTransactions,
   type TransactionDetail,
   type TransactionExportRow,
@@ -40,6 +43,7 @@ const toListItem = (order: HistoryOrder): TransactionListItem => ({
   placedAt: order.placedAt,
   itemCount: order.itemCount,
   total: order.total,
+  paymentMethod: order.paymentMethod,
   ...returnOf(order),
 })
 
@@ -56,6 +60,7 @@ function matching(params: TransactionFilterParams) {
   const compare = COMPARE[params.sortBy ?? 'placedAt']
   return buildOrderHistory()
     .filter((order) => (!params.from || order.date >= params.from) && (!params.to || order.date <= params.to))
+    .filter((order) => !params.status || Boolean(returnOf(order).returnedAt) === (params.status === 'returned'))
     .filter((order) => !needle || order.orderId.toLowerCase().includes(needle) || order.customerName.toLowerCase().includes(needle))
     .map((order, index) => ({ order, index }))
     .sort((a, b) => sign * (compare(a.order, b.order) || a.index - b.index))
@@ -75,13 +80,29 @@ export async function sampleTransactionList(params: TransactionListParams, { sig
   }
 }
 
+/** The saved account with this name, else a contact made from the name (the same each time), so every order has someone to reach. */
+function contactOf(name: string): CustomerContact {
+  const saved = getAccounts().customers.find((c) => `${c.firstName} ${c.lastName}` === name)
+  if (saved) return { email: saved.email, phone: saved.phone, ...(saved.address && { address: saved.address }) }
+  const seed = seedOf(name)
+  return {
+    email: `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com`,
+    phone: `+63917${String(1000000 + (seed % 9000000))}`,
+    address: ADDRESSES[seed % ADDRESSES.length],
+  }
+}
+
 export async function sampleTransactionDetail(id: string, { signal, delayMs = 400 }: RequestOptions = {}): Promise<TransactionDetail> {
   await simulateRequest(delayMs, signal, () => false)
   await loadSampleProducts()
   const order = buildOrderHistory().find((o) => idOf(o.orderId) === id)
   if (!order) throw Object.assign(new Error('Order not found.'), { kind: 'not-found' })
-  const lines = order.lines.map(({ productId, name, category, units, price, vatClass }) => ({ productId, name, category, units, unitPrice: price, ...(vatClass && { vatClass }) }))
-  return { ...toListItem(order), paymentMethod: order.paymentMethod, ...(order.buyer && { buyer: order.buyer }), lines, subtotal: lines.reduce((sum, l) => sum + l.units * l.unitPrice, 0) }
+  const images = new Map(getSampleProducts().map((p) => [p.id, p.imageUrl]))
+  const lines = order.lines.map(({ productId, name, category, units, price, vatClass }) => {
+    const imageUrl = images.get(productId)
+    return { productId, name, category, units, unitPrice: price, ...(vatClass && { vatClass }), ...(imageUrl && { imageUrl }) }
+  })
+  return { ...toListItem(order), customer: contactOf(order.customerName), paymentMethod: order.paymentMethod, ...(order.buyer && { buyer: order.buyer }), lines, subtotal: lines.reduce((sum, l) => sum + l.units * l.unitPrice, 0) }
 }
 
 /** The 12% VAT in an order's total, in centavos. */
@@ -100,7 +121,7 @@ export async function sampleTransactionExport(params: TransactionFilterParams, {
 }
 
 /** The count of every order the filters match, and the gross and VAT of those not returned. */
-export async function sampleTransactionSummary(params: Pick<TransactionFilterParams, 'search' | 'from' | 'to'>, { signal, delayMs = 450 }: RequestOptions = {}): Promise<TransactionSummary> {
+export async function sampleTransactionSummary(params: Pick<TransactionFilterParams, 'search' | 'status' | 'from' | 'to'>, { signal, delayMs = 450 }: RequestOptions = {}): Promise<TransactionSummary> {
   await simulateRequest(delayMs, signal, () => false)
   await loadSampleProducts()
   const orders = matching(params).map(({ order }) => order)

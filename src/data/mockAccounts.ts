@@ -10,7 +10,7 @@ const CUSTOMER_NAMES: [string, string][] = [
   ['Denise', 'Santos'], ['Lorenzo', 'Reyes'], ['Isabel', 'Cruz'], ['Kevin', 'Garcia'], ['Maria', 'Torres'],
 ]
 
-const ADDRESSES = [
+export const ADDRESSES = [
   '12 Mabini St., Quezon City, Metro Manila',
   '45 Rizal Ave., Cebu City, Cebu',
   '8 Aguinaldo Hwy., Imus, Cavite',

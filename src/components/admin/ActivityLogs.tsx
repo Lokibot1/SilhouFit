@@ -26,14 +26,14 @@ import { ViewAllLink } from '../staff/ViewAllLink'
 type Icon = ComponentType<{ size?: 16 | 20; className?: string }>
 
 // Each category has a word and a tint, each action an icon and a word, so nothing rests on colour alone.
-const CATEGORIES: Record<ActivityCategory, { label: string; tint: string }> = {
+export const CATEGORIES: Record<ActivityCategory, { label: string; tint: string }> = {
   account: { label: 'Accounts', tint: 'bg-chart-1/20' },
   order: { label: 'Orders', tint: 'bg-chart-2/20' },
   transaction: { label: 'Transactions', tint: 'bg-chart-3/20' },
   product: { label: 'Products', tint: 'bg-chart-4/20' },
 }
 
-const ACTIONS: Record<ActivityAction, { label: string; icon: Icon }> = {
+export const ACTIONS: Record<ActivityAction, { label: string; icon: Icon }> = {
   'staff-created': { label: 'Staff account created', icon: PlusIcon },
   'admin-created': { label: 'Admin account created', icon: SettingsIcon },
   'password-reset': { label: 'Password reset', icon: LockIcon },
@@ -75,7 +75,7 @@ function when(iso: string, now = new Date()) {
   return `${label}, ${clock(at)}`
 }
 
-// One fixed height for loading, empty and loaded, so the tile never shifts. On the dashboard it matches the order log's: the same fixed height below xl, half the column from xl.
+// One fixed height for loading, empty and loaded, so the tile never shifts. It matches the order log's: the same fixed height below xl, half the column from xl.
 const DASHBOARD_WINDOW = 'h-80 xl:h-auto xl:min-h-0 xl:flex-1'
 const ROW = 'min-h-14 py-2'
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
@@ -96,9 +96,8 @@ function LogSkeleton({ window }: { window: string }) {
   )
 }
 
-/** What admins, staff and customers did across accounts, orders, transactions and products, newest first. `full` is the page's own list: every entry, no fixed window and no link to itself. */
-export function ActivityLogs({ full = false }: { full?: boolean }) {
-  const WINDOW = full ? '' : DASHBOARD_WINDOW
+/** What admins, staff and customers did across accounts, orders, transactions and products, newest first. */
+export function ActivityLogs() {
   const section = useSection(getActivityLogs)
   const [filter, setFilter] = useState<Filter>('all')
   return (
@@ -111,15 +110,15 @@ export function ActivityLogs({ full = false }: { full?: boolean }) {
           <div className="h-9 w-36 shrink-0 pointer-coarse:h-11 max-md:h-11">
             <Select label="Filter activity logs by category" value={filter} options={FILTERS} onChange={setFilter} className="h-full" />
           </div>
-          {!full && <ViewAllLink to="/admin/activity-logs" what="activity logs" />}
+          <ViewAllLink to="/admin/activity-logs" what="activity logs" />
         </div>
       }
     >
-      <SectionBody section={section} what="the activity logs" skeleton={<LogSkeleton window={WINDOW} />}>
+      <SectionBody section={section} what="the activity logs" skeleton={<LogSkeleton window={DASHBOARD_WINDOW} />}>
         {(logs) => {
           const shown = logs.filter((log) => filter === 'all' || log.category === filter)
           return shown.length === 0 ? (
-            <div className={WINDOW}>
+            <div className={DASHBOARD_WINDOW}>
               <EmptyNote>
                 {filter === 'all'
                   ? 'No activity yet. Orders, payments, product changes and account changes are logged here.'
@@ -128,7 +127,7 @@ export function ActivityLogs({ full = false }: { full?: boolean }) {
             </div>
           ) : (
             // A scrolling list needs to be reachable by keyboard.
-            <ul tabIndex={0} aria-labelledby="activity-logs" className={`${WINDOW} divide-y divide-line overflow-y-auto`}>
+            <ul tabIndex={0} aria-labelledby="activity-logs" className={`${DASHBOARD_WINDOW} divide-y divide-line overflow-y-auto`}>
               {shown.map((log) => {
                 const { label, icon: Icon } = ACTIONS[log.action]
                 return (

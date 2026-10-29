@@ -11,6 +11,11 @@ const RANGE_OPTIONS = [
   { value: 'month', label: 'This month' },
   { value: 'custom', label: 'Custom' },
 ]
+const STATUS_OPTIONS = [
+  { value: '', label: 'All statuses' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'returned', label: 'Returned (refunded)' },
+]
 const PER_PAGE_CHOICES = PER_PAGE_OPTIONS.map((n) => ({ value: n, label: `${n} per page` }))
 const SORT_OPTIONS = [
   { value: 'date-desc', label: 'Newest first' },
@@ -29,7 +34,7 @@ interface TransactionToolbarProps {
   query: TransactionQuery
   /** `today` is the latest date the inputs accept (no order is dated later). */
   today: string
-  onFilter: (changes: { range?: string; from?: string; to?: string }) => void
+  onFilter: (changes: { range?: string; from?: string; to?: string; status?: string }) => void
   onSort: (sort: TransactionSort, dir: TransactionDir) => void
   onPer: (per: number) => void
   onClear: () => void
@@ -40,7 +45,7 @@ interface TransactionToolbarProps {
 }
 
 export function TransactionToolbar({ text, onText, query, today, onFilter, onSort, onPer, onClear, canExport, exporting, onExport }: TransactionToolbarProps) {
-  const active = Number(query.range !== '')
+  const active = Number(query.range !== '') + Number(query.status !== '')
   return (
     <div className="mb-3 grid gap-3">
       <div className="relative">
@@ -111,6 +116,9 @@ export function TransactionToolbar({ text, onText, query, today, onFilter, onSor
               </label>
             </>
           )}
+          <div className="w-full @sm:w-48 @4xl:w-44">
+            <Select label="Status" value={query.status} options={STATUS_OPTIONS} onChange={(status) => onFilter({ status })} />
+          </div>
           <div className="w-full @sm:w-44 @4xl:w-36">
             <Select label="Rows per page" value={query.per} options={PER_PAGE_CHOICES} onChange={onPer} />
           </div>

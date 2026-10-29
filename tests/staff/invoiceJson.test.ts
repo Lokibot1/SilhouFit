@@ -12,7 +12,7 @@ const detail: TransactionDetail = {
   itemCount: 4,
   total: 3010,
   subtotal: 3010,
-  paymentMethod: 'cash',
+  paymentMethod: 'cod',
   lines: [
     { productId: 'a', name: 'Polo', category: 'Hoodie', units: 2, unitPrice: 1120 },
     { productId: 'b', name: 'Textbook', category: 'Books', units: 1, unitPrice: 500, vatClass: 'exempt' },
@@ -76,7 +76,7 @@ describe('buildInvoiceJson', () => {
         ],
         "notice": "Format follows BIR invoice guidelines. Validity depends on your BIR registration and Permit to Use. Not transmitted to the BIR.",
         "orderNo": "SF-10001",
-        "paymentMethod": "cash",
+        "paymentMethod": "cod",
         "schema": "silhoufit.einvoice/1",
         "seller": {
           "address": "123 Sample Street, Sample Barangay, Sample City, Metro Manila 0000",

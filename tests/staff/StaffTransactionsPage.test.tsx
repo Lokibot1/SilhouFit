@@ -127,10 +127,10 @@ describe('StaffTransactionsPage', () => {
     renderPage()
     expect(screen.getByText('Loading transactions')).toBeInTheDocument()
     expect(table()).toHaveAttribute('aria-busy', 'true')
-    // The header row, then one skeleton row per page-size slot, with the same four columns.
+    // The header row, then one skeleton row per page-size slot, with the same seven columns.
     const rows = within(table()).getAllByRole('row')
     expect(rows).toHaveLength(26)
-    rows.slice(1).forEach((row) => expect(row.querySelectorAll('td')).toHaveLength(4))
+    rows.slice(1).forEach((row) => expect(row.querySelectorAll('td')).toHaveLength(7))
 
     pending.resolve(answer([order(1), order(2)]))
     const opener = await within(table()).findByRole('button', { name: /SF-10001/ })
@@ -140,10 +140,10 @@ describe('StaffTransactionsPage', () => {
     expect(screen.queryByText('2 transactions')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1 }).parentElement).not.toHaveTextContent(/\d+\s+(matching\s+)?transactions?/)
     const cells = within(opener.closest('tr')!).getAllByRole('cell')
-    expect(opener).toHaveTextContent('Customer 1')
-    expect(cells[1]).toHaveTextContent(/^Oct 22, 2026, 3:45\sPM$/)
-    expect(cells[2]).toHaveTextContent('3')
-    expect(cells[3]).toHaveTextContent('₱4,580.00')
+    expect(cells[1]).toHaveTextContent('Customer 1')
+    expect(cells[4]).toHaveTextContent(/^Oct 22, 2026, 3:45\sPM$/)
+    expect(cells[5]).toHaveTextContent('3')
+    expect(cells[6]).toHaveTextContent('₱4,580.00')
     expect(document.title).toBe('Transactions — SilhouFit')
   })
 
@@ -153,7 +153,6 @@ describe('StaffTransactionsPage', () => {
     renderPage()
     const row = (await within(table()).findByRole('button', { name: /SF-10002/ })).closest('tr')!
     expect(within(row).getByText('Returned')).toBeInTheDocument()
-    expect(within(row).getByRole('button')).toHaveAccessibleName(/Returned/)
     expect(within(within(table()).getByRole('button', { name: /SF-10001/ }).closest('tr')!).queryByText('Returned')).not.toBeInTheDocument()
     const card = document.querySelector(`li[data-transaction="${returned.id}"]`)!
     expect(within(card as HTMLElement).getByText('Returned')).toBeInTheDocument()
@@ -208,7 +207,7 @@ describe('StaffTransactionsPage', () => {
 
     renderPage('?q=zzz&range=week')
     expect(await screen.findByText('No transactions match')).toBeInTheDocument()
-    expect(screen.getByText(/clear the search and date filter and try again/)).toBeInTheDocument()
+    expect(screen.getByText(/clear the search and filters and try again/)).toBeInTheDocument()
     await userEvent.click(screen.getAllByRole('button', { name: 'Clear filters' }).at(-1)!)
     expect(where()).toBe('/staff/transactions')
     expect(screen.getByRole('textbox', { name: /Search transactions/ })).toHaveValue('')
@@ -432,7 +431,7 @@ describe('StaffTransactionsPage', () => {
     const drawer = await screen.findByRole('dialog', { name: 'SF-10001' })
     // The header comes from the list row before the items arrive.
     expect(within(drawer).getByText('Customer 1')).toBeInTheDocument()
-    expect(within(drawer).getByText(/^Oct 22, 2026, 3:45\sPM$/)).toBeInTheDocument()
+    expect(within(drawer).getAllByText(/^Oct 22, 2026, 3:45\sPM$/)[0]).toBeInTheDocument()
     expect(within(drawer).getByText(order(1).id)).toBeInTheDocument()
     expect(await within(drawer).findByText('Heritage Polo')).toBeInTheDocument()
     expect(detail).toHaveBeenCalledWith(order(1).id, expect.anything())

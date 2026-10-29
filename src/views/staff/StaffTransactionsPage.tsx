@@ -61,8 +61,8 @@ export function StaffTransactionsPage() {
 
   const [params, setParams] = useSearchParams();
   const query = readTransactionQuery(params);
-  const { q, range, sort, dir, page, per } = query;
-  const filtered = Boolean(q || range);
+  const { q, range, status, sort, dir, page, per } = query;
+  const filtered = Boolean(q || range || status);
   // A preset is worked out from today; only its two dates go into the fetcher, so it changes only when a value does.
   const { from, to } = rangeDates(query);
 
@@ -70,6 +70,7 @@ export function StaffTransactionsPage() {
     (options: RequestOptions): Promise<PaginatedTransactions> => {
       const listParams = {
         search: q || undefined,
+        status: status || undefined,
         from,
         to,
         sortBy: SORT_COLUMN[sort],
@@ -100,7 +101,7 @@ export function StaffTransactionsPage() {
       }
       return fetchTransactionList(listParams, options);
     },
-    [q, from, to, sort, dir, page, per],
+    [q, status, from, to, sort, dir, page, per],
   );
   const { state, previous, retry } = useSection(load);
   const result = state.status === "success" ? state.data : previous;
@@ -111,8 +112,8 @@ export function StaffTransactionsPage() {
     (options: RequestOptions) =>
       (TRANSACTIONS_SAMPLE_DATA
         ? sampleTransactionSummary
-        : fetchTransactionSummary)({ search: q || undefined, from, to }, options),
-    [q, from, to],
+        : fetchTransactionSummary)({ search: q || undefined, status: status || undefined, from, to }, options),
+    [q, status, from, to],
   );
   const totals = useSection(loadSummary);
   const totalsResult =
@@ -129,6 +130,7 @@ export function StaffTransactionsPage() {
           : fetchTransactionExport
       )({
         search: q || undefined,
+        status: status || undefined,
         from,
         to,
         sortBy: SORT_COLUMN[sort],
@@ -219,7 +221,7 @@ export function StaffTransactionsPage() {
   function clearFilters() {
     written.current = "";
     setText("");
-    update({ q: "", range: "", from: "", to: "" });
+    update({ q: "", range: "", from: "", to: "", status: "" });
   }
 
   function sortBy(column: TransactionSort) {
@@ -357,7 +359,7 @@ export function StaffTransactionsPage() {
                   No transactions match
                 </p>
                 <p className="mt-1 text-base text-fg-muted">
-                  Check the spelling, or clear the search and date filter and
+                  Check the spelling, or clear the search and filters and
                   try again.
                 </p>
                 <button

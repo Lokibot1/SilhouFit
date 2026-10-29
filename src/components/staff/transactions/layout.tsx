@@ -1,14 +1,11 @@
-// The table is `table-fixed`, so these widths hold with or without rows. Shares of the table; Order is the only unsized column
-// and takes what is left. Column widths cannot mix % and px, so on a wide table the others are stepped down (past 1200px of table)
-// so the order and customer do not sit far from the date. Written out in full so Tailwind sees the classes.
-const COLS = ['w-[26%] @[1200px]:w-[20%]', 'w-[12%] @[1200px]:w-[10%]', 'w-[16%] @[1200px]:w-[14%]']
+// The table is `table-fixed`, so seven equal columns hold with or without rows: Order, Customer, Payment, Status, Date and time, Items, Total.
+const COLUMNS = 7
 
 export function TransactionColgroup() {
   return (
     <colgroup>
-      <col />
-      {COLS.map((width, n) => (
-        <col key={n} className={width} />
+      {Array.from({ length: COLUMNS }, (_, n) => (
+        <col key={n} />
       ))}
     </colgroup>
   )
@@ -26,4 +23,4 @@ export const PAGER_SKELETON_ROWS = 'flex flex-col items-end gap-3 @2xl:flex-row 
 // under Orders is always reserved.
 export const TOTALS_WRAP = '@container'
 export const TOTALS_GRID = 'grid grid-cols-2 gap-2 @lg:grid-cols-4 @lg:gap-3'
-export const TOTALS_TILE = 'h-[5.5rem] min-w-0 rounded-2xl border border-line bg-canvas-sub px-3 py-3 @sm:px-4'
+export const TOTALS_TILE = 'relative h-[5.5rem] min-w-0 rounded-2xl border border-line bg-canvas-sub px-3 py-3 @sm:px-4'
