@@ -14,8 +14,8 @@ import { StatusBadge } from './StatusBadge'
 const COLUMNS: AccountColumn<Customer>[] = [
   { key: 'name', header: 'Customer', sort: 'name', cell: (c) => <AccountName account={c} sub={c.email} asButton /> },
   { key: 'status', header: 'Status', sort: 'status', width: 'w-[13%]', cell: (c) => <StatusBadge status={c.status} /> },
-  { key: 'orders', header: 'Orders', cardLabel: 'Orders:', sort: 'orderCount', right: true, width: 'w-[10%]', cell: (c) => c.orderCount },
-  { key: 'spend', header: 'Lifetime spend', cardLabel: 'Spent:', sort: 'lifetimeSpend', right: true, width: 'w-[16%]', cell: (c) => <span className="whitespace-nowrap">{formatPeso(c.lifetimeSpend)}</span> },
+  { key: 'orders', header: 'Orders', cardLabel: 'Orders:', sort: 'orderCount', width: 'w-[10%]', cell: (c) => <span className="tabular-nums">{c.orderCount}</span> },
+  { key: 'spend', header: 'Lifetime spend', cardLabel: 'Spent:', sort: 'lifetimeSpend', width: 'w-[16%]', cell: (c) => <span className="whitespace-nowrap tabular-nums">{formatPeso(c.lifetimeSpend)}</span> },
   { key: 'registered', header: 'Registered', cardLabel: 'Registered:', sort: 'createdAt', width: 'w-[15%]', cell: (c) => <AddedDate iso={c.createdAt} /> },
 ]
 
