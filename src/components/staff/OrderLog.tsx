@@ -35,7 +35,7 @@ export function OrderLog({ compact = false, viewAll, all = false }: { compact?: 
 }
 
 function Log({ orders, all }: { orders: LoggedOrder[]; all: boolean }) {
-  const { ref, inView, reduced } = useReveal<HTMLDivElement>()
+  const { ref, inView, reduced } = useReveal<HTMLDivElement>(0, all ? 'some' : undefined)
 
   return (
     <div ref={ref}>

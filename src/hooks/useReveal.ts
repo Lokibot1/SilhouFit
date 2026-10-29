@@ -4,11 +4,12 @@ import { DURATION, EASE_OUT, VIEWPORT, staggerDelay } from '../motion/tokens'
 
 /**
  * For a block that animates in once it is meaningfully on screen: attach `ref`, and spread `fade` on a motion element.
+ * `amount` is how much of the block must show; a block taller than the screen needs 'some', or it never reveals until scrolled.
  * Reduced motion keeps the fade and drops the travel; `reduced` is for the caller's own animations.
  */
-export function useReveal<T extends HTMLElement>(index = 0) {
+export function useReveal<T extends HTMLElement>(index = 0, amount: number | 'some' = VIEWPORT.amount) {
   const ref = useRef<T>(null)
-  const inView = useInView(ref, VIEWPORT)
+  const inView = useInView(ref, { ...VIEWPORT, amount })
   const reduced = useReducedMotion() ?? false
   const fade = {
     initial: { opacity: 0, y: reduced ? 0 : 12 },
