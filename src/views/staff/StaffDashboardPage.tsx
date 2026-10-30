@@ -19,7 +19,7 @@ const META_DESCRIPTION =
 export function StaffDashboardWidgets({ asideTop, operations, base }: { asideTop?: ReactNode; operations?: boolean; base: '/admin' | '/staff' }) {
   return (
     <>
-      <StatCards />
+      <StatCards arInsightsTo={base === '/admin' ? '/admin/ar-insights' : undefined} />
       {operations && <OperationsSummary />}
       {/* Bento: sales over two half tiles on the left, the order log as a tall tile on the right (from xl). */}
       <div className="grid gap-3 xl:grid-cols-12">

@@ -14,6 +14,7 @@ import { OrderLogSkeleton, StaffShellSkeleton } from './components/staff/StaffSk
 import { MeasurementsPageSkeleton } from './components/staff/MeasurementsSkeleton'
 import { TransactionsPageSkeleton } from './components/staff/TransactionsSkeleton'
 import { ArInsightsPageSkeleton } from './components/admin/ar/ArInsightsSkeleton'
+import { PromotionsPageSkeleton } from './components/admin/promotions/PromotionsSkeleton'
 import { AccountsPageSkeleton } from './components/admin/users/AccountSkeleton'
 import { ToastProvider } from './components/toast/ToastProvider'
 import { ProfileSkeleton } from './components/profile/ProfileSkeleton'
@@ -92,6 +93,9 @@ const ActivityLogsPage = lazy(() =>
 )
 const ArInsightsPage = lazy(() =>
   import('./views/admin/ArInsightsPage').then((m) => ({ default: m.ArInsightsPage })),
+)
+const PromotionsPage = lazy(() =>
+  import('./views/admin/PromotionsPage').then((m) => ({ default: m.PromotionsPage })),
 )
 const StaffTransactionsPage = lazy(() =>
   import('./views/staff/StaffTransactionsPage').then((m) => ({ default: m.StaffTransactionsPage })),
@@ -320,6 +324,14 @@ function App() {
                 element={
                   <Suspense fallback={<ArInsightsPageSkeleton />}>
                     <ArInsightsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="promotions"
+                element={
+                  <Suspense fallback={<PromotionsPageSkeleton />}>
+                    <PromotionsPage />
                   </Suspense>
                 }
               />

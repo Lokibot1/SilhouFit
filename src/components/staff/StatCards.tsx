@@ -1,5 +1,6 @@
 import { motion } from 'motion/react'
 import type { ComponentType } from 'react'
+import { Link } from 'react-router-dom'
 import { useCountUp } from '../../hooks/useCountUp'
 import { useReveal } from '../../hooks/useReveal'
 import { useSection } from '../../hooks/useSection'
@@ -12,7 +13,7 @@ import { Tooltip } from '../ui/Tooltip'
 import { STAFF_SECTION, StatCardsSkeleton, STAT_CARD, STAT_CONTEXT, STAT_LABEL, STAT_PILL_ROW, STAT_VALUE, statIcon, type StatTone } from './StaffSkeleton'
 
 /** This month's three headline figures, from one request. */
-export function StatCards() {
+export function StatCards({ arInsightsTo }: { arInsightsTo?: string }) {
   const section = useSection(fetchStaffSummary)
 
   return (
@@ -21,17 +22,17 @@ export function StatCards() {
         This month at a glance
       </h2>
       <SectionBody section={section} what="this month's figures" skeleton={<StatCardsSkeleton />} errorClassName={STAFF_SECTION}>
-        {(summary) => <Cards summary={summary} />}
+        {(summary) => <Cards summary={summary} arInsightsTo={arInsightsTo} />}
       </SectionBody>
     </section>
   )
 }
 
-function Cards({ summary }: { summary: StaffSummary }) {
+function Cards({ summary, arInsightsTo }: { summary: StaffSummary; arInsightsTo?: string }) {
   const since = `Since ${formatDay(summary.periodStart)}`
   return (
     <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <Card index={0} icon={ArIcon} tone="info" label="AR Fitting Sessions" value={summary.arSessions} context="No. of users who tried AR Fitting" change={summary.arChange} />
+      <Card index={0} icon={ArIcon} tone="info" label="AR Fitting Sessions" value={summary.arSessions} context="No. of users who tried AR Fitting" change={summary.arChange} to={arInsightsTo} />
       <Card index={1} icon={BanknoteIcon} tone="success" label="Sales this month" value={summary.salesTotal} context={since} change={summary.salesChange} peso />
       <Card index={2} icon={BoxIcon} tone="violet" label="Orders this month" value={summary.orderCount} context={`Placed since ${formatDay(summary.periodStart)}`} change={summary.ordersChange} />
       <Card index={3} icon={CartArrowIcon} tone="teal" label="Products sold" value={summary.unitsSold} context={`Units since ${formatDay(summary.periodStart)}`} aov={summary.orderCount > 0 ? summary.aov : null} />
@@ -51,16 +52,30 @@ interface CardProps {
   aov?: number | null
   peso?: boolean
   tone?: StatTone
+  /** Makes the whole card a link (admin only); the link sits in the label so the list markup stays valid. */
+  to?: string
 }
 
-function Card({ index, icon: Icon, label, value, context, change = null, aov = null, peso = false, tone }: CardProps) {
+function Card({ index, icon: Icon, label, value, context, change = null, aov = null, peso = false, tone, to }: CardProps) {
   const { ref, fade } = useReveal<HTMLDivElement>(index)
   const shown = useCountUp(value, staggerDelay(index))
   const text = (n: number) => (peso ? formatPesoWhole(n) : n.toLocaleString('en-PH'))
 
   return (
-    <motion.div ref={ref} {...fade} className={STAT_CARD}>
-      <dt className={STAT_LABEL}>{label}</dt>
+    <motion.div ref={ref} {...fade} className={to ? `${STAT_CARD} relative transition-colors hover:border-line-strong hover:bg-canvas-raised` : STAT_CARD}>
+      <dt className={STAT_LABEL}>
+        {to ? (
+          <Link
+            to={to}
+            aria-label={`${label}: ${value.toLocaleString('en-PH')}, open AR Fitting Insights`}
+            className="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2"
+          >
+            {label}
+          </Link>
+        ) : (
+          label
+        )}
+      </dt>
       <dd className={`${STAT_VALUE} text-fg`}>
         {/* The count-up is hidden from screen readers, which get the final figure once. */}
         <span aria-hidden="true">{text(shown)}</span>
@@ -70,7 +85,7 @@ function Card({ index, icon: Icon, label, value, context, change = null, aov = n
       <span aria-hidden="true" className={statIcon(tone)}>
         <Icon size={20} />
       </span>
-      <div className={STAT_PILL_ROW}>
+      <div className={`${STAT_PILL_ROW} relative`}>
         {change !== null && <ChangePill change={change} />}
         {aov !== null && <AovPill aov={aov} />}
       </div>

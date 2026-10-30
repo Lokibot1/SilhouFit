@@ -27,7 +27,7 @@ export function invalidateShopColours() {
   clearProductCache()
 }
 
-function facets(): Promise<ProductFilterOptions> {
+export function facets(): Promise<ProductFilterOptions> {
   if (cached) return Promise.resolve(cached)
   if (!loading) {
     const started = generation
