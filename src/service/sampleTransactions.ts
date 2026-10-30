@@ -29,7 +29,7 @@ const HOUR = 3_600_000
  * whose return would fall in the future is simply not returned yet, so older orders never change. Returns live only here, not in the
  * dashboard's analytics, so its figures stay as they were.
  */
-function returnOf({ placedAt, total }: HistoryOrder): Pick<TransactionListItem, 'returnedAt' | 'returnReason' | 'refundAmount'> {
+export function returnOf({ placedAt, total }: HistoryOrder): Pick<TransactionListItem, 'returnedAt' | 'returnReason' | 'refundAmount'> {
   if (seedOf(`${placedAt}:return`) % 100 >= 7) return {}
   const returnedAt = Date.parse(placedAt) + (1 + (seedOf(`${placedAt}:return-after`) % 168)) * HOUR
   if (returnedAt > Date.now()) return {}

@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, GridIcon, ListIcon, RulerIcon, UserIcon, UsersIcon } from '../form/icons'
+import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, GridIcon, ListIcon, RestoreIcon, RulerIcon, UserIcon, UsersIcon } from '../form/icons'
 import type { Area } from '../../utils/staffRole'
 
 export interface NavItem {
@@ -37,6 +37,7 @@ export const NAV: Record<Area, NavItem[]> = {
     { label: 'Activity Logs', to: '/admin/activity-logs', icon: ClockIcon, group: 'admin' },
     { label: 'AR Insights', to: '/admin/ar-insights', icon: ArIcon, group: 'admin' },
     { label: 'Pricing & Promotions', to: '/admin/promotions', icon: BanknoteIcon, group: 'admin' },
+    { label: 'Returns & Refunds', to: '/admin/refunds', icon: RestoreIcon, group: 'admin' },
   ],
   superadmin: [
     { label: 'Dashboard', to: '/superadmin', icon: GridIcon },
