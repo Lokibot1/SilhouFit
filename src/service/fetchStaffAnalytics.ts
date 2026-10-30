@@ -69,7 +69,7 @@ export interface LoggedOrder {
 type Section = 'summary' | 'sales' | 'mix' | 'trending' | 'log'
 
 // Dev-only hooks for the error and empty states: /staff?fail=sales (or summary, mix, trending, log), /staff?fail=empty.
-const failParam = () => (import.meta.env.DEV ? new URLSearchParams(location.search).get('fail') : null)
+export const failParam = () => (import.meta.env.DEV ? new URLSearchParams(location.search).get('fail') : null)
 
 async function respond(section: Section, signal: AbortSignal | undefined, delayMs: number) {
   await simulateRequest(delayMs, signal, () => failParam() === section).catch((error: Error) => {
@@ -280,7 +280,7 @@ type FilterOptions = RequestOptions & { filter?: PeriodFilterValue }
 const max = (a: string, b: string) => (a > b ? a : b)
 
 /** The start of the bucket holding `date`; a week is clipped to the window's start. */
-function bucketOf(date: string, granularity: Granularity, start: string) {
+export function bucketOf(date: string, granularity: Granularity, start: string) {
   switch (granularity) {
     case 'day':
       return date

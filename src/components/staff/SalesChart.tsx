@@ -46,7 +46,7 @@ export function SalesChart() {
 }
 
 /** A bucket's name: short for the axis and table, fuller for the tooltip, a phrase for sentences. */
-function bucketLabel(date: string, granularity: Granularity, style: 'axis' | 'tip' | 'long') {
+export function bucketLabel(date: string, granularity: Granularity, style: 'axis' | 'tip' | 'long') {
   if (granularity === 'week') return style === 'axis' ? formatDay(date) : style === 'tip' ? `Week of ${formatDay(date)}` : `the week of ${formatDay(date)}`
   if (granularity === 'month') {
     return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: style === 'axis' ? 'short' : 'long', year: style === 'long' ? 'numeric' : undefined })
@@ -60,13 +60,13 @@ function bucketLabel(date: string, granularity: Granularity, style: 'axis' | 'ti
 }
 
 /** The months a quarter spans, e.g. "Jan–Mar", from its first day. */
-function quarterRange(date: string) {
+export function quarterRange(date: string) {
   const month = (m: number) => new Date(Date.UTC(2000, m, 1)).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short' })
   const first = Math.floor((Number(date.slice(5, 7)) - 1) / 3) * 3
   return `${month(first)}–${month(first + 2)}`
 }
 
-const FIRST_COLUMN: Record<Granularity, string> = { day: 'Date', week: 'Week of', month: 'Month', quarter: 'Quarter', year: 'Year' }
+export const FIRST_COLUMN: Record<Granularity, string> = { day: 'Date', week: 'Week of', month: 'Month', quarter: 'Quarter', year: 'Year' }
 
 function SalesFigure({ series, granularity, scope }: { series: SalesDay[]; granularity: Granularity; scope: string }) {
   const { ref, inView, reduced, fade } = useReveal<HTMLElement>()
