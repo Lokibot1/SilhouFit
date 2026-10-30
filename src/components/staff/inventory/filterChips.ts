@@ -8,7 +8,6 @@ export const STOCK_OPTIONS = [
   { value: 'out', label: 'Out of stock' },
   { value: 'sizes', label: 'Has out-of-stock sizes' },
 ]
-// Needs a backend arReady filter: sends nothing yet.
 export const AR_OPTIONS = [
   { value: '', label: 'All products' },
   { value: 'yes', label: 'AR Fitting ready' },

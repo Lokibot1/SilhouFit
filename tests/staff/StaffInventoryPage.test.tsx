@@ -122,10 +122,9 @@ describe('StaffInventoryPage', () => {
     expect(options).toEqual(['All categories', 'Hoodie', 'Pants', 'Headwear', 'Shorts'])
   })
 
-  it('keeps the Gender, Stock and AR Fitting filters, and sends only what the API accepts', async () => {
+  it('keeps the Gender, Stock and AR Fitting filters, and sends only what the API accepts (AR Fitting as isArReady)', async () => {
     renderPage('?gender=male&ar=yes&stock=out&sort=name')
     await within(await screen.findByRole('table')).findByRole('button', { name: /^Tee 1/ })
-    // The API has no AR flag, so the AR column shows a dash and the AR filter is kept but sends nothing.
     expect(within(table()).getByRole('columnheader', { name: 'AR Fitting' })).toBeInTheDocument()
     expect(screen.queryByText(/AR ready/)).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Gender' })).toBeInTheDocument()
@@ -133,6 +132,7 @@ describe('StaffInventoryPage', () => {
     expect(screen.getByText('Filters (3)')).toBeInTheDocument()
     expect(lastParams()).toMatchObject({ gender: 'male' })
     for (const [params] of list.mock.calls) {
+      expect(params.isArReady).toBe(true)
       expect(params).not.toHaveProperty('arReady')
       expect(params).not.toHaveProperty('ar')
       expect(params).not.toHaveProperty('outOfStockOnly')
@@ -141,6 +141,27 @@ describe('StaffInventoryPage', () => {
     }
     await userEvent.click(screen.getByRole('combobox', { name: 'Stock' }))
     expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['All stock levels', 'In stock', 'Out of stock', 'Has out-of-stock sizes'])
+  })
+
+  it('sends isArReady=false for Not AR ready', async () => {
+    renderPage('?ar=no')
+    await within(await screen.findByRole('table')).findByRole('button', { name: /^Tee 1/ })
+    expect(lastParams().isArReady).toBe(false)
+  })
+
+  it('sends no isArReady for All products', async () => {
+    renderPage()
+    await within(await screen.findByRole('table')).findByRole('button', { name: /^Tee 1/ })
+    expect(lastParams()).not.toHaveProperty('isArReady', expect.anything())
+    expect(lastParams().isArReady).toBeUndefined()
+  })
+
+  it('shows the AR state of each product from the list', async () => {
+    list.mockResolvedValue(answer([product(1, { arReady: true }), product(2, { arReady: false })]))
+    renderPage()
+    await within(await screen.findByRole('table')).findByRole('button', { name: /^Tee 1/ })
+    expect(within(table()).getAllByText('AR ready')).toHaveLength(1)
+    expect(within(table()).getAllByText('Not AR ready')).toHaveLength(1)
   })
 
   it('shows skeleton rows while loading, then the products and their count', async () => {
@@ -540,10 +561,6 @@ describe('StaffInventoryPage archive and restock (real API path)', () => {
     await user.click(await within(table()).findByRole('button', { name: /^Tee 1/ }))
     const drawer = await screen.findByRole('dialog', { name: 'Tee 1' })
     await user.click(await within(drawer).findByRole('button', { name: 'Edit product' }))
-    // The API has no arReady field to save, so the AR Fitting checkbox is inert: it ticks, but is no edit to save.
-    const ar = within(drawer).getByRole('checkbox', { name: 'AR Fitting ready' })
-    await user.click(ar)
-    expect(ar).toBeChecked()
     expect(within(drawer).getByRole('button', { name: 'Save changes' })).toBeDisabled()
     await user.click(within(drawer).getByRole('button', { name: 'Increase stock for Black S' }))
     await user.click(within(drawer).getByRole('button', { name: 'Increase stock for Black M' }))
@@ -577,6 +594,7 @@ describe('StaffInventoryPage delete, add and edit (real API path)', () => {
     gender: null,
     brand: 'Silhou',
     category: 'Hoodie',
+    isArReady: false,
     images: [
       { url: 'https://x/a.jpg', altText: 'Front', displayOrder: 0, isPrimary: true },
       { url: 'https://x/b.jpg', altText: 'Back', displayOrder: 1, isPrimary: false },
@@ -636,6 +654,38 @@ describe('StaffInventoryPage delete, add and edit (real API path)', () => {
     await user.click(within(await screen.findByRole('dialog', { name: 'Are you sure?' })).getByRole('button', { name: 'Cancel' }))
     expect(await screen.findByRole('dialog', { name: 'Tee 1' })).toBeInTheDocument()
     expect(deleteProduct).not.toHaveBeenCalled()
+  })
+
+  it('saves the AR Fitting box on its own with isArReady, and counts it as an edit', async () => {
+    const user = userEvent.setup()
+    vi.mocked(updateProduct).mockResolvedValue(undefined)
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Edit product' }))
+    const ar = within(drawer).getByRole('checkbox', { name: 'AR Fitting ready' })
+    expect(ar).not.toBeChecked()
+    expect(within(drawer).getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    await user.click(ar)
+    expect(within(drawer).getByRole('button', { name: 'Save changes' })).toBeEnabled()
+    await user.click(ar)
+    expect(within(drawer).getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    await user.click(ar)
+    detail.mockResolvedValue({ variants, product: { ...fields, isArReady: true } })
+    await user.click(within(drawer).getByRole('button', { name: 'Save changes' }))
+    expect(updateProduct).toHaveBeenCalledWith(product(1).id, { isArReady: true }, expect.anything())
+    expect(updateStocks).not.toHaveBeenCalled()
+    expect(await screen.findByText('AR Fitting updated for Tee 1', {}, T)).toBeInTheDocument()
+  })
+
+  it('starts the AR Fitting box ticked for an AR-ready product and asks before discarding a change to it', async () => {
+    const user = userEvent.setup()
+    detail.mockResolvedValue({ variants, product: { ...fields, isArReady: true } })
+    const drawer = await openDrawer(user)
+    await user.click(within(drawer).getByRole('button', { name: 'Edit product' }))
+    const ar = within(drawer).getByRole('checkbox', { name: 'AR Fitting ready' })
+    await waitFor(() => expect(ar).toBeChecked())
+    await user.click(ar)
+    await user.click(within(drawer).getByRole('button', { name: 'Discard' }))
+    expect(await screen.findByText('Your change to AR Fitting ready for Tee 1 will be lost.')).toBeInTheDocument()
   })
 
   it('confirms before deleting a variant, warns about the last one, then refreshes and says so', async () => {

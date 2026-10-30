@@ -21,7 +21,7 @@ export interface ProductListItem {
   colors?: { name: string; hex: string }[]
   /** Distinct sizes across the product's variants, in the order the API found them (the list only). */
   sizes?: string[]
-  /** Needs a backend `Product.arReady` boolean on list and detail; until then it is never set and the AR column shows a dash. */
+  /** The API's `isArReady`; the AR column shows a dash while it is missing. */
   arReady?: boolean
 }
 
@@ -47,6 +47,8 @@ export interface ProductListParams {
   maxPrice?: number
   page?: number
   inStockOnly?: boolean
+  /** Only AR-ready products (`true`) or only those that are not (`false`); absent lists both. */
+  isArReady?: boolean
   /** The API sorts by date or name only, never by price. */
   sortBy?: 'createdAt' | 'name'
   sortOrder?: 'asc' | 'desc'
@@ -141,6 +143,7 @@ function toListItem(value: unknown): ProductListItem {
     primaryImage: isRecord(image) && typeof image.url === 'string' ? { url: image.url, altText: typeof image.altText === 'string' ? image.altText : null } : null,
     createdAt: typeof createdAt === 'string' ? createdAt : '',
     ...(typeof value.isActive === 'boolean' && { isActive: value.isActive }),
+    ...(typeof value.isArReady === 'boolean' && { arReady: value.isArReady }),
     ...(isCount(value.outOfStockVariants) && { outOfStockVariants: value.outOfStockVariants as number }),
     ...(isCount(value.variantCount) && { variantCount: value.variantCount as number }),
     ...(Array.isArray(value.colors) && { colors: value.colors.filter(isColour) }),
@@ -162,6 +165,7 @@ export async function fetchProductList(params: ProductListParams, { signal }: Re
     if (typeof value === 'string' && !value.trim()) continue
     if (typeof value === 'number' && (Number.isNaN(value) || (PRICE_KEYS.includes(key) && value < 0))) continue
     if (key === 'sortBy' && value !== 'createdAt' && value !== 'name') continue
+    if (key === 'isArReady' && typeof value !== 'boolean') continue
     if (key === 'status' && value !== 'active' && value !== 'archived' && value !== 'all') continue
     query.set(key, typeof value === 'string' ? value.trim() : String(value))
   }
@@ -267,6 +271,7 @@ export interface ProductDetailFields {
   gender: Gender | null
   brand: string | null
   category: string
+  isArReady: boolean
   images: ProductImageInfo[]
 }
 
@@ -282,6 +287,7 @@ function toDetail(body: unknown): { variants: ProductVariant[]; product: Product
       gender: typeof body.gender === 'string' && GENDERS.includes(body.gender) ? (body.gender as Gender) : null,
       brand: text(body.brand),
       category: typeof body.category === 'string' ? body.category : '',
+      isArReady: body.isArReady === true,
       images: images
         .filter((image) => typeof image.url === 'string')
         .map((image, index) => ({

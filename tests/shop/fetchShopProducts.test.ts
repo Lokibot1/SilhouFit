@@ -63,6 +63,12 @@ describe('fetchShopProducts', () => {
     expect(products[1].colors).toEqual([])
   })
 
+  it('marks a product AR ready only when the API says so', async () => {
+    list.mockResolvedValue({ ...answer, data: [{ ...answer.data[0], arReady: true }, answer.data[1]] })
+    const { products } = await fetchShopProducts({})
+    expect(products.map((p) => p.arReady)).toEqual([true, false])
+  })
+
   it('does not ask for a minimum above the maximum', async () => {
     expect(await fetchShopProducts({ minPrice: 900, maxPrice: 100 })).toMatchObject({ products: [], total: 0, page: 1, pageCount: 1 })
     expect(list).not.toHaveBeenCalled()

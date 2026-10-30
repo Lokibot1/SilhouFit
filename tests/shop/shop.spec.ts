@@ -337,8 +337,10 @@ test.describe('filters', () => {
     await expect(chipList(page)).toHaveCount(0)
   })
 
-  test('Availability and AR-ready stay in the dialog, URL and chips, but only Online reaches the API (as inStockOnly)', async ({ page }) => {
+  test('Availability stays in the URL and chips and only Online reaches the API (as inStockOnly); AR-ready is sent as isArReady and narrows the list', async ({ page }) => {
+    api.rows[0].isArReady = true // Linen Shirt
     await openShop(page)
+    for (const call of api.of('GET', 'list')) expect(call.query.isArReady).toBeUndefined()
     const dialog = await openFilters(page)
     await dialog.getByRole('checkbox', { name: /In store/ }).check()
     await dialog.getByRole('checkbox', { name: /Low stock/ }).check()
@@ -348,11 +350,16 @@ test.describe('filters', () => {
     expect(urlParams(page).ar).toBe('1')
     await expect(chipList(page).getByRole('button', { name: /^Remove availability/ })).toBeVisible()
     await expect(chipList(page).getByRole('button', { name: /^Remove AR/ })).toBeVisible()
-    await expect(cards(page)).toHaveCount(4) // nothing is filtered by them yet
+    await expect.poll(() => lastList().isArReady).toBe('true')
+    await expect(cards(page)).toHaveCount(1) // only the AR-ready Linen Shirt
     for (const call of api.of('GET', 'list')) {
       expect(Object.keys(call.query).filter((key) => ['avail', 'availability', 'ar', 'arReady', 'store', 'low'].includes(key))).toEqual([])
       expect(call.query.inStockOnly).toBeUndefined()
     }
+
+    await chipList(page).getByRole('button', { name: /^Remove AR/ }).click()
+    await expect.poll(() => lastList().isArReady).toBeUndefined()
+    await expect(cards(page)).toHaveCount(4)
 
     const again = await openFilters(page)
     await again.getByRole('checkbox', { name: /Online/ }).check()

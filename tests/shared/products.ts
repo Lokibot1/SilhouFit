@@ -51,6 +51,7 @@ export interface MockProduct {
   description: string | null
   gender: string | null
   isActive: boolean
+  isArReady: boolean
   createdAt: string
   images: MockImage[]
   variants: MockVariant[]
@@ -90,6 +91,7 @@ export const product = (overrides: Partial<MockProduct> = {}): MockProduct => {
     description: 'A breathable linen shirt.',
     gender: null,
     isActive: true,
+    isArReady: false,
     createdAt: '2026-05-01T08:00:00.000Z',
     images: [
       { url: `${IMAGE_HOST}/${id}-1.svg`, altText: `${name} front`, displayOrder: 0, isPrimary: true },
@@ -146,6 +148,7 @@ const listItem = (p: MockProduct) => {
     primaryImage: main ? { url: main.url, altText: main.altText } : null,
     createdAt: p.createdAt,
     isActive: p.isActive,
+    isArReady: p.isArReady,
     colors,
     sizes: [...new Set(p.variants.flatMap((v) => (v.size ? [v.size] : [])))],
     variantCount: p.variants.length,
@@ -173,7 +176,7 @@ function filtersBody(rows: MockProduct[]) {
 
 const detail = (p: MockProduct) => ({ ...p, ...priceRange(p) })
 
-const LIST_KEYS = ['search', 'category', 'gender', 'brand', 'size', 'color', 'minPrice', 'maxPrice', 'page', 'inStockOnly', 'sortBy', 'sortOrder', 'limit', 'status']
+const LIST_KEYS = ['search', 'category', 'gender', 'brand', 'size', 'color', 'minPrice', 'maxPrice', 'page', 'inStockOnly', 'sortBy', 'sortOrder', 'limit', 'status', 'isArReady']
 
 /** GET /products as the API answers it: active products unless a staff member asks for `status`, one value per size and colour, and size, colour, price and stock must all hold for the same variant. */
 function listPage(rows: MockProduct[], params: URLSearchParams, staff: boolean) {
@@ -184,6 +187,7 @@ function listPage(rows: MockProduct[], params: URLSearchParams, staff: boolean) 
   const search = text('search')
   const [min, max] = [num('minPrice'), num('maxPrice')]
   const inStock = params.get('inStockOnly') === 'true'
+  const arReady = params.has('isArReady') ? params.get('isArReady') === 'true' : undefined
   const variantMatches = (v: MockVariant) =>
     (!text('size') || v.size?.toLowerCase() === text('size')) &&
     (!text('color') || v.color?.toLowerCase() === text('color')) &&
@@ -197,6 +201,7 @@ function listPage(rows: MockProduct[], params: URLSearchParams, staff: boolean) 
     .filter((p) => !text('category') || p.category.toLowerCase() === text('category'))
     .filter((p) => !text('brand') || p.brand?.toLowerCase() === text('brand'))
     .filter((p) => !text('gender') || p.gender === text('gender'))
+    .filter((p) => arReady === undefined || p.isArReady === arReady)
     .filter((p) => !needsVariant || p.variants.some(variantMatches))
   const by = params.get('sortBy') === 'name' ? 'name' : 'createdAt'
   const sign = params.get('sortOrder') === 'asc' ? 1 : -1
@@ -247,6 +252,24 @@ export async function mockProducts(page: Page, initial: MockProduct[] = [], { st
       return bySlug ? reply(200, detail(bySlug)) : reply(404, { message: 'Product not found' })
     }
 
+    if (!productId && method === 'POST') {
+      const input = body ?? {}
+      if (input.isArReady !== undefined && typeof input.isArReady !== 'boolean') return reply(400, { message: ['isArReady must be a boolean value'] })
+      const created = product({
+        name: String(input.name ?? ''),
+        category: String(input.category ?? 'Hoodie'),
+        brand: (input.brand as string | undefined) ?? null,
+        description: (input.description as string | undefined) ?? null,
+        gender: (input.gender as string | undefined) ?? null,
+        isActive: input.isActive !== false,
+        isArReady: input.isArReady === true,
+        images: (input.images as MockImage[] | undefined) ?? [],
+        variants: ((input.variants as Partial<MockVariant>[] | undefined) ?? []).map((v) => variant({ ...v, price: v.price ?? (input.defaultPrice as number) ?? 0 })),
+      })
+      mock.rows.push(created)
+      return reply(201, detail(created))
+    }
+
     if (!productId) {
       const bad = [...url.searchParams.keys()].find((key) => !LIST_KEYS.includes(key))
       if (bad) return reply(400, { message: [`property ${bad} should not exist`] })
@@ -267,6 +290,7 @@ export async function mockProducts(page: Page, initial: MockProduct[] = [], { st
       }
       if (method === 'PATCH') {
         const { images, ...rest } = body ?? {}
+        if (rest.isArReady !== undefined && typeof rest.isArReady !== 'boolean') return reply(400, { message: ['isArReady must be a boolean value'] })
         Object.assign(row, rest)
         if (typeof rest.name === 'string') row.slug = rest.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
         if (Array.isArray(images)) row.images = images as MockImage[]
@@ -417,7 +441,7 @@ const SAND = { color: 'Sand', colorHex: '#d8c3a5' }
  * A small catalogue that is the same on every run, for the shop and the product page. Newest first it is: Linen Shirt and Cotton Tee
  * (Hoodie), Wool Trousers (Pants), Linen Vest (Hoodie, sold out) and Archived Cardigan (Hoodie, archived: only staff can read it).
  * Colours across the active products are Black, Navy and Sand, with Navy spelled "navy" on the tee to prove they count once.
- * Prices run from 1,200 to 2,600. Nothing in it has a sale price, rating, badge or AR flag, as the API has none.
+ * Prices run from 1,200 to 2,600. Nothing in it has a sale price, rating or badge, as the API has none, and no product is AR ready until a test sets `isArReady`.
  */
 export function seedCatalogue(): MockProduct[] {
   const at = (day: number) => `2026-05-${String(day).padStart(2, '0')}T08:00:00.000Z`

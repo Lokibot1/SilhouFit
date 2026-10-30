@@ -72,6 +72,7 @@ beforeEach(() => {
       gender: null,
       brand: 'Ayala Atelier',
       category: 'Hoodie',
+      isArReady: false,
       images: [1, 2, 3].map((n) => ({ url: `https://images.silhoufit.test/${n}.jpg`, altText: null, displayOrder: n, isPrimary: n === 1 })),
     },
   })
@@ -170,7 +171,7 @@ describe('Add product sheet', () => {
     expect(screen.getByTestId('where').textContent).toContain('q=Linen+Shirt')
   })
 
-  it('has no Brand field, an optional Gender and an AR Fitting box that can be ticked (nothing is sent for it)', async () => {
+  it('has no Brand field, an optional Gender and an AR Fitting box that is sent when ticked', async () => {
     const user = userEvent.setup()
     const dialog = await openSheet(user)
     expect(within(dialog).queryByRole('textbox', { name: /Brand/ })).not.toBeInTheDocument()
@@ -179,6 +180,10 @@ describe('Add product sheet', () => {
     expect(ar).not.toBeChecked()
     await user.click(ar)
     expect(ar).toBeChecked()
+    vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })
+    await fillValid(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
+    await waitFor(() => expect(addProduct).toHaveBeenCalledWith(expect.objectContaining({ arReady: true }), expect.anything()))
   })
 
   it('flags a SKU the server says is already in use on its row', async () => {
@@ -205,7 +210,7 @@ describe('Edit details sheet', () => {
     return screen.findByRole('dialog', { name: 'Edit details' })
   }
 
-  it('is prefilled with the product, has no base price, variants or AR box, and keeps Save off until something changes', async () => {
+  it('is prefilled with the product, has no base price or variants, shows the saved AR state, and keeps Save off until something changes', async () => {
     const user = userEvent.setup()
     const dialog = await openEdit(user)
     expect(screen.queryByRole('dialog', { name: 'Heritage Polo' })).not.toBeInTheDocument()
@@ -213,7 +218,7 @@ describe('Edit details sheet', () => {
     expect(within(dialog).getByRole('textbox', { name: /^Brand/ })).toHaveValue('Ayala Atelier')
     expect(within(dialog).getByText("Changing the name also changes the product's web address.")).toBeInTheDocument()
     expect(within(dialog).queryByRole('textbox', { name: /Base price/ })).not.toBeInTheDocument()
-    expect(within(dialog).queryByRole('checkbox', { name: 'AR Fitting ready' })).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('checkbox', { name: 'AR Fitting ready' })).not.toBeChecked()
     expect(within(dialog).queryByText(/^Colours/)).not.toBeInTheDocument()
     expect(within(dialog).getAllByRole('img').map((img) => img.getAttribute('alt'))).toEqual(['Preview of image 1', 'Preview of image 2', 'Preview of image 3'])
     expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeDisabled()
@@ -238,5 +243,28 @@ describe('Edit details sheet', () => {
     expect(saveProduct).toHaveBeenCalledWith(POLO.id, expect.objectContaining({ name: 'Heritage Polo II' }), expect.anything())
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(await within(screen.getAllByRole('table')[0]).findByRole('button', { name: /^Heritage Polo II/ })).toBeInTheDocument()
+  })
+
+  it('counts the AR Fitting box as an edit and saves only isArReady', async () => {
+    const user = userEvent.setup()
+    vi.mocked(saveProduct).mockResolvedValue(undefined)
+    const dialog = await openEdit(user)
+    const ar = within(dialog).getByRole('checkbox', { name: 'AR Fitting ready' })
+    expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    await user.click(ar)
+    expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeEnabled()
+    await user.click(ar)
+    expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    await user.click(ar)
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(saveProduct).toHaveBeenCalledWith(POLO.id, { isArReady: true }, expect.anything()))
+  })
+
+  it('starts ticked for a product that is AR ready', async () => {
+    const user = userEvent.setup()
+    const loaded = await fetchProductDetail('p')
+    vi.mocked(fetchProductDetail).mockResolvedValue({ ...loaded, product: { ...loaded.product!, isArReady: true } })
+    const dialog = await openEdit(user)
+    expect(within(dialog).getByRole('checkbox', { name: 'AR Fitting ready' })).toBeChecked()
   })
 })

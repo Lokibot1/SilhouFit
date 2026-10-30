@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchProductFilters } from '../../src/service/fetchProductFilters'
-import { fetchProductDetail, fetchProductList, ProductListError, UUID } from '../../src/service/fetchProductList'
+import { fetchProductById, fetchProductDetail, fetchProductList, ProductListError, UUID } from '../../src/service/fetchProductList'
 
 vi.mock('../../src/service/supabase', () => ({
   getSupabase: async () => ({ auth: { getSession: async () => ({ data: { session: { access_token: 'tok' } } }) } }),
@@ -44,6 +44,26 @@ describe('fetchProductList', () => {
       limit: '10',
     })
     expect(fetchMock.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer tok' })
+  })
+
+  it('sends isArReady as true or false, and never a value that is not a boolean', async () => {
+    reply({ data: [], meta: { ...META, total: 0 } })
+    await fetchProductList({ isArReady: true })
+    expect(Object.fromEntries(requested().searchParams)).toEqual({ isArReady: 'true' })
+    fetchMock.mockClear()
+    reply({ data: [], meta: { ...META, total: 0 } })
+    await fetchProductList({ isArReady: false })
+    expect(Object.fromEntries(requested().searchParams)).toEqual({ isArReady: 'false' })
+    fetchMock.mockClear()
+    reply({ data: [], meta: { ...META, total: 0 } })
+    await fetchProductList({ isArReady: 'yes' as unknown as boolean, page: 1 })
+    expect(Object.fromEntries(requested().searchParams)).toEqual({ page: '1' })
+  })
+
+  it('reads isArReady onto the list item as arReady, and leaves it absent when the API sends none', async () => {
+    reply({ data: [{ ...ITEM, isArReady: true }, { ...ITEM, id: 'p2', isArReady: false }, { ...ITEM, id: 'p3' }, { ...ITEM, id: 'p4', isArReady: 'yes' }], meta: META })
+    const { data } = await fetchProductList({})
+    expect(data.map((item) => item.arReady)).toEqual([true, false, undefined, undefined])
   })
 
   it('leaves out parameters that are undefined', async () => {
@@ -137,11 +157,22 @@ describe('fetchProductDetail', () => {
       gender: 'female',
       brand: null,
       category: 'Hoodie',
+      isArReady: false,
       images: [
         { url: 'https://x/a.jpg', altText: 'Tee', displayOrder: 0, isPrimary: true },
         { url: 'https://x/b.jpg', altText: null, displayOrder: 1, isPrimary: false },
       ],
     })
+  })
+
+  it('reads isArReady from the detail, for the edit form and as arReady on the item', async () => {
+    const body = { ...ITEM, variants: [], images: [], isArReady: true }
+    reply(body)
+    expect((await fetchProductDetail('p1')).product?.isArReady).toBe(true)
+    reply(body)
+    expect((await fetchProductById('p1')).arReady).toBe(true)
+    reply({ ...body, isArReady: undefined })
+    expect((await fetchProductDetail('p1')).product?.isArReady).toBe(false)
   })
 })
 

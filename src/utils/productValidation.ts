@@ -263,6 +263,7 @@ export function buildProductPatch(v: ProductFormValues, urls: Record<string, str
     ...(brand !== (original.brand ?? '') && { brand }),
     ...(v.category !== original.category && { category: v.category }),
     ...(v.gender && v.gender !== original.gender && { gender: v.gender }),
+    ...(v.arReady !== original.isArReady && { isArReady: v.arReady }),
     ...(imagesChanged && {
       images: v.images.map((image, index) => ({
         url: urlOf(image),

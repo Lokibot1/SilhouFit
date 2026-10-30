@@ -69,7 +69,7 @@ export function StaffInventoryPage() {
   const [params, setParams] = useSearchParams();
   const toast = useToast();
   const query = readInventoryQuery(params);
-  const { status, q, category, gender, brand, size, color, minPrice, maxPrice, stock, sort, dir, page, per } = query;
+  const { status, q, category, gender, brand, size, color, minPrice, maxPrice, stock, ar, sort, dir, page, per } = query;
   const badRange = priceRangeInvalid(query);
   const archivedView = status === "archived";
   const [refreshKey, setRefreshKey] = useState(0);
@@ -114,6 +114,7 @@ export function StaffInventoryPage() {
           minPrice,
           maxPrice,
           inStockOnly: stock === "in" || undefined,
+          isArReady: ar ? ar === "yes" : undefined,
           sortBy: SORT_COLUMN[sort],
           sortOrder: apiSortOrder(sort, dir),
           page,
@@ -137,6 +138,7 @@ export function StaffInventoryPage() {
       maxPrice,
       badRange,
       stock,
+      ar,
       sort,
       dir,
       page,

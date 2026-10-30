@@ -273,6 +273,12 @@ describe('updateProduct', () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ images })
   })
 
+  it('sends isArReady alone as a boolean, false included', async () => {
+    reply({ id: 'p1', name: 'x' })
+    await updateProduct('p1', { isArReady: false })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ isArReady: false })
+  })
+
   it('rejects an answer that is not a product as a server fault', async () => {
     reply({ name: 'x' })
     expect(await kindOf(updateProduct('p1', { name: 'x' }))).toBe('server')
@@ -294,16 +300,17 @@ describe('createProduct', () => {
     variants: [{ sku: 'TOP-TEE-RED-S', size: 'S', color: 'Red', colorHex: '#ff0000', stock: 3 }],
   }
 
-  it('POSTs exactly the product (no arReady, the API has no such field), active, with display orders on the images', async () => {
+  it('POSTs the product with isArReady (from arReady), active, with display orders on the images', async () => {
     reply({ id: 'new-1', name: 'Tee' }, 201)
     await expect(createProduct(input)).resolves.toEqual({ id: 'new-1', name: 'Tee' })
     const [url, init] = fetchMock.mock.calls[0]
     expect(String(url)).toMatch(/\/products$/)
     expect(init.method).toBe('POST')
-    const { arReady: _sent, basePrice, ...sent } = input
+    const { arReady, basePrice, ...sent } = input
     expect(JSON.parse(init.body)).toEqual({
       ...sent,
       defaultPrice: basePrice,
+      isArReady: arReady,
       isActive: true,
       images: [
         { url: 'https://x/a.jpg', altText: 'Tee', isPrimary: true, displayOrder: 0 },

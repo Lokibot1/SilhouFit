@@ -197,15 +197,23 @@ describe('ShopPage requests', () => {
     })
   })
 
-  it('keeps the availability and AR filters in the URL and as chips, and sends only Online (as inStockOnly)', async () => {
+  it('keeps the availability and AR filters in the URL and as chips, and sends Online (as inStockOnly) and AR-ready only (as isArReady)', async () => {
     renderPage('/shop?avail=store,online,low&ar=1')
     await loaded()
     const sent = lastParams()
     expect(sent.inStockOnly).toBe(true)
+    expect(sent.isArReady).toBe(true)
     for (const key of ['avail', 'availability', 'ar', 'arReady']) expect(sent).not.toHaveProperty(key)
     expect(screen.getByRole('button', { name: 'Remove availability In store, Online, Low stock' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove AR AR-ready only' })).toBeInTheDocument()
     expect(urlSearch()).toBe('?avail=store,online,low&ar=1')
+  })
+
+  it('sends no isArReady until AR-ready only is on', async () => {
+    renderPage('/shop')
+    await loaded()
+    expect(lastParams()).not.toHaveProperty('isArReady', true)
+    expect(lastParams().isArReady).toBeUndefined()
   })
 
   it('sends no stock filter and no ar key for the store, low stock and AR choices alone', async () => {
@@ -261,6 +269,7 @@ describe('ShopPage filter dialog', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
     expect(urlSearch()).toBe('?avail=online&ar=1')
     await waitFor(() => expect(lastParams().inStockOnly).toBe(true))
+    expect(lastParams().isArReady).toBe(true)
     expect(screen.getByRole('button', { name: /^Filters/ })).toHaveTextContent('2')
   })
 
@@ -268,8 +277,10 @@ describe('ShopPage filter dialog', () => {
     const user = userEvent.setup()
     renderPage('/shop?avail=online&ar=1&brand=Nike')
     await loaded()
+    expect(lastParams().isArReady).toBe(true)
     await user.click(screen.getByRole('button', { name: 'Remove AR AR-ready only' }))
     expect(urlSearch()).toBe('?avail=online&brand=Nike')
+    await waitFor(() => expect(lastParams().isArReady).toBeUndefined())
     await user.click(screen.getByRole('button', { name: 'Remove availability Online' }))
     expect(urlSearch()).toBe('?brand=Nike')
     await user.click(screen.getByRole('button', { name: 'Clear all' }))

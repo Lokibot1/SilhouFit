@@ -208,6 +208,7 @@ const ORIGINAL: ProductEditSource = {
   brand: 'Ayala',
   description: 'Soft',
   gender: 'female',
+  isArReady: false,
   images: [
     { url: 'https://x/a.jpg', altText: 'Front', displayOrder: 0, isPrimary: true },
     { url: 'https://x/b.jpg', altText: null, displayOrder: 1, isPrimary: false },

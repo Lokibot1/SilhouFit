@@ -32,7 +32,7 @@ export const GENDERS: { value: Gender; label: string }[] = [
 export const STOCK_FILTERS = ['in', 'out', 'sizes'] as const
 export type StockFilter = (typeof STOCK_FILTERS)[number]
 
-// Needs a backend `arReady` filter: kept in the URL and the toolbar, never sent.
+// `yes` is sent as isArReady=true and `no` as isArReady=false.
 export const AR_FILTERS = ['yes', 'no'] as const
 export type ArFilter = (typeof AR_FILTERS)[number]
 

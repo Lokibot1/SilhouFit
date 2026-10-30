@@ -32,7 +32,7 @@ export interface ProductFilters {
   color?: string
   /** Matches any listed availability. Only `online` reaches the API (as inStockOnly); store and low stock need a backend field. */
   availability?: Availability[]
-  /** Needs a backend `arReady` field on products: kept in the URL and the dialog, never sent. */
+  /** Only AR-ready products; sent as `isArReady=true`. */
   arReady?: boolean
   /** Exact match, ignoring case. */
   brand?: string
@@ -107,6 +107,7 @@ export function toApiParams(query: ProductQuery): ProductListParams {
     minPrice: query.minPrice,
     maxPrice: query.maxPrice,
     inStockOnly: query.availability?.includes('online') || undefined,
+    isArReady: query.arReady || undefined,
     ...API_SORT[query.sort],
     page: Math.max(1, Math.trunc(query.page) || 1),
     limit: query.perPage,

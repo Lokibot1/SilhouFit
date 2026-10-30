@@ -52,7 +52,6 @@ export interface NewProductInput {
   category: string
   basePrice: number
   gender?: Gender
-  /** Not sent: the API has no `arReady` field yet, so the form's checkbox is inert. */
   arReady: boolean
   description?: string
   /** The first image is the primary one. */
@@ -64,12 +63,12 @@ export interface NewProductInput {
  * POST /products. Answers with the new product's id and name; anything else is a server fault. A 400 carries the server's message
  * in `detail`, and a 409 (a SKU already in the catalogue) names the SKU there.
  */
-export async function createProduct({ arReady: _arReady, basePrice, ...input }: NewProductInput, { signal }: RequestOptions = {}): Promise<{ id: string; name: string }> {
+export async function createProduct({ arReady, basePrice, ...input }: NewProductInput, { signal }: RequestOptions = {}): Promise<{ id: string; name: string }> {
   const body = await request(
     'POST',
     '/products',
     // The API calls it `defaultPrice` (the price of any variant that has none of its own); an unknown `basePrice` key would be a 400.
-    { ...input, defaultPrice: basePrice, isActive: true, images: input.images.map((image, displayOrder) => ({ ...image, displayOrder })) },
+    { ...input, defaultPrice: basePrice, isArReady: arReady, isActive: true, images: input.images.map((image, displayOrder) => ({ ...image, displayOrder })) },
     signal,
   )
   if (!isRecord(body) || typeof body.id !== 'string' || typeof body.name !== 'string') throw new ProductListError('server')
@@ -134,6 +133,7 @@ export interface ProductPatch {
   /** Cannot be cleared; send '' to empty it. */
   brand?: string
   gender?: Gender
+  isArReady?: boolean
   /** Replaces every image of the product, so send the whole ordered list or leave it out. */
   images?: { url: string; altText?: string; displayOrder: number; isPrimary: boolean }[]
 }

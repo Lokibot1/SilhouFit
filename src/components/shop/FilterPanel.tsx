@@ -261,7 +261,6 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
           ))}
         </fieldset>
 
-        {/* Needs a backend arReady field: kept in the URL, never sent. */}
         <fieldset>
           <legend className={LEGEND}>Try-on</legend>
           <label className={CHECK_ROW}>

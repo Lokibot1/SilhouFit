@@ -26,11 +26,17 @@ describe('toApiParams', () => {
     expect(api()).toMatchObject({ search: undefined, category: undefined, color: undefined, inStockOnly: undefined, page: 1 })
   })
 
-  it('sends Online as inStockOnly, and never an availability, AR, store or low stock key', () => {
+  it('sends Online as inStockOnly, and never an availability, ar, store or low stock key', () => {
     expect(api({ availability: ['online'] }).inStockOnly).toBe(true)
     for (const availability of [['store'], ['low'], ['store', 'low'], []] as const) expect(api({ availability: [...availability], arReady: true }).inStockOnly).toBeUndefined()
     const params = api({ availability: ['store', 'online', 'low'], arReady: true })
     for (const key of ['availability', 'avail', 'ar', 'arReady']) expect(params).not.toHaveProperty(key)
+  })
+
+  it('sends isArReady=true when AR-ready only is on, and nothing otherwise', () => {
+    expect(api({ arReady: true }).isArReady).toBe(true)
+    expect(api({ arReady: false }).isArReady).toBeUndefined()
+    expect(api().isArReady).toBeUndefined()
   })
 
   it('sends date and name sorts, and newest first for Featured and the price sorts, never basePrice', () => {

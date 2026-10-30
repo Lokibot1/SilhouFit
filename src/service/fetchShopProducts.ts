@@ -32,7 +32,7 @@ function toShopProduct(item: ProductListItem): Product {
     badges: [],
     stock: item.totalStock,
     channels: [],
-    arReady: false,
+    arReady: item.arReady ?? false,
     addedAt: item.createdAt,
     rating: 0,
     reviews: 0,

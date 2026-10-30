@@ -719,6 +719,89 @@ test.describe('edit details', () => {
   })
 })
 
+test.describe('AR Fitting flag', () => {
+  // The box is a custom control with a visually hidden input, so it is toggled through its label.
+  const toggleAr = (scope: Locator) => scope.getByText('AR Fitting ready', { exact: true }).click()
+
+  async function openDetails(page: Page) {
+    const drawer = await openDrawer(page, 'Linen Shirt')
+    await drawer.getByRole('button', { name: 'Edit details', exact: true }).click()
+    const dialog = detailsDialog(page)
+    await expect(dialog).toBeVisible()
+    return dialog
+  }
+
+  test('Edit details starts from the saved flag, and ticking it sends only isArReady', async ({ page }) => {
+    const api = await start(page, [linen(), wool()])
+    const dialog = await openDetails(page)
+    const box = dialog.getByRole('checkbox', { name: 'AR Fitting ready' })
+    await expect(box).not.toBeChecked()
+    await expect(dialog.getByText(/not stored yet/)).toHaveCount(0)
+    await expect(dialog.getByRole('button', { name: 'Save changes', exact: true })).toBeDisabled()
+    await toggleAr(dialog)
+    await expect(dialog.getByRole('button', { name: 'Save changes', exact: true })).toBeEnabled()
+    await toggleAr(dialog)
+    await expect(dialog.getByRole('button', { name: 'Save changes', exact: true })).toBeDisabled()
+    await toggleAr(dialog)
+    await dialog.getByRole('button', { name: 'Save changes', exact: true }).click()
+
+    await expect(toast(page, 'Linen Shirt updated')).toBeVisible()
+    expect(api.of('PATCH', 'product').map((c) => c.body)).toEqual([{ isArReady: true }])
+    expect(api.rows.find((p) => p.id === LINEN_ID)?.isArReady).toBe(true)
+
+    const again = await openDetails(page)
+    await expect(again.getByRole('checkbox', { name: 'AR Fitting ready' })).toBeChecked()
+  })
+
+  test('Edit details can turn the flag off and sends false', async ({ page }) => {
+    const api = await start(page, [linen({ isArReady: true }), wool()])
+    const dialog = await openDetails(page)
+    const box = dialog.getByRole('checkbox', { name: 'AR Fitting ready' })
+    await expect(box).toBeChecked()
+    await toggleAr(dialog)
+    await dialog.getByRole('button', { name: 'Save changes', exact: true }).click()
+    await expect(toast(page, 'Linen Shirt updated')).toBeVisible()
+    expect(api.of('PATCH', 'product').map((c) => c.body)).toEqual([{ isArReady: false }])
+  })
+
+  test('the stock editor saves the AR box on its own, with no variant request', async ({ page }) => {
+    const api = await start(page)
+    const drawer = await openDrawer(page, 'Linen Shirt')
+    await drawer.getByRole('button', { name: 'Edit product', exact: true }).click()
+    await expect(drawer.getByText(/not stored yet/)).toHaveCount(0)
+    await expect(drawer.getByRole('button', { name: 'Save changes', exact: true })).toBeDisabled()
+    await toggleAr(drawer)
+    await drawer.getByRole('button', { name: 'Save changes', exact: true }).click()
+
+    await expect(toast(page, 'AR Fitting updated for Linen Shirt')).toBeVisible()
+    expect(api.of('PATCH', 'product').map((c) => c.body)).toEqual([{ isArReady: true }])
+    expect(api.of('PATCH', 'variant')).toHaveLength(0)
+    await expect(drawer.getByText('AR ready', { exact: true })).toBeVisible()
+  })
+
+  for (const ticked of [true, false]) {
+    test(`Add product sends isArReady: ${ticked}`, async ({ page }) => {
+      await page.route(/\/storage\/v1\/object\/products\//, (route) => route.fulfill({ status: 200, json: { Key: 'products/x.png' } }))
+      const api = await start(page)
+      await page.getByRole('button', { name: 'Add product', exact: true }).first().click()
+      const dialog = page.getByRole('dialog', { name: 'Add product', exact: true })
+      await dialog.getByRole('textbox', { name: /^Name/ }).fill('Canvas Tote')
+      await dialog.getByRole('textbox', { name: /Base price/ }).fill('900')
+      await dialog.getByLabel('Choose image files').setInputFiles({ name: 'front.png', mimeType: 'image/png', buffer: Buffer.from('x') })
+      await dialog.getByRole('textbox', { name: 'Colour 1 name' }).fill('Sand')
+      if (ticked) await dialog.getByText('AR Fitting ready', { exact: true }).click()
+      if (ticked) await expect(dialog.getByRole('checkbox', { name: 'AR Fitting ready' })).toBeChecked()
+      await dialog.getByRole('button', { name: 'Create product', exact: true }).click()
+
+      await expect(toast(page, 'Canvas Tote added')).toBeVisible()
+      const [call] = api.of('POST', 'list')
+      expect(call.body).toMatchObject({ name: 'Canvas Tote', isArReady: ticked })
+      expect(call.body).not.toHaveProperty('arReady')
+      expect(api.rows.find((p) => p.name === 'Canvas Tote')?.isArReady).toBe(ticked)
+    })
+  }
+})
+
 test.describe('loading and error states', () => {
   test('the drawer shows a variants skeleton while the detail loads, then the table', async ({ page }) => {
     await start(page)

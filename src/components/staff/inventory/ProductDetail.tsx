@@ -177,7 +177,7 @@ export interface StockEdit {
   disabled: boolean
   onChange: (variantId: string, text: string) => void
   onSetSoldOut: (stock: number) => void
-  /** The AR Fitting checkbox. Inert: the API has no field to save it in. */
+  /** The AR Fitting checkbox, saved with the stock. */
   ar?: { checked: boolean; onChange: (checked: boolean) => void }
 }
 
@@ -291,7 +291,7 @@ export function ProductDetail({
           <Checkbox label="AR Fitting ready" checked={edit.ar.checked} onChange={edit.ar.onChange} className="justify-start">
             <span className="text-base font-semibold">AR Fitting ready</span>
           </Checkbox>
-          <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting. Saving this needs a backend field, so it is not stored yet.</p>
+          <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
         </div>
       )}
       <div className="mt-4">

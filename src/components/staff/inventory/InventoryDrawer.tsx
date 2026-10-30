@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSection } from '../../../hooks/useSection'
 import { fetchProductDetail, type ProductDetailFields, type ProductListItem, type ProductVariant } from '../../../service/fetchProductList'
-import { failureReason, manageFailureReason, removeVariant, saveStocks } from '../../../service/inventoryActions'
+import { failureReason, manageFailureReason, removeVariant, saveProduct, saveStocks } from '../../../service/inventoryActions'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { editedVariants, parseStock } from '../../../utils/stockEdit'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
@@ -94,8 +94,9 @@ export function InventoryDrawer({
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<{ title: string; why: string } | null>(null)
-  // The AR Fitting box is inert (the API cannot store it): it only shows what was ticked, and a change to it is not an edit to save.
+  // The AR Fitting box: `arDraft` is what was ticked, `arSaved` what the API last confirmed (the product's own value goes stale until the list loads again).
   const [arDraft, setArDraft] = useState<boolean | null>(null)
+  const [arSaved, setArSaved] = useState<boolean | null>(null)
   const [prompt, setPrompt] = useState<Prompt | null>(null)
   const [archiving, setArchiving] = useState(false)
   const [archiveError, setArchiveError] = useState<string | null>(null)
@@ -106,6 +107,7 @@ export function InventoryDrawer({
     setEditing(startEditing)
     setDraft({})
     setArDraft(null)
+    setArSaved(null)
     setSaving(false)
     setSaveError(null)
     setPrompt(null)
@@ -116,9 +118,11 @@ export function InventoryDrawer({
   }
 
   // The header's total and price follow the variants, so a saved change shows at once even when the list no longer has the row.
+  const arCurrent = arSaved ?? fields?.isArReady ?? product?.arReady ?? false
   const header = product
     ? {
         ...product,
+        arReady: arCurrent,
         ...(variants && {
           totalStock: variants.reduce((sum, v) => sum + v.stock, 0),
           ...(variants.length > 0 && { minPrice: Math.min(...variants.map((v) => v.price)), maxPrice: Math.max(...variants.map((v) => v.price)) }),
@@ -126,7 +130,8 @@ export function InventoryDrawer({
       }
     : product
   const changed = variants ? editedVariants(variants, draft) : []
-  const dirty = changed.length > 0
+  const arChanged = editing && !archived && arDraft !== null && arDraft !== arCurrent
+  const dirty = changed.length > 0 || arChanged
   const hasEmpty = changed.some((v) => parseStock(draft[v.id]) === null)
   const busy = saving || archiving || removing
   const showEditor = editing && !archived
@@ -205,7 +210,13 @@ export function InventoryDrawer({
     setSaving(true)
     setSaveError(null)
     try {
-      const result = await saveStocks(product.id, changes)
+      if (arChanged) {
+        await saveProduct(product.id, { isArReady: arDraft! })
+        setArSaved(arDraft)
+        setArDraft(null)
+        onStockChanged()
+      }
+      const result = changes.length > 0 ? await saveStocks(product.id, changes) : { saved: [], failed: [] }
       if (result.saved.length > 0) onStockChanged()
       if (result.failed.length > 0) {
         const title = result.saved.length > 0 ? `${result.saved.length} of ${changes.length} saved.` : `Couldn't save the stock for ${product.name}.`
@@ -217,8 +228,8 @@ export function InventoryDrawer({
       const previous = changed.map((v) => ({ variantId: v.id, stock: v.stock }))
       toast.show({
         kind: 'success',
-        message: `Stock updated for ${sizes(changes.length)}`,
-        action: { label: 'Undo', onClick: () => void undoEdit(product.id, product.name, previous) },
+        message: changes.length > 0 ? `Stock updated for ${sizes(changes.length)}` : `AR Fitting updated for ${product.name}`,
+        ...(changes.length > 0 && { action: { label: 'Undo', onClick: () => void undoEdit(product.id, product.name, previous) } }),
       })
     } catch (error) {
       setSaveError({ title: `Couldn't save the stock for ${product.name}.`, why: failureReason(error) })
@@ -280,7 +291,7 @@ export function InventoryDrawer({
         draft,
         disabled: saving,
         onChange: (variantId: string, text: string) => setDraft((old) => ({ ...old, [variantId]: text })),
-        ar: { checked: arDraft ?? product?.arReady ?? false, onChange: (checked: boolean) => !saving && setArDraft(checked) },
+        ar: { checked: arDraft ?? arCurrent, onChange: (checked: boolean) => !saving && setArDraft(checked) },
         onSetSoldOut: (stock: number) =>
           setDraft((old) => ({ ...old, ...Object.fromEntries((variants ?? []).filter((v) => v.stock <= 0).map((v) => [v.id, String(stock)])) })),
       }
@@ -386,7 +397,9 @@ export function InventoryDrawer({
                 ? `${product.name} and its ${variants ? `${variants.length} ${variants.length === 1 ? 'variant' : 'variants'}` : 'variants'}, images and AR measurements will be permanently deleted, and removed from shoppers' carts. This can't be undone.${archived ? '' : ' To hide it from the shop instead, archive it.'}`
                 : prompt.kind === 'delete-variant'
                   ? `${variantLabel(prompt.variant)} (SKU ${prompt.variant.sku}) will be permanently deleted, and removed from shoppers' carts. This can't be undone.${variants?.length === 1 ? ` It is the last variant, so ${product.name} will have no price or stock.` : ''}`
-                  : `Your changes to ${sizes(changed.length)} of ${product.name} will be lost.`}
+                  : changed.length > 0
+                    ? `Your changes to ${sizes(changed.length)} of ${product.name} will be lost.`
+                    : `Your change to AR Fitting ready for ${product.name} will be lost.`}
           </p>
           {archiveError && prompt.kind === 'archive' && <ErrorNote>{archiveError}</ErrorNote>}
           {removeError && (prompt.kind === 'delete' || prompt.kind === 'delete-variant') && <ErrorNote>{removeError}</ErrorNote>}

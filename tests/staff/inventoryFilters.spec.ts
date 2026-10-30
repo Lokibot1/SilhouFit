@@ -12,7 +12,7 @@ const CORS = {
   'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
 }
 /** The only query keys GET /products accepts. */
-const DTO_KEYS = ['brand', 'size', 'color', 'minPrice', 'maxPrice', 'gender', 'inStockOnly', 'sortBy', 'sortOrder', 'page', 'limit', 'search', 'category']
+const DTO_KEYS = ['brand', 'size', 'color', 'minPrice', 'maxPrice', 'gender', 'inStockOnly', 'isArReady', 'sortBy', 'sortOrder', 'page', 'limit', 'search', 'category']
 
 const isList = (url: URL) => url.origin !== PAGE_ORIGIN && url.pathname === '/products'
 
@@ -300,7 +300,7 @@ test.describe('the GET /products request', () => {
 
   test('every URL filter reaches the API under its DTO key', async ({ page }) => {
     const urls = await start(page, {
-      query: '?q=shirt&category=Hoodie&gender=female&brand=Nike&size=M&color=Black&minPrice=100&maxPrice=900.5&stock=in&sort=name&dir=desc&page=2&per=10',
+      query: '?q=shirt&category=Hoodie&gender=female&brand=Nike&size=M&color=Black&minPrice=100&maxPrice=900.5&stock=in&ar=yes&sort=name&dir=desc&page=2&per=10',
     })
     await expect.poll(() => urls.length).toBeGreaterThan(0)
     const last = urls.at(-1)!
@@ -315,6 +315,7 @@ test.describe('the GET /products request', () => {
       minPrice: '100',
       maxPrice: '900.5',
       inStockOnly: 'true',
+      isArReady: 'true',
       sortBy: 'name',
       sortOrder: 'desc',
       page: '2',
@@ -348,14 +349,15 @@ test.describe('the GET /products request', () => {
     expectValid(urls)
   })
 
-  test('Gender is sent; Out of stock, sold-out sizes and AR Fitting stay selectable but send nothing', async ({ page }) => {
+  test('Gender and AR Fitting are sent; Out of stock and sold-out sizes stay selectable but send nothing', async ({ page }) => {
     const urls = await start(page, { query: '?stock=out&ar=yes&gender=male' })
     await expect(summary(page)).toBeVisible()
-    // Out, sizes and AR need backend fields: they show as chips and in the URL, and never reach GET /products.
+    // Out and sizes need backend fields: they show as chips and in the URL, and never reach GET /products.
     await expect(chipList(page).getByRole('button', { name: 'Remove gender Men' })).toBeVisible()
     await expect(chipList(page).getByRole('button', { name: 'Remove stock Out of stock' })).toBeVisible()
     await expect(chipList(page).getByRole('button', { name: 'Remove AR Fitting AR Fitting ready' })).toBeVisible()
     expect(urls.every((url) => url.searchParams.get('gender') === 'male')).toBe(true)
+    expect(urls.every((url) => url.searchParams.get('isArReady') === 'true')).toBe(true)
     expect(urls.every((url) => !url.searchParams.has('inStockOnly') && !url.searchParams.has('ar') && !url.searchParams.has('arReady'))).toBe(true)
     await revealFilters(page)
     await page.getByRole('combobox', { name: 'Stock' }).click()
@@ -366,6 +368,39 @@ test.describe('the GET /products request', () => {
     await page.getByRole('combobox', { name: 'Stock' }).click()
     await page.getByRole('option', { name: 'In stock' }).click()
     await expect.poll(() => urls.at(-1)?.searchParams.get('inStockOnly')).toBe('true')
+    expectValid(urls)
+  })
+
+  test('AR Fitting sends isArReady only when chosen, and the list narrows to match', async ({ page }) => {
+    const urls = await start(page, {
+      products: [
+        product({ name: 'Linen Shirt', isArReady: true, variants: [variant({ size: 'M', color: 'Navy', price: 1500 })] }),
+        product({ name: 'Wool Coat', brand: 'Northline', variants: [variant({ size: 'L', color: 'Grey', price: 4200 })] }),
+      ],
+    })
+    const row = (name: string) => page.getByRole('button', { name: new RegExp(`^${name}`) })
+    await expect(row('Linen Shirt')).toBeVisible()
+    await expect(row('Wool Coat')).toBeVisible()
+    expect(urls.every((url) => !url.searchParams.has('isArReady'))).toBe(true)
+
+    await revealFilters(page)
+    await page.getByRole('combobox', { name: 'AR Fitting' }).click()
+    await page.getByRole('option', { name: 'AR Fitting ready' }).click()
+    await expect.poll(() => urls.at(-1)?.searchParams.get('isArReady')).toBe('true')
+    await expect(row('Wool Coat')).toHaveCount(0)
+    await expect(row('Linen Shirt')).toBeVisible()
+
+    await page.getByRole('combobox', { name: 'AR Fitting' }).click()
+    await page.getByRole('option', { name: 'Not AR ready' }).click()
+    await expect.poll(() => urls.at(-1)?.searchParams.get('isArReady')).toBe('false')
+    await expect(row('Linen Shirt')).toHaveCount(0)
+    await expect(row('Wool Coat')).toBeVisible()
+
+    await page.getByRole('combobox', { name: 'AR Fitting' }).click()
+    await page.getByRole('option', { name: 'All products' }).click()
+    await expect.poll(() => urls.at(-1)?.searchParams.has('isArReady')).toBe(false)
+    await expect(row('Linen Shirt')).toBeVisible()
+    await expect(row('Wool Coat')).toBeVisible()
     expectValid(urls)
   })
 

@@ -54,6 +54,7 @@ const editValues = (p: ProductEditSource): ProductFormValues => ({
   brand: p.brand ?? '',
   category: p.category as Category,
   gender: p.gender ?? '',
+  arReady: p.isArReady,
   description: p.description ?? '',
   images: p.images.map((image, index) => ({ id: `existing${index}`, preview: image.url, url: image.url, alt: image.altText })),
   sizes: [],
@@ -362,15 +363,12 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
               {product?.gender && <p className="text-sm text-fg-muted">A gender can be changed but not removed once it is set.</p>}
             </div>
 
-            {/* The API has no arReady field yet: the box is shown but nothing is sent. */}
-            {!editing && (
-              <div className="grid gap-1">
-                <Checkbox label="AR Fitting ready" checked={values.arReady} onChange={(arReady) => set({ arReady })} className="justify-start">
-                  <span className="text-base font-semibold">AR Fitting ready</span>
-                </Checkbox>
-                <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting. Saving this needs a backend field, so it is not stored yet.</p>
-              </div>
-            )}
+            <div className="grid gap-1">
+              <Checkbox label="AR Fitting ready" checked={values.arReady} onChange={(arReady) => set({ arReady })} className="justify-start">
+                <span className="text-base font-semibold">AR Fitting ready</span>
+              </Checkbox>
+              <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
+            </div>
 
             <Field
               id="pf-description"
