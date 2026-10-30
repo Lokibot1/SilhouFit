@@ -40,7 +40,7 @@ export function ArInsightsPage() {
         <div className="min-w-0 xl:col-span-7 [&>section]:h-full">
           <ArTopProductsTable filter={filter} />
         </div>
-        <div className="grid min-w-0 content-start gap-3 xl:col-span-5">
+        <div className="grid min-w-0 gap-3 xl:col-span-5 xl:grid-rows-2 [&>section]:h-full">
           <ArFitBreakdown filter={filter} />
           <ArSizeAgreement filter={filter} />
         </div>
