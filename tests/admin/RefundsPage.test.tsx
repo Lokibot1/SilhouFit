@@ -392,6 +392,7 @@ describe('Returns & Refunds page', () => {
     await showPending()
     const [a, b] = pendingOnes
     expect(screen.queryByText(/ selected$/)).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
     await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${a.requestNo}` }))
     await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${b.requestNo}` }))
     expect(screen.getByText('2 selected')).toBeInTheDocument()
@@ -408,8 +409,29 @@ describe('Returns & Refunds page', () => {
     expect(screen.queryByText(/ selected$/)).toBeNull()
   })
 
+  it('hides the checkboxes until Select requests is pressed, numbers the rows, and clears the ticks when selecting is done', async () => {
+    await renderPage()
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    // The first column counts the rows.
+    expect(within(bodyRows()[0]).getAllByRole('cell')[0]).toHaveTextContent('1')
+    expect(within(bodyRows()[9]).getAllByRole('cell')[0]).toHaveTextContent('10')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
+    expect(screen.getByRole('button', { name: 'Done selecting' })).toBeInTheDocument()
+    const first = within(table()).getAllByRole('checkbox', { name: /^Select RR-/ })[0]
+    await userEvent.click(first)
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Done selecting' }))
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    expect(screen.queryByText(/ selected$/)).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
+    expect(within(table()).getAllByRole('checkbox', { name: /^Select RR-/ }).every((box) => !(box as HTMLInputElement).checked)).toBe(true)
+  })
+
   it('selects every pending request on the page from the header, and starts again on another tab', async () => {
     await renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
     await userEvent.click(within(header('Select all pending requests on this page').parentElement!).getByRole('checkbox', { name: 'Select all pending requests on this page' }))
     const onPage = recent.slice(0, 10).filter((r) => r.status === 'pending').length
     expect(screen.getByText(`${onPage} selected`)).toBeInTheDocument()
@@ -430,6 +452,7 @@ describe('Returns & Refunds page', () => {
     await showPending()
     const [a, b] = pendingOnes
     vi.mocked(service.approveRefund).mockRejectedValueOnce(network())
+    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
     await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${a.requestNo}` }))
     await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${b.requestNo}` }))
     await userEvent.click(screen.getByRole('button', { name: 'Approve selected' }))
@@ -488,6 +511,7 @@ describe('Returns & Refunds page', () => {
     await showPending()
     const [a, b] = pendingOnes
     vi.mocked(service.approveRefund).mockRejectedValueOnce(Object.assign(new Error('conflict'), { kind: 'conflict' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
     await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${a.requestNo}` }))
     await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${b.requestNo}` }))
     await userEvent.click(screen.getByRole('button', { name: 'Approve selected' }))

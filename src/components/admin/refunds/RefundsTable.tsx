@@ -12,7 +12,7 @@ import { SectionError } from '../../staff/StaffSection'
 import { PAGER_ROWS } from '../../staff/transactions/layout'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Checkbox } from '../../ui/Checkbox'
-import { REFUND_COLUMNS, wideCell } from './refundColumns'
+import { refundColumns, wideCell, type RefundColumnKey } from './refundColumns'
 import { REFUND_CARD_LINE, REFUND_CARD_ROW, REFUND_CARD_TALL, RefundCardSkeletonRows, RefundPagerSkeleton, RefundTableSkeletonRows } from './RefundsSkeleton'
 
 const STATUS = {
@@ -36,7 +36,7 @@ const stop = (event: MouseEvent) => event.stopPropagation()
 const orderLink = (orderNo: string) => `/admin/transactions?q=${encodeURIComponent(orderNo)}`
 
 /** SortHeader for a wide column: the same header, hidden until the panel is wide enough. */
-function WideSortHeader({ label, column, active, onSort, cell }: { label: string; column: RefundSort; active: { sort: RefundSort; dir: 'asc' | 'desc' }; onSort: (column: RefundSort) => void; cell: number }) {
+function WideSortHeader({ label, column, active, onSort, cell }: { label: string; column: RefundSort; active: { sort: RefundSort; dir: 'asc' | 'desc' }; onSort: (column: RefundSort) => void; cell: RefundColumnKey }) {
   const on = active.sort === column
   const Arrow = !on ? SortIcon : active.dir === 'asc' ? ChevronUpIcon : ChevronDownIcon
   return (
@@ -51,6 +51,8 @@ function WideSortHeader({ label, column, active, onSort, cell }: { label: string
 
 interface RefundsTableProps {
   list: RefundsList
+  /** Whether the checkboxes show: they stay hidden until the admin chooses to select requests. */
+  selecting: boolean
   /** Ids of the pending requests ticked on this page. */
   selected: string[]
   onToggle: (id: string) => void
@@ -59,7 +61,7 @@ interface RefundsTableProps {
 }
 
 /** The requests: the table from @4xl of its panel and cards below, with the loading, error and empty states and the pager. */
-export function RefundsTable({ list, selected, onToggle, onToggleAll, onOpen }: RefundsTableProps) {
+export function RefundsTable({ list, selecting, selected, onToggle, onToggleAll, onOpen }: RefundsTableProps) {
   const { state, result, stale, retry, sorted, sortBy, page, setPage, per, filtered, clear, status, text } = list
   // An empty answer to an earlier view is not shown while the next one loads (it would read as "none yet" after Clear filters).
   const rows = result && !(stale && result.data.length === 0) ? result.data : null
@@ -118,32 +120,38 @@ export function RefundsTable({ list, selected, onToggle, onToggleAll, onOpen }: 
       <p role="status" className="sr-only">
         {state.status === 'loading' ? 'Loading refund requests' : ''}
       </p>
-      <table aria-busy={rows === null || stale} className="hidden w-full table-fixed border-separate border-spacing-0 @4xl:table">
+      <table aria-busy={rows === null || stale} className="hidden w-full border-separate border-spacing-0 whitespace-nowrap @4xl:table">
         <caption className="sr-only">Refund requests with request, order, customer, reason, amount, date, status and decision</caption>
         <colgroup>
-          {REFUND_COLUMNS.map((column, n) => (
-            <col key={n} className={`${column.width} ${'wide' in column ? 'hidden @7xl:table-column' : ''}`} />
+          {refundColumns(selecting).map((column) => (
+            <col key={column.key} className={'wide' in column ? 'hidden @7xl:table-column' : ''} />
           ))}
         </colgroup>
         <thead>
           <tr>
-            <th scope="col" className={TH}>
-              <Checkbox label="Select all pending requests on this page" checked={allTicked} disabled={pendingIds.length === 0} onChange={() => onToggleAll(pendingIds)} />
+            <th scope="col" className={TH.replace('text-left', 'text-right')}>
+              <span aria-hidden="true">#</span>
+              <span className="sr-only">Row number</span>
             </th>
+            {selecting && (
+              <th scope="col" className={TH}>
+                <Checkbox label="Select all pending requests on this page" checked={allTicked} disabled={pendingIds.length === 0} onChange={() => onToggleAll(pendingIds)} />
+              </th>
+            )}
             <SortHeader label="Request" column="requestNo" active={sorted} onSort={sortBy} />
             <SortHeader label="Order" column="orderNo" active={sorted} onSort={sortBy} />
             <SortHeader label="Customer" column="customerName" active={sorted} onSort={sortBy} />
-            <WideSortHeader label="Requested by" column="requestedBy" active={sorted} onSort={sortBy} cell={4} />
+            <WideSortHeader label="Requested by" column="requestedBy" active={sorted} onSort={sortBy} cell="by" />
             <SortHeader label="Reason" column="reason" active={sorted} onSort={sortBy} />
             <SortHeader label="Amount" column="amount" active={sorted} onSort={sortBy} right />
             <SortHeader label="Requested at" column="requestedAt" active={sorted} onSort={sortBy} />
             <SortHeader label="Status" column="status" active={sorted} onSort={sortBy} />
-            <WideSortHeader label="Decided" column="decidedAt" active={sorted} onSort={sortBy} cell={9} />
+            <WideSortHeader label="Decided" column="decidedAt" active={sorted} onSort={sortBy} cell="decided" />
           </tr>
         </thead>
         <tbody className={`transition-opacity duration-150 ${stale ? 'opacity-60' : ''}`}>
           {rows === null ? (
-            <RefundTableSkeletonRows count={list.skeletonRows} />
+            <RefundTableSkeletonRows count={list.skeletonRows} selecting={selecting} />
           ) : (
             rows.map((row, index) => (
               <tr
@@ -152,9 +160,12 @@ export function RefundsTable({ list, selected, onToggle, onToggleAll, onOpen }: 
                 style={{ '--i': index } as CSSProperties}
                 className={`${TABLE_ROW} enter-row cursor-pointer hover:bg-line/40`}
               >
-                <td className={TD} onClick={stop}>
-                  {tick(row)}
-                </td>
+                <td className={`${TD} text-right text-sm text-fg-muted tabular-nums`}>{(page - 1) * per + index + 1}</td>
+                {selecting && (
+                  <td className={TD} onClick={stop}>
+                    {tick(row)}
+                  </td>
+                )}
                 <td className={TD}>
                   <button type="button" aria-haspopup="dialog" className="flex min-h-11 w-full min-w-0 cursor-pointer items-center rounded-xl text-left hover:text-chrome-strong">
                     <span className="block truncate font-mono text-sm font-semibold text-fg">{row.requestNo}</span>
@@ -166,41 +177,41 @@ export function RefundsTable({ list, selected, onToggle, onToggleAll, onOpen }: 
                   </Link>
                 </td>
                 <td className={`${TD} text-sm text-fg`}>
-                  <span className="block truncate">{row.customerName}</span>
-                  <span className="block truncate text-xs text-fg-muted @7xl:hidden">
+                  <span className="block max-w-40 truncate">{row.customerName}</span>
+                  <span className="block max-w-40 truncate text-xs text-fg-muted @7xl:hidden">
                     <span className="sr-only">Requested </span>by {row.requestedBy}
                   </span>
                 </td>
-                <td className={`${TD} ${wideCell(4)} text-sm text-fg`}>
-                  <span className="block truncate">{row.requestedBy}</span>
+                <td className={`${TD} ${wideCell('by')} text-sm text-fg`}>
+                  <span className="block max-w-36 truncate">{row.requestedBy}</span>
                 </td>
                 <td className={`${TD} text-sm text-fg`}>
-                  <span className="block truncate">{REFUND_REASON_LABELS[row.reason]}</span>
+                  <span className="block max-w-36 truncate">{REFUND_REASON_LABELS[row.reason]}</span>
                 </td>
                 <td className={`${TD} text-right text-sm whitespace-nowrap text-fg tabular-nums`}>{formatPeso(row.amount)}</td>
                 <td className={`${TD} text-sm text-fg-muted`}>
-                  <time dateTime={row.requestedAt} className="block truncate">
+                  <time dateTime={row.requestedAt} className="block">
                     {formatOrderTime(row.requestedAt)}
                   </time>
                 </td>
                 <td className={TD}>
-                  <div className="flex flex-col items-start">
+                  <div className="flex flex-col items-start gap-0.5">
                     <RefundStatusBadge status={row.status} />
                     {row.decidedBy && row.decidedAt && (
                       <>
-                        <span className="w-full truncate text-xs text-fg-muted @7xl:hidden">{row.decidedBy}</span>
-                        <time dateTime={row.decidedAt} className="w-full truncate text-xs text-fg-muted @7xl:hidden">
+                        <span className="max-w-28 truncate text-[0.6875rem] leading-3.5 text-fg-muted @7xl:hidden">{row.decidedBy}</span>
+                        <time dateTime={row.decidedAt} className="text-[0.6875rem] leading-3.5 text-fg-muted @7xl:hidden">
                           {formatOrderTime(row.decidedAt)}
                         </time>
                       </>
                     )}
                   </div>
                 </td>
-                <td className={`${TD} ${wideCell(9)} text-sm`}>
+                <td className={`${TD} ${wideCell('decided')} text-sm`}>
                   {row.decidedBy && row.decidedAt ? (
                     <>
-                      <span className="block truncate text-fg">{row.decidedBy}</span>
-                      <time dateTime={row.decidedAt} className="block truncate text-fg-muted">
+                      <span className="block max-w-36 truncate text-fg">{row.decidedBy}</span>
+                      <time dateTime={row.decidedAt} className="block text-fg-muted">
                         {formatOrderTime(row.decidedAt)}
                       </time>
                     </>
@@ -233,9 +244,11 @@ export function RefundsTable({ list, selected, onToggle, onToggleAll, onOpen }: 
             >
               <div className={`flex ${REFUND_CARD_TALL} items-center justify-between gap-3`}>
                 <div className="flex min-w-0 items-center">
-                  <div onClick={stop} className="flex size-11 shrink-0 items-center justify-center">
-                    {tick(row)}
-                  </div>
+                  {selecting && (
+                    <div onClick={stop} className="flex size-11 shrink-0 items-center justify-center">
+                      {tick(row)}
+                    </div>
+                  )}
                   <button type="button" aria-haspopup="dialog" className="flex min-h-11 min-w-0 cursor-pointer items-center rounded-xl text-left hover:text-chrome-strong">
                     <span className="block truncate font-mono text-base font-semibold text-fg">{row.requestNo}</span>
                   </button>

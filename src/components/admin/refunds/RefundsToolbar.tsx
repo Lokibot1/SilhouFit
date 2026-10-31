@@ -1,6 +1,6 @@
 import { MAX_REFUND_SEARCH, REFUND_PER_PAGE_OPTIONS } from '../../../service/refunds'
 import { SearchIcon, XIcon } from '../../form/icons'
-import { PRIMARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Select } from '../../ui/Select'
 
 /** Placeholders sit clearly dimmer than typed text yet stay above 4.5:1 on the page colour in both themes. */
@@ -12,12 +12,15 @@ interface RefundsToolbarProps {
   onText: (text: string) => void
   per: number
   onPer: (per: number) => void
+  /** Whether the checkboxes show; they stay hidden until the admin chooses to select requests. */
+  selecting: boolean
+  onSelecting: (selecting: boolean) => void
   /** Pending requests ticked on this page. */
   selected: number
   onApproveSelected: () => void
 }
 
-export function RefundsToolbar({ text, onText, per, onPer, selected, onApproveSelected }: RefundsToolbarProps) {
+export function RefundsToolbar({ text, onText, per, onPer, selecting, onSelecting, selected, onApproveSelected }: RefundsToolbarProps) {
   return (
     <div className="mb-3 grid gap-3">
       <div className="relative">
@@ -48,6 +51,9 @@ export function RefundsToolbar({ text, onText, per, onPer, selected, onApproveSe
         <div className="w-full @sm:w-44">
           <Select label="Rows per page" value={per} options={PER_PAGE_CHOICES} onChange={onPer} />
         </div>
+        <button type="button" onClick={() => onSelecting(!selecting)} className={SECONDARY_BUTTON_SM}>
+          {selecting ? 'Done selecting' : 'Select requests'}
+        </button>
         {selected > 0 && (
           <div className="flex w-full items-center justify-between gap-3 @sm:ml-auto @sm:w-auto">
             <p role="status" className="text-sm font-semibold text-fg tabular-nums">

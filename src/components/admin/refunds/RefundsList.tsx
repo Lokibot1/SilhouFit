@@ -29,6 +29,8 @@ export function RefundsList() {
   // The ticks belong to the view they were made in: another tab, search, sort or page starts again with none.
   const view = [list.status, list.text, list.sorted.sort, list.sorted.dir, list.page, list.per].join('|')
   const [ticked, setTicked] = useState<{ view: string; ids: string[] }>({ view, ids: [] })
+  // The checkboxes are hidden until the admin chooses to select requests.
+  const [selecting, setSelecting] = useState(false)
   // Stays set while the dialog closes, so its text does not change as it fades out.
   const [bulk, setBulk] = useState<RefundRequest[]>([])
   const [asking, setAsking] = useState(false)
@@ -102,13 +104,18 @@ export function RefundsList() {
         onText={list.setText}
         per={list.per}
         onPer={list.setPer}
+        selecting={selecting}
+        onSelecting={(on) => {
+          setSelecting(on)
+          if (!on) setTicked({ view, ids: [] })
+        }}
         selected={selected.length}
         onApproveSelected={() => {
           setBulk(selected)
           setAsking(true)
         }}
       />
-      <RefundsTable list={list} selected={selected.map((row) => row.id)} onToggle={toggle} onToggleAll={toggleAll} onOpen={openSheet} />
+      <RefundsTable list={list} selecting={selecting} selected={selected.map((row) => row.id)} onToggle={toggle} onToggleAll={toggleAll} onOpen={openSheet} />
       {sheet.request && <RefundDetailSheet key={sheet.session} request={sheet.request} open={sheet.open} onClose={() => setSheet((old) => ({ ...old, open: false }))} />}
       <ConfirmDialog
         open={asking}

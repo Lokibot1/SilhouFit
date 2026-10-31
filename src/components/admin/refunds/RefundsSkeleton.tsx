@@ -2,7 +2,7 @@ import { REFUND_PER_PAGE } from '../../../service/refunds'
 import { PAGER_CONTROL, PAGER_FOOTER, PAGER_PAGINATION, TABLE_ROW, TD, TH } from '../../staff/inventory/layout'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { PAGER_ROWS, PAGER_SKELETON_ROWS } from '../../staff/transactions/layout'
-import { REFUND_COLUMNS, wideCell } from './refundColumns'
+import { refundColumns, wideCell, type RefundColumnKey } from './refundColumns'
 import { REFUND_GRID, RefundCardsSkeleton } from './RefundSummaryCards'
 
 /**
@@ -15,12 +15,27 @@ export const REFUND_CARD_TALL = 'h-11'
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
-export function RefundTableSkeletonRows({ count }: { count: number }) {
+/** How wide each column's placeholder is, about the width of its content, so the columns size themselves as they will once the rows arrive. */
+const BAR_WIDTH: Record<RefundColumnKey, string> = {
+  num: 'w-4',
+  select: 'size-6',
+  request: 'w-14',
+  order: 'w-16',
+  customer: 'w-32',
+  by: 'w-24',
+  reason: 'w-28',
+  amount: 'w-20',
+  at: 'w-28',
+  status: 'w-24',
+  decided: 'w-24',
+}
+
+export function RefundTableSkeletonRows({ count, selecting = false }: { count: number; selecting?: boolean }) {
   return Array.from({ length: count }, (_, n) => (
     <tr key={n} className={`${TABLE_ROW} animate-pulse`}>
-      {REFUND_COLUMNS.map((_, c) => (
-        <td key={c} className={`${TD} ${wideCell(c)}`}>
-          <Bar className={c === 0 ? 'size-6' : `h-5 ${c === 3 ? 'w-2/3' : 'w-3/4'}`} />
+      {refundColumns(selecting).map(({ key }) => (
+        <td key={key} className={`${TD} ${wideCell(key)}`}>
+          <Bar className={`${key === 'select' ? '' : 'h-5'} ${BAR_WIDTH[key]} ${key === 'num' || key === 'amount' ? 'ml-auto' : ''}`} />
         </td>
       ))}
     </tr>
@@ -105,16 +120,16 @@ export function RefundsPageSkeleton() {
             <Bar className="h-9 w-full max-md:h-11 pointer-coarse:h-11 @sm:w-44" />
           </div>
         </div>
-        <table className="hidden w-full table-fixed border-separate border-spacing-0 @4xl:table">
+        <table className="hidden w-full border-separate border-spacing-0 whitespace-nowrap @4xl:table">
           <colgroup>
-            {REFUND_COLUMNS.map((column, n) => (
-              <col key={n} className={`${column.width} ${'wide' in column ? 'hidden @7xl:table-column' : ''}`} />
+            {refundColumns(false).map((column) => (
+              <col key={column.key} className={'wide' in column ? 'hidden @7xl:table-column' : ''} />
             ))}
           </colgroup>
           <thead>
             <tr>
-              {REFUND_COLUMNS.map((_, c) => (
-                <th key={c} className={`${TH} ${wideCell(c)}`}>
+              {refundColumns(false).map(({ key }) => (
+                <th key={key} className={`${TH} ${wideCell(key)}`}>
                   <div className="h-11" />
                 </th>
               ))}
