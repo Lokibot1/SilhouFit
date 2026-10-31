@@ -13,7 +13,7 @@ export interface ApiCartItem {
     price: number
     stock: number
     imageUrl: string | null
-    product: { id: string; name: string; slug: string; category: string; brand: string | null; isActive: boolean }
+    product: { id: string; name: string; slug: string; category: string; brand: string | null; isActive: boolean; imageUrl: string | null }
   }
 }
 
@@ -54,6 +54,7 @@ function toItem(value: unknown): ApiCartItem {
         category: typeof product.category === 'string' ? product.category : '',
         brand: text(product.brand),
         isActive: product.isActive !== false,
+        imageUrl: text(product.imageUrl),
       },
     },
   }

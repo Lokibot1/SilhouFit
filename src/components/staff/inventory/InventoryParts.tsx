@@ -1,9 +1,10 @@
-import { useState, type MouseEvent, type ReactNode } from 'react'
+import { type MouseEvent, type ReactNode } from 'react'
 import { LOW_STOCK } from '../../../data/products'
 import type { ProductListItem, ProductVariant } from '../../../service/fetchProductList'
 import { formatPeso } from '../../../utils/format'
 import { isArchived, isSoldOut } from '../../../utils/inventoryQuery'
 import { PlusIcon, RestoreIcon } from '../../form/icons'
+import { PhotoImg } from '../../ui/PhotoImg'
 import { Tooltip } from '../../ui/Tooltip'
 
 const LEVELS = {
@@ -152,13 +153,8 @@ export function ProductAction({ product, actions }: { product: ProductListItem; 
 }
 
 export function ProductThumb({ product, className }: { product: ProductListItem; className: string }) {
-  const [failed, setFailed] = useState(false)
   const image = product.primaryImage
-  return image && !failed ? (
-    <img src={image.url} alt={image.altText ?? product.name} loading="lazy" onError={() => setFailed(true)} className={`${className} bg-line object-cover`} />
-  ) : (
-    <div aria-hidden="true" className={`${className} bg-line`} />
-  )
+  return <PhotoImg src={image?.url} alt={image?.altText ?? product.name} loading="lazy" className={`${className} bg-line object-cover`} />
 }
 
 export function PriceRange({ product }: { product: ProductListItem }) {

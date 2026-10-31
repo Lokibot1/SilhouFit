@@ -23,6 +23,7 @@ export interface MockSize {
   neckCm: number | null
   thighCm: number | null
   isActive: boolean
+  isDeleted: boolean
   createdAt: string
   updatedAt: string
 }
@@ -42,6 +43,7 @@ export const sizeRow = (overrides: Partial<MockSize> = {}): MockSize => ({
   neckCm: 38,
   thighCm: null,
   isActive: true,
+  isDeleted: false,
   createdAt: '2026-05-01T08:00:00.000Z',
   updatedAt: '2026-05-01T08:00:00.000Z',
   ...overrides,
@@ -78,9 +80,9 @@ const RANGES: Record<string, [number, number]> = {
 }
 
 /**
- * Stands in for /size-measurements, which the backend has not built yet, to the agreed spec: POST (409 when an active row has the same
- * category and size, 400 with a message list), GET list with ?category=&size=&status=, GET/PATCH by id (null clears, isActive archives and
- * restores). Register it after mockAuth.
+ * Stands in for /size-measurements, to the backend contract: POST (409 when an active row has the same category and size, 400 with a
+ * message list), GET list with ?category=&size=&status=active|inactive|archived|all, GET/PATCH by id (null clears), DELETE /:id archives
+ * (soft delete, isDeleted) and POST /:id/restore restores (409 when an active row has the same category and size). Register it after mockAuth.
  */
 export async function mockSizeMeasurements(page: Page, initial: MockSize[] = [], { unavailable = false } = {}): Promise<SizeMeasurementsMock> {
   let next: { status: number; json: object } | null = null
@@ -92,7 +94,7 @@ export async function mockSizeMeasurements(page: Page, initial: MockSize[] = [],
     failNext: (status, json = { message: 'Failed' }) => (next = { status, json }),
   }
   const duplicate = (category: string, size: string, exceptId?: string) =>
-    mock.rows.some((r) => r.isActive && r.id !== exceptId && r.category === category && r.size.toLowerCase() === size.toLowerCase())
+    mock.rows.some((r) => r.isActive && !r.isDeleted && r.id !== exceptId && r.category === category && r.size.toLowerCase() === size.toLowerCase())
   const problems = (body: Record<string, unknown>, merged: Record<string, unknown>) => {
     const list: string[] = []
     if (typeof merged.size !== 'string' || !merged.size.trim()) list.push('size should not be empty')
@@ -129,7 +131,8 @@ export async function mockSizeMeasurements(page: Page, initial: MockSize[] = [],
         return reply(
           200,
           mock.rows.filter(
-            (r) => (!category || r.category === category) && (!size || r.size === size) && (status === 'all' || r.isActive === (status === 'active')),
+            (r) => (!category || r.category === category) && (!size || r.size === size) && (status === 'all' ||
+                (status === 'archived' ? r.isDeleted : !r.isDeleted && r.isActive === (status === 'active'))),
           ),
         )
       }
@@ -148,8 +151,17 @@ export async function mockSizeMeasurements(page: Page, initial: MockSize[] = [],
         const merged = { ...row, ...body }
         const list = problems(body, merged)
         if (list.length) return reply(400, { statusCode: 400, message: list, error: 'Bad Request' })
-        if (merged.isActive && duplicate(row.category, String(merged.size), row.id)) return reply(409, { statusCode: 409, message: 'Size already exists', error: 'Conflict' })
+        if (merged.isActive && !row.isDeleted && duplicate(row.category, String(merged.size), row.id)) return reply(409, { statusCode: 409, message: 'Size already exists', error: 'Conflict' })
         Object.assign(row, body, { updatedAt: new Date().toISOString() })
+        return reply(200, row)
+      }
+      if (method === 'DELETE') {
+        row.isDeleted = true
+        return reply(200, row)
+      }
+      if (method === 'POST' && url.pathname.endsWith('/restore')) {
+        if (row.isDeleted && row.isActive && duplicate(row.category, row.size, row.id)) return reply(409, { statusCode: 409, message: 'Cannot restore: an active size measurement already exists', error: 'Conflict' })
+        row.isDeleted = false
         return reply(200, row)
       }
       return reply(405, {})

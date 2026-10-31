@@ -1,26 +1,15 @@
-import { useState } from 'react'
 import type { ProductListItem } from '../../service/fetchProductList'
 import { formatPeso } from '../../utils/format'
+import { PhotoImg } from '../ui/PhotoImg'
 import { Tooltip } from '../ui/Tooltip'
 
 export function ProductRow({ product }: { product: ProductListItem }) {
-  const [failed, setFailed] = useState(false)
   const image = product.primaryImage
   const empty = product.totalStock <= 0
 
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 sm:min-h-20 sm:flex-nowrap">
-      {image && !failed ? (
-        <img
-          src={image.url}
-          alt={image.altText ?? product.name}
-          loading="lazy"
-          onError={() => setFailed(true)}
-          className="size-14 shrink-0 rounded-xl bg-line object-cover"
-        />
-      ) : (
-        <div aria-hidden="true" className="size-14 shrink-0 rounded-xl bg-line" />
-      )}
+      <PhotoImg src={image?.url} alt={image?.altText ?? product.name} loading="lazy" className="size-14 shrink-0 rounded-xl bg-line object-cover" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-base font-semibold text-fg">{product.name}</p>
         <p className="truncate text-sm text-fg-muted">

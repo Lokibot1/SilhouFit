@@ -6,6 +6,7 @@ import { clearCartCache, useCart, useCartCount } from '../../src/hooks/useCart'
 import { clearProductCache } from '../../src/hooks/useProducts'
 import { ProductListError } from '../../src/service/fetchProductList'
 import { addCartItem, fetchCart } from '../../src/service/cartApi'
+import { fetchShopProduct } from '../../src/service/fetchShopProducts'
 import { clearSession, setSession } from '../../src/service/session'
 import { createCartStore, type CartStore, type StoreProduct } from '../fixtures/cartStore'
 import { BLAZER, POLO, SOLD_OUT } from '../fixtures/shopProducts'
@@ -200,6 +201,14 @@ describe('signed-in cart', () => {
     expect(result.current.count).toBe(3)
     expect(result.current.cart.lines.map((l) => [l.variantId, l.qty, l.itemId !== undefined])).toEqual([[NAVY, 2, true], [BLACK, 1, true]])
     expect(result.current.cart.lines[0]).toMatchObject({ productId: 'p01', name: 'Heritage Polo', unitPrice: 2100, stock: 5, active: true })
+  })
+
+  it('shows the product photo the cart carries (the primary image)', async () => {
+    rows[0].images = [{ url: 'https://img.test/polo-back.webp', isPrimary: false }, { url: 'https://img.test/polo-front.webp', isPrimary: true }]
+    server.seed(NAVY, 1)
+    const { result } = await setup()
+    expect(result.current.cart.lines[0].image).toBe('https://img.test/polo-front.webp')
+    expect(fetchShopProduct).not.toHaveBeenCalled() // nothing to look up when the cart has the photo
   })
 
   it('adds with { variantId, quantity } and uses the cart the server returns', async () => {

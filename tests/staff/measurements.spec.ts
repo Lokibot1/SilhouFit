@@ -44,7 +44,7 @@ test.describe('list', () => {
   })
 
   test('switches category and between Active and Archived', async ({ page }) => {
-    const api = await start(page, [...hoodies(), sizeRow({ category: 'Pants', size: '32', waistWidthCm: 40, chestWidthCm: null, shoulderWidthCm: null, sleeveLengthCm: null, neckCm: null }), sizeRow({ size: 'L', isActive: false })])
+    const api = await start(page, [...hoodies(), sizeRow({ category: 'Pants', size: '32', waistWidthCm: 40, chestWidthCm: null, shoulderWidthCm: null, sleeveLengthCm: null, neckCm: null }), sizeRow({ size: 'L', isDeleted: true })])
     await page.getByRole('tab', { name: 'Pants' }).click()
     await expect(action(page, 'Edit', 'Pants 32')).toBeVisible()
     await expect(action(page, 'Edit', 'Hoodie M')).toHaveCount(0)
@@ -202,12 +202,14 @@ test.describe('archive and restore', () => {
     await confirm.getByRole('button', { name: 'Cancel' }).click()
     await expect(action(page, 'Archive', 'Hoodie M')).toBeVisible()
     await expect(action(page, 'Archive', 'Hoodie M')).toBeFocused()
-    expect(api.of('PATCH')).toHaveLength(0)
+    expect(api.of('DELETE')).toHaveLength(0)
 
     await action(page, 'Archive', 'Hoodie M').click()
     await prompt(page).getByRole('button', { name: 'Archive size' }).click()
     await expect(toast(page, 'Hoodie M archived')).toBeVisible()
-    expect(api.of('PATCH')[0].body).toEqual({ isActive: false })
+    expect(api.of('DELETE')).toHaveLength(1)
+    expect(api.of('DELETE')[0].id).toBe(api.rows.find((r) => r.size === 'M')?.id)
+    expect(api.rows.find((r) => r.size === 'M')?.isDeleted).toBe(true)
     await expect(action(page, 'Archive', 'Hoodie M')).toHaveCount(0)
     // The row left the tab: focus moves to the next row's Edit button (M was followed by XL).
     await expect(action(page, 'Edit', 'Hoodie XL')).toBeFocused()
@@ -215,7 +217,8 @@ test.describe('archive and restore', () => {
     await page.getByRole('tab', { name: 'Archived' }).click()
     await action(page, 'Restore', 'Hoodie M').click()
     await expect(toast(page, 'Hoodie M restored')).toBeVisible()
-    expect(api.of('PATCH')[1].body).toEqual({ isActive: true })
+    expect(api.of('POST').filter((c) => c.id)).toHaveLength(1)
+    expect(api.of('PATCH')).toHaveLength(0)
     await expect(page.getByText('No archived Hoodie sizes')).toBeVisible()
     await page.getByRole('tab', { name: 'Active' }).click()
     await expect(action(page, 'Edit', 'Hoodie M')).toBeVisible()
@@ -228,11 +231,11 @@ test.describe('archive and restore', () => {
     await page.getByRole('button', { name: 'Undo' }).click()
     await expect(toast(page, 'Hoodie S restored')).toBeVisible()
     await expect(action(page, 'Edit', 'Hoodie S')).toBeFocused()
-    expect(api.rows.find((r) => r.size === 'S')?.isActive).toBe(true)
+    expect(api.rows.find((r) => r.size === 'S')?.isDeleted).toBe(false)
   })
 
   test('a restore that finds an active row of the same size says so (409)', async ({ page }) => {
-    await start(page, [...hoodies(), sizeRow({ size: 'M', isActive: false })])
+    await start(page, [...hoodies(), sizeRow({ size: 'M', isDeleted: true })])
     await page.getByRole('tab', { name: 'Archived' }).click()
     await action(page, 'Restore', 'Hoodie M').click()
     await expect(page.getByText(/Couldn't restore Hoodie M\. An active Hoodie M already exists/)).toBeVisible()

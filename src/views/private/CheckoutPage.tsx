@@ -9,6 +9,7 @@ import { AlertIcon, SpinnerIcon } from '../../components/form/icons'
 import { SHOP_PRIMARY } from '../../components/shop/shopControls'
 import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
 import { IconEditButton } from '../../components/ui/IconEditButton'
+import { PhotoImg } from '../../components/ui/PhotoImg'
 import { Select } from '../../components/ui/Select'
 import { DEFAULT_COUNTRY_CODE, findCountry } from '../../data/countries'
 import { lineKey, useCart } from '../../hooks/useCart'
@@ -107,7 +108,7 @@ function ItemRow({ item, change }: { item: CheckoutItem; change: boolean }) {
   const { product, size, color, qty, unit } = item
   return (
     <li className="flex min-w-0 gap-4">
-      <img
+      <PhotoImg
         src={product.image}
         alt={product.alt}
         className="photo-mono h-24 w-18 shrink-0 rounded-xl border border-line object-cover"

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearCategoryMeasurements, createSizeMeasurement, fetchCategoryMeasurements, updateSizeMeasurement } from '../../src/service/sizeMeasurements'
+import { clearCategoryMeasurements, createSizeMeasurement, fetchCategoryMeasurements, setSizeMeasurementActive } from '../../src/service/sizeMeasurements'
 
 vi.mock('../../src/service/supabase', () => ({
   getSupabase: async () => ({ auth: { getSession: async () => ({ data: { session: { access_token: 'tok' } } }) } }),
@@ -40,11 +40,11 @@ describe('fetchCategoryMeasurements', () => {
     await expect(fetchCategoryMeasurements('Hoodie')).resolves.toHaveLength(1)
   })
 
-  it('is refetched after a staff create or update (archive and restore go through update)', async () => {
+  it('is refetched after a staff create or archive', async () => {
     await fetchCategoryMeasurements('Hoodie')
     await createSizeMeasurement({ category: 'Hoodie', size: 'L', chestWidthCm: 58 })
     await fetchCategoryMeasurements('Hoodie')
-    await updateSizeMeasurement('r1', { isActive: false })
+    await setSizeMeasurementActive('r1', false)
     await fetchCategoryMeasurements('Hoodie')
     expect(gets()).toBe(3)
   })

@@ -10,6 +10,7 @@ import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
 import { Checkbox } from '../../components/ui/Checkbox'
 import { Modal } from '../../components/ui/Modal'
+import { PhotoImg } from '../../components/ui/PhotoImg'
 import { RowMenu } from '../../components/ui/RowMenu'
 import { choiceOf, sizesFor, type Product } from '../../data/products'
 import { lineKey, useCart, type Line } from '../../hooks/useCart'
@@ -322,7 +323,7 @@ export function CartPage() {
                     <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className="py-5">
                       <SwipeRow onRemove={() => removeOne(row, 'collapse')}>
                       {picker}
-                      <img
+                      <PhotoImg
                         src={line.image}
                         alt={line.name}
                         className="photo-mono h-20 w-16 shrink-0 sm:h-24 sm:w-18 rounded-xl border border-line object-cover"
@@ -485,7 +486,7 @@ function VariationModal({
       }
     >
       <div className="mb-5 flex gap-4 rounded-xl border border-line bg-fg/5 p-3">
-        <img src={product.image} alt={product.alt} className="photo-mono h-32 w-24 shrink-0 rounded-xl border border-line object-cover" />
+        <PhotoImg src={product.image} alt={product.alt} className="photo-mono h-32 w-24 shrink-0 rounded-xl border border-line object-cover" />
         <div className="min-w-0 flex-1">
           <p className="font-ui truncate text-[11px] tracking-[0.16em] text-fg-muted uppercase">
             {product.category} · {product.boutique}

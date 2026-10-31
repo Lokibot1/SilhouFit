@@ -160,7 +160,7 @@ function serverLines(cart: ApiCart): Line[] {
     colorHex: variant.colorHex,
     unitPrice,
     stock: variant.stock,
-    image: variant.imageUrl ?? getCachedProduct(variant.product.id)?.image ?? '',
+    image: variant.imageUrl ?? variant.product.imageUrl ?? getCachedProduct(variant.product.id)?.image ?? '',
     qty: quantity,
     active: variant.product.isActive,
     itemId: id,
@@ -170,8 +170,8 @@ function serverLines(cart: ApiCart): Line[] {
 function commitServer(cart: ApiCart) {
   serverCart = cart
   commit({ status: 'ready', lines: serverLines(cart), count: cart.totalItems })
-  // The cart has no product photo; load what is missing so rows get one (and checkout finds its products ready).
-  const missing = [...new Set(cart.items.filter((item) => !item.variant.imageUrl && !getCachedProduct(item.variant.product.id)?.image).map((item) => item.variant.product.id))]
+  // Load what the cart did not carry a photo for, so rows get one (and checkout finds its products ready).
+  const missing = [...new Set(cart.items.filter((item) => !item.variant.imageUrl && !item.variant.product.imageUrl && !getCachedProduct(item.variant.product.id)?.image).map((item) => item.variant.product.id))]
   if (missing.length === 0) return
   const current = generation
   void Promise.allSettled(missing.map((id) => loadProduct(id))).then(() => {

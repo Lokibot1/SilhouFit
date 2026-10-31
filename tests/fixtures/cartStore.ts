@@ -21,6 +21,8 @@ export interface StoreProduct {
   category: string
   brand: string | null
   isActive: boolean
+  /** The cart answers the primary one (else the first) as the product's `imageUrl`. */
+  images?: { url: string; isPrimary: boolean }[]
   variants: StoreVariant[]
 }
 
@@ -51,7 +53,8 @@ export function createCartStore(products: () => StoreProduct[]) {
       const hit = found(item.variantId)
       if (!hit) return []
       const { product, variant } = hit
-      const { id, name, slug, category, brand, isActive } = product
+      const { id, name, slug, category, brand, isActive, images = [] } = product
+      const imageUrl = (images.find((image) => image.isPrimary) ?? images[0])?.url ?? null
       return [
         {
           id: item.id,
@@ -60,7 +63,7 @@ export function createCartStore(products: () => StoreProduct[]) {
           quantity: item.quantity,
           unitPrice: variant.price,
           totalPrice: variant.price * item.quantity,
-          variant: { ...variant, product: { id, name, slug, category, brand, isActive } },
+          variant: { ...variant, product: { id, name, slug, category, brand, isActive, imageUrl } },
           createdAt: '2026-05-01T08:00:00.000Z',
           updatedAt: '2026-05-01T08:00:00.000Z',
         },

@@ -1,0 +1,18 @@
+import { useState } from 'react'
+import { SilhouetteMark } from '../landing/SilhouetteMark'
+
+/**
+ * A product photo that falls back to a tile of the same size (the brand mark, named "photo unavailable") when there is no URL or it
+ * fails to load, so a missing file never shows a broken-image icon or shifts the layout. `className` sizes both.
+ */
+export function PhotoImg({ src, alt, className, loading }: { src: string | null | undefined; alt: string; className: string; loading?: 'lazy' | 'eager' }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  if (!src || failedSrc === src) {
+    return (
+      <div role="img" aria-label={`${alt} (photo unavailable)`} className={`${className} flex items-center justify-center overflow-hidden bg-line`}>
+        <SilhouetteMark className="w-1/2 max-w-10 text-fg-muted" />
+      </div>
+    )
+  }
+  return <img src={src} alt={alt} loading={loading} onError={() => setFailedSrc(src)} className={className} />
+}

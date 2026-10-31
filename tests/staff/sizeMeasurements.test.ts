@@ -36,6 +36,7 @@ const row = (overrides: Record<string, unknown> = {}) => ({
   neckCm: null,
   thighCm: null,
   isActive: true,
+  isDeleted: false,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-02T00:00:00.000Z',
   ...overrides,
@@ -72,6 +73,11 @@ describe('fetchSizeMeasurements', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0]).toMatchObject({ id: 'r1', chestWidthCm: 55, neckCm: null, isActive: true })
     expect(rows[1]).toMatchObject({ waistWidthCm: 40, hipWidthCm: null, isActive: false })
+  })
+
+  it('reads an archived (soft-deleted) row as not active, even when the API still says isActive', async () => {
+    reply([row({ isDeleted: true })])
+    expect((await fetchSizeMeasurements({ status: 'archived' }))[0].isActive).toBe(false)
   })
 
   it('treats anything else as a server fault', async () => {
@@ -137,13 +143,26 @@ describe('updateSizeMeasurement and setSizeMeasurementActive', () => {
     expect(init.body).toBe('{"chestWidthCm":56,"neckCm":null}')
   })
 
-  it('archives and restores with { isActive } alone', async () => {
-    reply(row({ isActive: false }))
-    await setSizeMeasurementActive('r1', false)
-    expect(fetchMock.mock.calls[0][1].body).toBe('{"isActive":false}')
+  it('archives with DELETE and restores with POST /:id/restore, neither with a body', async () => {
+    reply(row({ isDeleted: true }))
+    const archived = await setSizeMeasurementActive('r1', false)
+    const [archiveUrl, archiveInit] = fetchMock.mock.calls[0]
+    expect(String(archiveUrl)).toMatch(/\/size-measurements\/r1$/)
+    expect(archiveInit.method).toBe('DELETE')
+    expect(archiveInit.body).toBeUndefined()
+    expect(archived.isActive).toBe(false)
     reply(row())
-    await setSizeMeasurementActive('r1', true)
-    expect(fetchMock.mock.calls[1][1].body).toBe('{"isActive":true}')
+    const restored = await setSizeMeasurementActive('r1', true)
+    const [restoreUrl, restoreInit] = fetchMock.mock.calls[1]
+    expect(String(restoreUrl)).toMatch(/\/size-measurements\/r1\/restore$/)
+    expect(restoreInit.method).toBe('POST')
+    expect(restoreInit.body).toBeUndefined()
+    expect(restored.isActive).toBe(true)
+  })
+
+  it('reads a restore blocked by an active duplicate as a conflict', async () => {
+    reply({ message: 'Cannot restore: an active size measurement already exists' }, 409)
+    await expect(setSizeMeasurementActive('r1', true)).rejects.toMatchObject({ kind: 'conflict' })
   })
 })
 

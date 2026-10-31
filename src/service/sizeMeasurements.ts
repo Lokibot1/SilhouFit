@@ -1,8 +1,8 @@
 import { MEASUREMENT_KEYS, ProductListError, request, type Measurements } from './fetchProductList'
 import type { RequestOptions } from './simulateRequest'
 
-// Base measurements per category and size, for the size guide and the AR garment's defaults. The API (/size-measurements) is not built yet:
-// until it ships every call answers 404, which reads as 'not-found'. Errors are ProductListError, as for the other product services.
+// Base measurements per category and size, for the size guide and the AR garment's defaults (/size-measurements). Errors are
+// ProductListError, as for the other product services.
 
 export type SizeStatus = 'active' | 'archived' | 'all'
 
@@ -11,6 +11,7 @@ export interface SizeMeasurement extends Measurements {
   category: string
   /** A label such as XS or XXL, a waist number such as 32, or 'One size'. */
   size: string
+  /** False for an archived (soft-deleted) row, and for one the API marks inactive; neither is in the active list. */
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -19,8 +20,8 @@ export interface SizeMeasurement extends Measurements {
 /** Only the measurements to set; every other one stays unset. */
 export type SizeMeasurementInput = Partial<Record<keyof Measurements, number>> & { category: string; size: string }
 
-/** Only what changed. `null` clears a measurement; `isActive` archives (false) or restores (true). */
-export type SizeMeasurementPatch = Partial<Record<keyof Measurements, number | null>> & { size?: string; isActive?: boolean }
+/** Only what changed. `null` clears a measurement. */
+export type SizeMeasurementPatch = Partial<Record<keyof Measurements, number | null>> & { size?: string }
 
 export interface SizeMeasurementQuery {
   category?: string
@@ -40,7 +41,7 @@ function toSizeMeasurement(value: unknown): SizeMeasurement {
     category: value.category,
     size: value.size,
     ...(Object.fromEntries(MEASUREMENT_KEYS.map((key) => [key, isNumber(value[key]) ? value[key] : null])) as Measurements),
-    isActive: value.isActive !== false,
+    isActive: value.isActive !== false && value.isDeleted !== true,
     createdAt: text(value.createdAt),
     updatedAt: text(value.updatedAt),
   }
@@ -99,8 +100,12 @@ export async function updateSizeMeasurement(id: string, patch: SizeMeasurementPa
   return updated
 }
 
-/** Archives or restores a row. Restoring answers 409 when an active row for the same category and size exists by then. */
-export const setSizeMeasurementActive = (id: string, isActive: boolean, options: RequestOptions = {}) => updateSizeMeasurement(id, { isActive }, options)
+/** Archives (DELETE, a soft delete) or restores (POST /:id/restore) a row. Restoring answers 409 when an active row for the same category and size exists by then. */
+export async function setSizeMeasurementActive(id: string, isActive: boolean, { signal }: RequestOptions = {}): Promise<SizeMeasurement> {
+  const row = toSizeMeasurement(await (isActive ? request('POST', `${path(id)}/restore`, undefined, signal) : request('DELETE', path(id), undefined, signal)))
+  baseCache.clear()
+  return row
+}
 
 const WHY: Record<string, string> = {
   network: 'The connection dropped before the server answered. Check your connection, then try again.',

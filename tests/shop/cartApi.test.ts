@@ -22,7 +22,7 @@ const item = (over: Record<string, unknown> = {}) => ({
     price: 1500,
     stock: 5,
     imageUrl: '',
-    product: { id: 'p1', name: 'Linen Shirt', slug: 'linen-shirt', category: 'Hoodie', brand: 'Atelier', isActive: true },
+    product: { id: 'p1', name: 'Linen Shirt', slug: 'linen-shirt', category: 'Hoodie', brand: 'Atelier', isActive: true, imageUrl: 'https://img.test/linen-shirt-front.webp' },
   },
   ...over,
 })
@@ -41,8 +41,13 @@ describe('cartApi', () => {
       variantId: 'v1',
       quantity: 2,
       unitPrice: 1500,
-      variant: { size: 'M', color: 'Navy', stock: 5, imageUrl: null, product: { id: 'p1', name: 'Linen Shirt', isActive: true } },
+      variant: { size: 'M', color: 'Navy', stock: 5, imageUrl: null, product: { id: 'p1', name: 'Linen Shirt', isActive: true, imageUrl: 'https://img.test/linen-shirt-front.webp' } },
     })
+  })
+
+  it('reads a product without a photo as imageUrl null', async () => {
+    send.mockResolvedValue(cart([item({ variant: { ...item().variant, product: { ...item().variant.product, imageUrl: null } } }), item({ variant: { ...item().variant, product: { ...item().variant.product, imageUrl: undefined } } })]))
+    expect((await fetchCart()).items.map((i) => i.variant.product.imageUrl)).toEqual([null, null])
   })
 
   it('reads an inactive product as inactive', async () => {
