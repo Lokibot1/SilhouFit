@@ -3,7 +3,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { usePsgcList, type ListState } from '../../hooks/usePsgcList'
 import { createAddress, updateAddress, type Address, type AddressError, type AddressErrorKind, type AddressInput, type AddressPatch } from '../../service/addresses'
 import { getBarangays, getCities, getProvinces, getRegions, type Barangay, type City, type Region } from '../../service/psgc'
-import { ReverseGeocodeError, reverseGeocode, type ReverseErrorKind } from '../../service/reverseGeocode'
+import { ReverseGeocodeError, lookupPostal, reverseGeocode, type ReverseErrorKind } from '../../service/reverseGeocode'
 import {
   ADDRESS_LIMITS,
   NATIONAL_PHONE_MAX,
@@ -269,12 +269,22 @@ function AddressFormBody({
   const [failure, setFailure] = useState<string | null>(null)
   const [mapOpen, setMapOpen] = useState(false)
   const [lookup, setLookup] = useState<Lookup>({ status: 'idle' })
+  const [postalState, setPostalState] = useState<'idle' | 'loading' | 'filled' | 'none'>('idle')
+  // True while the postal code in the field came from a lookup, so a later lookup may replace it but never the user's own.
+  const postalAuto = useRef(false)
+  const postalAbort = useRef<AbortController | null>(null)
   const inFlight = useRef(false)
   const lookupAbort = useRef<AbortController | null>(null)
   const pinButton = useRef<HTMLButtonElement>(null)
   const wasMapOpen = useRef(false)
 
-  useEffect(() => () => lookupAbort.current?.abort(), [])
+  useEffect(
+    () => () => {
+      lookupAbort.current?.abort()
+      postalAbort.current?.abort()
+    },
+    [],
+  )
   useEffect(() => {
     if (wasMapOpen.current && !mapOpen) pinButton.current?.focus()
     wasMapOpen.current = mapOpen
@@ -343,7 +353,29 @@ function AddressFormBody({
   function pickBarangay(code: string) {
     if (barangays.state.status !== 'success') return
     const found = barangays.state.data.find((b) => b.code === code)
-    if (found) setBarangay({ code, name: found.name })
+    if (!found) return
+    setBarangay({ code, name: found.name })
+    void autofillPostal(found.name, city.name, province || region.name)
+  }
+
+  /** Fills the postal code from the address unless the user typed their own. A miss leaves the field for them. */
+  async function autofillPostal(barangayName: string, cityName: string, area: string) {
+    postalAbort.current?.abort()
+    if (!cityName || (postal && !postalAuto.current)) return
+    const abort = new AbortController()
+    postalAbort.current = abort
+    setPostalState('loading')
+    try {
+      const code = await lookupPostal({ barangay: barangayName, city: cityName, area }, abort.signal)
+      if (abort.signal.aborted) return
+      if (code) {
+        setPostal(code)
+        postalAuto.current = true
+      }
+      setPostalState(code ? 'filled' : 'none')
+    } catch {
+      // Aborted by a newer lookup or by closing the form.
+    }
   }
 
   function typeInstead() {
@@ -397,14 +429,23 @@ function AddressFormBody({
       if (abort.signal.aborted) return null
       const foundStreet = filterStreet(found.street)
       const foundPostal = filterPostal(found.postal)
-      if (!foundPostal) notes.push('The map has no postal code for this spot. Enter it below.')
+      postalAbort.current?.abort()
       setNote(null)
       setTyped(false)
       setRegion(nextRegion)
       setCity(nextCity)
       setBarangay(nextBarangay)
       if (foundStreet) setStreet(foundStreet)
-      if (foundPostal) setPostal(foundPostal)
+      if (foundPostal) {
+        setPostal(foundPostal)
+        postalAuto.current = true
+        setPostalState('filled')
+      } else {
+        // The pin is the newest answer, so it replaces an earlier lookup's code; a code the user typed is kept.
+        if (postalAuto.current) setPostal('')
+        setPostalState('idle')
+        if (nextCity.code) void autofillPostal(nextBarangay.name, nextCity.name, nextRegion.name)
+      }
       setLookup({ status: 'done', notes })
       setMapOpen(false)
     } catch (error) {
@@ -639,7 +680,10 @@ function AddressFormBody({
               label="Barangay"
               value={barangay.name}
               onChange={(v) => setBarangay({ code: null, name: filterPlace(v) })}
-              onBlur={touch('barangay')}
+              onBlur={() => {
+                touch('barangay')()
+                if (barangay.name) void autofillPostal(barangay.name, city.name, region.name)
+              }}
               error={shown('barangay')}
               counter={{ current: barangay.name.length, max: ADDRESS_LIMITS.place }}
               readOnly={pending}
@@ -721,7 +765,12 @@ function AddressFormBody({
           id={fieldId('postal')}
           label="Postal code"
           value={postal}
-          onChange={(v) => setPostal(filterPostal(v))}
+          onChange={(v) => {
+            postalAbort.current?.abort()
+            postalAuto.current = false
+            setPostalState('idle')
+            setPostal(filterPostal(v))
+          }}
           onBlur={touch('postal')}
           error={shown('postal')}
           autoComplete="postal-code"
@@ -730,6 +779,14 @@ function AddressFormBody({
           counter={{ current: postal.length, max: ADDRESS_LIMITS.postal }}
           readOnly={pending}
         />
+        {postalState !== 'idle' && (
+          <p role="status" className="-mt-2 flex items-center gap-2 text-sm leading-snug text-fg-muted">
+            {postalState === 'loading' && <SpinnerIcon className="shrink-0" />}
+            {postalState === 'loading' && 'Looking up your postal code…'}
+            {postalState === 'filled' && 'Postal code filled in from your address. Check it before you save.'}
+            {postalState === 'none' && "We couldn't find a postal code for this address. Enter it above."}
+          </p>
+        )}
       </div>
 
       <button

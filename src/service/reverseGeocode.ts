@@ -37,6 +37,7 @@ let queue: Promise<unknown> = Promise.resolve()
 /** Forgets the cache and the throttle (tests). */
 export function resetReverseGeocode() {
   cache.clear()
+  postalCache.clear()
   lastRequestAt = 0
   queue = Promise.resolve()
 }
@@ -81,21 +82,68 @@ async function request(lat: number, lon: number): Promise<ReverseResult> {
   }
 }
 
-export function reverseGeocode(lat: number, lon: number, signal?: AbortSignal): Promise<ReverseResult> {
-  const key = `${lat.toFixed(5)},${lon.toFixed(5)}`
-  const hit = cache.get(key)
-  if (hit) return Promise.resolve(hit)
-
+/** Runs one Nominatim call after the 1 s gap, behind any call already waiting. */
+function throttled<T>(call: () => Promise<T>, signal?: AbortSignal): Promise<T> {
   const run = queue.then(async () => {
     if (signal?.aborted) throw aborted()
     const wait = lastRequestAt + MIN_GAP_MS - Date.now()
     if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
     if (signal?.aborted) throw aborted()
     lastRequestAt = Date.now()
-    const result = await request(Number(lat.toFixed(5)), Number(lon.toFixed(5)))
-    cache.set(key, result)
-    return result
+    return call()
   })
   queue = run.catch(() => undefined)
   return run
+}
+
+export function reverseGeocode(lat: number, lon: number, signal?: AbortSignal): Promise<ReverseResult> {
+  const key = `${lat.toFixed(5)},${lon.toFixed(5)}`
+  const hit = cache.get(key)
+  if (hit) return Promise.resolve(hit)
+
+  return throttled(async () => {
+    const result = await request(Number(lat.toFixed(5)), Number(lon.toFixed(5)))
+    cache.set(key, result)
+    return result
+  }, signal)
+}
+
+const postalCache = new Map<string, string>()
+
+async function searchPostal(query: string): Promise<string> {
+  const params = new URLSearchParams({ format: 'jsonv2', q: query, countrycodes: 'ph', addressdetails: '1', limit: '10', 'accept-language': 'en' })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, { signal: controller.signal })
+    if (!response.ok) return ''
+    const body = (await response.json()) as NominatimResponse[]
+    // Only a code every match agrees on is used: a name shared by two towns would otherwise pick one at random.
+    const codes = new Set(body.map((r) => r.address?.postcode?.replace(/\D/g, '').slice(0, 4) ?? '').filter((c) => c.length === 4))
+    return codes.size === 1 ? [...codes][0] : ''
+  } catch {
+    return ''
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * The postal code for an address, or '' when OpenStreetMap has none or the matches disagree. Tries the barangay
+ * first, then the whole city. Any failure is '' too: the field stays for the user to fill in.
+ */
+export async function lookupPostal(parts: { barangay: string; city: string; area: string }, signal?: AbortSignal): Promise<string> {
+  const { barangay, city, area } = parts
+  if (!city) return ''
+  for (const query of [barangay && [barangay, city, area].filter(Boolean).join(', '), [city, area].filter(Boolean).join(', ')]) {
+    if (!query) continue
+    const full = `${query}, Philippines`
+    let code = postalCache.get(full)
+    if (code === undefined) {
+      code = await throttled(() => searchPostal(full), signal)
+      postalCache.set(full, code)
+    }
+    if (code) return code
+  }
+  return ''
 }

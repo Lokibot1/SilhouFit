@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -23,6 +23,7 @@ const api = vi.hoisted(() => ({
   getCities: vi.fn(),
   getBarangays: vi.fn(),
   reverseGeocode: vi.fn(),
+  lookupPostal: vi.fn(),
   createAddress: vi.fn(),
   updateAddress: vi.fn(),
 }))
@@ -41,6 +42,7 @@ vi.mock('../../src/service/psgc', async (original) => ({
 vi.mock('../../src/service/reverseGeocode', async (original) => ({
   ...(await original<typeof import('../../src/service/reverseGeocode')>()),
   reverseGeocode: api.reverseGeocode,
+  lookupPostal: api.lookupPostal,
 }))
 // The real map is covered in MapPicker.test.tsx; here it only hands a position back.
 vi.mock('../../src/components/address/MapPicker', () => ({
@@ -74,6 +76,7 @@ beforeEach(() => {
   act(() => setSession({ name: 'Anne Santos', email: 'anne@example.com' }))
   api.createAddress.mockImplementation(async (input: object) => ({ ...ADDRESS, ...input }))
   api.updateAddress.mockImplementation(async (_id: string, patch: object) => ({ ...ADDRESS, ...patch }))
+  api.lookupPostal.mockResolvedValue('')
   api.getRegions.mockResolvedValue(regions)
   api.getProvinces.mockImplementation(async (code: string) => (code === NCR ? [] : calabarzonProvinces))
   api.getCities.mockImplementation(async (code: string) => sorted(code === NCR ? ncrCities : calabarzonCities))
@@ -477,6 +480,32 @@ describe('AddressForm', () => {
     expect(await screen.findByText(/No barangays are listed for this city or municipality/)).toBeInTheDocument()
   })
 
+
+  describe('postal code lookup', () => {
+    it('fills the postal code when a barangay is picked', async () => {
+      api.lookupPostal.mockResolvedValue('1003')
+      const { user } = setup()
+      await pickManila(user)
+      await waitFor(() => expect(screen.getByLabelText('Postal code')).toHaveValue('1003'))
+      expect(api.lookupPostal).toHaveBeenCalledWith({ barangay: 'Barangay 176', city: 'City of Manila', area: 'NCR' }, expect.anything())
+    })
+
+    it('never replaces a postal code the user typed', async () => {
+      api.lookupPostal.mockResolvedValue('1003')
+      const { user } = setup()
+      await user.type(screen.getByLabelText('Postal code'), '1000')
+      await pickManila(user)
+      expect(screen.getByLabelText('Postal code')).toHaveValue('1000')
+      expect(api.lookupPostal).not.toHaveBeenCalled()
+    })
+
+    it('says so when no postal code is found, and leaves the field empty', async () => {
+      const { user } = setup()
+      await pickManila(user)
+      expect(await screen.findByText("We couldn't find a postal code for this address. Enter it above.")).toBeInTheDocument()
+      expect(screen.getByLabelText('Postal code')).toHaveValue('')
+    })
+  })
   describe('pin on a map', () => {
     const manila = {
       street: '718 P. Paterno Street',
@@ -522,12 +551,20 @@ describe('AddressForm', () => {
       expect(screen.getByRole('button', { name: /^Barangay/ })).toBeDisabled()
     })
 
-    it('says so when the map has no postal code, and keeps what was typed', async () => {
+    it('looks the postal code up from the address when the map has none, and keeps what was typed', async () => {
       api.reverseGeocode.mockResolvedValue({ ...manila, postal: '' })
-      const { user } = setup()
-      await user.type(screen.getByLabelText('Postal code'), '1000')
-      await usePin(user)
-      expect(await screen.findByText('The map has no postal code for this spot. Enter it below.')).toBeInTheDocument()
+      api.lookupPostal.mockResolvedValue('1001')
+      const first = setup()
+      await usePin(first.user)
+      expect(await screen.findByText(/Postal code filled in from your address/)).toBeInTheDocument()
+      expect(screen.getByLabelText('Postal code')).toHaveValue('1001')
+      expect(api.lookupPostal).toHaveBeenCalledWith({ barangay: 'Barangay 307', city: 'City of Manila', area: 'NCR' }, expect.anything())
+      cleanup()
+
+      const second = setup()
+      await second.user.type(screen.getByLabelText('Postal code'), '1000')
+      await usePin(second.user)
+      expect(await screen.findByText('Filled in from your pin. Check each field, then save.')).toBeInTheDocument()
       expect(screen.getByLabelText('Postal code')).toHaveValue('1000')
     })
 
