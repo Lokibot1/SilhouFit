@@ -21,7 +21,7 @@ const IDLE = new Promise<TransactionDetail>(() => {})
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
 const LINE_ROW = 'h-[4.5rem]'
-const TH = 'sticky top-0 z-10 h-11 border-b border-line bg-canvas-sub text-left font-semibold text-fg'
+const TH = 'sticky top-0 z-10 h-11 border-b border-line bg-canvas-sub px-3 text-left font-semibold text-fg'
 
 /** The order's own facts, taken from the list row so they show before the items arrive. */
 function Header({ transaction }: { transaction: TransactionListItem }) {
@@ -143,7 +143,7 @@ function Lines({ detail, total }: { detail: TransactionDetail; total: number }) 
         <tbody>
           {detail.lines.map((line, index) => (
             <tr key={`${line.productId}-${index}`} className={LINE_ROW}>
-              <td className="border-b border-line py-2 pr-2">
+              <td className="border-b border-line px-3 py-2">
                 <div className="flex items-center gap-3">
                   <LineThumb line={line} />
                   <div className="min-w-0">
@@ -157,12 +157,12 @@ function Lines({ detail, total }: { detail: TransactionDetail; total: number }) 
                   </div>
                 </div>
               </td>
-              <td className="border-b border-line text-right whitespace-nowrap text-fg tabular-nums">{formatPeso(line.units * line.unitPrice)}</td>
+              <td className="border-b border-line px-3 text-right whitespace-nowrap text-fg tabular-nums">{formatPeso(line.units * line.unitPrice)}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm">
+      <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 px-3 text-sm">
         <dt className="text-fg-muted">Subtotal</dt>
         <dd className="text-right text-fg tabular-nums">{formatPeso(detail.subtotal)}</dd>
         <dt className="font-semibold text-fg">Total</dt>

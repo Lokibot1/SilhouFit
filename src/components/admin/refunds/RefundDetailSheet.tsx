@@ -20,7 +20,7 @@ type Mode = 'view' | 'approve' | 'reject'
 type FormField = 'amount' | 'note' | 'reason'
 
 const LINE_ROW = 'h-[4.5rem]'
-const TH = 'sticky top-0 z-10 h-11 border-b border-line bg-canvas-sub text-left font-semibold text-fg'
+const TH = 'sticky top-0 z-10 h-11 border-b border-line bg-canvas-sub px-3 text-left font-semibold text-fg'
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -83,7 +83,7 @@ function Items({ request }: { request: RefundRequest }) {
       <tbody>
         {request.items.map((item, index) => (
           <tr key={`${item.name}-${index}`} className={LINE_ROW}>
-            <td className="border-b border-line py-2 pr-2">
+            <td className="border-b border-line px-3 py-2">
               <span className="block truncate font-semibold text-fg">{item.name}</span>
               <span className="flex gap-x-3 text-fg-muted">
                 <span className="truncate">{item.category}</span>
@@ -92,7 +92,7 @@ function Items({ request }: { request: RefundRequest }) {
                 </span>
               </span>
             </td>
-            <td className="border-b border-line text-right whitespace-nowrap text-fg tabular-nums">{formatPeso(item.units * item.unitPrice)}</td>
+            <td className="border-b border-line px-3 text-right whitespace-nowrap text-fg tabular-nums">{formatPeso(item.units * item.unitPrice)}</td>
           </tr>
         ))}
       </tbody>

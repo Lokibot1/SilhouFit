@@ -190,20 +190,20 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
     <table className="mt-4 w-full table-fixed border-separate border-spacing-0 text-sm">
       <caption className="sr-only">Variants by color, with size, SKU and stock</caption>
       <colgroup>
-        <col className="w-12" />
+        <col className="w-14" />
         <col />
         <col className={edit ? 'w-36' : 'w-28'} />
         {manage && <col className="w-11 sm:w-[5.5rem]" />}
       </colgroup>
       <thead>
         <tr>
-          <th scope="col" className={th}>
+          <th scope="col" className={`${th} pl-3`}>
             Size
           </th>
           <th scope="col" className={th}>
             SKU
           </th>
-          <th scope="col" className={`${th} text-right`}>
+          <th scope="col" className={`${th} text-right ${manage ? '' : 'pr-3'}`}>
             Stock
           </th>
           {manage && (
@@ -216,7 +216,7 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
       {[...groups].map(([color, items]) => (
         <tbody key={color}>
           <tr className={GROUP_ROW}>
-            <th scope="rowgroup" colSpan={manage ? 4 : 3} className="border-b border-line text-left font-semibold text-fg">
+            <th scope="rowgroup" colSpan={manage ? 4 : 3} className="border-b border-line pl-3 text-left font-semibold text-fg">
               <span className="flex items-center gap-2">
                 <Swatch colorHex={items[0].colorHex} />
                 <span className="min-w-0 flex-1 truncate">{color || 'No colour'}</span>
@@ -230,13 +230,13 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
             const dirty = text !== undefined && parseStock(text) !== variant.stock
             return (
               <tr key={variant.id} className={`${manage ? MANAGED_ROW : VARIANT_ROW} ${edit ? (dirty ? 'bg-chrome/15' : '') : level === 'out' ? 'bg-danger/10' : ''}`}>
-                <td className="border-b border-line text-fg">{variant.size ?? '-'}</td>
+                <td className="border-b border-line pl-3 text-fg">{variant.size ?? '-'}</td>
                 <td className="border-b border-line pr-2 font-mono text-xs break-all text-fg-muted">
                   {variant.sku}
                   {variant.name && <span className="font-ui block text-fg">{variant.name}</span>}
                   {dirty && <span className="block text-fg tabular-nums">Was {variant.stock}</span>}
                 </td>
-                <td className="border-b border-line">
+                <td className={`border-b border-line ${manage ? '' : 'pr-3'}`}>
                   {edit ? (
                     <StockCell
                       variant={variant}
