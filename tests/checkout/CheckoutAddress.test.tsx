@@ -74,27 +74,38 @@ function renderCheckout() {
 
 const street = () => screen.findByLabelText('Street address')
 const fullName = () => screen.getByLabelText('Full name')
+const card = () => screen.getByRole('heading', { name: 'Delivery address' }).closest('section')!
+async function openSheet(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /Change delivery address|Add address/ }))
+}
 
 describe('Checkout fills in the saved address', () => {
-  it('fills name, phone, street (with the barangay), city and postal from the default address', async () => {
+  it('summarises the default address on the card, and keeps the fields out of the page until Change is clicked', async () => {
     renderCheckout()
-    await waitFor(async () => expect(await street()).toHaveValue('12 Rizal Avenue, Barangay 176'))
+    await waitFor(() => expect(card()).toHaveTextContent('12 Rizal Avenue, Barangay 176, City of Manila 1000'))
+    expect(card()).toHaveTextContent('Anne Santos')
+    expect(card()).toHaveTextContent('+63 9171234567')
+    expect(screen.queryByLabelText('Street address')).toBeNull()
+    expect(api.loadAddresses).toHaveBeenCalled()
+    await openSheet(userEvent.setup({ delay: null }))
+    expect(await street()).toHaveValue('12 Rizal Avenue, Barangay 176')
     expect(fullName()).toHaveValue('Anne Santos')
     expect(screen.getByLabelText('Phone number')).toHaveValue('9171234567')
     expect(screen.getByLabelText('City')).toHaveValue('City of Manila')
     expect(screen.getByLabelText('Postal code')).toHaveValue('1000')
-    expect(api.loadAddresses).toHaveBeenCalled()
   })
 
   it('puts address line 2 between the street and the barangay', async () => {
     api.loadAddresses.mockResolvedValue([address({ addressLine2: 'Unit 4B' })])
     renderCheckout()
+    await openSheet(userEvent.setup({ delay: null }))
     await waitFor(async () => expect(await street()).toHaveValue('12 Rizal Avenue, Unit 4B, Barangay 176'))
   })
 
   it('does not add a second "Barangay" and drops a parenthetical from the city', async () => {
     api.loadAddresses.mockResolvedValue([address({ cityMunicipality: 'Bacolod City (Capital)', barangay: 'Pio V. Corpuz (Limbuhan)' })])
     renderCheckout()
+    await openSheet(userEvent.setup({ delay: null }))
     await waitFor(async () => expect(await street()).toHaveValue('12 Rizal Avenue, Barangay Pio V. Corpuz'))
     expect(screen.getByLabelText('City')).toHaveValue('Bacolod City')
   })
@@ -104,6 +115,7 @@ describe('Checkout fills in the saved address', () => {
     api.loadAddresses.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
     const user = userEvent.setup({ delay: null })
     renderCheckout()
+    await openSheet(user)
     await user.type(await street(), '99 Mabini Street')
     await user.clear(fullName())
     await user.type(fullName(), 'Carlo Reyes')
@@ -118,7 +130,9 @@ describe('Checkout fills in the saved address', () => {
     renderCheckout()
     const note = await screen.findByText("We couldn't load your saved addresses, so type your delivery address below.")
     expect(note).toHaveAttribute('role', 'status')
-    expect(screen.getByLabelText('City')).toHaveValue('')
+    expect(card()).toHaveTextContent('Add where we should deliver your order.')
+    await openSheet(userEvent.setup({ delay: null }))
+    expect(await screen.findByLabelText('City')).toHaveValue('')
   })
 
   it('offers Try again after a failed read: it reads afresh, fills the untouched fields and never the typed ones', async () => {
@@ -126,6 +140,7 @@ describe('Checkout fills in the saved address', () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByText("We couldn't load your saved addresses, so type your delivery address below.")
+    await openSheet(user)
     await user.type(screen.getByLabelText('Street address'), '99 Mabini Street')
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue('City of Manila'))
@@ -150,7 +165,8 @@ describe('Checkout fills in the saved address', () => {
     let arrive: (list: object[]) => void = () => {}
     api.loadAddresses.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
     renderCheckout()
-    const slot = (await street()).closest('section')!.querySelector('.grid-rows-\\[1fr\\]')
+    await openSheet(userEvent.setup({ delay: null }))
+    const slot = (await street()).closest('[role="dialog"]')!.querySelector('.grid-rows-\\[1fr\\]')
     expect(slot).toHaveTextContent('Deliver to')
     expect(screen.queryByRole('combobox', { name: 'Deliver to' })).not.toBeInTheDocument()
     act(() => arrive([ADDRESS]))
@@ -163,6 +179,9 @@ describe('Checkout fills in the saved address', () => {
     let arrive: (list: object[]) => void = () => {}
     api.loadAddresses.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
     renderCheckout()
+    await screen.findByRole('button', { name: 'Add address' })
+    expect(card().querySelector('.animate-pulse')).not.toBeNull() // the summary is a skeleton while it loads
+    await openSheet(userEvent.setup({ delay: null }))
     const note = await screen.findByText('Filling in your saved address…')
     expect(note).toHaveAttribute('role', 'status')
     act(() => arrive([]))
@@ -172,6 +191,7 @@ describe('Checkout fills in the saved address', () => {
   it('leaves the form empty when nothing is saved', async () => {
     api.loadAddresses.mockResolvedValue([])
     renderCheckout()
+    await openSheet(userEvent.setup({ delay: null }))
     expect(await street()).toHaveValue('')
     expect(screen.getByLabelText('City')).toHaveValue('')
     expect(screen.queryByRole('combobox', { name: 'Deliver to' })).not.toBeInTheDocument()
@@ -181,6 +201,7 @@ describe('Checkout fills in the saved address', () => {
     api.loadAddresses.mockResolvedValue([])
     const user = userEvent.setup({ delay: null })
     renderCheckout()
+    await openSheet(user)
     await user.type(await street(), '99 Mabini Street')
     api.loadAddresses.mockResolvedValue([ADDRESS])
     await act(async () => changed.forEach((run) => run()))
@@ -192,7 +213,7 @@ describe('Checkout fills in the saved address', () => {
 
   it('stops listening when checkout closes', async () => {
     const { unmount } = renderCheckout()
-    await street()
+    await screen.findByRole('button', { name: /Change delivery address|Add address/ })
     expect(changed).toHaveLength(1)
     unmount()
     expect(changed).toHaveLength(0)
@@ -203,6 +224,7 @@ describe('Checkout fills in the saved address', () => {
 
     it('offers a Deliver to picker, default marked, and fills from the default', async () => {
       renderCheckout()
+      await openSheet(userEvent.setup({ delay: null }))
       const picker = await screen.findByRole('combobox', { name: 'Deliver to' })
       expect(picker).toHaveTextContent('Home (Default)')
       await waitFor(async () => expect(await street()).toHaveValue('12 Rizal Avenue, Barangay 176'))
@@ -211,6 +233,7 @@ describe('Checkout fills in the saved address', () => {
     it('fills the untouched fields from the address picked, labelled by its street when it has no label', async () => {
       const user = userEvent.setup({ delay: null })
       renderCheckout()
+      await openSheet(user)
       await user.click(await screen.findByRole('combobox', { name: 'Deliver to' }))
       expect(screen.getByRole('option', { name: 'Home (Default)' })).toBeInTheDocument()
       await user.click(screen.getByRole('option', { name: '9 Ayala Avenue' }))
@@ -224,6 +247,7 @@ describe('Checkout fills in the saved address', () => {
     it('keeps what the shopper edited when another address is picked', async () => {
       const user = userEvent.setup({ delay: null })
       renderCheckout()
+      await openSheet(user)
       await waitFor(async () => expect(await street()).toHaveValue('12 Rizal Avenue, Barangay 176'))
       await user.clear(screen.getByLabelText('Postal code'))
       await user.type(screen.getByLabelText('Postal code'), '1234')

@@ -1,13 +1,15 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { DownloadIcon, SpinnerIcon } from '../../components/form/icons'
+import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { clearLastOrder, loadLastOrder } from '../../utils/checkout'
-import { formatPeso } from '../../utils/format'
+import { formatPeso, formatPlacedAt } from '../../utils/format'
 
 const META_DESCRIPTION =
   'Your SilhouFit order is placed and reserved for you. See your order reference, what you bought, how it reaches you and when, then head back to the shop.'
@@ -33,12 +35,14 @@ function DrawnCheck() {
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+    <div className="flex items-baseline justify-between gap-4">
       <dt className="shrink-0 text-fg-muted">{label}</dt>
-      <dd className="min-w-0 break-words text-fg sm:text-right">{children}</dd>
+      <dd className="min-w-0 break-words text-right text-fg">{children}</dd>
     </div>
   )
 }
+
+const RULE = 'border-t border-dashed border-line-strong'
 
 export function OrderSuccessPage() {
   useDocumentTitle('Order placed — SilhouFit')
@@ -50,7 +54,10 @@ export function OrderSuccessPage() {
   // Signing out (here or in another tab) ends the session: the details go at once, not only from storage.
   const signedIn = useCurrentUser() !== null
   const order = signedIn ? saved : null
+  const toast = useToast()
   const heading = useRef<HTMLHeadingElement>(null)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadFailed, setDownloadFailed] = useState(false)
   useEffect(() => {
     if (!signedIn) clearLastOrder()
     heading.current?.focus()
@@ -76,12 +83,93 @@ export function OrderSuccessPage() {
     )
   }
 
+  async function downloadReceipt() {
+    if (!order || downloading) return
+    setDownloading(true)
+    setDownloadFailed(false)
+    try {
+      const { renderReceiptPdf } = await import('../../utils/receiptPdf')
+      const url = URL.createObjectURL(await renderReceiptPdf(order))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `SilhouFit-receipt-${order.orderId}.pdf`
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      toast.show({ kind: 'success', message: 'Receipt downloaded.' })
+    } catch {
+      setDownloadFailed(true)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const arReady = order.items.some((item) => item.arReady)
   const delivery = order.fulfilment === 'Delivery'
+  const subtotal = order.items.reduce((sum, item) => sum + item.price * item.qty, 0)
 
   return (
-    <div className="mx-auto max-w-2xl px-6 pt-28 pb-24">
-      <div className="glass-card glass-elevated rounded-2xl p-6 sm:p-10">
+    <div className="mx-auto grid max-w-5xl gap-10 px-6 pt-28 pb-24 lg:grid-cols-[minmax(0,24rem)_1fr] lg:items-start lg:gap-16">
+      {/* The receipt: a narrow paper slip with a torn bottom edge. */}
+      <article aria-label="Order receipt" className="receipt font-mono text-sm text-fg">
+        <div className="bg-canvas-raised px-6 pt-6 pb-4">
+          <p className="display text-center text-2xl">SilhouFit</p>
+          <p className="mt-1 text-center text-fg-muted">Order receipt</p>
+          {order.placedAt && <p className="text-center text-fg-muted tabular-nums">{formatPlacedAt(order.placedAt)}</p>}
+          <p className="mt-3 text-center text-base font-semibold tracking-wider tabular-nums">{order.orderId}</p>
+
+          <ul className={`mt-4 space-y-3 pt-4 ${RULE}`}>
+            {order.items.map((item) => (
+              <li key={`${item.name}|${item.size}|${item.color}`} className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 break-words">
+                  {item.name}
+                  <span className="block text-xs text-fg-muted">
+                    Size {item.size} · {item.color} · {formatPeso(item.price)} × <span className="tabular-nums">{item.qty}</span>
+                  </span>
+                </span>
+                <span className="shrink-0 text-right font-semibold tabular-nums">{formatPeso(item.price * item.qty)}</span>
+              </li>
+            ))}
+          </ul>
+
+          <dl className={`mt-4 space-y-1 pt-4 ${RULE}`}>
+            <Row label="Subtotal">
+              <span className="tabular-nums">{formatPeso(subtotal)}</span>
+            </Row>
+            <Row label="Shipping">
+              <span className="tabular-nums">{order.shipping === 0 ? 'Free' : formatPeso(order.shipping)}</span>
+            </Row>
+            <Row label="Total">
+              <span className="text-lg font-semibold tabular-nums">{formatPeso(order.total)}</span>
+            </Row>
+          </dl>
+
+          <h2 className={`mt-4 pt-4 text-xs font-semibold tracking-wider text-fg-muted uppercase ${RULE}`}>
+            {delivery ? 'On its way to' : 'Waiting for you at'}
+          </h2>
+          <dl className="mt-2 space-y-1">
+            {delivery ? (
+              <>
+                <Row label="Name">{order.recipient}</Row>
+                <Row label="Address">{order.address}</Row>
+                <Row label="Phone">
+                  <span className="tabular-nums">{order.phone}</span>
+                </Row>
+              </>
+            ) : (
+              <Row label="Boutique">{order.pickupAt}</Row>
+            )}
+            <Row label="When">{order.eta}</Row>
+            <Row label="Payment">{order.payment}</Row>
+            {order.note && <Row label="Your note">{order.note}</Row>}
+          </dl>
+
+          <p className={`mt-4 pt-4 text-center text-fg-muted ${RULE}`}>Thank you for shopping at SilhouFit.</p>
+        </div>
+        <div aria-hidden="true" className="receipt-edge" />
+      </article>
+
+      {/* Phones show this first: what happened and what to do next, then the receipt. */}
+      <div className="max-lg:order-first lg:sticky lg:top-28">
         <DrawnCheck />
         <h1 ref={heading} tabIndex={-1} className="display mt-4 text-4xl text-fg outline-none sm:text-5xl">
           Order placed
@@ -90,53 +178,7 @@ export function OrderSuccessPage() {
           Reserved for you. We&apos;ll keep you posted until it&apos;s in your hands.
         </p>
 
-        <div className="mt-6 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 rounded-xl border border-line-strong px-4 py-3">
-          <span className="text-fg-muted">Order reference</span>
-          <span className="font-ui text-lg font-semibold tracking-wider text-fg tabular-nums">{order.orderId}</span>
-        </div>
-
-        <h2 className="display mt-8 text-xl text-fg">What you ordered</h2>
-        <ul className="mt-3 space-y-3 border-b border-line pb-4">
-          {order.items.map((item) => (
-            <li key={`${item.name}|${item.size}|${item.color}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <span className="min-w-0 break-words text-base text-fg">
-                {item.name}
-                <span className="block text-sm text-fg-muted">
-                  Size {item.size} · {item.color} · {formatPeso(item.price)} × <span className="tabular-nums">{item.qty}</span>
-                </span>
-              </span>
-              <span className="ml-auto text-right text-base font-semibold text-fg tabular-nums">{formatPeso(item.price * item.qty)}</span>
-            </li>
-          ))}
-        </ul>
-        <dl className="mt-4 space-y-2 text-base">
-          <Row label="Shipping">
-            <span className="tabular-nums">{order.shipping === 0 ? 'Free' : formatPeso(order.shipping)}</span>
-          </Row>
-          <Row label="Total">
-            <span className="text-xl font-semibold tabular-nums">{formatPeso(order.total)}</span>
-          </Row>
-        </dl>
-
-        <h2 className="display mt-8 text-xl text-fg">{delivery ? 'On its way to' : 'Waiting for you at'}</h2>
-        <dl className="mt-3 space-y-2 text-base">
-          {delivery ? (
-            <>
-              <Row label="Name">{order.recipient}</Row>
-              <Row label="Address">{order.address}</Row>
-              <Row label="Phone">
-                <span className="tabular-nums">{order.phone}</span>
-              </Row>
-            </>
-          ) : (
-            <Row label="Boutique">{order.pickupAt}</Row>
-          )}
-          <Row label="When">{order.eta}</Row>
-          <Row label="Payment">{order.payment}</Row>
-          {order.note && <Row label="Your note">{order.note}</Row>}
-        </dl>
-
-        <div className="mt-10 flex flex-col gap-3 sm:flex-row *:flex-1">
+        <div className="mt-8 flex flex-col gap-3 sm:max-w-sm">
           <Link to="/shop" className={PRIMARY_BUTTON}>
             Back to shop
           </Link>
@@ -144,6 +186,15 @@ export function OrderSuccessPage() {
             <Link to="/#ar-fitting" className={SECONDARY_BUTTON}>
               Try it on with AR
             </Link>
+          )}
+          <button type="button" onClick={() => void downloadReceipt()} disabled={downloading} className={`${SECONDARY_BUTTON} gap-2`}>
+            {downloading ? <SpinnerIcon /> : <DownloadIcon />}
+            Download receipt
+          </button>
+          {downloadFailed && (
+            <p role="alert" className="text-sm leading-snug text-danger">
+              We couldn&apos;t make your receipt. Something went wrong while building the PDF. Press Download receipt to try again.
+            </p>
           )}
         </div>
       </div>

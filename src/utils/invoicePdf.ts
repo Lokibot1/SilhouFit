@@ -14,7 +14,7 @@ const LINE = 4.4
 // Right edges and left edge of the item columns.
 const COL = { qty: MARGIN + 10, desc: MARGIN + 14, price: RIGHT - 28, amount: RIGHT }
 
-async function addFont(doc: jsPDF, url: string, style: 'normal' | 'bold') {
+export async function addFont(doc: jsPDF, url: string, style: 'normal' | 'bold') {
   const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer())
   let binary = ''
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))

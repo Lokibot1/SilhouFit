@@ -1,20 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   computeTotals,
-  defaultFulfilment,
   deliveryEta,
-  fulfilmentAvailability,
   paymentLabel,
   parseCheckoutItems,
-  pickupEta,
   SHIPPING_FEE,
   type CheckoutItem,
 } from '../../src/utils/checkout'
 import { BLAZER, POLO, SOLD_OUT, TROUSERS } from '../fixtures/shopProducts'
 
 const PRODUCTS = [POLO, BLAZER, SOLD_OUT, TROUSERS]
-const storeOnly = { ...POLO, id: 'p12', name: 'Hook Wall Jacket', boutique: 'Lumban Loom', channels: ['store' as const] }
-const onlineOnly = { ...POLO, id: 'p05', name: 'Cable Knit Pullover', channels: ['online' as const] }
 const item = (product = POLO, qty = 1): CheckoutItem => {
   const v = product.variants![0]
   return { product, variantId: v.id, size: v.size ?? '', color: v.color ?? '', qty, unit: v.price }
@@ -68,15 +63,11 @@ describe('parseCheckoutItems', () => {
 
 describe('computeTotals', () => {
   it('adds delivery shipping to the variants at their own price', () => {
-    expect(computeTotals([item(POLO, 2)], 'delivery')).toEqual({ subtotal: 3780, discount: 0, shipping: SHIPPING_FEE, total: 3879 })
-  })
-
-  it('has no shipping for pickup', () => {
-    expect(computeTotals([item(POLO)], 'pickup')).toEqual({ subtotal: 1890, discount: 0, shipping: 0, total: 1890 })
+    expect(computeTotals([item(POLO, 2)])).toEqual({ subtotal: 3780, discount: 0, shipping: SHIPPING_FEE, total: 3879 })
   })
 
   it('sums several items', () => {
-    expect(computeTotals([item(POLO), item(TROUSERS, 3)], 'pickup').total).toBe(1890 + 2600 * 3)
+    expect(computeTotals([item(POLO), item(TROUSERS, 3)]).total).toBe(1890 + 2600 * 3 + SHIPPING_FEE)
   })
 })
 
@@ -88,40 +79,11 @@ describe('ETA', () => {
   it('rolls over month ends', () => {
     expect(deliveryEta(new Date(2026, 9, 29))).toBe('Arrives Sun, Nov 1 – Tue, Nov 3')
   })
-
-  it('pickup is ready tomorrow at 2:00 PM, in 12-hour time, at the boutique', () => {
-    expect(pickupEta([item(POLO)])).toBe('Ready at Ayala Atelier tomorrow from 2:00 PM')
-  })
-})
-
-describe('availability', () => {
-  it('allows both for a piece with no channels listed, as every API piece is', () => {
-    expect(fulfilmentAvailability([item(POLO)])).toEqual({ delivery: null, pickup: null })
-    expect(defaultFulfilment([item(POLO)])).toBe('delivery')
-  })
-
-  it('leaves the boutique out of the pickup time when the piece has no brand', () => {
-    expect(pickupEta([item({ ...POLO, boutique: '' })])).toBe('Ready tomorrow from 2:00 PM')
-  })
-
-  it('disables delivery for a store-only piece, with the reason, and defaults to pickup', () => {
-    const items = [item(storeOnly)]
-    expect(fulfilmentAvailability(items).delivery).toBe('Store-only piece. Pick it up at Lumban Loom.')
-    expect(fulfilmentAvailability(items).pickup).toBeNull()
-    expect(defaultFulfilment(items)).toBe('pickup')
-  })
-
-  it('disables pickup for an online-only piece', () => {
-    const items = [item(onlineOnly)]
-    expect(fulfilmentAvailability(items).pickup).toBe('Sold online only.')
-    expect(defaultFulfilment(items)).toBe('delivery')
-  })
 })
 
 describe('paymentLabel', () => {
-  it('names the e-wallet provider and the cash option for each fulfilment', () => {
-    expect(paymentLabel('ewallet', 'delivery', 'maya')).toBe('E-Wallet (Maya)')
-    expect(paymentLabel('cash', 'delivery', 'gcash')).toBe('Cash on delivery')
-    expect(paymentLabel('cash', 'pickup', 'gcash')).toBe('Pay at pickup')
+  it('names the e-wallet provider and the cash option', () => {
+    expect(paymentLabel('ewallet', 'maya')).toBe('E-Wallet (Maya)')
+    expect(paymentLabel('cash', 'gcash')).toBe('Cash on delivery')
   })
 })

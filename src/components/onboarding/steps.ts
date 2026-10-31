@@ -1,5 +1,4 @@
 import type { Product } from '../../data/products'
-import { fulfilmentAvailability } from '../../utils/checkout'
 
 export interface TourStop {
   /** `data-tour` keys, tried in order: the first with a visible match is the spotlight. */
@@ -28,9 +27,6 @@ export function tourCheckoutPath(product: Product) {
   const variant = product.variants!.find((v) => v.stock > 0)!
   return `/checkout?item=${product.id}&variant=${variant.id}&qty=1&tour=1`
 }
-
-const pickupAvailable = (product: Product | null) =>
-  !product || fulfilmentAvailability([{ product, variantId: '', size: '', color: '', qty: 1, unit: product.price }]).pickup === null
 
 const STEPS: TourStep[] = [
   {
@@ -103,7 +99,7 @@ const STEPS: TourStep[] = [
       {
         targets: ['checkout-items'],
         body: 'This is the real checkout, opened with a sample piece. Your cart is untouched and nothing is ordered unless you press Place order.',
-        fallback: 'Checkout lists your order, then asks how you want to get it and how you want to pay.',
+        fallback: 'Checkout lists your order, then asks where to deliver it and how you want to pay.',
       },
       {
         targets: ['checkout-payment'],
@@ -117,20 +113,7 @@ const STEPS: TourStep[] = [
       },
     ],
   },
-  {
-    id: 'pickup',
-    title: 'Pick up in store',
-    route: (product) => (product ? tourCheckoutPath(product) : null),
-    applies: pickupAvailable,
-    stops: [
-      {
-        targets: ['checkout-fulfilment'],
-        body: 'Some pieces can be collected at the boutique for free. Choose Pick up in store instead of Delivery.',
-        fallback: 'Some pieces can be collected at the boutique for free. Look for Pick up in store at checkout.',
-      },
-    ],
-  },
 ]
 
-/** The steps for this sample piece. Pick up in store drops out when the piece cannot be collected. */
+/** The steps for this sample piece. */
 export const tourSteps = (product: Product | null) => STEPS.filter((step) => step.applies(product))

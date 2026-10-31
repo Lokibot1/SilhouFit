@@ -1,4 +1,4 @@
-// Mirrors the loaded checkout form (order, delivery method, payment, note, summary) so the swap does not shift it.
+// Mirrors the loaded checkout form (order, delivery address, payment, note, summary) so the swap does not shift it.
 // Heights are measured from the loaded page, which varies a little with the chosen options.
 const SECTION = 'glass-card rounded-2xl p-5'
 const Block = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
@@ -35,20 +35,14 @@ export function CheckoutSkeleton() {
           </div>
         </div>
         <div className={SECTION}>
-          <Block className="h-5 w-48" />
-          <div className="mt-2 grid gap-3 sm:grid-cols-2">
-            <Block className="h-[5.25rem] bg-line-strong" />
-            <Block className="h-[5.25rem] bg-line-strong" />
+          <div className="flex items-center justify-between gap-3">
+            <Block className="h-7 w-44" />
+            <Block className="h-11 w-24 bg-line-strong" />
           </div>
-        </div>
-        <div className={SECTION}>
-          <Block className="h-7 w-44" />
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Block className="h-14 sm:col-span-2" />
-            <Block className="h-14 sm:col-span-2" />
-            <Block className="h-14 sm:col-span-2" />
-            <Block className="h-14" />
-            <Block className="h-14" />
+          <div className="mt-3">
+            <Block className="my-[3px] h-4 w-1/3" />
+            <Block className="my-[3px] h-4 w-1/2" />
+            <Block className="my-[3px] h-4 w-4/5" />
           </div>
         </div>
         <div className={SECTION}>

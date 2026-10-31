@@ -85,10 +85,12 @@ const seedTwoAyala = () => {
 }
 
 async function fillAddress(u: ReturnType<typeof user>) {
+  await u.click(screen.getByRole('button', { name: 'Add address' }))
   await u.type(screen.getByLabelText('Phone number'), '9171234567')
   await u.type(screen.getByLabelText('Street address'), '12 Mabini Street, Brgy. San Roque')
   await u.type(screen.getByLabelText('City'), 'Marikina City')
   await u.type(screen.getByLabelText('Postal code'), '1800')
+  await u.click(screen.getByRole('button', { name: 'Save address' }))
 }
 
 describe('CheckoutPage from the cart', () => {
@@ -144,24 +146,23 @@ describe('CheckoutPage from the cart', () => {
     expect(new URLSearchParams(where()!.split('?')[1]).get('next')).toBe('/checkout?source=cart')
   })
 
-  it('disables pickup when the pieces come from different boutiques, saying which, and defaults to delivery', async () => {
+  it('lets pieces from different boutiques go in one delivery order', async () => {
     server.seed(NAVY, 1) // Ayala Atelier
     server.seed('p04-30-indigo', 1) // Lumban Loom
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
-    expect(screen.getByRole('radio', { name: /Delivery/ })).toBeChecked()
-    expect(screen.getByRole('radio', { name: /Pick up in store/ })).toBeDisabled()
-    expect(screen.getByText('Pickup works for one boutique per order. These pieces are at Ayala Atelier and Lumban Loom.')).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: /Pick up in store/ })).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(placeButton()).toBeEnabled()
   })
 
-  it('blocks the order with an alert when no way of getting the pieces works for all of them', async () => {
+  it('blocks the order with an alert when a piece is store-only', async () => {
     const u = user()
     server.seed('p12-m-olive', 1) // store only
-    server.seed('p05-m-sand', 1) // online only
     renderCheckout()
     await screen.findByRole('heading', { name: 'Hook Wall Jacket' })
     expect(screen.getByRole('alert')).toHaveTextContent(
-      "These pieces can't go in one order: Hook Wall Jacket is store-only and Cable Knit Pullover is online-only. Check them out separately.",
+      "Hook Wall Jacket is sold in store only and can't be delivered. Remove it from your order to check out.",
     )
     expect(placeButton()).toBeDisabled()
     await u.click(placeButton())

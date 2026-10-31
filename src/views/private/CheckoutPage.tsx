@@ -5,12 +5,14 @@ import { OptionCards } from '../../components/checkout/OptionCards'
 import { PriceSummary } from '../../components/checkout/PriceSummary'
 import { CountrySelect } from '../../components/form/CountrySelect'
 import { FloatingField } from '../../components/form/FloatingField'
-import { AlertIcon, SpinnerIcon } from '../../components/form/icons'
+import { AlertIcon, BagIcon, MapPinIcon, NoteIcon, ReceiptIcon, SpinnerIcon, WalletIcon } from '../../components/form/icons'
 import { SHOP_PRIMARY } from '../../components/shop/shopControls'
-import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
+import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { IconEditButton } from '../../components/ui/IconEditButton'
+import { Modal } from '../../components/ui/Modal'
 import { PhotoImg } from '../../components/ui/PhotoImg'
 import { Select } from '../../components/ui/Select'
+import { useToast } from '../../components/toast/useToast'
 import { DEFAULT_COUNTRY_CODE, findCountry } from '../../data/countries'
 import { lineKey, useCart } from '../../hooks/useCart'
 import { useCurrentUser, type CurrentUser } from '../../hooks/useCurrentUser'
@@ -22,19 +24,14 @@ import { getDefaultAddress, loadAddresses, onAddressesChanged, type Address } fr
 import { placeOrder } from '../../service/placeOrder'
 import {
   computeTotals,
-  defaultFulfilment,
   deliveryEta,
-  fulfilmentAvailability,
   orderBlock,
   paymentLabel,
   parseCheckoutItems,
   resolveCartItems,
-  pickupEta,
   PROVIDERS,
   saveLastOrder,
-  SHIPPING_FEE,
   type CheckoutItem,
-  type Fulfilment,
   type Payment,
   type Provider,
 } from '../../utils/checkout'
@@ -157,7 +154,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const navigate = useNavigate()
   const cart = useCart()
   const wishlist = useWishlist()
-  const [fulfilment, setFulfilment] = useState<Fulfilment>(() => defaultFulfilment(items))
+  const toast = useToast()
   const [payment, setPayment] = useState<Payment>('ewallet')
   const [provider, setProvider] = useState<Provider>('gcash')
   const [values, setValues] = useState<AddressValues>({
@@ -171,6 +168,9 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const [touched, setTouched] = useState<Partial<Record<AddressField, boolean>>>({})
   const [note, setNote] = useState('')
   const [pending, setPending] = useState(false)
+  // The address editor is a sheet; `focusField` is the invalid field to focus once the sheet has rendered it.
+  const [editing, setEditing] = useState(false)
+  const focusField = useRef<AddressField | null>(null)
   const [failed, setFailed] = useState(false)
   const inFlight = useRef(false)
   const controller = useRef<AbortController | null>(null)
@@ -187,6 +187,12 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const reload = useRef<() => void>(() => {})
 
   useEffect(() => () => controller.current?.abort(), [])
+
+  useEffect(() => {
+    if (!editing || !focusField.current) return
+    document.getElementById(fieldId(focusField.current))?.focus()
+    focusField.current = null
+  }, [editing])
 
   useEffect(() => {
     if (!user.email) return
@@ -241,12 +247,10 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     }
   }, [user.email])
 
-  const availability = fulfilmentAvailability(items)
   const blocked = orderBlock(items)
   const itemCount = items.reduce((sum, i) => sum + i.qty, 0)
-  const totals = computeTotals(items, fulfilment)
-  const eta = fulfilment === 'delivery' ? deliveryEta() : pickupEta(items)
-  const delivery = fulfilment === 'delivery'
+  const totals = computeTotals(items)
+  const eta = deliveryEta()
   const picking = saved === 'loading' || addresses.length > 1
 
   const allErrors: AddressErrors = {}
@@ -254,8 +258,35 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     const message = VALIDATORS[name](values[name])
     if (message) allErrors[name] = message
   }
+  const usable = ADDRESS_FIELD_ORDER.every((name) => !allErrors[name])
   // An error shows after the field is left, then follows every keystroke.
   const shown = (name: AddressField) => (touched[name] ? allErrors[name] : undefined)
+
+  const failedNote = (
+    <div className="flex flex-wrap items-center gap-x-3">
+      <p role="status" className="text-base text-fg-muted">
+        We couldn&apos;t load your saved addresses, so type your delivery address below.
+      </p>
+      <button
+        type="button"
+        onClick={() => reload.current()}
+        className="font-ui min-h-11 cursor-pointer rounded-xl text-base font-semibold text-fg underline underline-offset-4 hover:text-chrome-strong"
+      >
+        Try again
+      </button>
+    </div>
+  )
+  // Always in the layout of the editor, so the saved address arriving does not move the fields.
+  const loadNote = (
+    <div className="mt-1 min-h-6">
+      {saved === 'loading' && slow && (
+        <p role="status" className="text-base text-fg-muted">
+          Filling in your saved address…
+        </p>
+      )}
+      {saved === 'failed' && failedNote}
+    </div>
+  )
 
   const field = (name: AddressField) => ({
     id: fieldId(name),
@@ -279,15 +310,30 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     },
   }
 
+  // Marks every field as touched so its error shows; returns the first invalid field, if any.
+  function checkAddress() {
+    setTouched({ fullName: true, phone: true, street: true, city: true, postal: true })
+    return ADDRESS_FIELD_ORDER.find((name) => allErrors[name])
+  }
+
+  function saveAddress() {
+    const first = checkAddress()
+    if (first) {
+      document.getElementById(fieldId(first))?.focus()
+      return
+    }
+    setEditing(false)
+    toast.show({ kind: 'success', message: 'Delivery address saved.' })
+  }
+
   async function submit() {
     if (inFlight.current || blocked) return
-    if (delivery) {
-      setTouched({ fullName: true, phone: true, street: true, city: true, postal: true })
-      const first = ADDRESS_FIELD_ORDER.find((name) => allErrors[name])
-      if (first) {
-        document.getElementById(fieldId(first))?.focus()
-        return
-      }
+    const first = checkAddress()
+    if (first) {
+      // The fields only exist while the sheet is open: focus moves once it has rendered.
+      focusField.current = first
+      setEditing(true)
+      return
     }
 
     inFlight.current = true
@@ -295,22 +341,20 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     controller.current = abort
     setFailed(false)
     setPending(true)
-    const label = paymentLabel(payment, fulfilment, provider)
+    const label = paymentLabel(payment, provider)
     try {
       const { orderId } = await placeOrder(
         {
           items: items.map((i) => ({ id: i.product.id, size: i.size, color: i.color, qty: i.qty })),
-          fulfilment,
+          fulfilment: 'delivery',
           payment: label,
-          address: delivery
-            ? {
-                fullName: cleanText(values.fullName),
-                phone: normalizePhone(values.phone, dial),
-                street: cleanText(values.street),
-                city: cleanText(values.city),
-                postal: values.postal,
-              }
-            : undefined,
+          address: {
+            fullName: cleanText(values.fullName),
+            phone: normalizePhone(values.phone, dial),
+            street: cleanText(values.street),
+            city: cleanText(values.city),
+            postal: values.postal,
+          },
           note: cleanText(note),
           total: totals.total,
         },
@@ -318,6 +362,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
       )
       saveLastOrder({
         orderId,
+        placedAt: new Date().toISOString(),
         items: items.map((i) => ({
           name: i.product.name,
           size: i.size,
@@ -329,12 +374,11 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
         total: totals.total,
         shipping: totals.shipping,
         payment: label,
-        fulfilment: delivery ? 'Delivery' : 'Pick up in store',
+        fulfilment: 'Delivery',
         eta,
-        pickupAt: delivery ? undefined : [...new Set(items.map((i) => i.product.boutique))].join(', '),
-        recipient: delivery ? cleanText(values.fullName) : undefined,
-        address: delivery ? `${cleanText(values.street)}, ${cleanText(values.city)} ${values.postal}` : undefined,
-        phone: delivery ? normalizePhone(values.phone, dial) : undefined,
+        recipient: cleanText(values.fullName),
+        address: `${cleanText(values.street)}, ${cleanText(values.city)} ${values.postal}`,
+        phone: normalizePhone(values.phone, dial),
         note: cleanText(note) || undefined,
       })
       // Only what was ordered leaves the cart: a line added in another tab meanwhile stays. Buy now never touches it.
@@ -371,70 +415,78 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
             <p className="mt-2 text-sm text-fg-muted">Your cart is unchanged until the order is placed.</p>
           </div>
         )}
-        <section aria-labelledby="checkout-items" data-tour="checkout-items" className={SECTION}>
+        <section aria-labelledby="checkout-items" data-tour="checkout-items" className={`${SECTION} lg:sticky! lg:top-38 lg:z-30 lg:bg-none! lg:bg-canvas!`}>
           <div className="flex items-center justify-between gap-3">
-            <h2 id="checkout-items" className="display text-xl text-fg">
+            <h2 id="checkout-items" className="display flex items-center gap-2 text-xl text-fg">
+              <BagIcon />
               Your order
             </h2>
             {fromCart && <IconEditButton to="/cart" label="Edit cart" className="-mr-2" />}
           </div>
-          <ul className="mt-4 space-y-4">
+          {/* Capped so a long order scrolls inside the pinned card instead of running off the screen. */}
+          <ul className="mt-4 space-y-4 lg:max-h-[calc(100svh-17rem)] lg:overflow-y-auto">
             {items.map((item) => (
               <ItemRow key={item.variantId} item={item} change={!fromCart && items.length === 1} />
             ))}
           </ul>
         </section>
 
-        <section data-tour="checkout-fulfilment" className={SECTION}>
-          <OptionCards
-            legend="How do you want to get it?"
-            name="fulfilment"
-            value={fulfilment}
-            onChange={setFulfilment}
-            options={[
-              {
-                value: 'delivery',
-                title: 'Delivery',
-                description: `${formatPeso(SHIPPING_FEE)} · ${deliveryEta()}`,
-                disabledReason: availability.delivery,
-              },
-              {
-                value: 'pickup',
-                title: 'Pick up in store',
-                description: `Free · ${pickupEta(items)}`,
-                disabledReason: availability.pickup,
-              },
-            ]}
-          />
-        </section>
-
-        {delivery && (
-          <section aria-labelledby="checkout-address" className={SECTION}>
-            <h2 id="checkout-address" className="display text-xl text-fg">
+        <section aria-labelledby="checkout-address" className={SECTION}>
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="checkout-address" className="display flex items-center gap-2 text-xl text-fg">
+              <MapPinIcon />
               Delivery address
             </h2>
-            {/* Always in the layout, so the saved address arriving does not move the fields. */}
-            <div className="mt-1 min-h-6">
-              {saved === 'loading' && slow && (
-                <p role="status" className="text-base text-fg-muted">
-                  Filling in your saved address…
-                </p>
-              )}
-              {saved === 'failed' && (
-                <div className="flex flex-wrap items-center gap-x-3">
-                  <p role="status" className="text-base text-fg-muted">
-                    We couldn&apos;t load your saved addresses, so type your delivery address below.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => reload.current()}
-                    className="font-ui min-h-11 cursor-pointer rounded-xl text-base font-semibold text-fg underline underline-offset-4 hover:text-chrome-strong"
-                  >
-                    Try again
-                  </button>
-                </div>
-              )}
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              aria-label={usable ? 'Change delivery address' : undefined}
+              className={`${SECONDARY_BUTTON} shrink-0`}
+            >
+              {usable ? 'Change' : 'Add address'}
+            </button>
+          </div>
+          {saved === 'loading' ? (
+            <div aria-hidden="true" className="mt-3 animate-pulse">
+              <div className="my-[3px] h-4 w-1/3 rounded-xl bg-line" />
+              <div className="my-[3px] h-4 w-1/2 rounded-xl bg-line" />
+              <div className="my-[3px] h-4 w-4/5 rounded-xl bg-line" />
             </div>
+          ) : usable ? (
+            <div className="mt-3 text-base leading-snug break-words text-fg-muted">
+              <p className="font-semibold text-fg">{cleanText(values.fullName)}</p>
+              <p className="tabular-nums">
+                {dial} {values.phone}
+              </p>
+              <p>
+                {cleanText(values.street)}, {cleanText(values.city)} {values.postal}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-3 text-base text-fg-muted">Add where we should deliver your order.</p>
+          )}
+          {saved === 'failed' && !editing && <div className="mt-1">{failedNote}</div>}
+        </section>
+
+        <Modal
+          open={editing}
+          onClose={() => setEditing(false)}
+          variant="sheet"
+          title="Delivery address"
+          icon={<MapPinIcon />}
+          footer={
+            <div className="flex flex-wrap justify-end gap-3">
+              <button type="button" onClick={() => setEditing(false)} className={SECONDARY_BUTTON}>
+                Cancel
+              </button>
+              <button type="button" onClick={saveAddress} className={PRIMARY_BUTTON}>
+                Save address
+              </button>
+            </div>
+          }
+        >
+          <div className="pb-5">
+            {loadNote}
             {/* Held open while the list loads, so a picker arriving does not push the fields down; it folds away
                 when there is nothing to choose between (one address or none). */}
             <div className={`grid transition-[grid-template-rows] duration-200 motion-reduce:transition-none ${picking ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
@@ -509,12 +561,13 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                 counter={{ current: values.postal.length, max: ADDRESS_LIMITS.postal }}
               />
             </div>
-          </section>
-        )}
+          </div>
+        </Modal>
 
         <section data-tour="checkout-payment" className={SECTION}>
           <OptionCards
             legend="How do you want to pay?"
+            icon={<WalletIcon />}
             name="payment"
             value={payment}
             onChange={setPayment}
@@ -547,15 +600,16 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
               },
               {
                 value: 'cash',
-                title: delivery ? 'Cash on delivery' : 'Pay at pickup',
-                description: delivery ? 'Pay the rider when it arrives.' : 'Pay at the store when you collect it.',
+                title: 'Cash on delivery',
+                description: 'Pay the rider when it arrives.',
               },
             ]}
           />
         </section>
 
         <section aria-labelledby="checkout-note-label" className={SECTION}>
-          <label id="checkout-note-label" htmlFor="checkout-note" className="display block text-xl text-fg">
+          <label id="checkout-note-label" htmlFor="checkout-note" className="display flex items-center gap-2 text-xl text-fg">
+            <NoteIcon />
             Note to seller
           </label>
           <textarea
@@ -573,12 +627,13 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
         </section>
       </div>
 
-      <aside aria-labelledby="checkout-summary" className={`${SECTION} space-y-4 lg:sticky lg:top-24`}>
-        <h2 id="checkout-summary" className="display text-xl text-fg">
+      <aside aria-labelledby="checkout-summary" className={`${SECTION} space-y-4 lg:sticky! lg:top-38`}>
+        <h2 id="checkout-summary" className="display flex items-center gap-2 text-xl text-fg">
+          <ReceiptIcon />
           Order summary
         </h2>
         <p className="text-sm leading-snug text-fg-muted">
-          <span className="font-semibold text-fg">{delivery ? 'Delivery' : 'Pick up in store'}</span>
+          <span className="font-semibold text-fg">Delivery</span>
           <br />
           {eta}
         </p>
@@ -621,6 +676,17 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
             'Place order'
           )}
         </button>
+        <p className="text-left text-sm leading-snug text-fg-muted">
+          By placing an order, you agree to the SilhouFit{' '}
+          <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+            Terms of Service
+          </a>{' '}
+          and sale, and acknowledge that you have read the{' '}
+          <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+            Privacy Policy
+          </a>
+          .
+        </p>
       </aside>
     </form>
   )
@@ -663,9 +729,12 @@ export function CheckoutPage() {
   const items = snapshot?.search === search ? snapshot.items : []
 
   return (
-    <div className="mx-auto max-w-6xl px-6 pt-20 pb-24">
-      <Breadcrumb />
-      <h1 className="display mt-1 text-3xl text-fg sm:text-4xl">Checkout</h1>
+    <div className="mx-auto max-w-6xl px-6 pt-18 pb-24">
+      {/* Stays under the top bar (61px) while the order scrolls; the summary sticks below it. */}
+      <div className="lg:sticky lg:top-[61px] lg:z-40 lg:-mx-6 lg:bg-canvas lg:px-6 lg:pt-2 lg:pb-[25px]">
+        <Breadcrumb />
+        <h1 className="display mt-1 text-3xl text-fg sm:text-4xl">Checkout</h1>
+      </div>
 
       {status === 'loading' && <CheckoutSkeleton />}
 

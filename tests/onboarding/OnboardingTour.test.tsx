@@ -124,7 +124,7 @@ function addTarget(key: string) {
   return el
 }
 
-const stepLabel = (n: number, m = 5) => screen.getByText(`Step ${n} of ${m}`)
+const stepLabel = (n: number, m = 4) => screen.getByText(`Step ${n} of ${m}`)
 
 describe('OnboardingTour', () => {
   it('opens on a welcome card, then walks Next and Back through the stops', async () => {
@@ -187,7 +187,7 @@ describe('OnboardingTour', () => {
   it('finishes on the last stop: saves, greets by name and bursts confetti', async () => {
     const user = await open({ welcome: false })
     // 3 + 3 + 1 + 3 + 1 stops: ten Next presses reach the last one.
-    for (let i = 0; i < 10; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
+    for (let i = 0; i < 9; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
     await user.click(screen.getByRole('button', { name: 'Finish' }))
     expect(save).toHaveBeenCalledWith('anne@example.com', 'completed')
     // The optional address step comes first; skipping it goes on to the completion card.
@@ -203,7 +203,7 @@ describe('OnboardingTour', () => {
   it('shows no confetti under reduced motion', async () => {
     motion.reduced = true
     const user = await open({ welcome: false })
-    for (let i = 0; i < 10; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
+    for (let i = 0; i < 9; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
     await user.click(screen.getByRole('button', { name: 'Finish' }))
     await user.click(await screen.findByRole('button', { name: 'Skip this step' }))
     expect(screen.getByRole('dialog', { name: "You're Ready to Shop!" })).toBeInTheDocument()
@@ -213,7 +213,7 @@ describe('OnboardingTour', () => {
   describe('address step', () => {
     async function finishTour() {
       const user = await open({ welcome: false })
-      for (let i = 0; i < 10; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
+      for (let i = 0; i < 9; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
       await user.click(screen.getByRole('button', { name: 'Finish' }))
       return user
     }
@@ -292,12 +292,6 @@ describe('OnboardingTour', () => {
     expect(screen.getByRole('heading', { name: 'Try it on with AR' })).toBeInTheDocument()
     expect(await screen.findByText(/coming soon.*camera access/)).toBeInTheDocument()
     ar.remove()
-  })
-
-  it('drops the pickup step when the sample piece cannot be collected', async () => {
-    sample.product = { ...POLO, channels: ['online'] }
-    await open({ welcome: false })
-    expect(stepLabel(1, 4)).toBeInTheDocument()
   })
 
   it('shows neutral copy, not the target body, while it looks for the target', async () => {

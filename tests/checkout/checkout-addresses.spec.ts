@@ -34,10 +34,17 @@ async function openCheckout(page: Page) {
 }
 
 const picker = (page: Page) => page.getByRole('combobox', { name: 'Deliver to' })
+const card = (page: Page) => page.getByRole('heading', { name: 'Delivery address' }).locator('xpath=ancestor::section')
+// The editor is a sheet: the fields only exist while it is open.
+const openSheet = (page: Page) => page.getByRole('button', { name: /^(Add address|Change delivery address)$/ }).click()
 
 test('the default saved address fills the delivery form, and there is no picker for one address', async ({ page }) => {
   await mockAddresses(page, [ADDRESS])
   await openCheckout(page)
+  await expect(card(page)).toContainText('12 Rizal Avenue')
+  await expect(card(page)).toContainText('+63 9171234567')
+  await expect(page.getByLabel('Street address')).toHaveCount(0)
+  await openSheet(page)
   await expect(page.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Anne Santos')
   await expect(page.getByRole('textbox', { name: 'Phone number', exact: true })).toHaveValue('9171234567')
   await expect(page.getByRole('textbox', { name: 'Street address', exact: true })).toHaveValue(/^12 Rizal Avenue/)
@@ -49,6 +56,7 @@ test('the default saved address fills the delivery form, and there is no picker 
 test('with several addresses a Deliver to picker lists them, defaults first, and choosing one refills the form', async ({ page }) => {
   await mockAddresses(page, [OFFICE, ADDRESS])
   await openCheckout(page)
+  await openSheet(page)
   await expect(picker(page)).toContainText('Home (Default)')
   await expect(page.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Anne Santos')
 
@@ -64,7 +72,7 @@ test('with several addresses a Deliver to picker lists them, defaults first, and
 test('a prefilled address goes through to the success page', async ({ page }) => {
   await mockAddresses(page, [ADDRESS])
   await openCheckout(page)
-  await expect(page.getByRole('textbox', { name: 'Postal code', exact: true })).toHaveValue('1000')
+  await expect(card(page)).toContainText('Manila')
   await page.getByRole('radio', { name: /Cash on delivery/ }).locator('xpath=ancestor::label').click()
   await page.getByRole('button', { name: /Place order/ }).click()
   await expect(page).toHaveURL(/\/checkout\/success$/, { timeout: 15000 })
@@ -73,6 +81,8 @@ test('a prefilled address goes through to the success page', async ({ page }) =>
 test('with nothing saved the form starts empty except the account name', async ({ page }) => {
   await mockAddresses(page, [])
   await openCheckout(page)
+  await expect(card(page)).toContainText('Add where we should deliver your order.')
+  await openSheet(page)
   await expect(page.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Demo Shopper')
   await expect(page.getByRole('textbox', { name: 'Phone number', exact: true })).toHaveValue('')
   await expect(page.getByRole('textbox', { name: 'Street address', exact: true })).toHaveValue('')
@@ -86,6 +96,7 @@ test('when the saved addresses cannot load it says so and the form can still be 
   )
   await openCheckout(page)
   await expect(page.getByText("We couldn't load your saved addresses, so type your delivery address below.")).toBeVisible()
+  await openSheet(page)
   await page.getByRole('textbox', { name: 'Phone number', exact: true }).fill('9171234567')
   await expect(page.getByRole('textbox', { name: 'Phone number', exact: true })).toHaveValue('9171234567')
 })
@@ -98,6 +109,7 @@ test('Try again after a failed read fills the form from the saved address, never
   )
   await openCheckout(page)
   await expect(page.getByText("We couldn't load your saved addresses, so type your delivery address below.")).toBeVisible()
+  await openSheet(page)
   await page.getByRole('textbox', { name: 'Street address', exact: true }).fill('My own street')
   failing = false
   await page.getByRole('button', { name: 'Try again' }).click()
@@ -115,6 +127,7 @@ test('the fields do not move when the Deliver to picker arrives', async ({ page 
     await route.fallback()
   })
   await openCheckout(page)
+  await openSheet(page)
   const street = page.getByRole('textbox', { name: 'Street address', exact: true })
   await expect(page.getByText('Deliver to')).toBeVisible()
   const before = (await street.boundingBox())!.y
@@ -126,6 +139,7 @@ test('the fields do not move when the Deliver to picker arrives', async ({ page 
 test('with one saved address the reserved slot folds away', async ({ page }) => {
   await mockAddresses(page, [ADDRESS])
   await openCheckout(page)
+  await openSheet(page)
   await expect(page.getByRole('textbox', { name: 'Postal code', exact: true })).toHaveValue('1000')
   await expect(page.getByText('Deliver to')).toHaveCount(0)
 })
@@ -139,6 +153,7 @@ test('what the shopper has typed is not overwritten by a late saved address', as
     await route.fallback()
   })
   await openCheckout(page)
+  await openSheet(page)
   await page.getByRole('textbox', { name: 'Street address', exact: true }).fill('My own street')
   release()
   await expect(page.getByRole('textbox', { name: 'Postal code', exact: true })).toHaveValue('1000')
@@ -149,6 +164,7 @@ test('has no horizontal scroll at 320px with the picker showing', async ({ page 
   await page.setViewportSize({ width: 320, height: 700 })
   await mockAddresses(page, [OFFICE, ADDRESS])
   await openCheckout(page)
+  await openSheet(page)
   await expect(picker(page)).toBeVisible()
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)

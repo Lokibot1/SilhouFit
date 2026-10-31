@@ -1,8 +1,13 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { clearSession, setSession } from '../../src/service/session'
 import { loadLastOrder, saveLastOrder, type PlacedOrder } from '../../src/utils/checkout'
+const pdf = vi.hoisted(() => ({ renderReceiptPdf: vi.fn() }))
+vi.mock('../../src/utils/receiptPdf', () => pdf)
+
 import { OrderSuccessPage } from '../../src/views/private/OrderSuccessPage'
 
 const DELIVERY: PlacedOrder = {
@@ -35,12 +40,14 @@ const PICKUP: PlacedOrder = {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/checkout/success']}>
-      <Routes>
-        <Route path="/checkout/success" element={<OrderSuccessPage />} />
-        <Route path="*" element={<p>another page</p>} />
-      </Routes>
-    </MemoryRouter>,
+    <ToastProvider>
+      <MemoryRouter initialEntries={['/checkout/success']}>
+        <Routes>
+          <Route path="/checkout/success" element={<OrderSuccessPage />} />
+          <Route path="*" element={<p>another page</p>} />
+        </Routes>
+      </MemoryRouter>
+    </ToastProvider>,
   )
 }
 
@@ -156,5 +163,48 @@ describe('OrderSuccessPage', () => {
     renderPage()
     expect(screen.getByRole('heading', { level: 1, name: 'No recent order' })).toBeInTheDocument()
     expect(loadLastOrder()).toBeNull()
+  })
+
+  it('shows the order as a receipt: placed time, subtotal before shipping and total', () => {
+    saveLastOrder({ ...DELIVERY, placedAt: '2026-10-11T07:45:00.000Z' })
+    renderPage()
+    const receipt = screen.getByRole('article', { name: 'Order receipt' })
+    expect(receipt).toHaveTextContent('Oct 11, 2026, 3:45 PM')
+    expect(receipt).toHaveTextContent('Subtotal')
+    expect(receipt).toHaveTextContent('₱6,070.00') // 2 × 1,890 + 2,290
+  })
+
+  describe('download receipt', () => {
+    beforeEach(() => {
+      URL.createObjectURL = vi.fn(() => 'blob:receipt')
+      URL.revokeObjectURL = vi.fn()
+      pdf.renderReceiptPdf.mockReset()
+    })
+
+    it('builds the PDF from the order, downloads it and says so', async () => {
+      pdf.renderReceiptPdf.mockResolvedValue(new Blob(['pdf']))
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      saveLastOrder(DELIVERY)
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: 'Download receipt' }))
+      expect(await screen.findByText('Receipt downloaded.')).toBeInTheDocument()
+      expect(pdf.renderReceiptPdf).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'SF-261011-ABCD' }))
+      expect(click).toHaveBeenCalledTimes(1)
+      click.mockRestore()
+    })
+
+    it('says what went wrong when the PDF cannot be built, and tries again on the next press', async () => {
+      pdf.renderReceiptPdf.mockRejectedValueOnce(new Error('fonts'))
+      saveLastOrder(DELIVERY)
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: 'Download receipt' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent("We couldn't make your receipt.")
+      pdf.renderReceiptPdf.mockResolvedValue(new Blob(['pdf']))
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      await userEvent.click(screen.getByRole('button', { name: 'Download receipt' }))
+      await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+      expect(click).toHaveBeenCalledTimes(1)
+      click.mockRestore()
+    })
   })
 })

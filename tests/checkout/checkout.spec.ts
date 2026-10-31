@@ -41,11 +41,16 @@ async function expectTarget(control: Locator, label: string, compact: boolean) {
 // Radio cards hide the native input; a user clicks the card, so the test does too.
 const choose = (page: Page, name: RegExp) => page.getByRole('radio', { name }).locator('xpath=ancestor::label').click()
 
+// The address lives in a sheet: open it (unless it is already open), fill it in and save.
 async function fillAddress(page: Page) {
+  const sheet = page.getByRole('dialog', { name: 'Delivery address' })
+  if (!(await sheet.isVisible())) await page.getByRole('button', { name: /^(Add address|Change delivery address)$/ }).click()
   await page.getByLabel('Phone number').fill('9171234567')
   await page.getByLabel('Street address').fill('12 Mabini Street, Brgy. San Roque')
   await page.getByLabel('City').fill('Marikina City')
   await page.getByLabel('Postal code').fill('1800')
+  await sheet.getByRole('button', { name: 'Save address' }).click()
+  await expect(sheet).toBeHidden()
 }
 
 test('a signed-out visitor is sent to login and returns to the same checkout', async ({ page }) => {
@@ -66,7 +71,7 @@ test('shows "Nothing to check out" for a link that does not match a piece', asyn
   await expect(page).toHaveURL(/\/shop$/)
 })
 
-test('Buy now to success: pickup changes the total and ETA, then Back does not return to the form', async ({ page }) => {
+test('Buy now to success: delivery total and ETA, then Back does not return to the form', async ({ page }) => {
   await signedIn(page)
   await page.goto('/shop')
   await expect(page.getByRole('article').first()).toBeVisible({ timeout: 15000 })
@@ -80,18 +85,15 @@ test('Buy now to success: pickup changes the total and ETA, then Back does not r
 
   await expect(summary(page)).toContainText('₱1,989.00') // 1,890 + 99 delivery
   await expect(summary(page)).toContainText(/Arrives \w{3}, \w{3} \d+ – \w{3}, \w{3} \d+/)
-  await choose(page, /Pick up in store/)
-  await expect(summary(page)).toContainText('₱1,890.00')
-  await expect(summary(page)).toContainText('Free')
-  await expect(summary(page)).toContainText('Ready at Ayala Atelier tomorrow from 2:00 PM')
-  await choose(page, /Pay at pickup/)
+  await expect(page.getByRole('radio', { name: /Pick up in store/ })).toHaveCount(0)
+  await fillAddress(page)
+  await choose(page, /Cash on delivery/)
 
   await placeOrderButton(page).click()
   await expect(page).toHaveURL(/\/checkout\/success$/, { timeout: 15000 })
   await expect(page.getByRole('heading', { level: 1, name: 'Order placed' })).toBeFocused()
   await expect(page.getByText(/^SF-\d{6}-[A-Z2-9]{4}$/)).toBeVisible()
-  await expect(page.getByText('Pay at pickup')).toBeVisible()
-  await expect(page.getByText('Ready at Ayala Atelier tomorrow from 2:00 PM')).toBeVisible()
+  await expect(page.getByText('Cash on delivery')).toBeVisible()
 
   await page.goBack()
   await expect(page).toHaveURL(/\/shop$/)
@@ -106,6 +108,7 @@ test('a delivery order needs a valid address, then goes through with cash on del
   await openCheckout(page)
   await choose(page, /Cash on delivery/)
   await placeOrderButton(page).click()
+  await expect(page.getByRole('dialog', { name: 'Delivery address' })).toBeVisible()
   await expect(page.getByLabel('Phone number')).toBeFocused()
   await expect(page.getByText('Phone number is required.')).toBeVisible()
   await expect(page).toHaveURL(/\/checkout\?/)
@@ -121,7 +124,7 @@ test('a delivery order needs a valid address, then goes through with cash on del
 test('a failed order shows an inline alert with the details kept, and Try again recovers', async ({ page }) => {
   await signedIn(page)
   await openCheckout(page, `${POLO}&fail=order`)
-  await choose(page, /Pick up in store/)
+  await fillAddress(page)
   await page.getByRole('textbox', { name: 'Note to seller' }).fill('Keep my size aside.')
   await placeOrderButton(page).click()
 
@@ -164,9 +167,10 @@ test('can be completed with the keyboard alone, from the sheet to the success pa
   await page.keyboard.press('Enter')
 
   await expect(page).toHaveURL(/\/checkout\?item=/)
-  await tabTo(page, page.getByRole('radio', { name: /Delivery/ })) // the checked radio holds the tab stop
+  await tabTo(page, page.getByRole('radio', { name: /E-Wallet/ })) // the checked radio holds the tab stop
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('radio', { name: /Pick up in store/ })).toBeChecked()
+  await expect(page.getByRole('radio', { name: /Cash on delivery/ })).toBeChecked()
+  await fillAddress(page)
   await tabTo(page, placeOrderButton(page))
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/checkout\/success$/, { timeout: 15000 })
@@ -196,21 +200,20 @@ test.describe('at 320px', () => {
     await expect(sheet.getByRole('button', { name: 'Add to cart' })).toBeInViewport({ ratio: 1 }) // the action stays in view
   })
 
-  test('the checkout page fits with no horizontal scroll, in delivery and pickup', async ({ page }) => {
+  test('the checkout page fits with no horizontal scroll, with either payment', async ({ page }) => {
     await signedIn(page)
     await openCheckout(page)
     expect(await overflows(page)).toBe(false)
     await expectTarget(placeOrderButton(page), 'Place order', false)
-    await expectTarget(page.locator('#checkout-fullName'), 'Full name', false)
-    await expectTarget(page.locator('label:has(input[name="fulfilment"][value="delivery"])'), 'Delivery card', false)
-    await choose(page, /Pick up in store/)
+    await expectTarget(page.getByRole('button', { name: 'Add address' }), 'Add address', false)
+    await choose(page, /Cash on delivery/)
     expect(await overflows(page)).toBe(false)
   })
 
   test('the success page fits with no horizontal scroll', async ({ page }) => {
     await signedIn(page)
     await openCheckout(page)
-    await choose(page, /Pick up in store/)
+    await fillAddress(page)
     await placeOrderButton(page).click()
     await expect(page).toHaveURL(/\/checkout\/success$/, { timeout: 15000 })
     expect(await overflows(page)).toBe(false)
@@ -231,7 +234,7 @@ test.describe('dark mode', () => {
       background: getComputedStyle(document.body).backgroundColor,
     }))
     expect(heading).not.toBe(background)
-    await choose(page, /Pick up in store/)
+    await fillAddress(page)
     await placeOrderButton(page).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Order placed' })).toBeVisible({ timeout: 15000 })
   })

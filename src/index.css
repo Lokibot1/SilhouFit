@@ -1712,3 +1712,18 @@ html.comet-active * {
     border-color: black !important;
   }
 }
+
+/* The order receipt: a paper slip in both themes (light paper, dark ink), with a torn bottom edge of paper-coloured teeth. */
+.receipt {
+  --color-canvas-raised: #f6f4ef;
+  --color-fg: #1b1b1d;
+  --color-fg-muted: #57575c;
+  --color-line-strong: rgb(0 0 0 / 0.3);
+  filter: drop-shadow(0 12px 24px rgb(0 0 0 / 0.3));
+}
+.receipt-edge {
+  height: 10px;
+  background:
+    linear-gradient(135deg, var(--color-canvas-raised) 50%, transparent 50%) 0 0 / 10px 10px,
+    linear-gradient(225deg, var(--color-canvas-raised) 50%, transparent 50%) 0 0 / 10px 10px;
+}

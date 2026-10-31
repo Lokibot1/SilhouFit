@@ -13,6 +13,8 @@ export interface CardOption<T extends string> {
 
 interface OptionCardsProps<T extends string> {
   legend: string
+  /** Drawn before the legend. */
+  icon?: ReactNode
   name: string
   value: T
   options: CardOption<T>[]
@@ -20,12 +22,15 @@ interface OptionCardsProps<T extends string> {
 }
 
 /** Radio cards: native radios in a fieldset, so keyboard and screen readers behave as for any radio group. */
-export function OptionCards<T extends string>({ legend, name, value, options, onChange }: OptionCardsProps<T>) {
+export function OptionCards<T extends string>({ legend, icon, name, value, options, onChange }: OptionCardsProps<T>) {
   const id = useId()
   return (
     <fieldset>
-      <legend className="font-ui text-sm font-semibold text-fg">{legend}</legend>
-      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+      <legend className="display flex items-center gap-2 text-xl text-fg">
+        {icon}
+        {legend}
+      </legend>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {options.map((option) => {
           const disabled = Boolean(option.disabledReason)
           const checked = option.value === value

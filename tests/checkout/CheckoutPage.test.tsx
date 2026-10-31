@@ -71,11 +71,16 @@ const where = () => screen.getByTestId('where').textContent
 const placeButton = () => screen.getByRole('button', { name: /Place order|Placing order/ })
 const form = () => document.querySelector('form')!
 
+const openAddress = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Add address' }))
+const saveAddress = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Save address' }))
+
 async function fillAddress(user: ReturnType<typeof userEvent.setup>) {
+  await openAddress(user)
   await user.type(screen.getByLabelText('Phone number'), '9171234567')
   await user.type(screen.getByLabelText('Street address'), '12 Mabini Street, Brgy. San Roque')
   await user.type(screen.getByLabelText('City'), 'Marikina City')
   await user.type(screen.getByLabelText('Postal code'), '1800')
+  await saveAddress(user)
 }
 
 describe('CheckoutPage gate and states', () => {
@@ -141,7 +146,6 @@ describe('CheckoutPage options and totals', () => {
   it('starts on delivery with the order, shipping, ETA and total', async () => {
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
-    expect(screen.getByRole('radio', { name: /Delivery/ })).toBeChecked()
     expect(screen.getByText(/Arrives \w{3}, \w{3} \d+ – \w{3}, \w{3} \d+/, { selector: 'p' })).toBeInTheDocument()
     const summary = screen.getByRole('complementary')
     expect(summary).toHaveTextContent('₱4,200.00') // subtotal, 2 × 2,100
@@ -149,20 +153,13 @@ describe('CheckoutPage options and totals', () => {
     expect(summary).toHaveTextContent('₱4,299.00')
   })
 
-  it('switches to pickup: no shipping, the pickup ETA, no address, and "Pay at pickup"', async () => {
-    const user = userEvent.setup({ delay: null })
+  it('offers delivery only: no fulfilment choice, the delivery address and cash on delivery', async () => {
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
-    expect(screen.getByRole('radio', { name: /Cash on delivery/ })).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: /Pick up in store/ })).toBeNull()
+    expect(screen.queryByText('How do you want to get it?')).toBeNull()
     expect(screen.getByRole('heading', { name: 'Delivery address' })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('radio', { name: /Pick up in store/ }))
-    const summary = screen.getByRole('complementary')
-    expect(summary).toHaveTextContent('Free')
-    expect(summary).toHaveTextContent('₱4,200.00')
-    expect(summary).toHaveTextContent('Ready at Ayala Atelier tomorrow from 2:00 PM')
-    expect(screen.queryByRole('heading', { name: 'Delivery address' })).toBeNull()
-    expect(screen.getByRole('radio', { name: /Pay at pickup/ })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /Cash on delivery/ })).toBeInTheDocument()
   })
 
   it('has no sale discount line, since the API has no sale price', async () => {
@@ -171,20 +168,16 @@ describe('CheckoutPage options and totals', () => {
     expect(screen.getByRole('complementary')).not.toHaveTextContent('Sale discount')
   })
 
-  it('disables delivery for a store-only piece, says why, and preselects pickup', async () => {
+  it('blocks a store-only piece with an alert, since it cannot be delivered', async () => {
+    const user = userEvent.setup({ delay: null })
     renderCheckout(JACKET)
     await screen.findByRole('heading', { name: 'Hook Wall Jacket' })
-    expect(screen.getByRole('radio', { name: /Delivery/ })).toBeDisabled()
-    expect(screen.getByText('Store-only piece. Pick it up at Lumban Loom.')).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: /Pick up in store/ })).toBeChecked()
-    expect(screen.queryByRole('heading', { name: 'Delivery address' })).toBeNull()
-  })
-
-  it('disables pickup for an online-only piece', async () => {
-    renderCheckout('/checkout?item=p05&variant=p05-m-sand&qty=1')
-    await screen.findByRole('heading', { name: 'Cable Knit Pullover' })
-    expect(screen.getByRole('radio', { name: /Pick up in store/ })).toBeDisabled()
-    expect(screen.getByText('Sold online only.')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "Hook Wall Jacket is sold in store only and can't be delivered. Remove it from your order to check out.",
+    )
+    expect(placeButton()).toBeDisabled()
+    await user.click(placeButton())
+    expect(placeMock).not.toHaveBeenCalled()
   })
 
   it('offers GCash and Maya under E-Wallet', async () => {
@@ -201,8 +194,10 @@ describe('CheckoutPage options and totals', () => {
 
 describe('CheckoutPage address and note', () => {
   it('prefills the full name from the signed-in user', async () => {
+    const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await openAddress(user)
     expect(screen.getByLabelText('Full name')).toHaveValue('Demo Shopper')
   })
 
@@ -210,6 +205,7 @@ describe('CheckoutPage address and note', () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await openAddress(user)
     const street = screen.getByLabelText('Street address')
     await user.click(street)
     await user.tab()
@@ -232,6 +228,7 @@ describe('CheckoutPage address and note', () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await openAddress(user)
     await user.clear(screen.getByLabelText('Full name'))
     await user.type(screen.getByLabelText('Full name'), 'Ana 123 Reyes!')
     expect(screen.getByLabelText('Full name')).toHaveValue('Ana Reyes')
@@ -247,6 +244,7 @@ describe('CheckoutPage address and note', () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await openAddress(user)
     const phone = screen.getByLabelText('Phone number')
     await user.click(phone)
     await user.paste('+63 (917) 123-4567')
@@ -263,6 +261,7 @@ describe('CheckoutPage address and note', () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await openAddress(user)
     const phone = screen.getByLabelText('Phone number')
     await user.type(phone, '+6')
     expect(phone).toHaveValue('+6')
@@ -274,6 +273,7 @@ describe('CheckoutPage address and note', () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await openAddress(user)
     await user.type(screen.getByLabelText('Street address'), '12 Mabini')
     expect(screen.getByText('9/120')).toBeInTheDocument()
 
@@ -287,8 +287,9 @@ describe('CheckoutPage address and note', () => {
 
   it('allows emoji in the note, strips control characters, and sends the cleaned note', async () => {
     const user = userEvent.setup({ delay: null })
-    renderCheckout(JACKET) // pickup: no address to fill
-    await screen.findByRole('heading', { name: 'Hook Wall Jacket' })
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await fillAddress(user)
     const note = screen.getByRole('textbox', { name: 'Note to seller' })
     await user.click(note)
     await user.paste('  Gift wrap please 🎁 \u0007  thanks ')
@@ -298,14 +299,17 @@ describe('CheckoutPage address and note', () => {
     expect(placeMock.mock.calls[0][0].note).toBe('Gift wrap please 🎁 thanks')
   })
 
-  it('focuses the first invalid field when placing the order with a bad address', async () => {
+  it('opens the address sheet and focuses the first invalid field when placing the order with a bad address', async () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
+    expect(screen.queryByLabelText('Phone number')).toBeNull()
     await user.click(placeButton())
     expect(placeMock).not.toHaveBeenCalled()
-    expect(screen.getByLabelText('Phone number')).toHaveFocus()
+    expect(await screen.findByRole('dialog', { name: 'Delivery address' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText('Phone number')).toHaveFocus())
     expect(screen.getByText('Phone number is required.')).toBeInTheDocument()
+    expect(screen.getByText('Street address is required.')).toBeInTheDocument()
   })
 })
 
@@ -334,8 +338,9 @@ describe('CheckoutPage placing the order', () => {
     const user = userEvent.setup({ delay: null })
     let finish!: (value: { orderId: string }) => void
     placeMock.mockReturnValue(new Promise((resolve) => (finish = resolve)))
-    renderCheckout(JACKET)
-    await screen.findByRole('heading', { name: 'Hook Wall Jacket' })
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await fillAddress(user)
     await user.dblClick(placeButton())
     expect(placeMock).toHaveBeenCalledTimes(1)
     expect(placeButton()).toBeDisabled()
@@ -360,7 +365,7 @@ describe('CheckoutPage placing the order', () => {
     expect(alert).toHaveTextContent(/connection/i)
     expect(alert).toHaveTextContent(/try again/i)
     expect(placeButton()).toBeEnabled()
-    expect(screen.getByLabelText('Street address')).toHaveValue('12 Mabini Street, Brgy. San Roque')
+    expect(screen.getByText('12 Mabini Street, Brgy. San Roque, Marikina City 1800')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Note to seller' })).toHaveValue('Leave with the guard')
     expect(where()).toMatch(/^\/checkout\?/)
 
@@ -368,14 +373,70 @@ describe('CheckoutPage placing the order', () => {
     await waitFor(() => expect(where()).toBe('/checkout/success'))
     expect(placeMock).toHaveBeenCalledTimes(2)
   })
+})
 
-  it('pays cash at pickup for a pickup order, with no address in the request', async () => {
+describe('CheckoutPage delivery address card', () => {
+  it('shows a prompt and Add address when nothing usable is filled in', async () => {
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    expect(screen.getByText('Add where we should deliver your order.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Change delivery address' })).toBeNull()
+  })
+
+  it('keeps the fields out of the page until Change is clicked, and closes the sheet with Cancel', async () => {
     const user = userEvent.setup({ delay: null })
-    renderCheckout(JACKET)
-    await screen.findByRole('heading', { name: 'Hook Wall Jacket' })
-    await user.click(screen.getByRole('radio', { name: /Pay at pickup/ }))
-    await user.click(placeButton())
-    await waitFor(() => expect(placeMock).toHaveBeenCalled())
-    expect(placeMock.mock.calls[0][0]).toMatchObject({ fulfilment: 'pickup', payment: 'Pay at pickup', address: undefined, total: 3790 })
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await fillAddress(user)
+    expect(screen.queryByLabelText('Street address')).toBeNull()
+    const card = screen.getByRole('heading', { name: 'Delivery address' }).closest('section')!
+    expect(card).toHaveTextContent('Demo Shopper')
+    expect(card).toHaveTextContent('+63 9171234567')
+    expect(card).toHaveTextContent('12 Mabini Street, Brgy. San Roque, Marikina City 1800')
+
+    await user.click(screen.getByRole('button', { name: 'Change delivery address' }))
+    expect(screen.getByLabelText('Street address')).toHaveValue('12 Mabini Street, Brgy. San Roque')
+    await user.clear(screen.getByLabelText('City'))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByLabelText('Street address')).toBeNull())
+    // Edits are kept, so the incomplete address is asked for again.
+    expect(screen.getByText('Add where we should deliver your order.')).toBeInTheDocument()
+  })
+
+  it('keeps the sheet open on Save address with an error, and closes it and updates the summary when valid', async () => {
+    const user = userEvent.setup({ delay: null })
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await openAddress(user)
+    await user.type(screen.getByLabelText('Phone number'), '9171234567')
+    await saveAddress(user)
+    expect(screen.getByRole('dialog', { name: 'Delivery address' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText('Street address')).toHaveFocus())
+    expect(screen.getByText('Street address is required.')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Street address'), '12 Mabini Street')
+    await user.type(screen.getByLabelText('City'), 'Marikina City')
+    await user.type(screen.getByLabelText('Postal code'), '1800')
+    await saveAddress(user)
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delivery address' })).toBeNull())
+    expect(screen.getByText('12 Mabini Street, Marikina City 1800')).toBeInTheDocument()
+    expect(screen.getByText('Delivery address saved.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change delivery address' })).toHaveFocus()
+  })
+})
+
+describe('CheckoutPage consent line', () => {
+  it('links the Terms of Service and the Privacy Policy, opening in a new tab', async () => {
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    const summary = screen.getByRole('complementary')
+    expect(summary).toHaveTextContent(
+      'By placing an order, you agree to the SilhouFit Terms of Service and sale, and acknowledge that you have read the Privacy Policy.',
+    )
+    const terms = within(summary).getByRole('link', { name: 'Terms of Service' })
+    expect(terms).toHaveAttribute('href', '/terms-of-service')
+    expect(terms).toHaveAttribute('target', '_blank')
+    expect(terms).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    expect(within(summary).getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy-policy')
   })
 })

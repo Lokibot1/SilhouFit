@@ -134,7 +134,7 @@ async function finishTour() {
   )
   await user.click(screen.getByRole('button', { name: 'begin' }))
   // 3 + 3 + 1 + 3 + 1 stops: ten Next presses reach the last one.
-  for (let i = 0; i < 10; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
+  for (let i = 0; i < 9; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
   await user.click(screen.getByRole('button', { name: 'Finish' }))
   return user
 }
@@ -337,7 +337,7 @@ describe('tour routing after Finish', () => {
     act(() => resetTour())
     expect(phase()).toBe('none')
     await user.click(screen.getByRole('button', { name: 'begin' }))
-    for (let i = 0; i < 10; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
+    for (let i = 0; i < 9; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
     await user.click(screen.getByRole('button', { name: 'Finish' }))
     await waitFor(() => expect(where()).toBe(BODY))
     expect(phase()).toBe('body')

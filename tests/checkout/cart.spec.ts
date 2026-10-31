@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { buyNow, DRESS, JACKET, JEAN, NAVY_M, POLO, SHIRT, setupShop, TROUSERS } from '../shared/checkoutShop'
+import { buyNow, DRESS, JACKET, JEAN, NAVY_M, POLO, setupShop, TROUSERS } from '../shared/checkoutShop'
 import type { CartMock, ProductsMock } from '../shared/products'
 import { DEMO, signedIn } from '../shared/session'
 
@@ -20,7 +20,6 @@ const overflows = (page: Page) =>
 const placeOrderButton = (page: Page) => page.getByRole('button', { name: /Place order|Placing order/ })
 const cartButton = (page: Page, label: string) => page.getByRole('link', { name: `Cart, ${label}` })
 // Radio cards hide the native input; a user clicks the card, so the test does too.
-const choose = (page: Page, name: RegExp) => page.getByRole('radio', { name }).locator('xpath=ancestor::label').click()
 
 async function signInOnLoginPage(page: Page) {
   await page.getByLabel('Email', { exact: true }).fill(DEMO.email)
@@ -38,11 +37,16 @@ async function addFromSheet(page: Page, name: string, size: string, color: strin
   await expect(sheet).toBeHidden()
 }
 
+// The address lives in a sheet: open it (unless it is already open), fill it in and save.
 async function fillAddress(page: Page) {
+  const sheet = page.getByRole('dialog', { name: 'Delivery address' })
+  if (!(await sheet.isVisible())) await page.getByRole('button', { name: /^(Add address|Change delivery address)$/ }).click()
   await page.getByLabel('Phone number').fill('9171234567')
   await page.getByLabel('Street address').fill('12 Mabini Street, Brgy. San Roque')
   await page.getByLabel('City').fill('Marikina City')
   await page.getByLabel('Postal code').fill('1800')
+  await sheet.getByRole('button', { name: 'Save address' }).click()
+  await expect(sheet).toBeHidden()
 }
 
 async function tabTo(page: Page, target: Locator) {
@@ -111,32 +115,14 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
   await expect(page.getByRole('heading', { level: 1, name: 'No recent order' })).toBeVisible()
 })
 
-test('a signed-in cart checkout with pieces from two boutiques can only be delivered', async ({ page }) => {
+test('a signed-in cart checkout with pieces from two boutiques go in one delivery order', async ({ page }) => {
   await signedIn(page)
   cart.seed(NAVY_M.id, 1) // Ayala Atelier
   cart.seed(only(TROUSERS), 1) // Lumban Loom
   await page.goto('/checkout?source=cart')
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
-  await expect(page.getByRole('radio', { name: /Delivery/ })).toBeChecked()
-  await expect(page.getByRole('radio', { name: /Pick up in store/ })).toBeDisabled()
-  await expect(page.getByText(/Pickup works for one boutique per order/)).toBeVisible()
+  await expect(page.getByRole('radio', { name: /Pick up in store/ })).toHaveCount(0)
   await expect(page.getByRole('complementary')).toContainText('₱99.00') // one flat fee for the whole order
-})
-
-test('several pieces from one boutique can be picked up: free shipping and one pickup ETA', async ({ page }) => {
-  await signedIn(page)
-  cart.seed(NAVY_M.id, 1)
-  cart.seed(only(SHIRT), 1)
-  await page.goto('/checkout?source=cart')
-  await expect(page.getByRole('heading', { name: 'Rail White Shirt' })).toBeVisible({ timeout: 15000 })
-  await expect(page.getByRole('complementary')).toContainText('₱3,779.00') // 1,890 + 1,790 + 99
-  await choose(page, /Pick up in store/)
-  await expect(page.getByRole('complementary')).toContainText('₱3,680.00')
-  await expect(page.getByRole('complementary')).toContainText('Ready at Ayala Atelier tomorrow from 2:00 PM')
-  await choose(page, /Pay at pickup/)
-  await placeOrderButton(page).click()
-  await expect(page).toHaveURL(/\/checkout\/success$/, { timeout: 15000 })
-  await expect(page.getByText('Waiting for you at')).toBeVisible()
 })
 
 test('a piece archived since it was added shows as no longer available and cannot be checked out', async ({ page }) => {
@@ -177,9 +163,10 @@ test('can be done with the keyboard alone: cart page to the success page', async
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/checkout\?source=cart&line=/)
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
-  await tabTo(page, page.getByRole('radio', { name: /Delivery/ }))
+  await tabTo(page, page.getByRole('radio', { name: /E-Wallet/ }))
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('radio', { name: /Pick up in store/ })).toBeChecked()
+  await expect(page.getByRole('radio', { name: /Cash on delivery/ })).toBeChecked()
+  await fillAddress(page)
   await tabTo(page, placeOrderButton(page))
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/checkout\/success$/, { timeout: 15000 })
@@ -279,7 +266,7 @@ test.describe('dark mode', () => {
     await page.goto('/checkout?source=cart')
     await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
     await expect(page.locator('html')).toHaveClass(/dark/)
-    await choose(page, /Pick up in store/)
+    await fillAddress(page)
     await placeOrderButton(page).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Order placed' })).toBeVisible({ timeout: 15000 })
   })

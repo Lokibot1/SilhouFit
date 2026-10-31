@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest'
 import type { Line } from '../../src/hooks/useCart'
 import {
   computeTotals,
-  defaultFulfilment,
-  fulfilmentAvailability,
   orderBlock,
   resolveCartItems,
   SHIPPING_FEE,
@@ -14,7 +12,6 @@ import { BLAZER, POLO, SOLD_OUT, TROUSERS } from '../fixtures/shopProducts'
 
 const PRODUCTS = [POLO, BLAZER, SOLD_OUT, TROUSERS]
 const storeOnly = { ...POLO, id: 'p12', name: 'Hook Wall Jacket', boutique: 'Lumban Loom', channels: ['store' as const] }
-const onlineOnly = { ...POLO, id: 'p05', name: 'Cable Knit Pullover', channels: ['online' as const] }
 const item = (product = POLO, qty = 1): CheckoutItem => {
   const v = product.variants![0]
   return { product, variantId: v.id, size: v.size ?? '', color: v.color ?? '', qty, unit: v.price }
@@ -67,40 +64,24 @@ describe('resolveCartItems', () => {
 })
 
 describe('several items together', () => {
-  it('disables pickup when the pieces come from more than one boutique, and says which', () => {
-    const items = [item(POLO), item(TROUSERS)] // Ayala Atelier, Binondo Basics
-    expect(fulfilmentAvailability(items)).toEqual({
-      delivery: null,
-      pickup: 'Pickup works for one boutique per order. These pieces are at Ayala Atelier and Binondo Basics.',
-    })
-    expect(defaultFulfilment(items)).toBe('delivery')
-    expect(orderBlock(items)).toBeNull()
+  it('lets pieces from different boutiques go in one order', () => {
+    expect(orderBlock([item(POLO), item(TROUSERS)])).toBeNull() // Ayala Atelier, Binondo Basics
   })
 
-  it('allows pickup for several pieces from one boutique', () => {
-    expect(fulfilmentAvailability([item(POLO), item(BLAZER)]).pickup).toBeNull() // both Ayala Atelier
-  })
-
-  it('needs every piece to allow the option', () => {
-    const items = [item(POLO), item(storeOnly)]
-    expect(fulfilmentAvailability(items).delivery).toBe('Store-only piece. Pick it up at Lumban Loom.')
-    expect(fulfilmentAvailability(items).pickup).toMatch(/one boutique per order/)
-  })
-
-  it('blocks the order when a store-only and an online-only piece are together, naming both', () => {
-    expect(orderBlock([item(storeOnly), item(onlineOnly)])).toBe(
-      "These pieces can't go in one order: Hook Wall Jacket is store-only and Cable Knit Pullover is online-only. Check them out separately.",
+  it('blocks a store-only piece, naming it', () => {
+    expect(orderBlock([item(POLO), item(storeOnly)])).toBe(
+      "Hook Wall Jacket is sold in store only and can't be delivered. Remove it from your order to check out.",
     )
   })
 
-  it('blocks a store-only piece with pieces from another boutique, explaining the pickup limit', () => {
-    expect(orderBlock([item(storeOnly), item(POLO)])).toMatch(
-      /Hook Wall Jacket is store-only, but the pieces come from Lumban Loom and Ayala Atelier/,
+  it('names every store-only piece', () => {
+    expect(orderBlock([item(storeOnly), item({ ...storeOnly, name: 'Loom Vest' })])).toBe(
+      "Hook Wall Jacket and Loom Vest are sold in store only and can't be delivered. Remove them from your order to check out.",
     )
   })
 
   it('charges one flat shipping fee per order, not per item', () => {
-    expect(computeTotals([item(POLO), item(TROUSERS)], 'delivery').shipping).toBe(SHIPPING_FEE)
+    expect(computeTotals([item(POLO), item(TROUSERS)]).shipping).toBe(SHIPPING_FEE)
   })
 })
 

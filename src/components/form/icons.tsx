@@ -395,3 +395,25 @@ export const ArchiveIcon = ({ size = 16, className }: IconProps) => (
     <path d="M5 8.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5M10 13h4" />
   </Icon>
 )
+
+export const WalletIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H19v14H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" />
+    <path d="M4 7.5V7a2 2 0 0 1 2-2" />
+    <circle cx="15.5" cy="12" r="1.25" />
+  </Icon>
+)
+
+export const NoteIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M5 4h14v12l-4 4H5V4Z" />
+    <path d="M15 20v-4h4M8.5 9h7M8.5 13h4" />
+  </Icon>
+)
+
+export const ReceiptIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
+    <path d="M9.5 8h5M9.5 12h5" />
+  </Icon>
+)

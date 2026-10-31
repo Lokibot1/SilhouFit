@@ -12,7 +12,6 @@ export interface CheckoutItem {
   unit: number
 }
 
-export type Fulfilment = 'delivery' | 'pickup'
 export type Payment = 'ewallet' | 'cash'
 export type Provider = 'gcash' | 'maya'
 
@@ -47,41 +46,13 @@ const joinNames = (names: string[]) =>
 
 // The API lists no sales channels, so a piece with none is not restricted to either.
 const isStoreOnly = (i: CheckoutItem) => i.product.channels.length > 0 && !i.product.channels.includes('online')
-const isOnlineOnly = (i: CheckoutItem) => i.product.channels.length > 0 && !i.product.channels.includes('store')
 
-/** Why an option cannot be chosen, or null when it can. Several items must all allow it. */
-export function fulfilmentAvailability(items: CheckoutItem[]): Record<Fulfilment, string | null> {
-  const storeOnly = items.find(isStoreOnly)
-  const onlineOnly = items.find(isOnlineOnly)
-  const boutiques = [...new Set(items.map((i) => i.product.boutique))]
-  return {
-    delivery: storeOnly ? `Store-only piece. Pick it up at ${storeOnly.product.boutique}.` : null,
-    pickup: onlineOnly
-      ? 'Sold online only.'
-      : boutiques.length > 1
-        ? `Pickup works for one boutique per order. These pieces are at ${joinNames(boutiques)}.`
-        : null,
-  }
-}
-
-/** When neither option works for these items together, why, so the order can be split. Otherwise null. */
+/** Why these items cannot be ordered: store-only pieces cannot be delivered. Null when all can. */
 export function orderBlock(items: CheckoutItem[]): string | null {
-  const { delivery, pickup } = fulfilmentAvailability(items)
-  if (delivery === null || pickup === null) return null
-  const names = (test: (i: CheckoutItem) => boolean) => [...new Set(items.filter(test).map((i) => i.product.name))]
-  const storeOnly = names(isStoreOnly)
-  const onlineOnly = names(isOnlineOnly)
-  const verb = (list: string[]) => (list.length === 1 ? 'is' : 'are')
-  const boutiques = [...new Set(items.map((i) => i.product.boutique))]
-  const why = onlineOnly.length
-    ? `${joinNames(storeOnly)} ${verb(storeOnly)} store-only and ${joinNames(onlineOnly)} ${verb(onlineOnly)} online-only.`
-    : `${joinNames(storeOnly)} ${verb(storeOnly)} store-only, but the pieces come from ${joinNames(boutiques)} and pickup works for one boutique per order.`
-  return `These pieces can't go in one order: ${why} Check them out separately.`
-}
-
-export function defaultFulfilment(items: CheckoutItem[]): Fulfilment {
-  const { delivery, pickup } = fulfilmentAvailability(items)
-  return delivery === null || pickup !== null ? 'delivery' : 'pickup'
+  const storeOnly = [...new Set(items.filter(isStoreOnly).map((i) => i.product.name))]
+  if (storeOnly.length === 0) return null
+  const [they, verb] = storeOnly.length === 1 ? ['it', 'is'] : ['them', 'are']
+  return `${joinNames(storeOnly)} ${verb} sold in store only and can't be delivered. Remove ${they} from your order to check out.`
 }
 
 /**
@@ -117,10 +88,10 @@ export interface Totals {
   total: number
 }
 
-export function computeTotals(items: CheckoutItem[], fulfilment: Fulfilment): Totals {
+export function computeTotals(items: CheckoutItem[]): Totals {
   const subtotal = items.reduce((sum, i) => sum + i.unit * i.qty, 0)
   const discount = 0 // The API has no sale price; `unit` is already what the variant costs.
-  const shipping = fulfilment === 'delivery' ? SHIPPING_FEE : 0
+  const shipping = SHIPPING_FEE
   return { subtotal, discount, shipping, total: subtotal - discount + shipping }
 }
 
@@ -132,14 +103,9 @@ export function deliveryEta(today = new Date()) {
   return `Arrives ${on(3)} – ${on(5)}`
 }
 
-export const pickupEta = (items: CheckoutItem[]) => {
-  const boutiques = [...new Set(items.map((i) => i.product.boutique))].filter(Boolean)
-  return `Ready${boutiques.length > 0 ? ` at ${boutiques.join(', ')}` : ''} tomorrow from 2:00 PM`
-}
-
-export function paymentLabel(payment: Payment, fulfilment: Fulfilment, provider: Provider) {
+export function paymentLabel(payment: Payment, provider: Provider) {
   if (payment === 'ewallet') return `E-Wallet (${PROVIDERS.find((p) => p.value === provider)!.label})`
-  return fulfilment === 'delivery' ? 'Cash on delivery' : 'Pay at pickup'
+  return 'Cash on delivery'
 }
 
 // The last placed order, for the success page. Session storage: gone when the tab closes.
@@ -151,6 +117,8 @@ const ORDER_KEY = 'silhoufit-last-order'
  */
 export interface PlacedOrder {
   orderId: string
+  /** When the order was placed, as an ISO time. */
+  placedAt?: string
   items: { name: string; size: string; color: string; qty: number; price: number; arReady: boolean }[]
   total: number
   shipping: number

@@ -17,8 +17,8 @@ const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
 // Pages in the shopping flow share one bar (cart, account, theme; search on /shop only).
 const SHOP_BAR = ['/shop', '/wishlist', '/cart', '/checkout', '/checkout/success', '/profile']
 
-// The cart and wishlist are working lists, so they end without the site footer.
-const NO_FOOTER = ['/wishlist', '/cart']
+// The cart, wishlist and checkout are working pages, so they end without the site footer.
+const NO_FOOTER = ['/wishlist', '/cart', '/checkout']
 
 // Full-screen flows: no top bar or footer. Kept inside the main Layout so toasts and the tour carry across the exit.
 const BARE_PATHS = ['/profile/measurements']
