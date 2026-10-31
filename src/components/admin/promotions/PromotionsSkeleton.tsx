@@ -17,7 +17,7 @@ export function PromoTableSkeletonRows({ count }: { count: number }) {
     <tr key={n} className={`${TABLE_ROW} animate-pulse`}>
       {Array.from({ length: PROMO_CELLS }, (_, c) => (
         <td key={c} className={TD}>
-          <Bar className={`h-5 ${c === 0 ? 'w-2/3' : 'w-3/4'}`} />
+          <Bar className={`h-5 ${c === 0 ? 'w-2/3' : 'w-3/4'} ${c === 4 ? 'mx-auto' : ''}`} />
         </td>
       ))}
     </tr>

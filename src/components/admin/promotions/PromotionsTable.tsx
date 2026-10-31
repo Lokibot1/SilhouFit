@@ -182,13 +182,13 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
       <table aria-busy={rows === null || stale} className="hidden w-full table-fixed border-separate border-spacing-0 @4xl:table">
         <caption className="sr-only">Promotions with code, value, sale period, status and redemptions</caption>
         <colgroup>
-          <col />
-          <col className="w-36" />
-          <col className="w-24" />
-          <col className="w-40" />
-          <col className="w-28" />
-          <col className="w-20" />
-          <col className="w-[8.75rem]" />
+          <col className="w-[19%]" />
+          <col className="w-[14%]" />
+          <col className="w-[11%]" />
+          <col className="w-[17%]" />
+          <col className="w-[13%]" />
+          <col className="w-[10%]" />
+          <col className="w-[16%]" />
         </colgroup>
         <thead>
           <tr>
@@ -196,7 +196,7 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
             <SortHeader label="Code" column="code" active={sorted} onSort={sortBy} />
             <SortHeader label="Value" column="value" active={sorted} onSort={sortBy} right />
             <PeriodHeader active={sorted} onSort={sortBy} />
-            <SortHeader label="Status" column="status" active={sorted} onSort={sortBy} />
+            <SortHeader label="Status" column="status" active={sorted} onSort={sortBy} center />
             <SortHeader label="Used" column="redemptions" active={sorted} onSort={sortBy} right />
             <th scope="col" className={TH}>
               <span className="sr-only">Actions</span>
@@ -221,7 +221,7 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
                 </td>
                 <td className={`${TD} text-right text-sm text-fg tabular-nums`}>{valueLabel(row)}</td>
                 <td className={`${TD} text-sm text-fg`}>{periodLabel(row)}</td>
-                <td className={TD}>
+                <td className={`${TD} text-center`}>
                   <PromoStatusBadge status={row.status} />
                 </td>
                 <td className={`${TD} text-right text-sm text-fg tabular-nums`}>{usedLabel(row)}</td>
