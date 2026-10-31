@@ -86,7 +86,7 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
                 aria-label={`${name} (photo unavailable)`}
                 className="flex size-full shrink-0 flex-col items-center justify-center gap-2 p-3 text-center text-fg-muted"
               >
-                <SilhouetteMark className="w-10 text-fg-muted" />
+                <SilhouetteMark className="w-10 text-fg-muted [&>path]:[stroke-width:2px] [&>path]:[vector-effect:non-scaling-stroke] [&>path:last-of-type]:hidden" />
                 <span className="font-ui text-xs">{name}</span>
               </div>
             ) : (

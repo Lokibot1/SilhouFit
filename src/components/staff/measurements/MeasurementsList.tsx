@@ -13,6 +13,8 @@ interface MeasurementsListProps {
   category: string
   /** Null while loading. */
   rows: SizeMeasurement[] | null
+  /** How many rows the skeleton draws while loading. */
+  skeletonRows: number
   /** The row being changed; its buttons wait. */
   busyId: string | null
   onEdit: (row: SizeMeasurement) => void
@@ -21,9 +23,9 @@ interface MeasurementsListProps {
 }
 
 /** The sizes of one category: a table from md up, cards below. Only the measurements that matter for the category are shown; Edit shows all nine. */
-export function MeasurementsList({ category, rows, busyId, onEdit, onArchive, onRestore }: MeasurementsListProps) {
+export function MeasurementsList({ category, rows, skeletonRows, busyId, onEdit, onArchive, onRestore }: MeasurementsListProps) {
   const keys = COLUMNS_BY_CATEGORY[category] ?? []
-  if (!rows) return <MeasurementsRowsSkeleton columns={keys.length} />
+  if (!rows) return <MeasurementsRowsSkeleton columns={keys.length} count={skeletonRows} />
 
   const actions = (row: SizeMeasurement) => {
     const busy = busyId === row.id

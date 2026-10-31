@@ -238,7 +238,30 @@ test.describe('archive and restore', () => {
     await start(page, [...hoodies(), sizeRow({ size: 'M', isDeleted: true })])
     await page.getByRole('tab', { name: 'Archived' }).click()
     await action(page, 'Restore', 'Hoodie M').click()
-    await expect(page.getByText(/Couldn't restore Hoodie M\. An active Hoodie M already exists/)).toBeVisible()
+    await expect(page.getByText(/Couldn't restore Hoodie M\. An active Hoodie M already exists\. Edit that one, or use a different size\./)).toBeVisible()
+    // Retrying cannot work until that row is edited, so the toast offers the active row instead.
+    await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'View active Hoodie M' }).click()
+    await expect(page).not.toHaveURL(/status=archived/)
+    await expect(page.getByRole('tab', { name: 'Active' })).toHaveAttribute('aria-selected', 'true')
+    await expect(action(page, 'Edit', 'Hoodie M')).toBeFocused()
+  })
+
+  test('focus is never on the page between confirming an archive and landing on the next row', async ({ page }) => {
+    await start(page)
+    await action(page, 'Archive', 'Hoodie M').click()
+    await page.evaluate(() => {
+      const w = window as unknown as { bodyFocus: number }
+      w.bodyFocus = 0
+      const sample = () => {
+        if (document.activeElement === document.body) w.bodyFocus += 1
+        requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    })
+    await prompt(page).getByRole('button', { name: 'Archive size' }).click()
+    await expect(action(page, 'Edit', 'Hoodie XL')).toBeFocused()
+    expect(await page.evaluate(() => (window as unknown as { bodyFocus: number }).bodyFocus)).toBe(0)
   })
 
   test('a failed archive keeps the prompt open and says why', async ({ page }) => {

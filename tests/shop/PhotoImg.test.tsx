@@ -17,6 +17,15 @@ describe('PhotoImg', () => {
     expect(tile).toHaveClass('size-10', 'rounded-xl')
   })
 
+  it('names the tile once and draws its mark with a fixed 2px outline, so it stays visible at tile size', () => {
+    render(<PhotoImg src={null} alt="Hoodie" className={CLASS} />)
+    expect(screen.getAllByRole('img')).toHaveLength(1)
+    const mark = screen.getByRole('img', { name: 'Hoodie (photo unavailable)' }).querySelector('svg')!
+    expect(mark).toHaveAttribute('aria-hidden', 'true')
+    expect(mark.getAttribute('class')).toContain('[&>path]:[vector-effect:non-scaling-stroke]')
+    expect(mark.getAttribute('class')).toContain('[&>path]:[stroke-width:2px]')
+  })
+
   it('swaps in the tile when the file fails to load (404), and tries again for a new url', () => {
     const { rerender } = render(<PhotoImg src="https://img.test/missing.webp" alt="Hoodie" className={CLASS} />)
     fireEvent.error(screen.getByRole('img', { name: 'Hoodie' }))

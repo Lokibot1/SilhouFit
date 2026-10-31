@@ -10,7 +10,8 @@ export function PhotoImg({ src, alt, className, loading }: { src: string | null 
   if (!src || failedSrc === src) {
     return (
       <div role="img" aria-label={`${alt} (photo unavailable)`} className={`${className} flex items-center justify-center overflow-hidden bg-line`}>
-        <SilhouetteMark className="w-1/2 max-w-10 text-fg-muted" />
+        {/* The mark is drawn in a 200-unit box, so its own hairlines vanish at tile size: outline only, at a fixed 2px. */}
+        <SilhouetteMark className="w-1/2 max-w-10 text-fg-muted [&>path]:[stroke-width:2px] [&>path]:[vector-effect:non-scaling-stroke] [&>path:last-of-type]:hidden" />
       </div>
     )
   }

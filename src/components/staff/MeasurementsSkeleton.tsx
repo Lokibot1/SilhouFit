@@ -7,6 +7,7 @@ export const MEASURE_TH = 'px-3 py-2 text-sm font-semibold text-fg-muted'
 export const MEASURE_TD = 'px-3 py-2 align-middle'
 export const MEASURE_CARD = 'rounded-xl border border-line bg-canvas p-3'
 
+/** `count` is how many rows the list will have, so the skeleton is as tall as what replaces it. */
 export function MeasurementsRowsSkeleton({ columns, count = 5 }: { columns: number; count?: number }) {
   return (
     <div role="status" aria-label="Loading sizes" className="animate-pulse">

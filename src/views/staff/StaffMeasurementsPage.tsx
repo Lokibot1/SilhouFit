@@ -9,7 +9,7 @@ import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, PRIMARY_BUTTON_SM, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { Modal } from '../../components/ui/Modal'
-import { CATEGORIES } from '../../data/products'
+import { CATEGORIES, SIZES_BY_CATEGORY } from '../../data/products'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useSection } from '../../hooks/useSection'
@@ -27,6 +27,9 @@ const STATUS_TABS = [
 type Status = (typeof STATUS_TABS)[number]['value']
 
 const nameOf = (row: SizeMeasurement) => `${row.category} ${row.size}`
+
+// How many rows each list had when it last loaded, so the next skeleton is as tall as the list that replaces it.
+const rowCounts = new Map<string, number>()
 
 export function StaffMeasurementsPage() {
   useDocumentTitle('Base measurements — SilhouFit')
@@ -58,25 +61,35 @@ export function StaffMeasurementsPage() {
   const rows = state.status === 'success' ? state.data : null
   const unavailable = state.status === 'error' && state.kind === 'not-found'
 
-  // After a change the list reloads and the clicked button is gone. Once it is back, focus goes to the first action of the affected row
-  // (undefined: nothing pending; null: that row is not in the list, so the list heading), unless the user has moved focus on.
-  // After an Undo focus is still on the toast's button, which is on its way out, so it moves regardless.
+  const countKey = `${category}|${status}`
+  useEffect(() => {
+    if (rows) rowCounts.set(countKey, rows.length)
+  }, [rows, countKey])
+  const skeletonRows = Math.max(1, rowCounts.get(countKey) ?? SIZES_BY_CATEGORY[category]?.length ?? 1)
+
+  // After a change the list reloads and the clicked button is gone. Focus waits on the list heading meanwhile (never on the page), and once
+  // the list is back goes to the first action of the affected row (undefined: nothing pending; null: that row is not in the list, so the
+  // heading), unless the user has moved focus on. After an Undo focus is still on the toast's button, which is on its way out, so it moves regardless.
+  // `focusSize` names the row by its size when its id is not known yet (the active row behind a restore conflict).
   const addButton = useRef<HTMLButtonElement>(null)
   const listHeading = useRef<HTMLHeadingElement>(null)
   const focusRow = useRef<string | null | undefined>(undefined)
+  const focusSize = useRef<string | null>(null)
   const fromToast = useRef(false)
+  const holdFocus = () => listHeading.current?.focus({ preventScroll: true })
   useEffect(() => {
     if (focusRow.current === undefined || state.status === 'loading') return
-    const id = focusRow.current
+    const id = focusRow.current ?? (rows && focusSize.current ? rows.find((r) => r.size === focusSize.current)?.id : null)
     focusRow.current = undefined
+    focusSize.current = null
     const active = document.activeElement
-    if (!fromToast.current && active && active !== document.body && active.isConnected && active !== addButton.current) return
+    if (!fromToast.current && active && active !== document.body && active.isConnected && active !== addButton.current && active !== listHeading.current) return
     fromToast.current = false
     // The table and the cards are both in the DOM; only one is displayed.
     const buttons = id ? [...document.querySelectorAll<HTMLElement>(`[data-row-action="${CSS.escape(id)}"]`)] : []
     const target = buttons.find((button) => button.getClientRects().length > 0) ?? buttons[0] ?? listHeading.current
     target?.focus()
-  }, [state])
+  }, [state, rows])
 
   // The sheet starts fresh each time it opens (a new key).
   const [sheet, setSheet] = useState<{ row?: SizeMeasurement; key: number } | null>(null)
@@ -85,6 +98,8 @@ export function StaffMeasurementsPage() {
   function onSaved(saved: SizeMeasurement) {
     const added = sheet?.row === undefined
     focusRow.current = saved.id
+    if (added && rows && saved.category === category && status === 'active') rowCounts.set(countKey, rows.length + 1)
+    holdFocus()
     setSheet(null)
     if (saved.category !== category || status !== 'active') update({ category: saved.category, status: 'active' })
     refresh()
@@ -101,15 +116,16 @@ export function StaffMeasurementsPage() {
     if (archiving) cancelArchive.current?.focus()
   }, [archiving])
 
-  /** Archives or restores one row. Resolves to null when it worked, or what went wrong. */
-  async function changeActive(row: SizeMeasurement, active: boolean, fromUndo = false): Promise<string | null> {
+  /** Archives or restores one row. Resolves to null when it worked, or what went wrong (`conflict`: an active row of that size exists). */
+  async function changeActive(row: SizeMeasurement, active: boolean, fromUndo = false): Promise<{ message: string; conflict: boolean } | null> {
     if (inFlight.current) return null
     inFlight.current = true
     setBusyId(row.id)
     try {
       await setSizeMeasurementActive(row.id, active)
     } catch (error) {
-      return `Couldn't ${active ? 'restore' : 'archive'} ${nameOf(row)}. ${sizeFailureReason(error, nameOf(row))}`
+      const message = `Couldn't ${active ? 'restore' : 'archive'} ${nameOf(row)}. ${sizeFailureReason(error, nameOf(row))}`
+      return { message, conflict: (error as { kind?: string } | null)?.kind === 'conflict' }
     } finally {
       inFlight.current = false
       setBusyId(null)
@@ -118,6 +134,8 @@ export function StaffMeasurementsPage() {
     const at = rows ? rows.findIndex((r) => r.id === row.id) : -1
     fromToast.current = fromUndo
     focusRow.current = fromUndo ? row.id : (rows?.[at + 1] ?? rows?.[at - 1])?.id ?? null
+    if (rows) rowCounts.set(countKey, rows.length + (fromUndo ? 1 : -1))
+    holdFocus()
     refresh()
     toast.show({
       kind: 'success',
@@ -129,16 +147,32 @@ export function StaffMeasurementsPage() {
 
   /** `changeActive` for callers with no place to show an error: it goes to a toast with a retry. */
   async function run(row: SizeMeasurement, active: boolean, fromUndo = false) {
-    const message = await changeActive(row, active, fromUndo)
-    if (message) toast.show({ kind: 'error', message, action: { label: 'Retry', onClick: () => void run(row, active, fromUndo) } })
+    holdFocus() // the clicked button is disabled while the request is out, which would drop focus to the page
+    const failure = await changeActive(row, active, fromUndo)
+    if (!failure) return
+    // Retrying a restore that hit an active duplicate cannot work until that one is edited, so the toast takes the user to it instead.
+    const action = failure.conflict && active ? { label: `View active ${nameOf(row)}`, onClick: () => viewActive(row) } : { label: 'Retry', onClick: () => void run(row, active, fromUndo) }
+    toast.show({ kind: 'error', message: failure.message, action })
   }
 
-  async function confirmArchive() {
+  /** Opens the Active tab with the row of the same size focused (the toast's button is still focused, so focus moves regardless). */
+  function viewActive(row: SizeMeasurement) {
+    fromToast.current = true
+    focusRow.current = null
+    focusSize.current = row.size
+    holdFocus()
+    update({ status: 'active' })
+  }
+
+  async function confirmArchive(panel: HTMLElement | null) {
     if (!archiving) return
     setArchiveError(null)
-    const message = await changeActive(archiving, false)
-    if (message) setArchiveError(message)
-    else setArchiving(null)
+    panel?.focus() // the buttons are disabled while the request is out, which would drop focus to the page
+    const failure = await changeActive(archiving, false)
+    if (failure) {
+      setArchiveError(failure.message)
+      cancelArchive.current?.focus()
+    } else setArchiving(null)
   }
   const closeArchive = () => {
     if (busyId) return
@@ -210,7 +244,7 @@ export function StaffMeasurementsPage() {
             </div>
           )
         ) : (
-          <MeasurementsList category={category} rows={rows} busyId={busyId} onEdit={openSheet} onArchive={setArchiving} onRestore={(row) => void run(row, true)} />
+          <MeasurementsList category={category} rows={rows} skeletonRows={skeletonRows} busyId={busyId} onEdit={openSheet} onArchive={setArchiving} onRestore={(row) => void run(row, true)} />
         )}
       </section>
 
@@ -225,7 +259,7 @@ export function StaffMeasurementsPage() {
             <button ref={cancelArchive} type="button" disabled={busyId !== null} onClick={closeArchive} className={PRIMARY_BUTTON}>
               Cancel
             </button>
-            <button type="button" disabled={busyId !== null} onClick={() => void confirmArchive()} className={SECONDARY_BUTTON}>
+            <button type="button" disabled={busyId !== null} onClick={(event) => void confirmArchive(event.currentTarget.closest<HTMLElement>('[role="dialog"]'))} className={SECONDARY_BUTTON}>
               {busyId !== null && <SpinnerIcon />}
               {busyId !== null ? 'Archiving…' : 'Archive size'}
             </button>

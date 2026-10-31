@@ -101,6 +101,22 @@ describe('StaffMeasurementsPage list', () => {
     expect(screen.getByRole('status', { name: 'Loading sizes' })).toBeInTheDocument()
   })
 
+  it("draws as many skeleton rows as the list had last time, and the category's usual size count the first time", async () => {
+    const user = userEvent.setup()
+    const skeletonRows = () => document.querySelectorAll('[role="status"][aria-label="Loading sizes"] tbody tr').length
+    list.mockResolvedValue([hoodie('S'), hoodie('M')])
+    renderPage('?category=Pants')
+    await waitFor(() => expect(sizesInTable()).toHaveLength(2))
+    list.mockReturnValue(new Promise(() => {}))
+    await user.click(screen.getByRole('tab', { name: 'Shorts' }))
+    expect(skeletonRows()).toBe(5)
+    await user.click(screen.getByRole('tab', { name: 'Headwear' }))
+    expect(skeletonRows()).toBe(1)
+    await user.click(screen.getByRole('tab', { name: 'Pants' }))
+    expect(skeletonRows()).toBe(2)
+    expect(document.querySelectorAll('[role="status"][aria-label="Loading sizes"] li')).toHaveLength(2)
+  })
+
   it('switches category and status through the URL and asks again', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -338,13 +354,55 @@ describe('archive and restore', () => {
     expect(await screen.findByText('Hoodie M restored')).toBeInTheDocument()
   })
 
-  it('names the conflict when a restore finds an active row', async () => {
+  it('names the conflict when a restore finds an active row, and offers to view it instead of a Retry that cannot work', async () => {
     const user = userEvent.setup()
     list.mockResolvedValue([hoodie('M', { isActive: false })])
     renderPage('?status=archived')
     await waitFor(() => expect(sizesInTable()).toEqual(['M']))
     setActive.mockRejectedValue(new ProductListError('conflict'))
     await user.click(within(table()).getByRole('button', { name: 'Restore Hoodie M', hidden: true }))
-    expect(await screen.findByText(/Couldn't restore Hoodie M\. An active Hoodie M already exists/)).toBeInTheDocument()
+    expect(await screen.findByText(/Couldn't restore Hoodie M\. An active Hoodie M already exists. Edit that one, or use a different size\./)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+
+    list.mockResolvedValue([hoodie('S'), hoodie('M')])
+    await user.click(screen.getByRole('button', { name: 'View active Hoodie M' }))
+    await waitFor(() => expect(lastQuery()).toEqual({ category: 'Hoodie', status: 'active' }))
+    expect(screen.getByTestId('where')).not.toHaveTextContent('status=archived')
+    await waitFor(() => expect(within(table()).getByRole('button', { name: 'Edit Hoodie M', hidden: true })).toHaveFocus())
+  })
+
+  it('keeps Retry for other restore errors', async () => {
+    const user = userEvent.setup()
+    list.mockResolvedValue([hoodie('M', { isActive: false })])
+    renderPage('?status=archived')
+    await waitFor(() => expect(sizesInTable()).toEqual(['M']))
+    setActive.mockRejectedValue(new ProductListError('network'))
+    await user.click(within(table()).getByRole('button', { name: 'Restore Hoodie M', hidden: true }))
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /View active/ })).not.toBeInTheDocument()
+  })
+
+  it('never leaves focus on the page between confirming an archive and landing on the next row', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await waitFor(() => expect(sizesInTable()).toHaveLength(3))
+    await user.click(within(table()).getByRole('button', { name: 'Archive Hoodie M', hidden: true }))
+    const dialog = await screen.findByRole('dialog', { name: 'Are you sure?' })
+    let finish: (rows: SizeMeasurement[]) => void = () => {}
+    list.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    setActive.mockResolvedValue(hoodie('M', { isActive: false }))
+    const onBody: string[] = []
+    const watch = () => queueMicrotask(() => document.activeElement === document.body && onBody.push('body'))
+    document.addEventListener('focusout', watch)
+    await user.click(within(dialog).getByRole('button', { name: 'Archive size' }))
+    await screen.findByText('Hoodie M archived')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    // The list is still loading: focus waits on its heading.
+    expect(screen.getByRole('status', { name: 'Loading sizes' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Hoodie sizes' })).toHaveFocus()
+    finish([hoodie('S'), hoodie('XL')])
+    await waitFor(() => expect(within(table()).getByRole('button', { name: 'Edit Hoodie XL', hidden: true })).toHaveFocus())
+    document.removeEventListener('focusout', watch)
+    expect(onBody).toEqual([])
   })
 })
