@@ -8,7 +8,7 @@ export const PROMO_CARD_LINE = 'h-6'
 export const PROMO_CARD_ACTIONS = 'h-11'
 
 /** Table columns: name, code, value, sale period, status, redemptions, actions. */
-export const PROMO_CELLS = 7
+export const PROMO_CELLS = 8
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
@@ -17,7 +17,7 @@ export function PromoTableSkeletonRows({ count }: { count: number }) {
     <tr key={n} className={`${TABLE_ROW} animate-pulse`}>
       {Array.from({ length: PROMO_CELLS }, (_, c) => (
         <td key={c} className={TD}>
-          <Bar className={`h-5 ${c === 0 ? 'w-2/3' : 'w-3/4'} ${c === 4 ? 'mx-auto' : ''}`} />
+          <Bar className={`h-5 ${c === 1 ? 'w-2/3' : 'w-3/4'} ${c === 5 ? 'mx-auto' : ''}`} />
         </td>
       ))}
     </tr>

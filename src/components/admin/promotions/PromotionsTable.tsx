@@ -15,16 +15,16 @@ import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { PROMO_CARD_ACTIONS, PROMO_CARD_LINE, PROMO_CARD_ROW, PromoCardSkeletonRows, PromoTableSkeletonRows } from './PromotionsSkeleton'
 
 const STATUS = {
-  active: { label: 'Active', dot: 'bg-success' },
-  scheduled: { label: 'Scheduled', dot: 'border-2 border-fg' },
-  ended: { label: 'Ended', dot: 'border-2 border-dashed border-fg-muted' },
+  active: { label: 'Active', dot: 'bg-success', badge: 'border-success/40 bg-success/5 text-success dark:bg-success/15' },
+  scheduled: { label: 'Scheduled', dot: 'border-2 border-info', badge: 'border-info/40 bg-info/5 text-info dark:bg-info/15' },
+  ended: { label: 'Ended', dot: 'border-2 border-dashed border-danger', badge: 'border-danger/40 bg-danger/5 text-danger dark:bg-danger/10' },
 } as const
 
-/** The status in words and a dot (filled, ringed or dashed), so it never rests on colour alone. */
+/** The status in words and a dot (filled, ringed or dashed) as well as green, blue or red, so it never rests on colour alone. */
 export function PromoStatusBadge({ status }: { status: PromoStatus }) {
-  const { label, dot } = STATUS[status]
+  const { label, dot, badge } = STATUS[status]
   return (
-    <span className="font-ui inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-2 text-sm whitespace-nowrap text-fg">
+    <span className={`font-ui inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2 text-sm whitespace-nowrap ${badge}`}>
       <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${dot}`} />
       {label}
     </span>
@@ -182,16 +182,21 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
       <table aria-busy={rows === null || stale} className="hidden w-full table-fixed border-separate border-spacing-0 @4xl:table">
         <caption className="sr-only">Promotions with code, value, sale period, status and redemptions</caption>
         <colgroup>
-          <col className="w-[19%]" />
-          <col className="w-[14%]" />
+          <col className="w-[5%]" />
+          <col className="w-[17%]" />
+          <col className="w-[13%]" />
           <col className="w-[11%]" />
           <col className="w-[17%]" />
           <col className="w-[13%]" />
-          <col className="w-[10%]" />
-          <col className="w-[16%]" />
+          <col className="w-[9%]" />
+          <col className="w-[15%]" />
         </colgroup>
         <thead>
           <tr>
+            <th scope="col" className={TH.replace('text-left', 'text-right')}>
+              <span aria-hidden="true">#</span>
+              <span className="sr-only">Row number</span>
+            </th>
             <SortHeader label="Name" column="name" active={sorted} onSort={sortBy} />
             <SortHeader label="Code" column="code" active={sorted} onSort={sortBy} />
             <SortHeader label="Value" column="value" active={sorted} onSort={sortBy} right />
@@ -209,6 +214,7 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
           ) : (
             rows.map((row, index) => (
               <tr key={row.id} style={{ '--i': index } as CSSProperties} className={`${TABLE_ROW} enter-row hover:bg-line/40`}>
+                <td className={`${TD} text-right text-sm text-fg-muted tabular-nums`}>{(page - 1) * per + index + 1}</td>
                 <td className={`${TD} text-sm text-fg`}>
                   <p className="truncate font-semibold">{row.name}</p>
                   <AppliesTarget row={row} />
