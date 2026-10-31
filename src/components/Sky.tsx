@@ -3,7 +3,7 @@ import { useTheme } from '../contexts/ThemeContext'
 
 // Literal carbon/silver values, not semantic tokens, same as the sky toggle.
 const PALETTE = {
-  dark: { bg: '#0a0b0e', ink: '236 240 246', band: '200 210 225', bandA: 0.12 },
+  dark: { bg: '#0a0a0a', ink: '236 236 236', band: '205 205 205', bandA: 0.12 },
   light: { bg: '#f3f4f6', ink: '20 23 28', band: '92 100 112', bandA: 0.09 },
 } as const
 

@@ -9,12 +9,12 @@
   --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --font-ui: "Kumbh Sans", ui-sans-serif, system-ui, sans-serif;
 
-  /* Raw ramps, cool-neutral: warm grey reads as beige beside metal. No pure #000/#fff,
+  /* Raw ramps: carbon is neutral grey (no blue cast), silver stays cool beside the metal. No pure #000/#fff,
      which kill tonal room. */
-  --color-carbon-950: #0c0d10;
-  --color-carbon-900: #14161a;
-  --color-carbon-800: #1b1e24;
-  --color-carbon-700: #262b33;
+  --color-carbon-950: #0b0b0b;
+  --color-carbon-900: #141414;
+  --color-carbon-800: #1b1b1b;
+  --color-carbon-700: #262626;
   --color-silver-50: #f3f4f6;
   --color-silver-100: #e9ebef;
   --color-silver-200: #dcdfe5;
@@ -155,10 +155,10 @@
 }
 
 .dark {
-  --canvas: #0c0d10;
-  --canvas-sub: #14161a;
-  --fg: #eef0f3;
-  --fg-muted: #b3bac5;
+  --canvas: #0b0b0b;
+  --canvas-sub: #141414;
+  --fg: #ececec;
+  --fg-muted: #a8a8a8;
   --line: rgb(255 255 255 / 0.1);
   --line-strong: rgb(255 255 255 / 0.2);
   --danger: #ff8a80;
@@ -172,20 +172,20 @@
   --row-out: #ef4444;
   --row-out-a: 38%;
 
-  --chart-1: #e4e9ef;
+  --chart-1: #e6e6e6;
   --chart-2: #8fb4dc;
   --chart-3: #6f9bc0;
-  --chart-4: #a3adba;
+  --chart-4: #a8a8a8;
   --chart-5: #5fb3b8;
-  --chart-other: #7b8491;
+  --chart-other: #808080;
   --chart-grid: rgb(255 255 255 / 0.1);
 
-  --chrome: #c3cad4;
-  --chrome-strong: #d7dde5;
-  --chrome-shade: #6b7280;
+  --chrome: #c4c4c4;
+  --chrome-strong: #dadada;
+  --chrome-shade: #6e6e6e;
   --chrome-bright: #ffffff;
 
-  --glass-tint: 6 8 12;
+  --glass-tint: 8 8 8;
   --glass-edge: 255 255 255;
   --glass-fill: 0.46;
   --glass-fill-clear: 0.18;
@@ -211,8 +211,8 @@
   --skeuo-ink-hi: var(--color-silver-50);
   --skeuo-ink-lo: var(--color-silver-300);
   --skeuo-rim: rgb(255 255 255 / 0.14);
-  --skeuo-face-hi-hover: #3c4350;
-  --skeuo-face-lo-hover: #2c323b;
+  --skeuo-face-hi-hover: #3d3d3d;
+  --skeuo-face-lo-hover: #2d2d2d;
   --skeuo-rim-hover: rgb(255 255 255 / 0.3);
   --skeuo-hover-filter: none;
   --skeuo-ink-hover-filter: brightness(0.9);
@@ -232,11 +232,11 @@
    and borders rather than shadows (every shadow token is zeroed or tinted to the page colour). */
 :root.dark[data-area='staff'] {
   color-scheme: dark;
-  --canvas: #121418;
-  --canvas-sub: #1a1d23;
-  --canvas-raised: #21252c;
-  --fg: #e3e6eb;
-  --fg-muted: #aeb5c0;
+  --canvas: #0e0e0e;
+  --canvas-sub: #171717;
+  --canvas-raised: #1f1f1f;
+  --fg: #e8e8e8;
+  --fg-muted: #a8a8a8;
   --danger: #f28b82;
   --success: #6fcf97;
   --warning: #e8b04a;
@@ -249,28 +249,28 @@
   --row-out: var(--danger);
   --row-out-a: 24%;
 
-  --chart-1: #c9d1dc;
+  --chart-1: #cfcfcf;
   --chart-2: #7fa6cf;
   --chart-3: #6a93b5;
-  --chart-4: #98a2af;
+  --chart-4: #9e9e9e;
   --chart-5: #5ba3a8;
   --chart-grid: rgb(255 255 255 / 0.08);
 
-  --chrome: #9aa3b0;
-  --chrome-strong: #c9d1dc;
-  --chrome-bright: #e3e6eb;
+  --chrome: #a0a0a0;
+  --chrome-strong: #cfcfcf;
+  --chrome-bright: #e8e8e8;
 
-  --glass-tint: 33 37 44;
+  --glass-tint: 31 31 31;
   --glass-lift: 1;
 
-  --shadow-key: 18 20 24;
+  --shadow-key: 14 14 14;
   --shadow-a: 0;
   --shadow-b: 0;
 
   --skeuo-drop: 0 0 0 0 transparent;
   --skeuo-drop-hover: 0 0 0 0 transparent;
-  --skeuo-inset: inset 0 2px 5px rgb(18 20 24 / 0.6);
-  --gloss-glow: 18 20 24;
+  --skeuo-inset: inset 0 2px 5px rgb(14 14 14 / 0.6);
+  --gloss-glow: 14 14 14;
 }
 
 @layer base {
@@ -1247,17 +1247,18 @@
   --container-width: 5.625em;
   --container-height: 2.5em;
   --container-radius: 6.25em;
-  --container-light-bg: #9aa2ae;
+  --container-light-bg: #4a9de0;
   --container-night-bg: var(--color-carbon-900);
   --circle-container-diameter: 3.375em;
   --sun-moon-diameter: 2.125em;
-  --sun-bg: var(--color-silver-50);
+  --sun-bg: #f5c518;
+  --sun-rim: #c9951a;
   --moon-bg: var(--color-silver-200);
   --spot-color: #9aa2ae;
   --rim-shade: #6b7280;
   --stars-color: #fff;
-  --clouds-color: var(--color-silver-50);
-  --back-clouds-color: var(--color-silver-200);
+  --clouds-color: #ffffff;
+  --back-clouds-color: #dcebf8;
   --transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   --circle-transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
@@ -1346,7 +1347,7 @@
   background-color: var(--sun-bg);
   box-shadow:
     0.062em 0.062em 0.062em 0em rgb(255 255 255 / 0.61) inset,
-    0em -0.062em 0.062em 0em var(--rim-shade) inset;
+    0em -0.062em 0.062em 0em var(--sun-rim) inset;
   filter: drop-shadow(0.062em 0.125em 0.125em rgb(0 0 0 / 0.25))
     drop-shadow(0em 0.062em 0.125em rgb(0 0 0 / 0.25));
   overflow: hidden;
@@ -1430,6 +1431,10 @@
 
 .sky-toggle__checkbox:checked + .sky-toggle__container {
   background-color: var(--container-night-bg);
+}
+
+.sky-toggle__checkbox:checked + .sky-toggle__container .sky-toggle__sun-moon-container {
+  background-color: var(--moon-bg);
 }
 
 .sky-toggle__checkbox:checked + .sky-toggle__container .sky-toggle__circle-container {

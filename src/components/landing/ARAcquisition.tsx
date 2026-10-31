@@ -381,7 +381,7 @@ export function ARAcquisition({ progress }: { progress: MotionValue<number> }) {
               }}
               r="0"
               fill="currentColor"
-              stroke="#0c0d10"
+              stroke="#0b0b0b"
               strokeWidth="1.2"
               style={{ opacity: 0 }}
             />

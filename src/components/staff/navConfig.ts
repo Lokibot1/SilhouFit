@@ -32,7 +32,6 @@ export const NAV: Record<Area, NavItem[]> = {
     { label: 'Measurements', to: '/admin/measurements', icon: RulerIcon, group: 'operations' },
     { label: 'Transactions', to: '/admin/transactions', icon: ListIcon, group: 'operations' },
     { label: 'Online Orders', to: '/admin/online-orders', icon: CartIcon, group: 'operations' },
-    { label: 'Profile', to: '/admin/profile', icon: UserIcon, group: 'operations' },
     { label: 'User Management', to: '/admin/users', icon: UsersIcon, group: 'admin' },
     { label: 'Activity Logs', to: '/admin/activity-logs', icon: ClockIcon, group: 'admin' },
     { label: 'AR Insights', to: '/admin/ar-insights', icon: ArIcon, group: 'admin' },

@@ -56,9 +56,9 @@ describe('admin navigation', () => {
 
   it('lists every staff page, then the admin tools under their own heading', () => {
     nav('admin')
-    // The headings are presentation only, so the list still reads as the eleven pages.
+    // The headings are presentation only, so the list still reads as the ten pages. Profile is in the account menu, not the sidebar.
     expect(within(screen.getByRole('list')).getAllByRole('listitem').map((li) => li.textContent?.replace('Soon', '').trim())).toEqual([
-      'Dashboard', 'Inventory', 'Measurements', 'Transactions', 'Online Orders', 'Profile', 'User Management', 'Activity Logs', 'AR Insights', 'Pricing & Promotions', 'Returns & Refunds',
+      'Dashboard', 'Inventory', 'Measurements', 'Transactions', 'Online Orders', 'User Management', 'Activity Logs', 'AR Insights', 'Pricing & Promotions', 'Returns & Refunds',
     ])
     const order = [...document.querySelectorAll('li')].map((li) => li.textContent?.replace('Soon', '').trim())
     expect(order.indexOf('Operations')).toBe(0)
@@ -82,7 +82,8 @@ describe('admin navigation', () => {
     nav('admin', true)
     expect(screen.queryByText('Operations')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'User Management' })).toHaveAttribute('href', '/admin/users')
-    expect(screen.getAllByRole('link')).toHaveLength(11)
+    expect(screen.getAllByRole('link')).toHaveLength(10)
+    expect(screen.queryByRole('link', { name: 'Profile' })).not.toBeInTheDocument()
     expect(document.querySelectorAll('li[aria-hidden="true"]')).toHaveLength(1)
   })
 })
