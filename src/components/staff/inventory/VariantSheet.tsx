@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { withCommas } from '../../../utils/format'
+import { formatFileSize } from '../../../utils/fileSize'
 import type { ProductVariant } from '../../../service/fetchProductList'
 import { createFailureReason, createVariant, manageFailureReason, saveVariant, uploadImage } from '../../../service/inventoryActions'
 import {
@@ -387,6 +388,11 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
             />
             {(image?.preview ?? variant?.imageUrl) && (
               <img src={image?.preview ?? variant?.imageUrl ?? ''} alt={image ? 'Preview of the new variant image' : 'Current variant image'} className="size-16 rounded-xl bg-line object-cover" />
+            )}
+            {image && (
+              <p className="truncate text-sm text-fg-muted">
+                {image.file.name} · <span className="tabular-nums">{formatFileSize(image.file.size)}</span>
+              </p>
             )}
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => fileInput.current?.click()} className={SMALL_BUTTON}>

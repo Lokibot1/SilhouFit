@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import { checkImageFile, describedBy, filterText, IMAGE_TYPES, PRODUCT_LIMITS, type ImageDraft } from '../../../utils/productValidation'
+import { formatFileSize } from '../../../utils/fileSize'
 import { PlusIcon } from '../../form/icons'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Field, FIELD_INPUT } from './FormField'
@@ -101,6 +102,11 @@ export function ImageUploader({ images, name, progress, disabled, error, errors,
               <li key={image.id} className="flex gap-3 rounded-xl border border-line p-3">
                 <img src={image.preview} alt={`Preview of ${fileName(image, index)}`} className="size-16 shrink-0 rounded-xl bg-line object-cover" />
                 <div className="grid min-w-0 flex-1 gap-2">
+                  {image.file && (
+                    <p className="truncate text-sm text-fg-muted">
+                      {image.file.name} · <span className="tabular-nums">{formatFileSize(image.file.size)}</span>
+                    </p>
+                  )}
                   <Field id={altId} label="Alt text" error={errors[`alt:${image.id}`]}>
                     <input
                       id={altId}

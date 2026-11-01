@@ -1,4 +1,5 @@
 import { useRef, type ChangeEvent } from 'react'
+import { formatFileSize } from '../../utils/fileSize'
 import { AlertIcon } from '../form/icons'
 import { Avatar } from '../ui/Avatar'
 import { SECONDARY_BUTTON } from '../ui/buttonStyles'
@@ -7,6 +8,8 @@ interface AvatarPickerProps {
   name: string
   /** What the preview shows: a chosen photo's local URL or the saved one. Undefined shows the initials. */
   src?: string
+  /** The chosen photo, so its name and size are shown. */
+  file?: File
   onPick: (file: File) => void
   onRemove: () => void
   /** Whether there is a photo to remove. */
@@ -18,7 +21,7 @@ interface AvatarPickerProps {
 }
 
 /** The profile photo in the edit dialog: preview, choose, remove and upload progress. */
-export function AvatarPicker({ name, src, onPick, onRemove, removable, progress, error, disabled }: AvatarPickerProps) {
+export function AvatarPicker({ name, src, file, onPick, onRemove, removable, progress, error, disabled }: AvatarPickerProps) {
   const input = useRef<HTMLInputElement>(null)
 
   function change(event: ChangeEvent<HTMLInputElement>) {
@@ -43,6 +46,12 @@ export function AvatarPicker({ name, src, onPick, onRemove, removable, progress,
         </div>
         <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" onChange={change} hidden />
       </div>
+
+      {file && (
+        <p className="mt-3 truncate text-sm text-fg-muted">
+          {file.name} · <span className="tabular-nums">{formatFileSize(file.size)}</span>
+        </p>
+      )}
 
       {progress !== null && (
         <div className="mt-3 flex items-center gap-3">

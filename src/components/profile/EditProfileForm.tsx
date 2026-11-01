@@ -233,6 +233,7 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
         <AvatarPicker
           name={`${saved.firstName} ${saved.lastName}`}
           src={photo?.url ?? (removed ? undefined : (me.avatarUrl ?? undefined))}
+          file={photo?.file}
           onPick={pickPhoto}
           onRemove={removePhoto}
           removable={photo !== null || (Boolean(me.avatarUrl) && !removed)}
