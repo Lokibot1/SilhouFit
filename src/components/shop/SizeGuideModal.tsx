@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { useProductSizing } from '../../service/customSizings'
 import { useSizeGuide } from '../../hooks/useSizeGuide'
 import type { MeasurementKey, ProductVariant } from '../../service/fetchProductList'
 import { MEASUREMENT_FIELDS } from '../../utils/productValidation'
@@ -19,6 +20,8 @@ interface SizeGuideModalProps {
   variants: ProductVariant[]
   /** The size picked on the page; its row is highlighted. */
   selected: string
+  /** The product's id, to find the custom sizing it uses. */
+  productId?: string
 }
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
@@ -78,8 +81,9 @@ function SizeGuideSkeleton({ rows, columns }: { rows: number; columns: number })
 }
 
 /** Garment measurements per size: this piece's own where it has them, the category's standard ones otherwise. */
-export function SizeGuideModal({ open, onClose, category, variants, selected }: SizeGuideModalProps) {
-  const { loading, guide, available, failed, retry } = useSizeGuide(category, variants, open)
+export function SizeGuideModal({ open, onClose, category, variants, selected, productId }: SizeGuideModalProps) {
+  const customSizing = useProductSizing(productId)
+  const { loading, guide, available, failed, retry } = useSizeGuide(category, variants, open, customSizing)
   const { columns, rows } = guide
   const sourceLabel = (row: SizeGuideRow) => (row.source === 'product' ? 'This piece' : row.source === 'base' ? `Standard for ${category}` : '')
   const isSelected = (row: SizeGuideRow) => !!selected && row.size.toLowerCase() === selected.toLowerCase()

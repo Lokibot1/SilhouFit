@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CATEGORIES, SIZES_BY_CATEGORY, type Category } from '../../../data/products'
 import type { Gender } from '../../../service/fetchProductList'
+import { addCustomSizing, getCustomSizings, getProductSizingId, linkProductSizing, useCustomSizings } from '../../../service/customSizings'
 import { addProduct, createFailureReason, manageFailureReason, saveProduct, uploadImage } from '../../../service/inventoryActions'
+import { buildCustomSizing, draftSizes, newSizingDraft, validateSizingDraft } from '../../../utils/customSizing'
 import { GENDERS } from '../../../utils/inventoryQuery'
 import {
   buildProductInput,
@@ -25,12 +27,16 @@ import { Checkbox } from '../../ui/Checkbox'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
 import { Field, FIELD_INPUT } from './FormField'
+import { SizingPicker } from './SizingPicker'
 import { ImageUploader } from './ImageUploader'
 import { VariantBuilder } from './VariantBuilder'
 
 const FORM_ID = 'product-form'
 const GENDER_OPTIONS = [{ value: '', label: 'Not specified' }, ...GENDERS]
-const CATEGORY_OPTIONS = CATEGORIES.map((c) => ({ value: c as string, label: c }))
+const CATEGORY_OPTIONS = CATEGORIES.map((c) => ({
+  value: c as string,
+  label: c,
+}))
 const RETRYABLE = ['network', 'rate-limit', 'server']
 
 const initialValues = (): ProductFormValues => ({
@@ -43,23 +49,36 @@ const initialValues = (): ProductFormValues => ({
   images: [],
   sizes: SIZES_BY_CATEGORY[CATEGORIES[0]],
   custom: [],
+  sizingMode: 'base',
+  sizingId: '',
+  sizingDraft: newSizingDraft(),
   colors: [newColor()],
   edits: {},
 })
 
 /** The form for an existing product: its own fields only, and its current images as drafts (no file, so they are not uploaded again). */
-const editValues = (p: ProductEditSource): ProductFormValues => ({
-  ...initialValues(),
-  name: p.name,
-  brand: p.brand ?? '',
-  category: p.category as Category,
-  gender: p.gender ?? '',
-  arReady: p.isArReady,
-  description: p.description ?? '',
-  images: p.images.map((image, index) => ({ id: `existing${index}`, preview: image.url, url: image.url, alt: image.altText })),
-  sizes: [],
-  colors: [],
-})
+const editValues = (p: ProductEditSource): ProductFormValues => {
+  const sizingId = getProductSizingId(p.id)
+  return {
+    ...initialValues(),
+    sizingMode: sizingId ? 'custom' : 'base',
+    sizingId,
+    name: p.name,
+    brand: p.brand ?? '',
+    category: p.category as Category,
+    gender: p.gender ?? '',
+    arReady: p.isArReady,
+    description: p.description ?? '',
+    images: p.images.map((image, index) => ({
+      id: `existing${index}`,
+      preview: image.url,
+      url: image.url,
+      alt: image.altText,
+    })),
+    sizes: [],
+    colors: [],
+  }
+}
 
 const snapshot = (v: ProductFormValues) => JSON.stringify({ ...v, images: v.images.map((i) => [i.id, i.alt]) })
 
@@ -114,8 +133,24 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
   )
 
   // An edited product's own category is listed even when the shop does not know it, so saving never changes it by accident.
-  const categoryOptions = product && !CATEGORY_OPTIONS.some((o) => o.value === product.category) ? [{ value: product.category, label: product.category }, ...CATEGORY_OPTIONS] : CATEGORY_OPTIONS
-  const errors = validateProductForm(values, { conflictSku, mode: editing ? 'edit' : 'create' })
+  const categoryOptions =
+    product && !CATEGORY_OPTIONS.some((o) => o.value === product.category) ? [{ value: product.category, label: product.category }, ...CATEGORY_OPTIONS] : CATEGORY_OPTIONS
+  const customSizing = values.sizingMode === 'custom'
+  const newSizing = customSizing && !values.sizingId
+  const takenNames = useCustomSizings(values.category).map((s) => s.name)
+  const { sizes: sizesError, ...formErrors }: Record<string, string> = validateProductForm(values, {
+    conflictSku,
+    mode: editing ? 'edit' : 'create',
+  })
+  const sizingErrors = newSizing
+    ? Object.fromEntries(Object.entries(validateSizingDraft(values.sizingDraft, values.category, takenNames)).map(([key, message]) => [`sizing:${key}`, message]))
+    : {}
+  // A custom sizing's sizes come from its rows, whose own errors say what is missing.
+  const errors: Record<string, string> = {
+    ...formErrors,
+    ...(sizesError && !customSizing && { sizes: sizesError }),
+    ...sizingErrors,
+  }
   // An edited product's category may not be one of ours, which has no sizes to build SKUs from.
   const skus = editing ? {} : buildSkus(values)
   const dirty = snapshot(values) !== initial
@@ -128,7 +163,26 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
     if (patch.sizes || patch.custom) sizesTouched.current = true
     // Until sizes are picked by hand, they follow the category.
     const next = patch.category && !sizesTouched.current && !patch.sizes ? { ...patch, sizes: SIZES_BY_CATEGORY[patch.category] } : patch
-    setValues((old) => ({ ...old, ...next }))
+    setValues((old) => {
+      let v = { ...old, ...next }
+      // Another category has other columns and base sizes, so a custom sizing does not carry over.
+      if (patch.category && patch.category !== old.category && old.sizingMode === 'custom')
+        v = {
+          ...v,
+          sizingMode: 'base',
+          sizingId: '',
+          sizingDraft: newSizingDraft(),
+          sizes: SIZES_BY_CATEGORY[patch.category],
+          custom: [],
+        }
+      if (v.sizingMode !== 'custom') return v
+      const saved = getCustomSizings().find((s) => s.id === v.sizingId)
+      return {
+        ...v,
+        sizes: saved ? saved.sizes.map((s) => s.size) : draftSizes(v.sizingDraft),
+        custom: [],
+      }
+    })
   }
 
   useEffect(() => {
@@ -153,6 +207,7 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
       description: 'Description',
       basePrice: 'Base price',
       images: 'Images',
+      sizing: 'Custom sizing',
       sizes: 'Sizes',
       colors: 'Colours',
       matrix: 'Variants',
@@ -191,21 +246,34 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
           setProgress((old) => ({ ...old, [image.id]: 0 }))
           const uploaded = await uploadImage(image.file, (percent) => setProgress((old) => ({ ...old, [image.id]: percent })), controller.signal)
           url = uploaded
-          setValues((old) => ({ ...old, images: old.images.map((i) => (i.id === image.id ? { ...i, url: uploaded } : i)) }))
+          setValues((old) => ({
+            ...old,
+            images: old.images.map((i) => (i.id === image.id ? { ...i, url: uploaded } : i)),
+          }))
         }
         urls[image.id] = url ?? ''
       }
       stage = 'create'
       if (product) {
-        await saveProduct(product.id, buildProductPatch(latest.current, urls, product), { signal: controller.signal })
+        // A sizing-only change has nothing for the API (the link is mock for now).
+        const patch = buildProductPatch(latest.current, urls, product)
+        if (Object.keys(patch).length > 0) await saveProduct(product.id, patch, { signal: controller.signal })
+        const { sizingMode, sizingId, sizingDraft, category } = latest.current
+        linkProductSizing(product.id, sizingMode === 'custom' ? sizingId || addCustomSizing(buildCustomSizing(sizingDraft, category)).id : null)
         onSaved?.(latest.current.name.trim())
       } else {
         const created = await addProduct(buildProductInput(latest.current, urls), { signal: controller.signal })
+        // The product and its sizing are linked here (mock) until the API stores the link.
+        const { sizingMode, sizingId, sizingDraft, category } = latest.current
+        if (sizingMode === 'custom') linkProductSizing(created.id, sizingId || addCustomSizing(buildCustomSizing(sizingDraft, category)).id)
         onCreated?.(created)
       }
     } catch (failure) {
       if (controller.signal.aborted) return
-      const { kind = '', detail = '' } = failure as { kind?: string; detail?: string }
+      const { kind = '', detail = '' } = failure as {
+        kind?: string
+        detail?: string
+      }
       const name = latest.current.name.trim()
       const conflict = kind === 'conflict' && !editing ? Object.entries(skus).find(([, sku]) => detail.toUpperCase().includes(sku.toUpperCase())) : undefined
       if (conflict) {
@@ -323,7 +391,11 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
                 value={values.name}
                 aria-invalid={Boolean(error('name'))}
                 aria-describedby={[describedBy('pf-name', error('name'), true), editing && 'pf-name-note'].filter(Boolean).join(' ') || undefined}
-                onChange={(event) => set({ name: filterText(event.target.value, PRODUCT_LIMITS.nameMax) })}
+                onChange={(event) =>
+                  set({
+                    name: filterText(event.target.value, PRODUCT_LIMITS.nameMax),
+                  })
+                }
                 onBlur={() => touch('name')}
                 className={FIELD_INPUT}
               />
@@ -335,14 +407,26 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
             </Field>
 
             {editing && (
-              <Field id="pf-brand" label="Brand" optional count={{ value: (values.brand ?? '').length, max: PRODUCT_LIMITS.brandMax }}>
+              <Field
+                id="pf-brand"
+                label="Brand"
+                optional
+                count={{
+                  value: (values.brand ?? '').length,
+                  max: PRODUCT_LIMITS.brandMax,
+                }}
+              >
                 <input
                   id="pf-brand"
                   type="text"
                   autoComplete="off"
                   value={values.brand ?? ''}
                   aria-describedby="pf-brand-count"
-                  onChange={(event) => set({ brand: filterText(event.target.value, PRODUCT_LIMITS.brandMax) })}
+                  onChange={(event) =>
+                    set({
+                      brand: filterText(event.target.value, PRODUCT_LIMITS.brandMax),
+                    })
+                  }
                   className={FIELD_INPUT}
                 />
               </Field>
@@ -357,7 +441,10 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
               <p className="text-sm font-semibold text-fg">
                 Gender <span className="font-normal text-fg-muted">(optional)</span>
               </p>
-              <Select label="Gender" value={values.gender} options={product?.gender ? GENDER_OPTIONS.slice(1) : GENDER_OPTIONS}
+              <Select
+                label="Gender"
+                value={values.gender}
+                options={product?.gender ? GENDER_OPTIONS.slice(1) : GENDER_OPTIONS}
                 onChange={(gender) => set({ gender: gender as Gender | '' })}
               />
               {product?.gender && <p className="text-sm text-fg-muted">A gender can be changed but not removed once it is set.</p>}
@@ -370,11 +457,16 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
               <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
             </div>
 
+            {editing && <SizingPicker values={values} disabled={pending} error={error} touch={touch} set={set} editing />}
+
             <Field
               id="pf-description"
               label="Description"
               optional
-              count={{ value: values.description.length, max: PRODUCT_LIMITS.descriptionMax }}
+              count={{
+                value: values.description.length,
+                max: PRODUCT_LIMITS.descriptionMax,
+              }}
               error={error('description')}
             >
               <textarea
@@ -383,7 +475,11 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
                 value={values.description}
                 aria-invalid={Boolean(error('description'))}
                 aria-describedby={describedBy('pf-description', error('description'), true)}
-                onChange={(event) => set({ description: filterMultiline(event.target.value, PRODUCT_LIMITS.descriptionMax) })}
+                onChange={(event) =>
+                  set({
+                    description: filterMultiline(event.target.value, PRODUCT_LIMITS.descriptionMax),
+                  })
+                }
                 onBlur={() => touch('description')}
                 className={`${FIELD_INPUT} py-2`}
               />

@@ -1,4 +1,5 @@
 import { SIZES_BY_CATEGORY, type Category } from '../data/products'
+import type { SizingDraft } from './customSizing'
 import type { Gender, MeasurementKey, ProductDetailFields, ProductListItem, ProductVariant } from '../service/fetchProductList'
 import type { NewProductInput, ProductPatch, VariantInput, VariantPatch } from '../service/productAdmin'
 import { cleanText } from './checkoutValidation'
@@ -112,6 +113,10 @@ export interface ProductFormValues {
   /** Sizes added by hand, which stay as chips after they are unticked. */
   custom: string[]
   colors: ColorRow[]
+  /** 'base': the sizes ticked below follow the category; 'custom': the product uses a custom sizing, a saved one (`sizingId`) or the new one in `sizingDraft` (`sizingId` empty). */
+  sizingMode: 'base' | 'custom'
+  sizingId: string
+  sizingDraft: SizingDraft
   /** What was typed in a variant row, by row key; a missing field means "use the generated value". */
   edits: Record<string, RowEdit>
 }

@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AlertIcon, PlusIcon, SpinnerIcon } from '../../components/form/icons'
+import { CustomSizingList } from '../../components/staff/measurements/CustomSizingList'
+import { CustomSizingSheet } from '../../components/staff/measurements/CustomSizingSheet'
 import { MeasurementsList } from '../../components/staff/measurements/MeasurementsList'
 import { SegmentedTabs } from '../../components/staff/measurements/SegmentedTabs'
 import { SizeSheet } from '../../components/staff/measurements/SizeSheet'
 import { SectionError } from '../../components/staff/StaffSection'
 import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { useToast } from '../../components/toast/useToast'
-import { PRIMARY_BUTTON, PRIMARY_BUTTON_SM, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
+import { PRIMARY_BUTTON, PRIMARY_BUTTON_SM, SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
 import { Modal } from '../../components/ui/Modal'
 import { CATEGORIES, SIZES_BY_CATEGORY } from '../../data/products'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useSection } from '../../hooks/useSection'
+import { setCustomSizingActive, useCustomSizings, type CustomSizing } from '../../service/customSizings'
 import { fetchSizeMeasurements, setSizeMeasurementActive, sizeFailureReason, type SizeMeasurement } from '../../service/sizeMeasurements'
 import type { RequestOptions } from '../../service/simulateRequest'
 import { compareSizes } from '../../utils/sizeMeasurementValidation'
@@ -94,6 +97,24 @@ export function StaffMeasurementsPage() {
   // The sheet starts fresh each time it opens (a new key).
   const [sheet, setSheet] = useState<{ row?: SizeMeasurement; key: number } | null>(null)
   const openSheet = (row?: SizeMeasurement) => setSheet((old) => ({ row, key: (old?.key ?? 0) + 1 }))
+
+  // Custom sizings are mock data kept in this browser (see service/customSizings).
+  const sizings = useCustomSizings(category, status)
+  const [sizingSheet, setSizingSheet] = useState<{ sizing?: CustomSizing; key: number } | null>(null)
+  const openSizingSheet = (sizing?: CustomSizing) => setSizingSheet((old) => ({ sizing, key: (old?.key ?? 0) + 1 }))
+  const [archivingSizing, setArchivingSizing] = useState<CustomSizing | null>(null)
+
+  function changeSizing(sizing: CustomSizing, active: boolean, fromUndo = false) {
+    if (!setCustomSizingActive(sizing.id, active)) {
+      toast.show({ kind: 'error', message: `Couldn't restore ${sizing.name}. An active ${sizing.name} already exists in ${sizing.category}. Rename or archive that one first.` })
+      return
+    }
+    toast.show({
+      kind: 'success',
+      message: `${sizing.name} ${active ? 'restored' : 'archived'}`,
+      action: fromUndo ? undefined : { label: 'Undo', onClick: () => changeSizing(sizing, !active, true) },
+    })
+  }
 
   function onSaved(saved: SizeMeasurement) {
     const added = sheet?.row === undefined
@@ -196,10 +217,16 @@ export function StaffMeasurementsPage() {
             )}
           </p>
         </div>
-        <button ref={addButton} type="button" onClick={() => openSheet()} className={`${PRIMARY_BUTTON_SM} min-h-11! min-w-11!`}>
-          <PlusIcon />
-          Add size
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => openSizingSheet()} className={`${SECONDARY_BUTTON_SM} min-h-11! min-w-11!`}>
+            <PlusIcon />
+            Add custom sizing
+          </button>
+          <button ref={addButton} type="button" onClick={() => openSheet()} className={`${PRIMARY_BUTTON_SM} min-h-11! min-w-11!`}>
+            <PlusIcon />
+            Add size
+          </button>
+        </div>
       </header>
 
       <section aria-labelledby="measurements-list" className={`${STAFF_SECTION} scroll-mt-14`}>
@@ -248,7 +275,75 @@ export function StaffMeasurementsPage() {
         )}
       </section>
 
+      <section aria-labelledby="custom-sizings" className={`${STAFF_SECTION} scroll-mt-14`}>
+        <h2 id="custom-sizings" className="text-lg font-semibold text-fg">
+          Custom sizings
+        </h2>
+        <p className="mt-1 text-sm text-fg-muted">Sizes that belong to one product line instead of following the {category} base sizes.</p>
+        <div className="mt-3">
+          {sizings.length === 0 && status === 'archived' ? (
+            <div>
+              <p className="text-base font-semibold text-fg">No archived {category} custom sizings</p>
+              <p className="mt-1 text-base text-fg-muted">Sizings you archive are hidden from the size guide and the product form, and listed here, where you can restore them.</p>
+            </div>
+          ) : sizings.length === 0 ? (
+            <div>
+              <p className="text-base font-semibold text-fg">No {category} custom sizings yet</p>
+              <p className="mt-1 text-base text-fg-muted">Add one when a product has its own sizes and measurements, such as &ldquo;{category} Custom&rdquo;.</p>
+              <button type="button" onClick={() => openSizingSheet()} className={`${PRIMARY_BUTTON} mt-3`}>
+                <PlusIcon />
+                Add custom sizing
+              </button>
+            </div>
+          ) : (
+            <CustomSizingList category={category} sizings={sizings} onEdit={openSizingSheet} onArchive={setArchivingSizing} onRestore={(sizing) => changeSizing(sizing, true)} />
+          )}
+        </div>
+      </section>
+
+      {sizingSheet && (
+        <CustomSizingSheet
+          key={sizingSheet.key}
+          sizing={sizingSheet.sizing}
+          category={category}
+          onClose={() => setSizingSheet(null)}
+          onSaved={(saved) => {
+            setSizingSheet(null)
+            toast.show({ kind: 'success', message: sizingSheet.sizing ? `${saved.name} updated` : `${saved.name} added to ${saved.category}` })
+          }}
+        />
+      )}
+
       {sheet && <SizeSheet key={sheet.key} row={sheet.row} category={category} onSaved={onSaved} onClose={() => setSheet(null)} />}
+
+      <Modal
+        open={archivingSizing !== null}
+        onClose={() => setArchivingSizing(null)}
+        title="Are you sure?"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" autoFocus onClick={() => setArchivingSizing(null)} className={PRIMARY_BUTTON}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (archivingSizing) changeSizing(archivingSizing, false)
+                setArchivingSizing(null)
+              }}
+              className={SECONDARY_BUTTON}
+            >
+              Archive sizing
+            </button>
+          </div>
+        }
+      >
+        {archivingSizing && (
+          <p className="pb-5 text-base leading-relaxed text-fg-muted">
+            {archivingSizing.name} will be hidden from the size guide, the AR fitting and the product form. Products that use it show their sizes without measurements until you restore it from the Archived tab.
+          </p>
+        )}
+      </Modal>
 
       <Modal
         open={archiving !== null}

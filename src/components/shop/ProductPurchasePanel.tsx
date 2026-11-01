@@ -264,7 +264,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
               <RulerIcon size={16} />
               Size guide
             </button>
-            <SizeGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} category={product.category} variants={product.variants} selected={size} />
+            <SizeGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} category={product.category} variants={product.variants} selected={size} productId={product.id} />
           </>
         )}
       </fieldset>

@@ -19,6 +19,7 @@ import {
 import { PlusIcon } from '../../form/icons'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Field, FIELD_INPUT } from './FormField'
+import { SizingPicker } from './SizingPicker'
 import { StockCell } from './StockEditor'
 
 /** The 6-digit form the native colour picker needs. */
@@ -66,57 +67,61 @@ export function VariantBuilder({ values, skus, disabled, error, touch, set }: Va
 
   return (
     <div className="grid gap-5">
-      <fieldset className="grid gap-2" aria-describedby={describedBy('pf-sizes', sizesError)}>
-        <legend className="text-sm font-semibold text-fg">Sizes</legend>
-        <div id="pf-sizes" tabIndex={-1} className="flex flex-wrap gap-2 outline-none">
-          {chips.map((size) => (
-            <label key={size} className="relative cursor-pointer">
-              <input
-                type="checkbox"
-                checked={values.sizes.includes(size)}
-                disabled={disabled}
-                onChange={(event) => toggle(size, event.target.checked)}
-                onBlur={() => touch('sizes')}
-                className="peer sr-only"
-              />
-              <span className="font-ui flex min-h-11 min-w-11 items-center justify-center rounded-xl border-2 border-line-strong px-3 text-base font-semibold text-fg peer-checked:border-fg peer-checked:bg-fg peer-checked:text-canvas peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong peer-disabled:opacity-60">
-                {size}
-              </span>
-            </label>
-          ))}
-        </div>
-        <div className="flex items-end gap-2">
-          <div className="min-w-0 flex-1">
-            <Field id="pf-custom-size" label="Add a size" optional error={customError}>
-              <input
-                id="pf-custom-size"
-                type="text"
-                autoComplete="off"
-                maxLength={PRODUCT_LIMITS.sizeMax}
-                value={custom}
-                disabled={disabled}
-                placeholder="e.g. 2XL"
-                aria-invalid={Boolean(customError)}
-                aria-describedby={describedBy('pf-custom-size', customError)}
-                onChange={(event) => {
-                  setCustomError(undefined)
-                  setCustom(filterSize(event.target.value))
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return
-                  event.preventDefault()
-                  addCustom()
-                }}
-                className={FIELD_INPUT}
-              />
-            </Field>
+      <SizingPicker values={values} disabled={disabled} error={error} touch={touch} set={set} />
+
+      {values.sizingMode === 'base' && (
+        <fieldset className="grid gap-2" aria-describedby={describedBy('pf-sizes', sizesError)}>
+          <legend className="text-sm font-semibold text-fg">Sizes</legend>
+          <div id="pf-sizes" tabIndex={-1} className="flex flex-wrap gap-2 outline-none">
+            {chips.map((size) => (
+              <label key={size} className="relative cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={values.sizes.includes(size)}
+                  disabled={disabled}
+                  onChange={(event) => toggle(size, event.target.checked)}
+                  onBlur={() => touch('sizes')}
+                  className="peer sr-only"
+                />
+                <span className="font-ui flex min-h-11 min-w-11 items-center justify-center rounded-xl border-2 border-line-strong px-3 text-base font-semibold text-fg peer-checked:border-fg peer-checked:bg-fg peer-checked:text-canvas peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong peer-disabled:opacity-60">
+                  {size}
+                </span>
+              </label>
+            ))}
           </div>
-          <button type="button" disabled={disabled || !custom} onClick={addCustom} className={SMALL_BUTTON}>
-            Add size
-          </button>
-        </div>
-        {sizesError && <p className="text-sm text-danger">{sizesError}</p>}
-      </fieldset>
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <Field id="pf-custom-size" label="Add a size" optional error={customError}>
+                <input
+                  id="pf-custom-size"
+                  type="text"
+                  autoComplete="off"
+                  maxLength={PRODUCT_LIMITS.sizeMax}
+                  value={custom}
+                  disabled={disabled}
+                  placeholder="e.g. 2XL"
+                  aria-invalid={Boolean(customError)}
+                  aria-describedby={describedBy('pf-custom-size', customError)}
+                  onChange={(event) => {
+                    setCustomError(undefined)
+                    setCustom(filterSize(event.target.value))
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') return
+                    event.preventDefault()
+                    addCustom()
+                  }}
+                  className={FIELD_INPUT}
+                />
+              </Field>
+            </div>
+            <button type="button" disabled={disabled || !custom} onClick={addCustom} className={SMALL_BUTTON}>
+              Add size
+            </button>
+          </div>
+          {sizesError && <p className="text-sm text-danger">{sizesError}</p>}
+        </fieldset>
+      )}
 
       <fieldset className="grid gap-3">
         <legend className="text-sm font-semibold text-fg">
