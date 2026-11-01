@@ -148,7 +148,7 @@ for (const width of WIDTHS) {
 
   test(`the Filters dialog with chips has no sideways scroll at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/shop?brand=A%20very%20long%20brand%20name%20indeed&size=XXL&avail=store,online,low&ar=1&min=100&max=900')
+    await page.goto('/shop?brand=A%20very%20long%20brand%20name%20indeed&size=XXL&ar=1&min=100&max=900')
     await expect(chipList(page)).toBeVisible({ timeout: 15000 })
     expect(await overflows(page)).toBe(false)
     await openFilters(page)
@@ -265,7 +265,7 @@ test.describe('an empty database', () => {
 })
 
 test.describe('filters', () => {
-  test('the dialog has Brand, Gender, Size, Price, the derived colours, Availability and the AR toggle', async ({ page }) => {
+  test('the dialog has Brand, Gender, Size, Price, the derived colours and the AR toggle', async ({ page }) => {
     await openShop(page)
     const dialog = await openFilters(page)
     await expect(dialog.getByRole('combobox', { name: 'Brand' })).toBeVisible()
@@ -274,7 +274,7 @@ test.describe('filters', () => {
     for (const size of ['S', 'M', '30']) await expect(dialog.getByRole('button', { name: size, exact: true })).toBeVisible()
     await expect(dialog.getByRole('button', { name: 'XXL', exact: true })).toHaveCount(0)
     await expect(dialog.getByRole('textbox', { name: 'Minimum' })).toBeVisible()
-    for (const name of [/In store/, /Online/, /Low stock/, /AR-ready/]) await expect(dialog.getByRole('checkbox', { name })).toBeVisible()
+    await expect(dialog.getByRole('checkbox', { name: /AR-ready/ })).toBeVisible()
   })
 
   test('offers the colours from /products/filters once each, with one request and no per-product detail calls', async ({ page }) => {
@@ -337,18 +337,15 @@ test.describe('filters', () => {
     await expect(chipList(page)).toHaveCount(0)
   })
 
-  test('Availability stays in the URL and chips and only Online reaches the API (as inStockOnly); AR-ready is sent as isArReady and narrows the list', async ({ page }) => {
+  test('AR-ready is sent as isArReady and narrows the list, and no stock filter reaches the API', async ({ page }) => {
     api.rows[0].isArReady = true // Linen Shirt
     await openShop(page)
     for (const call of api.of('GET', 'list')) expect(call.query.isArReady).toBeUndefined()
     const dialog = await openFilters(page)
-    await dialog.getByRole('checkbox', { name: /In store/ }).check()
-    await dialog.getByRole('checkbox', { name: /Low stock/ }).check()
+    await expect(dialog.getByRole('checkbox', { name: /AR-ready/ })).toBeVisible()
     await dialog.getByRole('checkbox', { name: /AR-ready/ }).check()
     await dialog.getByRole('button', { name: 'Apply' }).click()
-    await expect(page).toHaveURL(/avail=store%2Clow|avail=store,low/)
     expect(urlParams(page).ar).toBe('1')
-    await expect(chipList(page).getByRole('button', { name: /^Remove availability/ })).toBeVisible()
     await expect(chipList(page).getByRole('button', { name: /^Remove AR/ })).toBeVisible()
     await expect.poll(() => lastList().isArReady).toBe('true')
     await expect(cards(page)).toHaveCount(1) // only the AR-ready Linen Shirt
@@ -360,16 +357,10 @@ test.describe('filters', () => {
     await chipList(page).getByRole('button', { name: /^Remove AR/ }).click()
     await expect.poll(() => lastList().isArReady).toBeUndefined()
     await expect(cards(page)).toHaveCount(4)
-
-    const again = await openFilters(page)
-    await again.getByRole('checkbox', { name: /Online/ }).check()
-    await again.getByRole('button', { name: 'Apply' }).click()
-    await expect.poll(() => lastList().inStockOnly).toBe('true')
-    await expect(cards(page)).toHaveCount(3) // the sold-out Linen Vest drops out
   })
 
   test('every request carries only keys the API accepts, and no price sort', async ({ page }) => {
-    await page.goto('/shop?brand=Atelier%20Manila&gender=unisex&size=M&color=Black&min=1&max=9999&avail=store,online&ar=1&sort=price-asc&category=Hoodie')
+    await page.goto('/shop?brand=Atelier%20Manila&gender=unisex&size=M&color=Black&min=1&max=9999&ar=1&sort=price-asc&category=Hoodie')
     await expect.poll(() => api.of('GET', 'list').length).toBeGreaterThan(0)
     // The mock answers 400 to an unknown key, which the page would show as an error.
     await expect(page.getByText('The catalogue did not load')).toHaveCount(0)
@@ -391,7 +382,7 @@ test.describe('filters', () => {
   test('the sort menu keeps Featured and the price sorts; they list newest first, and name sorts reach the API', async ({ page }) => {
     await openShop(page)
     await page.getByRole('combobox', { name: 'Sort by' }).click()
-    await expect(page.getByRole('option')).toHaveText(['Featured', 'Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A'])
+    await expect(page.getByRole('option')).toHaveText(['Featured', 'Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A', 'Low stock first'])
     await page.getByRole('option', { name: 'Price: high to low' }).click()
     await expect(page).toHaveURL(/sort=price-desc/)
     await expect(cards(page).first()).toContainText('Linen Shirt')

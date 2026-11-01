@@ -8,7 +8,7 @@ const api = (changes: Partial<ProductQuery> = {}) => toApiParams({ ...BASE, ...c
 
 describe('toApiParams', () => {
   it('maps the filters, paging and the one colour', () => {
-    expect(api({ q: ' tee ', category: 'Hoodie', brand: 'Nike', gender: 'male', size: 'M', color: 'Black', minPrice: 0, maxPrice: 900, availability: ['online'], page: 3 })).toEqual({
+    expect(api({ q: ' tee ', category: 'Hoodie', brand: 'Nike', gender: 'male', size: 'M', color: 'Black', minPrice: 0, maxPrice: 900, page: 3 })).toEqual({
       search: 'tee',
       category: 'Hoodie',
       brand: 'Nike',
@@ -17,20 +17,18 @@ describe('toApiParams', () => {
       color: 'Black',
       minPrice: 0,
       maxPrice: 900,
-      inStockOnly: true,
       sortBy: 'createdAt',
       sortOrder: 'desc',
       page: 3,
       limit: 12,
     })
-    expect(api()).toMatchObject({ search: undefined, category: undefined, color: undefined, inStockOnly: undefined, page: 1 })
+    expect(api()).toMatchObject({ search: undefined, category: undefined, color: undefined, page: 1 })
   })
 
-  it('sends Online as inStockOnly, and never an availability, ar, store or low stock key', () => {
-    expect(api({ availability: ['online'] }).inStockOnly).toBe(true)
-    for (const availability of [['store'], ['low'], ['store', 'low'], []] as const) expect(api({ availability: [...availability], arReady: true }).inStockOnly).toBeUndefined()
-    const params = api({ availability: ['store', 'online', 'low'], arReady: true })
-    for (const key of ['availability', 'avail', 'ar', 'arReady']) expect(params).not.toHaveProperty(key)
+  it('never sends an availability, stock, ar or low stock key, and asks for newest first for Low stock first', () => {
+    const params = api({ arReady: true, sort: 'low-stock' })
+    for (const key of ['availability', 'avail', 'inStockOnly', 'ar', 'arReady', 'lowStock']) expect(params).not.toHaveProperty(key)
+    expect(params).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
   })
 
   it('sends isArReady=true when AR-ready only is on, and nothing otherwise', () => {
@@ -44,7 +42,7 @@ describe('toApiParams', () => {
     expect(api({ sort: 'name-asc' })).toMatchObject({ sortBy: 'name', sortOrder: 'asc' })
     expect(api({ sort: 'name-desc' })).toMatchObject({ sortBy: 'name', sortOrder: 'desc' })
     for (const sort of ['featured', 'price-asc', 'price-desc'] as const) expect(api({ sort })).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
-    expect(SORT_OPTIONS.map((o) => o.label)).toEqual(['Featured', 'Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A'])
+    expect(SORT_OPTIONS.map((o) => o.label)).toEqual(['Featured', 'Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A', 'Low stock first'])
   })
 })
 

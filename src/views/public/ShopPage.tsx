@@ -23,7 +23,7 @@ import { useShopCatalogue } from '../../hooks/useShopCatalogue'
 import { useCart } from '../../hooks/useCart'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useSavedIds, useWishlist } from '../../hooks/useWishlist'
-import { AVAILABILITY, GENDER_OPTIONS, PER_PAGE_OPTIONS, shopTitle, SORT_OPTIONS, type Availability, type ProductFilters } from '../../utils/productQuery'
+import { GENDER_OPTIONS, PER_PAGE_OPTIONS, shopTitle, SORT_OPTIONS, type ProductFilters } from '../../utils/productQuery'
 import { focusFiltersTrigger } from '../../utils/chipFocus'
 import { formatPeso, parseFilterPrice } from '../../utils/format'
 import { playAddToCart } from '../../utils/sound'
@@ -34,7 +34,7 @@ const DESCRIPTION =
 // Params holding their default are dropped from the URL. The API has no featured order, so Featured asks for newest first.
 const DEFAULT_SORT = SORT_OPTIONS[0].value
 const DEFAULTS: Record<string, string> = { category: 'all', sort: DEFAULT_SORT, perPage: '12', view: 'grid', page: '1' }
-const FILTER_KEYS = ['category', 'q', 'min', 'max', 'color', 'avail', 'ar', 'brand', 'gender', 'size', 'page']
+const FILTER_KEYS = ['category', 'q', 'min', 'max', 'color', 'ar', 'brand', 'gender', 'size', 'page']
 
 export function ShopPage() {
   useDocumentTitle('Shop the catalogue — SilhouFit')
@@ -66,7 +66,6 @@ export function ShopPage() {
     minPrice: parseFilterPrice(params.get('min')),
     maxPrice: parseFilterPrice(params.get('max')),
     color: params.get('color')?.trim().slice(0, 50) || undefined,
-    availability: params.get('avail')?.split(',').filter((a): a is Availability => AVAILABILITY.some((o) => o.value === a)),
     arReady: params.get('ar') === '1' || undefined,
     brand: params.get('brand')?.trim().slice(0, 50) || undefined,
     gender: GENDER_OPTIONS.find((g) => g.value === params.get('gender'))?.value,
@@ -76,7 +75,6 @@ export function ShopPage() {
   const activeFilters =
     Number(filters.minPrice !== undefined || filters.maxPrice !== undefined) +
     Number(!!filters.color) +
-    Number(!!filters.availability?.length) +
     Number(!!filters.arReady) +
     Number(!!filters.brand) +
     Number(!!filters.gender) +
@@ -330,7 +328,6 @@ export function ShopPage() {
                   min: next.minPrice?.toString(),
                   max: next.maxPrice?.toString(),
                   color: next.color,
-                  avail: next.availability?.join(','),
                   ar: next.arReady ? '1' : undefined,
                   brand: next.brand,
                   gender: next.gender,

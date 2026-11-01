@@ -189,7 +189,6 @@ describe('ShopPage requests', () => {
       color: 'Black',
       minPrice: 0,
       maxPrice: 900,
-      inStockOnly: undefined,
       sortBy: 'createdAt',
       sortOrder: 'desc',
       page: 1,
@@ -197,16 +196,14 @@ describe('ShopPage requests', () => {
     })
   })
 
-  it('keeps the availability and AR filters in the URL and as chips, and sends Online (as inStockOnly) and AR-ready only (as isArReady)', async () => {
-    renderPage('/shop?avail=store,online,low&ar=1')
+  it('keeps the AR filter in the URL and as a chip, and sends AR-ready only (as isArReady)', async () => {
+    renderPage('/shop?ar=1')
     await loaded()
     const sent = lastParams()
-    expect(sent.inStockOnly).toBe(true)
     expect(sent.isArReady).toBe(true)
-    for (const key of ['avail', 'availability', 'ar', 'arReady']) expect(sent).not.toHaveProperty(key)
-    expect(screen.getByRole('button', { name: 'Remove availability In store, Online, Low stock' })).toBeInTheDocument()
+    for (const key of ['avail', 'availability', 'inStockOnly', 'ar', 'arReady']) expect(sent).not.toHaveProperty(key)
     expect(screen.getByRole('button', { name: 'Remove AR AR-ready only' })).toBeInTheDocument()
-    expect(urlSearch()).toBe('?avail=store,online,low&ar=1')
+    expect(urlSearch()).toBe('?ar=1')
   })
 
   it('sends no isArReady until AR-ready only is on', async () => {
@@ -216,11 +213,12 @@ describe('ShopPage requests', () => {
     expect(lastParams().isArReady).toBeUndefined()
   })
 
-  it('sends no stock filter and no ar key for the store, low stock and AR choices alone', async () => {
-    renderPage('/shop?avail=store,low&ar=1')
+  it('ignores an old avail link, and sends no stock filter and no ar key', async () => {
+    renderPage('/shop?avail=low&ar=1')
     await loaded()
-    expect(lastParams().inStockOnly).toBeUndefined()
+    expect(lastParams()).not.toHaveProperty('inStockOnly')
     expect(Object.keys(lastParams())).not.toContain('ar')
+    expect(screen.queryByRole('button', { name: /^Remove availability/ })).not.toBeInTheDocument()
   })
 
   it('keeps Featured and the price sorts, and asks for newest first for them; name sorts reach the API', async () => {
@@ -235,6 +233,7 @@ describe('ShopPage requests', () => {
       'Price: high to low',
       'Name: A to Z',
       'Name: Z to A',
+      'Low stock first',
     ])
     await user.click(screen.getByRole('option', { name: 'Price: high to low' }))
     expect(urlSearch()).toBe('?sort=price-desc')
@@ -257,32 +256,27 @@ describe('ShopPage requests', () => {
 })
 
 describe('ShopPage filter dialog', () => {
-  it('offers Availability and the AR-ready toggle, and writes them to the URL on Apply', async () => {
+  it('has no Availability section, and writes the AR-ready toggle to the URL on Apply', async () => {
     const user = userEvent.setup()
     renderPage()
     await loaded()
     const dialog = await openFilters(user)
-    for (const name of [/In store/, /Online/, /Low stock/, /AR-ready/]) expect(within(dialog).getByRole('checkbox', { name })).toBeInTheDocument()
-
-    await user.click(within(dialog).getByRole('checkbox', { name: /Online/ }))
+    expect(within(dialog).queryByText('Availability')).not.toBeInTheDocument()
     await user.click(within(dialog).getByRole('checkbox', { name: /AR-ready/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
-    expect(urlSearch()).toBe('?avail=online&ar=1')
-    await waitFor(() => expect(lastParams().inStockOnly).toBe(true))
-    expect(lastParams().isArReady).toBe(true)
-    expect(screen.getByRole('button', { name: /^Filters/ })).toHaveTextContent('2')
+    expect(urlSearch()).toBe('?ar=1')
+    await waitFor(() => expect(lastParams().isArReady).toBe(true))
+    expect(screen.getByRole('button', { name: /^Filters/ })).toHaveTextContent('1')
   })
 
-  it('removes the availability and AR chips one by one, and Clear all clears the rest', async () => {
+  it('removes the AR chip, and Clear all clears the rest', async () => {
     const user = userEvent.setup()
-    renderPage('/shop?avail=online&ar=1&brand=Nike')
+    renderPage('/shop?ar=1&brand=Nike')
     await loaded()
     expect(lastParams().isArReady).toBe(true)
     await user.click(screen.getByRole('button', { name: 'Remove AR AR-ready only' }))
-    expect(urlSearch()).toBe('?avail=online&brand=Nike')
-    await waitFor(() => expect(lastParams().isArReady).toBeUndefined())
-    await user.click(screen.getByRole('button', { name: 'Remove availability Online' }))
     expect(urlSearch()).toBe('?brand=Nike')
+    await waitFor(() => expect(lastParams().isArReady).toBeUndefined())
     await user.click(screen.getByRole('button', { name: 'Clear all' }))
     expect(urlSearch()).toBe('')
   })

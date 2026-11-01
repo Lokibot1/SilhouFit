@@ -1,8 +1,7 @@
-import { LOW_STOCK, type Category, type Product, type ProductGender } from '../data/products'
+import { type Category, type Product, type ProductGender } from '../data/products'
 import type { ProductListParams } from '../service/fetchProductList'
 
-export type SortKey = 'featured' | 'newest' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc'
-export type Availability = 'store' | 'online' | 'low'
+export type SortKey = 'featured' | 'newest' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc' | 'low-stock'
 
 /** Sizes offered as one-tap choices in filters; any other size can be typed where the screen allows. */
 export const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
@@ -30,8 +29,6 @@ export interface ProductFilters {
   maxPrice?: number
   /** One colour name (the API takes one). */
   color?: string
-  /** Matches any listed availability. Only `online` reaches the API (as inStockOnly); store and low stock need a backend field. */
-  availability?: Availability[]
   /** Only AR-ready products; sent as `isArReady=true`. */
   arReady?: boolean
   /** Exact match, ignoring case. */
@@ -56,7 +53,7 @@ export interface ProductPage {
   pageCount: number
 }
 
-// The API sorts by date or name only. Featured and the price sorts have no backend field, so they ask for newest first.
+// The API sorts by date or name only. Featured, the price sorts and low stock first have no backend field, so they ask for newest first.
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'featured', label: 'Featured' },
   { value: 'newest', label: 'Newest' },
@@ -64,14 +61,9 @@ export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'price-desc', label: 'Price: high to low' },
   { value: 'name-asc', label: 'Name: A to Z' },
   { value: 'name-desc', label: 'Name: Z to A' },
+  { value: 'low-stock', label: 'Low stock first' },
 ]
 export const PER_PAGE_OPTIONS = [12, 24, 48]
-
-export const AVAILABILITY: { value: Availability; label: string }[] = [
-  { value: 'store', label: 'In store' },
-  { value: 'online', label: 'Online' },
-  { value: 'low', label: `Low stock (${LOW_STOCK} or fewer)` },
-]
 
 export const GENDER_OPTIONS: { value: ProductGender; label: string }[] = [
   { value: 'male', label: 'Men' },
@@ -90,6 +82,7 @@ const API_SORT: Record<SortKey, Pick<ProductListParams, 'sortBy' | 'sortOrder'>>
   featured: NEWEST,
   'price-asc': NEWEST,
   'price-desc': NEWEST,
+  'low-stock': NEWEST,
   newest: { sortBy: 'createdAt', sortOrder: 'desc' },
   'name-asc': { sortBy: 'name', sortOrder: 'asc' },
   'name-desc': { sortBy: 'name', sortOrder: 'desc' },
@@ -106,7 +99,6 @@ export function toApiParams(query: ProductQuery): ProductListParams {
     color: query.color,
     minPrice: query.minPrice,
     maxPrice: query.maxPrice,
-    inStockOnly: query.availability?.includes('online') || undefined,
     isArReady: query.arReady || undefined,
     ...API_SORT[query.sort],
     page: Math.max(1, Math.trunc(query.page) || 1),

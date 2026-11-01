@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Category, ProductGender } from '../../data/products'
 import { sameColour, useShopColours, useShopFacets, validColour } from '../../hooks/useShopColours'
 import { filterPriceInput, parseFilterPrice, withCommas } from '../../utils/format'
-import { AVAILABILITY, COMMON_SIZES, GENDER_OPTIONS, orderSizes, type Availability, type ProductFilters } from '../../utils/productQuery'
+import { COMMON_SIZES, GENDER_OPTIONS, orderSizes, type ProductFilters } from '../../utils/productQuery'
 import { Modal } from '../ui/Modal'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 
@@ -24,11 +24,10 @@ interface Draft {
   min: string
   max: string
   color: string
-  availability: Availability[]
   arReady: boolean
 }
 
-const EMPTY: Draft = { category: 'all', brand: '', gender: '', size: '', min: '', max: '', color: '', availability: [], arReady: false }
+const EMPTY: Draft = { category: 'all', brand: '', gender: '', size: '', min: '', max: '', color: '', arReady: false }
 
 const toDraft = (f: ProductFilters, category: Category | 'all'): Draft => ({
   category,
@@ -38,7 +37,6 @@ const toDraft = (f: ProductFilters, category: Category | 'all'): Draft => ({
   min: f.minPrice?.toString() ?? '',
   max: f.maxPrice?.toString() ?? '',
   color: f.color ?? '',
-  availability: f.availability ?? [],
   arReady: f.arReady ?? false,
 })
 
@@ -73,7 +71,6 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
         maxPrice: parseFilterPrice(draft.max),
         // Once the colours are known, a colour no product has is dropped.
         color: (colours.status === 'ready' ? validColour(draft.color, colours.colours) : draft.color) || undefined,
-        availability: draft.availability.length ? draft.availability : undefined,
         arReady: draft.arReady || undefined,
         brand: draft.brand.trim().slice(0, 50) || undefined,
         gender: draft.gender || undefined,
@@ -237,29 +234,6 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
             </div>
           </fieldset>
         )}
-
-        {/* Only Online reaches the API (as in stock); In store and Low stock need a backend field and change nothing yet. */}
-        <fieldset>
-          <legend className={LEGEND}>Availability</legend>
-          {AVAILABILITY.map((option) => (
-            <label key={option.value} className={CHECK_ROW}>
-              <input
-                type="checkbox"
-                checked={draft.availability.includes(option.value)}
-                onChange={() =>
-                  setDraft({
-                    ...draft,
-                    availability: draft.availability.includes(option.value)
-                      ? draft.availability.filter((a) => a !== option.value)
-                      : [...draft.availability, option.value],
-                  })
-                }
-                className="skeuo-check size-5"
-              />
-              {option.label}
-            </label>
-          ))}
-        </fieldset>
 
         <fieldset>
           <legend className={LEGEND}>Try-on</legend>

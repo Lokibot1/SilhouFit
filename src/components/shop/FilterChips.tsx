@@ -1,4 +1,4 @@
-import { AVAILABILITY, GENDER_OPTIONS, type ProductFilters } from '../../utils/productQuery'
+import { GENDER_OPTIONS, type ProductFilters } from '../../utils/productQuery'
 import { focusFiltersTrigger, focusNeighbourChip } from '../../utils/chipFocus'
 import { formatPeso, formatPesoWhole } from '../../utils/format'
 import { XIcon } from '../form/icons'
@@ -25,11 +25,6 @@ function chipsFor(filters: ProductFilters) {
     { kind: 'size', text: filters.size ?? '', clears: { size: undefined } },
     { kind: 'colour', text: filters.color ?? '', clears: { color: undefined } },
     { kind: 'price', text: price, clears: { min: undefined, max: undefined } },
-    {
-      kind: 'availability',
-      text: (filters.availability ?? []).map((a) => AVAILABILITY.find((o) => o.value === a)?.label.replace(/ \(.*\)$/, '') ?? a).join(', '),
-      clears: { avail: undefined },
-    },
     { kind: 'AR', text: filters.arReady ? 'AR-ready only' : '', clears: { ar: undefined } },
   ]
   return chips.filter((chip) => chip.text)
