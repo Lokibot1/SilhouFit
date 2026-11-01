@@ -142,7 +142,7 @@ describe('route selects the navbar', () => {
 
   it('keeps the regular navbar elsewhere', () => {
     renderLayout('/about')
-    expect(screen.getAllByRole('link', { name: 'Sign Up now!' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: 'Login!' }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('searchbox')).toBeNull()
     expect(screen.queryByRole('link', { name: /^Wishlist, / })).toBeNull() // the footer's plain "Wishlist" link is fine
   })
@@ -199,13 +199,14 @@ describe('ShopNavbar', () => {
       return screen.getByRole('group', { name: 'Account' })
     }
 
-    it('shows the name and email with a Sign out button, and moves focus into it', async () => {
+    it('shows the name and email with Profile and Sign out, and moves focus to Profile', async () => {
       const user = userEvent.setup()
       const panel = await open(user)
       expect(panel).toHaveTextContent('Ana Reyes')
       expect(panel).toHaveTextContent('ana@example.com')
       expect(screen.getByRole('button', { name: 'Account, Ana Reyes' })).toHaveAttribute('aria-expanded', 'true')
-      expect(screen.getByRole('button', { name: 'Sign out' })).toHaveFocus()
+      expect(screen.getByRole('link', { name: 'Profile' })).toHaveFocus()
+      expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
     })
 
     it('closes on Escape and returns focus to the avatar', async () => {

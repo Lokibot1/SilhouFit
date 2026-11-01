@@ -6,6 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { fetchProductDetail, fetchProductList, ProductListError, type PaginatedProducts } from '../../src/service/fetchProductList'
 import { addProduct, saveProduct, uploadImage } from '../../src/service/inventoryActions'
+import { fetchCategoryMeasurements } from '../../src/service/sizeMeasurements'
 import { StaffInventoryPage } from '../../src/views/staff/StaffInventoryPage'
 
 vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
@@ -18,6 +19,11 @@ vi.mock('../../src/service/inventoryActions', async (importOriginal) => ({
   addProduct: vi.fn(),
   saveProduct: vi.fn(),
   uploadImage: vi.fn(),
+}))
+
+vi.mock('../../src/service/sizeMeasurements', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/sizeMeasurements')>()),
+  fetchCategoryMeasurements: vi.fn(),
 }))
 
 const POLO = {
@@ -64,6 +70,7 @@ beforeAll(() => {
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(fetchProductList).mockResolvedValue(page([POLO]))
+  vi.mocked(fetchCategoryMeasurements).mockResolvedValue([])
   vi.mocked(uploadImage).mockResolvedValue('https://images.silhoufit.test/front.jpg')
   vi.mocked(fetchProductDetail).mockResolvedValue({
     variants: [{ id: 'v1', sku: 'P01-S-WHITE', size: 'S', color: 'White', colorHex: '#ffffff', price: 1890, stock: 20, name: null, imageUrl: null, measurements: null }],
@@ -169,6 +176,33 @@ describe('Add product sheet', () => {
 
     await user.click(screen.getByRole('button', { name: 'View' }))
     expect(screen.getByTestId('where').textContent).toContain('q=Linen+Shirt')
+  })
+
+  it('copies the category base measurements of each size into its variants, and sends none for a size without a base row', async () => {
+    const user = userEvent.setup()
+    const row = (size: string, chestWidthCm: number) => ({ id: size, category: 'Hoodie', size, chestWidthCm, waistWidthCm: null, hipWidthCm: null, totalLengthCm: 70, inseamCm: 99, shoulderWidthCm: null, sleeveLengthCm: null, neckCm: null, thighCm: null, isActive: true, createdAt: '', updatedAt: '' })
+    vi.mocked(fetchCategoryMeasurements).mockResolvedValue([row('S', 52), row('M', 55)])
+    vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })
+    const dialog = await openSheet(user)
+    await fillValid(user)
+    await user.click(within(dialog).getByRole('checkbox', { name: 'XS' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
+    await waitFor(() => expect(addProduct).toHaveBeenCalled())
+    const { variants } = vi.mocked(addProduct).mock.calls[0][0]
+    expect(variants.find((v) => v.size === 'S')?.measurements).toEqual({ chestWidthCm: 52, totalLengthCm: 70 })
+    expect(variants.find((v) => v.size === 'M')?.measurements).toEqual({ chestWidthCm: 55, totalLengthCm: 70 })
+    expect(variants.find((v) => v.size === 'XS')?.measurements).toBeUndefined()
+  })
+
+  it('creates the product without measurements when the base ones cannot be read', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetchCategoryMeasurements).mockRejectedValueOnce(new ProductListError('server'))
+    vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })
+    const dialog = await openSheet(user)
+    await fillValid(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
+    await waitFor(() => expect(addProduct).toHaveBeenCalled())
+    expect(vi.mocked(addProduct).mock.calls[0][0].variants.every((v) => v.measurements === undefined)).toBe(true)
   })
 
   it('has no Brand field, an optional Gender and an AR Fitting box that is sent when ticked', async () => {

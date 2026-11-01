@@ -37,7 +37,7 @@ async function tabTo(page: Page, target: Locator) {
 test('renders the sign-in form with its own title and meta description', async ({ page }) => {
   await page.goto('/login')
   await expect(page).toHaveTitle('Sign in — SilhouFit')
-  await expect(page.getByRole('heading', { level: 1, name: 'Login Form' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Login', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible()
   await expect(page.getByText('Pick up your fit profile and AR fittings.')).toBeVisible()
   await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
@@ -54,7 +54,7 @@ test('has no footer, only the slim auth chrome', async ({ page }) => {
   await page.goto('/about')
   await expect(page.getByRole('contentinfo')).toHaveCount(1) // the selector does find a footer elsewhere
   await page.goto('/login')
-  await expect(page.getByRole('heading', { level: 1, name: 'Login Form' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Login', exact: true })).toBeVisible()
   await expect(page.getByRole('contentinfo')).toHaveCount(0)
 })
 
@@ -240,7 +240,7 @@ test('links between /login and /signup in both directions', async ({ page }) => 
 
   await page.getByRole('link', { name: 'I already have an account' }).click()
   await expect(page).toHaveURL(/\/login$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Login Form' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Login', exact: true })).toBeVisible()
 })
 
 test('"Forgot password?" leads to the reset page', async ({ page }) => {
@@ -258,7 +258,7 @@ test.describe('dark mode', () => {
   test('renders every control visibly with readable heading text', async ({ page }) => {
     await page.goto('/login')
     await expect(page.locator('html')).toHaveClass(/dark/)
-    await expect(page.getByRole('heading', { level: 1, name: 'Login Form' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Login', exact: true })).toBeVisible()
     await expect(emailField(page)).toBeVisible()
     await expect(passwordField(page)).toBeVisible()
     await expect(submit(page)).toBeVisible()

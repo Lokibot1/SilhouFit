@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page, type Route } from '@playwright/test'
 import { IMAGE_HOST, product, setupInventory, variant, type MockProduct, type ProductsMock } from '../shared/products'
 import { DEMO } from '../shared/session'
+import { mockSizeMeasurements, sizeRow, type MockSize } from '../shared/sizeMeasurements'
 
 // Staff Inventory against GET /products, which is the in-memory mockProducts (tests/shared/products.ts). Auth and /users/me are mocked,
 // and each test signs in through the real form.
@@ -81,8 +82,9 @@ async function hold(page: Page, method: string, path: RegExp) {
   return release
 }
 
-async function start(page: Page, products: MockProduct[] = [linen(), wool()]): Promise<ProductsMock> {
+async function start(page: Page, products: MockProduct[] = [linen(), wool()], baseSizes: MockSize[] = []): Promise<ProductsMock> {
   const api = await setupInventory(page, products)
+  await mockSizeMeasurements(page, baseSizes)
   await page.goto('/login?next=%2Fstaff%2Finventory')
   await page.getByLabel('Email', { exact: true }).fill(DEMO.email)
   await page.getByLabel('Password', { exact: true }).fill(DEMO.password)
@@ -235,7 +237,7 @@ test.describe('add variant', () => {
     await fillPrice(dialog)
     await dialog.getByLabel('Stock', { exact: true }).fill('12')
     await dialog.getByLabel('Chest width', { exact: true }).fill('55.5')
-    await dialog.getByLabel('Waist width', { exact: true }).fill('50')
+    await dialog.getByLabel('Shoulder width', { exact: true }).fill('50')
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
 
     await expect(toast(page, 'Variant added')).toBeVisible()
@@ -247,7 +249,7 @@ test.describe('add variant', () => {
         colorHex: '#556b2f',
         price: 1650.5,
         stock: 12,
-        measurements: { chestWidthCm: 55.5, waistWidthCm: 50 },
+        measurements: { chestWidthCm: 55.5, shoulderWidthCm: 50 },
       },
     ])
     expect(api.of('POST', 'variants')[0].productId).toBe(LINEN_ID)
@@ -255,6 +257,45 @@ test.describe('add variant', () => {
     await expect(drawer).toBeVisible()
     await expect(drawer.getByText('LS-OLIVE-XL')).toBeVisible()
     await expect(drawer.getByRole('button', { name: 'Edit Olive XL' })).toBeVisible()
+  })
+
+  test('inherit base measurements is on for a size with a base row and posts those values', async ({ page }) => {
+    const api = await start(page, [linen(), wool()], [sizeRow({ category: 'Hoodie', size: 'XL', chestWidthCm: 61, totalLengthCm: 74, shoulderWidthCm: 50, sleeveLengthCm: 64, neckCm: 40 })])
+    const dialog = await openAdd(page)
+    await dialog.getByLabel('Size (optional)', { exact: true }).fill('xl')
+    await fillPrice(dialog)
+    const inherit = dialog.getByRole('checkbox', { name: 'Inherit base measurements' })
+    await expect(inherit).toBeChecked()
+    await expect(dialog.getByText('Copied from Hoodie XL in Base measurements.')).toBeVisible()
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toBeDisabled()
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toHaveValue('61')
+    await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
+    await expect(toast(page, 'Variant added')).toBeVisible()
+    expect(api.of('POST', 'variants')[0].body).toMatchObject({ size: 'XL', measurements: { chestWidthCm: 61, totalLengthCm: 74, shoulderWidthCm: 50, sleeveLengthCm: 64, neckCm: 40 } })
+
+  })
+
+  test('turning inherit off starts from the base values and posts what was typed', async ({ page }) => {
+    const api = await start(page, [linen(), wool()], [sizeRow({ category: 'Hoodie', size: 'XL', chestWidthCm: 61, totalLengthCm: 74, shoulderWidthCm: 50, sleeveLengthCm: 64, neckCm: 40 })])
+    const dialog = await openAdd(page)
+    await dialog.getByLabel('Size (optional)', { exact: true }).fill('xl')
+    await fillPrice(dialog)
+    await dialog.getByText('Inherit base measurements', { exact: true }).click()
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toBeEnabled()
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toHaveValue('61')
+    await dialog.getByLabel('Chest width', { exact: true }).fill('63')
+    await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
+    await expect(toast(page, 'Variant added')).toBeVisible()
+    expect(api.of('POST', 'variants')[0].body).toMatchObject({ measurements: { chestWidthCm: 63, totalLengthCm: 74 } })
+  })
+
+  test('a size without a base row disables the checkbox with a hint and keeps the manual boxes', async ({ page }) => {
+    await start(page, [linen(), wool()], [sizeRow({ category: 'Hoodie', size: 'XL' })])
+    const dialog = await openAdd(page)
+    await dialog.getByLabel('Size (optional)', { exact: true }).fill('XXS')
+    await expect(dialog.getByText('No base measurements for Hoodie XXS yet')).toBeVisible()
+    await expect(dialog.getByRole('checkbox', { name: 'Inherit base measurements' })).toBeDisabled()
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toBeEnabled()
   })
 
   test('a blank SKU, no colour and no measurements are left out of the body', async ({ page }) => {
@@ -334,13 +375,13 @@ test.describe('add variant', () => {
     await dialog.getByLabel('Chest width', { exact: true }).fill('4')
     await dialog.getByLabel('Total length', { exact: true }).fill('9')
     await dialog.getByLabel('Neck', { exact: true }).fill('101')
-    await dialog.getByLabel('Waist width', { exact: true }).fill('251')
+    await dialog.getByLabel('Shoulder width', { exact: true }).fill('151')
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
 
     await expect(dialog.getByText('Enter chest width from 5 to 250 cm.')).toBeVisible()
     await expect(dialog.getByText('Enter total length from 10 to 300 cm.')).toBeVisible()
     await expect(dialog.getByText('Enter neck from 5 to 100 cm.')).toBeVisible()
-    await expect(dialog.getByText('Enter waist width from 5 to 250 cm.')).toBeVisible()
+    await expect(dialog.getByText('Enter shoulder width from 5 to 150 cm.')).toBeVisible()
     await expect(dialog.getByLabel('Chest width', { exact: true })).toBeFocused()
     expect(api.of('POST', 'variants')).toHaveLength(0)
 
@@ -349,11 +390,11 @@ test.describe('add variant', () => {
     await expect(dialog.getByLabel('Chest width', { exact: true })).toHaveValue('12.5')
     await dialog.getByLabel('Total length', { exact: true }).fill('10')
     await dialog.getByLabel('Neck', { exact: true }).fill('100')
-    await dialog.getByLabel('Waist width', { exact: true }).fill('250')
+    await dialog.getByLabel('Shoulder width', { exact: true }).fill('150')
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
     await expect(toast(page, 'Variant added')).toBeVisible()
     expect(api.of('POST', 'variants')[0].body).toMatchObject({
-      measurements: { chestWidthCm: 12.5, totalLengthCm: 10, neckCm: 100, waistWidthCm: 250 },
+      measurements: { chestWidthCm: 12.5, totalLengthCm: 10, neckCm: 100, shoulderWidthCm: 150 },
     })
   })
 
@@ -455,7 +496,7 @@ test.describe('edit variant', () => {
     await expect(dialog.getByLabel('Colour name (optional)', { exact: true })).toHaveValue('Navy')
     await expect(dialog.getByLabel('Colour hex', { exact: true })).toHaveValue('#1b2a49')
     await expect(dialog.getByLabel('SKU', { exact: true })).toHaveValue('LS-NAVY-M')
-    await expect(dialog.getByLabel('Price (PHP)', { exact: true })).toHaveValue('1700')
+    await expect(dialog.getByLabel('Price (PHP)', { exact: true })).toHaveValue('1,700')
     await expect(dialog.getByLabel('Chest width', { exact: true })).toHaveValue('55')
     await expect(dialog.getByLabel('Stock', { exact: true })).toHaveCount(0) // stock is changed in the stock editor
     const save = dialog.getByRole('button', { name: 'Save variant', exact: true })
@@ -485,12 +526,12 @@ test.describe('edit variant', () => {
     await dialog.getByLabel('Colour name (optional)', { exact: true }).fill('Forest')
     await dialog.getByLabel('Colour hex', { exact: true }).fill('228b22')
     await dialog.getByLabel('Chest width', { exact: true }).fill('')
-    await dialog.getByLabel('Hip width', { exact: true }).fill('60')
+    await dialog.getByLabel('Shoulder width', { exact: true }).fill('60')
     await dialog.getByRole('button', { name: 'Save variant', exact: true }).click()
 
     await expect(toast(page, 'Variant updated')).toBeVisible()
     expect(api.of('PATCH', 'variant').map((c) => c.body)).toEqual([
-      { color: 'Forest', colorHex: '#228b22', measurements: { chestWidthCm: null, hipWidthCm: 60 } },
+      { color: 'Forest', colorHex: '#228b22', measurements: { chestWidthCm: null, shoulderWidthCm: 60 } },
     ])
   })
 

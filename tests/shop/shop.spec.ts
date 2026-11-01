@@ -475,6 +475,6 @@ test.describe('dark mode', () => {
     }))
     expect(heading).not.toBe(background)
     const dialog = await openFilters(page)
-    await expect(dialog.getByRole('checkbox', { name: /Online/ })).toBeVisible()
+    await expect(dialog.getByRole('checkbox', { name: /AR-ready pieces only/ })).toBeVisible()
   })
 })

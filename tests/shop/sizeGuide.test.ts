@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MEASUREMENT_KEYS, type Measurements, type ProductVariant } from '../../src/service/fetchProductList'
 import type { SizeMeasurement } from '../../src/service/sizeMeasurements'
-import { buildSizeGuide } from '../../src/utils/sizeGuide'
+import { baseMeasurementsFor, buildSizeGuide } from '../../src/utils/sizeGuide'
 
 const none = Object.fromEntries(MEASUREMENT_KEYS.map((k) => [k, null])) as Measurements
 const m = (values: Partial<Measurements>): Measurements => ({ ...none, ...values })
@@ -118,5 +118,21 @@ describe('buildSizeGuide with a custom sizing', () => {
   it('still prefers a variant\'s own measurements', () => {
     const own = m({ chestWidthCm: 99 })
     expect(buildSizeGuide('Hoodie', [variant('S', 'Black', own)], HOODIE_BASE, custom).rows[0].values.chestWidthCm).toBe(99)
+  })
+})
+
+describe('baseMeasurementsFor', () => {
+  it('copies the numbers of the matching size, ignoring case and spacing, and leaves unset ones out', () => {
+    expect(baseMeasurementsFor('Hoodie', ' xl ', HOODIE_BASE)).toEqual({ chestWidthCm: 61, totalLengthCm: 74 })
+  })
+
+  it('keeps only the category columns', () => {
+    const rows = [base('Pants', 'M', { waistWidthCm: 80, sleeveLengthCm: 60 })]
+    expect(baseMeasurementsFor('Pants', 'M', rows)).toEqual({ waistWidthCm: 80 })
+  })
+
+  it('is null without a row for the size, or when the row has no number in the category columns', () => {
+    expect(baseMeasurementsFor('Hoodie', 'XXL', HOODIE_BASE)).toBeNull()
+    expect(baseMeasurementsFor('Hoodie', 'M', [base('Hoodie', 'M', { inseamCm: 70 })])).toBeNull()
   })
 })

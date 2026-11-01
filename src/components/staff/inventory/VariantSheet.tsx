@@ -24,7 +24,10 @@ import {
 import { AlertIcon, PlusIcon, SpinnerIcon } from '../../form/icons'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
+import { useBaseMeasurements } from '../../../hooks/useBaseMeasurements'
+import { baseMeasurementsFor } from '../../../utils/sizeGuide'
 import { COLUMNS_BY_CATEGORY } from '../../../utils/sizeMeasurementValidation'
+import { Checkbox } from '../../ui/Checkbox'
 import { Field, FIELD_INPUT } from './FormField'
 import { pickerValue } from './VariantBuilder'
 
@@ -60,6 +63,12 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
   // cleared; it is decided once, so a box does not vanish as it is emptied.
   const columns = category ? COLUMNS_BY_CATEGORY[category] : undefined
   const [fields] = useState(() => (columns ? MEASUREMENT_FIELDS.filter(({ key }) => columns.includes(key) || variantFormValues(variant).measurements[key]) : MEASUREMENT_FIELDS))
+  // The base measurements of this category and size. Until the choice is made by hand, the variant inherits them unless it has measurements of its own.
+  const baseRows = useBaseMeasurements(category)
+  const base = values.size.trim() ? baseMeasurementsFor(category ?? '', values.size, baseRows.rows) : null
+  const [inheritChoice, setInheritChoice] = useState<boolean>()
+  const inherit = base !== null && (inheritChoice ?? !MEASUREMENT_FIELDS.some(({ key }) => values.measurements[key]))
+  const baseText = Object.fromEntries(MEASUREMENT_FIELDS.map(({ key }) => [key, String(base?.[key] ?? '')])) as VariantFormValues['measurements']
   const [image, setImage] = useState<{ file: File; preview: string } | null>(null)
   const [imageNote, setImageNote] = useState<string>()
   const [progress, setProgress] = useState<number>()
@@ -97,11 +106,13 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
     [],
   )
 
-  const errors = validateVariantForm(values, { mode })
+  // What is sent: the base values while inheriting, otherwise what was typed.
+  const sent = inherit ? { ...values, measurements: baseText } : values
+  const errors = validateVariantForm(sent, { mode })
   if (conflictSku && values.sku === conflictSku) errors.sku = `SKU ${conflictSku} is already used by another variant. Change the SKU.`
   const error = (key: string) => (attempted || touched.has(key) ? errors[key] : undefined)
   const touch = (key: string) => setTouched((old) => new Set(old).add(key))
-  const unchanged = editing && Object.keys(buildVariantPatch(values, variant)).length === 0 && !image
+  const unchanged = editing && Object.keys(buildVariantPatch(sent, variant)).length === 0 && !image
 
   const dirty = JSON.stringify(values) !== initial || image !== null
 
@@ -148,8 +159,8 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
         uploaded.current = await uploadImage(image.file, setProgress, controller.signal)
       }
       stage = 'save'
-      if (editing) await saveVariant(productId, variant.id, buildVariantPatch(values, variant, uploaded.current), { signal: controller.signal })
-      else await createVariant(productId, buildVariantInput(values, uploaded.current), { signal: controller.signal })
+      if (editing) await saveVariant(productId, variant.id, buildVariantPatch(sent, variant, uploaded.current), { signal: controller.signal })
+      else await createVariant(productId, buildVariantInput(sent, uploaded.current), { signal: controller.signal })
       onSaved()
     } catch (failure) {
       if (controller.signal.aborted) return
@@ -174,6 +185,20 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
     else if (dirty) setDiscarding(true)
     else onClose()
   }
+
+  const inheritHint = !category
+    ? undefined
+    : baseRows.status === 'loading'
+      ? 'Checking base measurements…'
+      : baseRows.status === 'failed'
+        ? "Base measurements couldn't load. Enter them by hand."
+        : !values.size.trim()
+          ? 'Enter a size to use its base measurements.'
+          : !base
+            ? `No base measurements for ${category} ${values.size.trim()} yet`
+            : inherit
+              ? `Copied from ${category} ${values.size.trim()} in Base measurements.`
+              : 'These values are your own, started from the base ones.'
 
   const row = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'
   const footer = discarding ? (
@@ -392,6 +417,25 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
             <p className="text-xs text-fg-muted">
               Optional. AR Fitting compares these with the shopper&apos;s body to show how the garment fits.{columns && ` Only the ones that apply to ${category?.toLowerCase()} are shown.`}
             </p>
+            {inheritHint && (
+              <div className="grid gap-1">
+                <Checkbox
+                  label="Inherit base measurements"
+                  checked={inherit}
+                  disabled={!base}
+                  className="justify-start"
+                  onChange={(on) => {
+                    setInheritChoice(on)
+                    if (!on) set({ measurements: baseText })
+                  }}
+                >
+                  <span className="text-base font-semibold">Inherit base measurements</span>
+                </Checkbox>
+                <p className="text-xs text-fg-muted">
+                  {inheritHint}
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {fields.map(({ key, label, min, max }) => {
                 const id = `vs-m-${key}`
@@ -404,7 +448,8 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
                       inputMode="decimal"
                       autoComplete="off"
                       placeholder={`${min}–${max}`}
-                      value={values.measurements[key]}
+                      value={sent.measurements[key]}
+                      disabled={inherit}
                       aria-invalid={Boolean(problem)}
                       aria-describedby={describedBy(id, problem)}
                       onChange={(event) => set({ measurements: { ...values.measurements, [key]: filterMeasurement(event.target.value) } })}

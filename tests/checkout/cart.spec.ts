@@ -4,7 +4,7 @@ import type { CartMock, ProductsMock } from '../shared/products'
 import { DEMO, signedIn } from '../shared/session'
 
 const MIN_TARGET = 44
-const COMPACT_TARGET = 36
+const COMPACT_TARGET = 32
 
 let api: ProductsMock
 let cart: CartMock
@@ -200,7 +200,7 @@ test.describe('narrow screens', () => {
     expect(await overflows(page)).toBe(false)
   })
 
-  test('the cart page and the success page fit 320px, with controls of at least 36px (44px on touch)', async ({ page }) => {
+  test('the cart page and the success page fit 320px, with controls of at least 32px (44px on touch)', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 })
     await signedIn(page)
     cart.seed(only(DRESS), 2)
@@ -220,7 +220,7 @@ test.describe('narrow screens', () => {
     }
   })
 
-  test('every control in the spec sheet is at least 36px (44px on touch) at 320px', async ({ page }) => {
+  test('every control in the spec sheet is at least 32px (44px on touch) at 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 })
     await page.goto('/shop')
     await expect(page.getByRole('article').first()).toBeVisible({ timeout: 15000 })

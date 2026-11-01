@@ -106,6 +106,7 @@ function renderPage() {
         <Where />
         <Routes>
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/:role/profile" element={<ProfilePage />} />
           <Route path="/profile/measurements" element={<p>setup page</p>} />
         </Routes>
       </ToastProvider>

@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { VariantSheet } from '../../src/components/staff/inventory/VariantSheet'
-import { ProductListError, type ProductVariant } from '../../src/service/fetchProductList'
+import { ProductListError, type Measurements, type ProductVariant } from '../../src/service/fetchProductList'
 import { createVariant, saveVariant, uploadImage } from '../../src/service/inventoryActions'
+import { fetchCategoryMeasurements, type SizeMeasurement } from '../../src/service/sizeMeasurements'
 
 vi.mock('../../src/service/inventoryActions', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/inventoryActions')>()),
@@ -12,6 +13,15 @@ vi.mock('../../src/service/inventoryActions', async (importOriginal) => ({
   saveVariant: vi.fn(),
   uploadImage: vi.fn(),
 }))
+
+vi.mock('../../src/service/sizeMeasurements', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/sizeMeasurements')>()),
+  fetchCategoryMeasurements: vi.fn(),
+}))
+
+const NONE: Measurements = { chestWidthCm: null, waistWidthCm: null, hipWidthCm: null, totalLengthCm: null, inseamCm: null, shoulderWidthCm: null, sleeveLengthCm: null, neckCm: null, thighCm: null }
+const baseRow = (size: string, values: Partial<Measurements>): SizeMeasurement => ({ id: `h-${size}`, category: 'Hoodie', size, ...NONE, ...values, isActive: true, createdAt: '', updatedAt: '' })
+const HOODIE_BASE = [baseRow('M', { chestWidthCm: 55, totalLengthCm: 70, shoulderWidthCm: 48, sleeveLengthCm: 62, neckCm: 38 }), baseRow('L', { chestWidthCm: 58 })]
 
 const VARIANT: ProductVariant = {
   id: 'v1',
@@ -32,7 +42,10 @@ beforeAll(() => {
   URL.createObjectURL = vi.fn(() => 'blob:preview')
   URL.revokeObjectURL = vi.fn()
 })
-beforeEach(() => vi.resetAllMocks())
+beforeEach(() => {
+  vi.resetAllMocks()
+  vi.mocked(fetchCategoryMeasurements).mockResolvedValue([])
+})
 
 function setup(props: Partial<React.ComponentProps<typeof VariantSheet>> = {}) {
   const onSaved = vi.fn()
@@ -201,5 +214,98 @@ describe('VariantSheet measurements by category', () => {
     const { sheet } = setup()
     expect(has(sheet, 'Sleeve length')).toBe(true)
     expect(has(sheet, 'Inseam')).toBe(true)
+  })
+})
+
+describe('VariantSheet inherit base measurements', () => {
+  const box = (sheet: HTMLElement) => within(sheet).getByRole('checkbox', { name: 'Inherit base measurements' })
+  const fillBasics = async (user: ReturnType<typeof userEvent.setup>, sheet: HTMLElement, size: string) => {
+    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), size)
+    await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
+  }
+
+  beforeEach(() => vi.mocked(fetchCategoryMeasurements).mockResolvedValue(HOODIE_BASE))
+
+  it('is on by default for a size with a base row, shows the values read-only and sends them', async () => {
+    const user = userEvent.setup()
+    vi.mocked(createVariant).mockResolvedValue(VARIANT)
+    const { sheet } = setup({ category: 'Hoodie' })
+    await fillBasics(user, sheet, 'M')
+    await waitFor(() => expect(box(sheet)).toBeChecked())
+    expect(fetchCategoryMeasurements).toHaveBeenCalledTimes(1)
+    expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toBeDisabled()
+    expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toHaveValue('55')
+    expect(within(sheet).getByText('Copied from Hoodie M in Base measurements.')).toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
+    await waitFor(() => expect(createVariant).toHaveBeenCalled())
+    expect(createVariant).toHaveBeenCalledWith('p1', expect.objectContaining({ measurements: { chestWidthCm: 55, totalLengthCm: 70, shoulderWidthCm: 48, sleeveLengthCm: 62, neckCm: 38 } }), expect.anything())
+  })
+
+  it('re-resolves the values when the size changes while on', async () => {
+    const user = userEvent.setup()
+    const { sheet } = setup({ category: 'Hoodie' })
+    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'M')
+    await waitFor(() => expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toHaveValue('55'))
+    await user.clear(within(sheet).getByRole('textbox', { name: /^Size/ }))
+    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'L')
+    expect(box(sheet)).toBeChecked()
+    expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toHaveValue('58')
+    expect(within(sheet).getByRole('textbox', { name: /^Neck/ })).toHaveValue('')
+  })
+
+  it('off makes the boxes editable, started from the base values, and sends what was typed', async () => {
+    const user = userEvent.setup()
+    vi.mocked(createVariant).mockResolvedValue(VARIANT)
+    const { sheet } = setup({ category: 'Hoodie' })
+    await fillBasics(user, sheet, 'M')
+    await waitFor(() => expect(box(sheet)).toBeChecked())
+    await user.click(box(sheet))
+    const chest = within(sheet).getByRole('textbox', { name: /^Chest width/ })
+    expect(chest).toBeEnabled()
+    expect(chest).toHaveValue('55')
+    await user.clear(chest)
+    await user.type(chest, '60')
+    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
+    await waitFor(() => expect(createVariant).toHaveBeenCalled())
+    expect(createVariant).toHaveBeenCalledWith('p1', expect.objectContaining({ measurements: expect.objectContaining({ chestWidthCm: 60, neckCm: 38 }) }), expect.anything())
+  })
+
+  it('is disabled with a hint when the size has no base row, and manual entry still works', async () => {
+    const user = userEvent.setup()
+    vi.mocked(createVariant).mockResolvedValue(VARIANT)
+    const { sheet } = setup({ category: 'Hoodie' })
+    await fillBasics(user, sheet, 'XXL')
+    expect(await within(sheet).findByText('No base measurements for Hoodie XXL yet')).toBeInTheDocument()
+    expect(box(sheet)).toBeDisabled()
+    expect(box(sheet)).not.toBeChecked()
+    await user.type(within(sheet).getByRole('textbox', { name: /^Chest width/ }), '50')
+    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
+    await waitFor(() => expect(createVariant).toHaveBeenCalled())
+    expect(createVariant).toHaveBeenCalledWith('p1', expect.objectContaining({ measurements: { chestWidthCm: 50 } }), expect.anything())
+  })
+
+  it('opens off for a variant that has measurements of its own, and keeps them', async () => {
+    const own = { ...NONE, chestWidthCm: 99 }
+    const { sheet } = setup({ mode: 'edit', category: 'Hoodie', variant: { ...VARIANT, measurements: own } })
+    await waitFor(() => expect(box(sheet)).toBeEnabled())
+    expect(box(sheet)).not.toBeChecked()
+    expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toHaveValue('99')
+    expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toBeEnabled()
+  })
+
+  it('is unavailable, not broken, when the base measurements fail to load', async () => {
+    vi.mocked(fetchCategoryMeasurements).mockRejectedValueOnce(new ProductListError('server'))
+    const user = userEvent.setup()
+    const { sheet } = setup({ category: 'Hoodie' })
+    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'M')
+    expect(await within(sheet).findByText("Base measurements couldn't load. Enter them by hand.")).toBeInTheDocument()
+    expect(box(sheet)).toBeDisabled()
+    expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toBeEnabled()
+  })
+
+  it('shows no checkbox and fetches nothing without a category', () => {
+    const { sheet } = setup()
+    expect(within(sheet).queryByRole('checkbox', { name: 'Inherit base measurements' })).not.toBeInTheDocument()
+    expect(fetchCategoryMeasurements).not.toHaveBeenCalled()
   })
 })

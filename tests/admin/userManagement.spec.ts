@@ -563,7 +563,7 @@ test.describe('summary card links', () => {
     [/^Customers: \d+, open customer list$/, /\/admin\/users\?tab=customers$/],
     [/^Staff: \d+, open staff list$/, /\/admin\/users\?tab=staff$/],
     [/^Admins: \d+, open admin list$/, /\/admin\/users\?tab=admins$/],
-    [/^Refunds: .*open transactions$/, /\/admin\/transactions$/],
+    [/^Refunds: .*open returned transactions$/, /\/admin\/transactions\?status=returned$/],
     [/^AR-ready products: \d+, /, /\/admin\/inventory\?ar=yes$/],
     [/^Low or out of stock: \d+, /, /\/admin\/inventory$/],
   ]

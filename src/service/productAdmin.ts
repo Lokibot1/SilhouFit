@@ -56,7 +56,7 @@ export interface NewProductInput {
   description?: string
   /** The first image is the primary one. */
   images: { url: string; altText: string; isPrimary: boolean }[]
-  variants: { sku: string; size: string; color: string; colorHex: string; stock: number; price?: number }[]
+  variants: { sku: string; size: string; color: string; colorHex: string; stock: number; price?: number; measurements?: MeasurementsInput }[]
 }
 
 /**
