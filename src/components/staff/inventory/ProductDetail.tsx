@@ -3,7 +3,7 @@ import type { SectionState } from '../../../hooks/useSection'
 import type { ProductListItem, ProductVariant } from '../../../service/fetchProductList'
 import { isArchived } from '../../../utils/inventoryQuery'
 import { parseStock } from '../../../utils/stockEdit'
-import { PencilIcon, PlusIcon, TrashIcon } from '../../form/icons'
+import { InfoIcon, PencilIcon, PlusIcon, TrashIcon } from '../../form/icons'
 import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Checkbox } from '../../ui/Checkbox'
 import { useToast } from '../../toast/useToast'
@@ -13,6 +13,7 @@ import { ArchivedBadge, ArBadge, PriceRange, ProductThumb, RowAction, StockBadge
 import { SoldOutHelper, StockCell } from './StockEditor'
 
 const GROUP_ROW = 'h-11'
+const SKU_HELP = 'SKU (Stock Keeping Unit): the unique code of one size and colour of this product. Stock, carts and orders use it to tell variants apart.'
 const VARIANT_ROW = 'h-14'
 // Below sm the two actions stack so the SKU keeps its room.
 const MANAGED_ROW = 'h-24 sm:h-14'
@@ -76,8 +77,6 @@ export function CopyId({ id, what = 'product' }: { id: string; what?: string }) 
 
 /** What staff can do to a product's details and variants from the drawer. Left out while stock is being edited and for archived products. */
 export interface ManageActions {
-  /** Absent until the product's details have loaded. */
-  onEditDetails?: () => void
   onAddVariant: () => void
   onEditVariant: (variant: ProductVariant) => void
   onDeleteVariant: (variant: ProductVariant) => void
@@ -89,12 +88,12 @@ export const ADD_VARIANT_ID = 'inventory-add-variant'
 const AddVariantButton = ({ onClick }: { onClick: () => void }) => (
   <button type="button" id={ADD_VARIANT_ID} onClick={onClick} className={SECONDARY_BUTTON_SM}>
     <PlusIcon />
-    Add variant
+    Add color{' '}<span className="sr-only">variant</span>
   </button>
 )
 
 /** The product's own facts, taken from the list row so they show before the variants arrive. */
-function Header({ product, manage }: { product: ProductListItem; manage?: ManageActions }) {
+function Header({ product }: { product: ProductListItem }) {
   return (
     <div>
       <div className="flex gap-4">
@@ -109,12 +108,6 @@ function Header({ product, manage }: { product: ProductListItem; manage?: Manage
             <span className="text-xs text-fg tabular-nums">{product.totalStock} in total</span>
             {product.arReady !== undefined && <ArBadge ready={product.arReady} compact />}
           </div>
-          {manage && (
-            <button type="button" disabled={!manage.onEditDetails} onClick={manage.onEditDetails} className={`${SECONDARY_BUTTON_SM} mt-3`}>
-              <PencilIcon />
-              Edit details
-            </button>
-          )}
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
@@ -130,11 +123,12 @@ function Header({ product, manage }: { product: ProductListItem; manage?: Manage
 
 const unique = (values: string[]) => [...new Set(values)]
 
-function Facts({ variants }: { variants: ProductVariant[] }) {
+/** Variant count, colours and sizes; `action` sits at the right end of the same rows. */
+function Facts({ variants, action }: { variants: ProductVariant[]; action?: ReactNode }) {
   const colors = unique(variants.flatMap((v) => v.color ?? []))
   const sizes = unique(variants.flatMap((v) => v.size ?? []))
   return (
-    <dl className="grid grid-cols-[auto_1fr_1fr] gap-x-5 gap-y-1">
+    <dl className="grid grid-cols-[auto_1fr_1fr_auto] gap-x-5 gap-y-1">
       <dt className={FACT_LABEL}>Variants</dt>
       <dt className={FACT_LABEL}>Colors</dt>
       <dt className={FACT_LABEL}>Sizes</dt>
@@ -145,6 +139,7 @@ function Facts({ variants }: { variants: ProductVariant[] }) {
         ))}
       </dd>
       <dd className="min-h-6 text-xs text-fg">{sizes.join(', ')}</dd>
+      {action && <div className="col-start-4 row-span-2 row-start-1 self-center">{action}</div>}
     </dl>
   )
 }
@@ -185,6 +180,7 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
   const groups = new Map<string, ProductVariant[]>()
   for (const variant of variants) groups.set(variant.color ?? '', [...(groups.get(variant.color ?? '') ?? []), variant])
   const th = 'sticky top-0 z-10 h-11 border-b border-line bg-canvas-sub text-left font-semibold text-fg'
+  const columns = manage ? 4 : 3
 
   return (
     <table className="mt-4 w-full table-fixed border-separate border-spacing-0 text-xs">
@@ -201,9 +197,16 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
             Size
           </th>
           <th scope="col" className={th}>
-            SKU
+            <span className="inline-flex items-center gap-1">
+              SKU
+              <Tooltip label={SKU_HELP} describe wrap>
+                <button type="button" aria-label="What is a SKU?" className="flex size-4 cursor-help items-center justify-center rounded-full text-fg-muted hover:text-chrome-strong">
+                  <InfoIcon className="size-3" />
+                </button>
+              </Tooltip>
+            </span>
           </th>
-          <th scope="col" className={`${th} text-right ${manage ? '' : 'pr-3'}`}>
+          <th scope="col" className={`${th.replace('text-left', '')} text-center`}>
             Stock
           </th>
           {manage && (
@@ -216,7 +219,7 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
       {[...groups].map(([color, items]) => (
         <tbody key={color}>
           <tr className={GROUP_ROW}>
-            <th scope="rowgroup" colSpan={manage ? 4 : 3} className="border-b border-line pl-3 text-left font-semibold text-fg">
+            <th scope="rowgroup" colSpan={columns} className="border-b border-line pl-3 text-left text-xs font-medium text-fg">
               <span className="flex items-center gap-2">
                 <Swatch colorHex={items[0].colorHex} />
                 <span className="min-w-0 flex-1 truncate">{color || 'No colour'}</span>
@@ -236,7 +239,7 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
                   {variant.name && <span className="font-ui block text-fg">{variant.name}</span>}
                   {dirty && <span className="block text-fg tabular-nums">Was {variant.stock}</span>}
                 </td>
-                <td className={`border-b border-line ${manage ? '' : 'pr-3'}`}>
+                <td className="border-b border-line text-center">
                   {edit ? (
                     <StockCell
                       variant={variant}
@@ -245,9 +248,9 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
                       onChange={(next) => edit.onChange(variant.id, next)}
                     />
                   ) : (
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-center gap-1">
                       <span className={`text-fg tabular-nums ${level === 'in' ? '' : 'font-semibold'}`}>{variant.stock}</span>
-                      <StockBadge stock={variant.stock} compact />
+                      <StockBadge stock={variant.stock} compact="mini" />
                     </div>
                   )}
                 </td>
@@ -284,7 +287,7 @@ export function ProductDetail({
 }) {
   return (
     <div className="pb-5">
-      <Header product={product} manage={manage} />
+      <Header product={product} />
       {notice}
       {edit?.ar && (
         <div className="mt-4 grid gap-1">
@@ -308,12 +311,7 @@ export function ProductDetail({
               </>
             ) : (
               <>
-                <Facts variants={variants} />
-                {manage && (
-                  <div className="mt-3">
-                    <AddVariantButton onClick={manage.onAddVariant} />
-                  </div>
-                )}
+                <Facts variants={variants} action={manage && <AddVariantButton onClick={manage.onAddVariant} />} />
                 {edit && variants.some((v) => v.stock <= 0) && (
                   <SoldOutHelper count={variants.filter((v) => v.stock <= 0).length} disabled={edit.disabled} onApply={edit.onSetSoldOut} />
                 )}

@@ -53,11 +53,12 @@ export function openRow(event: MouseEvent<HTMLElement>, open: () => void) {
 }
 
 /** The level in words and a dot (filled, ringed or green), so it never rests on colour alone. */
-export function StockBadge({ stock, compact }: { stock: number; compact?: boolean }) {
+/** `compact` is the drawer header's size; `mini` is for table cells, where room is tight. */
+export function StockBadge({ stock, compact }: { stock: number; compact?: boolean | 'mini' }) {
   const level = LEVELS[stockLevel(stock)]
   return (
     <span
-      className={`inline-flex items-center rounded-full border border-line-strong whitespace-nowrap text-fg ${compact ? 'h-5 gap-1 px-1.5 text-xs' : 'h-6 gap-1.5 px-2 text-sm'} ${level.border}`}
+      className={`inline-flex items-center rounded-full border border-line-strong whitespace-nowrap text-fg ${compact === 'mini' ? 'h-4 gap-1 px-1.5 text-[11px] leading-none' : compact ? 'h-5 gap-1 px-1.5 text-xs' : 'h-6 gap-1.5 px-2 text-sm'} ${level.border}`}
     >
       <span aria-hidden="true" className={`shrink-0 rounded-full ${compact ? 'size-1.5' : 'size-2'} ${level.dot}`} />
       {level.label}

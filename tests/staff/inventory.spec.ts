@@ -217,7 +217,7 @@ test.describe('delete product', () => {
 test.describe('add variant', () => {
   async function openAdd(page: Page) {
     const drawer = await openDrawer(page, 'Linen Shirt')
-    await drawer.getByRole('button', { name: 'Add variant', exact: true }).click()
+    await drawer.getByRole('button', { name: 'Add color variant', exact: true }).click()
     const dialog = variantDialog(page, 'Add')
     await expect(dialog).toBeVisible()
     await expect(drawerOf(page, 'Linen Shirt')).toHaveCount(0) // the drawer steps aside
@@ -407,7 +407,7 @@ test.describe('focus regressions', () => {
   test('a 409 on a new variant moves focus to the SKU field', async ({ page }) => {
     await start(page)
     const drawer = await openDrawer(page, 'Linen Shirt')
-    await drawer.getByRole('button', { name: 'Add variant', exact: true }).click()
+    await drawer.getByRole('button', { name: 'Add color variant', exact: true }).click()
     const dialog = variantDialog(page, 'Add')
     await dialog.getByLabel('Size (optional)', { exact: true }).fill('L')
     await dialog.getByLabel('SKU (optional)', { exact: true }).fill('wc-grey-m')
@@ -544,7 +544,7 @@ test.describe('delete variant', () => {
     await expect(confirm).not.toContainText('last variant')
     await expect(confirm.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused()
     await confirm.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await expect(drawerOf(page, 'Linen Shirt').getByRole('button', { name: 'Add variant', exact: true })).toBeFocused()
+    await expect(drawerOf(page, 'Linen Shirt').getByRole('button', { name: 'Add color variant', exact: true })).toBeFocused()
     expect(api.of('DELETE', 'variant')).toHaveLength(0)
 
     await drawerOf(page, 'Linen Shirt').getByRole('button', { name: 'Delete Navy S', exact: true }).click()
@@ -571,8 +571,8 @@ test.describe('delete variant', () => {
     await expect(toast(page, 'Variant deleted')).toBeVisible()
     const after = drawerOf(page, 'Linen Shirt')
     await expect(after.getByText('This product has no variants yet.')).toBeVisible()
-    await expect(after.getByRole('button', { name: 'Add variant', exact: true })).toBeVisible()
-    await expect(after.getByRole('button', { name: 'Edit product', exact: true })).toBeDisabled()
+    await expect(after.getByRole('button', { name: 'Add color variant', exact: true })).toBeVisible()
+    await expect(after.getByRole('button', { name: 'Restock product', exact: true })).toBeDisabled()
     expect(api.rows[0].variants).toHaveLength(0)
   })
 
@@ -767,7 +767,7 @@ test.describe('AR Fitting flag', () => {
   test('the stock editor saves the AR box on its own, with no variant request', async ({ page }) => {
     const api = await start(page)
     const drawer = await openDrawer(page, 'Linen Shirt')
-    await drawer.getByRole('button', { name: 'Edit product', exact: true }).click()
+    await drawer.getByRole('button', { name: 'Restock product', exact: true }).click()
     await expect(drawer.getByText(/not stored yet/)).toHaveCount(0)
     await expect(drawer.getByRole('button', { name: 'Save changes', exact: true })).toBeDisabled()
     await toggleAr(drawer)
@@ -815,13 +815,13 @@ test.describe('loading and error states', () => {
     await expect(drawer.getByRole('button', { name: 'Edit details', exact: true })).toBeEnabled()
   })
 
-  test('a failed detail load says what happened with Retry, and Edit product waits for it', async ({ page }) => {
+  test('a failed detail load says what happened with Retry, and Restock product waits for it', async ({ page }) => {
     await start(page)
     await interceptOnce(page, 'GET', PRODUCT_PATH, failWith(500))
     await rowButton(page, 'Linen Shirt').click()
     const drawer = drawerOf(page, 'Linen Shirt')
     await expect(drawer.getByRole('alert')).toContainText("We couldn't load the variants.")
-    await expect(drawer.getByRole('button', { name: 'Edit product', exact: true })).toBeDisabled()
+    await expect(drawer.getByRole('button', { name: 'Restock product', exact: true })).toBeDisabled()
     await drawer.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(drawer.getByRole('table')).toBeVisible()
   })
@@ -927,7 +927,7 @@ test.describe('keyboard', () => {
   test('the variant sheet traps focus; Escape closes it and the drawer comes back', async ({ page }) => {
     await start(page)
     const drawer = await openDrawer(page, 'Linen Shirt')
-    await drawer.getByRole('button', { name: 'Add variant', exact: true }).click()
+    await drawer.getByRole('button', { name: 'Add color variant', exact: true }).click()
     const dialog = variantDialog(page, 'Add')
     await expect(dialog).toBeVisible()
     const stays = () => dialog.evaluate((el) => el.contains(document.activeElement))
@@ -947,7 +947,7 @@ test.describe('keyboard', () => {
   test('the variant form can be filled and saved with the keyboard alone', async ({ page }) => {
     const api = await start(page)
     const drawer = await openDrawer(page, 'Linen Shirt')
-    await drawer.getByRole('button', { name: 'Add variant', exact: true }).focus()
+    await drawer.getByRole('button', { name: 'Add color variant', exact: true }).focus()
     await page.keyboard.press('Enter')
     const dialog = variantDialog(page, 'Add')
     await dialog.getByLabel('Size (optional)', { exact: true }).focus()
@@ -1063,7 +1063,7 @@ test.describe('dark mode', () => {
     expect(copy.text).not.toBe(copy.bg)
     await prompt(page).getByRole('button', { name: 'Cancel', exact: true }).click()
 
-    await drawerOf(page, 'Linen Shirt').getByRole('button', { name: 'Add variant', exact: true }).click()
+    await drawerOf(page, 'Linen Shirt').getByRole('button', { name: 'Add color variant', exact: true }).click()
     const heading = await colors(variantDialog(page, 'Add').getByRole('heading', { name: 'Add variant' }))
     expect(heading.text).not.toBe(heading.bg)
     const input = await colors(variantDialog(page, 'Add').getByLabel('Price (PHP)', { exact: true }))

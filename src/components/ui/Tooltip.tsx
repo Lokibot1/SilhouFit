@@ -13,10 +13,11 @@ interface BubbleProps {
   id: string
   label: string
   anchor: HTMLElement
+  wrap?: boolean
 }
 
 // Fixed to the viewport (rendered in a portal) so no ancestor clips it, and clamped inside the edges.
-function Bubble({ id, label, anchor }: BubbleProps) {
+function Bubble({ id, label, anchor, wrap }: BubbleProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [place, setPlace] = useState({ left: -9999, top: 0 })
 
@@ -38,7 +39,7 @@ function Bubble({ id, label, anchor }: BubbleProps) {
       animate={{ opacity: 1, scale: 1, transition: FADE }}
       exit={{ opacity: 0, scale: 0.96, transition: FADE }}
       style={place}
-      className="font-ui pointer-events-none fixed z-[100] max-w-[calc(100vw-1rem)] rounded-xl bg-fg px-3 py-1.5 text-sm text-canvas shadow-[0_8px_20px_-8px_rgb(var(--shadow-key)/var(--shadow-b))]"
+      className={`font-ui pointer-events-none fixed z-[100] ${wrap ? 'w-max max-w-[min(18rem,calc(100vw-1rem))]' : 'max-w-[calc(100vw-1rem)]'} rounded-xl bg-fg px-3 py-1.5 text-sm text-canvas shadow-[0_8px_20px_-8px_rgb(var(--shadow-key)/var(--shadow-b))]`}
     >
       {label}
     </motion.div>,
@@ -52,6 +53,8 @@ interface TooltipProps {
   describe?: boolean
   /** Shows the tip while true, for a caller that follows a pointer itself (a chart's readout). Hover and focus then do nothing. */
   open?: boolean
+  /** For a long explanation: the tip wraps at about 18rem instead of running in one line. */
+  wrap?: boolean
   children: ReactNode
 }
 
@@ -59,7 +62,7 @@ interface TooltipProps {
  * A hint for a control. Shows on mouse hover after a short delay and at once on keyboard focus; a touch tap never
  * shows it. Hides on leave, press, blur or Escape.
  */
-export function Tooltip({ label, describe = false, open: controlled, children }: TooltipProps) {
+export function Tooltip({ label, describe = false, open: controlled, wrap, children }: TooltipProps) {
   const id = useId()
   const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null)
   const timer = useRef<number>(undefined)
@@ -100,7 +103,7 @@ export function Tooltip({ label, describe = false, open: controlled, children }:
       onBlur={hide}
     >
       {children}
-      <AnimatePresence>{open && anchor && <Bubble id={id} label={label} anchor={anchor} />}</AnimatePresence>
+      <AnimatePresence>{open && anchor && <Bubble id={id} label={label} anchor={anchor} wrap={wrap} />}</AnimatePresence>
     </span>
   )
 }

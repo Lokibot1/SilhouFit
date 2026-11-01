@@ -4,7 +4,7 @@ import { fetchProductDetail, type ProductDetailFields, type ProductListItem, typ
 import { failureReason, manageFailureReason, removeVariant, saveProduct, saveStocks } from '../../../service/inventoryActions'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { editedVariants, parseStock } from '../../../utils/stockEdit'
-import { AlertIcon, SpinnerIcon } from '../../form/icons'
+import { AlertIcon, ArchiveIcon, BoxIcon, PencilIcon, RestoreIcon, SpinnerIcon, TrashIcon } from '../../form/icons'
 import { useToast } from '../../toast/useToast'
 import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
@@ -17,6 +17,11 @@ import { variantLabel } from './InventoryParts'
 const IDLE = new Promise<{ variants: ProductVariant[]; product?: ProductDetailFields }>(() => {})
 
 const sizes = (n: number) => `${n} ${n === 1 ? 'size' : 'sizes'}`
+
+// The drawer's actions share one row; the visible words are short ("Delete") and the full name ("Delete product") is read out.
+const ACTION_ROW = 'flex flex-nowrap justify-end gap-2'
+const ACTION_SECONDARY = `${SECONDARY_BUTTON_SM} min-w-0 gap-1.5 px-2.5`
+const ACTION_PRIMARY = `${PRIMARY_BUTTON_SM} min-w-0 gap-1.5 px-2.5`
 
 const DISCARD_ID = 'inventory-discard'
 const ARCHIVE_ID = 'inventory-archive'
@@ -136,7 +141,7 @@ export function InventoryDrawer({
   const busy = saving || archiving || removing
   const showEditor = editing && !archived
 
-  // Focus: into the first stock box when editing starts, back to what asked when a confirm step is cancelled, to Edit product when editing ends.
+  // Focus: into the first stock box when editing starts, back to what asked when a confirm step is cancelled, to Restock product when editing ends.
   const bodyRef = useRef<HTMLDivElement>(null)
   const asker = useRef<string | null>(null)
   const editButton = useRef<HTMLButtonElement>(null)
@@ -279,7 +284,6 @@ export function InventoryDrawer({
   const manage =
     product && !showEditor && !archived
       ? {
-          onEditDetails: fields ? () => onEditDetails(product, fields) : undefined,
           onAddVariant,
           onEditVariant,
           onDeleteVariant: (variant: ProductVariant) => ask({ kind: 'delete-variant', variant }, ADD_VARIANT_ID),
@@ -321,13 +325,14 @@ export function InventoryDrawer({
     )
   } else if (product && archived) {
     footer = (
-      <div className={`${row} sm:flex-wrap`}>
-        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={SECONDARY_BUTTON_SM}>
-          Delete product
+      <div className={ACTION_ROW}>
+        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={ACTION_SECONDARY}>
+          <TrashIcon />
+          Delete{' '}<span className="sr-only">product</span>
         </button>
-        <button type="button" disabled={archiving} onClick={() => void changeStatus(false)} className={PRIMARY_BUTTON_SM}>
-          {archiving && <SpinnerIcon />}
-          {archiving ? 'Restoring…' : 'Restore product'}
+        <button type="button" disabled={archiving} onClick={() => void changeStatus(false)} className={ACTION_PRIMARY}>
+          {archiving ? <SpinnerIcon /> : <RestoreIcon />}
+          {archiving ? 'Restoring…' : <>Restore{' '}<span className="sr-only">product</span></>}
         </button>
       </div>
     )
@@ -351,21 +356,28 @@ export function InventoryDrawer({
     )
   } else if (product) {
     footer = (
-      <div className={`${row} sm:flex-wrap`}>
-        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={SECONDARY_BUTTON_SM}>
-          Delete product
+      <div className={ACTION_ROW}>
+        <button type="button" disabled={!fields} onClick={() => fields && onEditDetails(product, fields)} className={ACTION_SECONDARY}>
+          <PencilIcon />
+          Edit{' '}<span className="sr-only">details</span>
         </button>
-        <button type="button" id={ARCHIVE_ID} onClick={() => ask({ kind: 'archive' }, ARCHIVE_ID)} className={SECONDARY_BUTTON_SM}>
-          Archive product
+        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={ACTION_SECONDARY}>
+          <TrashIcon />
+          Delete{' '}<span className="sr-only">product</span>
+        </button>
+        <button type="button" id={ARCHIVE_ID} onClick={() => ask({ kind: 'archive' }, ARCHIVE_ID)} className={ACTION_SECONDARY}>
+          <ArchiveIcon />
+          Archive{' '}<span className="sr-only">product</span>
         </button>
         <button
           ref={editButton}
           type="button"
           disabled={section.state.status === 'error' || (variants !== null && variants.length === 0)}
           onClick={() => setEditing(true)}
-          className={PRIMARY_BUTTON_SM}
+          className={ACTION_PRIMARY}
         >
-          Edit product
+          <BoxIcon size={16} />
+          Restock{' '}<span className="sr-only">product</span>
         </button>
       </div>
     )

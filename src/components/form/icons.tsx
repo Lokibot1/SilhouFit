@@ -417,3 +417,11 @@ export const ReceiptIcon = ({ size = 20, className }: IconProps) => (
     <path d="M9.5 8h5M9.5 12h5" />
   </Icon>
 )
+
+/** A circled "i": more information is on offer. */
+export const InfoIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5.5M12 7.8v.1" />
+  </Icon>
+)

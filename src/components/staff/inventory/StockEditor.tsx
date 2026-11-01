@@ -26,7 +26,7 @@ export function StockCell({
   const name = variantLabel(variant)
   const empty = parseStock(text) === null
   return (
-    <div className="flex flex-col items-end">
+    <div className="flex flex-col items-center">
       <div className="flex items-center">
         <button
           type="button"
