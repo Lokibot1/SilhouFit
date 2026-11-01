@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { invalidateShopColours } from '../../src/hooks/useShopColours'
@@ -6,7 +6,6 @@ import { fetchProductFilters } from '../../src/service/fetchProductFilters'
 import { fetchShopProducts, type ShopApiPage } from '../../src/service/fetchShopProducts'
 import * as service from '../../src/service/promotions'
 import { getPromotions, setPromotions } from '../../src/service/promotions'
-import { addDays, manilaToday } from '../../src/utils/period'
 import { PromotionsPage } from '../../src/views/admin/PromotionsPage'
 import { renderAdmin, setUpAdminDom } from '../shared/adminSession'
 
@@ -174,8 +173,14 @@ describe('Pricing & Promotions page', () => {
     await userEvent.type(within(dialog).getByLabelText('Percent off'), '95')
     expect(within(dialog).getByText('Percent off must be from 1 to 90.')).toBeInTheDocument()
 
-    fireEvent.change(within(dialog).getByLabelText('End date'), { target: { value: addDays(manilaToday().date, -1) } })
-    expect(within(dialog).getByText("End date can't be before the start date.")).toBeInTheDocument()
+    // One field holds both dates; choosing only a first day leaves the end open, and saving says so
+    expect(within(dialog).queryByLabelText('Start date')).toBeNull()
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Sale dates/ }))
+    // the calendar floats in its own layer outside the drawer, so it is found on the screen
+    await userEvent.click(screen.getAllByRole('button', { name: /^[A-Za-z]+ \d{1,2}, \d{4}$/ })[0])
+    expect(within(dialog).getByRole('button', { name: /Select end date/ })).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create promotion' }))
+    expect(await within(dialog).findByText('Choose the last day of the sale.')).toBeInTheDocument()
   })
 
   it('creates a promotion, closes the sheet, shows the toast, the row and the new count', async () => {

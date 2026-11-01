@@ -18,11 +18,12 @@ import { useToast } from '../../toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
+import { DateRangeField } from './DateRangeField'
 import { PromotionAppliesTo } from './PromotionAppliesTo'
 
 /** Placeholders sit clearly dimmer than typed text yet stay above 4.5:1 on the page colour in both themes. */
 const FORM_ID = 'promotion-form'
-const fieldId = (name: PromotionField) => `promo-${name}`
+const fieldId = (name: PromotionField) => `promo-${name === 'endsAt' ? 'startsAt' : name}`
 
 const TYPE_OPTIONS: { value: PromoType; label: string }[] = [
   { value: 'percent', label: 'Percent off' },
@@ -88,6 +89,12 @@ export function PromotionSheet({ open, onClose, promotion }: PromotionSheetProps
                 : raw
     setValues((current) => ({ ...current, [name]: clean }))
     setServerErrors((current) => without(current, name))
+    setFailure(null)
+  }
+
+  function setDates(startsAt: string, endsAt: string) {
+    setValues((current) => ({ ...current, startsAt, endsAt }))
+    setServerErrors((current) => without(without(current, 'startsAt'), 'endsAt'))
     setFailure(null)
   }
 
@@ -212,14 +219,16 @@ export function PromotionSheet({ open, onClose, promotion }: PromotionSheetProps
           />
         </Field>
         <PromotionAppliesTo id={fieldId('appliesTo')} value={values.appliesTo} onChange={setAppliesTo} error={errors.appliesTo} disabled={pending} />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field id={fieldId('startsAt')} label="Start date" error={errors.startsAt}>
-            <input {...input('startsAt')} type="date" />
-          </Field>
-          <Field id={fieldId('endsAt')} label="End date" error={errors.endsAt}>
-            <input {...input('endsAt')} type="date" min={values.startsAt || undefined} />
-          </Field>
-        </div>
+        <DateRangeField
+          id={fieldId('startsAt')}
+          label="Sale dates"
+          start={values.startsAt}
+          end={values.endsAt}
+          error={errors.startsAt ?? errors.endsAt}
+          disabled={pending}
+          onChange={setDates}
+          onBlur={() => setTouched((current) => ({ ...current, startsAt: true, endsAt: true }))}
+        />
         <Field id={fieldId('usageLimit')} label="Usage limit" optional error={errors.usageLimit}>
           <input {...input('usageLimit', { inputMode: 'numeric', className: `${FIELD_INPUT} tabular-nums`, hint: true })} type="text" placeholder="No limit" />
           {hint('usageLimit', 'The most times the code can be used in total. Leave it empty for no limit.')}

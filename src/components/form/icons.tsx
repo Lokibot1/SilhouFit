@@ -425,3 +425,11 @@ export const InfoIcon = ({ size = 16, className }: IconProps) => (
     <path d="M12 11v5.5M12 7.8v.1" />
   </Icon>
 )
+
+/** A wall calendar: pick a date. */
+export const CalendarIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+    <path d="M3.5 10h17M8 3v4M16 3v4" />
+  </Icon>
+)
