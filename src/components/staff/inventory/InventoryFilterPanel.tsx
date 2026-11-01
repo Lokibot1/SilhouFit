@@ -113,18 +113,19 @@ export function InventoryFilterPanel({ open, onClose, query, onApply }: { open: 
               </button>
             ))}
           </div>
-          <label htmlFor="filter-size" className="mt-2 text-xs text-fg-muted">
-            Another size
-          </label>
-          <input
-            id="filter-size"
-            value={draft.size}
-            onChange={(event) => set({ size: event.target.value })}
-            maxLength={MAX_FILTER_TEXT}
-            autoComplete="off"
-            aria-describedby="filter-variant-hint"
-            className={FIELD_INPUT}
-          />
+          <div className="mt-2">
+            <Field id="filter-size" label="Another size">
+              <input
+                id="filter-size"
+                value={draft.size}
+                onChange={(event) => set({ size: event.target.value })}
+                maxLength={MAX_FILTER_TEXT}
+                autoComplete="off"
+                aria-describedby="filter-variant-hint"
+                className={FIELD_INPUT}
+              />
+            </Field>
+          </div>
         </fieldset>
 
         <Field id="filter-color" label="Colour" optional>

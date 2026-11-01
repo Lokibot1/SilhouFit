@@ -16,6 +16,7 @@ import {
   type ProductListItem,
 } from '../../src/service/fetchProductList'
 import { fetchProductFilters } from '../../src/service/fetchProductFilters'
+import { fetchCategoryMeasurements } from '../../src/service/sizeMeasurements'
 import { invalidateShopColours } from '../../src/hooks/useShopColours'
 import { StaffInventoryPage } from '../../src/views/staff/StaffInventoryPage'
 
@@ -28,6 +29,10 @@ vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
 
 vi.mock('../../src/service/productAdmin')
 vi.mock('../../src/service/fetchProductFilters')
+vi.mock('../../src/service/sizeMeasurements', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/sizeMeasurements')>()),
+  fetchCategoryMeasurements: vi.fn(),
+}))
 
 const list = vi.mocked(fetchProductList)
 const byId = vi.mocked(fetchProductById)
@@ -68,6 +73,7 @@ beforeEach(() => {
   rememberShowAlerts(true)
   vi.resetAllMocks()
   invalidateShopColours()
+  vi.mocked(fetchCategoryMeasurements).mockResolvedValue([])
   // Without facets the panel falls back to the usual sizes and plain text fields.
   filters.mockRejectedValue(new ProductListError('network'))
   list.mockResolvedValue(answer([product(1), product(2)]))

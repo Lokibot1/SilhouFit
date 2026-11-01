@@ -90,9 +90,9 @@ async function clearBoth(user: User) {
 }
 
 describe('LoginPage structure', () => {
-  it('shows one form under a "Login Form" h1, with the labelled fields in order', () => {
+  it('shows one form under a "Login" h1, with the labelled fields in order', () => {
     renderPage()
-    expect(screen.getByRole('heading', { level: 1, name: 'Login Form' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Login' })).toBeInTheDocument()
     expect(document.querySelectorAll('form')).toHaveLength(1)
     expect(form()).toContainElement(email())
     expect(form()).toContainElement(password())

@@ -22,6 +22,18 @@ export const norm = (size: string) => size.trim().toLowerCase()
 const hasValue = (m: Measurements | null | undefined): m is Measurements => !!m && MEASUREMENT_KEYS.some((key) => m[key] !== null)
 
 /**
+ * The measurements a variant of this size and category inherits from the category's base rows: only the category's own columns (all of
+ * them when it has none) that the row has a number for. Null when there is no base row for the size, or it has no such number.
+ */
+export function baseMeasurementsFor(category: string, size: string, baseRows: SizeMeasurement[]): Partial<Record<MeasurementKey, number>> | null {
+  const row = baseRows.find((r) => norm(r.size) === norm(size) && hasValue(r))
+  if (!row) return null
+  const columns = COLUMNS_BY_CATEGORY[category] ?? MEASUREMENT_KEYS
+  const picked = Object.fromEntries(columns.flatMap((key) => (row[key] === null ? [] : [[key, row[key]]])))
+  return Object.keys(picked).length > 0 ? picked : null
+}
+
+/**
  * One row per real variant size, smallest first. A size takes the first variant of that size that has any measurement (whole row, never
  * mixed field by field with the base); otherwise the category's base row for it; otherwise it has no values. Columns are the category's
  * defaults plus any other measurement a size has of its own.

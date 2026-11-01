@@ -53,6 +53,8 @@ describe('account menu focus', () => {
     renderBar()
     const avatar = screen.getByRole('button', { name: 'Account, Ana Reyes' })
     await user.click(avatar)
+    expect(screen.getByRole('link', { name: 'Profile' })).toHaveFocus()
+    await user.keyboard('{ArrowUp}') // Tab walks the rows, so go to the last one first
     expect(screen.getByRole('button', { name: 'Sign out' })).toHaveFocus()
     await user.tab()
     await waitFor(() => expect(screen.queryByRole('group', { name: 'Account' })).toBeNull())
