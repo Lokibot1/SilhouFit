@@ -165,7 +165,7 @@ function filtersBody(rows: MockProduct[]) {
   for (const v of variants) if (v.color && v.colorHex) colours.set(`${v.color}|${v.colorHex}`, { name: v.color, hex: v.colorHex })
   const sorted = (values: string[]) => [...new Set(values)].sort((a, b) => a.localeCompare(b))
   return {
-    categories: sorted(active.map((p) => p.category)),
+    categories: sorted(active.map((p) => p.category)).map((name) => ({ name, count: active.filter((p) => p.category === name).length })),
     brands: sorted(active.flatMap((p) => (p.brand ? [p.brand] : []))),
     sizes: sorted(variants.flatMap((v) => (v.size ? [v.size] : []))),
     colors: [...colours.values()].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),

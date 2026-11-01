@@ -19,6 +19,7 @@ import { DURATION } from '../../motion/tokens'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { loadProduct } from '../../hooks/useProducts'
+import { useShopFacets } from '../../hooks/useShopColours'
 import { useShopCatalogue } from '../../hooks/useShopCatalogue'
 import { useCart } from '../../hooks/useCart'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
@@ -50,6 +51,8 @@ export function ShopPage() {
   const toast = useToast()
   const [params, setParams] = useSearchParams()
   const [filtersOpen, setFiltersOpen] = useState(false)
+  // Piece counts for the category pills; none are shown until the filter options load.
+  const counts = useShopFacets(true)?.categories ?? null
   const headingRef = useRef<HTMLHeadingElement>(null)
   const scrollOnPage = useRef(false)
   const listRef = useRef<HTMLUListElement>(null)
@@ -278,6 +281,7 @@ export function ShopPage() {
               <CategoryPills
                 value={category}
                 categories={CATEGORIES}
+                counts={counts}
                 onChange={(next) => update({ category: next })}
               />
             </div>

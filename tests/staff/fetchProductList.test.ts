@@ -284,7 +284,7 @@ describe('status', () => {
 describe('fetchProductFilters', () => {
   it('asks GET /products/filters and shapes the answer', async () => {
     reply({
-      categories: ['Hoodie'],
+      categories: [{ name: 'Hoodie', count: 4 }, { name: 'Pants', count: 0 }, { name: 'Bad', count: -1 }, { name: 'Frac', count: 1.5 }, { name: '', count: 2 }, { count: 3 }, { name: 'Hats' }, 'Shorts', null],
       brands: ['Nike', 7, ''],
       sizes: ['L', 'S'],
       colors: [{ name: 'Navy', hex: '#1b2a49' }, { name: 'navy', hex: '#000080' }, { name: 'Sand', hex: '' }, { name: 'Black' }, { hex: '#fff' }, null],
@@ -294,7 +294,7 @@ describe('fetchProductFilters', () => {
     const filters = await fetchProductFilters()
     expect(requested().pathname).toBe('/products/filters')
     expect(filters).toEqual({
-      categories: ['Hoodie'],
+      categories: [{ name: 'Hoodie', count: 4 }, { name: 'Pants', count: 0 }],
       brands: ['Nike'],
       sizes: ['L', 'S'],
       colors: [{ name: 'Navy', hex: '#1b2a49' }, { name: 'Sand', hex: null }, { name: 'Black', hex: null }],

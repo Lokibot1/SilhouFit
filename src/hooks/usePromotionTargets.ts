@@ -8,7 +8,7 @@ import { useSection } from './useSection'
 /** Products shown per search; the picker says when there are more. */
 export const PICKER_PAGE = 8
 
-const loadCategories = () => facets().then((found) => found.categories)
+const loadCategories = () => facets().then((found) => found.categories.map((category) => category.name))
 
 /** The real product categories from GET /products/filters, kept for the session and shared with the shop's filters; a failure can be retried. */
 export function useProductCategories() {

@@ -1,15 +1,20 @@
 import { motion } from 'motion/react'
 import type { Category } from '../../data/products'
+import type { CategoryFacet } from '../../service/fetchProductFilters'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
+import { categoryCount } from '../../utils/categoryCount'
+import { CategoryLabel } from './CategoryLabel'
 
 interface CategoryPillsProps {
   value: Category | 'all'
   /** Every category to offer, in display order. */
   categories: readonly string[]
+  /** Active products per category, or null until known (no numbers show). */
+  counts: CategoryFacet[] | null
   onChange: (category: Category | 'all') => void
 }
 
-export function CategoryPills({ value, categories, onChange }: CategoryPillsProps) {
+export function CategoryPills({ value, categories, counts, onChange }: CategoryPillsProps) {
   return (
     <div role="group" aria-label="Filter by category" className="-mx-6 -mb-2 overflow-x-auto px-6 pt-1 pb-3">
       <div className="flex w-max gap-2">
@@ -31,7 +36,7 @@ export function CategoryPills({ value, categories, onChange }: CategoryPillsProp
                   transition={{ duration: DURATION.state, ease: EASE_OUT }}
                 />
               )}
-              <span className="relative">{category === 'all' ? 'All' : category}</span>
+              <CategoryLabel name={category === 'all' ? 'All' : category} count={categoryCount(counts, category)} />
             </button>
           )
         })}

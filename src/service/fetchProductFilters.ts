@@ -1,8 +1,14 @@
 import { ProductListError, request } from './fetchProductList'
 import type { RequestOptions } from './simulateRequest'
 
+/** A category with the number of active products in it. */
+export interface CategoryFacet {
+  name: string
+  count: number
+}
+
 export interface ProductFilterOptions {
-  categories: string[]
+  categories: CategoryFacet[]
   brands: string[]
   /** Alphabetical, as the API sends them; order them for display with `orderSizes`. */
   sizes: string[]
@@ -14,6 +20,12 @@ export interface ProductFilterOptions {
 }
 
 const strings = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item !== '') : [])
+const categoryFacets = (value: unknown) =>
+  (Array.isArray(value) ? value : []).flatMap((entry): CategoryFacet[] => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const { name, count } = entry as Record<string, unknown>
+    return typeof name === 'string' && name !== '' && typeof count === 'number' && Number.isInteger(count) && count >= 0 ? [{ name, count }] : []
+  })
 const amount = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : 0)
 
 /** GET /products/filters: what the active products offer, in one request. Public. */
@@ -27,5 +39,5 @@ export async function fetchProductFilters({ signal }: RequestOptions = {}): Prom
     const { name, hex } = entry as Record<string, unknown>
     if (typeof name === 'string' && name !== '' && !byName.has(name.toLowerCase())) byName.set(name.toLowerCase(), { name, hex: typeof hex === 'string' && hex !== '' ? hex : null })
   }
-  return { categories: strings(categories), brands: strings(brands), sizes: strings(sizes), colors: [...byName.values()], minPrice: amount(minPrice), maxPrice: amount(maxPrice) }
+  return { categories: categoryFacets(categories), brands: strings(brands), sizes: strings(sizes), colors: [...byName.values()], minPrice: amount(minPrice), maxPrice: amount(maxPrice) }
 }

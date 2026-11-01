@@ -3,6 +3,8 @@ import type { Category, ProductGender } from '../../data/products'
 import { sameColour, useShopColours, useShopFacets, validColour } from '../../hooks/useShopColours'
 import { filterPriceInput, parseFilterPrice, withCommas } from '../../utils/format'
 import { COMMON_SIZES, GENDER_OPTIONS, orderSizes, type ProductFilters } from '../../utils/productQuery'
+import { categoryCount } from '../../utils/categoryCount'
+import { CategoryLabel } from './CategoryLabel'
 import { Modal } from '../ui/Modal'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 
@@ -110,7 +112,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
                 onClick={() => setDraft({ ...draft, category: c })}
                 className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! min-w-11 gap-1.5 px-3 text-xs`}
               >
-                {c === 'all' ? 'All' : c}
+                <CategoryLabel name={c === 'all' ? 'All' : c} count={categoryCount(facets?.categories ?? null, c)} />
               </button>
             ))}
           </div>

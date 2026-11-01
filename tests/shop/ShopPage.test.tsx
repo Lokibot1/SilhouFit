@@ -51,7 +51,7 @@ const piece = (n: number, overrides: Partial<Product> = {}): Product => ({
 
 const answer = (products: Product[], total = products.length) => ({ products, total, page: 1, pageCount: Math.max(1, Math.ceil(total / 12)) })
 const facets = {
-  categories: ['Hoodie'],
+  categories: [{ name: 'Hoodie', count: 4 }, { name: 'pants', count: 1 }],
   brands: ['Ayala Atelier'],
   sizes: ['L', 'M', 'S', 'XS'],
   colors: [{ name: 'Black', hex: '#111111' }, { name: 'Navy', hex: '#1b2a49' }, { name: 'Sand', hex: '#d8c3a5' }],
@@ -172,7 +172,36 @@ describe('ShopPage categories', () => {
     renderPage()
     await loaded()
     const pills = within(screen.getByRole('group', { name: 'Filter by category' })).getAllByRole('button')
-    expect(pills.map((b) => b.textContent)).toEqual(['All', 'Hoodie', 'Pants', 'Headwear', 'Shorts'])
+    expect(pills.map((b) => b.textContent?.replace(/, \d+ pieces?\d+$/, ''))).toEqual(['All', 'Hoodie', 'Pants', 'Headwear', 'Shorts'])
+  })
+
+  it('shows each category count (matched ignoring case) and the total on All, in the accessible names', async () => {
+    renderPage()
+    await loaded()
+    const group = screen.getByRole('group', { name: 'Filter by category' })
+    expect(await within(group).findByRole('button', { name: 'All, 5 pieces' })).toBeInTheDocument()
+    expect(within(group).getByRole('button', { name: 'Hoodie, 4 pieces' })).toHaveTextContent('Hoodie, 4 pieces4')
+    expect(within(group).getByRole('button', { name: 'Pants, 1 piece' })).toBeInTheDocument()
+    expect(within(group).getByRole('button', { name: 'Shorts, 0 pieces' })).toBeInTheDocument()
+  })
+
+  it('shows the counts in the Filters dialog too', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await loaded()
+    const dialog = await openFilters(user)
+    expect(await within(dialog).findByRole('button', { name: 'Hoodie, 4 pieces' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'All, 5 pieces' })).toBeInTheDocument()
+  })
+
+  it('shows plain names with no counts when the filter options cannot be read', async () => {
+    filters.mockRejectedValue(new ProductListError('network'))
+    renderPage()
+    await loaded()
+    const group = screen.getByRole('group', { name: 'Filter by category' })
+    await waitFor(() => expect(filters).toHaveBeenCalled())
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Hoodie', 'Pants', 'Headwear', 'Shorts'])
+    expect(within(group).getByRole('button', { name: 'Hoodie' })).toBeInTheDocument()
   })
 })
 

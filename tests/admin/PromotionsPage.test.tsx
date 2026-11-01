@@ -35,7 +35,7 @@ const shopPage = (search?: string): ShopApiPage => {
   const found = CATALOG.filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
   return { products: found.map((p) => ({ ...p, image: '' })), total: found.length, page: 1, pageCount: 1 } as unknown as ShopApiPage
 }
-const filters = (categories: string[]) => ({ categories, brands: [], sizes: [], colors: [], minPrice: 0, maxPrice: 0 })
+const filters = (categories: string[]) => ({ categories: categories.map((name) => ({ name, count: 1 })), brands: [], sizes: [], colors: [], minPrice: 0, maxPrice: 0 })
 
 beforeAll(setUpAdminDom)
 beforeEach(() => {
