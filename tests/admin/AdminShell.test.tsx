@@ -126,9 +126,8 @@ describe('admin dashboard', () => {
     expect(screen.getByText('sales widgets')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Manage users' })).toHaveAttribute('href', '/admin/users')
     expect(await screen.findByRole('heading', { name: 'Activity Logs' })).toBeInTheDocument()
-    // Sample orders, transactions and product changes are listed next to the account changes, with a category filter.
+    // Sample orders, transactions and product changes are listed next to the account changes.
     expect(await screen.findByText('Order placed: SF-10231')).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Filter activity logs by category' })).toBeInTheDocument()
     expect(screen.queryByText('Recent activity')).toBeNull()
   })
 })

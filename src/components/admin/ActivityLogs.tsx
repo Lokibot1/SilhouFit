@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react'
+import type { ComponentType } from 'react'
 import { useSection } from '../../hooks/useSection'
 import { getActivityLogs } from '../../service/activityLogs'
 import type { ActivityAction, ActivityCategory } from '../../types/activityLogs'
@@ -20,7 +20,6 @@ import {
   XIcon,
 } from '../form/icons'
 import { EmptyNote, SectionBody, StaffSection } from '../staff/StaffSection'
-import { Select } from '../ui/Select'
 import { ViewAllLink } from '../staff/ViewAllLink'
 
 type Icon = ComponentType<{ size?: 16 | 20; className?: string }>
@@ -55,9 +54,6 @@ export const ACTIONS: Record<ActivityAction, { label: string; icon: Icon }> = {
   'size-measurements-updated': { label: 'Size measurements updated', icon: RulerIcon },
   'ar-model-added': { label: 'AR model added', icon: ArIcon },
 }
-
-type Filter = 'all' | ActivityCategory
-const FILTERS = [{ value: 'all' as Filter, label: 'All' }, ...Object.entries(CATEGORIES).map(([value, { label }]) => ({ value: value as Filter, label }))]
 
 const ZONE = 'Asia/Manila'
 const day = (date: Date) => date.toLocaleDateString('en-CA', { timeZone: ZONE })
@@ -99,36 +95,23 @@ function LogSkeleton({ window }: { window: string }) {
 /** What admins, staff and customers did across accounts, orders, transactions and products, newest first. */
 export function ActivityLogs() {
   const section = useSection(getActivityLogs)
-  const [filter, setFilter] = useState<Filter>('all')
   return (
     <StaffSection
       id="activity-logs"
       title="Activity Logs"
-      description={section.state.status === 'success' ? count(section.state.data.length, filter, section.state.data) : 'Recent actions across the shop'}
-      action={
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-36 shrink-0 pointer-coarse:h-11 max-md:h-11">
-            <Select label="Filter activity logs by category" value={filter} options={FILTERS} onChange={setFilter} className="h-full" />
-          </div>
-          <ViewAllLink to="/admin/activity-logs" what="activity logs" />
-        </div>
-      }
+      description={section.state.status === 'success' ? count(section.state.data.length) : 'Recent actions across the shop'}
+      action={<ViewAllLink to="/admin/activity-logs" what="activity logs" />}
     >
       <SectionBody section={section} what="the activity logs" skeleton={<LogSkeleton window={DASHBOARD_WINDOW} />}>
         {(logs) => {
-          const shown = logs.filter((log) => filter === 'all' || log.category === filter)
-          return shown.length === 0 ? (
+          return logs.length === 0 ? (
             <div className={DASHBOARD_WINDOW}>
-              <EmptyNote>
-                {filter === 'all'
-                  ? 'No activity yet. Orders, payments, product changes and account changes are logged here.'
-                  : `No ${CATEGORIES[filter].label.toLowerCase()} activity yet. Choose All to see everything.`}
-              </EmptyNote>
+              <EmptyNote>No activity yet. Orders, payments, product changes and account changes are logged here.</EmptyNote>
             </div>
           ) : (
             // A scrolling list needs to be reachable by keyboard.
             <ul tabIndex={0} aria-labelledby="activity-logs" className={`${DASHBOARD_WINDOW} divide-y divide-line overflow-y-auto`}>
-              {shown.map((log) => {
+              {logs.map((log) => {
                 const { label, icon: Icon } = ACTIONS[log.action]
                 return (
                   <li key={log.id} className={`${ROW} flex items-center gap-3`}>
@@ -158,9 +141,7 @@ export function ActivityLogs() {
   )
 }
 
-/** "51 entries", or "12 of 51 entries" while a category is chosen. */
-function count(total: number, filter: Filter, logs: { category: ActivityCategory }[]) {
-  const n = filter === 'all' ? total : logs.filter((log) => log.category === filter).length
-  const words = n === 1 ? 'entry' : 'entries'
-  return filter === 'all' ? `${n} ${words}` : `${n} of ${total} ${words}`
+/** "51 entries". */
+function count(total: number) {
+  return `${total} ${total === 1 ? 'entry' : 'entries'}`
 }

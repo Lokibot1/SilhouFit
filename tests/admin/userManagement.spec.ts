@@ -752,15 +752,9 @@ test.describe('accounts are genuinely interactive', () => {
     await expect(logs.getByText('Staff account created: Nora Vega')).toBeVisible()
     await expect(logs.getByText('Password reset: Sam Reyes')).toBeVisible()
     await expect(logs.getByText('Staff archived: Sam Reyes')).toBeVisible()
-    // The live changes sit above the sample entries, and the category filter narrows the list.
+    // The live changes sit above the sample entries.
     await expect(logs.getByRole('listitem').first()).toContainText('Staff archived: Sam Reyes')
-    await logs.getByRole('combobox', { name: 'Filter activity logs by category' }).click()
-    await page.getByRole('option', { name: 'Orders', exact: true }).click()
     await expect(logs.getByText('Order placed: SF-10231')).toBeVisible()
-    await expect(logs.getByText('Staff archived: Sam Reyes')).toHaveCount(0)
-    await expect(logs.getByText(/^\d+ of \d+ entries$/)).toBeVisible()
-    await logs.getByRole('combobox', { name: 'Filter activity logs by category' }).click()
-    await page.getByRole('option', { name: 'All', exact: true }).click()
     await expect(logs.getByText(/Today, \d{1,2}:\d{2} (AM|PM)/).first()).toBeVisible()
     const orders = page.locator('section[aria-labelledby="order-log"]')
     await expect(orders.getByRole('listitem').first()).toBeVisible()

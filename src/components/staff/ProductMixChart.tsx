@@ -46,6 +46,8 @@ export function ProductMixChart() {
 // Half the ring's stroke width (6) and the visible gap between arcs, in the ring's 100-unit circumference.
 const CAP = 3
 const GAP = 1.5
+// A round-capped dot is two caps wide, so a slice needs at least that much room plus the gap or it touches its neighbours.
+const MIN_SHARE = (CAP * 2 + GAP) / 100 + 0.005
 
 function withOther(mix: ProductMixItem[]) {
   if (mix.length <= SLICES) return mix
@@ -58,6 +60,10 @@ function DonutFigure({ mix }: { mix: ProductMixItem[] }) {
   const slices = withOther(mix)
   const slot = (i: number) => (mix.length > SLICES && i === SLICES - 1 ? SLICES : i)
   const segments = donutSegments(slices.map((s) => s.units))
+  // Where each arc is drawn: tiny slices are widened to MIN_SHARE and the rest give up that room. The labels keep the true shares.
+  const small = segments.filter((segment) => segment.share < MIN_SHARE)
+  const room = segments.length > 1 && small.length > 0 && small.length < segments.length ? (1 - small.length * MIN_SHARE) / (1 - small.reduce((sum, segment) => sum + segment.share, 0)) : 1
+  const layout = donutSegments(segments.map((segment) => (room !== 1 && segment.share < MIN_SHARE ? MIN_SHARE : segment.share * room)))
   const total = slices.reduce((sum, s) => sum + s.units, 0)
   // Hover or keyboard focus previews a category; a click or tap pins it, which is how touch gets it.
   const [hover, setHover] = useState<number | null>(null)
@@ -75,9 +81,9 @@ function DonutFigure({ mix }: { mix: ProductMixItem[] }) {
     <motion.figure ref={ref} {...fade}>
       <div className={`relative ${DONUT_SIZE} mx-auto`}>
         <svg viewBox="0 0 42 42" aria-hidden="true" className="size-full">
-          {segments.map((segment, i) => {
+          {layout.map((segment, i) => {
             // Round caps stick out by half the stroke at each end, so the arc is pulled in by that much plus a small gap.
-            const round = segments.length > 1
+            const round = layout.length > 1
             const length = round ? Math.max(0.01, segment.share * 100 - CAP * 2 - GAP) : segment.length
             const start = round ? segment.start + CAP + GAP / 2 : segment.start
             const dash = (arc: number) => `${arc} ${100 - arc}`
