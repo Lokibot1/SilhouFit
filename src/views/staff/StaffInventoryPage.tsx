@@ -638,6 +638,7 @@ export function StaffInventoryPage() {
         <VariantSheet
           mode={variantSheet.mode}
           productId={selected.id}
+          category={selected.category}
           variant={variantSheet.variant}
           onSaved={() => {
             toast.show({

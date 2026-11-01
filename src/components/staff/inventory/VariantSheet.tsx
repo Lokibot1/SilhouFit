@@ -24,6 +24,7 @@ import {
 import { AlertIcon, PlusIcon, SpinnerIcon } from '../../form/icons'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
+import { COLUMNS_BY_CATEGORY } from '../../../utils/sizeMeasurementValidation'
 import { Field, FIELD_INPUT } from './FormField'
 import { pickerValue } from './VariantBuilder'
 
@@ -42,6 +43,8 @@ interface Banner {
 interface VariantSheetProps {
   mode: 'add' | 'edit'
   productId: string
+  /** The product's category, which decides the measurements asked for. Left out, all nine are. */
+  category?: string
   /** The variant being edited. */
   variant?: ProductVariant
   /** The variant was saved. The page closes the sheet, refreshes and shows the toast. */
@@ -50,9 +53,13 @@ interface VariantSheetProps {
 }
 
 /** Add a variant to a product, or edit one: size, colour, name, SKU, price, an optional image and the garment measurements AR Fitting uses. Mount it fresh for each variant. */
-export function VariantSheet({ mode, productId, variant, onSaved, onClose }: VariantSheetProps) {
+export function VariantSheet({ mode, productId, category, variant, onSaved, onClose }: VariantSheetProps) {
   const editing = mode === 'edit' && variant !== undefined
   const [values, setValues] = useState(() => variantFormValues(variant))
+  // Only the measurements that make sense for the category (no sleeve on pants). One the variant already has stays, so it can still be changed or
+  // cleared; it is decided once, so a box does not vanish as it is emptied.
+  const columns = category ? COLUMNS_BY_CATEGORY[category] : undefined
+  const [fields] = useState(() => (columns ? MEASUREMENT_FIELDS.filter(({ key }) => columns.includes(key) || variantFormValues(variant).measurements[key]) : MEASUREMENT_FIELDS))
   const [image, setImage] = useState<{ file: File; preview: string } | null>(null)
   const [imageNote, setImageNote] = useState<string>()
   const [progress, setProgress] = useState<number>()
@@ -382,9 +389,11 @@ export function VariantSheet({ mode, productId, variant, onSaved, onClose }: Var
 
           <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
             <legend className="text-sm font-semibold text-fg">AR garment measurements (cm)</legend>
-            <p className="text-sm text-fg-muted">Optional. AR Fitting compares these with the shopper&apos;s body to show how the garment fits.</p>
+            <p className="text-sm text-fg-muted">
+              Optional. AR Fitting compares these with the shopper&apos;s body to show how the garment fits.{columns && ` Only the ones that apply to ${category?.toLowerCase()} are shown.`}
+            </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {MEASUREMENT_FIELDS.map(({ key, label, min, max }) => {
+              {fields.map(({ key, label, min, max }) => {
                 const id = `vs-m-${key}`
                 const problem = error(`m:${key}`)
                 return (

@@ -174,3 +174,32 @@ describe('VariantSheet', () => {
     await waitFor(() => expect(within(sheet).getByRole('button', { name: 'Add variant' })).toHaveFocus())
   })
 })
+
+describe('VariantSheet measurements by category', () => {
+  const has = (sheet: HTMLElement, name: string) => within(sheet).queryByRole('textbox', { name }) !== null
+
+  it('asks only for the measurements that apply to the category', () => {
+    const { sheet } = setup({ category: 'Pants' })
+    for (const name of ['Waist width', 'Hip width', 'Inseam', 'Thigh', 'Total length']) expect(has(sheet, name)).toBe(true)
+    for (const name of ['Sleeve length', 'Chest width', 'Shoulder width', 'Neck']) expect(has(sheet, name)).toBe(false)
+  })
+
+  it('leaves out inseam and thigh for a hoodie', () => {
+    const { sheet } = setup({ category: 'Hoodie' })
+    expect(has(sheet, 'Sleeve length')).toBe(true)
+    expect(has(sheet, 'Inseam')).toBe(false)
+    expect(has(sheet, 'Thigh')).toBe(false)
+  })
+
+  it('keeps a measurement the variant already has, even if the category does not use it', () => {
+    const { sheet } = setup({ mode: 'edit', category: 'Pants', variant: { ...VARIANT, measurements: { ...Object.fromEntries(['chestWidthCm', 'waistWidthCm', 'hipWidthCm', 'totalLengthCm', 'inseamCm', 'shoulderWidthCm', 'sleeveLengthCm', 'neckCm', 'thighCm'].map((k) => [k, null])), sleeveLengthCm: 60 } as ProductVariant['measurements'] } })
+    expect(has(sheet, 'Sleeve length')).toBe(true)
+    expect(has(sheet, 'Chest width')).toBe(false)
+  })
+
+  it('shows all nine when the category is not known', () => {
+    const { sheet } = setup()
+    expect(has(sheet, 'Sleeve length')).toBe(true)
+    expect(has(sheet, 'Inseam')).toBe(true)
+  })
+})
