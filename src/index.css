@@ -1216,6 +1216,74 @@
   }
 }
 
+/* Compact variant of the outlined floating field, for the staff and admin sheets and drawers. 44px and 16px on touch screens and phones
+   (tap target, no iOS zoom), 36px and 14px on desktop. */
+@layer components {
+  .field--compact {
+    --field-h: 44px;
+    --field-pad-l: 12px;
+  }
+
+  .field--compact .field__input {
+    padding: 0 12px;
+  }
+
+  .field--compact .field__input:disabled {
+    opacity: 0.6;
+  }
+
+  .field--compact textarea.field__input {
+    height: auto;
+    min-height: calc(var(--field-h) * 2);
+    padding-top: 10px;
+    padding-bottom: 10px;
+    line-height: 1.4;
+  }
+
+  /* A taller box: the label rests on its first line instead of its middle. */
+  .field--compact:has(textarea) .field__label {
+    top: calc(var(--field-h) / 2);
+  }
+
+  /* A date box always shows its format, so its label is always up. */
+  .field--floated .field__label {
+    max-width: calc(100% - 38px);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transform: translate(19px, calc(-50% - var(--field-h) / 2));
+  }
+
+  .field--floated .field__outline legend {
+    max-width: 100%;
+  }
+
+  @media (min-width: 768px) and (pointer: fine) {
+    .field--compact {
+      --field-h: 36px;
+    }
+
+    .field--compact .field__input,
+    .field--compact .field__label {
+      font-size: 14px;
+    }
+
+    .field--floated .field__label {
+      font-size: 11px;
+    }
+  }
+}
+
+/* Unlayered, so it also beats a placeholder colour set by a utility class: the hint shows only once the label has moved up. */
+.field--compact .field__input:not(:focus)::placeholder {
+  color: transparent;
+}
+
+.field--compact .field__input:focus::placeholder {
+  color: var(--fg-muted);
+}
+
 /* Theme swap: circular reveal from the toggle via View Transitions. ThemeContext sets the
    coordinates inline; the defaults only cover the unset case. */
 ::view-transition-old(root),

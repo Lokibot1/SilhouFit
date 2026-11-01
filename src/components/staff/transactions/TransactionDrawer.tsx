@@ -27,16 +27,16 @@ const TH = 'sticky top-0 z-10 h-11 border-b border-line bg-canvas-sub px-3 text-
 function Header({ transaction }: { transaction: TransactionListItem }) {
   return (
     <div>
-      <p className="text-lg font-semibold text-fg">{transaction.customerName}</p>
-      <p className="text-sm text-fg-muted">
+      <p className="text-base font-semibold text-fg">{transaction.customerName}</p>
+      <p className="text-xs text-fg-muted">
         <PlacedAt iso={transaction.placedAt} />
       </p>
-      <p className="mt-2 flex flex-wrap items-baseline gap-x-3 text-sm text-fg-muted">
+      <p className="mt-2 flex flex-wrap items-baseline gap-x-3 text-xs text-fg-muted">
         <span className="tabular-nums">{itemsLabel(transaction.itemCount)}</span>
-        <span className="text-lg font-semibold text-fg tabular-nums">{formatPeso(transaction.total)}</span>
+        <span className="text-base font-semibold text-fg tabular-nums">{formatPeso(transaction.total)}</span>
       </p>
       {transaction.returnedAt && (
-        <div className="mt-2 rounded-xl border border-line bg-canvas-sub p-3 text-sm">
+        <div className="mt-2 rounded-xl border border-line bg-canvas-sub p-3 text-xs">
           <ReturnedBadge />
           <p className="mt-2 text-fg">
             Returned on <PlacedAt iso={transaction.returnedAt} />
@@ -61,7 +61,7 @@ function Contact({ detail }: { detail: TransactionDetail | null }) {
   if (!detail) return <Bar className="h-28 w-full" />
   const { customer } = detail
   return (
-    <dl className="grid gap-2 rounded-xl border border-line bg-canvas-sub p-3 text-sm">
+    <dl className="grid gap-2 rounded-xl border border-line bg-canvas-sub p-3 text-xs">
       {customer && (
         <>
           <div className="flex gap-3">
@@ -124,7 +124,7 @@ function LineThumb({ line }: { line: TransactionLine }) {
 function Lines({ detail, total }: { detail: TransactionDetail; total: number }) {
   return (
     <>
-      <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
+      <table className="w-full table-fixed border-separate border-spacing-0 text-xs">
         <caption className="sr-only">Items in this order with category, units, unit price and line total</caption>
         <colgroup>
           <col />
@@ -162,7 +162,7 @@ function Lines({ detail, total }: { detail: TransactionDetail; total: number }) 
           ))}
         </tbody>
       </table>
-      <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 px-3 text-sm">
+      <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 px-3 text-xs">
         <dt className="text-fg-muted">Subtotal</dt>
         <dd className="text-right text-fg tabular-nums">{formatPeso(detail.subtotal)}</dd>
         <dt className="font-semibold text-fg">Total</dt>
@@ -234,12 +234,12 @@ export function TransactionDrawer({ transaction, open, session, onClose }: Trans
               <Header transaction={transaction} />
               {section.state.status !== 'error' && (
                 <section>
-                  <h3 className="mb-2 text-sm font-semibold text-fg">Customer and payment</h3>
+                  <h3 className="mb-2 text-xs font-semibold text-fg">Customer and payment</h3>
                   <Contact detail={detail} />
                 </section>
               )}
               <section>
-                <h3 className="mb-2 text-sm font-semibold text-fg">Items</h3>
+                <h3 className="mb-2 text-xs font-semibold text-fg">Items</h3>
                 <SectionBody section={section} what="the items" skeleton={<LinesSkeleton />}>
                   {(loaded) =>
                     loaded.lines.length === 0 ? <EmptyNote>This order has no items.</EmptyNote> : <Lines detail={loaded} total={transaction.total} />

@@ -7,11 +7,11 @@ const STATUS = {
 } as const
 
 /** The status in words and a dot (filled, ringed or dashed), so it never rests on colour alone. */
-export function StatusBadge({ status }: { status: AccountStatus }) {
+export function StatusBadge({ status, compact }: { status: AccountStatus; compact?: boolean }) {
   const { label, dot } = STATUS[status]
   return (
-    <span className="font-ui inline-flex h-6 items-center gap-1.5 rounded-full border border-line-strong px-2 text-sm whitespace-nowrap text-fg">
-      <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${dot}`} />
+    <span className={`font-ui inline-flex items-center rounded-full border border-line-strong whitespace-nowrap text-fg ${compact ? 'h-5 gap-1 px-1.5 text-xs' : 'h-6 gap-1.5 px-2 text-sm'}`}>
+      <span aria-hidden="true" className={`shrink-0 rounded-full ${compact ? 'size-1.5' : 'size-2'} ${dot}`} />
       {label}
     </span>
   )

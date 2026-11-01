@@ -151,30 +151,30 @@ export function InventoryFilterPanel({ open, onClose, query, onApply }: { open: 
         <fieldset className="grid gap-1">
           <legend className="text-sm font-semibold text-fg">Variant price (PHP)</legend>
           <div className="mt-1 grid grid-cols-2 gap-3">
-            <label className="font-ui text-xs text-fg-muted">
-              Minimum
+            <Field id="filter-min" label="Minimum">
               <input
+                id="filter-min"
                 inputMode="decimal"
                 value={draft.min}
                 onChange={(event) => set({ min: filterPriceInput(event.target.value) ?? draft.min })}
                 placeholder="0"
                 aria-invalid={invalidRange}
                 aria-describedby={invalidRange ? 'filter-price-error' : undefined}
-                className={`${FIELD_INPUT} mt-1 text-right tabular-nums`}
+                className={`${FIELD_INPUT} text-right tabular-nums`}
               />
-            </label>
-            <label className="font-ui text-xs text-fg-muted">
-              Maximum
+            </Field>
+            <Field id="filter-max" label="Maximum">
               <input
+                id="filter-max"
                 inputMode="decimal"
                 value={draft.max}
                 onChange={(event) => set({ max: filterPriceInput(event.target.value) ?? draft.max })}
                 placeholder="Any"
                 aria-invalid={invalidRange}
                 aria-describedby={invalidRange ? 'filter-price-error' : undefined}
-                className={`${FIELD_INPUT} mt-1 text-right tabular-nums`}
+                className={`${FIELD_INPUT} text-right tabular-nums`}
               />
-            </label>
+            </Field>
           </div>
           {invalidRange && (
             <p id="filter-price-error" role="alert" className="text-sm text-danger">

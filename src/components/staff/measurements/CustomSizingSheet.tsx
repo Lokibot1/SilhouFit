@@ -85,8 +85,8 @@ export function CustomSizingSheet({ sizing, category, onSaved, onClose }: Custom
       )}
       <form id={FORM_ID} noValidate hidden={discarding} onSubmit={submit} className="grid gap-5 pb-5">
         <div className="grid gap-1">
-          <p className="text-sm font-semibold text-fg">Category</p>
-          <p className="min-h-11 content-center text-base text-fg">{category}</p>
+          <p className="text-xs text-fg-muted">Category</p>
+          <p className="text-sm text-fg">{category}</p>
         </div>
         {editing && (
           <p className="text-sm text-fg-muted">

@@ -13,7 +13,7 @@ import {
   type PromotionFormValues,
 } from '../../../utils/promotionValidation'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
-import { Field, FIELD_INPUT } from '../../staff/inventory/FormField'
+import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../../staff/inventory/FormField'
 import { useToast } from '../../toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
@@ -21,7 +21,6 @@ import { Select } from '../../ui/Select'
 import { PromotionAppliesTo } from './PromotionAppliesTo'
 
 /** Placeholders sit clearly dimmer than typed text yet stay above 4.5:1 on the page colour in both themes. */
-const PLACEHOLDER = 'placeholder:text-[color-mix(in_srgb,var(--fg-muted)_85%,var(--canvas))] dark:placeholder:text-[color-mix(in_srgb,var(--fg-muted)_72%,var(--canvas))]'
 const FORM_ID = 'promotion-form'
 const fieldId = (name: PromotionField) => `promo-${name}`
 
@@ -199,31 +198,18 @@ export function PromotionSheet({ open, onClose, promotion }: PromotionSheetProps
           <input {...input('name')} type="text" />
         </Field>
         <Field id={fieldId('code')} label="Code" count={{ value: values.code.length, max: PROMO_LIMITS.codeMax }} error={errors.code}>
-          <input {...input('code', { className: `${FIELD_INPUT} ${PLACEHOLDER} font-mono uppercase`, hint: true })} type="text" placeholder="SUMMER20" />
+          <input {...input('code', { className: `${FIELD_INPUT} font-mono uppercase`, hint: true })} type="text" placeholder="SUMMER20" />
           {hint('code', 'Shoppers type this at checkout. Capital letters and numbers only.')}
         </Field>
-        <div className="grid gap-1">
-          <p className="text-sm font-semibold text-fg">Type</p>
-          <Select label="Discount type" value={values.type} options={TYPE_OPTIONS} onChange={setType} />
-        </div>
+        <SelectField label="Type">
+          <Select label="Discount type" value={values.type} options={TYPE_OPTIONS} onChange={setType} className={SELECT_FLAT} />
+        </SelectField>
         <Field id={fieldId('value')} label={values.type === 'percent' ? 'Percent off' : 'Pesos off'} error={errors.value}>
-          <div className="relative">
-            {values.type === 'fixed' && (
-              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-base text-fg-muted">
-                ₱
-              </span>
-            )}
-            <input
-              {...input('value', { inputMode: values.type === 'percent' ? 'numeric' : 'decimal', className: `${FIELD_INPUT} ${PLACEHOLDER} tabular-nums ${values.type === 'fixed' ? 'pl-8' : 'pr-8'}` })}
-              type="text"
-              placeholder={values.type === 'percent' ? '20' : '200'}
-            />
-            {values.type === 'percent' && (
-              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-base text-fg-muted">
-                %
-              </span>
-            )}
-          </div>
+          <input
+            {...input('value', { inputMode: values.type === 'percent' ? 'numeric' : 'decimal', className: `${FIELD_INPUT} tabular-nums` })}
+            type="text"
+            placeholder={values.type === 'percent' ? '20' : '200'}
+          />
         </Field>
         <PromotionAppliesTo id={fieldId('appliesTo')} value={values.appliesTo} onChange={setAppliesTo} error={errors.appliesTo} disabled={pending} />
         <div className="grid gap-4 sm:grid-cols-2">
@@ -235,11 +221,11 @@ export function PromotionSheet({ open, onClose, promotion }: PromotionSheetProps
           </Field>
         </div>
         <Field id={fieldId('usageLimit')} label="Usage limit" optional error={errors.usageLimit}>
-          <input {...input('usageLimit', { inputMode: 'numeric', className: `${FIELD_INPUT} ${PLACEHOLDER} tabular-nums`, hint: true })} type="text" placeholder="No limit" />
+          <input {...input('usageLimit', { inputMode: 'numeric', className: `${FIELD_INPUT} tabular-nums`, hint: true })} type="text" placeholder="No limit" />
           {hint('usageLimit', 'The most times the code can be used in total. Leave it empty for no limit.')}
         </Field>
         <Field id={fieldId('minSpend')} label="Minimum spend" optional error={errors.minSpend}>
-          <input {...input('minSpend', { inputMode: 'decimal', className: `${FIELD_INPUT} ${PLACEHOLDER} tabular-nums`, hint: true })} type="text" placeholder="No minimum" />
+          <input {...input('minSpend', { inputMode: 'decimal', className: `${FIELD_INPUT} tabular-nums`, hint: true })} type="text" placeholder="No minimum" />
           {hint('minSpend', 'The order total in pesos needed before the code works. Leave it empty for no minimum.')}
         </Field>
         {failure && (

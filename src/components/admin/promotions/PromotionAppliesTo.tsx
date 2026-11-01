@@ -3,7 +3,7 @@ import { PICKER_PAGE, useProductCategories, useProductSearch } from '../../../ho
 import type { PromoAppliesTo, PromoProduct } from '../../../service/promotions'
 import { PROMO_LIMITS } from '../../../utils/promotionValidation'
 import { CheckIcon, XIcon } from '../../form/icons'
-import { FIELD_INPUT } from '../../staff/inventory/FormField'
+import { PLAIN_INPUT, SELECT_FLAT, SelectField } from '../../staff/inventory/FormField'
 import { SectionError } from '../../staff/StaffSection'
 import { Avatar } from '../../ui/Avatar'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
@@ -40,7 +40,17 @@ function CategoryPicker({ category, onChange }: { category: string; onChange: (c
   // A category that is no longer in the catalog stays selectable, so editing an older promotion keeps it.
   const names = category && !state.data.includes(category) ? [...state.data, category] : state.data
   if (names.length === 0) return <p className="text-sm text-fg-muted">No categories yet. Add products in Inventory first, or choose All products.</p>
-  return <Select label="Category" value={category} options={[{ value: NO_CATEGORY, label: 'Choose a category' }, ...names.map((name) => ({ value: name, label: name }))]} onChange={onChange} />
+  return (
+    <SelectField label="Category">
+      <Select
+        label="Category"
+        value={category}
+        options={[{ value: NO_CATEGORY, label: 'Choose a category' }, ...names.map((name) => ({ value: name, label: name }))]}
+        onChange={onChange}
+        className={SELECT_FLAT}
+      />
+    </SelectField>
+  )
 }
 
 function ProductPicker({ products, onChange, disabled }: { products: PromoProduct[]; onChange: (products: PromoProduct[]) => void; disabled: boolean }) {
@@ -106,7 +116,7 @@ function ProductPicker({ products, onChange, disabled }: { products: PromoProduc
         placeholder="Search by product name"
         onChange={(event) => setText(event.target.value)}
         onKeyDown={onKeyDown}
-        className={FIELD_INPUT}
+        className={PLAIN_INPUT}
       />
       <div aria-busy={loading}>
         {loading ? (
@@ -183,8 +193,9 @@ export function PromotionAppliesTo({ id, value, onChange, error, disabled }: Pro
   }
   return (
     <div id={id} tabIndex={-1} role="group" aria-label="Applies to" aria-describedby={error ? `${id}-error` : undefined} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 outline-none">
-      <p className="text-sm font-semibold text-fg">Applies to</p>
-      <Select label="Applies to" value={value.scope} options={SCOPES} onChange={setScope} />
+      <SelectField label="Applies to">
+        <Select label="Applies to" value={value.scope} options={SCOPES} onChange={setScope} className={SELECT_FLAT} />
+      </SelectField>
       {value.scope === 'category' && <CategoryPicker category={value.category} onChange={(category) => onChange({ scope: 'category', category })} />}
       {value.scope === 'products' && <ProductPicker products={value.products} onChange={(products) => onChange({ scope: 'products', products })} disabled={disabled} />}
       {error && (

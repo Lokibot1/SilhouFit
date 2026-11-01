@@ -3,6 +3,7 @@ import { useCustomSizings } from '../../../service/customSizings'
 import type { ProductFormValues } from '../../../utils/productValidation'
 import { Select } from '../../ui/Select'
 import { CustomSizingEditor } from '../measurements/CustomSizingEditor'
+import { SELECT_FLAT, SelectField } from './FormField'
 
 const NEW = ''
 
@@ -25,27 +26,38 @@ export function SizingPicker({ values, disabled, error, touch, set, editing = fa
 
   return (
     <fieldset disabled={disabled} className="m-0 grid min-w-0 gap-3 border-0 p-0">
-      <legend className="text-sm font-semibold text-fg">Sizing</legend>
-      <Select
-        label="Sizing"
-        value={sizingMode}
-        options={[
-          { value: 'base', label: `${category} base sizes` },
-          { value: 'custom', label: 'Custom sizing' },
-        ]}
-        onChange={(mode) => (mode === 'base' ? set({ sizingMode: 'base', sizingId: NEW, sizes: baseSizes, custom: [] }) : set({ sizingMode: 'custom' }))}
-      />
+      <legend className="sr-only">Sizing</legend>
+      <SelectField label="Sizing">
+        <Select
+          className={SELECT_FLAT}
+          label="Sizing"
+          value={sizingMode}
+          options={[
+            { value: 'base', label: `${category} base sizes` },
+            { value: 'custom', label: 'Custom sizing' },
+          ]}
+          onChange={(mode) => (mode === 'base' ? set({ sizingMode: 'base', sizingId: NEW, sizes: baseSizes, custom: [] }) : set({ sizingMode: 'custom' }))}
+        />
+      </SelectField>
       {sizingMode === 'base' ? (
-        <p className="text-sm text-fg-muted">Uses the {category} sizes from Base measurements, so the size guide and AR fitting read them from there.{editing ? '' : ' Pick the sizes this product comes in below.'}</p>
+        <p className="text-sm text-fg-muted">
+          Uses the {category} sizes from Base measurements, so the size guide and AR fitting read them from there.{editing ? '' : ' Pick the sizes this product comes in below.'}
+        </p>
       ) : (
         <>
-          <p className="text-sm text-fg-muted">This product has its own sizes and measurements. It is saved under {category} in Base measurements, so other {category.toLowerCase()} products can use it too.{editing ? ' The product\'s existing variants keep their sizes.' : ''}</p>
-          <Select
-            label="Custom sizing"
-            value={sizingId}
-            options={[{ value: NEW, label: 'New custom sizing' }, ...saved.map((s) => ({ value: s.id, label: s.name }))]}
-            onChange={(id) => set({ sizingId: id })}
-          />
+          <p className="text-sm text-fg-muted">
+            This product has its own sizes and measurements. It is saved under {category} in Base measurements, so other {category.toLowerCase()} products can use it too.
+            {editing ? " The product's existing variants keep their sizes." : ''}
+          </p>
+          <SelectField label="Custom sizing">
+            <Select
+              className={SELECT_FLAT}
+              label="Custom sizing"
+              value={sizingId}
+              options={[{ value: NEW, label: 'New custom sizing' }, ...saved.map((s) => ({ value: s.id, label: s.name }))]}
+              onChange={(id) => set({ sizingId: id })}
+            />
+          </SelectField>
           {chosen ? (
             <p className="text-sm text-fg-muted">
               Sizes: <span className="font-semibold text-fg">{chosen.sizes.map((s) => s.size).join(', ')}</span>. Edit its measurements in Base measurements.

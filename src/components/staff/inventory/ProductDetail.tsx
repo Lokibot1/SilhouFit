@@ -16,7 +16,7 @@ const GROUP_ROW = 'h-11'
 const VARIANT_ROW = 'h-14'
 // Below sm the two actions stack so the SKU keeps its room.
 const MANAGED_ROW = 'h-24 sm:h-14'
-const FACT_LABEL = 'text-sm text-fg-muted'
+const FACT_LABEL = 'text-xs text-fg-muted'
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
@@ -100,14 +100,14 @@ function Header({ product, manage }: { product: ProductListItem; manage?: Manage
       <div className="flex gap-4">
         <ProductThumb product={product} className="size-24 shrink-0 rounded-xl" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-fg-muted">{[product.category, product.brand].filter(Boolean).join(', ')}</p>
-          <p className="mt-1 text-lg font-semibold text-fg tabular-nums">
+          <p className="text-xs text-fg-muted">{[product.category, product.brand].filter(Boolean).join(', ')}</p>
+          <p className="mt-1 text-base font-semibold text-fg tabular-nums">
             <PriceRange product={product} />
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-            {isArchived(product) ? <ArchivedBadge /> : stockLevel(product.totalStock) !== 'in' && <StockBadge stock={product.totalStock} />}
-            <span className="text-sm text-fg tabular-nums">{product.totalStock} in total</span>
-            {product.arReady !== undefined && <ArBadge ready={product.arReady} />}
+            {isArchived(product) ? <ArchivedBadge compact /> : stockLevel(product.totalStock) !== 'in' && <StockBadge stock={product.totalStock} compact />}
+            <span className="text-xs text-fg tabular-nums">{product.totalStock} in total</span>
+            {product.arReady !== undefined && <ArBadge ready={product.arReady} compact />}
           </div>
           {manage && (
             <button type="button" disabled={!manage.onEditDetails} onClick={manage.onEditDetails} className={`${SECONDARY_BUTTON_SM} mt-3`}>
@@ -138,13 +138,13 @@ function Facts({ variants }: { variants: ProductVariant[] }) {
       <dt className={FACT_LABEL}>Variants</dt>
       <dt className={FACT_LABEL}>Colors</dt>
       <dt className={FACT_LABEL}>Sizes</dt>
-      <dd className="min-h-6 text-sm text-fg tabular-nums">{variants.length}</dd>
+      <dd className="min-h-6 text-xs text-fg tabular-nums">{variants.length}</dd>
       <dd className="flex min-h-6 flex-wrap items-center gap-1.5" aria-label={colors.join(', ')}>
         {colors.map((color) => (
           <Swatch key={color} colorHex={variants.find((v) => v.color === color)?.colorHex} />
         ))}
       </dd>
-      <dd className="min-h-6 text-sm text-fg">{sizes.join(', ')}</dd>
+      <dd className="min-h-6 text-xs text-fg">{sizes.join(', ')}</dd>
     </dl>
   )
 }
@@ -187,7 +187,7 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
   const th = 'sticky top-0 z-10 h-11 border-b border-line bg-canvas-sub text-left font-semibold text-fg'
 
   return (
-    <table className="mt-4 w-full table-fixed border-separate border-spacing-0 text-sm">
+    <table className="mt-4 w-full table-fixed border-separate border-spacing-0 text-xs">
       <caption className="sr-only">Variants by color, with size, SKU and stock</caption>
       <colgroup>
         <col className="w-14" />
@@ -247,7 +247,7 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
                   ) : (
                     <div className="flex flex-col items-end gap-1">
                       <span className={`text-fg tabular-nums ${level === 'in' ? '' : 'font-semibold'}`}>{variant.stock}</span>
-                      <StockBadge stock={variant.stock} />
+                      <StockBadge stock={variant.stock} compact />
                     </div>
                   )}
                 </td>
@@ -289,9 +289,9 @@ export function ProductDetail({
       {edit?.ar && (
         <div className="mt-4 grid gap-1">
           <Checkbox label="AR Fitting ready" checked={edit.ar.checked} onChange={edit.ar.onChange} className="justify-start">
-            <span className="text-base font-semibold">AR Fitting ready</span>
+            <span className="text-sm font-semibold">AR Fitting ready</span>
           </Checkbox>
-          <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
+          <p className="text-xs text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
         </div>
       )}
       <div className="mt-4">

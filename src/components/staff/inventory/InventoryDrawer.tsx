@@ -6,7 +6,7 @@ import type { RequestOptions } from '../../../service/simulateRequest'
 import { editedVariants, parseStock } from '../../../utils/stockEdit'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
 import { useToast } from '../../toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { isArchived } from '../../../utils/inventoryQuery'
 import { ADD_VARIANT_ID } from './ProductDetail'
@@ -51,7 +51,7 @@ function ErrorNote({ children }: { children: string }) {
   return (
     <div role="alert" className="mt-4 flex items-start gap-3">
       <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
-      <p className="text-sm text-fg">{children}</p>
+      <p className="text-xs text-fg">{children}</p>
     </div>
   )
 }
@@ -310,10 +310,10 @@ export function InventoryDrawer({
     footer = (
       // Keyed so Cancel mounts fresh (and takes focus) whichever footer button asked.
       <div key="prompt" className={row}>
-        <button type="button" autoFocus disabled={wait} onClick={() => setPrompt(null)} className={PRIMARY_BUTTON}>
+        <button type="button" autoFocus disabled={wait} onClick={() => setPrompt(null)} className={PRIMARY_BUTTON_SM}>
           Cancel
         </button>
-        <button type="button" disabled={wait} onClick={confirm.run} className={SECONDARY_BUTTON}>
+        <button type="button" disabled={wait} onClick={confirm.run} className={SECONDARY_BUTTON_SM}>
           {wait && <SpinnerIcon />}
           {wait ? confirm.busy : confirm.label}
         </button>
@@ -322,10 +322,10 @@ export function InventoryDrawer({
   } else if (product && archived) {
     footer = (
       <div className={`${row} sm:flex-wrap`}>
-        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={SECONDARY_BUTTON}>
+        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={SECONDARY_BUTTON_SM}>
           Delete product
         </button>
-        <button type="button" disabled={archiving} onClick={() => void changeStatus(false)} className={PRIMARY_BUTTON}>
+        <button type="button" disabled={archiving} onClick={() => void changeStatus(false)} className={PRIMARY_BUTTON_SM}>
           {archiving && <SpinnerIcon />}
           {archiving ? 'Restoring…' : 'Restore product'}
         </button>
@@ -339,11 +339,11 @@ export function InventoryDrawer({
           id={DISCARD_ID}
           disabled={saving}
           onClick={() => (dirty ? ask({ kind: 'discard', close: false }, DISCARD_ID) : discard())}
-          className={SECONDARY_BUTTON}
+          className={SECONDARY_BUTTON_SM}
         >
           Discard
         </button>
-        <button type="button" disabled={saving || !dirty || hasEmpty} onClick={() => void save()} className={PRIMARY_BUTTON}>
+        <button type="button" disabled={saving || !dirty || hasEmpty} onClick={() => void save()} className={PRIMARY_BUTTON_SM}>
           {saving && <SpinnerIcon />}
           {saving ? 'Saving…' : 'Save changes'}
         </button>
@@ -352,10 +352,10 @@ export function InventoryDrawer({
   } else if (product) {
     footer = (
       <div className={`${row} sm:flex-wrap`}>
-        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={SECONDARY_BUTTON}>
+        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={SECONDARY_BUTTON_SM}>
           Delete product
         </button>
-        <button type="button" id={ARCHIVE_ID} onClick={() => ask({ kind: 'archive' }, ARCHIVE_ID)} className={SECONDARY_BUTTON}>
+        <button type="button" id={ARCHIVE_ID} onClick={() => ask({ kind: 'archive' }, ARCHIVE_ID)} className={SECONDARY_BUTTON_SM}>
           Archive product
         </button>
         <button
@@ -363,7 +363,7 @@ export function InventoryDrawer({
           type="button"
           disabled={section.state.status === 'error' || (variants !== null && variants.length === 0)}
           onClick={() => setEditing(true)}
-          className={PRIMARY_BUTTON}
+          className={PRIMARY_BUTTON_SM}
         >
           Edit product
         </button>
@@ -375,10 +375,10 @@ export function InventoryDrawer({
     <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl border border-line bg-canvas p-3">
       <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-fg">{saveError.title}</p>
-        <p className="mt-1 text-sm text-fg-muted">{saveError.why}</p>
+        <p className="text-xs font-semibold text-fg">{saveError.title}</p>
+        <p className="mt-1 text-xs text-fg-muted">{saveError.why}</p>
         {dirty && !hasEmpty && (
-          <button type="button" disabled={saving} onClick={() => void save()} className={`${SECONDARY_BUTTON} mt-3`}>
+          <button type="button" disabled={saving} onClick={() => void save()} className={`${SECONDARY_BUTTON_SM} mt-3`}>
             Retry
           </button>
         )}
@@ -390,7 +390,7 @@ export function InventoryDrawer({
     <Modal variant="sheet" open={open} onClose={requestClose} title={prompt ? 'Are you sure?' : (product?.name ?? '')} footer={footer} bodyRef={bodyRef}>
       {product && prompt ? (
         <div className="pb-5">
-          <p className="text-base leading-relaxed text-fg-muted">
+          <p className="text-sm leading-relaxed text-fg-muted">
             {prompt.kind === 'archive'
               ? `${product.name} will be hidden from the shop and from Active inventory. You can restore it from the Archived tab.`
               : prompt.kind === 'delete'

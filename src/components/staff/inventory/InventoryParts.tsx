@@ -53,11 +53,13 @@ export function openRow(event: MouseEvent<HTMLElement>, open: () => void) {
 }
 
 /** The level in words and a dot (filled, ringed or green), so it never rests on colour alone. */
-export function StockBadge({ stock }: { stock: number }) {
+export function StockBadge({ stock, compact }: { stock: number; compact?: boolean }) {
   const level = LEVELS[stockLevel(stock)]
   return (
-    <span className={`inline-flex h-6 items-center gap-1.5 rounded-full border border-line-strong px-2 text-sm whitespace-nowrap text-fg ${level.border}`}>
-      <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${level.dot}`} />
+    <span
+      className={`inline-flex items-center rounded-full border border-line-strong whitespace-nowrap text-fg ${compact ? 'h-5 gap-1 px-1.5 text-xs' : 'h-6 gap-1.5 px-2 text-sm'} ${level.border}`}
+    >
+      <span aria-hidden="true" className={`shrink-0 rounded-full ${compact ? 'size-1.5' : 'size-2'} ${level.dot}`} />
       {level.label}
     </span>
   )
@@ -99,17 +101,19 @@ export function StockAlerts({ product }: { product: ProductListItem }) {
 export function ArBadge({ ready, compact }: { ready: boolean; compact?: boolean }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 whitespace-nowrap text-fg ${compact ? 'h-5 text-xs' : 'h-6 text-sm'} ${ready ? 'border-success bg-success/15' : 'border-line-strong bg-line'}`}
+      className={`inline-flex shrink-0 items-center rounded-full border whitespace-nowrap text-fg ${compact ? 'h-5 gap-1 px-1.5 text-xs' : 'h-6 gap-1.5 px-2 text-sm'} ${ready ? 'border-success bg-success/15' : 'border-line-strong bg-line'}`}
     >
-      <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${ready ? 'bg-success' : 'border-2 border-fg-muted'}`} />
+      <span aria-hidden="true" className={`shrink-0 rounded-full ${compact ? 'size-1.5' : 'size-2'} ${ready ? 'bg-success' : 'border-2 border-fg-muted'}`} />
       {ready ? 'AR ready' : 'Not AR ready'}
     </span>
   )
 }
 
-export function ArchivedBadge() {
+export function ArchivedBadge({ compact }: { compact?: boolean }) {
   return (
-    <span className="inline-flex h-6 items-center rounded-full border border-dashed border-line-strong px-2 text-sm whitespace-nowrap text-fg-muted">
+    <span
+      className={`inline-flex items-center rounded-full border border-dashed border-line-strong whitespace-nowrap text-fg-muted ${compact ? 'h-5 px-1.5 text-xs' : 'h-6 px-2 text-sm'}`}
+    >
       Archived
     </span>
   )

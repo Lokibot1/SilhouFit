@@ -12,9 +12,8 @@ import { Modal } from '../../ui/Modal'
 import { RefundStatusBadge } from './RefundsTable'
 
 /** Placeholders sit clearly dimmer than typed text yet stay above 4.5:1 on the page colour in both themes. */
-const PLACEHOLDER = 'placeholder:text-[color-mix(in_srgb,var(--fg-muted)_85%,var(--canvas))] dark:placeholder:text-[color-mix(in_srgb,var(--fg-muted)_72%,var(--canvas))]'
 const FORM_ID = 'refund-form'
-const TEXTAREA = `${FIELD_INPUT} ${PLACEHOLDER} resize-none py-2`
+const TEXTAREA = `${FIELD_INPUT} resize-none`
 
 type Mode = 'view' | 'approve' | 'reject'
 type FormField = 'amount' | 'note' | 'reason'
@@ -335,20 +334,15 @@ export function RefundDetailSheet({ request: initial, open, onClose }: RefundDet
               </fieldset>
               {!full && (
                 <Field id="refund-amount" label="Amount to refund" error={errors.amount}>
-                  <div className="relative">
-                    <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-base text-fg-muted">
-                      ₱
-                    </span>
-                    <input
-                      {...input('amount')}
-                      type="text"
-                      value={partial}
-                      onChange={(event) => change('amount', setPartial, filterPriceInput(event.target.value) ?? partial)}
-                      inputMode="decimal"
-                      placeholder={String(Math.floor(request.orderTotal / 2))}
-                      className={`${FIELD_INPUT} ${PLACEHOLDER} pl-8 tabular-nums`}
-                    />
-                  </div>
+                  <input
+                    {...input('amount')}
+                    type="text"
+                    value={partial}
+                    onChange={(event) => change('amount', setPartial, filterPriceInput(event.target.value) ?? partial)}
+                    inputMode="decimal"
+                    placeholder={String(Math.floor(request.orderTotal / 2))}
+                    className={`${FIELD_INPUT} tabular-nums`}
+                  />
                 </Field>
               )}
               <Field id="refund-note" label="Note" optional count={{ value: note.length, max: REFUND_LIMITS.noteMax }} error={errors.note}>

@@ -60,17 +60,17 @@ function Orders({ id, onNavigate }: { id: string; onNavigate: () => void }) {
                       to={`/admin/transactions?q=${encodeURIComponent(order.orderNo)}`}
                       onClick={onNavigate}
                       aria-label={`View order ${order.orderNo} in Transactions`}
-                      className="font-mono text-base font-semibold text-fg underline-offset-2 hover:text-chrome-strong hover:underline"
+                      className="font-mono text-sm font-semibold text-fg underline-offset-2 hover:text-chrome-strong hover:underline"
                     >
                       {order.orderNo}
                     </Link>
                     {order.returnedAt && <ReturnedBadge />}
                   </p>
-                  <p className="text-sm text-fg-muted">
+                  <p className="text-xs text-fg-muted">
                     <PlacedAt iso={order.placedAt} /> <span className="tabular-nums">· {itemsLabel(order.itemCount)}</span>
                   </p>
                 </div>
-                <p className="shrink-0 text-right text-base font-semibold whitespace-nowrap text-fg tabular-nums">{formatPeso(order.total)}</p>
+                <p className="shrink-0 text-right text-sm font-semibold whitespace-nowrap text-fg tabular-nums">{formatPeso(order.total)}</p>
               </li>
             ))}
           </ul>
@@ -93,14 +93,14 @@ function Payments({ id }: { id: string }) {
             {payments.map((payment) => (
               <li key={payment.orderNo} className={ROW}>
                 <div className="min-w-0">
-                  <p className="text-base font-semibold text-fg">{METHOD[payment.method]}</p>
-                  <p className="text-sm text-fg-muted">
+                  <p className="text-sm font-semibold text-fg">{METHOD[payment.method]}</p>
+                  <p className="text-xs text-fg-muted">
                     <span className="font-mono">{payment.orderNo}</span> · <PlacedAt iso={payment.placedAt} />
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-base font-semibold whitespace-nowrap text-fg tabular-nums">{formatPeso(payment.amount)}</p>
-                  {payment.refunded && <p className="text-sm text-fg-muted">Refunded</p>}
+                  <p className="text-sm font-semibold whitespace-nowrap text-fg tabular-nums">{formatPeso(payment.amount)}</p>
+                  {payment.refunded && <p className="text-xs text-fg-muted">Refunded</p>}
                 </div>
               </li>
             ))}
@@ -111,8 +111,8 @@ function Payments({ id }: { id: string }) {
   )
 }
 
-const FACT = 'text-sm text-fg-muted'
-const VALUE = 'min-w-0 text-sm text-fg wrap-break-word'
+const FACT = 'text-xs text-fg-muted'
+const VALUE = 'min-w-0 text-xs text-fg wrap-break-word'
 
 function Profile({ customer }: { customer: Customer }) {
   const name = fullName(customer)
@@ -121,8 +121,8 @@ function Profile({ customer }: { customer: Customer }) {
       <div className="flex items-center gap-3">
         <Avatar name={name} size="lg" />
         <div className="min-w-0">
-          <p className="truncate text-lg font-semibold text-fg">{name}</p>
-          <StatusBadge status={customer.status} />
+          <p className="truncate text-base font-semibold text-fg">{name}</p>
+          <StatusBadge status={customer.status} compact />
         </div>
       </div>
       <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">

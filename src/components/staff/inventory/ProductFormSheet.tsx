@@ -26,7 +26,7 @@ import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Checkbox } from '../../ui/Checkbox'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
-import { Field, FIELD_INPUT } from './FormField'
+import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from './FormField'
 import { SizingPicker } from './SizingPicker'
 import { ImageUploader } from './ImageUploader'
 import { VariantBuilder } from './VariantBuilder'
@@ -432,22 +432,27 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
               </Field>
             )}
 
-            <div className="grid gap-1">
-              <p className="text-sm font-semibold text-fg">Category</p>
-              <Select label="Category" value={values.category as string} options={categoryOptions} onChange={(category) => set({ category: category as Category })} />
-            </div>
+            <SelectField label="Category">
+              <Select
+                label="Category"
+                value={values.category as string}
+                options={categoryOptions}
+                onChange={(category) => set({ category: category as Category })}
+                className={SELECT_FLAT}
+              />
+            </SelectField>
 
             <div className="grid gap-1">
-              <p className="text-sm font-semibold text-fg">
-                Gender <span className="font-normal text-fg-muted">(optional)</span>
-              </p>
-              <Select
-                label="Gender"
-                value={values.gender}
-                options={product?.gender ? GENDER_OPTIONS.slice(1) : GENDER_OPTIONS}
-                onChange={(gender) => set({ gender: gender as Gender | '' })}
-              />
-              {product?.gender && <p className="text-sm text-fg-muted">A gender can be changed but not removed once it is set.</p>}
+              <SelectField label="Gender (optional)">
+                <Select
+                  label="Gender"
+                  value={values.gender}
+                  options={product?.gender ? GENDER_OPTIONS.slice(1) : GENDER_OPTIONS}
+                  onChange={(gender) => set({ gender: gender as Gender | '' })}
+                  className={SELECT_FLAT}
+                />
+              </SelectField>
+              {product?.gender && <p className="text-xs text-fg-muted">A gender can be changed but not removed once it is set.</p>}
             </div>
 
             <div className="grid gap-1">

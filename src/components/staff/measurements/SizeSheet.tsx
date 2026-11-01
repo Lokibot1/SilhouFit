@@ -7,7 +7,7 @@ import { AlertIcon, SpinnerIcon } from '../../form/icons'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
-import { Field, FIELD_INPUT } from '../inventory/FormField'
+import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../inventory/FormField'
 
 const FORM_ID = 'size-form'
 const RETRYABLE = ['network', 'rate-limit', 'server']
@@ -151,14 +151,16 @@ export function SizeSheet({ row, category, onSaved, onClose }: SizeSheetProps) {
             </div>
           )}
 
-          <div className="grid gap-1">
-            <p className="text-sm font-semibold text-fg">Category</p>
-            {editing ? (
-              <p className="min-h-11 content-center text-base text-fg">{values.category}</p>
-            ) : (
-              <Select label="Category" value={values.category} options={CATEGORY_OPTIONS} onChange={(next) => set({ category: next })} className="min-h-11!" />
-            )}
-          </div>
+          {editing ? (
+            <div className="grid gap-1">
+              <p className="text-xs text-fg-muted">Category</p>
+              <p className="text-sm text-fg">{values.category}</p>
+            </div>
+          ) : (
+            <SelectField label="Category">
+              <Select label="Category" value={values.category} options={CATEGORY_OPTIONS} onChange={(next) => set({ category: next })} className={SELECT_FLAT} />
+            </SelectField>
+          )}
 
           <Field id="ss-size" label="Size" count={{ value: values.size.length, max: SIZE_MAX }} error={sizeError}>
             <input
