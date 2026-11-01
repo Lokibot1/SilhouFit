@@ -38,13 +38,13 @@ export function InventoryTabs({ value, onChange }: { value: InventoryStatus; onC
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(status)}
             // 44px tall on touch screens.
-            className={`relative h-8 min-w-20 cursor-pointer rounded-xl px-3 text-sm font-semibold transition-colors duration-150 pointer-coarse:h-11 ${selected ? 'text-canvas' : 'text-fg hover:bg-line/60 hover:text-chrome-strong'}`}
+            className={`relative h-8 min-w-20 cursor-pointer rounded-[10px] px-3 text-sm font-semibold transition-colors duration-150 pointer-coarse:h-11 ${selected ? 'text-canvas' : 'text-fg hover:bg-line/60 hover:text-chrome-strong'}`}
           >
             {selected && (
               <motion.span
                 layoutId="inventory-tab-pill"
                 aria-hidden="true"
-                className="absolute inset-0 rounded-xl bg-fg"
+                className="absolute inset-0 rounded-[10px] bg-fg"
                 transition={reduced ? { duration: 0 } : { duration: DURATION.state, ease: EASE_OUT }}
               />
             )}

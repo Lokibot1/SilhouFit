@@ -100,7 +100,7 @@ export function ImageUploader({ images, name, progress, disabled, error, errors,
             const altId = `pf-alt-${image.id}`
             return (
               <li key={image.id} className="flex gap-3 rounded-xl border border-line p-3">
-                <img src={image.preview} alt={`Preview of ${fileName(image, index)}`} className="size-16 shrink-0 rounded-xl bg-line object-cover" />
+                <img src={image.preview} alt={`Preview of ${fileName(image, index)}`} className="size-16 shrink-0 rounded-md bg-line object-cover" />
                 <div className="grid min-w-0 flex-1 gap-2">
                   {image.file && (
                     <p className="truncate text-sm text-fg-muted">

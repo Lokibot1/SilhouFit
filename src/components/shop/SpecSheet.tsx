@@ -110,7 +110,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
           <img
             src={product.image}
             alt={product.alt}
-            className="photo-mono h-48 w-36 shrink-0 rounded-xl border border-line object-cover"
+            className="photo-mono h-48 w-36 shrink-0 rounded-md border border-line object-cover"
           />
           <div className="min-w-0 flex-1">
             <p className="font-ui truncate text-[11px] tracking-[0.16em] text-fg-muted uppercase">
