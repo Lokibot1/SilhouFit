@@ -149,7 +149,7 @@ function ProductPicker({ products, onChange, disabled }: { products: PromoProduc
                 const blocked = disabled || (full && !on)
                 return (
                   <li key={product.id}>
-                    <label className={`${ROW} flex items-center gap-3 px-1 ${blocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-line/40'}`}>
+                    <label className={`${ROW} flex items-center gap-3 px-1 ${blocked ? 'cursor-not-allowed opacity-60' : `cursor-pointer ${on ? 'bg-fg/10' : 'hover:bg-line/40'}`}`}>
                       <input type="checkbox" checked={on} disabled={blocked} onChange={() => toggle(product)} aria-label={`${product.name}, ${product.category}`} className="peer sr-only" />
                       <span className="flex size-6 shrink-0 items-center justify-center rounded-md border-2 border-fg bg-canvas peer-checked:bg-fg peer-checked:text-canvas peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong">
                         {on && <CheckIcon size={16} />}

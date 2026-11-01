@@ -158,7 +158,7 @@ export function RefundsTable({ list, selecting, selected, onToggle, onToggleAll,
                 key={row.id}
                 onClick={(event) => openRow(event, () => onOpen(row))}
                 style={{ '--i': index } as CSSProperties}
-                className={`${TABLE_ROW} enter-row cursor-pointer hover:bg-line/40`}
+                className={`${TABLE_ROW} enter-row cursor-pointer ${selected.includes(row.id) ? 'bg-fg/10' : 'hover:bg-line/40'}`}
               >
                 <td className={`${TD} text-right text-sm text-fg-muted tabular-nums`}>{(page - 1) * per + index + 1}</td>
                 {selecting && (
@@ -240,7 +240,7 @@ export function RefundsTable({ list, selecting, selected, onToggle, onToggleAll,
               key={row.id}
               onClick={(event) => openRow(event, () => onOpen(row))}
               style={{ '--i': index } as CSSProperties}
-              className={`${REFUND_CARD_ROW} enter-row flex cursor-pointer flex-col justify-center py-2 hover:bg-line/40`}
+              className={`${REFUND_CARD_ROW} enter-row flex cursor-pointer flex-col justify-center py-2 ${selected.includes(row.id) ? 'bg-fg/10' : 'hover:bg-line/40'}`}
             >
               <div className={`flex ${REFUND_CARD_TALL} items-center justify-between gap-3`}>
                 <div className="flex min-w-0 items-center">

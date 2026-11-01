@@ -50,7 +50,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
       <div
         className={`group/img relative aspect-3/4 shrink-0 overflow-hidden rounded-2xl border border-line bg-canvas-sub ${
           list ? 'w-28 sm:w-44' : 'w-full'
-        }`}
+        } ${selection?.selected ? 'ring-2 ring-fg' : ''}`}
       >
         {/* The photo is a second route to the page; the name below is the keyboard one. The controls stay outside the anchor. */}
         <Link to={href} tabIndex={-1} className="block size-full">

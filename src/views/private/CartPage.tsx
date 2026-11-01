@@ -295,7 +295,7 @@ export function CartPage() {
                   )
                   if (problem) {
                     return (
-                      <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className="py-5">
+                      <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className={`-mx-3 rounded-xl px-3 py-5 ${selected.includes(key) ? 'bg-fg/10' : ''}`}>
                         <SwipeRow onRemove={() => removeOne(row, 'collapse')}>
                         {picker}
                         <div className="min-w-0 flex-1 rounded-xl border border-line-strong p-3">
@@ -320,7 +320,7 @@ export function CartPage() {
                   const unit = line.unitPrice
                   const qty = buyableQty(line)
                   return (
-                    <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className="py-5">
+                    <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className={`-mx-3 rounded-xl px-3 py-5 ${selected.includes(key) ? 'bg-fg/10' : ''}`}>
                       <SwipeRow onRemove={() => removeOne(row, 'collapse')}>
                       {picker}
                       <PhotoImg
