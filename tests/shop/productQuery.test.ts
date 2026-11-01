@@ -7,14 +7,14 @@ const BASE: ProductQuery = { category: 'all', q: '', sort: 'newest', page: 1, pe
 const api = (changes: Partial<ProductQuery> = {}) => toApiParams({ ...BASE, ...changes })
 
 describe('toApiParams', () => {
-  it('maps the filters, paging and the one colour', () => {
-    expect(api({ q: ' tee ', category: 'Hoodie', brand: 'Nike', gender: 'male', size: 'M', color: 'Black', minPrice: 0, maxPrice: 900, page: 3 })).toEqual({
+  it('maps the filters, paging, sizes and colours', () => {
+    expect(api({ q: ' tee ', category: 'Hoodie', brand: 'Nike', gender: 'male', sizes: ['M', 'L'], colors: ['Black', 'Navy'], minPrice: 0, maxPrice: 900, page: 3 })).toEqual({
       search: 'tee',
       category: 'Hoodie',
       brand: 'Nike',
       gender: 'male',
-      size: 'M',
-      color: 'Black',
+      sizes: ['M', 'L'],
+      colors: ['Black', 'Navy'],
       minPrice: 0,
       maxPrice: 900,
       sortBy: 'createdAt',
@@ -22,7 +22,8 @@ describe('toApiParams', () => {
       page: 3,
       limit: 12,
     })
-    expect(api()).toMatchObject({ search: undefined, category: undefined, color: undefined, page: 1 })
+    expect(api()).toMatchObject({ search: undefined, category: undefined, colors: undefined, sizes: undefined, page: 1 })
+    for (const key of ['size', 'color']) expect(api({ sizes: ['M'], colors: ['Black'] })).not.toHaveProperty(key)
   })
 
   it('never sends an availability, stock, ar or low stock key, and asks for newest first for Low stock first', () => {

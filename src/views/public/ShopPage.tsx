@@ -62,33 +62,39 @@ export function ShopPage() {
   const sort = SORT_OPTIONS.find((o) => o.value === params.get('sort'))?.value ?? DEFAULT_SORT
   const perPage = PER_PAGE_OPTIONS.find((n) => String(n) === params.get('perPage')) ?? 12
   const view = params.get('view') === 'list' ? 'list' : 'grid'
+  // A filter may repeat its key (`size=M&size=L`); a single-value URL reads as one value.
+  const valuesOf = (key: string) => {
+    const values = [...new Set(params.getAll(key).map((v) => v.trim().slice(0, 50)).filter(Boolean))].slice(0, 20)
+    return values.length ? values : undefined
+  }
   const filters: ProductFilters = {
     minPrice: parseFilterPrice(params.get('min')),
     maxPrice: parseFilterPrice(params.get('max')),
-    color: params.get('color')?.trim().slice(0, 50) || undefined,
+    colors: valuesOf('color'),
     arReady: params.get('ar') === '1' || undefined,
     brand: params.get('brand')?.trim().slice(0, 50) || undefined,
     gender: GENDER_OPTIONS.find((g) => g.value === params.get('gender'))?.value,
-    size: params.get('size')?.trim().slice(0, 50) || undefined,
+    sizes: valuesOf('size'),
   }
   const badRange = filters.minPrice !== undefined && filters.maxPrice !== undefined && filters.minPrice > filters.maxPrice
   const activeFilters =
     Number(filters.minPrice !== undefined || filters.maxPrice !== undefined) +
-    Number(!!filters.color) +
+    (filters.colors?.length ?? 0) +
     Number(!!filters.arReady) +
     Number(!!filters.brand) +
     Number(!!filters.gender) +
-    Number(!!filters.size)
+    (filters.sizes?.length ?? 0)
 
   // Every change resets to page 1 unless it sets the page itself.
-  function update(changes: Record<string, string | undefined>, replace = false) {
+  function update(changes: Record<string, string | string[] | undefined>, replace = false) {
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev)
         if (!('page' in changes)) next.delete('page')
         for (const [key, value] of Object.entries(changes)) {
-          if (!value || value === DEFAULTS[key]) next.delete(key)
-          else next.set(key, value)
+          next.delete(key)
+          if (Array.isArray(value)) value.forEach((v) => next.append(key, v))
+          else if (value && value !== DEFAULTS[key]) next.set(key, value)
         }
         return next
       },
@@ -327,11 +333,11 @@ export function ShopPage() {
                   category: nextCategory,
                   min: next.minPrice?.toString(),
                   max: next.maxPrice?.toString(),
-                  color: next.color,
+                  color: next.colors,
                   ar: next.arReady ? '1' : undefined,
                   brand: next.brand,
                   gender: next.gender,
-                  size: next.size,
+                  size: next.sizes,
                 })
               }
             />

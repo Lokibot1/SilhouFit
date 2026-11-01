@@ -27,15 +27,15 @@ export interface ProductFilters {
   /** Bounds on a variant's price. */
   minPrice?: number
   maxPrice?: number
-  /** One colour name (the API takes one). */
-  color?: string
+  /** Colour names; a piece matches when it comes in any of them. */
+  colors?: string[]
   /** Only AR-ready products; sent as `isArReady=true`. */
   arReady?: boolean
   /** Exact match, ignoring case. */
   brand?: string
   gender?: ProductGender
-  /** Exact match, ignoring case. */
-  size?: string
+  /** Exact match, ignoring case; a piece matches when it comes in any of them. */
+  sizes?: string[]
 }
 
 export interface ProductQuery extends ProductFilters {
@@ -95,8 +95,8 @@ export function toApiParams(query: ProductQuery): ProductListParams {
     category: query.category === 'all' ? undefined : query.category,
     brand: query.brand,
     gender: query.gender,
-    size: query.size,
-    color: query.color,
+    sizes: query.sizes,
+    colors: query.colors,
     minPrice: query.minPrice,
     maxPrice: query.maxPrice,
     isArReady: query.arReady || undefined,

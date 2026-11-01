@@ -5,7 +5,7 @@ import { XIcon } from '../form/icons'
 import { SHOP_SECONDARY } from './shopControls'
 
 /** The URL keys a chip clears (an undefined value removes the key). */
-type Clears = Record<string, undefined>
+type Clears = Record<string, string[] | undefined>
 
 const peso = (amount: number) => (Number.isInteger(amount) ? formatPesoWhole(amount) : formatPeso(amount))
 
@@ -19,11 +19,14 @@ function chipsFor(filters: ProductFilters) {
         : maxPrice !== undefined
           ? `Up to ${peso(maxPrice)}`
           : ''
+  // One chip per selected value; removing it keeps the others.
+  const each = (kind: string, key: string, values: string[] = []) =>
+    values.map((value) => ({ kind, text: value, clears: { [key]: values.filter((v) => v !== value) } }))
   const chips: { kind: string; text: string; clears: Clears }[] = [
     { kind: 'brand', text: filters.brand ?? '', clears: { brand: undefined } },
     { kind: 'gender', text: GENDER_OPTIONS.find((g) => g.value === filters.gender)?.label ?? '', clears: { gender: undefined } },
-    { kind: 'size', text: filters.size ?? '', clears: { size: undefined } },
-    { kind: 'colour', text: filters.color ?? '', clears: { color: undefined } },
+    ...each('size', 'size', filters.sizes),
+    ...each('colour', 'color', filters.colors),
     { kind: 'price', text: price, clears: { min: undefined, max: undefined } },
     { kind: 'AR', text: filters.arReady ? 'AR-ready only' : '', clears: { ar: undefined } },
   ]
@@ -38,7 +41,7 @@ export function FilterChips({ filters, onClear, onClearAll }: { filters: Product
     <div className="mt-3 flex flex-wrap items-center gap-2">
       <ul aria-label="Active filters" className="contents">
         {chips.map((chip) => (
-          <li key={chip.kind} className="font-ui flex min-h-9 max-w-full items-center gap-1 rounded-full border border-line-strong bg-canvas-sub pl-3 text-sm text-fg pointer-coarse:min-h-11">
+          <li key={`${chip.kind}:${chip.text}`} className="font-ui flex min-h-9 max-w-full items-center gap-1 rounded-full border border-line-strong bg-canvas-sub pl-3 text-sm text-fg pointer-coarse:min-h-11">
             <span title={chip.text} className="min-w-0 truncate tabular-nums">
               {chip.text}
             </span>

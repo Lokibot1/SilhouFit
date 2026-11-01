@@ -91,15 +91,21 @@ describe('fetchProductList', () => {
     expect(Object.fromEntries(requested().searchParams)).toEqual({ page: '1' })
   })
 
-  it('sends the brand, size, colour and price range filters', async () => {
+  it('sends the brand, sizes, colours and price range filters, one repeated key per value', async () => {
     reply({ data: [], meta: { ...META, total: 0 } })
-    await fetchProductList({ brand: ' Nike ', size: 'M', color: 'Black', minPrice: 0, maxPrice: 500.5 })
-    expect(Object.fromEntries(requested().searchParams)).toEqual({ brand: 'Nike', size: 'M', color: 'Black', minPrice: '0', maxPrice: '500.5' })
+    await fetchProductList({ brand: ' Nike ', sizes: ['M', ' L '], colors: ['Black', 'Red, White'], minPrice: 0, maxPrice: 500.5 })
+    const { searchParams } = requested()
+    expect(searchParams.getAll('sizes')).toEqual(['M', 'L'])
+    expect(searchParams.getAll('colors')).toEqual(['Black', 'Red, White'])
+    expect(searchParams.get('brand')).toBe('Nike')
+    expect(searchParams.get('maxPrice')).toBe('500.5')
+    expect(searchParams.has('size')).toBe(false)
+    expect(searchParams.has('color')).toBe(false)
   })
 
   it('leaves out blank text, NaN and negative prices, and any sort the API does not have', async () => {
     reply({ data: [], meta: { ...META, total: 0 } })
-    await fetchProductList({ brand: '   ', size: '', color: undefined, minPrice: NaN, maxPrice: -1, sortBy: 'basePrice' as never, sortOrder: 'asc', page: 1 })
+    await fetchProductList({ brand: '   ', sizes: [], colors: [' '], minPrice: NaN, maxPrice: -1, sortBy: 'basePrice' as never, sortOrder: 'asc', page: 1 })
     const sent = Object.fromEntries(requested().searchParams)
     expect(sent).toEqual({ sortOrder: 'asc', page: '1' })
     expect(requested().search).not.toContain('basePrice')

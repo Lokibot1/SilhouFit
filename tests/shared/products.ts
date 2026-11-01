@@ -176,13 +176,16 @@ function filtersBody(rows: MockProduct[]) {
 
 const detail = (p: MockProduct) => ({ ...p, ...priceRange(p) })
 
-const LIST_KEYS = ['search', 'category', 'gender', 'brand', 'size', 'color', 'minPrice', 'maxPrice', 'page', 'stockLevel', 'sortBy', 'sortOrder', 'limit', 'status', 'isArReady']
+const LIST_KEYS = ['search', 'category', 'gender', 'brand', 'sizes', 'colors', 'minPrice', 'maxPrice', 'page', 'stockLevel', 'sortBy', 'sortOrder', 'limit', 'status', 'isArReady']
 
-/** GET /products as the API answers it: active products unless a staff member asks for `status`, one value per size and colour, and size, colour, price and stock must all hold for the same variant. */
+/** GET /products as the API answers it: active products unless a staff member asks for `status`, sizes and colours as repeated or comma-separated keys (the singular size and color are gone), and size, colour, price and stock must all hold for the same variant. */
 function listPage(rows: MockProduct[], params: URLSearchParams, staff: boolean) {
   const status = params.get('status') ?? 'active'
   if (status !== 'active' && !staff) return { status: 403, json: { message: 'Only staff members can view archived products' } }
   const text = (key: string) => params.get(key)?.toLowerCase()
+  // Repeated keys and/or comma lists, trimmed and lower-cased.
+  const list = (key: string) => params.getAll(key).flatMap((v) => v.split(',')).map((v) => v.trim().toLowerCase()).filter(Boolean)
+  const [sizes, colors] = [list('sizes'), list('colors')]
   const num = (key: string) => (params.has(key) ? Number(params.get(key)) : undefined)
   const search = text('search')
   const [min, max] = [num('minPrice'), num('maxPrice')]
@@ -190,12 +193,12 @@ function listPage(rows: MockProduct[], params: URLSearchParams, staff: boolean) 
   const inStock = level === 'in'
   const arReady = params.has('isArReady') ? params.get('isArReady') === 'true' : undefined
   const variantMatches = (v: MockVariant) =>
-    (!text('size') || v.size?.toLowerCase() === text('size')) &&
-    (!text('color') || v.color?.toLowerCase() === text('color')) &&
+    (!sizes.length || sizes.includes(v.size?.toLowerCase() ?? '')) &&
+    (!colors.length || colors.includes(v.color?.toLowerCase() ?? '')) &&
     (min === undefined || v.price >= min) &&
     (max === undefined || v.price <= max) &&
     (!inStock || v.stock > 0)
-  const needsVariant = ['size', 'color', 'minPrice', 'maxPrice'].some((key) => params.has(key)) || inStock
+  const needsVariant = ['sizes', 'colors', 'minPrice', 'maxPrice'].some((key) => params.has(key)) || inStock
   const matched = rows
     .filter((p) => status === 'all' || p.isActive === (status === 'active'))
     .filter((p) => !search || [p.name, p.brand ?? '', p.category].some((t) => t.toLowerCase().includes(search)))

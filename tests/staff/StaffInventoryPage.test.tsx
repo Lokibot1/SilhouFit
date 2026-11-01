@@ -1023,7 +1023,9 @@ describe('StaffInventoryPage brand, size, colour and price filters (real API)', 
     const user = userEvent.setup()
     renderPage('?brand=Nike&size=M&color=Black&minPrice=100&maxPrice=900&page=2')
     await within(table()).findByRole('button', { name: /Tee 1/ })
-    expect(lastParams()).toMatchObject({ brand: 'Nike', size: 'M', color: 'Black', minPrice: 100, maxPrice: 900, page: 2 })
+    expect(lastParams()).toMatchObject({ brand: 'Nike', sizes: ['M'], colors: ['Black'], minPrice: 100, maxPrice: 900, page: 2 })
+    expect(lastParams()).not.toHaveProperty('size')
+    expect(lastParams()).not.toHaveProperty('color')
     expect(screen.getByText('Filters (4)')).toBeInTheDocument()
 
     const chips = within(screen.getByRole('list', { name: 'Active filters' }))
@@ -1036,7 +1038,7 @@ describe('StaffInventoryPage brand, size, colour and price filters (real API)', 
     expect(where()).not.toContain('brand')
     expect(where()).not.toContain('page=')
     await waitFor(() => expect(lastParams().brand).toBeUndefined())
-    expect(lastParams()).toMatchObject({ size: 'M', minPrice: 100 })
+    expect(lastParams()).toMatchObject({ sizes: ['M'], minPrice: 100 })
 
     await user.click(screen.getByRole('button', { name: /^Remove price / }))
     expect(where()).not.toContain('Price')
@@ -1067,7 +1069,7 @@ describe('StaffInventoryPage brand, size, colour and price filters (real API)', 
 
     await user.click(within(panel).getByRole('button', { name: 'Apply filters' }))
     expect(where()).toBe('/staff/inventory?brand=Nike&size=M&color=Black&minPrice=0&maxPrice=500.5')
-    await waitFor(() => expect(lastParams()).toMatchObject({ brand: 'Nike', size: 'M', color: 'Black', minPrice: 0, maxPrice: 500.5, page: 1 }))
+    await waitFor(() => expect(lastParams()).toMatchObject({ brand: 'Nike', sizes: ['M'], colors: ['Black'], minPrice: 0, maxPrice: 500.5, page: 1 }))
   })
 
   it('offers the sizes, brands and colours the products really have, still as free text', async () => {

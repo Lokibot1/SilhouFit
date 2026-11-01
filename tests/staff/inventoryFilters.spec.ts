@@ -12,7 +12,7 @@ const CORS = {
   'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
 }
 /** The only query keys GET /products accepts. */
-const DTO_KEYS = ['brand', 'size', 'color', 'minPrice', 'maxPrice', 'gender', 'stockLevel', 'isArReady', 'sortBy', 'sortOrder', 'page', 'limit', 'search', 'category']
+const DTO_KEYS = ['brand', 'sizes', 'colors', 'minPrice', 'maxPrice', 'gender', 'stockLevel', 'isArReady', 'sortBy', 'sortOrder', 'page', 'limit', 'search', 'category']
 
 const isList = (url: URL) => url.origin !== PAGE_ORIGIN && url.pathname === '/products'
 
@@ -310,8 +310,8 @@ test.describe('the GET /products request', () => {
       category: 'Hoodie',
       gender: 'female',
       brand: 'Nike',
-      size: 'M',
-      color: 'Black',
+      sizes: 'M',
+      colors: 'Black',
       minPrice: '100',
       maxPrice: '900.5',
       stockLevel: 'in',
@@ -335,11 +335,11 @@ test.describe('the GET /products request', () => {
     await dialog.getByRole('textbox', { name: 'Maximum' }).fill('900')
     await apply(page)
     await expect.poll(() => urls.at(-1)?.searchParams.get('brand')).toBe('Nike')
-    expect(Object.fromEntries(urls.at(-1)!.searchParams)).toMatchObject({ brand: 'Nike', size: 'L', color: 'Black', minPrice: '100', maxPrice: '900' })
+    expect(Object.fromEntries(urls.at(-1)!.searchParams)).toMatchObject({ brand: 'Nike', sizes: 'L', colors: 'Black', minPrice: '100', maxPrice: '900' })
 
     await chipList(page).getByRole('button', { name: 'Remove color Black' }).click()
-    await expect.poll(() => urls.at(-1)?.searchParams.has('color')).toBe(false)
-    expect(Object.fromEntries(urls.at(-1)!.searchParams)).toMatchObject({ brand: 'Nike', size: 'L' })
+    await expect.poll(() => urls.at(-1)?.searchParams.has('colors')).toBe(false)
+    expect(Object.fromEntries(urls.at(-1)!.searchParams)).toMatchObject({ brand: 'Nike', sizes: 'L' })
 
     await chipList(page).getByRole('button', { name: 'Remove price ₱100.00 to ₱900.00' }).click()
     await expect.poll(() => urls.at(-1)?.searchParams.has('minPrice') || urls.at(-1)?.searchParams.has('maxPrice')).toBe(false)

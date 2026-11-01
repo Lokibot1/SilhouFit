@@ -177,16 +177,16 @@ describe('ShopPage categories', () => {
 })
 
 describe('ShopPage requests', () => {
-  it('asks the server for the URL filters and one colour, newest first', async () => {
-    renderPage('/shop?brand=Nike&gender=male&size=M&color=Black&min=0&max=900&category=Hoodie')
+  it('asks the server for the URL filters, sizes and colours, newest first', async () => {
+    renderPage('/shop?brand=Nike&gender=male&size=M&size=L&color=Black&color=Navy&min=0&max=900&category=Hoodie')
     await loaded()
     expect(lastParams()).toEqual({
       search: undefined,
       category: 'Hoodie',
       brand: 'Nike',
       gender: 'male',
-      size: 'M',
-      color: 'Black',
+      sizes: ['M', 'L'],
+      colors: ['Black', 'Navy'],
       minPrice: 0,
       maxPrice: 900,
       sortBy: 'createdAt',
@@ -300,7 +300,32 @@ describe('ShopPage filter dialog', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Navy' }))
     await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
     expect(urlSearch()).toBe('?color=Navy')
-    await waitFor(() => expect(lastParams()).toMatchObject({ color: 'Navy' }))
+    await waitFor(() => expect(lastParams()).toMatchObject({ colors: ['Navy'] }))
+    expect(lastParams()).not.toHaveProperty('color')
+  })
+
+  it('still reads an old single-value URL, and keeps several values when the shopper ticks them', async () => {
+    const user = userEvent.setup()
+    renderPage('/shop?size=M&color=Black')
+    await loaded()
+    expect(lastParams()).toMatchObject({ sizes: ['M'], colors: ['Black'] })
+    expect(lastParams()).not.toHaveProperty('size')
+    expect(lastParams()).not.toHaveProperty('color')
+
+    const dialog = await openFilters(user)
+    await within(dialog).findByRole('button', { name: 'Sand' })
+    await user.click(within(dialog).getByRole('button', { name: 'L' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Navy' }))
+    expect(within(dialog).getByRole('button', { name: 'M' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
+    expect(urlSearch()).toBe('?color=Black&color=Navy&size=M&size=L')
+    await waitFor(() => expect(lastParams()).toMatchObject({ sizes: ['M', 'L'], colors: ['Black', 'Navy'] }))
+
+    await user.click(screen.getByRole('button', { name: 'Remove size M' }))
+    expect(urlSearch()).toBe('?color=Black&color=Navy&size=L')
+    await waitFor(() => expect(lastParams()).toMatchObject({ sizes: ['L'], colors: ['Black', 'Navy'] }))
+    await user.click(screen.getByRole('button', { name: 'Remove colour Black' }))
+    expect(urlSearch()).toBe('?size=L&color=Navy')
   })
 
   it('hides the Colour section when there are no colours, or the filters cannot be read, and Apply still works', async () => {

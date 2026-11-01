@@ -296,7 +296,8 @@ test.describe('filters', () => {
     await dialog.getByRole('button', { name: 'Apply' }).click()
     await expect(page).toHaveURL(/color=Navy/)
     await expect(cards(page)).toHaveCount(2) // Linen Shirt and Cotton Tee ("navy")
-    expect(lastList().color).toBe('Navy')
+    expect(lastList().colors).toBe('Navy')
+    expect(lastList()).not.toHaveProperty('color')
     await expect(chipList(page).getByRole('button', { name: 'Remove colour Navy' })).toBeVisible()
   })
 
@@ -319,7 +320,7 @@ test.describe('filters', () => {
     await dialog.getByRole('button', { name: 'Apply' }).click()
     await expect(chipList(page).getByRole('listitem')).toHaveCount(3)
     expect(urlParams(page)).toMatchObject({ brand: 'Atelier Manila', size: 'M', min: '1000', max: '2000' })
-    await expect.poll(() => lastList().size).toBe('M')
+    await expect.poll(() => lastList().sizes).toBe('M')
     expect(lastList()).toMatchObject({ brand: 'Atelier Manila', minPrice: '1000', maxPrice: '2000' })
     await expect(filtersButton(page)).toContainText('3')
 

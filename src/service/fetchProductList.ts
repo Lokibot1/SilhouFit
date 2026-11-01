@@ -38,10 +38,10 @@ export interface ProductListParams {
   gender?: Gender
   /** Exact match, ignoring case. */
   brand?: string
-  /** Exact match, ignoring case. Size, colour, price and stock must all hold for the same variant. */
-  size?: string
-  /** One colour, exact match ignoring case. */
-  color?: string
+  /** Exact matches, ignoring case, sent as repeated keys. Size, colour, price and stock must all hold for the same variant. */
+  sizes?: string[]
+  /** Colour names, exact match ignoring case, sent as repeated keys (a name may hold a comma). */
+  colors?: string[]
   /** Bounds on a variant's price. */
   minPrice?: number
   maxPrice?: number
@@ -162,6 +162,10 @@ export async function fetchProductList(params: ProductListParams, { signal }: Re
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue
+    if (Array.isArray(value)) {
+      for (const item of value) if (item.trim()) query.append(key, item.trim())
+      continue
+    }
     // The API rejects unknown values, so blanks, bad numbers and an unknown sort (`basePrice`) never go out.
     if (typeof value === 'string' && !value.trim()) continue
     if (typeof value === 'number' && (Number.isNaN(value) || (PRICE_KEYS.includes(key) && value < 0))) continue

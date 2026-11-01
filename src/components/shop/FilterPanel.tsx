@@ -20,23 +20,23 @@ interface Draft {
   category: Category | 'all'
   brand: string
   gender: ProductGender | ''
-  size: string
+  sizes: string[]
   min: string
   max: string
-  color: string
+  colors: string[]
   arReady: boolean
 }
 
-const EMPTY: Draft = { category: 'all', brand: '', gender: '', size: '', min: '', max: '', color: '', arReady: false }
+const EMPTY: Draft = { category: 'all', brand: '', gender: '', sizes: [], min: '', max: '', colors: [], arReady: false }
 
 const toDraft = (f: ProductFilters, category: Category | 'all'): Draft => ({
   category,
   brand: f.brand ?? '',
   gender: f.gender ?? '',
-  size: f.size ?? '',
+  sizes: f.sizes ?? [],
   min: f.minPrice?.toString() ?? '',
   max: f.maxPrice?.toString() ?? '',
-  color: f.color ?? '',
+  colors: f.colors ?? [],
   arReady: f.arReady ?? false,
 })
 
@@ -70,11 +70,11 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
         minPrice: parseFilterPrice(draft.min),
         maxPrice: parseFilterPrice(draft.max),
         // Once the colours are known, a colour no product has is dropped.
-        color: (colours.status === 'ready' ? validColour(draft.color, colours.colours) : draft.color) || undefined,
+        colors: (colours.status === 'ready' ? draft.colors.flatMap((c) => validColour(c, colours.colours) ?? []) : draft.colors).filter((c, i, all) => all.indexOf(c) === i),
         arReady: draft.arReady || undefined,
         brand: draft.brand.trim().slice(0, 50) || undefined,
         gender: draft.gender || undefined,
-        size: draft.size || undefined,
+        sizes: draft.sizes,
       },
       draft.category,
     )
@@ -156,8 +156,8 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
               <button
                 key={s}
                 type="button"
-                aria-pressed={draft.size === s}
-                onClick={() => setDraft({ ...draft, size: draft.size === s ? '' : s })}
+                aria-pressed={draft.sizes.includes(s)}
+                onClick={() => setDraft({ ...draft, sizes: draft.sizes.includes(s) ? draft.sizes.filter((x) => x !== s) : [...draft.sizes, s] })}
                 className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! min-w-11 px-3 text-xs`}
               >
                 {s}
@@ -217,13 +217,13 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
             <legend className={LEGEND}>Colour</legend>
             <div className="mt-2 flex flex-wrap gap-2">
               {colours.colours.map((c) => {
-                const selected = sameColour(draft.color, c.name)
+                const selected = draft.colors.some((x) => sameColour(x, c.name))
                 return (
                   <button
                     key={c.name}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => setDraft({ ...draft, color: selected ? '' : c.name })}
+                    onClick={() => setDraft({ ...draft, colors: selected ? draft.colors.filter((x) => !sameColour(x, c.name)) : [...draft.colors, c.name] })}
                     className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! gap-2 px-3 text-xs`}
                   >
                     <span aria-hidden="true" className="size-4 rounded-full border border-fg-muted" style={c.hex ? { backgroundColor: c.hex } : undefined} />
