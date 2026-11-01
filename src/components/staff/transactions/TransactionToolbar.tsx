@@ -1,6 +1,8 @@
+import { formatDay } from '../../../utils/format'
 import { MAX_SEARCH, PER_PAGE_OPTIONS, type TransactionDir, type TransactionQuery, type TransactionSort } from '../../../utils/transactionQuery'
 import { ChevronDownIcon, SearchIcon, SpinnerIcon, XIcon } from '../../form/icons'
 import { SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { RangeCalendar } from '../../ui/RangeCalendar'
 import { Select } from '../../ui/Select'
 import { Tooltip } from '../../ui/Tooltip'
 
@@ -25,8 +27,6 @@ const SORT_OPTIONS = [
   { value: 'customer-asc', label: 'Customer: A to Z' },
   { value: 'customer-desc', label: 'Customer: Z to A' },
 ]
-const DATE_INPUT =
-  'font-ui min-h-9 pointer-coarse:min-h-11 min-w-0 flex-1 @sm:flex-none rounded-xl border border-line-strong bg-canvas px-3 text-sm text-fg scheme-light dark:scheme-dark'
 
 interface TransactionToolbarProps {
   text: string
@@ -46,6 +46,18 @@ interface TransactionToolbarProps {
 
 export function TransactionToolbar({ text, onText, query, today, onFilter, onSort, onPer, onClear, canExport, exporting, onExport }: TransactionToolbarProps) {
   const active = Number(query.range !== '') + Number(query.status !== '')
+  // Choosing Custom keeps the list open and shows a calendar beside it, like a submenu; the chosen dates then show on the button.
+  const rangeOptions = RANGE_OPTIONS.map((option) =>
+    option.value === 'custom'
+      ? {
+          ...option,
+          summary: query.from ? `${formatDay(query.from)} – ${query.to ? formatDay(query.to) : '…'}` : undefined,
+          submenu: (done: () => void) => (
+            <RangeCalendar autoFocus start={query.from} end={query.to} max={today} onChange={(from, to) => onFilter({ range: 'custom', from, to })} onClose={done} />
+          ),
+        }
+      : option,
+  )
   return (
     <div className="mb-3 grid gap-3">
       <div className="relative">
@@ -89,33 +101,8 @@ export function TransactionToolbar({ text, onText, query, today, onFilter, onSor
         </summary>
         <div className="mt-3 flex flex-wrap items-center gap-3 @4xl:mt-0">
           <div className="w-full @sm:w-48 @4xl:w-40">
-            <Select label="Date range" value={query.range} options={RANGE_OPTIONS} onChange={(range) => onFilter({ range })} />
+            <Select label="Date range" value={query.range} options={rangeOptions} onChange={(range) => onFilter({ range })} />
           </div>
-          {query.range === 'custom' && (
-            <>
-              <label className="flex w-full items-center gap-2 text-sm text-fg-muted @sm:w-auto">
-                <span className="w-9 @sm:w-auto">From</span>
-                <input
-                  type="date"
-                  value={query.from}
-                  max={query.to || today}
-                  onChange={(event) => onFilter({ range: 'custom', from: event.target.value })}
-                  className={DATE_INPUT}
-                />
-              </label>
-              <label className="flex w-full items-center gap-2 text-sm text-fg-muted @sm:w-auto">
-                <span className="w-9 @sm:w-auto">To</span>
-                <input
-                  type="date"
-                  value={query.to}
-                  min={query.from || undefined}
-                  max={today}
-                  onChange={(event) => onFilter({ range: 'custom', to: event.target.value })}
-                  className={DATE_INPUT}
-                />
-              </label>
-            </>
-          )}
           <div className="w-full @sm:w-48 @4xl:w-44">
             <Select label="Status" value={query.status} options={STATUS_OPTIONS} onChange={(status) => onFilter({ status })} />
           </div>

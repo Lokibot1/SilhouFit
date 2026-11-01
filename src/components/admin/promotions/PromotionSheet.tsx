@@ -16,9 +16,9 @@ import { AlertIcon, SpinnerIcon } from '../../form/icons'
 import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../../staff/inventory/FormField'
 import { useToast } from '../../toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { DateRangeField } from '../../ui/DateRangeField'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
-import { DateRangeField } from './DateRangeField'
 import { PromotionAppliesTo } from './PromotionAppliesTo'
 
 /** Placeholders sit clearly dimmer than typed text yet stay above 4.5:1 on the page colour in both themes. */

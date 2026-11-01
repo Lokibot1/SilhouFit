@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
@@ -340,28 +340,55 @@ describe('StaffTransactionsPage', () => {
     expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
   })
 
-  it('takes a custom range from two date inputs limited by each other, and a preset forgets them', async () => {
+  it('shows a calendar beside the list when Custom is chosen, takes a range from it, and a preset forgets it', async () => {
     const user = userEvent.setup()
     renderPage()
     await within(table()).findByRole('button', { name: /SF-10001/ })
-    expect(screen.queryByLabelText('From')).not.toBeInTheDocument()
+    const calendar = () => screen.queryByRole('group', { name: 'Choose dates' })
+    const rangeBox = () => screen.getByRole('combobox', { name: 'Date range' })
+    expect(screen.queryByRole('button', { name: /^Dates/ })).not.toBeInTheDocument() // no extra field in the row
 
     await choose(user, 'Date range', 'Custom')
     expect(where()).toBe('/staff/transactions?range=custom')
-    const from = screen.getByLabelText('From')
-    const to = screen.getByLabelText('To')
-    fireEvent.change(from, { target: { value: '2026-09-01' } })
-    await waitFor(() => expect(lastParams()).toMatchObject({ from: '2026-09-01' }))
+    // the list stays open with the calendar beside it, like a submenu
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    expect(calendar()).toBeInTheDocument()
+    // no order is dated after today, so later days cannot be picked and there is no month after this one
+    expect(screen.getByRole('button', { name: 'Next month' })).toBeDisabled()
+    const days = () => screen.getAllByRole('button', { name: /^[A-Za-z]+ \d{1,2}, \d{4}$/ }).filter((day) => !(day as HTMLButtonElement).disabled)
+    await user.click(days()[0])
+    await waitFor(() => expect(lastParams().from).toBeDefined())
     expect(lastParams().to).toBeUndefined()
-    expect(to).toHaveAttribute('min', '2026-09-01')
-    fireEvent.change(to, { target: { value: '2026-09-30' } })
-    await waitFor(() => expect(lastParams()).toMatchObject({ from: '2026-09-01', to: '2026-09-30' }))
-    expect(where()).toBe('/staff/transactions?range=custom&from=2026-09-01&to=2026-09-30')
-    expect(from).toHaveAttribute('max', '2026-09-30')
+    await user.click(days().at(-1)!)
+    await waitFor(() => expect(lastParams().to).toBeDefined())
+    expect(lastParams().from! <= lastParams().to!).toBe(true)
+    expect(where()).toBe(`/staff/transactions?range=custom&from=${lastParams().from}&to=${lastParams().to}`)
+    // finishing the range closes both, and the button shows the dates
+    expect(calendar()).not.toBeInTheDocument()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(rangeBox()).toHaveTextContent('–')
+    expect(rangeBox()).toHaveFocus()
 
     await choose(user, 'Date range', 'Today')
     expect(where()).toBe('/staff/transactions?range=today')
-    expect(screen.queryByLabelText('From')).not.toBeInTheDocument()
+    expect(rangeBox()).toHaveTextContent('Today')
+  })
+
+  it('closes only the calendar and list on Escape, and hovering another row hides the calendar', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await within(table()).findByRole('button', { name: /SF-10001/ })
+    await choose(user, 'Date range', 'Custom')
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('group', { name: 'Choose dates' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Date range' })).toHaveFocus()
+
+    await user.click(screen.getByRole('combobox', { name: 'Date range' }))
+    await user.click(await screen.findByRole('option', { name: 'Custom' })) // already custom: just shows the calendar
+    expect(screen.getByRole('group', { name: 'Choose dates' })).toBeInTheDocument()
+    await user.hover(screen.getByRole('option', { name: 'Today' }))
+    expect(screen.queryByRole('group', { name: 'Choose dates' })).not.toBeInTheDocument()
   })
 
   it('ignores a bad or backwards custom range in the URL', async () => {
@@ -369,7 +396,8 @@ describe('StaffTransactionsPage', () => {
     await within(table()).findByRole('button', { name: /SF-10001/ })
     expect(lastParams().from).toBeUndefined()
     expect(lastParams().to).toBeUndefined()
-    expect(screen.getByLabelText('From')).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Date range' })).toHaveTextContent('Custom')
+    expect(screen.queryByRole('group', { name: 'Choose dates' })).not.toBeInTheDocument() // arriving on a custom page does not pop the calendar open
   })
 
   it('keeps the previous rows, dimmed, while the next request loads', async () => {

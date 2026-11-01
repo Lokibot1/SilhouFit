@@ -16,6 +16,10 @@ export const formatPesoCompact = (amount: number) => PESO_COMPACT.format(amount)
 export const formatDay = (date: string, month: 'short' | 'long' = 'short') =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month, day: 'numeric' })
 
+/** "2026-10-14" -> "Oct 14, 2026" (or "October 14, 2026"), read and shown as UTC like `formatDay`. */
+export const formatDayWithYear = (date: string, month: 'short' | 'long' = 'short') =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month, day: 'numeric', year: 'numeric' })
+
 /** An ISO time as Manila store time in 12-hour form: "Oct 22, 3:45 PM". */
 export const formatOrderTime = (iso: string) =>
   new Date(iso).toLocaleString('en-US', {

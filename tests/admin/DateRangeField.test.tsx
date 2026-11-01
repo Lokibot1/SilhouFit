@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { MotionGlobalConfig } from 'motion/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { DateRangeField } from '../../src/components/admin/promotions/DateRangeField'
+import { DateRangeField } from '../../src/components/ui/DateRangeField'
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
