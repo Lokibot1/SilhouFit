@@ -20,8 +20,13 @@ const sizes = (n: number) => `${n} ${n === 1 ? 'size' : 'sizes'}`
 
 // The drawer's actions share one row; the visible words are short ("Delete") and the full name ("Delete product") is read out.
 const ACTION_ROW = 'flex flex-nowrap justify-end gap-2'
-const ACTION_SECONDARY = `${SECONDARY_BUTTON_SM} min-w-0 gap-1.5 px-2.5`
-const ACTION_PRIMARY = `${PRIMARY_BUTTON_SM} min-w-0 gap-1.5 px-2.5`
+const ACTION_BASE =
+  'btn-lift font-ui flex min-h-9 pointer-coarse:min-h-11 max-md:min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold disabled:cursor-progress disabled:opacity-60'
+// Edit is blue, Delete red, Archive orange: a tinted face and a matching edge that both deepen on hover.
+const ACTION_EDIT = `${ACTION_BASE} border-info/50 bg-info/10 text-info hover:border-info hover:bg-info/20`
+const ACTION_DELETE = `${ACTION_BASE} border-danger/50 bg-danger/10 text-danger hover:border-danger hover:bg-danger/20`
+const ACTION_ARCHIVE = `${ACTION_BASE} border-warning/50 bg-warning/10 text-warning hover:border-warning hover:bg-warning/20`
+const ACTION_PRIMARY = `${PRIMARY_BUTTON_SM} min-w-0 gap-1.5 px-3`
 
 const DISCARD_ID = 'inventory-discard'
 const ARCHIVE_ID = 'inventory-archive'
@@ -326,7 +331,7 @@ export function InventoryDrawer({
   } else if (product && archived) {
     footer = (
       <div className={ACTION_ROW}>
-        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={ACTION_SECONDARY}>
+        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={ACTION_DELETE}>
           <TrashIcon />
           Delete{' '}<span className="sr-only">product</span>
         </button>
@@ -357,15 +362,15 @@ export function InventoryDrawer({
   } else if (product) {
     footer = (
       <div className={ACTION_ROW}>
-        <button type="button" disabled={!fields} onClick={() => fields && onEditDetails(product, fields)} className={ACTION_SECONDARY}>
+        <button type="button" disabled={!fields} onClick={() => fields && onEditDetails(product, fields)} className={ACTION_EDIT}>
           <PencilIcon />
           Edit{' '}<span className="sr-only">details</span>
         </button>
-        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={ACTION_SECONDARY}>
+        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={ACTION_DELETE}>
           <TrashIcon />
           Delete{' '}<span className="sr-only">product</span>
         </button>
-        <button type="button" id={ARCHIVE_ID} onClick={() => ask({ kind: 'archive' }, ARCHIVE_ID)} className={ACTION_SECONDARY}>
+        <button type="button" id={ARCHIVE_ID} onClick={() => ask({ kind: 'archive' }, ARCHIVE_ID)} className={ACTION_ARCHIVE}>
           <ArchiveIcon />
           Archive{' '}<span className="sr-only">product</span>
         </button>

@@ -180,10 +180,10 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
         className={`glass-card glass-elevated glass-dense relative flex w-full flex-col outline-none ${
           sheet
             ? drawer
-              ? 'h-full max-w-[min(28rem,85vw)] rounded-r-2xl'
+              ? 'h-full max-w-[min(28rem,85vw)] rounded-r-xl'
               : left
-              ? 'max-h-[90svh] rounded-t-2xl lg:h-full lg:max-h-none lg:max-w-md lg:rounded-none lg:rounded-r-2xl'
-              : 'max-h-[90svh] rounded-t-2xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-2xl'
+              ? 'max-h-[90svh] rounded-t-xl lg:h-full lg:max-h-none lg:max-w-md lg:rounded-none lg:rounded-r-xl'
+              : 'max-h-[90svh] rounded-t-xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-xl'
             : 'max-h-[85svh] max-w-2xl rounded-2xl'
         }`}
       >
