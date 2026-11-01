@@ -1,10 +1,9 @@
 import type { CustomSizing } from '../../../service/customSizings'
 import { sizingColumns } from '../../../utils/customSizing'
 import { compareSizes } from '../../../utils/sizeMeasurementValidation'
-import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../form/icons'
 import { MEASURE_CARD, MEASURE_TD, MEASURE_TH } from '../MeasurementsSkeleton'
-
-const ROW_BUTTON = `${SECONDARY_BUTTON_SM} min-h-11! min-w-11!`
+import { RowIconButton } from './RowIconButton'
 
 interface CustomSizingListProps {
   category: string
@@ -31,17 +30,11 @@ export function CustomSizingList({ category, sizings, onEdit, onArchive, onResto
               </h3>
               <div className="flex gap-2">
                 {sizing.isActive === false ? (
-                  <button type="button" aria-label={`Restore ${sizing.name}`} onClick={() => onRestore(sizing)} className={ROW_BUTTON}>
-                    Restore
-                  </button>
+                  <RowIconButton label={`Restore ${sizing.name}`} icon={<RestoreIcon />} onClick={() => onRestore(sizing)} />
                 ) : (
                   <>
-                    <button type="button" aria-label={`Edit ${sizing.name}`} onClick={() => onEdit(sizing)} className={ROW_BUTTON}>
-                      Edit
-                    </button>
-                    <button type="button" aria-label={`Archive ${sizing.name}`} onClick={() => onArchive(sizing)} className={ROW_BUTTON}>
-                      Archive
-                    </button>
+                    <RowIconButton label={`Edit ${sizing.name}`} icon={<PencilIcon />} onClick={() => onEdit(sizing)} />
+                    <RowIconButton label={`Archive ${sizing.name}`} icon={<ArchiveIcon />} onClick={() => onArchive(sizing)} />
                   </>
                 )}
               </div>

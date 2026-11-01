@@ -2,11 +2,10 @@ import type { MeasurementKey } from '../../../service/fetchProductList'
 import type { SizeMeasurement } from '../../../service/sizeMeasurements'
 import { MEASUREMENT_FIELDS } from '../../../utils/productValidation'
 import { COLUMNS_BY_CATEGORY } from '../../../utils/sizeMeasurementValidation'
-import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../form/icons'
 import { MEASURE_CARD, MEASURE_TD, MEASURE_TH, MeasurementsRowsSkeleton } from '../MeasurementsSkeleton'
+import { RowIconButton } from './RowIconButton'
 
-// 44px touch targets at every width.
-const ROW_BUTTON = `${SECONDARY_BUTTON_SM} min-h-11! min-w-11!`
 const LABEL = Object.fromEntries(MEASUREMENT_FIELDS.map(({ key, label }) => [key, label]))
 
 interface MeasurementsListProps {
@@ -34,17 +33,11 @@ export function MeasurementsList({ category, rows, skeletonRows, busyId, onEdit,
       <div className="flex justify-end gap-2">
         {row.isActive ? (
           <>
-            <button type="button" data-row-action={row.id} disabled={busy} aria-label={`Edit ${name}`} onClick={() => onEdit(row)} className={ROW_BUTTON}>
-              Edit
-            </button>
-            <button type="button" disabled={busy} aria-label={`Archive ${name}`} onClick={() => onArchive(row)} className={ROW_BUTTON}>
-              Archive
-            </button>
+            <RowIconButton rowId={row.id} disabled={busy} label={`Edit ${name}`} icon={<PencilIcon />} onClick={() => onEdit(row)} />
+            <RowIconButton disabled={busy} label={`Archive ${name}`} icon={<ArchiveIcon />} onClick={() => onArchive(row)} />
           </>
         ) : (
-          <button type="button" data-row-action={row.id} disabled={busy} aria-label={`Restore ${name}`} onClick={() => onRestore(row)} className={ROW_BUTTON}>
-            {busy ? 'Restoring…' : 'Restore'}
-          </button>
+          <RowIconButton rowId={row.id} disabled={busy} label={`Restore ${name}`} icon={<RestoreIcon />} onClick={() => onRestore(row)} />
         )}
       </div>
     )
