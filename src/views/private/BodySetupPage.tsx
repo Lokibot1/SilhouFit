@@ -289,7 +289,7 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
           Back
         </button>
         <button type="button" onClick={fromReview ? backToReview : next} disabled={!canNext} className={`${PRIMARY_BUTTON} ${DISABLED_PRIMARY}`}>
-          {fromReview ? 'Done' : 'Next'}
+          {fromReview ? 'Review answers' : 'Next'}
         </button>
       </div>
     </div>

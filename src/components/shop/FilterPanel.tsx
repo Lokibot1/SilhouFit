@@ -94,7 +94,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
             Reset
           </button>
           <button type="button" onClick={apply} disabled={invalidRange} className={`${SHOP_PRIMARY} flex-1`}>
-            Apply
+            Apply filters
           </button>
         </div>
       }

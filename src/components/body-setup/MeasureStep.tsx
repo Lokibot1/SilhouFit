@@ -222,7 +222,7 @@ export function MeasureStep({
             Back
           </button>
           <button type="submit" form="measure-form" className={PRIMARY_BUTTON}>
-            {fromReview ? 'Done' : index === fields.length - 1 ? 'Review' : 'Next'}
+            {fromReview ? 'Review answers' : index === fields.length - 1 ? 'Review' : 'Next'}
           </button>
         </div>
       </div>

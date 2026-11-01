@@ -296,7 +296,7 @@ describe('ShopPage filter dialog', () => {
     const dialog = await openFilters(user)
     expect(within(dialog).queryByText('Availability')).not.toBeInTheDocument()
     await user.click(within(dialog).getByRole('checkbox', { name: /AR-ready/ }))
-    await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }))
     expect(urlSearch()).toBe('?ar=1')
     await waitFor(() => expect(lastParams().isArReady).toBe(true))
     expect(screen.getByRole('button', { name: /^Filters/ })).toHaveTextContent('1')
@@ -327,7 +327,7 @@ describe('ShopPage filter dialog', () => {
     expect(within(dialog).getByRole('button', { name: 'Navy' }).firstElementChild).toHaveStyle({ backgroundColor: '#1b2a49' })
 
     await user.click(within(dialog).getByRole('button', { name: 'Navy' }))
-    await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }))
     expect(urlSearch()).toBe('?color=Navy')
     await waitFor(() => expect(lastParams()).toMatchObject({ colors: ['Navy'] }))
     expect(lastParams()).not.toHaveProperty('color')
@@ -346,7 +346,7 @@ describe('ShopPage filter dialog', () => {
     await user.click(within(dialog).getByRole('button', { name: 'L' }))
     await user.click(within(dialog).getByRole('button', { name: 'Navy' }))
     expect(within(dialog).getByRole('button', { name: 'M' })).toHaveAttribute('aria-pressed', 'true')
-    await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }))
     expect(urlSearch()).toBe('?color=Black&color=Navy&size=M&size=L')
     await waitFor(() => expect(lastParams()).toMatchObject({ sizes: ['M', 'L'], colors: ['Black', 'Navy'] }))
 
@@ -377,7 +377,7 @@ describe('ShopPage filter dialog', () => {
     // Without the facets the usual sizes and the plain price hints stay.
     expect(within(dialog).getByRole('button', { name: 'XXL' })).toBeInTheDocument()
     expect(within(dialog).getByRole('textbox', { name: 'Maximum' })).toHaveAttribute('placeholder', 'Any')
-    expect(within(dialog).getByRole('button', { name: 'Apply' })).toBeEnabled()
+    expect(within(dialog).getByRole('button', { name: 'Apply filters' })).toBeEnabled()
   })
 
   it('offers the sizes in order, the brands as suggestions and the price range as hints, from the same one request', async () => {
@@ -401,7 +401,7 @@ describe('ShopPage filter dialog', () => {
     await loaded()
     const dialog = await openFilters(user)
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Black' })).toBeInTheDocument())
-    await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }))
     expect(urlSearch()).toBe('')
   })
 
@@ -413,7 +413,7 @@ describe('ShopPage filter dialog', () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'Minimum' }), '900')
     await user.type(within(dialog).getByRole('textbox', { name: 'Maximum' }), '100')
     expect(within(dialog).getByRole('alert')).toHaveTextContent('The minimum is higher than the maximum')
-    expect(within(dialog).getByRole('button', { name: 'Apply' })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'Apply filters' })).toBeDisabled()
   })
 })
 

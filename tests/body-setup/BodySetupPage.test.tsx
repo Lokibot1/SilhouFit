@@ -330,7 +330,7 @@ describe('BodySetupPage flow', () => {
     await user.click(screen.getByRole('button', { name: 'Edit height' }))
     await screen.findByRole('heading', { name: 'Height' })
     await typeValue(user, '180')
-    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await user.click(screen.getByRole('button', { name: 'Review answers' }))
     expect(await screen.findByRole('heading', { name: 'Review your measurements' })).toBeInTheDocument()
     expect(screen.getByText('180 cm')).toBeInTheDocument()
   })

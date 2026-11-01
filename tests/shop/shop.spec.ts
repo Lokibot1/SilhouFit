@@ -168,7 +168,7 @@ for (const { name, width, height } of DEVICE_MATRIX) {
     const box = await dialog.boundingBox()
     expect(box!.x).toBeGreaterThanOrEqual(0)
     expect(box!.x + box!.width).toBeLessThanOrEqual(width)
-    await expect(dialog.getByRole('button', { name: 'Apply' })).toBeInViewport()
+    await expect(dialog.getByRole('button', { name: 'Apply filters' })).toBeInViewport()
   })
 }
 
@@ -293,7 +293,7 @@ test.describe('filters', () => {
     await openShop(page)
     const dialog = await openFilters(page)
     await dialog.getByRole('button', { name: 'Navy', exact: true }).click()
-    await dialog.getByRole('button', { name: 'Apply' }).click()
+    await dialog.getByRole('button', { name: 'Apply filters' }).click()
     await expect(page).toHaveURL(/color=Navy/)
     await expect(cards(page)).toHaveCount(2) // Linen Shirt and Cotton Tee ("navy")
     expect(lastList().colors).toBe('Navy')
@@ -305,7 +305,7 @@ test.describe('filters', () => {
     await page.goto('/shop?color=Chartreuse')
     const dialog = await openFilters(page)
     await expect(dialog.getByRole('button', { name: 'Black', exact: true })).toBeVisible()
-    await dialog.getByRole('button', { name: 'Apply' }).click()
+    await dialog.getByRole('button', { name: 'Apply filters' }).click()
     expect(urlParams(page).color).toBeUndefined()
   })
 
@@ -317,7 +317,7 @@ test.describe('filters', () => {
     await dialog.getByRole('textbox', { name: 'Minimum' }).fill('1000')
     await dialog.getByRole('textbox', { name: 'Maximum' }).fill('2000')
     expect(urlParams(page)).toEqual({})
-    await dialog.getByRole('button', { name: 'Apply' }).click()
+    await dialog.getByRole('button', { name: 'Apply filters' }).click()
     await expect(chipList(page).getByRole('listitem')).toHaveCount(3)
     expect(urlParams(page)).toMatchObject({ brand: 'Atelier Manila', size: 'M', min: '1000', max: '2000' })
     await expect.poll(() => lastList().sizes).toBe('M')
@@ -345,7 +345,7 @@ test.describe('filters', () => {
     const dialog = await openFilters(page)
     await expect(dialog.getByRole('checkbox', { name: /AR-ready/ })).toBeVisible()
     await dialog.getByRole('checkbox', { name: /AR-ready/ }).check()
-    await dialog.getByRole('button', { name: 'Apply' }).click()
+    await dialog.getByRole('button', { name: 'Apply filters' }).click()
     expect(urlParams(page).ar).toBe('1')
     await expect(chipList(page).getByRole('button', { name: /^Remove AR/ })).toBeVisible()
     await expect.poll(() => lastList().isArReady).toBe('true')
@@ -378,7 +378,7 @@ test.describe('filters', () => {
     await dialog.getByRole('textbox', { name: 'Minimum' }).fill('900')
     await dialog.getByRole('textbox', { name: 'Maximum' }).fill('100')
     await expect(dialog.getByRole('alert')).toContainText('The minimum is higher than the maximum')
-    await expect(dialog.getByRole('button', { name: 'Apply' })).toBeDisabled()
+    await expect(dialog.getByRole('button', { name: 'Apply filters' })).toBeDisabled()
   })
 
   test('the sort menu sends the price sorts as sortBy=price, and name sorts reach the API', async ({ page }) => {
