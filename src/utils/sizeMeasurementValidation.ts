@@ -7,7 +7,7 @@ import { filterText, MEASUREMENT_FIELDS, parseMeasurement } from './productValid
 export const SIZE_MAX = 20
 
 /**
- * The columns the list shows for each category; the form offers all nine. Headwear shows the neck because the schema has no head
+ * The columns the list and the forms show for each category (a form also keeps one a row already has). Headwear shows the neck because the schema has no head
  * circumference.
  */
 export const COLUMNS_BY_CATEGORY: Record<string, MeasurementKey[]> = {

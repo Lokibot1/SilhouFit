@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CATEGORIES, SIZES_BY_CATEGORY } from '../../../data/products'
 import { createSizeMeasurement, sizeFailureReason, updateSizeMeasurement, type SizeMeasurement } from '../../../service/sizeMeasurements'
 import { describedBy, filterMeasurement, MEASUREMENT_FIELDS } from '../../../utils/productValidation'
-import { buildSizeInput, buildSizePatch, filterSizeLabel, SIZE_MAX, sizeFormValues, validateSizeForm, type SizeFormValues } from '../../../utils/sizeMeasurementValidation'
+import { COLUMNS_BY_CATEGORY, buildSizeInput, buildSizePatch, filterSizeLabel, SIZE_MAX, sizeFormValues, validateSizeForm, type SizeFormValues } from '../../../utils/sizeMeasurementValidation'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
@@ -25,7 +25,7 @@ interface SizeSheetProps {
   onClose: () => void
 }
 
-/** Add a size to a category, or edit one: the size label and all nine measurements in cm. Mount it fresh for each row. */
+/** Add a size to a category, or edit one: the size label and the measurements in cm that apply to its category. Mount it fresh for each row. */
 export function SizeSheet({ row, category, onSaved, onClose }: SizeSheetProps) {
   const editing = row !== undefined
   const [values, setValues] = useState(() => sizeFormValues(category, row))
@@ -60,6 +60,20 @@ export function SizeSheet({ row, category, onSaved, onClose }: SizeSheetProps) {
   const dirty = JSON.stringify(values) !== initial
 
   const set = (patch: Partial<SizeFormValues>) => setValues((old) => ({ ...old, ...patch }))
+
+  // Only the measurements that make sense for the category (no sleeve on pants). One the row already has stays, so it can still be changed or cleared.
+  const columns = COLUMNS_BY_CATEGORY[values.category]
+  const fields = MEASUREMENT_FIELDS.filter(({ key }) => !columns || columns.includes(key) || (row && row[key] !== null))
+
+  // A new category has other columns, so what was typed in a box it no longer shows is dropped rather than saved unseen.
+  function changeCategory(next: string) {
+    const kept = COLUMNS_BY_CATEGORY[next]
+    setValues((old) => ({
+      ...old,
+      category: next,
+      measurements: Object.fromEntries(MEASUREMENT_FIELDS.map(({ key }) => [key, !kept || kept.includes(key) ? old.measurements[key] : ''])) as SizeFormValues['measurements'],
+    }))
+  }
 
   async function submit(event?: FormEvent) {
     event?.preventDefault()
@@ -158,7 +172,7 @@ export function SizeSheet({ row, category, onSaved, onClose }: SizeSheetProps) {
             </div>
           ) : (
             <SelectField label="Category">
-              <Select label="Category" value={values.category} options={CATEGORY_OPTIONS} onChange={(next) => set({ category: next })} className={SELECT_FLAT} />
+              <Select label="Category" value={values.category} options={CATEGORY_OPTIONS} onChange={changeCategory} className={SELECT_FLAT} />
             </SelectField>
           )}
 
@@ -192,7 +206,7 @@ export function SizeSheet({ row, category, onSaved, onClose }: SizeSheetProps) {
               </p>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {MEASUREMENT_FIELDS.map(({ key, label: name, min, max }) => {
+              {fields.map(({ key, label: name, min, max }) => {
                 const id = `ss-m-${key}`
                 const problem = error(`m:${key}`)
                 return (
