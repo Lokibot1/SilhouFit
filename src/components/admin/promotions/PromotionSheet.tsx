@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { createPromotion, getPromotions, updatePromotion, type PromoAppliesTo, type PromoType, type PromotionInput, type PromotionRow } from '../../../service/promotions'
-import { filterPriceInput } from '../../../utils/format'
+import { filterPriceInput, withCommas } from '../../../utils/format'
 import { addDays, manilaToday } from '../../../utils/period'
 import {
   PROMO_LIMITS,
@@ -149,7 +149,7 @@ export function PromotionSheet({ open, onClose, promotion }: PromotionSheetProps
 
   const input = (name: TextField, extra: { inputMode?: 'numeric' | 'decimal'; className?: string; hint?: boolean } = {}) => ({
     id: fieldId(name),
-    value: values[name],
+    value: name === 'value' || name === 'usageLimit' || name === 'minSpend' ? withCommas(values[name]) : values[name],
     readOnly: pending,
     onChange: (event: { target: { value: string } }) => setField(name, event.target.value),
     onBlur: () => setTouched((current) => ({ ...current, [name]: true })),

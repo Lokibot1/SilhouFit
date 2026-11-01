@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { Link } from 'react-router-dom'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { approveRefund, REFUND_CHANNEL_LABELS, REFUND_REASON_LABELS, rejectRefund, type RefundDecision, type RefundRequest } from '../../../service/refunds'
-import { filterPriceInput, formatPeso, formatPlacedAt } from '../../../utils/format'
+import { filterPriceInput, formatPeso, formatPlacedAt, withCommas } from '../../../utils/format'
 import { REFUND_LIMITS, sanitizeText, validateApproval, validateRejection } from '../../../utils/refundValidation'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
 import { Field, FIELD_INPUT } from '../../staff/inventory/FormField'
@@ -337,7 +337,7 @@ export function RefundDetailSheet({ request: initial, open, onClose }: RefundDet
                   <input
                     {...input('amount')}
                     type="text"
-                    value={partial}
+                    value={withCommas(partial)}
                     onChange={(event) => change('amount', setPartial, filterPriceInput(event.target.value) ?? partial)}
                     inputMode="decimal"
                     placeholder={String(Math.floor(request.orderTotal / 2))}

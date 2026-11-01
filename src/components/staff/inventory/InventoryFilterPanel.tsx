@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { filterPriceInput } from '../../../utils/format'
+import { filterPriceInput, withCommas } from '../../../utils/format'
 import { useShopFacets } from '../../../hooks/useShopColours'
 import { COMMON_SIZES, orderSizes } from '../../../utils/productQuery'
 import { cleanFilterText, MAX_FILTER_TEXT, parsePrice, priceRangeInvalid, type InventoryQuery } from '../../../utils/inventoryQuery'
@@ -155,7 +155,7 @@ export function InventoryFilterPanel({ open, onClose, query, onApply }: { open: 
               <input
                 id="filter-min"
                 inputMode="decimal"
-                value={draft.min}
+                value={withCommas(draft.min)}
                 onChange={(event) => set({ min: filterPriceInput(event.target.value) ?? draft.min })}
                 placeholder="0"
                 aria-invalid={invalidRange}
@@ -167,7 +167,7 @@ export function InventoryFilterPanel({ open, onClose, query, onApply }: { open: 
               <input
                 id="filter-max"
                 inputMode="decimal"
-                value={draft.max}
+                value={withCommas(draft.max)}
                 onChange={(event) => set({ max: filterPriceInput(event.target.value) ?? draft.max })}
                 placeholder="Any"
                 aria-invalid={invalidRange}

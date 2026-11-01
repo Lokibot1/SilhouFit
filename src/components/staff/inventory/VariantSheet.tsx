@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { withCommas } from '../../../utils/format'
 import type { ProductVariant } from '../../../service/fetchProductList'
 import { createFailureReason, createVariant, manageFailureReason, saveVariant, uploadImage } from '../../../service/inventoryActions'
 import {
@@ -313,7 +314,7 @@ export function VariantSheet({ mode, productId, variant, onSaved, onClose }: Var
               inputMode="decimal"
               autoComplete="off"
               placeholder="0.00"
-              value={values.price}
+              value={withCommas(values.price)}
               aria-invalid={Boolean(error('price'))}
               aria-describedby={describedBy('vs-price', error('price'))}
               onChange={(event) => set({ price: filterPrice(event.target.value) })}
@@ -329,7 +330,7 @@ export function VariantSheet({ mode, productId, variant, onSaved, onClose }: Var
                 type="text"
                 inputMode="numeric"
                 autoComplete="off"
-                value={values.stock}
+                value={withCommas(values.stock)}
                 aria-invalid={Boolean(error('stock'))}
                 aria-describedby={describedBy('vs-stock', error('stock'))}
                 onChange={(event) => set({ stock: filterStock(event.target.value) })}

@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import type { ProductVariant } from '../../../service/fetchProductList'
+import { withCommas } from '../../../utils/format'
 import { filterStock, parseStock, STOCK_ERROR, stepStock } from '../../../utils/stockEdit'
 import { MinusIcon, PlusIcon } from '../../form/icons'
 import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
@@ -40,7 +41,7 @@ export function StockCell({
           type="text"
           inputMode="numeric"
           autoComplete="off"
-          value={text}
+          value={withCommas(text)}
           disabled={disabled}
           onChange={(event) => onChange(filterStock(event.target.value))}
           aria-label={`Stock for ${name}`}
@@ -82,7 +83,7 @@ export function SoldOutHelper({ count, disabled, onApply }: { count: number; dis
         type="text"
         inputMode="numeric"
         autoComplete="off"
-        value={text}
+        value={withCommas(text)}
         disabled={disabled}
         onChange={(event) => setText(filterStock(event.target.value))}
         className={`${INPUT} w-20`}

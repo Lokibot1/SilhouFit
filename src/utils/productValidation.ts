@@ -1,5 +1,6 @@
 import { SIZES_BY_CATEGORY, type Category } from '../data/products'
 import type { SizingDraft } from './customSizing'
+import { withCommas } from './format'
 import type { Gender, MeasurementKey, ProductDetailFields, ProductListItem, ProductVariant } from '../service/fetchProductList'
 import type { NewProductInput, ProductPatch, VariantInput, VariantPatch } from '../service/productAdmin'
 import { cleanText } from './checkoutValidation'
@@ -50,7 +51,7 @@ export function filterPrice(input: string) {
   return `${cleaned.slice(0, dot).slice(0, 7)}.${cleaned.slice(dot + 1).replace(/\./g, '').slice(0, 2)}`
 }
 /** A filtered price with thousands commas for display (`1234.5` -> `1,234.5`). The stored value stays comma-free. */
-export const formatPriceInput = (value: string) => value.replace(/^\d+/, (int) => int.replace(/\B(?=(\d{3})+$)/g, ','))
+export const formatPriceInput = withCommas
 export { filterStock } from './stockEdit'
 
 /** The amount typed in a price box, rounded to cents, or null when it is empty or not a number. */

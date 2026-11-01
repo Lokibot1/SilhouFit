@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { withCommas } from '../../../utils/format'
 import {
   DEFAULT_HEX,
   describedBy,
@@ -263,7 +264,7 @@ export function VariantBuilder({ values, skus, disabled, error, touch, set }: Va
                       type="text"
                       inputMode="decimal"
                       autoComplete="off"
-                      value={values.edits[key]?.price ?? ''}
+                      value={withCommas(values.edits[key]?.price ?? '')}
                       disabled={disabled}
                       placeholder="Base price"
                       aria-label={`Price override for ${label}`}

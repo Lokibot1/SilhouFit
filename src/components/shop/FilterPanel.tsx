@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Category, ProductGender } from '../../data/products'
 import { sameColour, useShopColours, useShopFacets, validColour } from '../../hooks/useShopColours'
-import { filterPriceInput, parseFilterPrice } from '../../utils/format'
+import { filterPriceInput, parseFilterPrice, withCommas } from '../../utils/format'
 import { AVAILABILITY, COMMON_SIZES, GENDER_OPTIONS, orderSizes, type Availability, type ProductFilters } from '../../utils/productQuery'
 import { Modal } from '../ui/Modal'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
@@ -176,7 +176,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
               Minimum
               <input
                 inputMode="decimal"
-                value={draft.min}
+                value={withCommas(draft.min)}
                 onChange={(e) => setDraft({ ...draft, min: filterPriceInput(e.target.value) ?? draft.min })}
                 placeholder={pricesKnown ? String(facets.minPrice) : '0'}
                 aria-invalid={invalidRange}
@@ -188,7 +188,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
               Maximum
               <input
                 inputMode="decimal"
-                value={draft.max}
+                value={withCommas(draft.max)}
                 onChange={(e) => setDraft({ ...draft, max: filterPriceInput(e.target.value) ?? draft.max })}
                 placeholder={pricesKnown ? String(facets.maxPrice) : 'Any'}
                 aria-invalid={invalidRange}

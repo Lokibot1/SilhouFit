@@ -58,3 +58,6 @@ export function filterPriceInput(value: string): string | null {
 
 /** "Size M · Navy"; a variant without a size or colour leaves that part out. */
 export const variantLabel = (size: string | null, color: string | null) => [size && `Size ${size}`, color].filter(Boolean).join(' · ')
+
+/** An amount or count typed in a box, with thousands commas for display (`1234.5` -> `1,234.5`). The value kept in state stays comma-free. */
+export const withCommas = (value: string) => value.replace(/^\d+/, (int) => int.replace(/\B(?=(\d{3})+$)/g, ','))
