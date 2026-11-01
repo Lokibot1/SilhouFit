@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   activeFilterCount,
-  apiSortOrder,
   CLEAR_FILTERS,
   priceRangeInvalid,
   readInventoryQuery,
@@ -129,12 +128,9 @@ describe('price sort', () => {
     expect(read('sort=price&dir=desc')).toMatchObject({ sort: 'price', dir: 'desc' })
   })
 
-  it('never reaches the API: it asks for the default order, newest first', () => {
+  it('reaches the API as sortBy=price, never basePrice', () => {
     expect(Object.values(SORT_COLUMN)).not.toContain('basePrice')
-    expect(SORT_COLUMN.price).toBe('createdAt')
-    expect(apiSortOrder('price', 'asc')).toBe('desc')
-    expect(apiSortOrder('name', 'asc')).toBe('asc')
-    expect(apiSortOrder('date', 'asc')).toBe('asc')
+    expect(SORT_COLUMN).toEqual({ date: 'createdAt', name: 'name', price: 'price' })
   })
 })
 

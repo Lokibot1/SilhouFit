@@ -48,7 +48,6 @@ import type { RequestOptions } from "../../service/simulateRequest";
 import { formatPeso } from "../../utils/format";
 import {
   activeFilterCount,
-  apiSortOrder,
   CLEAR_FILTERS,
   DEFAULT_DIR,
   priceRangeInvalid,
@@ -113,10 +112,10 @@ export function StaffInventoryPage() {
           color: color || undefined,
           minPrice,
           maxPrice,
-          inStockOnly: stock === "in" || undefined,
+          stockLevel: stock === "in" || stock === "out" ? stock : undefined,
           isArReady: ar ? ar === "yes" : undefined,
           sortBy: SORT_COLUMN[sort],
-          sortOrder: apiSortOrder(sort, dir),
+          sortOrder: dir,
           page,
           limit: per,
           status: archivedView ? "archived" : undefined,

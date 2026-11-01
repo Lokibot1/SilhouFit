@@ -37,11 +37,13 @@ describe('toApiParams', () => {
     expect(api().isArReady).toBeUndefined()
   })
 
-  it('sends date and name sorts, and newest first for Featured and the price sorts, never basePrice', () => {
+  it('sends date, name and price sorts, and newest first for Featured, never basePrice', () => {
     expect(api({ sort: 'newest' })).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
     expect(api({ sort: 'name-asc' })).toMatchObject({ sortBy: 'name', sortOrder: 'asc' })
     expect(api({ sort: 'name-desc' })).toMatchObject({ sortBy: 'name', sortOrder: 'desc' })
-    for (const sort of ['featured', 'price-asc', 'price-desc'] as const) expect(api({ sort })).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
+    expect(api({ sort: 'price-asc' })).toMatchObject({ sortBy: 'price', sortOrder: 'asc' })
+    expect(api({ sort: 'price-desc' })).toMatchObject({ sortBy: 'price', sortOrder: 'desc' })
+    expect(api({ sort: 'featured' })).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
     expect(SORT_OPTIONS.map((o) => o.label)).toEqual(['Featured', 'Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A', 'Low stock first'])
   })
 })

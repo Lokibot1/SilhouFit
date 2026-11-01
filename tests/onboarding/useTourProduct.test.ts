@@ -27,7 +27,7 @@ describe('useTourProduct', () => {
     expect(result.current.ready).toBe(false)
     await waitFor(() => expect(result.current.ready).toBe(true))
     expect(result.current.product?.id).toBe('p01')
-    expect(vi.mocked(fetchProductList).mock.calls[0][0]).toMatchObject({ limit: 1, inStockOnly: true, sortBy: 'createdAt' })
+    expect(vi.mocked(fetchProductList).mock.calls[0][0]).toMatchObject({ limit: 1, stockLevel: 'in', sortBy: 'createdAt' })
   })
 
   it('has no product, and is ready, when the shop has none', async () => {

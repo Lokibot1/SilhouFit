@@ -12,7 +12,7 @@ export function useTourProduct() {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetchProductList({ limit: 1, inStockOnly: true, sortBy: 'createdAt' }, { signal: controller.signal })
+    fetchProductList({ limit: 1, stockLevel: 'in', sortBy: 'createdAt' }, { signal: controller.signal })
       .then(({ data }) => (data[0] ? loadProduct(data[0].id) : null))
       .then(
         (product) => setState({ ready: true, product: product?.variants?.some((v) => v.stock > 0) ? product : null }),

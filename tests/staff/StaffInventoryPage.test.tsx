@@ -143,7 +143,7 @@ describe('StaffInventoryPage', () => {
       expect(params).not.toHaveProperty('ar')
       expect(params).not.toHaveProperty('outOfStockOnly')
       expect(params).not.toHaveProperty('sizesOutOnly')
-      expect(params.inStockOnly).toBeUndefined()
+      expect(params).not.toHaveProperty('inStockOnly')
     }
     await userEvent.click(screen.getByRole('combobox', { name: 'Stock' }))
     expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['All stock levels', 'In stock', 'Out of stock', 'Has out-of-stock sizes'])
@@ -253,7 +253,7 @@ describe('StaffInventoryPage', () => {
     expect(lastParams()).toMatchObject({ sortBy: 'name', sortOrder: 'desc' })
   })
 
-  it('keeps the price sort, but the API is asked for the default order and never for basePrice', async () => {
+  it('sends the price sort as sortBy=price with its direction, never basePrice', async () => {
     const user = userEvent.setup()
     renderPage('?sort=price&dir=asc')
     await within(table()).findByRole('button', { name: /Tee 1/ })
@@ -261,10 +261,11 @@ describe('StaffInventoryPage', () => {
     expect(within(price).getByRole('button')).toBeInTheDocument()
     expect(price).toHaveAttribute('aria-sort', 'ascending')
     expect(where()).toContain('sort=price')
-    expect(lastParams()).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
+    expect(lastParams()).toMatchObject({ sortBy: 'price', sortOrder: 'asc' })
     await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
     expect(screen.getByRole('option', { name: 'Price: low to high' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Price: high to low' })).toBeInTheDocument()
+    await user.click(screen.getByRole('option', { name: 'Price: high to low' }))
+    await waitFor(() => expect(lastParams()).toMatchObject({ sortBy: 'price', sortOrder: 'desc' }))
     for (const [params] of list.mock.calls) expect(params.sortBy).not.toBe('basePrice')
   })
 
@@ -336,14 +337,22 @@ describe('StaffInventoryPage', () => {
     await choose(user, 'Category', 'Hoodie')
     await waitFor(() => expect(lastParams()).toMatchObject({ category: 'Hoodie' }))
     await choose(user, 'Stock', 'In stock')
-    await waitFor(() => expect(lastParams()).toMatchObject({ inStockOnly: true }))
+    await waitFor(() => expect(lastParams()).toMatchObject({ stockLevel: 'in' }))
+    expect(lastParams()).not.toHaveProperty('inStockOnly')
     expect(where()).toBe('/staff/inventory?sort=name&category=Hoodie&stock=in')
     expect(screen.getByText('Filters (2)')).toBeInTheDocument()
+
+    await choose(user, 'Stock', 'Out of stock')
+    await waitFor(() => expect(lastParams()).toMatchObject({ stockLevel: 'out' }))
+    await choose(user, 'Stock', 'Has out-of-stock sizes')
+    await waitFor(() => expect(lastParams().stockLevel).toBeUndefined())
+    await choose(user, 'Stock', 'In stock')
+    await waitFor(() => expect(lastParams()).toMatchObject({ stockLevel: 'in' }))
 
     await user.click(screen.getByRole('button', { name: 'Clear all' }))
     expect(where()).toBe('/staff/inventory?sort=name')
     await waitFor(() => expect(lastParams().category).toBeUndefined())
-    expect(lastParams().inStockOnly).toBeUndefined()
+    expect(lastParams().stockLevel).toBeUndefined()
     expect(screen.queryByRole('button', { name: 'Clear all' })).not.toBeInTheDocument()
   })
 
@@ -401,7 +410,7 @@ describe('StaffInventoryPage', () => {
     renderPage()
     await within(table()).findByRole('button', { name: /Tee 1/ })
     await choose(user, 'Stock', 'In stock')
-    await waitFor(() => expect(lastParams()).toMatchObject({ inStockOnly: true }))
+    await waitFor(() => expect(lastParams()).toMatchObject({ stockLevel: 'in' }))
     // The dropdown scrolls its own options; the list itself must not move.
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' })
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalledWith({ block: 'start', behavior: 'auto' })
@@ -528,7 +537,8 @@ describe('StaffInventoryPage archive and restock (real API path)', () => {
     expect(where()).toBe('/staff/inventory?stock=sizes')
     await waitFor(() => expect(lastParams().status).toBeUndefined())
     // The sizes-out filter has no API field: it stays selected and sends nothing.
-    expect(lastParams().inStockOnly).toBeUndefined()
+    expect(lastParams().stockLevel).toBeUndefined()
+    expect(lastParams()).not.toHaveProperty('inStockOnly')
     await user.click(screen.getByRole('combobox', { name: 'Stock' }))
     expect(screen.getByRole('option', { name: 'Has out-of-stock sizes' })).toBeInTheDocument()
   })

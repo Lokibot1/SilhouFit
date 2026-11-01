@@ -359,14 +359,15 @@ test.describe('filters', () => {
     await expect(cards(page)).toHaveCount(4)
   })
 
-  test('every request carries only keys the API accepts, and no price sort', async ({ page }) => {
+  test('every request carries only keys the API accepts, and the price sort goes out as sortBy=price', async ({ page }) => {
     await page.goto('/shop?brand=Atelier%20Manila&gender=unisex&size=M&color=Black&min=1&max=9999&ar=1&sort=price-asc&category=Hoodie')
     await expect.poll(() => api.of('GET', 'list').length).toBeGreaterThan(0)
     // The mock answers 400 to an unknown key, which the page would show as an error.
     await expect(page.getByText('The catalogue did not load')).toHaveCount(0)
     for (const call of api.of('GET', 'list')) {
       expect(call.query.sortBy).not.toBe('basePrice')
-      expect(call.query.sortBy).toBe('createdAt')
+      expect(call.query).toMatchObject({ sortBy: 'price', sortOrder: 'asc' })
+      expect(call.query.inStockOnly).toBeUndefined()
     }
   })
 
@@ -379,17 +380,21 @@ test.describe('filters', () => {
     await expect(dialog.getByRole('button', { name: 'Apply' })).toBeDisabled()
   })
 
-  test('the sort menu keeps Featured and the price sorts; they list newest first, and name sorts reach the API', async ({ page }) => {
+  test('the sort menu sends the price sorts as sortBy=price, and name sorts reach the API', async ({ page }) => {
     await openShop(page)
     await page.getByRole('combobox', { name: 'Sort by' }).click()
     await expect(page.getByRole('option')).toHaveText(['Featured', 'Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A', 'Low stock first'])
     await page.getByRole('option', { name: 'Price: high to low' }).click()
     await expect(page).toHaveURL(/sort=price-desc/)
     await expect(cards(page).first()).toContainText('Linen Shirt')
+    await expect.poll(() => lastList()).toMatchObject({ sortBy: 'price', sortOrder: 'desc' })
+    await page.getByRole('combobox', { name: 'Sort by' }).click()
+    await page.getByRole('option', { name: 'Price: low to high' }).click()
+    await expect.poll(() => lastList()).toMatchObject({ sortBy: 'price', sortOrder: 'asc' })
     await page.getByRole('combobox', { name: 'Sort by' }).click()
     await page.getByRole('option', { name: 'Name: A to Z' }).click()
     await expect(cards(page).first()).toContainText('Cotton Tee')
-    expect(lastList()).toMatchObject({ sortBy: 'name', sortOrder: 'asc' })
+    await expect.poll(() => lastList()).toMatchObject({ sortBy: 'name', sortOrder: 'asc' })
   })
 
   test('on a touch screen the chips, their remove buttons and Clear all are at least 44px', async ({ page, isMobile }) => {

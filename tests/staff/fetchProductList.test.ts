@@ -30,20 +30,39 @@ describe('fetchProductList', () => {
 
   it('sends the filters, sort and paging as query parameters', async () => {
     reply({ data: [ITEM], meta: META })
-    await fetchProductList({ search: 'tee', category: 'Hoodie', gender: 'female', inStockOnly: true, sortBy: 'name', sortOrder: 'asc', page: 2, limit: 10 })
+    await fetchProductList({ search: 'tee', category: 'Hoodie', gender: 'female', stockLevel: 'in', sortBy: 'name', sortOrder: 'asc', page: 2, limit: 10 })
     const url = requested()
     expect(url.pathname).toBe('/products')
     expect(Object.fromEntries(url.searchParams)).toEqual({
       search: 'tee',
       category: 'Hoodie',
       gender: 'female',
-      inStockOnly: 'true',
+      stockLevel: 'in',
       sortBy: 'name',
       sortOrder: 'asc',
       page: '2',
       limit: '10',
     })
     expect(fetchMock.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer tok' })
+  })
+
+  it('sends stockLevel in, low and out, sortBy=price in both directions, and drops an unknown stockLevel', async () => {
+    for (const stockLevel of ['in', 'low', 'out'] as const) {
+      fetchMock.mockClear()
+      reply({ data: [], meta: { ...META, total: 0 } })
+      await fetchProductList({ stockLevel })
+      expect(Object.fromEntries(requested().searchParams)).toEqual({ stockLevel })
+    }
+    for (const sortOrder of ['asc', 'desc'] as const) {
+      fetchMock.mockClear()
+      reply({ data: [], meta: { ...META, total: 0 } })
+      await fetchProductList({ sortBy: 'price', sortOrder })
+      expect(Object.fromEntries(requested().searchParams)).toEqual({ sortBy: 'price', sortOrder })
+    }
+    fetchMock.mockClear()
+    reply({ data: [], meta: { ...META, total: 0 } })
+    await fetchProductList({ stockLevel: 'sizes' as never })
+    expect(requested().search).toBe('')
   })
 
   it('sends isArReady as true or false, and never a value that is not a boolean', async () => {

@@ -17,7 +17,6 @@ import { InventoryFilterPanel } from './InventoryFilterPanel'
 
 const CATEGORY_OPTIONS = [{ value: '', label: 'All categories' }, ...CATEGORIES.map((c) => ({ value: c as string, label: c }))]
 const PER_PAGE_CHOICES = PER_PAGE_OPTIONS.map((n) => ({ value: n, label: `${n} per page` }))
-// The API cannot sort by price, so the price options list in the default order (see apiSortOrder).
 const SORT_OPTIONS = [
   { value: 'date-desc', label: 'Newest first' },
   { value: 'date-asc', label: 'Oldest first' },

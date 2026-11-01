@@ -53,7 +53,7 @@ export interface ProductPage {
   pageCount: number
 }
 
-// The API sorts by date or name only. Featured, the price sorts and low stock first have no backend field, so they ask for newest first.
+// The API sorts by date, name or price. Featured and low stock first have no backend equivalent, so they ask for newest first.
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'featured', label: 'Featured' },
   { value: 'newest', label: 'Newest' },
@@ -80,8 +80,8 @@ export function shopTitle(params: URLSearchParams) {
 const NEWEST = { sortBy: 'createdAt', sortOrder: 'desc' } as const
 const API_SORT: Record<SortKey, Pick<ProductListParams, 'sortBy' | 'sortOrder'>> = {
   featured: NEWEST,
-  'price-asc': NEWEST,
-  'price-desc': NEWEST,
+  'price-asc': { sortBy: 'price', sortOrder: 'asc' },
+  'price-desc': { sortBy: 'price', sortOrder: 'desc' },
   'low-stock': NEWEST,
   newest: { sortBy: 'createdAt', sortOrder: 'desc' },
   'name-asc': { sortBy: 'name', sortOrder: 'asc' },

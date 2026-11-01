@@ -6,12 +6,8 @@ export const INVENTORY_SORTS = ['date', 'name', 'price'] as const
 export type InventorySort = (typeof INVENTORY_SORTS)[number]
 export type InventoryDir = 'asc' | 'desc'
 
-/**
- * The API's `sortBy` for each URL sort. It cannot sort by price (that needs a backend field, and `basePrice` is a 400), so a price
- * sort asks for the default order, newest first, whatever its direction (see `apiSortOrder`).
- */
-export const SORT_COLUMN = { date: 'createdAt', name: 'name', price: 'createdAt' } as const
-export const apiSortOrder = (sort: InventorySort, dir: InventoryDir): InventoryDir => (sort === 'price' ? 'desc' : dir)
+/** The API's `sortBy` for each URL sort. */
+export const SORT_COLUMN = { date: 'createdAt', name: 'name', price: 'price' } as const
 /** The way a column sorts when first chosen: newest first, A to Z, cheapest first. */
 export const DEFAULT_DIR: Record<InventorySort, InventoryDir> = { date: 'desc', name: 'asc', price: 'asc' }
 
@@ -28,7 +24,7 @@ export const GENDERS: { value: Gender; label: string }[] = [
   { value: 'other', label: 'Other' },
 ]
 
-// Only `in` reaches the API (as inStockOnly). Out and sizes have no API filter, so they are kept but send nothing, and the list is not filtered on the client.
+// `in` and `out` reach the API as stockLevel. Sizes has no API filter (stockLevel=low also matches low-stock variants), so it is kept but sends nothing, and the list is not filtered on the client.
 export const STOCK_FILTERS = ['in', 'out', 'sizes'] as const
 export type StockFilter = (typeof STOCK_FILTERS)[number]
 

@@ -176,7 +176,7 @@ function filtersBody(rows: MockProduct[]) {
 
 const detail = (p: MockProduct) => ({ ...p, ...priceRange(p) })
 
-const LIST_KEYS = ['search', 'category', 'gender', 'brand', 'size', 'color', 'minPrice', 'maxPrice', 'page', 'inStockOnly', 'sortBy', 'sortOrder', 'limit', 'status', 'isArReady']
+const LIST_KEYS = ['search', 'category', 'gender', 'brand', 'size', 'color', 'minPrice', 'maxPrice', 'page', 'stockLevel', 'sortBy', 'sortOrder', 'limit', 'status', 'isArReady']
 
 /** GET /products as the API answers it: active products unless a staff member asks for `status`, one value per size and colour, and size, colour, price and stock must all hold for the same variant. */
 function listPage(rows: MockProduct[], params: URLSearchParams, staff: boolean) {
@@ -186,7 +186,8 @@ function listPage(rows: MockProduct[], params: URLSearchParams, staff: boolean) 
   const num = (key: string) => (params.has(key) ? Number(params.get(key)) : undefined)
   const search = text('search')
   const [min, max] = [num('minPrice'), num('maxPrice')]
-  const inStock = params.get('inStockOnly') === 'true'
+  const level = params.get('stockLevel')
+  const inStock = level === 'in'
   const arReady = params.has('isArReady') ? params.get('isArReady') === 'true' : undefined
   const variantMatches = (v: MockVariant) =>
     (!text('size') || v.size?.toLowerCase() === text('size')) &&
@@ -194,7 +195,7 @@ function listPage(rows: MockProduct[], params: URLSearchParams, staff: boolean) 
     (min === undefined || v.price >= min) &&
     (max === undefined || v.price <= max) &&
     (!inStock || v.stock > 0)
-  const needsVariant = ['size', 'color', 'minPrice', 'maxPrice', 'inStockOnly'].some((key) => params.has(key))
+  const needsVariant = ['size', 'color', 'minPrice', 'maxPrice'].some((key) => params.has(key)) || inStock
   const matched = rows
     .filter((p) => status === 'all' || p.isActive === (status === 'active'))
     .filter((p) => !search || [p.name, p.brand ?? '', p.category].some((t) => t.toLowerCase().includes(search)))
@@ -203,9 +204,20 @@ function listPage(rows: MockProduct[], params: URLSearchParams, staff: boolean) 
     .filter((p) => !text('gender') || p.gender === text('gender'))
     .filter((p) => arReady === undefined || p.isArReady === arReady)
     .filter((p) => !needsVariant || p.variants.some(variantMatches))
-  const by = params.get('sortBy') === 'name' ? 'name' : 'createdAt'
-  const sign = params.get('sortOrder') === 'asc' ? 1 : -1
-  matched.sort((a, b) => sign * (by === 'name' ? a.name.localeCompare(b.name) : a.createdAt.localeCompare(b.createdAt)))
+    .filter((p) => level !== 'low' || p.variants.some((v) => v.stock <= 5))
+    .filter((p) => level !== 'out' || (p.variants.length > 0 && p.variants.every((v) => v.stock === 0)))
+  const by = params.get('sortBy') ?? 'createdAt'
+  const asc = params.get('sortOrder') === 'asc'
+  const sign = asc ? 1 : -1
+  // Price orders by the cheapest variant ascending and the priciest descending; products without variants come last.
+  const priceOf = (p: MockProduct) => (asc ? Math.min(...p.variants.map((v) => v.price)) : Math.max(...p.variants.map((v) => v.price)))
+  matched.sort((a, b) => {
+    if (by === 'price') {
+      if (!a.variants.length || !b.variants.length) return Number(!a.variants.length) - Number(!b.variants.length)
+      return sign * (priceOf(a) - priceOf(b))
+    }
+    return sign * (by === 'name' ? a.name.localeCompare(b.name) : a.createdAt.localeCompare(b.createdAt))
+  })
   const limit = Math.min(Number(params.get('limit')) || 25, 100)
   const pageNo = Number(params.get('page')) || 1
   const totalPages = Math.ceil(matched.length / limit)

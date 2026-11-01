@@ -46,11 +46,12 @@ export interface ProductListParams {
   minPrice?: number
   maxPrice?: number
   page?: number
-  inStockOnly?: boolean
+  /** `in`: some variant has stock. `low`: some variant has 5 or fewer (sold out included). `out`: every variant is sold out. */
+  stockLevel?: 'in' | 'low' | 'out'
   /** Only AR-ready products (`true`) or only those that are not (`false`); absent lists both. */
   isArReady?: boolean
-  /** The API sorts by date or name only, never by price. */
-  sortBy?: 'createdAt' | 'name'
+  /** Price orders by the cheapest variant ascending and the priciest descending; products without variants come last. */
+  sortBy?: 'createdAt' | 'name' | 'price'
   sortOrder?: 'asc' | 'desc'
   limit?: number
   /** Staff only: the API answers 403 to anyone else when this is not `active`. Absent means active. */
@@ -161,10 +162,11 @@ export async function fetchProductList(params: ProductListParams, { signal }: Re
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue
-    // The API rejects unknown values, so blanks, bad numbers and a price sort (`basePrice`) never go out.
+    // The API rejects unknown values, so blanks, bad numbers and an unknown sort (`basePrice`) never go out.
     if (typeof value === 'string' && !value.trim()) continue
     if (typeof value === 'number' && (Number.isNaN(value) || (PRICE_KEYS.includes(key) && value < 0))) continue
-    if (key === 'sortBy' && value !== 'createdAt' && value !== 'name') continue
+    if (key === 'sortBy' && value !== 'createdAt' && value !== 'name' && value !== 'price') continue
+    if (key === 'stockLevel' && value !== 'in' && value !== 'low' && value !== 'out') continue
     if (key === 'isArReady' && typeof value !== 'boolean') continue
     if (key === 'status' && value !== 'active' && value !== 'archived' && value !== 'all') continue
     query.set(key, typeof value === 'string' ? value.trim() : String(value))

@@ -12,7 +12,7 @@ const CORS = {
   'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
 }
 /** The only query keys GET /products accepts. */
-const DTO_KEYS = ['brand', 'size', 'color', 'minPrice', 'maxPrice', 'gender', 'inStockOnly', 'isArReady', 'sortBy', 'sortOrder', 'page', 'limit', 'search', 'category']
+const DTO_KEYS = ['brand', 'size', 'color', 'minPrice', 'maxPrice', 'gender', 'stockLevel', 'isArReady', 'sortBy', 'sortOrder', 'page', 'limit', 'search', 'category']
 
 const isList = (url: URL) => url.origin !== PAGE_ORIGIN && url.pathname === '/products'
 
@@ -270,7 +270,7 @@ const CHIPS = [
   })
 
 test.describe('the GET /products request', () => {
-  /** Fails on any key the API would reject, a blank or NaN value, or a price sort. */
+  /** Fails on any key the API would reject, a blank or NaN value, or a sort it does not have. */
   function expectValid(urls: URL[]) {
     expect(urls.length).toBeGreaterThan(0)
     for (const url of urls) {
@@ -281,7 +281,7 @@ test.describe('the GET /products request', () => {
         expect(value, `${key} in ${text}`).not.toMatch(/^(NaN|undefined|null|Infinity)$/)
       }
       expect(text).not.toContain('basePrice')
-      expect(['createdAt', 'name']).toContain(url.searchParams.get('sortBy'))
+      expect(['createdAt', 'name', 'price']).toContain(url.searchParams.get('sortBy'))
       expect(['asc', 'desc']).toContain(url.searchParams.get('sortOrder'))
       for (const key of ['page', 'limit']) expect(Number(url.searchParams.get(key))).toBeGreaterThan(0)
       for (const key of ['minPrice', 'maxPrice']) if (url.searchParams.has(key)) expect(Number(url.searchParams.get(key))).toBeGreaterThanOrEqual(0)
@@ -314,7 +314,7 @@ test.describe('the GET /products request', () => {
       color: 'Black',
       minPrice: '100',
       maxPrice: '900.5',
-      inStockOnly: 'true',
+      stockLevel: 'in',
       isArReady: 'true',
       sortBy: 'name',
       sortOrder: 'desc',
@@ -349,12 +349,13 @@ test.describe('the GET /products request', () => {
     expectValid(urls)
   })
 
-  test('Gender and AR Fitting are sent; Out of stock and sold-out sizes stay selectable but send nothing', async ({ page }) => {
-    const urls = await start(page, { query: '?stock=out&ar=yes&gender=male' })
+  test('Gender and AR Fitting are sent; sold-out sizes stays selectable but sends nothing; In and Out send stockLevel', async ({ page }) => {
+    const urls = await start(page, { query: '?stock=sizes&ar=yes&gender=male' })
     await expect(summary(page)).toBeVisible()
-    // Out and sizes need backend fields: they show as chips and in the URL, and never reach GET /products.
+    // Sizes has no backend filter: it shows as a chip and in the URL, and never reaches GET /products.
     await expect(chipList(page).getByRole('button', { name: 'Remove gender Men' })).toBeVisible()
-    await expect(chipList(page).getByRole('button', { name: 'Remove stock Out of stock' })).toBeVisible()
+    await expect(chipList(page).getByRole('button', { name: 'Remove stock Has out-of-stock sizes' })).toBeVisible()
+    expect(urls.every((url) => !url.searchParams.has('stockLevel'))).toBe(true)
     await expect(chipList(page).getByRole('button', { name: 'Remove AR Fitting AR Fitting ready' })).toBeVisible()
     expect(urls.every((url) => url.searchParams.get('gender') === 'male')).toBe(true)
     expect(urls.every((url) => url.searchParams.get('isArReady') === 'true')).toBe(true)
@@ -367,7 +368,11 @@ test.describe('the GET /products request', () => {
     await expect(page.getByRole('combobox', { name: 'Gender' })).toBeVisible()
     await page.getByRole('combobox', { name: 'Stock' }).click()
     await page.getByRole('option', { name: 'In stock' }).click()
-    await expect.poll(() => urls.at(-1)?.searchParams.get('inStockOnly')).toBe('true')
+    await expect.poll(() => urls.at(-1)?.searchParams.get('stockLevel')).toBe('in')
+    await page.getByRole('combobox', { name: 'Stock' }).click()
+    await page.getByRole('option', { name: 'Out of stock' }).click()
+    await expect.poll(() => urls.at(-1)?.searchParams.get('stockLevel')).toBe('out')
+    expect(urls.every((url) => !url.searchParams.has('inStockOnly'))).toBe(true)
     expectValid(urls)
   })
 
@@ -404,7 +409,7 @@ test.describe('the GET /products request', () => {
     expectValid(urls)
   })
 
-  test('the sort menu keeps the price options, and picking one still asks the API for newest first', async ({ page }) => {
+  test('the sort menu price options send sortBy=price with the chosen direction', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     const urls = await start(page)
     await page.getByRole('combobox', { name: 'Sort by' }).click()
@@ -412,11 +417,15 @@ test.describe('the GET /products request', () => {
     await page.getByRole('option', { name: 'Price: high to low' }).click()
     await expect(page).toHaveURL(/sort=price/)
     await expect.poll(() => urls.length).toBeGreaterThan(1)
-    expect(urls.at(-1)!.searchParams.get('sortBy')).toBe('createdAt')
+    expect(Object.fromEntries(urls.at(-1)!.searchParams)).toMatchObject({ sortBy: 'price', sortOrder: 'desc' })
+    await page.getByRole('combobox', { name: 'Sort by' }).click()
+    await page.getByRole('option', { name: 'Price: low to high' }).click()
+    await expect.poll(() => urls.at(-1)?.searchParams.get('sortOrder')).toBe('asc')
+    expect(urls.at(-1)!.searchParams.get('sortBy')).toBe('price')
     expectValid(urls)
   })
 
-  test('the Price column header stays a sort button, and sorting by it never sends basePrice', async ({ page }) => {
+  test('the Price column header stays a sort button, and sorting by it sends sortBy=price, never basePrice', async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 900 })
     const urls = await start(page)
     const header = (name: string) => page.getByRole('columnheader', { name })
@@ -424,24 +433,24 @@ test.describe('the GET /products request', () => {
     await header('Price').getByRole('button').click()
     await expect(page).toHaveURL(/sort=price/)
     await expect.poll(() => urls.length).toBeGreaterThan(1)
-    expect(urls.at(-1)!.searchParams.get('sortBy')).toBe('createdAt')
-    expect(urls.at(-1)!.searchParams.get('sortOrder')).toBe('desc')
+    expect(urls.at(-1)!.searchParams.get('sortBy')).toBe('price')
+    expect(urls.at(-1)!.searchParams.get('sortOrder')).toBe('asc')
     await header('Product').getByRole('button').click()
     await expect.poll(() => urls.at(-1)?.searchParams.get('sortBy')).toBe('name')
     await expect.poll(() => urls.at(-1)?.searchParams.get('sortOrder')).toBe('asc')
     expectValid(urls)
   })
 
-  for (const price of ['?sort=price', '?sort=price&dir=asc', '?sort=price&dir=desc']) {
-    test(`a ${price} URL keeps the price sort and sends sortBy=createdAt, newest first`, async ({ page }) => {
+  for (const [price, order] of [['?sort=price', 'asc'], ['?sort=price&dir=asc', 'asc'], ['?sort=price&dir=desc', 'desc']]) {
+    test(`a ${price} URL sends sortBy=price, ${order}`, async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 })
       const urls = await start(page, { query: price })
       await expect(summary(page)).toBeVisible()
       expect(urls.length).toBeGreaterThan(0)
       for (const url of urls) {
         expect(url.search).not.toContain('basePrice')
-        expect(url.searchParams.get('sortBy')).toBe('createdAt')
-        expect(url.searchParams.get('sortOrder')).toBe('desc')
+        expect(url.searchParams.get('sortBy')).toBe('price')
+        expect(url.searchParams.get('sortOrder')).toBe(order)
       }
       await expect(page.getByRole('combobox', { name: 'Sort by' })).toContainText('Price')
     })

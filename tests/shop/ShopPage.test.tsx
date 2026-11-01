@@ -221,7 +221,7 @@ describe('ShopPage requests', () => {
     expect(screen.queryByRole('button', { name: /^Remove availability/ })).not.toBeInTheDocument()
   })
 
-  it('keeps Featured and the price sorts, and asks for newest first for them; name sorts reach the API', async () => {
+  it('sends the price sorts as sortBy=price with their direction, newest first for Featured, and name sorts reach the API', async () => {
     const user = userEvent.setup()
     renderPage()
     await loaded()
@@ -237,8 +237,12 @@ describe('ShopPage requests', () => {
     ])
     await user.click(screen.getByRole('option', { name: 'Price: high to low' }))
     expect(urlSearch()).toBe('?sort=price-desc')
-    await waitFor(() => expect(lastParams()).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' }))
+    await waitFor(() => expect(lastParams()).toMatchObject({ sortBy: 'price', sortOrder: 'desc' }))
     for (const [params] of shop.mock.calls) expect(params.sortBy).not.toBe('basePrice')
+
+    await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
+    await user.click(screen.getByRole('option', { name: 'Price: low to high' }))
+    await waitFor(() => expect(lastParams()).toMatchObject({ sortBy: 'price', sortOrder: 'asc' }))
 
     await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
     await user.click(screen.getByRole('option', { name: 'Name: Z to A' }))
