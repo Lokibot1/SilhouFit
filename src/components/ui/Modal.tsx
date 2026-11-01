@@ -207,7 +207,7 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
           tabIndex={0}
           role="region"
           aria-label={`${title} text`}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 wrap-break-word sm:px-8"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-3 wrap-break-word sm:px-8"
         >
           {children}
         </div>
