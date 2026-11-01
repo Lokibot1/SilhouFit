@@ -41,7 +41,7 @@ export function SizingPicker({ values, disabled, error, touch, set, editing = fa
       </SelectField>
       {sizingMode === 'base' ? (
         <p className="text-xs text-fg-muted">
-          Uses the {category} sizes from Base measurements, so the size guide and AR fitting read them from there.{editing ? '' : " Each variant starts with its size's base measurements. Pick the sizes this product comes in below."}
+          Uses the {category} sizes from Base measurements, so the size guide and AR fitting read them from there.{editing ? '' : " Each variant gets its size's base measurements when the product is created. Pick the sizes this product comes in below."}
         </p>
       ) : (
         <>

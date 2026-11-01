@@ -6,6 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { fetchProductDetail, fetchProductList, ProductListError, type PaginatedProducts } from '../../src/service/fetchProductList'
 import { addProduct, saveProduct, uploadImage } from '../../src/service/inventoryActions'
+import { addCustomSizing } from '../../src/service/customSizings'
 import { fetchCategoryMeasurements } from '../../src/service/sizeMeasurements'
 import { StaffInventoryPage } from '../../src/views/staff/StaffInventoryPage'
 
@@ -178,31 +179,34 @@ describe('Add product sheet', () => {
     expect(screen.getByTestId('where').textContent).toContain('q=Linen+Shirt')
   })
 
-  it('copies the category base measurements of each size into its variants, and sends none for a size without a base row', async () => {
+  it('asks the API to inherit the base measurements on base sizes, without fetching or copying them', async () => {
     const user = userEvent.setup()
-    const row = (size: string, chestWidthCm: number) => ({ id: size, category: 'Hoodie', size, chestWidthCm, waistWidthCm: null, hipWidthCm: null, totalLengthCm: 70, inseamCm: 99, shoulderWidthCm: null, sleeveLengthCm: null, neckCm: null, thighCm: null, isActive: true, createdAt: '', updatedAt: '' })
-    vi.mocked(fetchCategoryMeasurements).mockResolvedValue([row('S', 52), row('M', 55)])
     vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })
     const dialog = await openSheet(user)
     await fillValid(user)
-    await user.click(within(dialog).getByRole('checkbox', { name: 'XS' }))
     await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
     await waitFor(() => expect(addProduct).toHaveBeenCalled())
-    const { variants } = vi.mocked(addProduct).mock.calls[0][0]
-    expect(variants.find((v) => v.size === 'S')?.measurements).toEqual({ chestWidthCm: 52, totalLengthCm: 70 })
-    expect(variants.find((v) => v.size === 'M')?.measurements).toEqual({ chestWidthCm: 55, totalLengthCm: 70 })
-    expect(variants.find((v) => v.size === 'XS')?.measurements).toBeUndefined()
+    const input = vi.mocked(addProduct).mock.calls[0][0]
+    expect(input.inheritBaseMeasurements).toBe(true)
+    expect(input.variants.every((v) => v.measurements === undefined)).toBe(true)
+    expect(fetchCategoryMeasurements).not.toHaveBeenCalled()
   })
 
-  it('creates the product without measurements when the base ones cannot be read', async () => {
+  it('does not ask the API to inherit base measurements on a custom sizing', async () => {
     const user = userEvent.setup()
-    vi.mocked(fetchCategoryMeasurements).mockRejectedValueOnce(new ProductListError('server'))
     vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })
+    addCustomSizing({ category: 'Hoodie', name: 'Boxy fit', sizes: [{ size: 'M', measurements: { chestWidthCm: 60, totalLengthCm: 70 } }] })
     const dialog = await openSheet(user)
+    await user.click(within(dialog).getByRole('combobox', { name: 'Sizing' }))
+    await user.click(await screen.findByRole('option', { name: 'Custom sizing' }))
+    await user.click(within(dialog).getByRole('combobox', { name: 'Custom sizing' }))
+    await user.click(await screen.findByRole('option', { name: 'Boxy fit' }))
     await fillValid(user)
     await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
     await waitFor(() => expect(addProduct).toHaveBeenCalled())
-    expect(vi.mocked(addProduct).mock.calls[0][0].variants.every((v) => v.measurements === undefined)).toBe(true)
+    const input = vi.mocked(addProduct).mock.calls[0][0]
+    expect(input.variants.map((v) => v.size)).toEqual(['M'])
+    expect(input).not.toHaveProperty('inheritBaseMeasurements')
   })
 
   it('has no Brand field, an optional Gender and an AR Fitting box that is sent when ticked', async () => {

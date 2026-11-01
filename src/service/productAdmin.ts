@@ -54,6 +54,8 @@ export interface NewProductInput {
   gender?: Gender
   arReady: boolean
   description?: string
+  /** The API gives each variant without measurements of its own the base measurements of its category and size. */
+  inheritBaseMeasurements?: boolean
   /** The first image is the primary one. */
   images: { url: string; altText: string; isPrimary: boolean }[]
   variants: { sku: string; size: string; color: string; colorHex: string; stock: number; price?: number; measurements?: MeasurementsInput }[]

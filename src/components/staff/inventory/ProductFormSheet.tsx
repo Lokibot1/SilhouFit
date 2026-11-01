@@ -2,8 +2,6 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CATEGORIES, SIZES_BY_CATEGORY, type Category } from '../../../data/products'
 import type { Gender } from '../../../service/fetchProductList'
 import { addCustomSizing, getCustomSizings, getProductSizingId, linkProductSizing, useCustomSizings } from '../../../service/customSizings'
-import { fetchCategoryMeasurements } from '../../../service/sizeMeasurements'
-import { baseMeasurementsFor } from '../../../utils/sizeGuide'
 import { addProduct, createFailureReason, manageFailureReason, saveProduct, uploadImage } from '../../../service/inventoryActions'
 import { buildCustomSizing, draftSizes, newSizingDraft, validateSizingDraft } from '../../../utils/customSizing'
 import { GENDERS } from '../../../utils/inventoryQuery'
@@ -264,15 +262,9 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
         linkProductSizing(product.id, sizingMode === 'custom' ? sizingId || addCustomSizing(buildCustomSizing(sizingDraft, category)).id : null)
         onSaved?.(latest.current.name.trim())
       } else {
-        // On the category's base sizing each variant starts with its size's base measurements (a copy; none when they cannot be read).
+        // On the category's base sizing the API gives each variant its size's base measurements.
         const input = buildProductInput(latest.current, urls)
-        if (latest.current.sizingMode === 'base') {
-          const baseRows = await fetchCategoryMeasurements(latest.current.category).catch(() => [])
-          input.variants = input.variants.map((variant) => {
-            const measurements = baseMeasurementsFor(latest.current.category, variant.size, baseRows)
-            return measurements ? { ...variant, measurements } : variant
-          })
-        }
+        if (latest.current.sizingMode === 'base') input.inheritBaseMeasurements = true
         const created = await addProduct(input, { signal: controller.signal })
         // The product and its sizing are linked here (mock) until the API stores the link.
         const { sizingMode, sizingId, sizingDraft, category } = latest.current
