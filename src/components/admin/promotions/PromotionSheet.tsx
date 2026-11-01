@@ -168,7 +168,7 @@ export function PromotionSheet({ open, onClose, promotion }: PromotionSheetProps
     className: extra.className ?? FIELD_INPUT,
   })
   const hint = (name: PromotionField, text: string) => (
-    <p id={`${fieldId(name)}-hint`} className="text-sm text-fg-muted">
+    <p id={`${fieldId(name)}-hint`} className="text-xs text-fg-muted">
       {text}
     </p>
   )

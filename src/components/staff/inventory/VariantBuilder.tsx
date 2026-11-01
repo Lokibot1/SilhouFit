@@ -214,7 +214,7 @@ export function VariantBuilder({ values, skus, disabled, error, touch, set }: Va
             {error('matrix')}
           </p>
         )}
-        {rows.length === 0 && <p className="text-sm text-fg-muted">Tick a size and name a colour to list the variants to stock.</p>}
+        {rows.length === 0 && <p className="text-xs text-fg-muted">Tick a size and name a colour to list the variants to stock.</p>}
         {rows.map(({ key, size, color, hex }) => {
           const label = `${color} ${size}`
           const skuId = `pf-sku-${key}`

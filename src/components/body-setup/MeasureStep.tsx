@@ -88,7 +88,7 @@ function MeasureInput({ field, unit, value, onValue, onSubmit }: {
           onValue(parsed?.ok ? parsed.value : undefined)
         }}
       />
-      <p className="mt-2 px-1 text-sm text-fg-muted tabular-nums">
+      <p className="mt-2 px-1 text-xs text-fg-muted tabular-nums">
         Typical range {formatValue(field, min, unit)} to {formatValue(field, max, unit)} {label}.
       </p>
     </form>

@@ -40,12 +40,12 @@ export function SizingPicker({ values, disabled, error, touch, set, editing = fa
         />
       </SelectField>
       {sizingMode === 'base' ? (
-        <p className="text-sm text-fg-muted">
+        <p className="text-xs text-fg-muted">
           Uses the {category} sizes from Base measurements, so the size guide and AR fitting read them from there.{editing ? '' : ' Pick the sizes this product comes in below.'}
         </p>
       ) : (
         <>
-          <p className="text-sm text-fg-muted">
+          <p className="text-xs text-fg-muted">
             This product has its own sizes and measurements. It is saved under {category} in Base measurements, so other {category.toLowerCase()} products can use it too.
             {editing ? " The product's existing variants keep their sizes." : ''}
           </p>
@@ -59,7 +59,7 @@ export function SizingPicker({ values, disabled, error, touch, set, editing = fa
             />
           </SelectField>
           {chosen ? (
-            <p className="text-sm text-fg-muted">
+            <p className="text-xs text-fg-muted">
               Sizes: <span className="font-semibold text-fg">{chosen.sizes.map((s) => s.size).join(', ')}</span>. Edit its measurements in Base measurements.
             </p>
           ) : (

@@ -109,7 +109,7 @@ export function FirstLoginPasswordGate({ me, onChanged }: FirstLoginPasswordGate
       }
     >
       <form id="first-login-form" noValidate onSubmit={(event) => void save(event)} className="grid gap-4 pb-5">
-        <p className="text-sm text-fg-muted">You signed in with a temporary password. Choose your own now so only you know it.</p>
+        <p className="text-xs text-fg-muted">You signed in with a temporary password. Choose your own now so only you know it.</p>
         <FloatingField
           id="gate-password"
           label="New password"

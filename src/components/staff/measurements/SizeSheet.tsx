@@ -199,7 +199,7 @@ export function SizeSheet({ row, category, onSaved, onClose }: SizeSheetProps) {
 
           <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
             <legend className="text-sm font-semibold text-fg">Measurements (cm)</legend>
-            <p className="text-sm text-fg-muted">Fill in the ones that apply to this garment; at least one is needed. Leave the rest empty.</p>
+            <p className="text-xs text-fg-muted">Fill in the ones that apply to this garment; at least one is needed. Leave the rest empty.</p>
             {noneError && (
               <p id="ss-measurements-error" role="alert" className="text-sm text-danger">
                 {noneError}

@@ -75,7 +75,7 @@ export function CreateAccountSheet({ open, onClose, noun, create }: CreateAccoun
         <CredentialsPanel credentials={credentials} heading={`${values.firstName.trim()} ${values.lastName.trim()}`} />
       ) : (
         <form id={FORM_ID} noValidate onSubmit={onSubmit} aria-busy={pending} className="grid gap-4 pb-5">
-          <p className="text-sm text-fg-muted">
+          <p className="text-xs text-fg-muted">
             A username and a temporary password are made for you. The new {noun} member signs in with them and chooses their own password.
           </p>
           <Field id={fieldId('firstName')} label="First name" count={{ value: values.firstName.length, max: LIMITS.nameMaxLength }} error={errors.firstName}>

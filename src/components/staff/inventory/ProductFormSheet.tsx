@@ -400,7 +400,7 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
                 className={FIELD_INPUT}
               />
               {editing && (
-                <p id="pf-name-note" className="text-sm text-fg-muted">
+                <p id="pf-name-note" className="text-xs text-fg-muted">
                   Changing the name also changes the product&apos;s web address.
                 </p>
               )}
@@ -459,7 +459,7 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
               <Checkbox label="AR Fitting ready" checked={values.arReady} onChange={(arReady) => set({ arReady })} className="justify-start">
                 <span className="text-base font-semibold">AR Fitting ready</span>
               </Checkbox>
-              <p className="text-sm text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
+              <p className="text-xs text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
             </div>
 
             {editing && <SizingPicker values={values} disabled={pending} error={error} touch={touch} set={set} editing />}

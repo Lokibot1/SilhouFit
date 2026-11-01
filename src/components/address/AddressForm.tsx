@@ -613,7 +613,7 @@ function AddressFormBody({
       <button ref={pinButton} type="button" onClick={() => setMapOpen(true)} className={`${SECONDARY_BUTTON} mt-4 w-full`}>
         Pin on a map
       </button>
-      <p className="mt-2 text-sm leading-snug text-fg-muted">Drop a pin and we will fill in the fields below.</p>
+      <p className="mt-2 text-xs leading-snug text-fg-muted">Drop a pin and we will fill in the fields below.</p>
 
       <>
         {lookup.status === 'loading' && (
@@ -809,7 +809,7 @@ function AddressFormBody({
             Set as default address
           </Checkbox>
           {lockedDefault && (
-            <p className="text-sm leading-snug text-fg-muted">
+            <p className="text-xs leading-snug text-fg-muted">
               {existingCount === 0 ? 'Your first address is always your default.' : 'To change your default, set another address as default.'}
             </p>
           )}

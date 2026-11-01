@@ -89,11 +89,11 @@ export function CustomSizingSheet({ sizing, category, onSaved, onClose }: Custom
           <p className="text-sm text-fg">{category}</p>
         </div>
         {editing && (
-          <p className="text-sm text-fg-muted">
+          <p className="text-xs text-fg-muted">
             Measurements update everywhere this sizing is used. Products already created keep the size names they have, so renaming or removing a size here doesn&apos;t change their variants.
           </p>
         )}
-        {!editing && <p className="text-sm text-fg-muted">Use this when a product&apos;s sizes don&apos;t follow the {category} base sizes. It is listed under {category} and can be picked when adding a product.</p>}
+        {!editing && <p className="text-xs text-fg-muted">Use this when a product&apos;s sizes don&apos;t follow the {category} base sizes. It is listed under {category} and can be picked when adding a product.</p>}
         <CustomSizingEditor category={category} draft={draft} onChange={setDraft} idPrefix="cs" error={error} touch={touch} />
       </form>
     </Modal>

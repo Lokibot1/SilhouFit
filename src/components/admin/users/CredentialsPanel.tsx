@@ -78,13 +78,13 @@ export function CredentialsPanel({ credentials, heading }: { credentials: Creden
       <div className="credentials-sheet grid gap-3 rounded-2xl border border-line bg-canvas-sub p-4">
         <div>
           <h3 ref={headingRef} tabIndex={-1} className="display text-lg text-fg outline-none">{heading}</h3>
-          <p className="text-sm text-fg-muted">Hand these to the account holder. They choose their own password at first sign-in.</p>
+          <p className="text-xs text-fg-muted">Hand these to the account holder. They choose their own password at first sign-in.</p>
         </div>
         <Block label="Username" value={credentials.username} onCopy={() => void copy(credentials.username, 'Username')} />
         <Block label="Sign-in email" value={credentials.email} />
         <Block label="Temporary password" value={credentials.password} onCopy={() => void copy(credentials.password, 'Password')} strong />
       </div>
-      <p role="note" className="text-sm text-fg-muted">
+      <p role="note" className="text-xs text-fg-muted">
         This is the only time the password is shown. If it is lost, reset the password to make a new one. Demo only, not secure: these accounts live in this browser.
       </p>
       <div className="flex flex-wrap gap-2">

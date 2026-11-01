@@ -111,7 +111,7 @@ export function CustomSizingEditor({ category, draft, onChange, idPrefix, error,
           <PlusIcon />
           Add size
         </button>
-        {draft.rows.length >= SIZING_ROWS_MAX && <p className="text-sm text-fg-muted">A custom sizing holds up to {SIZING_ROWS_MAX} sizes.</p>}
+        {draft.rows.length >= SIZING_ROWS_MAX && <p className="text-xs text-fg-muted">A custom sizing holds up to {SIZING_ROWS_MAX} sizes.</p>}
       </fieldset>
     </div>
   )

@@ -115,7 +115,7 @@ export function SignUpPage() {
                 </div>
                 <div>
                   <h1 className="display text-left text-3xl text-fg sm:text-4xl">Sign up</h1>
-                  <p className="mt-2 text-sm leading-snug text-fg-muted">Save your fit profile and try clothes with AR.</p>
+                  <p className="mt-2 text-xs leading-snug text-fg-muted">Save your fit profile and try clothes with AR.</p>
                 </div>
               </div>
 

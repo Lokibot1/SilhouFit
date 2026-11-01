@@ -108,7 +108,7 @@ export function LoginPage() {
               <h1 className="display text-left text-3xl text-fg sm:text-4xl">
                 Login
               </h1>
-              <p className="mt-2 text-sm leading-snug text-fg-muted">
+              <p className="mt-2 text-xs leading-snug text-fg-muted">
                 Pick up your fit profile and AR fittings.
               </p>
             </div>

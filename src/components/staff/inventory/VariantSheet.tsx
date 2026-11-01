@@ -282,7 +282,7 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
               </Field>
             </div>
           </div>
-          <p className="-mt-3 text-sm text-fg-muted">The hex is needed when you enter a colour name.</p>
+          <p className="-mt-3 text-xs text-fg-muted">The hex is needed when you enter a colour name.</p>
 
           <Field id="vs-name" label="Variant name" optional count={{ value: values.name.length, max: PRODUCT_LIMITS.variantNameMax }}>
             <input
@@ -389,7 +389,7 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
 
           <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
             <legend className="text-sm font-semibold text-fg">AR garment measurements (cm)</legend>
-            <p className="text-sm text-fg-muted">
+            <p className="text-xs text-fg-muted">
               Optional. AR Fitting compares these with the shopper&apos;s body to show how the garment fits.{columns && ` Only the ones that apply to ${category?.toLowerCase()} are shown.`}
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

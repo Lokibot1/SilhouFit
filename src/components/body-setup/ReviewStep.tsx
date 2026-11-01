@@ -95,7 +95,7 @@ export function ReviewStep({ draft, warnings, consent, pending, headingRef, onCo
         <Checkbox checked={consent} onChange={onConsent} label={CONSENT_LABEL} className="!justify-start">
           <span className="text-base leading-snug">{CONSENT_LABEL}</span>
         </Checkbox>
-        {!consent && hasHeight && <p className="px-1 text-sm text-fg-muted">Tick the box to turn on Finish Setup.</p>}
+        {!consent && hasHeight && <p className="px-1 text-xs text-fg-muted">Tick the box to turn on Finish Setup.</p>}
 
         <div className="mt-3 flex flex-wrap justify-between gap-3">
           <button type="button" onClick={() => onEditStep(draft.step)} className={SECONDARY_BUTTON}>

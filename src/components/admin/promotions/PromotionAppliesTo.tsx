@@ -33,13 +33,13 @@ function CategoryPicker({ category, onChange }: { category: string; onChange: (c
     return (
       <div className="grid gap-2 rounded-xl border border-line p-3">
         <SectionError what="the categories" kind={state.kind} onRetry={retry} />
-        <p className="text-sm text-fg-muted">{category ? `Still selected: ${category}. ` : ''}You can still choose All products.</p>
+        <p className="text-xs text-fg-muted">{category ? `Still selected: ${category}. ` : ''}You can still choose All products.</p>
       </div>
     )
   }
   // A category that is no longer in the catalog stays selectable, so editing an older promotion keeps it.
   const names = category && !state.data.includes(category) ? [...state.data, category] : state.data
-  if (names.length === 0) return <p className="text-sm text-fg-muted">No categories yet. Add products in Inventory first, or choose All products.</p>
+  if (names.length === 0) return <p className="text-xs text-fg-muted">No categories yet. Add products in Inventory first, or choose All products.</p>
   return (
     <SelectField label="Category">
       <Select
@@ -77,7 +77,7 @@ function ProductPicker({ products, onChange, disabled }: { products: PromoProduc
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm text-fg-muted">Search the catalog, then tick the products to put on sale.</p>
+        <p className="text-xs text-fg-muted">Search the catalog, then tick the products to put on sale.</p>
         <p aria-live="polite" className="shrink-0 text-xs text-fg-muted tabular-nums">
           {products.length} of {productsMax}
         </p>
@@ -164,7 +164,7 @@ function ProductPicker({ products, onChange, disabled }: { products: PromoProduc
                 )
               })}
             </ul>
-            <p className="mt-2 text-sm text-fg-muted">
+            <p className="mt-2 text-xs text-fg-muted">
               {full
                 ? `You can choose up to ${productsMax} products. Remove one to add another.`
                 : state.data.total > PICKER_PAGE

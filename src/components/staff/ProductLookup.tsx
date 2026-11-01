@@ -80,7 +80,7 @@ export function ProductLookup() {
           </button>
         )}
       </div>
-      <p id="product-lookup-hint" className="mt-2 text-sm text-fg-muted">
+      <p id="product-lookup-hint" className="mt-2 text-xs text-fg-muted">
         Type at least {MIN_CHARS} characters. Paste a full product ID to open that product.
       </p>
 

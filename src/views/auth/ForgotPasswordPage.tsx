@@ -104,7 +104,7 @@ export function ForgotPasswordPage() {
           </div>
         ) : (
           <form noValidate onSubmit={onSubmit} aria-busy={pending} className="[&>*+*]:mt-2.5">
-            <p className="text-sm leading-snug text-fg-muted">
+            <p className="text-xs leading-snug text-fg-muted">
               Enter the email you signed up with and we'll send you a link to choose a new password.
             </p>
             <FloatingField
