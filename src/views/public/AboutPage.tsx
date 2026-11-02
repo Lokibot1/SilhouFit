@@ -2,10 +2,15 @@ import { Capabilities } from '../../components/landing/Capabilities'
 import { ForBoutiques } from '../../components/landing/ForBoutiques'
 import { HowItWorks } from '../../components/landing/HowItWorks'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { Reveal } from '../../motion/Reveal'
+
+const META_DESCRIPTION =
+  'See how SilhouFit works for boutiques: connect your POS, publish your catalogue, and let shoppers try pieces on in the browser with AR fitting, no app.'
 
 export function AboutPage() {
   useDocumentTitle('About SilhouFit — How the platform works for boutiques')
+  useMetaDescription(META_DESCRIPTION)
 
   return (
     <>

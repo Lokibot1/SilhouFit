@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { LegalBackToTop, LegalParallaxSky } from './LegalScrollLayers'
 import { headingId } from '../../utils/headingId'
@@ -33,6 +34,9 @@ export function LegalPageLayout({
   children,
 }: LegalPageLayoutProps) {
   useDocumentTitle(`${title} — SilhouFit`)
+  useMetaDescription(
+    `Read the SilhouFit ${title.toLowerCase()}, last updated ${lastUpdated}. It explains in plain terms what applies to you as a shopper or boutique on the platform.`,
+  )
 
   const headings = useMemo(
     () =>

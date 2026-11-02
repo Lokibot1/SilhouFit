@@ -1,8 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { useMetaDescription } from '../../hooks/useMetaDescription'
+
+const META_DESCRIPTION =
+  'This SilhouFit page could not be found. It may have moved or sold out, so head back to the shop or the main floor to keep browsing the full catalogue.'
 
 export function NotFoundPage() {
   useDocumentTitle('404: Out of stock, out of orbit — SilhouFit')
+  useMetaDescription(META_DESCRIPTION)
 
   return (
     <>
