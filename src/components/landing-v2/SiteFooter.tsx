@@ -67,14 +67,14 @@ export function SiteFooter() {
           className="sv2-foot-mark"
           viewBox={`0 0 ${WORDMARK.width} ${WORDMARK.height}`}
           role="img"
-          aria-label="SilhouFit"
+          aria-label="KRAL"
         >
           <path fillRule="evenodd" d={WORDMARK.letters.map((l) => l.d).join('')} />
         </svg>
 
         <div className="sv2-foot-meta">
           <p className="sv2-label sv2-muted">
-            SILHOUFIT® // BSIT CAPSTONE PROJECT // © {new Date().getFullYear()}
+            KRAL® // BSIT CAPSTONE PROJECT // © {new Date().getFullYear()}
           </p>
           <p className="sv2-label sv2-muted">[ SYS // VER 2.0 ]</p>
         </div>
