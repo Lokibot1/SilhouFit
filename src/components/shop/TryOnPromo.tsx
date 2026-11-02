@@ -22,7 +22,7 @@ export function TryOnPromo() {
           Your camera and a browser are enough to see how a garment sits on you. Nothing is uploaded.
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Link to="/#ar-fitting" className={PRIMARY_BUTTON}>
+          <Link to={{ pathname: '/about', hash: '#how-it-works' }} className={PRIMARY_BUTTON}>
             See how AR fitting works
           </Link>
           <Link to="/about#how-it-works" className={SECONDARY_BUTTON}>

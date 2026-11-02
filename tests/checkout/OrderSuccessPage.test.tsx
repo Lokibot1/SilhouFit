@@ -120,7 +120,7 @@ describe('OrderSuccessPage', () => {
 
     saveLastOrder({ ...PICKUP, items: [{ ...PICKUP.items[0], arReady: true }] })
     renderPage()
-    expect(screen.getByRole('link', { name: 'Try it on with AR' })).toHaveAttribute('href', '/#ar-fitting')
+    expect(screen.getByRole('link', { name: 'Try it on with AR' })).toHaveAttribute('href', '/about#how-it-works')
   })
 
   it('drops the order from session storage when the page is left, so personal details do not linger', () => {

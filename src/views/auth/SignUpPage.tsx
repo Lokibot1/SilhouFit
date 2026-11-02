@@ -98,7 +98,7 @@ export function SignUpPage() {
               <Link to={`/login${next}`} className={SECONDARY_BUTTON}>
                 Go to login
               </Link>
-              <Link to="/#ar-fitting" className={SECONDARY_BUTTON}>
+              <Link to={{ pathname: '/about', hash: '#how-it-works' }} className={SECONDARY_BUTTON}>
                 Explore AR fitting
               </Link>
             </div>

@@ -183,7 +183,7 @@ export function OrderSuccessPage() {
             Back to shop
           </Link>
           {arReady && (
-            <Link to="/#ar-fitting" className={SECONDARY_BUTTON}>
+            <Link to={{ pathname: '/about', hash: '#how-it-works' }} className={SECONDARY_BUTTON}>
               Try it on with AR
             </Link>
           )}
