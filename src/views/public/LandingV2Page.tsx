@@ -10,7 +10,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 
 const META_DESCRIPTION =
-  'Try the fit before it ships. SilhouFit pairs browser-based AR try-on and sizing from your measurements with one live catalogue shared by store and shop floor.'
+  'KRAL: try the fit before it ships. SilhouFit, our browser-based AR fitting, shows how a piece sits on you, with one live catalogue shared by store and shop floor.'
 
 /** Landing page (KRAL-style identity), routed at /. It brings its own nav and footer, so it renders in the bare layout. */
 // Scroll-in reveals: section headings and static grids fade and rise once. Featured's cards load asynchronously, so only its heading reveals.
@@ -18,7 +18,7 @@ const REVEAL = '.sv2-head, .sv2-specs > *, .sv2-mosaic > *, .sv2-quotes > *, .sv
 
 export function LandingV2Page() {
   const rootRef = useRef<HTMLDivElement>(null)
-  useDocumentTitle('SilhouFit — Omnichannel apparel commerce with browser-based AR fitting')
+  useDocumentTitle('KRAL — Apparel with SilhouFit, browser-based AR fitting')
   useMetaDescription(META_DESCRIPTION)
 
   // The hidden state is only switched on once the observer exists, so content is never stranded without JS or IntersectionObserver.

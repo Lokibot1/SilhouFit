@@ -26,6 +26,8 @@
   --sv2-paper: #fffbfd;
   --sv2-focus: var(--sv2-paper);
 
+  --sv2-bar-h: 4rem;
+  --sv2-z-bar: 20; /* above the page, below the cookie banner and toasts (z-50) */
   --sv2-gap: 1rem;
   --sv2-gap-lg: 2rem;
   --sv2-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -189,11 +191,14 @@
 
 /* ---------- Hero ---------- */
 
-.sv2-hero {
+.sv2-hero,
+.sv2-header {
   --u: min(100vw / 1280, 100svh / 640);
+}
+.sv2-hero {
   position: relative;
-  height: 100svh;
-  min-height: 34rem;
+  height: calc(100svh - var(--sv2-bar-h));
+  min-height: 30rem;
   overflow: hidden;
   isolation: isolate;
   background: var(--sv2-obsidian);
@@ -223,17 +228,42 @@
   inset: 0 0 auto 0;
   z-index: 3;
 }
-.sv2-bar {
-  display: grid;
+.sv2-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--sv2-z-bar);
+  height: var(--sv2-bar-h);
   background: var(--sv2-obsidian);
-  grid-template-columns: 1fr auto 1fr;
-  gap: clamp(1rem, calc(24 * var(--u)), 2rem);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease-out;
+}
+.sv2-header[data-stuck] {
+  border-bottom-color: var(--sv2-graphite);
+}
+.sv2-bar {
+  display: flex;
   align-items: center;
-  padding: calc(12 * var(--u)) calc(16 * var(--u)) calc(6 * var(--u));
+  gap: clamp(1rem, calc(24 * var(--u)), 2rem);
+  height: 100%;
+  padding: 0 clamp(1rem, calc(16 * var(--u)), 1.5rem);
+}
+.sv2-logo {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--sv2-porcelain);
+}
+.sv2-logo-mark {
+  display: block;
+  height: 1.625rem;
+  width: auto;
+  fill: currentColor;
+}
+.sv2 section[id] {
+  scroll-margin-top: var(--sv2-bar-h);
 }
 .sv2-nav {
   position: relative;
-  justify-self: start;
 }
 .sv2-menu-btn {
   display: none;
@@ -253,12 +283,17 @@
   text-transform: uppercase;
   transition: color 0.18s ease-out;
 }
-.sv2-links a:hover {
+.sv2-links a:hover,
+.sv2-links a[aria-current] {
   color: var(--sv2-red-tint);
 }
+.sv2-links a[aria-current] {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.5em;
+}
 .sv2-tag {
-  align-self: center;
-  justify-self: center;
+  flex: 1;
   text-align: center;
   font-size: max(12px, calc(12 * var(--u)));
   font-weight: 290;
@@ -266,7 +301,7 @@
   text-transform: uppercase;
 }
 .sv2-cta {
-  justify-self: end;
+  margin-left: auto;
 }
 .sv2-mark {
   display: block;
@@ -321,7 +356,7 @@
 }
 
 /* Tight desktop: the tagline gives way before the links crowd it. */
-@media (min-width: 1075px) and (max-width: 1199.98px) {
+@media (max-width: 1199.98px) {
   .sv2-tag {
     display: none;
   }
@@ -329,8 +364,8 @@
 
 /* Tablet: links fold into a MENU dropdown; tagline stays between the menu and the CTA. */
 @media (max-width: 1074.98px) {
-  .sv2-bar {
-    grid-template-columns: auto 1fr auto;
+  .sv2-nav {
+    position: static;
   }
   .sv2-menu-btn {
     display: inline-flex;
@@ -358,8 +393,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     position: absolute;
     z-index: 6;
-    top: calc(100% + 4px);
-    left: 0;
+    top: 100%;
+    left: 1rem;
     width: min(24rem, calc(100vw - 2rem));
     background: var(--sv2-obsidian);
     border: 1px solid var(--sv2-graphite);
@@ -380,28 +415,22 @@
 
 /* Mobile: its own unit, tagline on a row of its own. */
 @media (max-width: 559.98px) {
-  .sv2-hero {
+  .sv2-hero,
+  .sv2-header {
     --u: min(100vw / 400, 100svh / 760);
   }
   .sv2-bar {
-    grid-template-columns: 1fr auto;
-    grid-template-areas: "nav cta" "tag tag";
-    row-gap: 0.5rem;
+    gap: 0.75rem;
   }
-  .sv2-nav {
-    grid-area: nav;
+  .sv2-logo-mark {
+    height: 1.375rem;
+  }
+  .sv2-cta {
+    padding-inline: 0.75rem;
   }
   .sv2-links[data-open] {
     grid-template-columns: 1fr;
     width: calc(100vw - 2rem);
-  }
-  .sv2-cta {
-    grid-area: cta;
-  }
-  .sv2-tag {
-    grid-area: tag;
-    justify-self: start;
-    text-align: left;
   }
   .sv2-hero-title {
     font-size: clamp(1.05rem, 5.6vw, 1.75rem);
@@ -925,7 +954,7 @@
   align-items: center;
   min-height: 44px;
   font-size: 0.75rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sv2-stone);
   transition: color 0.18s ease-out;
@@ -947,4 +976,159 @@
   gap: 0.5rem 1rem;
   padding-top: 1rem;
   border-top: 1px solid var(--sv2-graphite);
+}
+.sv2-foot-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+}
+.sv2-credit {
+  margin-top: 1rem;
+  max-width: 60rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+.sv2-credit a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sv2-credit a:hover {
+  color: var(--sv2-paper);
+}
+
+/* ---------- Breakpoints: 560, 768, 1024 ---------- */
+
+@media (min-width: 560px) {
+  .sv2-cards,
+  .sv2-quotes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sv2-cols {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sv2-plate--lg figcaption {
+    padding-right: 8rem; /* keeps text clear of the plate tag */
+  }
+  .sv2-plate-no {
+    top: auto;
+    bottom: 1rem;
+  }
+  .sv2-mosaic {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .sv2-plate--lg {
+    grid-column: span 3;
+  }
+  .sv2-plate--sm {
+    grid-column: span 2;
+    aspect-ratio: 3 / 4;
+  }
+}
+@media (min-width: 768px) {
+  .sv2-label,
+  .sv2-cols a {
+    font-size: 0.6875rem;
+  }
+  .sv2-specs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sv2-spec {
+    padding: var(--sv2-gap-lg) 1.5rem;
+    border-left: 1px solid var(--sv2-hair);
+  }
+  .sv2-spec:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .sv2-spec:last-child {
+    padding-right: 0;
+  }
+  .sv2-quotes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sv2-faq-q {
+    font-size: 1rem;
+  }
+}
+@media (min-width: 1024px) {
+  .sv2-mosaic {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .sv2-plate--lg:nth-child(1) {
+    grid-column: span 7;
+    aspect-ratio: 7 / 5;
+  }
+  .sv2-plate--lg:nth-child(2) {
+    grid-column: span 5;
+    aspect-ratio: auto;
+  }
+  .sv2-plate--sm {
+    grid-column: span 4;
+    aspect-ratio: 1 / 1;
+  }
+  .sv2-plate--sm .sv2-plate-sub {
+    display: block;
+  }
+  .sv2-ar {
+    min-height: 28rem;
+    justify-content: center;
+  }
+  .sv2-ar-copy {
+    padding: 1rem 0;
+  }
+  .sv2-ar-mark {
+    top: 50%;
+    bottom: auto;
+    translate: 0 -50%;
+  }
+  .sv2-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .sv2-cols {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Scroll-in reveal (class added by LandingV2Page only when motion is allowed) ---------- */
+
+.sv2-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.5s var(--sv2-ease) calc(var(--i, 0) * 80ms),
+    transform 0.5s var(--sv2-ease) calc(var(--i, 0) * 80ms);
+}
+.sv2-reveal.sv2-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- Motion preferences and print ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .sv2-tape-track,
+  .sv2-skel-bar,
+  .sv2-skel-block {
+    animation: none;
+  }
+  .sv2-faq-a,
+  .sv2-faq-a:not([data-open]) {
+    transition: none;
+  }
+  .sv2 * {
+    scroll-behavior: auto;
+  }
+}
+@media print {
+  .sv2-header {
+    position: static;
+  }
+  .sv2-reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .sv2-hero,
+  .sv2-tape {
+    display: none;
+  }
 }
