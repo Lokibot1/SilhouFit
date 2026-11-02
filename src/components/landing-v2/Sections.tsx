@@ -169,3 +169,36 @@ const DISPATCHES = [
   { no: '003', quote: 'Stock on the register and on the site match. That alone cuts the back-and-forth at the counter.', who: 'Boutique floor staff', ctx: 'Sample feedback' },
 ]
 
+export function Reception() {
+  return (
+    <section className="sv2-section sv2-dark sv2-section--tight" aria-labelledby="sv2-recep-title">
+      <div className="sv2-wrap">
+        <header className="sv2-head">
+          <div>
+            <p className="sv2-label sv2-label--red">(Sample dispatches)</p>
+            <h2 id="sv2-recep-title" className="sv2-h2">
+              Cultural reception
+            </h2>
+          </div>
+          <p className="sv2-label sv2-meta-note">Placeholder quotes written for this prototype, not from real customers</p>
+        </header>
+        <ul className="sv2-quotes">
+          {DISPATCHES.map((d) => (
+            <li key={d.no} className="sv2-quote-card">
+              <p className="sv2-label sv2-spec-top">
+                <span className="sv2-label--tint">DISPATCH #{d.no}</span>
+                <span>SAMPLE</span>
+              </p>
+              <blockquote className="sv2-body">&ldquo;{d.quote}&rdquo;</blockquote>
+              <p className="sv2-label sv2-quote-who">
+                <strong>{d.who}</strong>
+                <br />
+                {d.ctx}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )
+}

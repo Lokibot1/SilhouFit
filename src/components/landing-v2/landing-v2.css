@@ -744,3 +744,31 @@
   }
 }
 
+/* ---------- Reception ---------- */
+
+.sv2-quotes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sv2-gap);
+}
+.sv2-quote-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.25rem;
+  background: var(--sv2-raise);
+  border: 1px solid var(--sv2-graphite);
+}
+.sv2-quote-card blockquote {
+  flex: 1;
+}
+.sv2-quote-who {
+  padding-top: 1rem;
+  border-top: 1px solid var(--sv2-graphite);
+  color: var(--sv2-stone);
+}
+.sv2-quote-who strong {
+  color: var(--sv2-paper);
+  font-weight: 700;
+}
+
