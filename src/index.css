@@ -1619,12 +1619,6 @@ a {
   text-underline-offset: 0.2em;
 }
 
-/* Native cursor hidden only while the comet runs (landing page); CometCursor toggles the class. */
-html.comet-active,
-html.comet-active * {
-  cursor: none !important;
-}
-
 /* ---- Address map -----------------------------------------------------------
    Leaflet's own stylesheet loads with the map. These sit on `.address-map.leaflet-container` so they win over it
    whichever order the two arrive in. The dark theme inverts the tiles; markers are CSS and are not in the pane. */
