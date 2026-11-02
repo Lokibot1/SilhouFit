@@ -115,7 +115,7 @@ export function Featured() {
           <div className="sv2-state">
             <p className="sv2-label sv2-label--tint">(Empty // Catalogue)</p>
             <p className="sv2-state-title">No pieces are listed yet</p>
-            <p className="sv2-body">New pieces appear here as soon as the store adds them. Until then, see how SilhouFit works.</p>
+            <p className="sv2-body">New pieces appear here as soon as the store adds them. Until then, see how SilhouFit, KRAL's AR fitting, works.</p>
             <Link to="/about" className="sv2-btn sv2-btn--line">
               [ How it works ]
             </Link>

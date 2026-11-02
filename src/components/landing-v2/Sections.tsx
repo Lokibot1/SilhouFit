@@ -3,7 +3,7 @@
 import { useState } from 'react'
 
 const TAPE = [
-  'SILHOUFIT®',
+  'KRAL®',
   'TRY THE FIT',
   'BEFORE IT SHIPS',
   'MEASURED, NOT GUESSED',

@@ -76,9 +76,11 @@ export function SiteFooter() {
           <p className="sv2-label sv2-muted">
             KRAL® // BSIT CAPSTONE PROJECT // © {new Date().getFullYear()}
           </p>
-          <p className="sv2-label sv2-muted">[ SYS // VER 2.0 ]</p>
+          <p className="sv2-label sv2-muted sv2-foot-right">
+            <span className="sv2-label--tint">[ SYS // VER 2.0 ]</span>
+            <span>Photography // Unsplash</span>
+          </p>
         </div>
-        <p className="sv2-label sv2-muted sv2-credit">Photography: Unsplash.</p>
       </div>
     </footer>
   )

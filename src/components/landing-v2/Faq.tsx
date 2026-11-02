@@ -3,7 +3,11 @@ import { Link } from 'react-router-dom'
 
 const ITEMS: { q: string; a: ReactNode }[] = [
   {
-    q: 'How does AR fitting work?',
+    q: 'What is SilhouFit?',
+    a: "SilhouFit is KRAL's AR fitting. It uses your camera and the measurements you enter to show how a piece sits on you, in your browser. Nothing is uploaded.",
+  },
+  {
+    q: 'How does SilhouFit work?',
     a: 'Turn on your camera and pose tracking reads body landmarks on your own device. A 3D garment, scaled to the piece you picked, renders over the video. It works on pieces marked AR-ready, and the module is still a working prototype.',
   },
   {
