@@ -838,3 +838,55 @@
   white-space: nowrap;
 }
 
+/* ---------- AR fitting banner ---------- */
+
+.sv2 .sv2-btn--paper {
+  background: var(--sv2-paper);
+  color: var(--sv2-obsidian);
+}
+.sv2 .sv2-btn--paper:hover {
+  background: var(--sv2-porcelain);
+}
+/* No card: the content sits straight on the section. The section clips the watermark. */
+.sv2-ar-section {
+  overflow: clip;
+}
+.sv2-ar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.sv2-ar-mark {
+  position: absolute;
+  right: 0;
+  bottom: -0.1em;
+  font-family: "SV2 Display", sans-serif;
+  font-size: clamp(8rem, 34vw, 20rem);
+  font-weight: 900;
+  line-height: 0.8;
+  color: rgb(255 251 253 / 0.06);
+  pointer-events: none;
+  user-select: none;
+}
+.sv2-ar-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  max-width: 34rem;
+}
+.sv2-ar-copy .sv2-h2 {
+  margin-top: 0;
+}
+.sv2-ar-copy .sv2-body {
+  color: #b3adaa;
+}
+.sv2-ar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
