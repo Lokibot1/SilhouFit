@@ -23,6 +23,7 @@ import { useShopFacets } from '../../hooks/useShopColours'
 import { useShopCatalogue } from '../../hooks/useShopCatalogue'
 import { useCart } from '../../hooks/useCart'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
+import { useRequireSignIn } from '../../hooks/useRequireSignIn'
 import { useSavedIds, useWishlist } from '../../hooks/useWishlist'
 import { GENDER_OPTIONS, PER_PAGE_OPTIONS, shopTitle, SORT_OPTIONS, type ProductFilters } from '../../utils/productQuery'
 import { focusFiltersTrigger } from '../../utils/chipFocus'
@@ -45,6 +46,7 @@ export function ShopPage() {
   const savedIds = useSavedIds()
   const cart = useCart()
   const user = useCurrentUser()
+  const requireSignIn = useRequireSignIn()
   const navigate = useNavigate()
   const [sheet, setSheet] = useState<{ product: Product; action: 'cart' | 'buy' } | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -144,6 +146,7 @@ export function ShopPage() {
   }
 
   function toggleSaved(product: Product) {
+    if (requireSignIn('save to your wishlist')) return
     const wasSaved = wishlist.has(product.id)
     wishlist.toggle(product.id)
     toast.show(
@@ -153,9 +156,10 @@ export function ShopPage() {
     )
   }
 
-  // Everyone can add to the cart or start a purchase; signing in is asked for at checkout.
+  // Adding to the cart needs an account; a guest starting a purchase signs in at checkout.
   // The sheet needs the piece's sizes and colours, which only its detail has, so that loads first.
   function openSheet(piece: Pick<Product, 'id' | 'name'>, action: 'cart' | 'buy') {
+    if (action === 'cart' && requireSignIn('add to your cart')) return
     loadProduct(piece.id).then(
       (product) => {
         if (product.stock === 0) {

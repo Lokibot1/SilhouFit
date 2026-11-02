@@ -12,6 +12,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProduct } from '../../hooks/useProducts'
 import { useCart } from '../../hooks/useCart'
+import { useRequireSignIn } from '../../hooks/useRequireSignIn'
 import { useWishlist } from '../../hooks/useWishlist'
 import { formatPeso } from '../../utils/format'
 import { playAddToCart } from '../../utils/sound'
@@ -32,6 +33,7 @@ export function ProductPage() {
   const products = useProduct(id)
   const wishlist = useWishlist()
   const cart = useCart()
+  const requireSignIn = useRequireSignIn()
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -44,6 +46,7 @@ export function ProductPage() {
   useMetaDescription(product ? describe(product) : NOT_FOUND_DESCRIPTION)
 
   function toggleSaved(item: Product) {
+    if (requireSignIn('save to your wishlist')) return
     const wasSaved = wishlist.has(item.id)
     wishlist.toggle(item.id)
     toast.show(
@@ -54,6 +57,7 @@ export function ProductPage() {
   }
 
   async function add(item: Product, { size, color, qty, variantId }: Choice) {
+    if (requireSignIn('add to your cart')) return
     const outcome = await cart.add({ product: item, variantId, qty })
     if (outcome === 'failed') return
     if (outcome === 'limit') {

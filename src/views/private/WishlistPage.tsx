@@ -15,6 +15,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProductsByIds } from '../../hooks/useProducts'
+import { useRequireSignIn } from '../../hooks/useRequireSignIn'
 import { useWishlist } from '../../hooks/useWishlist'
 import { playAddToCart } from '../../utils/sound'
 
@@ -42,6 +43,7 @@ export function WishlistPage() {
   const products = useProductsByIds(wishlist.ids)
   const cart = useCart()
   const user = useCurrentUser()
+  const requireSignIn = useRequireSignIn()
   const navigate = useNavigate()
   const toast = useToast()
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -69,6 +71,7 @@ export function WishlistPage() {
   }
 
   function start(action: 'cart' | 'buy', list: Product[]) {
+    if (action === 'cart' && requireSignIn('add to your cart')) return
     const queue = list.filter((p) => p.stock > 0)
     if (queue.length < list.length) {
       const skipped = list.length - queue.length

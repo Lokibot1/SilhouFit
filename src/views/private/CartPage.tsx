@@ -400,9 +400,6 @@ export function CartPage() {
                       </button>
                     </div>
                   </div>
-                  {!user && count > 0 && (
-                    <p className="mt-1 text-sm text-fg-muted sm:text-right">You&apos;ll sign in before you pay.</p>
-                  )}
                 </div>
               </>
             )}
@@ -576,7 +573,7 @@ function EmptyCart({ signedIn }: { signedIn: boolean }) {
       </span>
       <h2 className="display mt-4 text-2xl text-fg">Your cart is currently empty</h2>
       <p className="mt-3 text-base leading-relaxed text-fg-muted">
-        {signedIn ? 'Add items to place an order.' : 'Add items to place an order or log in to retrieve your cart.'}
+        {signedIn ? 'Add items to place an order.' : 'Log in to add items and place an order.'}
       </p>
       <Link to="/shop" className={`${SHOP_PRIMARY} mt-6 w-full max-w-xs`}>
         <StoreIcon />
