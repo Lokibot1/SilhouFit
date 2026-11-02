@@ -71,7 +71,7 @@ function Flyout({ panel, row, onEscape, children }: { panel: RefObject<HTMLDivEl
         }
       }}
       style={place}
-      className="fixed z-[100] w-max max-w-[calc(100vw-1rem)] rounded-xl border border-line-strong bg-canvas-raised p-3 text-fg shadow-[0_18px_36px_-12px_rgb(var(--shadow-key)/var(--shadow-b))]"
+      className="fixed z-(--z-popover) w-max max-w-[calc(100vw-1rem)] rounded-xl border border-line-strong bg-canvas-raised p-3 text-fg shadow-popover"
     >
       {children}
     </motion.div>,

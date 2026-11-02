@@ -39,7 +39,7 @@ function Bubble({ id, label, anchor, wrap }: BubbleProps) {
       animate={{ opacity: 1, scale: 1, transition: FADE }}
       exit={{ opacity: 0, scale: 0.96, transition: FADE }}
       style={place}
-      className={`font-ui pointer-events-none fixed z-[100] ${wrap ? 'w-max max-w-[min(18rem,calc(100vw-1rem))]' : 'max-w-[calc(100vw-1rem)]'} rounded-xl bg-fg px-3 py-1.5 text-sm text-canvas shadow-[0_8px_20px_-8px_rgb(var(--shadow-key)/var(--shadow-b))]`}
+      className={`font-ui pointer-events-none fixed z-(--z-popover) ${wrap ? 'w-max max-w-[min(18rem,calc(100vw-1rem))]' : 'max-w-[calc(100vw-1rem)]'} rounded-xl bg-fg px-3 py-1.5 text-sm text-canvas shadow-[0_8px_20px_-8px_rgb(var(--shadow-key)/var(--shadow-b))]`}
     >
       {label}
     </motion.div>,

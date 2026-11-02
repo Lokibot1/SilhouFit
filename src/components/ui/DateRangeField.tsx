@@ -64,7 +64,7 @@ function Popover({ id, anchor, onClose, children }: PopoverProps) {
       animate={{ opacity: 1, scale: 1, transition: FADE }}
       exit={{ opacity: 0, scale: 0.98, transition: FADE }}
       style={place}
-      className="fixed z-[100] w-max max-w-[calc(100vw-1rem)] rounded-xl border border-line-strong bg-canvas p-3 shadow-[0_12px_28px_-10px_rgb(var(--shadow-key)/var(--shadow-b))]"
+      className="fixed z-(--z-popover) w-max max-w-[calc(100vw-1rem)] rounded-xl border border-line-strong bg-canvas p-3 shadow-popover"
     >
       {children}
     </motion.div>,

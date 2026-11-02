@@ -9,6 +9,10 @@
   --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --font-ui: "Kumbh Sans", ui-sans-serif, system-ui, sans-serif;
 
+  /* Elevation: floating panels (select, date range, listbox) and the sticky staff top bar. */
+  --shadow-popover: 0 18px 36px -12px rgb(var(--shadow-key) / var(--shadow-b));
+  --shadow-bar: 0 1px 3px rgb(0 0 0 / 0.12), 0 2px 8px rgb(0 0 0 / 0.06);
+
   /* Raw ramps: carbon is neutral grey (no blue cast), silver stays cool beside the metal. No pure #000/#fff,
      which kill tonal room. */
   --color-carbon-950: #0b0b0b;
@@ -102,6 +106,8 @@
   --photo-sat: 0.4;
 
   --halo-a: 0.95;
+
+  --z-popover: 100;
 
   --shadow-key: 20 23 28;
   --shadow-a: 0.18;
