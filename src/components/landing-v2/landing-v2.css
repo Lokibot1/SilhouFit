@@ -890,3 +890,61 @@
   margin-top: 0.5rem;
 }
 
+/* ---------- Footer ---------- */
+
+.sv2-footer {
+  padding: clamp(2.5rem, 6vw, 4rem) 0 1.5rem;
+  border-top: 1px solid var(--sv2-graphite);
+}
+.sv2-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sv2-gap-lg) var(--sv2-gap);
+  padding-bottom: var(--sv2-gap-lg);
+  border-bottom: 1px solid var(--sv2-graphite);
+}
+.sv2-cols h2 {
+  margin-bottom: 0.5rem;
+}
+.sv2-cols a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sv2-stone);
+  transition: color 0.18s ease-out;
+}
+.sv2-cols a:hover {
+  color: var(--sv2-paper);
+}
+.sv2-foot-mark {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-block: clamp(2rem, 6vw, 4rem);
+  fill: var(--sv2-porcelain);
+}
+.sv2-foot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--sv2-graphite);
+}
+.sv2-credit {
+  margin-top: 1rem;
+  max-width: 60rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+.sv2-credit a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sv2-credit a:hover {
+  color: var(--sv2-paper);
+}
+
