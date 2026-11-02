@@ -948,3 +948,114 @@
   color: var(--sv2-paper);
 }
 
+/* ---------- Breakpoints: 560, 768, 1024 ---------- */
+
+@media (min-width: 560px) {
+  .sv2-cards,
+  .sv2-quotes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sv2-cols {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sv2-plate--lg figcaption {
+    padding-right: 8rem; /* keeps text clear of the plate tag */
+  }
+  .sv2-plate-no {
+    top: auto;
+    bottom: 1rem;
+  }
+  .sv2-mosaic {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .sv2-plate--lg {
+    grid-column: span 3;
+  }
+  .sv2-plate--sm {
+    grid-column: span 2;
+    aspect-ratio: 3 / 4;
+  }
+}
+@media (min-width: 768px) {
+  .sv2-specs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sv2-spec {
+    padding: var(--sv2-gap-lg) 1.5rem;
+    border-left: 1px solid var(--sv2-hair);
+  }
+  .sv2-spec:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .sv2-spec:last-child {
+    padding-right: 0;
+  }
+  .sv2-quotes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sv2-faq-q {
+    font-size: 1rem;
+  }
+}
+@media (min-width: 1024px) {
+  .sv2-mosaic {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .sv2-plate--lg:nth-child(1) {
+    grid-column: span 7;
+    aspect-ratio: 7 / 5;
+  }
+  .sv2-plate--lg:nth-child(2) {
+    grid-column: span 5;
+    aspect-ratio: auto;
+  }
+  .sv2-plate--sm {
+    grid-column: span 4;
+    aspect-ratio: 1 / 1;
+  }
+  .sv2-plate--sm .sv2-plate-sub {
+    display: block;
+  }
+  .sv2-ar {
+    min-height: 28rem;
+    justify-content: center;
+  }
+  .sv2-ar-copy {
+    padding: 1rem 0;
+  }
+  .sv2-ar-mark {
+    top: 50%;
+    bottom: auto;
+    translate: 0 -50%;
+  }
+  .sv2-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .sv2-cols {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Motion preferences and print ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .sv2-tape-track,
+  .sv2-skel-bar,
+  .sv2-skel-block {
+    animation: none;
+  }
+  .sv2-faq-a,
+  .sv2-faq-a:not([data-open]) {
+    transition: none;
+  }
+  .sv2 * {
+    scroll-behavior: auto;
+  }
+}
+@media print {
+  .sv2-hero,
+  .sv2-tape {
+    display: none;
+  }
+}

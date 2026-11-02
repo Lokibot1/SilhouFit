@@ -8,8 +8,8 @@ const ClothingRack = lazy(() =>
   import('./ClothingRack').then((m) => ({ default: m.ClothingRack })),
 )
 
-// The rack belongs to the landing and about pages only.
-const RACK_PATHS = ['/', '/about']
+// The rack belongs to the about page only.
+const RACK_PATHS = ['/about']
 
 const EXPLORE_LINKS = [
   { label: 'Shop', href: '/shop' },
