@@ -222,7 +222,7 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
                 <td className={TD}>
                   <div className="flex items-center gap-1">
                     <span className="line-clamp-2 min-w-0 font-mono text-sm leading-tight break-all text-fg">{row.code}</span>
-                    <CopyButton code={row.code} onCopy={() => onCopy(row)} className="size-8 pointer-coarse:size-11" />
+                    <CopyButton code={row.code} onCopy={() => onCopy(row)} className="size-10 pointer-coarse:size-11" />
                   </div>
                 </td>
                 <td className={`${TD} text-right text-sm text-fg tabular-nums`}>{valueLabel(row)}</td>

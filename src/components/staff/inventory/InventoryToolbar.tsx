@@ -133,7 +133,7 @@ export function InventoryToolbar({ text, onText, query, onFilter, onSort, onPer,
               </li>
             ))}
           </ul>
-          <button type="button" onClick={onClear} className={`${SECONDARY_BUTTON} min-h-9 text-sm pointer-coarse:min-h-11`}>
+          <button type="button" onClick={onClear} className={`${SECONDARY_BUTTON} min-h-10 text-sm pointer-coarse:min-h-11`}>
             Clear all
           </button>
         </div>

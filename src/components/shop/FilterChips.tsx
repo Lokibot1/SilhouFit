@@ -52,7 +52,7 @@ export function FilterChips({ filters, onClear, onClearAll }: { filters: Product
                 onClear(chip.clears)
               }}
               aria-label={`Remove ${chip.kind} ${chip.text}`}
-              className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-fg-muted hover:text-fg pointer-coarse:size-11"
+              className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-fg-muted hover:text-fg pointer-coarse:size-11"
             >
               <XIcon size={16} />
             </button>
