@@ -424,3 +424,103 @@
   }
 }
 
+/* ---------- Paper section ---------- */
+
+.sv2-paper {
+  --sv2-focus: var(--sv2-obsidian);
+  --sv2-bg: var(--sv2-paper);
+  --sv2-fg: var(--sv2-obsidian);
+  --sv2-soft: #5b5558;
+  --sv2-hair: rgb(22 17 19 / 0.2);
+  --sv2-fill: var(--sv2-porcelain);
+  position: relative;
+  background: var(--sv2-bg);
+  color: var(--sv2-fg);
+}
+.dark .sv2-paper {
+  --sv2-focus: var(--sv2-paper);
+  --sv2-bg: var(--sv2-raise);
+  --sv2-fg: var(--sv2-paper);
+  --sv2-soft: #b3adaa;
+  --sv2-hair: rgb(255 251 253 / 0.2);
+  --sv2-fill: var(--sv2-graphite);
+}
+.dark .sv2-paper .sv2-label--red {
+  color: var(--sv2-red-tint);
+}
+/* Grain: a faint speckle on Paper sections. */
+.sv2-paper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.sv2-paper > * {
+  position: relative;
+}
+.sv2-paper .sv2-head--rule {
+  border-color: var(--sv2-hair);
+}
+.sv2-paper .sv2-meta-note,
+.sv2-paper .sv2-quote,
+.sv2-paper .sv2-spec-foot {
+  color: var(--sv2-soft);
+}
+.sv2-quote {
+  margin-top: 0.75rem;
+  font-style: italic;
+  font-size: 1rem;
+}
+.sv2-specs {
+  display: grid;
+  grid-template-columns: 1fr;
+  border-bottom: 1px solid var(--sv2-hair);
+}
+.sv2-spec {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: var(--sv2-gap-lg) 0;
+  border-top: 1px solid var(--sv2-hair);
+}
+.sv2-spec-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.sv2-spec-foot {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--sv2-hair);
+}
+.sv2-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: var(--sv2-gap-lg);
+  padding: 1rem;
+  background: var(--sv2-fill);
+  border: 1px solid var(--sv2-hair);
+}
+.sv2-strip-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.sv2-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.sv2-chips li {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--sv2-hair);
+  background: var(--sv2-bg);
+}
+
