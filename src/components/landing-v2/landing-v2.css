@@ -241,6 +241,7 @@
   border-bottom-color: var(--sv2-graphite);
 }
 .sv2-bar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: clamp(1rem, calc(24 * var(--u)), 2rem);
@@ -292,17 +293,17 @@
   text-transform: uppercase;
   transition: color 0.18s ease-out;
 }
-.sv2-links a:hover,
-.sv2-links a[aria-current] {
+.sv2-links a:hover {
   color: var(--sv2-red-tint);
 }
-.sv2-links a[aria-current] {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.5em;
-}
 .sv2-tag {
-  flex: 1;
+  /* Centred on the bar itself, not on the gap between the links and the CTA. */
+  position: absolute;
+  inset-inline: 0;
+  width: max-content;
+  margin-inline: auto;
+  white-space: nowrap;
+  pointer-events: none;
   text-align: center;
   font-size: max(12px, calc(12 * var(--u)));
   font-weight: 290;
@@ -364,7 +365,7 @@
   color: var(--sv2-red-tint);
 }
 
-/* Tight desktop: the tagline gives way before the links crowd it. */
+/* Narrow: the tagline gives way before the bar crowds it. */
 @media (max-width: 1199.98px) {
   .sv2-tag {
     display: none;

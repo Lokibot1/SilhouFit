@@ -10,11 +10,8 @@ const LID_TRAVEL = H + 2 * PAD + 10
 
 const LINKS = [
   { label: 'Shop', to: '/shop' },
-  { label: 'Study', to: { hash: '#detail' } },
-  { label: 'Collection', to: { hash: '#collection' } },
-  { label: 'Lookbook', to: { hash: '#lookbook' } },
-  { label: 'FAQ', to: { hash: '#faq' } },
   { label: 'About', to: '/about' },
+  { label: 'Contact us', to: '/contact' },
 ]
 
 /** Full-viewport hero: an Obsidian band whose KRAL(R) letters are cut out, so the photo stage behind shows through. */
@@ -22,7 +19,6 @@ export function Hero() {
   const heroRef = useRef<HTMLElement>(null)
   const headerRef = useRef<HTMLElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
-  const [active, setActive] = useState('')
   const navRef = useRef<HTMLElement>(null)
   const menuRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
@@ -80,30 +76,14 @@ export function Hero() {
     }
   }, [])
 
-  // Sticky bar: its hairline appears once the hero band has scrolled away, and the link of the section in view is marked.
+  // Sticky bar: its hairline appears once the hero band has scrolled away.
   useEffect(() => {
     const header = headerRef.current
     const band = heroRef.current?.querySelector('.sv2-band')
     if (!header || !band || !('IntersectionObserver' in window)) return
     const stuck = new IntersectionObserver(([e]) => header.toggleAttribute('data-stuck', !e.isIntersecting), { rootMargin: `-${header.offsetHeight}px 0px 0px 0px` })
     stuck.observe(band)
-    const ids = LINKS.flatMap(({ to }) => (typeof to === 'object' && to.hash ? [to.hash.slice(1)] : []))
-    const seen = new Map<string, boolean>()
-    const spy = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => seen.set(e.target.id, e.isIntersecting))
-        setActive(ids.find((id) => seen.get(id)) ?? '')
-      },
-      { rootMargin: '-45% 0px -50% 0px' },
-    )
-    ids.forEach((id) => {
-      const el = document.getElementById(id)
-      if (el) spy.observe(el)
-    })
-    return () => {
-      stuck.disconnect()
-      spy.disconnect()
-    }
+    return () => stuck.disconnect()
   }, [])
 
   const toTop = (e: MouseEvent<HTMLAnchorElement>) => {
@@ -154,9 +134,7 @@ export function Hero() {
             <ul id="sv2-links" className="sv2-links" data-open={open || undefined} onClick={() => setOpen(false)}>
               {LINKS.map(({ label, to }) => (
                 <li key={label}>
-                  <Link to={to} aria-current={typeof to === 'object' && to.hash === `#${active}` ? 'true' : undefined}>
-                    {label}
-                  </Link>
+                  <Link to={to}>{label}</Link>
                 </li>
               ))}
             </ul>
