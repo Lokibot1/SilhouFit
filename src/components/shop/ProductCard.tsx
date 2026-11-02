@@ -88,7 +88,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
             {product.badges.map((badge) => (
               <li
                 key={badge}
-                className={`skeuo-gloss font-ui rounded-full whitespace-nowrap ${list ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}`}
+                className={`skeuo-gloss font-ui rounded-full whitespace-nowrap ${list ? 'px-1.5 py-0.5 text-xs' : 'px-2 py-0.5 text-xs'}`}
               >
                 {badge}
               </li>
@@ -213,7 +213,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
             </p>
           </div>
           {(stock <= LOW_STOCK || channel) && (
-            <p className="font-ui text-[11px] text-fg-muted sm:text-xs">
+            <p className="font-ui text-xs text-fg-muted sm:text-xs">
               {stock <= LOW_STOCK && (
                 <>
                   <span className="font-semibold text-danger">{soldOut ? 'Sold out' : `Only ${stock} left`}</span>

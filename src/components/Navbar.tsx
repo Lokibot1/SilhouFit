@@ -65,7 +65,7 @@ export function Navbar() {
 
   const brandMark = (
     <BrandMark>
-      <span className="font-ui block text-[9px] tracking-[0.22em] max-[359px]:hidden text-fg-muted uppercase transition-colors group-hover:text-chrome-strong">
+      <span className="font-ui block text-xs tracking-[0.22em] max-[359px]:hidden text-fg-muted uppercase transition-colors group-hover:text-chrome-strong">
         Omnichannel apparel
       </span>
     </BrandMark>
@@ -111,7 +111,7 @@ export function Navbar() {
                     key={link.href}
                     to={link.href}
                     aria-current={isActive ? "true" : undefined}
-                    className={`font-ui relative text-[11px] tracking-[0.16em] uppercase transition-colors ${
+                    className={`font-ui relative text-xs tracking-[0.16em] uppercase transition-colors ${
                       isActive ? "text-fg" : "text-fg-muted hover:text-fg"
                     }`}
                   >

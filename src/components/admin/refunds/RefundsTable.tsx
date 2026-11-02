@@ -199,8 +199,8 @@ export function RefundsTable({ list, selecting, selected, onToggle, onToggleAll,
                     <RefundStatusBadge status={row.status} />
                     {row.decidedBy && row.decidedAt && (
                       <>
-                        <span className="max-w-28 truncate text-[0.6875rem] leading-3.5 text-fg-muted @7xl:hidden">{row.decidedBy}</span>
-                        <time dateTime={row.decidedAt} className="text-[0.6875rem] leading-3.5 text-fg-muted @7xl:hidden">
+                        <span className="max-w-28 truncate text-xs leading-3.5 text-fg-muted @7xl:hidden">{row.decidedBy}</span>
+                        <time dateTime={row.decidedAt} className="text-xs leading-3.5 text-fg-muted @7xl:hidden">
                           {formatOrderTime(row.decidedAt)}
                         </time>
                       </>

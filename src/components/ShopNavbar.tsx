@@ -22,7 +22,7 @@ function Badge({ count }: { count: number }) {
   return (
     <span
       aria-hidden="true"
-      className="font-ui absolute top-0.5 right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-fg px-1 text-[11px] font-semibold text-canvas tabular-nums"
+      className="font-ui absolute top-0.5 right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-fg px-1 text-xs font-semibold text-canvas tabular-nums"
     >
       {count}
     </span>
@@ -72,10 +72,10 @@ export function ShopNavbar() {
     <>
       <SilhouetteMark className="h-8 w-6 text-fg" />
       <span className="leading-none">
-        <span className="font-display block text-[17px] font-bold tracking-[-0.02em] text-fg max-[359px]:sr-only">
+        <span className="font-display block text-lg font-bold tracking-[-0.02em] text-fg max-[359px]:sr-only">
           SilhouFit
         </span>
-        <span className="font-ui hidden text-[9px] tracking-[0.22em] text-fg-muted uppercase transition-colors group-hover:text-chrome-strong sm:block lg:hidden xl:block">
+        <span className="font-ui hidden text-xs tracking-[0.22em] text-fg-muted uppercase transition-colors group-hover:text-chrome-strong sm:block lg:hidden xl:block">
           Omnichannel apparel
         </span>
       </span>
@@ -120,7 +120,7 @@ export function ShopNavbar() {
             />
             <kbd
               aria-hidden="true"
-              className="font-ui pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded-xl border border-line-strong px-1.5 text-[11px] text-fg-muted lg:block"
+              className="font-ui pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded-xl border border-line-strong px-1.5 text-xs text-fg-muted lg:block"
             >
               {isMac ? '⌘K' : 'Ctrl K'}
             </kbd>

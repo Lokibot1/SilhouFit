@@ -488,7 +488,7 @@ function VariationModal({
       <div className="mb-5 flex gap-4 rounded-xl border border-line bg-fg/5 p-3">
         <PhotoImg src={product.image} alt={product.alt} className="photo-mono h-32 w-24 shrink-0 rounded-md border border-line object-cover" />
         <div className="min-w-0 flex-1">
-          <p className="font-ui truncate text-[11px] tracking-[0.16em] text-fg-muted uppercase">
+          <p className="font-ui truncate text-xs tracking-[0.16em] text-fg-muted uppercase">
             {product.category} · {product.boutique}
           </p>
           <h3 className="mt-1 text-lg leading-tight font-semibold break-words text-fg">{product.name}</h3>

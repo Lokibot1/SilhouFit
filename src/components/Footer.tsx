@@ -71,7 +71,7 @@ export function Footer() {
         <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 sm:gap-x-10 sm:gap-y-12 lg:grid-cols-[1.4fr_0.85fr_0.85fr_0.85fr] lg:gap-y-0">
           <div className="col-span-2 sm:col-span-3 lg:col-span-1">
             <SilhouetteMark className="h-10 w-8 text-chrome-strong" />
-            <span className="display mt-3 block text-[1.75rem] text-fg sm:text-3xl">
+            <span className="display mt-3 block text-2xl text-fg sm:text-3xl">
               SilhouFit
             </span>
             <p className="mt-3 max-w-[26ch] text-sm leading-relaxed text-fg-muted">
@@ -81,7 +81,7 @@ export function Footer() {
           </div>
 
           <div className="col-span-2 sm:col-span-1">
-            <span className="font-ui block text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
+            <span className="font-ui block text-xs font-semibold tracking-[0.14em] text-fg uppercase">
               Contact
             </span>
             <a
@@ -100,7 +100,7 @@ export function Footer() {
           </div>
 
           <div>
-            <span className="font-ui block text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
+            <span className="font-ui block text-xs font-semibold tracking-[0.14em] text-fg uppercase">
               Explore
             </span>
             <ul className="mt-3 space-y-2.5">
@@ -116,7 +116,7 @@ export function Footer() {
           </div>
 
           <div>
-            <span className="font-ui block text-[11px] font-semibold tracking-[0.14em] text-fg uppercase">
+            <span className="font-ui block text-xs font-semibold tracking-[0.14em] text-fg uppercase">
               Legal
             </span>
             <ul className="mt-3 space-y-2.5">

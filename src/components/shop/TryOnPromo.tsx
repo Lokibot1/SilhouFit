@@ -14,7 +14,7 @@ export function TryOnPromo() {
         FIT
       </span>
       <div className="relative max-w-xl">
-        <p className="font-ui text-[11px] tracking-[0.16em] text-chrome-strong uppercase">AR fitting</p>
+        <p className="font-ui text-xs tracking-[0.16em] text-chrome-strong uppercase">AR fitting</p>
         <h2 id="try-on-heading" className="display mt-3 text-[clamp(1.75rem,4vw,2.75rem)] text-fg">
           Try pieces on before you buy them.
         </h2>

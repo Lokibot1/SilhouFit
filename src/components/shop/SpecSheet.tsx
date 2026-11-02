@@ -113,7 +113,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
             className="photo-mono h-48 w-36 shrink-0 rounded-md border border-line object-cover"
           />
           <div className="min-w-0 flex-1">
-            <p className="font-ui truncate text-[11px] tracking-[0.16em] text-fg-muted uppercase">
+            <p className="font-ui truncate text-xs tracking-[0.16em] text-fg-muted uppercase">
               {[product.category, product.boutique].filter(Boolean).join(' · ')}
             </p>
             <h3 className="mt-1 text-2xl leading-tight font-semibold text-fg">{product.name}</h3>

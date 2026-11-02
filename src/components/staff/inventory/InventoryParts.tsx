@@ -58,7 +58,7 @@ export function StockBadge({ stock, compact }: { stock: number; compact?: boolea
   const level = LEVELS[stockLevel(stock)]
   return (
     <span
-      className={`inline-flex items-center rounded-full border border-line-strong whitespace-nowrap text-fg ${compact === 'mini' ? 'h-4 gap-1 px-1.5 text-[11px] leading-none' : compact ? 'h-5 gap-1 px-1.5 text-xs' : 'h-6 gap-1.5 px-2 text-sm'} ${level.border}`}
+      className={`inline-flex items-center rounded-full border border-line-strong whitespace-nowrap text-fg ${compact === 'mini' ? 'h-4 gap-1 px-1.5 text-xs leading-none' : compact ? 'h-5 gap-1 px-1.5 text-xs' : 'h-6 gap-1.5 px-2 text-sm'} ${level.border}`}
     >
       <span aria-hidden="true" className={`shrink-0 rounded-full ${compact ? 'size-1.5' : 'size-2'} ${level.dot}`} />
       {level.label}
@@ -69,7 +69,7 @@ export function StockBadge({ stock, compact }: { stock: number; compact?: boolea
 /** Some sizes are sold out while the product still has stock. Small and neutral: the stock badge is the louder signal. */
 export function SizesOutChip({ count }: { count: number }) {
   return (
-    <span className="inline-flex h-4 shrink-0 items-center rounded-full bg-fg/15 px-1.5 text-[11px] whitespace-nowrap text-fg/80 tabular-nums">{`${count} ${count === 1 ? 'size' : 'sizes'} out`}</span>
+    <span className="inline-flex h-4 shrink-0 items-center rounded-full bg-fg/15 px-1.5 text-xs whitespace-nowrap text-fg/80 tabular-nums">{`${count} ${count === 1 ? 'size' : 'sizes'} out`}</span>
   )
 }
 

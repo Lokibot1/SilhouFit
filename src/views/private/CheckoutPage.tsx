@@ -111,7 +111,7 @@ function ItemRow({ item, change }: { item: CheckoutItem; change: boolean }) {
         className="photo-mono h-24 w-18 shrink-0 rounded-xl border border-line object-cover"
       />
       <div className="min-w-0 flex-1">
-        <p className="font-ui truncate text-[11px] tracking-[0.16em] text-fg-muted uppercase">
+        <p className="font-ui truncate text-xs tracking-[0.16em] text-fg-muted uppercase">
           {product.category} · {product.boutique}
         </p>
         <h3 className="mt-1 text-base leading-snug font-semibold break-words text-fg">{product.name}</h3>
