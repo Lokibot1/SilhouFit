@@ -16,40 +16,62 @@ const LINKS = [
   { label: 'About', to: '/about' },
 ]
 
-/** Full-viewport hero: an Obsidian band whose SILHOUFIT letters are cut out, so the stage behind (photo and chrome bust) shows through. */
+/** Full-viewport hero: an Obsidian band whose SILHOUFIT letters are cut out, so the photo stage behind shows through. */
 export function Hero() {
   const heroRef = useRef<HTMLElement>(null)
   const navRef = useRef<HTMLElement>(null)
   const menuRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
 
-  // Entrance: each letter's lid retracts upward left to right, then the copy rises in. Pre-paint, so nothing flashes.
+  // Entrance: each letter's lid retracts upward left to right, then the copy rises in. At "/" the page sits inert under the
+  // intro loader, so the entrance waits until that wrapper is released; the copy stays hidden and the lids keep the band solid.
   useLayoutEffect(() => {
     const root = heroRef.current
     if (!root || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const animations: Animation[] = []
-    root.querySelectorAll<SVGRectElement>('[data-lid]').forEach((lid, i) => {
-      animations.push(
-        lid.animate(
-          [{ transform: 'translateY(0)' }, { transform: `translateY(${-LID_TRAVEL}px)` }],
-          { duration: 900, delay: 150 + i * 90, easing: 'cubic-bezier(0.76, 0, 0.24, 1)', fill: 'backwards' },
-        ),
-      )
-    })
     const rises = [...root.querySelectorAll<HTMLElement>('[data-rise]')].sort((a, b) => Number(a.dataset.rise) - Number(b.dataset.rise))
-    rises.forEach((el, i) => {
-      animations.push(
-        el.animate(
-          [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }],
-          { duration: 700, delay: 800 + i * 110, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'backwards' },
-        ),
-      )
-    })
-    // Failsafe: a stalled timeline must never leave the band solid or the copy hidden.
-    const failsafe = window.setTimeout(() => animations.forEach((a) => a.finish()), 4000)
+    const animations: Animation[] = []
+    let failsafe = 0
+
+    const play = () => {
+      root.querySelectorAll<SVGRectElement>('[data-lid]').forEach((lid, i) => {
+        animations.push(
+          lid.animate(
+            [{ transform: 'translateY(0)' }, { transform: `translateY(${-LID_TRAVEL}px)` }],
+            { duration: 900, delay: 150 + i * 90, easing: 'cubic-bezier(0.76, 0, 0.24, 1)', fill: 'backwards' },
+          ),
+        )
+      })
+      rises.forEach((el, i) => {
+        animations.push(
+          el.animate(
+            [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }],
+            { duration: 700, delay: 800 + i * 110, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'backwards' },
+          ),
+        )
+      })
+      rises.forEach((el) => el.style.removeProperty('opacity'))
+      // Failsafe, armed once the entrance starts: a stalled timeline must never leave the band solid or the copy hidden.
+      failsafe = window.setTimeout(() => animations.forEach((a) => a.finish()), 4000)
+    }
+
+    const gate = root.closest('[inert]')
+    let observer: MutationObserver | undefined
+    if (gate) {
+      rises.forEach((el) => (el.style.opacity = '0'))
+      observer = new MutationObserver(() => {
+        if (gate.hasAttribute('inert')) return
+        observer?.disconnect()
+        play()
+      })
+      observer.observe(gate, { attributes: true, attributeFilter: ['inert'] })
+    } else {
+      play()
+    }
     return () => {
+      observer?.disconnect()
       window.clearTimeout(failsafe)
       animations.forEach((a) => a.cancel())
+      rises.forEach((el) => el.style.removeProperty('opacity'))
     }
   }, [])
 
