@@ -39,7 +39,7 @@ export function ActivityFilterBar({ filters, users, onChange }: { filters: Activ
   const filtering = filters.action !== 'all' || filters.user !== 'all' || filters.range !== 'all'
   const userOptions = [{ value: 'all', label: 'All users' }, ...users.map((user) => ({ value: user, label: user }))]
   return (
-    <div role="group" aria-label="Filter activity logs" className="flex max-w-full shrink-0 flex-wrap items-center gap-2 rounded-2xl border border-line bg-canvas-sub p-2 lg:flex-nowrap lg:gap-0 lg:p-1">
+    <div role="group" aria-label="Filter activity logs" className="flex max-w-full shrink-0 flex-wrap items-center gap-2 rounded-xl border border-line bg-canvas-sub p-2 lg:flex-nowrap lg:gap-0 lg:p-1">
       <span className="font-ui flex items-center shrink-0 gap-2 px-3 text-sm font-semibold tracking-wide text-fg-muted uppercase">
         <FilterIcon size={16} />
         Filter by

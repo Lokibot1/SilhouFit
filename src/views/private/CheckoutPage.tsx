@@ -61,7 +61,7 @@ import { LIMITS, normalizePhone, sanitizePhoneDigits, validatePhone } from '../.
 const META_DESCRIPTION =
   'Review your SilhouFit order, choose delivery or pick-up in store, pay with GCash, Maya or cash, and add a note for the seller before you place the order.'
 
-const SECTION = 'glass-card rounded-2xl p-5'
+const SECTION = 'glass-card rounded-xl p-5'
 const fieldId = (name: AddressField) => `checkout-${name}`
 
 const FILTERS: Record<AddressField, (value: string) => string> = {
@@ -405,7 +405,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     <form noValidate onSubmit={onSubmit} aria-busy={pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
       <div className="min-w-0 space-y-6">
         {notices.length > 0 && (
-          <div role="status" className="glass-card rounded-2xl p-5">
+          <div role="status" className="glass-card rounded-xl p-5">
             <h2 className="text-base font-semibold text-fg">We changed your order</h2>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-snug text-fg-muted">
               {notices.map((notice) => (
@@ -739,7 +739,7 @@ export function CheckoutPage() {
       {status === 'loading' && <CheckoutSkeleton />}
 
       {status === 'error' && (
-        <div role="alert" className="glass-card mt-6 rounded-2xl p-6 sm:p-8">
+        <div role="alert" className="glass-card mt-6 rounded-xl p-6 sm:p-8">
           <h2 className="display text-2xl text-fg">We couldn&apos;t load your order</h2>
           <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
             The request for the catalogue failed, most likely because the connection dropped. Your choices are kept in
@@ -754,7 +754,7 @@ export function CheckoutPage() {
       {status === 'success' && items.length === 0 && (
         <>
           {snapshot && snapshot.notices.length > 0 && (
-            <div role="status" className="glass-card mt-6 rounded-2xl p-5">
+            <div role="status" className="glass-card mt-6 rounded-xl p-5">
               <ul className="list-disc space-y-1 pl-5 text-sm leading-snug text-fg-muted">
                 {snapshot.notices.map((notice) => (
                   <li key={notice}>{notice}</li>
@@ -762,7 +762,7 @@ export function CheckoutPage() {
               </ul>
             </div>
           )}
-          <div className="glass-card mt-6 rounded-2xl p-6 sm:p-8">
+          <div className="glass-card mt-6 rounded-xl p-6 sm:p-8">
             <h2 className="display text-2xl text-fg">Nothing to check out</h2>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
               {fromCart

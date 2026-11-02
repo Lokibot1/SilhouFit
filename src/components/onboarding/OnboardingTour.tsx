@@ -323,7 +323,7 @@ export function OnboardingTour() {
           initial={{ opacity: 0, y: reduced ? 0 : 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: DURATION.state, ease: EASE_OUT }}
-          className="glass-card glass-elevated glass-dense pointer-events-auto flex max-h-[55svh] w-full flex-col rounded-2xl p-5 sm:w-96"
+          className="glass-card glass-elevated glass-dense pointer-events-auto flex max-h-[55svh] w-full flex-col rounded-xl p-5 sm:w-96"
         >
           <div className="flex shrink-0 items-start justify-between gap-3">
             <div className="min-w-0">

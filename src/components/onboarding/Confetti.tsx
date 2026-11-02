@@ -17,7 +17,7 @@ export function Confetti() {
         return (
           <motion.span
             key={i}
-            className={`absolute top-[40%] left-1/2 h-3 w-1.5 rounded-sm ${COLORS[i % COLORS.length]}`}
+            className={`absolute top-[40%] left-1/2 h-3 w-1.5 rounded-md ${COLORS[i % COLORS.length]}`}
             initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
             animate={{
               x: Math.cos(angle) * reach,

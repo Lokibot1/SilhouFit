@@ -53,7 +53,7 @@ export function LegalPageLayout({
       <LegalParallaxSky />
       <div className="mx-auto grid max-w-2xl xl:max-w-[62rem] xl:grid-cols-[14rem_minmax(0,42rem)] xl:justify-center xl:gap-10">
         <LegalToc headings={headings} />
-        <article className="glass-card glass-elevated glass-dense w-full rounded-2xl px-5 py-10 wrap-break-word sm:px-12 sm:py-14">
+        <article className="glass-card glass-elevated glass-dense w-full rounded-xl px-5 py-10 wrap-break-word sm:px-12 sm:py-14">
           <h1 className="display text-[clamp(2rem,4vw,3rem)] text-fg">
             {title}
           </h1>

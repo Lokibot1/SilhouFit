@@ -87,7 +87,7 @@ export function ForgotPasswordPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: DURATION.shift, ease: EASE_OUT }}
-        className="glass-card glass-elevated w-full max-w-md rounded-2xl px-4 py-4 wrap-break-word max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4"
+        className="glass-card glass-elevated w-full max-w-md rounded-xl px-4 py-4 wrap-break-word max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4"
       >
         {status === 'success' ? (
           <div>

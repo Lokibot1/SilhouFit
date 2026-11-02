@@ -224,7 +224,7 @@ export function CountrySelect({ id, value, onChange, disabled }: CountrySelectPr
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
         aria-label={`Country calling code: ${country.name} ${country.dial}`}
-        className="skeuo font-ui relative flex h-8 w-22 cursor-pointer items-center justify-center gap-1 rounded-lg px-2 text-sm after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] disabled:cursor-progress"
+        className="skeuo font-ui relative flex h-8 w-22 cursor-pointer items-center justify-center gap-1 rounded-md px-2 text-sm after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] disabled:cursor-progress"
       >
         <span>{country.code}</span>
         <span className="tabular-nums">{country.dial}</span>

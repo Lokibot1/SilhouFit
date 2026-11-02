@@ -40,7 +40,7 @@ const META_DESCRIPTION =
 const SKIP_TOAST = 'You can add your measurements any time from your profile.'
 // On a phone the studio takes about a quarter of what is visible (the keyboard shrinks it), so the field stays in view.
 const STUDIO_SIZE = 'h-[clamp(7rem,calc(var(--vvh,100dvh)*0.26),20rem)] lg:sticky lg:top-4 lg:h-[calc(100svh-9rem)]'
-const CARD = 'glass-card rounded-2xl p-4 lg:p-8'
+const CARD = 'glass-card rounded-xl p-4 lg:p-8'
 const DISABLED_PRIMARY =
   'disabled:cursor-not-allowed disabled:border-line-strong disabled:bg-fg/10 disabled:text-fg-muted disabled:opacity-100! disabled:hover:border-line-strong disabled:hover:bg-fg/10'
 const SKIP_LINK =
@@ -420,7 +420,7 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
                 </StudioFrame>
               )}
             >
-              <Suspense fallback={<div className={`animate-pulse rounded-2xl bg-line ${STUDIO_SIZE}`} />}>
+              <Suspense fallback={<div className={`animate-pulse rounded-xl bg-line ${STUDIO_SIZE}`} />}>
                 <BodyStudio model={model ?? 'male'} build={build} cm={entered} focus={field} reduced={reduced} className={STUDIO_SIZE} />
               </Suspense>
             </SectionBoundary>

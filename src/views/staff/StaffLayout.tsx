@@ -122,7 +122,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
     return (
       <main id="main-content" className="staff-shell grid min-h-svh place-items-center bg-canvas px-4 text-fg">
         <SkipLink />
-        <div role="alert" className="flex w-full max-w-xl items-start gap-3 rounded-2xl border border-line bg-canvas-sub p-6 sm:p-8">
+        <div role="alert" className="flex w-full max-w-xl items-start gap-3 rounded-xl border border-line bg-canvas-sub p-6 sm:p-8">
           <AlertIcon size={20} className="mt-1 shrink-0 text-danger" />
           <div className="min-w-0">
             <h1 className="display text-2xl text-fg">{copy.title}</h1>

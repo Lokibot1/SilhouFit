@@ -20,7 +20,7 @@ export function ShareBar({ label, pct, fill, hint }: { label: string; pct: numbe
       <div className="flex items-center justify-between gap-3 text-sm">
         <span className="text-fg">{label}</span>
         <Tooltip label={hint}>
-          <span tabIndex={0} aria-label={`${label}: ${pct}%. ${hint}`} className="-my-3 inline-flex min-h-11 min-w-11 items-center justify-end rounded-sm font-semibold text-fg tabular-nums">
+          <span tabIndex={0} aria-label={`${label}: ${pct}%. ${hint}`} className="-my-3 inline-flex min-h-11 min-w-11 items-center justify-end rounded-md font-semibold text-fg tabular-nums">
             {pct}%
           </span>
         </Tooltip>

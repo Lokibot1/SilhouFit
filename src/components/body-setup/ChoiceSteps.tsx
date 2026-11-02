@@ -66,7 +66,7 @@ function OptionCards<T extends string>({ name, labelledBy, options, value, onCha
         return (
           <label
             key={option}
-            className={`glass-card relative flex min-h-11 cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-chrome-strong ${
+            className={`glass-card relative flex min-h-11 cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-4 text-center has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-chrome-strong ${
               selected ? 'border-fg' : 'border-transparent'
             }`}
           >

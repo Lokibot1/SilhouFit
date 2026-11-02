@@ -133,9 +133,9 @@ function DonutFigure({ mix }: { mix: ProductMixItem[] }) {
               onFocus={(event) => event.currentTarget.matches(':focus-visible') && setHover(i)}
               onBlur={() => setHover(null)}
               onKeyDown={clearOnEscape}
-              className={`flex min-h-7 w-full cursor-pointer items-center gap-3 rounded-lg px-1.5 text-left text-sm transition-colors duration-200 motion-reduce:transition-none ${active === i ? 'bg-fg/10' : 'hover:bg-fg/5'}`}
+              className={`flex min-h-7 w-full cursor-pointer items-center gap-3 rounded-md px-1.5 text-left text-sm transition-colors duration-200 motion-reduce:transition-none ${active === i ? 'bg-fg/10' : 'hover:bg-fg/5'}`}
             >
-              <span aria-hidden="true" className={`size-3 shrink-0 rounded-sm ${SWATCH[slot(i)]}`} />
+              <span aria-hidden="true" className={`size-3 shrink-0 rounded-md ${SWATCH[slot(i)]}`} />
               <span className="min-w-0 flex-1 truncate text-fg">{slice.category}</span>
               <span className="w-14 text-right tabular-nums text-fg">{slice.units.toLocaleString('en-PH')}</span>
               <span className="w-12 text-right text-xs tabular-nums text-fg-muted">{Math.round(segments[i].share * 100)}%</span>

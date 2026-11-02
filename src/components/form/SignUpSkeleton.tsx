@@ -6,11 +6,11 @@ export function SignUpSkeleton() {
       aria-label="Loading sign up form"
       className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 max-[359px]:px-3 sm:px-6"
     >
-      <div className="glass-card glass-elevated w-full max-w-md animate-pulse rounded-2xl px-4 py-4 max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4">
+      <div className="glass-card glass-elevated w-full max-w-md animate-pulse rounded-xl px-4 py-4 max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4">
         <div className="[&>*+*]:mt-4 short:[&>*+*]:mt-3">
           <div className="flex flex-col gap-5 pb-2 short:gap-3">
             <div className="flex flex-col items-center gap-2 shortest:hidden">
-              <div className="size-16 rounded-2xl bg-line short:size-12" />
+              <div className="size-16 rounded-md bg-line short:size-12" />
               <div className="h-5 w-24 rounded bg-line" />
             </div>
             <div>

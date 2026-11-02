@@ -17,7 +17,7 @@ export function ProductRow({ product }: { product: ProductListItem }) {
           {product.brand ? `, ${product.brand}` : ''}
         </p>
         <Tooltip label={product.id}>
-          <span tabIndex={0} aria-label={`Product ID ${product.id}`} className="rounded-sm font-mono text-sm text-fg-muted">
+          <span tabIndex={0} aria-label={`Product ID ${product.id}`} className="rounded-md font-mono text-sm text-fg-muted">
             {product.id.slice(0, 8)}
           </span>
         </Tooltip>

@@ -129,7 +129,7 @@ export function BodyMeasurements() {
               </StudioFrame>
             )}
           >
-            <Suspense fallback={<div className={`animate-pulse rounded-2xl bg-line ${AVATAR_SIZE}`} />}>
+            <Suspense fallback={<div className={`animate-pulse rounded-xl bg-line ${AVATAR_SIZE}`} />}>
               <BodyStudio
                 model={saved.model ?? 'male'}
                 build={saved.build}

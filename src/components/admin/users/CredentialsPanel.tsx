@@ -25,7 +25,7 @@ function CopyButton({ label, onCopy }: { label: string; onCopy: () => void }) {
 /** One labelled value in its own block, with its copy button. */
 function Block({ label, value, onCopy, strong }: { label: string; value: string; onCopy?: () => void; strong?: boolean }) {
   return (
-    <div className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${strong ? 'border-fg' : 'border-line'}`}>
+    <div className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 ${strong ? 'border-fg' : 'border-line'}`}>
       <div className="min-w-0">
         <p className="text-sm text-fg-muted">{label}</p>
         <p className="font-mono text-lg font-semibold break-all text-fg select-all">{value}</p>
@@ -75,7 +75,7 @@ export function CredentialsPanel({ credentials, heading }: { credentials: Creden
 
   return (
     <div className="grid gap-4 pb-5">
-      <div className="credentials-sheet grid gap-3 rounded-2xl border border-line bg-canvas-sub p-4">
+      <div className="credentials-sheet grid gap-3 rounded-xl border border-line bg-canvas-sub p-4">
         <div>
           <h3 ref={headingRef} tabIndex={-1} className="display text-lg text-fg outline-none">{heading}</h3>
           <p className="text-xs text-fg-muted">Hand these to the account holder. They choose their own password at first sign-in.</p>

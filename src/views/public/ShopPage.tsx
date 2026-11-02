@@ -250,7 +250,7 @@ export function ShopPage() {
         {products.status === 'loading' && <ProductGridSkeleton view={view} perPage={perPage} />}
 
         {products.status === 'error' && (
-          <div role="alert" className="glass-card rounded-2xl p-6 sm:p-8">
+          <div role="alert" className="glass-card rounded-xl p-6 sm:p-8">
             <h2 className="display text-2xl text-fg">The catalogue did not load</h2>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
               The request for stock and prices failed, most likely because the connection dropped or the service is
@@ -263,7 +263,7 @@ export function ShopPage() {
         )}
 
         {products.status === 'success' && noPiecesYet && (
-          <div className="glass-card rounded-2xl p-6 sm:p-8">
+          <div className="glass-card rounded-xl p-6 sm:p-8">
             <h2 className="display text-2xl text-fg">No pieces yet</h2>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
               The shop has nothing on sale right now. New pieces appear here as soon as they are added, so check back soon.
@@ -347,7 +347,7 @@ export function ShopPage() {
             />
 
             {badRange ? null : result.total === 0 ? (
-              <div className="glass-card mt-6 rounded-2xl p-6 sm:p-8">
+              <div className="glass-card mt-6 rounded-xl p-6 sm:p-8">
                 <h3 className="display text-xl text-fg">
                   {!q
                     ? 'No pieces match your filters'

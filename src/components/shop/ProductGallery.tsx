@@ -71,7 +71,7 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
         onPointerMove={swipeMove}
         onPointerUp={swipeEnd}
         onPointerCancel={swipeEnd}
-        className="group/img relative aspect-4/5 h-full w-auto max-w-full touch-pan-y overflow-hidden rounded-2xl border border-line bg-canvas-sub select-none"
+        className="group/img relative aspect-4/5 h-full w-auto max-w-full touch-pan-y overflow-hidden rounded-xl border border-line bg-canvas-sub select-none"
       >
         {/* Same sliding track as the shop cards. */}
         <div

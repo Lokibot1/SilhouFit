@@ -95,7 +95,7 @@ export function RowMenu({ label, actionLabel, onAction }: { label: string; actio
                   close(false)
                   onAction()
                 }}
-                className="flex min-h-9 pointer-coarse:min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-base text-danger hover:bg-fg/10"
+                className="flex min-h-9 pointer-coarse:min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-3 text-left text-base text-danger hover:bg-fg/10"
               >
                 <TrashIcon />
                 {actionLabel}

@@ -184,7 +184,7 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
               : left
               ? 'max-h-[90svh] rounded-t-xl lg:h-full lg:max-h-none lg:max-w-md lg:rounded-none lg:rounded-r-xl'
               : 'max-h-[90svh] rounded-t-xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-xl'
-            : 'max-h-[85svh] max-w-2xl rounded-2xl'
+            : 'max-h-[85svh] max-w-2xl rounded-xl'
         }`}
       >
         <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3 sm:px-8 sm:pt-6">

@@ -27,7 +27,7 @@ export function LegalToc({ headings }: { headings: string[] }) {
     <div className="sticky top-28 hidden self-start xl:block">
     <nav
       aria-label="On this page"
-      className="glass-card max-h-[calc(100svh-9rem)] overflow-y-auto rounded-2xl p-3"
+      className="glass-card max-h-[calc(100svh-9rem)] overflow-y-auto rounded-xl p-3"
     >
       <span className="font-ui block px-3 pt-2 pb-3 text-xs font-semibold tracking-[0.14em] text-fg uppercase">
         On this page

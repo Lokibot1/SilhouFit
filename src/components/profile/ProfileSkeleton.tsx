@@ -4,7 +4,7 @@ import { isStaffRole } from '../../utils/staffRole'
 // Mirrors the loaded profile card (avatar, name, email, edit pencil, member since, Replay the tour, Sign out) so the swap does not shift it.
 // Under 360px the name and email wrap to two lines, so their placeholders are two lines tall; under 340px the name takes three.
 export const PROFILE_SHELL = 'mx-auto max-w-6xl px-6 pt-20 pb-24'
-export const PROFILE_CARD = 'glass-card rounded-2xl p-6 sm:p-8'
+export const PROFILE_CARD = 'glass-card rounded-xl p-6 sm:p-8'
 
 // A one-line bar sized by the text classes it is given (the non-breaking space gives it the line height).
 const Bar = ({ className }: { className: string }) => (

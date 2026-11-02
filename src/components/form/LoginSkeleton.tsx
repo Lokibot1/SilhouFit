@@ -8,9 +8,9 @@ export function LoginSkeleton({ short = false }: { short?: boolean }) {
       className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 max-[359px]:px-3 sm:px-6"
     >
       {short && (
-        <div className="mb-3 h-[calc(clamp(1.75rem,4vw,2.5rem)*0.95)] w-3/4 max-w-xs animate-pulse rounded-lg bg-line-strong" />
+        <div className="mb-3 h-[calc(clamp(1.75rem,4vw,2.5rem)*0.95)] w-3/4 max-w-xs animate-pulse rounded-md bg-line-strong" />
       )}
-      <div className="glass-card glass-elevated w-full max-w-md animate-pulse rounded-2xl px-4 py-4 max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4">
+      <div className="glass-card glass-elevated w-full max-w-md animate-pulse rounded-xl px-4 py-4 max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4">
         {short ? (
           <div className="space-y-2.5">
             <div className="h-[3.6rem] rounded bg-line min-[372px]:h-[2.4rem]" />
@@ -22,7 +22,7 @@ export function LoginSkeleton({ short = false }: { short?: boolean }) {
           <div className="space-y-4 short:space-y-3">
             <div className="flex flex-col gap-5 pb-2 short:gap-3">
               <div className="flex flex-col items-center gap-2 shortest:hidden">
-                <div className="size-16 rounded-2xl bg-line short:size-12" />
+                <div className="size-16 rounded-md bg-line short:size-12" />
                 <div className="h-5 w-24 rounded bg-line" />
               </div>
               <div>

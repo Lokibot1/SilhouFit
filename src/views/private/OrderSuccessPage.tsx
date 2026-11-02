@@ -67,7 +67,7 @@ export function OrderSuccessPage() {
   if (!order) {
     return (
       <div className="mx-auto flex max-w-xl flex-col px-6 pt-32 pb-24">
-        <div className="glass-card rounded-2xl p-6 sm:p-8">
+        <div className="glass-card rounded-xl p-6 sm:p-8">
           <h1 ref={heading} tabIndex={-1} className="display text-3xl text-fg outline-none">
             No recent order
           </h1>

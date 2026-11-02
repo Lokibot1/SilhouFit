@@ -14,7 +14,7 @@ export function StudioFrame({ className = '', children }: { className?: string; 
     <div
       role="group"
       aria-label="3D body preview"
-      className={`relative overflow-hidden rounded-2xl border border-line bg-fg/5 ${className}`}
+      className={`relative overflow-hidden rounded-xl border border-line bg-fg/5 ${className}`}
     >
       {children}
     </div>

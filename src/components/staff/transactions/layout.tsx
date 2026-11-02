@@ -23,4 +23,4 @@ export const PAGER_SKELETON_ROWS = 'flex flex-col items-end gap-3 @2xl:flex-row 
 // under Orders is always reserved.
 export const TOTALS_WRAP = '@container'
 export const TOTALS_GRID = 'grid grid-cols-2 gap-2 @lg:grid-cols-4 @lg:gap-3'
-export const TOTALS_TILE = 'relative h-[5.5rem] min-w-0 rounded-2xl border border-line bg-canvas-sub px-3 py-3 @sm:px-4'
+export const TOTALS_TILE = 'relative h-[5.5rem] min-w-0 rounded-xl border border-line bg-canvas-sub px-3 py-3 @sm:px-4'

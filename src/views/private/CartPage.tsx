@@ -233,7 +233,7 @@ export function CartPage() {
         {cart.status === 'loading' && <CartListSkeleton count={Math.min(cart.count || 1, 4)} />}
 
         {cart.status === 'error' && (
-          <div role="alert" className="glass-card rounded-2xl p-6 sm:p-8">
+          <div role="alert" className="glass-card rounded-xl p-6 sm:p-8">
             <h2 className="display text-2xl text-fg">Your cart did not load</h2>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
               The request for stock and prices failed, most likely because the connection dropped or the service is briefly unavailable. The
@@ -339,7 +339,7 @@ export function CartPage() {
                           type="button"
                           aria-label={`Change variation of ${line.name}, currently ${variantLabel(line.size, line.color)}`}
                           onClick={() => openEditor(row)}
-                          className="font-ui mt-1 inline-flex min-h-8 max-w-full cursor-pointer items-center gap-1.5 rounded-lg border border-line px-2 text-sm text-fg-muted hover:text-fg pointer-coarse:min-h-11"
+                          className="font-ui mt-1 inline-flex min-h-8 max-w-full cursor-pointer items-center gap-1.5 rounded-md border border-line px-2 text-sm text-fg-muted hover:text-fg pointer-coarse:min-h-11"
                         >
                           <span className="truncate">
                             {variantLabel(line.size, line.color)}

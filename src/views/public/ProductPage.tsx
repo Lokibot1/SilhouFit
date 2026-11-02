@@ -86,7 +86,7 @@ export function ProductPage() {
         {products.status === 'loading' && <ProductSkeleton />}
 
         {products.status === 'error' && (
-          <div role="alert" className="glass-card rounded-2xl p-6 sm:p-8">
+          <div role="alert" className="glass-card rounded-xl p-6 sm:p-8">
             <h2 className="display text-2xl text-fg">This piece did not load</h2>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
               The request for stock and prices failed, most likely because the connection dropped or the service is
@@ -104,7 +104,7 @@ export function ProductPage() {
         )}
 
         {missing && (
-          <div className="glass-card rounded-2xl p-6 sm:p-8">
+          <div className="glass-card rounded-xl p-6 sm:p-8">
             <h2 className="display text-2xl text-fg">This piece is no longer in the catalogue</h2>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
               It may have sold out for good or the link may be out of date. The shop has the current pieces.

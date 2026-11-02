@@ -286,7 +286,7 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
               <div className="flex items-start justify-between gap-2">
                 <p className="flex min-w-0 flex-wrap items-center gap-2 text-base font-semibold wrap-anywhere text-fg">
                   {a.label || 'Address'}
-                  {a.isDefault && <span className="font-ui rounded-lg bg-fg/10 px-2 text-sm font-semibold text-fg">Default</span>}
+                  {a.isDefault && <span className="font-ui rounded-md bg-fg/10 px-2 text-sm font-semibold text-fg">Default</span>}
                 </p>
                 <div className="-mt-3 -mr-3 flex shrink-0">
                   <IconEditButton

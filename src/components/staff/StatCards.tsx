@@ -68,7 +68,7 @@ function Card({ index, icon: Icon, label, value, context, change = null, aov = n
           <Link
             to={to}
             aria-label={`${label}: ${value.toLocaleString('en-PH')}, open AR Fitting Insights`}
-            className="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2"
+            className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2"
           >
             {label}
           </Link>

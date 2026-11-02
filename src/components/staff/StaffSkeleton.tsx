@@ -12,7 +12,7 @@ export const STAFF_TOPBAR =
   'staff-topbar sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-line bg-canvas-sub px-3.5 shadow-bar dark:shadow-none'
 export const STAFF_MAIN = 'mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-10 lg:py-6'
 // A bento tile. It is a size container so its content (the order log) lays out by the tile's width, not the screen's.
-export const STAFF_SECTION = '@container rounded-2xl border border-line bg-canvas-sub p-4'
+export const STAFF_SECTION = '@container rounded-xl border border-line bg-canvas-sub p-4'
 
 // A one-line bar sized by the text classes it is given (the non-breaking space gives it the line height).
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`}>&nbsp;</div>
@@ -46,7 +46,7 @@ export function ProductRowsSkeleton({ count, label }: { count: number; label: st
 // The dashboard's blocks. Each skeleton uses the classes of what it stands in for, so nothing shifts when data arrives.
 // A stat card is a grid: label and context on the left, the icon on the right, the figure across the bottom.
 // Placement is explicit, so the markup can read label, figure, context while the screen shows label, context, figure.
-export const STAT_CARD = 'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 rounded-2xl border border-line bg-canvas-sub p-4'
+export const STAT_CARD = 'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 rounded-xl border border-line bg-canvas-sub p-4'
 export const STAT_LABEL = 'col-start-1 row-start-1 truncate text-sm font-medium text-fg-muted'
 export const STAT_CONTEXT = 'col-start-1 row-start-2 mt-0.5 truncate text-xs text-fg-muted'
 export const STAT_ICON = 'col-start-2 row-span-2 row-start-1 flex size-8 items-center justify-center rounded-xl bg-line text-fg'

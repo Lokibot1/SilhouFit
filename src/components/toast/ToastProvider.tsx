@@ -83,7 +83,7 @@ function ToastView({ toast, onDismiss }: { toast: ActiveToast; onDismiss: () => 
       onMouseLeave={resume}
       onFocus={pause}
       onBlur={resume}
-      className="glass-card glass-floating [--g-fill:1.2]! flex flex-wrap items-start gap-3 rounded-2xl py-2 pr-2 pl-4"
+      className="glass-card glass-floating [--g-fill:1.2]! flex flex-wrap items-start gap-3 rounded-xl py-2 pr-2 pl-4"
     >
       <Icon
         size={20}

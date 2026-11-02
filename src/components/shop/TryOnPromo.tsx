@@ -5,7 +5,7 @@ export function TryOnPromo() {
   return (
     <section
       aria-labelledby="try-on-heading"
-      className="glass-card relative mt-16 overflow-hidden rounded-2xl p-6 sm:p-10"
+      className="glass-card relative mt-16 overflow-hidden rounded-xl p-6 sm:p-10"
     >
       <span
         aria-hidden="true"

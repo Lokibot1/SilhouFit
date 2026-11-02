@@ -87,7 +87,7 @@ export function LoginPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: DURATION.shift, ease: EASE_OUT }}
-        className="glass-card glass-elevated w-full max-w-md rounded-2xl px-4 py-4 wrap-break-word max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4"
+        className="glass-card glass-elevated w-full max-w-md rounded-xl px-4 py-4 wrap-break-word max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4"
       >
         <form
           noValidate
@@ -97,7 +97,7 @@ export function LoginPage() {
         >
           <div className="flex flex-col gap-5 pb-2 short:gap-3">
             <div className="flex flex-col items-center gap-2 shortest:hidden">
-              <span className="flex size-16 items-center justify-center rounded-2xl bg-fg shadow-sm short:size-12">
+              <span className="flex size-16 items-center justify-center rounded-md bg-fg shadow-sm short:size-12">
                 <SilhouetteMark className="h-12 w-9 text-canvas short:h-9 short:w-7 [&>path]:stroke-[4]" />
               </span>
               <span className="font-display text-xl leading-none font-bold tracking-[-0.02em] text-fg">

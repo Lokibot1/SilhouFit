@@ -148,7 +148,7 @@ export function WishlistPage() {
         {products.status === 'loading' && <WishlistGridSkeleton />}
 
         {products.status === 'error' && (
-          <div role="alert" className="glass-card rounded-2xl p-6 sm:p-8">
+          <div role="alert" className="glass-card rounded-xl p-6 sm:p-8">
             <h2 className="display text-2xl text-fg">Your wishlist did not load</h2>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
               The request for stock and prices failed, most likely because the connection dropped or the service is

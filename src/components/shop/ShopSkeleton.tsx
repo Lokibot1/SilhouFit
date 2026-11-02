@@ -35,7 +35,7 @@ export function CardSkeletons({ list = false, count }: { list?: boolean; count: 
     >
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className={list ? 'flex gap-4' : ''}>
-          <div className={`aspect-3/4 shrink-0 rounded-2xl bg-line-strong ${list ? 'w-28 sm:w-44' : ''}`} />
+          <div className={`aspect-3/4 shrink-0 rounded-xl bg-line-strong ${list ? 'w-28 sm:w-44' : ''}`} />
           <div className={`min-w-0 flex-1 ${list ? '' : 'mt-3'}`}>
             <div className={list ? 'min-[360px]:max-sm:min-h-[6.95rem] max-[359px]:min-h-[7.9rem]' : 'h-[6.6rem] min-[480px]:max-sm:h-[6.4rem] min-[360px]:max-[479px]:h-[7.7rem] max-[359px]:h-[9.2rem]'}>
               <Bar className="w-5/6 text-base leading-snug" />
@@ -149,7 +149,7 @@ export function ProductGridSkeleton({ view = 'grid', perPage = 12 }: ProductGrid
         <div className="h-9 w-64 max-w-full rounded-xl bg-line pointer-coarse:h-11" />
       </div>
 
-      <div className="mt-16 h-[22rem] rounded-2xl bg-line max-[359px]:h-[25.5rem] sm:h-[17.5rem] lg:h-[20.5rem]" />
+      <div className="mt-16 h-[22rem] rounded-xl bg-line max-[359px]:h-[25.5rem] sm:h-[17.5rem] lg:h-[20.5rem]" />
     </div>
   )
 }

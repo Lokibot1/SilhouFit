@@ -19,7 +19,7 @@ export function Spotlight({ box, pulse = false }: { box: Box | null; pulse?: boo
       initial={false}
       animate={hole}
       transition={transition}
-      className="pointer-events-none fixed z-[75] rounded-2xl border-2 border-chrome-strong"
+      className="pointer-events-none fixed z-[75] rounded-xl border-2 border-chrome-strong"
       style={{ boxShadow: '0 0 0 9999px color-mix(in srgb, var(--color-carbon-950) 60%, transparent)' }}
     >
       {pulse && (

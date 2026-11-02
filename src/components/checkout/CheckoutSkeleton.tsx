@@ -1,6 +1,6 @@
 // Mirrors the loaded checkout form (order, delivery address, payment, note, summary) so the swap does not shift it.
 // Heights are measured from the loaded page, which varies a little with the chosen options.
-const SECTION = 'glass-card rounded-2xl p-5'
+const SECTION = 'glass-card rounded-xl p-5'
 const Block = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
 /** The route fallback: the page's own header (breadcrumb and title) is a placeholder too. */

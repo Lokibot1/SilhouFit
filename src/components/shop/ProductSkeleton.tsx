@@ -32,7 +32,7 @@ export function ProductSkeleton() {
     >
       <div className="mx-auto flex min-h-0 w-full flex-1 items-center gap-2 max-lg:min-h-28 max-lg:justify-center lg:h-full lg:flex-none lg:flex-col lg:gap-0">
         <div className="flex w-full justify-center max-lg:contents lg:min-h-0 lg:flex-1">
-          <div className="aspect-4/5 h-full w-auto max-w-full rounded-2xl bg-line-strong" />
+          <div className="aspect-4/5 h-full w-auto max-w-full rounded-xl bg-line-strong" />
         </div>
         <div className="flex shrink-0 gap-2 p-1 max-lg:order-first max-lg:flex-col lg:mt-3 lg:p-0">
           {Array.from({ length: 3 }, (_, i) => (
