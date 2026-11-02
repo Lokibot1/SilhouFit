@@ -113,3 +113,59 @@ const PLATES = [
   { src: 'blazer', alt: 'Black blazer hanging on a rustic fence', label: 'Piece // Outerwear', title: 'Black blazer', sub: 'Tailoring on a hanger', pos: '50% 55%', size: 'sm' },
 ] as const
 
+function Plate({ plate, no }: { plate: (typeof PLATES)[number]; no: number }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <figure className={`sv2-plate sv2-plate--${plate.size}`}>
+      {failed ? (
+        <span className="sv2-plate-fallback">{plate.alt}</span>
+      ) : (
+        <img
+          src={`/images/gallery/${plate.src}.webp`}
+          alt={plate.alt}
+          loading="lazy"
+          decoding="async"
+          style={{ objectPosition: plate.pos }}
+          onError={() => setFailed(true)}
+        />
+      )}
+      <figcaption>
+        <span className="sv2-label sv2-label--tint">({plate.label})</span>
+        <span className="sv2-plate-title">{plate.title}</span>
+        <span className="sv2-label sv2-plate-sub">{plate.sub}</span>
+        {plate.size === 'lg' && <span className="sv2-label sv2-plate-no">PLATE #{String(no).padStart(3, '0')}</span>}
+      </figcaption>
+    </figure>
+  )
+}
+
+export function Lookbook() {
+  return (
+    <section id="lookbook" className="sv2-section sv2-dark" aria-labelledby="sv2-look-title">
+      <div className="sv2-wrap">
+        <header className="sv2-head sv2-head--rule">
+          <div>
+            <p className="sv2-label sv2-label--red">[ Field documentation // 2026 ]</p>
+            <h2 id="sv2-look-title" className="sv2-h2">
+              Lookbook editorial mosaic
+            </h2>
+          </div>
+          <p className="sv2-label sv2-meta-note">Store-floor photography, shown as stand-ins</p>
+        </header>
+        <div className="sv2-mosaic">
+          {PLATES.map((p, i) => (
+            <Plate key={p.src} plate={p} no={i + 1} />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// Sample copy written for the prototype, not from real shoppers; the section says so.
+const DISPATCHES = [
+  { no: '001', quote: 'I typed in my measurements once. After that every product page told me if a size was going to be tight.', who: 'First-time online shopper', ctx: 'Sample feedback' },
+  { no: '002', quote: 'Seeing the garment on the camera view settled it before I walked into the store to pick it up.', who: 'Reserve-and-pickup customer', ctx: 'Sample feedback' },
+  { no: '003', quote: 'Stock on the register and on the site match. That alone cuts the back-and-forth at the counter.', who: 'Boutique floor staff', ctx: 'Sample feedback' },
+]
+
