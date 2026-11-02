@@ -1,0 +1,189 @@
+/* Landing v2. Everything is scoped under .sv2 and prefixed sv2-, so it cannot leak into other pages.
+   Identity follows src/assets/DESIGN.md: square corners, 1px hairlines, one red, mono micro-labels. */
+
+@font-face {
+  font-family: "SV2 Display";
+  src: url("/assets/fonts/unbounded.woff2") format("woff2");
+  font-weight: 200 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SV2 Mono";
+  src: url("/assets/fonts/jetbrains-mono.woff2") format("woff2");
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+.sv2 {
+  --sv2-red: #cb1c2b;
+  --sv2-red-press: #a81624;
+  --sv2-red-tint: #f2707a; /* small red text on Obsidian; the brand red is for display sizes there */
+  --sv2-obsidian: #161113;
+  --sv2-graphite: #322d2f;
+  --sv2-raise: #1f1a1c;
+  --sv2-stone: #85807c;
+  --sv2-porcelain: #eeeced;
+  --sv2-paper: #fffbfd;
+  --sv2-focus: var(--sv2-paper);
+
+  --sv2-gap: 1rem;
+  --sv2-gap-lg: 2rem;
+  --sv2-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  font-family: "SV2 Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  background: var(--sv2-obsidian);
+  color: var(--sv2-paper);
+  overflow-x: clip;
+}
+
+.sv2 *:focus-visible {
+  outline: 2px solid var(--sv2-focus);
+  outline-offset: 3px;
+}
+:where(.sv2) a {
+  color: inherit;
+  text-decoration: none;
+}
+:where(.sv2) ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+:where(.sv2) :is(h1, h2, h3, p, blockquote, figure) {
+  margin: 0;
+}
+
+/* ---------- Type: display, h3, body, label ---------- */
+
+.sv2-h2,
+.sv2-h3,
+.sv2-hero-title,
+.sv2-card-name,
+.sv2-state-title,
+.sv2-plate-title {
+  font-family: "SV2 Display", ui-sans-serif, system-ui, sans-serif;
+  text-transform: uppercase;
+}
+.sv2-h2 {
+  font-size: clamp(1.6rem, 6vw, 3.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  margin-top: 0.75rem;
+  text-wrap: balance;
+}
+.sv2-h3,
+.sv2-card-name,
+.sv2-state-title,
+.sv2-plate-title {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.sv2-body {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.sv2-label {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.sv2-label--red {
+  color: var(--sv2-red);
+}
+.sv2 .sv2-dark .sv2-label--red,
+.sv2-label--tint {
+  color: var(--sv2-red-tint);
+}
+.sv2-muted {
+  color: var(--sv2-stone);
+}
+.sv2-num {
+  text-align: right;
+}
+
+/* ---------- Layout ---------- */
+
+.sv2-section {
+  padding: clamp(3rem, 8vw, 5rem) 0;
+}
+.sv2-section--tight {
+  border-top: 1px solid var(--sv2-graphite);
+}
+.sv2-wrap {
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 4vw, 2rem);
+}
+.sv2-wrap--narrow {
+  max-width: 56rem;
+}
+.sv2-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sv2-gap);
+  margin-bottom: var(--sv2-gap-lg);
+}
+.sv2-head--rule {
+  padding-bottom: var(--sv2-gap-lg);
+  border-bottom: 1px solid var(--sv2-graphite);
+}
+.sv2-meta-note {
+  color: var(--sv2-stone);
+  max-width: 20rem;
+}
+
+/* ---------- Buttons ---------- */
+
+.sv2-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border: 1px solid transparent;
+  border-radius: 0;
+  font: 600 0.75rem/1 "SV2 Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease-out,
+    color 0.18s ease-out,
+    border-color 0.18s ease-out;
+}
+.sv2-btn--red {
+  background: var(--sv2-red);
+  color: var(--sv2-paper);
+}
+.sv2-btn--red:hover {
+  background: var(--sv2-red-press);
+}
+.sv2-btn--line {
+  border-color: var(--sv2-paper);
+  color: var(--sv2-paper);
+  background: transparent;
+}
+.sv2-btn--line:hover {
+  background: var(--sv2-paper);
+  color: var(--sv2-obsidian);
+}
+.sv2-btn--ink {
+  background: var(--sv2-obsidian);
+  color: var(--sv2-paper);
+}
+.sv2-btn--ink:hover:not(:disabled) {
+  background: var(--sv2-graphite);
+}
+.sv2-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
