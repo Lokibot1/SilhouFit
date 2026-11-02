@@ -1037,6 +1037,20 @@
   }
 }
 
+/* ---------- Scroll-in reveal (class added by LandingV2Page only when motion is allowed) ---------- */
+
+.sv2-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.5s var(--sv2-ease) calc(var(--i, 0) * 80ms),
+    transform 0.5s var(--sv2-ease) calc(var(--i, 0) * 80ms);
+}
+.sv2-reveal.sv2-in {
+  opacity: 1;
+  transform: none;
+}
+
 /* ---------- Motion preferences and print ---------- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -1054,6 +1068,10 @@
   }
 }
 @media print {
+  .sv2-reveal {
+    opacity: 1;
+    transform: none;
+  }
   .sv2-hero,
   .sv2-tape {
     display: none;
