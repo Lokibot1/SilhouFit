@@ -22,6 +22,7 @@ import { ProductRouteSkeleton } from './components/shop/ProductSkeleton'
 import { CartSkeleton, ShopSkeleton, WishlistSkeleton } from './components/shop/ShopSkeleton'
 import { AboutPage } from './views/public/AboutPage'
 import { CookiePolicyPage } from './views/legal/CookiePolicyPage'
+import { ContactPage } from './views/public/ContactPage'
 import { NotFoundPage } from './views/public/NotFoundPage'
 import { ServerErrorPage } from './views/public/ServerErrorPage'
 import { PrivacyPolicyPage } from './views/legal/PrivacyPolicyPage'
@@ -288,6 +289,7 @@ function App() {
                   </Suspense>
                 }
               />
+              <Route path="contact" element={<ContactPage />} />
               <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
               <Route path="terms-of-service" element={<TermsOfServicePage />} />
               <Route path="refund-policy" element={<RefundPolicyPage />} />
