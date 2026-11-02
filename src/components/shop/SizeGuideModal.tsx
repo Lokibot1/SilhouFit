@@ -37,11 +37,11 @@ function SizeGuideSkeleton({ rows, columns }: { rows: number; columns: number })
           <table className="hidden w-full md:table">
             <thead>
               <tr className="border-b border-line">
-                <th className={TH}>
+                <th scope="col" className={TH}>
                   <Bar className="h-5 w-10" />
                 </th>
                 {cells.map((n) => (
-                  <th key={n} className={TH}>
+                  <th key={n} scope="col" className={TH}>
                     <Bar className="ml-auto h-5 w-16" />
                   </th>
                 ))}

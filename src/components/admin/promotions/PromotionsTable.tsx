@@ -201,7 +201,7 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
             <SortHeader label="Code" column="code" active={sorted} onSort={sortBy} />
             <SortHeader label="Value" column="value" active={sorted} onSort={sortBy} right />
             <PeriodHeader active={sorted} onSort={sortBy} />
-            <SortHeader label="Status" column="status" active={sorted} onSort={sortBy} center />
+            <SortHeader label="Status" column="status" active={sorted} onSort={sortBy} />
             <SortHeader label="Used" column="redemptions" active={sorted} onSort={sortBy} right />
             <th scope="col" className={TH}>
               <span className="sr-only">Actions</span>
@@ -227,7 +227,7 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
                 </td>
                 <td className={`${TD} text-right text-sm text-fg tabular-nums`}>{valueLabel(row)}</td>
                 <td className={`${TD} text-sm text-fg`}>{periodLabel(row)}</td>
-                <td className={`${TD} text-center`}>
+                <td className={TD}>
                   <PromoStatusBadge status={row.status} />
                 </td>
                 <td className={`${TD} text-right text-sm text-fg tabular-nums`}>{usedLabel(row)}</td>
