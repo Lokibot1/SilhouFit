@@ -1690,6 +1690,34 @@ html.comet-active * {
     opacity: 0;
   }
 }
+/* Product cards lag in and out by row as the page scrolls: scrubbed by scroll position in both directions (cards in one grid row share a position, so they move together), compositor-only, and at rest only outside these ranges so nothing stays offset. Unsupported browsers show them static. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-settle {
+      animation:
+        scroll-settle-in linear backwards,
+        scroll-settle-out linear forwards;
+      animation-timeline: view(), view();
+      animation-range:
+        entry 0% cover 40%,
+        cover 60% exit 100%;
+    }
+  }
+}
+@keyframes scroll-settle-in {
+  from {
+    opacity: 0;
+    translate: 0 96px;
+    scale: 0.92;
+  }
+}
+@keyframes scroll-settle-out {
+  to {
+    opacity: 0;
+    translate: 0 -64px;
+    scale: 0.94;
+  }
+}
 @media (forced-colors: active) {
   .row-low,
   .row-out {

@@ -375,7 +375,7 @@ export function ShopPage() {
                   }`}
                 >
                   {result.items.map((product, index) => (
-                    <li key={product.id} data-tour={index === 0 ? 'product-card' : undefined} className="min-w-0">
+                    <li key={product.id} data-tour={index === 0 ? 'product-card' : undefined} className="scroll-settle min-w-0">
                       <ProductCard
                         product={product}
                         index={index}
