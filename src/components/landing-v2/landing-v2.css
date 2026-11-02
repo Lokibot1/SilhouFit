@@ -772,3 +772,69 @@
   font-weight: 700;
 }
 
+/* ---------- FAQ ---------- */
+
+.sv2-faq {
+  margin-top: var(--sv2-gap-lg);
+  border-bottom: 1px solid var(--sv2-graphite);
+}
+.sv2-faq-item {
+  border-top: 1px solid var(--sv2-graphite);
+}
+.sv2-faq-q {
+  display: flex;
+  width: 100%;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-family: "SV2 Display", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.sv2-faq-q:hover {
+  color: var(--sv2-red-tint);
+}
+.sv2-faq-icon {
+  flex: none;
+  font-family: "SV2 Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--sv2-stone);
+}
+.sv2-faq-a {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s var(--sv2-ease);
+}
+.sv2-faq-a[data-open] {
+  grid-template-rows: 1fr;
+}
+.sv2-faq-a > div {
+  overflow: hidden;
+}
+.sv2-faq-a .sv2-body {
+  max-width: 44rem;
+  padding-bottom: 1.25rem;
+  color: var(--sv2-porcelain);
+}
+.sv2-faq-a:not([data-open]) {
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.3s var(--sv2-ease),
+    visibility 0s 0.3s;
+}
+.sv2-faq-a a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--sv2-paper);
+  white-space: nowrap;
+}
+
