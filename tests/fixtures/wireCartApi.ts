@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import { addCartItem, fetchCart, removeCartItem, setCartItemQuantity } from '../../src/service/cartApi'
+import { addCartItem, clearCart, fetchCart, removeCartItem, setCartItemQuantity } from '../../src/service/cartApi'
 import type { Product } from '../../src/data/products'
 import { ProductListError, type ProductListErrorKind } from '../../src/service/fetchProductList'
 import { fetchShopProduct } from '../../src/service/fetchShopProducts'
@@ -23,6 +23,7 @@ export function wireCartApi(store: CartStore) {
   vi.mocked(fetchCart).mockImplementation(async () => answer(store.get()) as never)
   vi.mocked(addCartItem).mockImplementation(async (variantId, quantity) => answer(store.add(variantId, quantity)) as never)
   vi.mocked(setCartItemQuantity).mockImplementation(async (itemId, quantity) => answer(store.patch(itemId, quantity)) as never)
+  vi.mocked(clearCart).mockImplementation(async () => void answer(store.clear()))
   vi.mocked(removeCartItem).mockImplementation(async (itemId) => void answer(store.remove(itemId)))
 }
 

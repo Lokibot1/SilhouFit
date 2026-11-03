@@ -2,6 +2,7 @@ import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useTran
 import { useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BagIcon, CartIcon, ChevronDownIcon, FilterIcon, PaletteIcon, RulerIcon, StoreIcon, TrashIcon, UserIcon } from '../../components/form/icons'
+import { ConfirmDialog } from '../../components/admin/users/ConfirmDialog'
 import { ShopHeader } from '../../components/shop/ShopHeader'
 import { CartListSkeleton } from '../../components/shop/ShopSkeleton'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from '../../components/shop/shopControls'
@@ -119,6 +120,8 @@ export function CartPage() {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const [selected, setSelected] = useState<string[]>([])
   const [confirming, setConfirming] = useState(false)
+  const [clearing, setClearing] = useState(false)
+  const [clearPending, setClearPending] = useState(false)
   const [leaving, setLeaving] = useState<Leaving>('slide')
   // The row being edited is kept after the drawer closes so its content stays put while it slides out.
   const [editing, setEditing] = useState<{ row: Row; product: Product; id: number } | null>(null)
@@ -172,6 +175,36 @@ export function CartPage() {
       kind: 'info',
       message: `Removed ${plural(keys.length)} from cart`,
     })
+  }
+
+  /** Back through the stock check, one line at a time. A piece that sold out or went away is named, not silently dropped. */
+  async function putBack(lines: Line[]) {
+    const missed: string[] = []
+    let failed = 0
+    for (const line of lines) {
+      const outcome = await loadProduct(line.productId).then(
+        (product) => cart.add({ product, variantId: line.variantId, qty: line.qty }),
+        () => 'limit' as const,
+      )
+      if (outcome === 'limit') missed.push(line.name)
+      else if (outcome === 'failed') failed++ // the cart has already said why
+    }
+    if (missed.length > 0) {
+      const restored = lines.length - missed.length - failed
+      toast.show({ kind: 'info', message: `Put back ${restored} of ${plural(lines.length)}. ${missed.join(', ')} ${missed.length === 1 ? 'is' : 'are'} out of stock or no longer available.` })
+    } else if (failed === 0) toast.show({ kind: 'success', message: 'Put your cart back' })
+  }
+
+  async function clearAll() {
+    setLeaving('slide')
+    setClearPending(true)
+    const cleared = await cart.clearLines()
+    setClearPending(false)
+    setClearing(false)
+    if (!cleared) return // the cart has already said why, and shows what it still holds
+    setSelected([])
+    headingRef.current?.focus()
+    toast.show({ kind: 'info', message: 'Cleared your cart', action: { label: 'Undo', onClick: () => void putBack(cleared) } })
   }
 
   async function changeVariant(row: Row, size: string, color: string) {
@@ -276,6 +309,11 @@ export function CartPage() {
                   <TrashIcon />
                   Remove selected
                 </button>
+                {user && (
+                  <button type="button" onClick={() => setClearing(true)} className={SHOP_SECONDARY}>
+                    Clear cart
+                  </button>
+                )}
               </div>
             )}
 
@@ -416,6 +454,10 @@ export function CartPage() {
             onSave={(size, color) => changeVariant(editing.row, size, color)}
           />
         )}
+
+        <ConfirmDialog open={clearing} title="Clear your cart?" confirmLabel="Clear cart" pending={clearPending} onConfirm={() => void clearAll()} onClose={() => setClearing(false)}>
+          Every piece in your cart is removed, including any that are sold out or no longer in the shop. You can undo this right after.
+        </ConfirmDialog>
 
         <Modal open={confirming} onClose={() => setConfirming(false)} title="Are you sure?">
           <p className="pb-5 text-base leading-relaxed text-fg-muted">

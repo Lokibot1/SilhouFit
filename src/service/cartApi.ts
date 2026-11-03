@@ -85,6 +85,12 @@ export async function setCartItemQuantity(itemId: string, quantity: number, { si
   return toCart(await request('PATCH', `/cart/items/${encodeURIComponent(itemId)}`, { quantity }, signal))
 }
 
+/** Feature: Cart – Clear cart */
+/** DELETE /cart. Empties the cart. The API answers `{ success: true }` only. */
+export async function clearCart({ signal }: RequestOptions = {}) {
+  await request('DELETE', '/cart', undefined, signal)
+}
+
 /** DELETE /cart/items/:itemId. The API answers `{ success: true }` only, so the caller reloads the cart. */
 export async function removeCartItem(itemId: string, { signal }: RequestOptions = {}) {
   await request('DELETE', `/cart/items/${encodeURIComponent(itemId)}`, undefined, signal)

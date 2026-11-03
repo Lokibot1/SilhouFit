@@ -6,8 +6,9 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { clearCartCache } from '../../src/hooks/useCart'
 import { clearProductCache } from '../../src/hooks/useProducts'
-import { addCartItem, fetchCart, setCartItemQuantity } from '../../src/service/cartApi'
+import { addCartItem, clearCart, fetchCart, setCartItemQuantity } from '../../src/service/cartApi'
 import { ProductListError } from '../../src/service/fetchProductList'
+import { fetchShopProduct } from '../../src/service/fetchShopProducts'
 import { clearSession, setSession } from '../../src/service/session'
 import { CartPage } from '../../src/views/private/CartPage'
 import { createCartStore, type CartStore, type StoreProduct } from '../fixtures/cartStore'
@@ -311,5 +312,78 @@ describe('CartPage signed in', () => {
     await user.click(screen.getByRole('button', { name: 'Increase quantity of Heritage Polo' }))
     expect(await screen.findByText(/Couldn't update your cart: Only 2 in stock/)).toBeInTheDocument()
     expect(addCartItem).not.toHaveBeenCalled()
+  })
+
+  describe('Clear cart', () => {
+    const askToClear = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(await screen.findByRole('button', { name: 'Clear cart' }))
+      return screen.findByRole('dialog', { name: 'Clear your cart?' })
+    }
+
+    it('is not offered for an empty cart', async () => {
+      renderPage()
+      await screen.findByText('Add items to place an order.')
+      expect(screen.queryByRole('button', { name: 'Clear cart' })).toBeNull()
+    })
+
+    it('asks first, and Cancel keeps the cart', async () => {
+      server.seed(NAVY, 2)
+      const user = userEvent.setup()
+      renderPage()
+      const dialog = await askToClear(user)
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      expect(clearCart).not.toHaveBeenCalled()
+      expect(screen.getByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
+    })
+
+    it('empties the cart, says so, and Undo puts the pieces back', async () => {
+      server.seed(NAVY, 2)
+      server.seed(BLACK, 1)
+      const user = userEvent.setup()
+      renderPage()
+      const dialog = await askToClear(user)
+      await user.click(within(dialog).getByRole('button', { name: 'Clear cart' }))
+      expect(await screen.findByText('Cleared your cart')).toBeInTheDocument()
+      expect(clearCart).toHaveBeenCalledTimes(1)
+      expect(server.items).toHaveLength(0)
+      expect(await screen.findByText('Add items to place an order.')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Undo' }))
+      expect(await screen.findByText('Put your cart back')).toBeInTheDocument()
+      expect(server.items.map((i) => [i.variantId, i.quantity])).toEqual([[NAVY, 2], [BLACK, 1]])
+      expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
+    })
+
+    it('names a piece that sold out meanwhile when Undo cannot put it back', async () => {
+      server.seed(NAVY, 2)
+      server.seed(BLACK, 1)
+      const user = userEvent.setup()
+      renderPage()
+      const dialog = await askToClear(user)
+      await user.click(within(dialog).getByRole('button', { name: 'Clear cart' }))
+      await screen.findByText('Cleared your cart')
+      // The shop now reports the navy polo sold out.
+      vi.mocked(fetchShopProduct).mockImplementation(async (id) => {
+        const piece = PIECES.find((p) => p.id === id || p.slug === id)!
+        return { ...piece, variants: piece.variants!.map((v) => (v.id === NAVY ? { ...v, stock: 0 } : v)) }
+      })
+      clearProductCache()
+      await user.click(screen.getByRole('button', { name: 'Undo' }))
+      expect(await screen.findByText(/Put back 1 of 2 items\. Heritage Polo is out of stock or no longer available\./)).toBeInTheDocument()
+      expect(server.items.map((i) => i.variantId)).toEqual([BLACK])
+    })
+
+    it('keeps the cart and says why when the request fails', async () => {
+      server.seed(NAVY, 2)
+      vi.mocked(clearCart).mockRejectedValueOnce(new ProductListError('network'))
+      const user = userEvent.setup()
+      renderPage()
+      const dialog = await askToClear(user)
+      await user.click(within(dialog).getByRole('button', { name: 'Clear cart' }))
+      expect(await screen.findByText(/Couldn't update your cart\. The request failed/)).toBeInTheDocument()
+      expect(screen.queryByText('Cleared your cart')).toBeNull()
+      expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
+      expect(server.items).toHaveLength(1)
+    })
   })
 })
