@@ -150,9 +150,21 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
   const buttons = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'
   const footer = load ? (
     <div className={buttons}>
-      <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
-        Close
-      </button>
+      {loadFailure === undefined ? (
+        // Same two buttons as the loaded form, so the sheet does not change height when it loads.
+        <>
+          <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+            Cancel
+          </button>
+          <button type="button" disabled className={PRIMARY_BUTTON}>
+            Save size
+          </button>
+        </>
+      ) : (
+        <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+          Close
+        </button>
+      )}
       {loadFailure !== undefined && RETRYABLE.includes(loadKind) && (
         <button
           type="button"
