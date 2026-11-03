@@ -466,8 +466,9 @@ test.describe('Wishlist – Add and Remove toasts', () => {
     await expect(heart(page, 'Linen Shirt')).toHaveAttribute('aria-pressed', 'false')
   })
 
-  test('on a 390px screen the toast does not cover the product page heart', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 })
+  for (const width of [320, 390, 640, 768, 1024, 1280])
+  test(`on a ${width}px screen the toast does not cover the product page heart`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 })
     await signedIn(page)
     const server = await mockWishlist(page)
     await page.goto(`/shop/${catalogue.rows[0].slug}`)

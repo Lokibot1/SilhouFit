@@ -21,7 +21,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div className="pointer-events-none fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[95] flex justify-center sm:inset-x-auto sm:top-[calc(5rem+env(safe-area-inset-top))] sm:bottom-auto sm:right-4 sm:justify-end">
+      <div className="pointer-events-none fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[95] flex justify-center lg:inset-x-auto lg:top-[calc(5rem+env(safe-area-inset-top))] lg:bottom-auto lg:right-4 lg:justify-end">
         <AnimatePresence mode="wait">
           {toast && (
             <motion.div
@@ -30,7 +30,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 0 }}
               transition={{ duration: DURATION.state, ease: EASE_OUT }}
-              className="pointer-events-auto w-full sm:w-96"
+              className="pointer-events-auto w-full max-w-96 lg:w-96"
             >
               <ToastView toast={toast} onDismiss={dismiss} />
             </motion.div>
