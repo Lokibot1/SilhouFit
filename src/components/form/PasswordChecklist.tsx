@@ -9,9 +9,11 @@ interface PasswordChecklistProps {
   firstName: string
   /** Hidden visually and from assistive tech, but space stays reserved. */
   visible: boolean
+  /** Extra classes, e.g. to float it as a tooltip. */
+  className?: string
 }
 
-export function PasswordChecklist({ password, email, firstName, visible }: PasswordChecklistProps) {
+export function PasswordChecklist({ password, email, firstName, visible, className = '' }: PasswordChecklistProps) {
   const requirements = getPasswordRequirements(password)
   const { level, label } = getPasswordStrength(password, { email, firstName })
 
@@ -19,9 +21,9 @@ export function PasswordChecklist({ password, email, firstName, visible }: Passw
     <div
       role="group"
       aria-label="Password requirements"
-      className={`space-y-2 rounded-xl border border-line px-4 py-3 transition-opacity duration-200 ${
+      className={`space-y-2 rounded-xl border border-line px-4 py-3 transition-[opacity,visibility] duration-200 ${
         visible ? 'opacity-100' : 'invisible opacity-0'
-      }`}
+      } ${className}`}
     >
       <div className="flex min-h-6 items-center gap-3">
         <div className="flex flex-1 gap-1" aria-hidden="true">

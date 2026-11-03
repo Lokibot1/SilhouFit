@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { FloatingField } from '../../components/form/FloatingField'
 import { GoogleButton } from '../../components/form/GoogleButton'
@@ -58,6 +58,7 @@ export function SignUpPage() {
     toggleConsent,
   } = useSignUpForm()
   const pending = status === 'pending'
+  const [passwordFocused, setPasswordFocused] = useState(false)
 
   const field = (name: TextField) => ({
     id: fieldId(name),
@@ -159,19 +160,38 @@ export function SignUpPage() {
                 enterKeyHint="next"
               />
 
+              {/* The checklist floats under the field like a tooltip, only while focus is inside this wrapper. */}
+              <div
+                className="relative"
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setPasswordFocused(false)
+                }}
+              >
+                <FloatingField
+                  {...field('password')}
+                  label="Password"
+                  type="password"
+                  icon={<LockIcon size={16} />}
+                  autoComplete="new-password"
+                  enterKeyHint="next"
+                />
+                <PasswordChecklist
+                  password={values.password}
+                  email={values.email}
+                  firstName={values.firstName}
+                  visible={passwordFocused}
+                  className="absolute inset-x-0 top-full z-10 mt-1 bg-canvas shadow-lg xl:inset-x-auto xl:top-0 xl:left-full xl:mt-0 xl:ml-4 xl:w-72 xl:[&_ul]:grid-cols-1"
+                />
+              </div>
+
               <FloatingField
-                {...field('password')}
-                label="Password"
+                {...field('confirmPassword')}
+                label="Confirm password"
                 type="password"
                 icon={<LockIcon size={16} />}
                 autoComplete="new-password"
                 enterKeyHint="done"
-              />
-              <PasswordChecklist
-                password={values.password}
-                email={values.email}
-                firstName={values.firstName}
-                visible
               />
 
               <div className="scroll-mt-28">

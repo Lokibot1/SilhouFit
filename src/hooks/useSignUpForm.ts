@@ -24,6 +24,7 @@ const EMPTY: SignUpValues = {
   suffix: '',
   email: '',
   password: '',
+  confirmPassword: '',
   consent: false,
 }
 
@@ -128,7 +129,8 @@ export function useSignUpForm() {
     const clean = typeof value === 'string' ? (SANITIZERS[name]?.(value) ?? value) : value
     setValues((current) => ({ ...current, [name]: clean }))
     setServerError((current) => (current?.field === name ? undefined : current))
-    if (name === 'consent') setTouched((current) => ({ ...current, consent: true }))
+    // Consent and confirm-password validate as the user changes them, not only after leaving the field.
+    if (name === 'consent' || name === 'confirmPassword') setTouched((current) => ({ ...current, [name]: true }))
   }, [])
 
   const blurField = useCallback((name: FieldName) => {

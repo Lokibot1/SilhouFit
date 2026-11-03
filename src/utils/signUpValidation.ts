@@ -16,6 +16,7 @@ export interface SignUpValues {
   suffix: string
   email: string
   password: string
+  confirmPassword: string
   consent: boolean
 }
 export type FieldName = keyof SignUpValues
@@ -39,6 +40,7 @@ export const FIELD_ORDER: FieldName[] = [
   'suffix',
   'email',
   'password',
+  'confirmPassword',
   'consent',
 ]
 
@@ -162,6 +164,12 @@ export function validatePassword(value: string): string | null {
   return null
 }
 
+export function validateConfirmPassword(password: string, confirm: string): string | null {
+  if (!confirm) return 'Confirm your password.'
+  if (confirm !== password) return "Passwords don't match."
+  return null
+}
+
 export const CONSENT_ERROR = 'Please read and accept the Terms of Service and Privacy Policy to create an account.'
 
 export function validateConsent(checked: boolean): string | null {
@@ -210,6 +218,8 @@ export function validateField(name: FieldName, values: SignUpValues): string | n
       return validateEmail(values.email)
     case 'password':
       return validatePassword(values.password)
+    case 'confirmPassword':
+      return validateConfirmPassword(values.password, values.confirmPassword)
     case 'consent':
       return validateConsent(values.consent)
   }
