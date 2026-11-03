@@ -1,4 +1,4 @@
-import type { AccountStatus, AdminAccount, Customer, StaffAccount } from '../types/accounts'
+import type { AccountStatus, AdminAccount, Customer, StaffAccount, SuperadminAccount } from '../types/accounts'
 
 export type AccountSort = 'name' | 'status' | 'createdAt' | 'lastSignInAt' | 'orderCount' | 'lifetimeSpend'
 export type AccountDir = 'asc' | 'desc'
@@ -21,7 +21,7 @@ export interface AccountPage<T> {
   meta: { total: number; page: number; limit: number; totalPages: number }
 }
 
-type Account = Customer | StaffAccount | AdminAccount
+type Account = Customer | StaffAccount | AdminAccount | SuperadminAccount
 
 export const fullName = (account: Pick<Account, 'firstName' | 'lastName'>) => `${account.firstName} ${account.lastName}`
 

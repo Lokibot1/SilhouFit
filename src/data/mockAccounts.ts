@@ -1,5 +1,5 @@
 import { emailFor } from '../service/credentials'
-import type { AdminAccount, Customer, StaffAccount } from '../types/accounts'
+import type { AdminAccount, Customer, StaffAccount, SuperadminAccount } from '../types/accounts'
 
 // Customer names come from the dashboard's order generator, so each one has orders to show.
 const CUSTOMER_NAMES: [string, string][] = [
@@ -84,10 +84,30 @@ export const MOCK_ADMINS: AdminAccount[] = [
   mustChangePassword: false,
 }))
 
+export const MOCK_SUPERADMINS: SuperadminAccount[] = [
+  {
+    id: 'sup-001',
+    role: 'superadmin',
+    firstName: 'Dev',
+    lastName: 'Superadmin',
+    username: 'superadmin',
+    email: emailFor('superadmin'),
+    phone: '+639451000000',
+    status: 'active',
+    createdAt: day(0),
+    lastSignInAt: day(80),
+    mustChangePassword: false,
+  },
+]
+
 /** Plain text on purpose: this is a demo store with no backend. Never reuse a real password here. */
 export const DEV_ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
+export const DEV_SUPERADMIN = { email: 'superadmin@silhoufit.dev', password: 'Super@12345' }
+
+export const MOCK_SUPERADMIN_PASSWORDS: Record<string, string> = Object.fromEntries(MOCK_SUPERADMINS.map((account) => [account.id, DEV_SUPERADMIN.password]))
 
 export const MOCK_PASSWORDS: Record<string, string> = {
+  ...MOCK_SUPERADMIN_PASSWORDS,
   ...Object.fromEntries(MOCK_STAFF.map((account) => [account.id, 'Staff@12345'])),
   ...Object.fromEntries(MOCK_ADMINS.map((account) => [account.id, 'Admin@12345'])),
 }
