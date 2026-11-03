@@ -179,14 +179,14 @@ describe('Staff tab', () => {
 })
 
 describe('Admins tab', () => {
-  it('adds, but has no reset, archive or restore action and no archived filter anywhere', async () => {
+  it('adds, but an admin has no reset, archive or restore action on admins', async () => {
     renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
     expect((await screen.findAllByText('Brian Dijamco')).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
     const options = within(screen.getByRole('listbox', { name: 'Status' })).getAllByRole('option')
-    expect(options.map((o) => o.textContent)).toEqual(['All statuses', 'Active', 'Inactive'])
+    expect(options.map((o) => o.textContent)).toEqual(['All statuses', 'Active', 'Inactive', 'Archived'])
   })
 
   it('creates an admin account', async () => {
