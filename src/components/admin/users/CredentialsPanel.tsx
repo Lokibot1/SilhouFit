@@ -44,7 +44,7 @@ function printCard() {
 }
 
 /** The credentials of a new or reset account, shown once: the username and the temporary password apart, with copy, download and print. */
-export function CredentialsPanel({ credentials, heading }: { credentials: Credentials; heading: string }) {
+export function CredentialsPanel({ credentials, heading, canReset = true }: { credentials: Credentials; heading: string; canReset?: boolean }) {
   const toast = useToast()
   const [saving, setSaving] = useState(false)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -85,7 +85,7 @@ export function CredentialsPanel({ credentials, heading }: { credentials: Creden
         <Block label="Temporary password" value={credentials.password} onCopy={() => void copy(credentials.password, 'Password')} strong />
       </div>
       <p role="note" className="text-xs text-fg-muted">
-        This is the only time the password is shown. If it is lost, reset the password to make a new one. Demo only, not secure: these accounts live in this browser.
+        This is the only time the password is shown.{canReset ? ' If it is lost, reset the password to make a new one.' : ' A superadmin password cannot be reset, so keep it safe.'} Demo only, not secure: these accounts live in this browser.
       </p>
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => void copy(formatCredentials(credentials), 'Credentials')} className={SECONDARY_BUTTON_SM}>
