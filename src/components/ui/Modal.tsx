@@ -211,7 +211,25 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
         >
           {children}
         </div>
-        {footer && <div className="border-t border-line px-5 py-4 sm:px-8">{footer}</div>}
+        {footer && (
+          <div
+            // A bottom sheet publishes its footer height so a toast sits above the buttons instead of over them.
+            ref={(el) => {
+              if (!el || !sheet || wide) return
+              const publish = () => document.documentElement.style.setProperty('--sheet-footer-h', `${el.offsetHeight}px`)
+              publish()
+              const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish)
+              resize?.observe(el)
+              return () => {
+                resize?.disconnect()
+                document.documentElement.style.removeProperty('--sheet-footer-h')
+              }
+            }}
+            className="border-t border-line px-5 py-4 sm:px-8"
+          >
+            {footer}
+          </div>
+        )}
       </motion.div>
     </div>
   )
