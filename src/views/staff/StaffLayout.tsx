@@ -10,7 +10,9 @@ import { StaffTopbar } from '../../components/staff/StaffTopbar'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { Modal } from '../../components/ui/Modal'
+import { pageKeyFor } from '../../config/pagePermissions'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
+import { useCanView } from '../../hooks/usePermissions'
 import { useStaffArea } from '../../hooks/useStaffArea'
 import { useSidebarCollapsed } from '../../hooks/useSidebarCollapsed'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
@@ -61,7 +63,13 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
   const notified = useRef(false)
   const signedIn = user !== null
   const role = state.status === 'success' ? state.me.role : undefined
-  const denied = state.status === 'success' && role !== area
+  const pageKey = pageKeyFor(pathname)
+  const canView = useCanView(role)
+  // A superadmin opens every area. Staff may open an admin page only once a superadmin has turned it on for them.
+  const sameArea = role === area || role === 'superadmin' || (role === 'staff' && area === 'admin' && pageKey !== null)
+  const denied = state.status === 'success' && !sameArea
+  // Signed in with the right role, but a superadmin turned this page off for it.
+  const off = state.status === 'success' && sameArea && !canView(pageKey)
   const archived = state.status === 'success' && state.me.status === 'archived'
   // A simulated account is read again on every navigation, so archiving it elsewhere ends this session at the next page.
   const recheck = getSession()?.simulated ? pathname : ''
@@ -93,6 +101,11 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
     })
   }, [denied, role, toast])
 
+  useEffect(() => {
+    if (!off) return
+    toast.show({ kind: 'info', message: 'That page is turned off for your role. Ask a superadmin if you need it.' })
+  }, [off, pathname, toast])
+
   // An archived account cannot use the dashboard: end the session and say why on the sign-in page.
   useEffect(() => {
     if (!archived) return
@@ -113,7 +126,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
 
   if (!user) return <Navigate to={leaving ? '/login' : archived ? '/login?archived=1' : `/login?next=${encodeURIComponent(pathname)}`} replace />
   if (state.status === 'loading') return <StaffShellSkeleton />
-  if (denied) return <Navigate to={homeFor(role)} replace />
+  if (denied || off) return <Navigate to={homeFor(role)} replace />
   if (archived) return <StaffShellSkeleton />
 
   if (state.status === 'error') {
@@ -137,11 +150,12 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
   }
 
   const { me } = state
+  const shellArea = me.role === 'staff' ? 'staff' : area
   return (
     <div className="staff-shell min-h-svh bg-canvas text-fg">
       <SkipLink />
       <StaffTopbar
-        area={area}
+        area={shellArea}
         user={user}
         wide={wide}
         collapsed={collapsed}
@@ -150,7 +164,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
         onSignOut={() => setLeaving(true)}
       />
       <div className="lg:flex">
-        <StaffSidebar area={area} collapsed={collapsed} />
+        <StaffSidebar area={shellArea} collapsed={collapsed} />
         <div className="min-w-0 flex-1">
           <main id="main-content" className={STAFF_MAIN}>
             <Suspense fallback={null}>
@@ -161,7 +175,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
       </div>
       <Modal open={menuOpen && !wide} onClose={() => setMenuOpen(false)} title="Menu" variant="drawer-left">
         <div className="staff-shell flex min-h-full flex-col pb-5">
-          <StaffNav area={area} onNavigate={() => setMenuOpen(false)} />
+          <StaffNav area={shellArea} onNavigate={() => setMenuOpen(false)} />
         </div>
       </Modal>
       <FirstLoginPasswordGate me={me} onChanged={() => setState({ status: 'success', me: { ...me, mustChangePassword: false } })} />

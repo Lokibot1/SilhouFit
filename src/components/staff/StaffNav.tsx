@@ -1,5 +1,7 @@
 import { Fragment } from 'react'
 import { NavLink } from 'react-router-dom'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
+import { useCanView } from '../../hooks/usePermissions'
 import type { Area } from '../../utils/staffRole'
 import { BrandMark } from '../BrandMark'
 import { Tooltip } from '../ui/Tooltip'
@@ -28,11 +30,15 @@ interface StaffNavProps {
 }
 
 export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps) {
+  const role = useCurrentUser()?.role ?? area
+  const canView = useCanView(role)
+  // Staff who open an admin page (a superadmin turned it on) keep their own sidebar. Pages a superadmin turned off for the role are left out.
+  const items = (role === 'staff' ? NAV.staff : NAV[area]).filter((item) => canView(item.page))
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <nav aria-label={AREA_LABEL[area]} className="flex-1">
         <ul className={`grid gap-1 ${collapsed ? 'justify-center' : ''}`}>
-          {NAV[area].map((item, index) => {
+          {items.map((item, index) => {
             const Icon = item.icon
             const row = collapsed ? ROW_COLLAPSED : ROW
             const content = (
@@ -60,7 +66,7 @@ export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps)
             )
             // Only grouped lists (the admin's) have headings: a divider stands in for one while the rail is collapsed.
             const heading =
-              item.group && item.group !== NAV[area][index - 1]?.group ? (
+              item.group && item.group !== items[index - 1]?.group ? (
                 collapsed ? (
                   index > 0 && <li aria-hidden="true" className="my-1 h-px w-8 justify-self-center bg-line-strong" />
                 ) : (
