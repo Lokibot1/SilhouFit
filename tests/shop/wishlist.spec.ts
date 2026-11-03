@@ -501,11 +501,11 @@ test.describe('Wishlist – Saved list', () => {
     const cards = page.getByRole('listitem').filter({ has: page.getByRole('checkbox') })
     await expect(cards).toHaveCount(3)
     await expect(cards.nth(0)).toContainText('Cotton Tee')
-    await expect(cards.nth(0)).toContainText('Saved 3 Nov 2026')
+    await expect(cards.nth(0)).toContainText('Saved Nov 3, 2026')
     await expect(cards.nth(1)).toContainText('Wool Trousers')
-    await expect(cards.nth(1)).toContainText('Saved 1 Nov 2026')
+    await expect(cards.nth(1)).toContainText('Saved Nov 1, 2026')
     await expect(cards.nth(2)).toContainText('Linen Shirt')
-    await expect(cards.nth(2)).toContainText('Saved 20 Oct 2026')
+    await expect(cards.nth(2)).toContainText('Saved Oct 20, 2026')
   })
 
   test('when GET /wishlist fails the pieces still show, without dates and without an error banner', async ({ page }) => {
