@@ -12,7 +12,7 @@ import {
   type Draft,
 } from '../../components/body-setup/draft'
 import { MeasureStep } from '../../components/body-setup/MeasureStep'
-import { fieldsFor, fromProfile, toPayload, warnings as crossChecks } from '../../components/body-setup/measurements'
+import { changedFields, fieldsFor, fromProfile, toPayload, warnings as crossChecks } from '../../components/body-setup/measurements'
 import { ReviewStep } from '../../components/body-setup/ReviewStep'
 import { SectionBoundary } from '../../components/body-setup/SectionBoundary'
 import { STEP_BODY, STEP_BODY_PINNED, STEP_CARD_PINNED, STEP_FOOTER } from '../../components/body-setup/stepLayout'
@@ -26,7 +26,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOnboarding } from '../../hooks/useOnboarding'
-import { BodyProfileError, getBodyProfile, saveBodyProfile, type BodyProfileErrorKind } from '../../service/bodyProfile'
+import { BodyProfileError, getBodyProfile, saveBodyProfile, updateBodyProfile, type BodyProfile, type BodyProfileErrorKind } from '../../service/bodyProfile'
 import { updateMe } from '../../service/updateMe'
 
 // Three.js stays out of every other chunk: the studio loads here, and its import starts as soon as the page mounts.
@@ -56,7 +56,7 @@ const SAVE_ERROR: Record<BodyProfileErrorKind, string> = {
   server: "We couldn't save your measurements. Something went wrong on our side. Your answers are kept, so retry in a moment.",
 }
 
-type Load = { status: 'loading' } | { status: 'error'; kind: BodyProfileErrorKind } | { status: 'ready'; draft: Draft }
+type Load = { status: 'loading' } | { status: 'error'; kind: BodyProfileErrorKind } | { status: 'ready'; draft: Draft; /** The profile the server holds, when this setup started from it (not from a draft in this tab). */ profile?: BodyProfile }
 
 function Skeleton({ onSkip }: { onSkip: () => void }) {
   return (
@@ -103,7 +103,7 @@ export function BodySetupPage() {
     if (!email || stored) return
     const controller = new AbortController()
     getBodyProfile({ signal: controller.signal }).then(
-      (profile) => setLoad({ status: 'ready', draft: newDraft(email, profile ? fromProfile(profile) : {}) }),
+      (profile) => setLoad({ status: 'ready', draft: newDraft(email, profile ? fromProfile(profile) : {}), profile: profile ?? undefined }),
       (error: unknown) => {
         if (controller.signal.aborted) return
         const kind = error instanceof BodyProfileError ? error.kind : 'server'
@@ -180,17 +180,18 @@ export function BodySetupPage() {
     )
   }
 
-  return <BodySetup initial={load.draft} inTour={inTour} onSkip={skip} onFinished={finishTour} />
+  return <BodySetup initial={load.draft} existing={load.profile} inTour={inTour} onSkip={skip} onFinished={finishTour} />
 }
 
 interface BodySetupProps {
   initial: Draft
+  existing?: BodyProfile
   inTour: boolean
   onSkip: () => void
   onFinished: () => void
 }
 
-function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
+function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupProps) {
   const [draft, dispatch] = useReducer(draftReducer, initial)
   const navigate = useNavigate()
   const toast = useToast()
@@ -243,7 +244,12 @@ function BodySetup({ initial, inTour, onSkip, onFinished }: BodySetupProps) {
     if (!payload || pending) return
     setPending(true)
     try {
-      await saveBodyProfile(payload)
+      if (!existing) await saveBodyProfile(payload)
+      else {
+        // Editing a saved profile sends only what changed; nothing changed, nothing to send.
+        const patch = changedFields(payload, existing)
+        if (Object.keys(patch).length > 0) await updateBodyProfile(patch)
+      }
     } catch (error) {
       const kind = error instanceof BodyProfileError ? error.kind : 'server'
       toast.show({ kind: 'error', message: SAVE_ERROR[kind], action: { label: 'Retry', onClick: () => void finishRef.current() } })

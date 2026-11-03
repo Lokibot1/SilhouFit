@@ -12,9 +12,13 @@ const SAVED_PROFILE = {
   hipsCm: null, inseamCm: null, outseamCm: null, thighCm: null, armLengthCm: 59, bodyModel: 'female', bodyBuild: 'lean',
 }
 
-/** Answers /users/me/body-profile from `profile` (404 when null). Every PUT body is pushed to `puts` and becomes the profile. */
+/**
+ * Answers /users/me/body-profile from `profile` (404 when null). Every PUT body is pushed to `puts` and becomes the profile;
+ * every PATCH body is pushed to `puts.patches` and is merged into it (404 when no profile is saved, as the API does).
+ */
 async function mockBodyProfile(page: Page, profile: object | null = null) {
-  const puts: Array<Record<string, unknown>> = []
+  const patches: Array<Record<string, unknown>> = []
+  const puts = Object.assign([] as Array<Record<string, unknown>>, { patches })
   let stored = profile
   await page.route('**/users/me/body-profile', async (route) => {
     const request = route.request()
@@ -24,6 +28,13 @@ async function mockBodyProfile(page: Page, profile: object | null = null) {
       puts.push(body)
       stored = body
       return route.fulfill({ json: body, headers: CORS })
+    }
+    if (request.method() === 'PATCH') {
+      if (!stored) return route.fulfill({ status: 404, json: {}, headers: CORS })
+      const body = request.postDataJSON()
+      patches.push(body)
+      stored = { ...stored, ...body }
+      return route.fulfill({ json: stored, headers: CORS })
     }
     return stored ? route.fulfill({ json: stored, headers: CORS }) : route.fulfill({ status: 404, json: {}, headers: CORS })
   })
@@ -35,7 +46,8 @@ async function signIn(page: Page) {
   await page.getByLabel('Email', { exact: true }).fill(DEMO.email)
   await page.getByLabel('Password', { exact: true }).fill(DEMO.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page).toHaveURL(/\/profile$/)
+  // The first sign-in on a cold dev server compiles the profile route, which can take longer than the default 5 seconds.
+  await expect(page).toHaveURL(/\/profile$/, { timeout: 20_000 })
 }
 
 /** Starts the tour from its welcome card and presses through to Finish. */
@@ -219,8 +231,9 @@ test.describe('as a returning customer', () => {
     await finishSetup(page)
 
     await expect(page).toHaveURL(/\/profile$/)
-    expect(puts).toHaveLength(1)
-    expect(puts[0]).toMatchObject({ heightCm: 170, chestCm: 90, armLengthCm: 59, bodyModel: 'female', bodyBuild: 'lean' })
+    // A saved profile is updated, not replaced: only the changed field is sent.
+    expect(puts).toHaveLength(0)
+    expect(puts.patches).toEqual([{ heightCm: 170 }])
   })
 
   test('a failed save keeps the answers and Retry sends them again', async ({ page }) => {
@@ -274,5 +287,68 @@ test.describe('as a returning customer', () => {
   test('the setup page asks a signed-out visitor to sign in first', async ({ page }) => {
     await page.goto('/profile/measurements')
     await expect(page).toHaveURL(/\/login\?next=%2Fprofile%2Fmeasurements$/)
+  })
+})
+
+test.describe('Body profile – Update fields', () => {
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(120_000)
+    await mockAuth(page)
+    await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
+  })
+
+  // From the profile's Edit link through to the review screen, changing the height when `height` is given.
+  async function editToReview(page: Page, height?: string) {
+    const section = page.getByRole('region', { name: 'Body measurements' })
+    await expect(section.getByText('168 cm')).toBeVisible()
+    await section.getByRole('link', { name: 'Edit measurements' }).click()
+    await expect(page).toHaveURL(/\/profile\/measurements$/)
+    await next(page) // body shape
+    await next(page) // build
+    await expect(page.getByRole('textbox')).toHaveValue('168')
+    if (height) await page.getByRole('textbox').fill(height)
+    await walkToReview(page, 12)
+  }
+
+  test('editing one measurement of a saved profile sends a PATCH with only that field', async ({ page }) => {
+    const sent = await mockBodyProfile(page, SAVED_PROFILE)
+    await signIn(page)
+    await editToReview(page, '172')
+    await finishSetup(page)
+
+    await expect(page).toHaveURL(/\/profile$/)
+    await expect(page.getByText('Measurements saved. SilhouFit can now recommend sizes.')).toBeVisible()
+    expect(sent.patches).toEqual([{ heightCm: 172 }])
+    expect(sent).toHaveLength(0)
+  })
+
+  test('changing nothing sends no request but still shows the success toast', async ({ page }) => {
+    const sent = await mockBodyProfile(page, SAVED_PROFILE)
+    await signIn(page)
+    await editToReview(page)
+    await finishSetup(page)
+
+    await expect(page).toHaveURL(/\/profile$/)
+    await expect(page.getByText('Measurements saved. SilhouFit can now recommend sizes.')).toBeVisible()
+    expect(sent.patches).toHaveLength(0)
+    expect(sent).toHaveLength(0)
+  })
+
+  test('a new profile (GET 404) is created with a PUT of every field, not a PATCH', async ({ page }) => {
+    const sent = await mockBodyProfile(page)
+    await signIn(page)
+    await page.getByRole('link', { name: 'Add your measurements' }).click()
+    await model(page, 'male')
+    await next(page)
+    await next(page)
+    await page.getByRole('textbox').fill('175')
+    await walkToReview(page, 11)
+    await finishSetup(page)
+
+    await expect(page).toHaveURL(/\/profile$/)
+    await expect(page.getByText('Measurements saved. SilhouFit can now recommend sizes.')).toBeVisible()
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).toMatchObject({ heightCm: 175, bodyModel: 'male' })
+    expect(sent.patches).toHaveLength(0)
   })
 })

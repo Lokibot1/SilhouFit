@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   AR_FIELDS,
+  changedFields,
   FIELDS,
   fieldsFor,
   formatValue,
@@ -320,5 +321,18 @@ describe('fromProfile', () => {
     const { model, build, entered } = fromProfile(payload)
     expect(toPayload(entered, model, build)).toEqual(payload)
     expect(Object.keys(entered).every((key) => (FIELDS as readonly string[]).includes(key))).toBe(true)
+  })
+})
+
+describe('changedFields', () => {
+  const saved = toPayload({ height: 175, chest: 90 }, 'male', 'lean')!
+
+  it('is empty when nothing changed', () => {
+    expect(changedFields({ ...saved }, saved)).toEqual({})
+  })
+
+  it('keeps only what changed, and a cleared field as null', () => {
+    const next = toPayload({ height: 176 }, 'male', 'lean')!
+    expect(changedFields(next, saved)).toEqual({ heightCm: 176, chestCm: null })
   })
 })
