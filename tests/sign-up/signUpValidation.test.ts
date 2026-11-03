@@ -39,6 +39,7 @@ const validValues: SignUpValues = {
   suffix: '',
   email: 'anne@example.com',
   password: 'Str0ng!Pass',
+  confirmPassword: 'Str0ng!Pass',
   consent: true,
 }
 
@@ -586,10 +587,11 @@ describe('validateSignUp and isSignUpValid', () => {
       suffix: '',
       email: '',
       password: '',
+      confirmPassword: '',
       consent: false,
     }
     expect(Object.keys(validateSignUp(empty)).sort()).toEqual(
-      ['consent', 'email', 'firstName', 'lastName', 'password'].sort(),
+      ['confirmPassword', 'consent', 'email', 'firstName', 'lastName', 'password'].sort(),
     )
     expect(isSignUpValid(empty)).toBe(false)
   })
@@ -624,7 +626,8 @@ describe('normalizeSignUp', () => {
   })
 
   it('keeps the password exactly as typed', () => {
-    expect(normalizeSignUp(with_({ password: ' Str0ng!Pass ' })).password).toBe(' Str0ng!Pass ')
+    const spaced = ' Str0ng!Pass '
+    expect(normalizeSignUp(with_({ password: spaced, confirmPassword: spaced })).password).toBe(spaced)
   })
 
   it('throws when the values are invalid', () => {

@@ -64,6 +64,7 @@ async function fillDetails(user: User) {
   await user.type(field(/^last name$/i), 'Santos')
   await user.type(field(/^email$/i), 'anne@example.com')
   await user.type(field(/^password$/i), 'Str0ng!Pass')
+  await user.type(field(/^confirm password$/i), 'Str0ng!Pass')
 }
 
 const dialog = (name: string) => screen.findByRole('dialog', { name })
@@ -114,22 +115,42 @@ describe('SignUpPage single form', () => {
     expect(form).toContainElement(createAccount())
   })
 
-  it('collects one new password with a show/hide toggle, a checklist and no confirm field', async () => {
+  it('collects a new password with a show/hide toggle and a checklist that shows only while it is focused', async () => {
     const user = userEvent.setup()
     renderPage()
     const password = field(/^password$/i)
-    expect(document.querySelectorAll('input[type="password"]')).toHaveLength(1)
-    expect(screen.queryByLabelText(/confirm/i)).not.toBeInTheDocument()
+    expect(document.querySelectorAll('input[type="password"]')).toHaveLength(2)
     expect(password).toHaveAttribute('autocomplete', 'new-password')
-    expect(screen.getByRole('group', { name: 'Password requirements' })).toBeInTheDocument()
+    const checklist = screen.getByRole('group', { name: 'Password requirements' })
+    expect(checklist).toHaveClass('invisible')
 
     await user.type(password, 'Abcdefg1')
+    expect(checklist).not.toHaveClass('invisible')
     expect(screen.getByText('One special character').nextElementSibling).toHaveTextContent('not met')
     await user.type(password, '!')
     expect(screen.getByText('One special character').nextElementSibling).toHaveTextContent('met')
 
-    await user.click(screen.getByRole('button', { name: 'Show password' }))
+    // Focus moving to the show/hide button keeps the checklist open.
+    await user.click(screen.getAllByRole('button', { name: 'Show password' })[0])
     expect(password).toHaveAttribute('type', 'text')
+    expect(checklist).not.toHaveClass('invisible')
+
+    await user.click(field(/^confirm password$/i))
+    expect(checklist).toHaveClass('invisible')
+  })
+
+  it('validates confirm password as the user types', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.type(field(/^password$/i), 'Str0ng!Pass')
+    const confirm = field(/^confirm password$/i)
+    await user.type(confirm, 'Str0ng')
+    expect(screen.getByText("Passwords don't match.")).toBeInTheDocument()
+    expect(confirm).toHaveAttribute('aria-invalid', 'true')
+    await user.type(confirm, '!Pass')
+    expect(screen.queryByText("Passwords don't match.")).not.toBeInTheDocument()
+    await user.clear(confirm)
+    expect(screen.getByText('Confirm your password.')).toBeInTheDocument()
   })
 
   it('links "Login now!" to /login', () => {
