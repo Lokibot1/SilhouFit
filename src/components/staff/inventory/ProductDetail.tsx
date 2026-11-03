@@ -200,7 +200,7 @@ function VariantTable({ variants, edit, manage }: { variants: ProductVariant[]; 
             <span className="inline-flex items-center gap-1">
               SKU
               <Tooltip label={SKU_HELP} describe wrap>
-                <button type="button" aria-label="What is a SKU?" className="flex size-4 cursor-help items-center justify-center rounded-full text-fg-muted hover:text-chrome-strong">
+                <button type="button" aria-label="What is a SKU?" className="relative flex size-4 cursor-help items-center justify-center rounded-full text-fg-muted hover:text-chrome-strong pointer-coarse:after:absolute pointer-coarse:after:-inset-3.5">
                   <InfoIcon className="size-3" />
                 </button>
               </Tooltip>
