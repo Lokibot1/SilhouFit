@@ -77,7 +77,7 @@ function AccountCards() {
         <>
           <Card index={0} icon={UsersIcon} tone="rose" label="Customers" value={summary.customers} context="Registered shoppers" to="/admin/users?tab=customers" action="open customer list" />
           <Card index={1} icon={UserIcon} tone="success" label="Staff" value={summary.staff} context="Including archived" to="/admin/users?tab=staff" action="open staff list" />
-          <Card index={2} icon={SettingsIcon} tone="violet" label="Admins" value={summary.admins} context="Never archived" to="/admin/users?tab=admins" action="open admin list" />
+          <Card index={2} icon={SettingsIcon} tone="violet" label="Admins" value={summary.admins} context="Including archived" to="/admin/users?tab=admins" action="open admin list" />
         </>
       )}
     </SectionBody>

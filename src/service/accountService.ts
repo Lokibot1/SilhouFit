@@ -1,6 +1,6 @@
 // The accounts API as the admin pages use it, answered from the saved accounts (accountStore). Each function names the endpoint that replaces it.
 import { ALLOW_SKIP_PASSWORD_CHANGE } from '../config/accountPolicy'
-import type { ActivityEntry, ActivityKind, AdminAccount, BaseAccount, Credentials, Customer, StaffAccount } from '../types/accounts'
+import type { ActivityEntry, ActivityKind, AdminAccount, BaseAccount, Credentials, Customer, StaffAccount, SuperadminAccount } from '../types/accounts'
 import { queryAccounts, type AccountPage, type AccountQuery } from '../utils/accountQuery'
 import { validatePassword } from '../utils/signUpValidation'
 import { getAccounts, MAX_ACTIVITY, updateAccounts, type AccountsState } from './accountStore'
@@ -55,7 +55,12 @@ export interface NewAccountInput {
 }
 
 /** Every sign-in username, staff and admin together: they share one login. */
-export const takenUsernames = (accounts: Pick<AccountsState, 'staff' | 'admins'>) => [...accounts.staff, ...accounts.admins].map((account) => account.username)
+export const takenUsernames = (accounts: Pick<AccountsState, 'staff' | 'admins' | 'superadmins'>) => [...accounts.staff, ...accounts.admins, ...accounts.superadmins].map((account) => account.username)
+
+/** 403 from the API: these actions belong to superadmins only. */
+function requireSuperadmin() {
+  if (getSession()?.role !== 'superadmin') throw new ForbiddenError('Only a superadmin can do that.')
+}
 
 function log(draft: AccountsState, kind: ActivityKind, account: Pick<BaseAccount, 'firstName' | 'lastName'>) {
   const entry: ActivityEntry = {
@@ -155,8 +160,15 @@ export async function listAdmins(query: AccountQuery, { signal, delayMs = 600 }:
   return queryAccounts(getAccounts().admins, query)
 }
 
-/** The fields a new staff or admin account starts with, and its first credentials. */
-function newAccount(draft: AccountsState, input: NewAccountInput, prefix: 'stf' | 'adm') {
+/** REPLACE: GET /superadmin/superadmins?search&status&page&limit&sort&dir */
+export async function listSuperadmins(query: AccountQuery, { signal, delayMs = 600 }: RequestOptions = {}): Promise<AccountPage<SuperadminAccount>> {
+  await wait(delayMs, signal)
+  requireSuperadmin()
+  return queryAccounts(getAccounts().superadmins, query)
+}
+
+/** The fields a new staff, admin or superadmin account starts with, and its first credentials. */
+function newAccount(draft: AccountsState, input: NewAccountInput, prefix: 'stf' | 'adm' | 'sup') {
   const taken = takenUsernames(draft)
   if (input.username && taken.some((name) => name.toLowerCase() === input.username!.toLowerCase())) throw new DuplicateUsernameError()
   const username = input.username ?? generateUsername(input.firstName, input.lastName, taken)
@@ -206,7 +218,22 @@ export async function createAdminAccount(input: NewAccountInput, { signal, delay
   return result
 }
 
-function reset(account: StaffAccount | undefined, draft: AccountsState) {
+/** REPLACE: POST /superadmin/superadmins  { firstName, lastName, phone } -> 201 { account, credentials }; 409 when the username is taken; 403 unless the caller is a superadmin */
+export async function createSuperadminAccount(input: NewAccountInput, { signal, delayMs = 800 }: RequestOptions = {}) {
+  await wait(delayMs, signal)
+  requireSuperadmin()
+  let result!: { account: SuperadminAccount; credentials: Credentials }
+  updateAccounts((draft) => {
+    const { base, credentials } = newAccount(draft, input, 'sup')
+    const account: SuperadminAccount = { ...base, role: 'superadmin' }
+    draft.superadmins.unshift(account)
+    log(draft, 'superadmin-created', account)
+    result = { account, credentials }
+  })
+  return result
+}
+
+function reset(account: StaffAccount | AdminAccount | undefined, draft: AccountsState) {
   if (!account) throw new NotFoundError()
   if (account.status === 'archived') throw new ForbiddenError('Restore this account before resetting its password.')
   const password = generatePassword()
@@ -216,7 +243,7 @@ function reset(account: StaffAccount | undefined, draft: AccountsState) {
   return { credentials: { username: account.username, email: account.email, password, mustChangePassword: true } satisfies Credentials }
 }
 
-// There is deliberately no admin counterpart: an admin's password can never be reset by another admin, and an admin ID is refused.
+// An admin's password is reset only by a superadmin, via resetAdminPassword below; an admin ID is refused here.
 /** REPLACE: POST /admin/staff/:id/reset-password -> { credentials }; the API answers 403 for an admin's ID */
 export async function resetStaffPassword(id: string, { signal, delayMs = 700 }: RequestOptions = {}) {
   await wait(delayMs, signal)
@@ -243,7 +270,7 @@ function setArchived(id: string, archived: boolean) {
   return result
 }
 
-// There is deliberately no admin counterpart to these two: an admin account can never be archived.
+// An admin is archived only by a superadmin, via archiveAdminAccount below; nobody can archive a superadmin.
 /** REPLACE: POST /admin/staff/:id/archive; the API answers 403 for an admin's ID */
 export async function archiveStaffAccount(id: string, { signal, delayMs = 600 }: RequestOptions = {}) {
   await wait(delayMs, signal)
@@ -256,6 +283,48 @@ export async function restoreStaffAccount(id: string, { signal, delayMs = 600 }:
   return setArchived(id, false)
 }
 
+// ---- Admins, managed by superadmins ----
+
+/** REPLACE: POST /superadmin/admins/:id/reset-password -> { credentials }; 403 for a superadmin's ID or a caller who is not a superadmin */
+export async function resetAdminPassword(id: string, { signal, delayMs = 700 }: RequestOptions = {}) {
+  await wait(delayMs, signal)
+  requireSuperadmin()
+  let result!: ReturnType<typeof reset>
+  updateAccounts((draft) => {
+    if (draft.superadmins.some((a) => a.id === id)) throw new ForbiddenError('Superadmin passwords cannot be reset.')
+    result = reset(draft.admins.find((a) => a.id === id), draft)
+  })
+  return result
+}
+
+function setAdminArchived(id: string, archived: boolean) {
+  requireSuperadmin()
+  let result!: AdminAccount
+  updateAccounts((draft) => {
+    if (draft.superadmins.some((a) => a.id === id)) throw new ForbiddenError('Superadmin accounts cannot be archived.')
+    const account = draft.admins.find((a) => a.id === id)
+    if (!account) throw new NotFoundError()
+    account.status = archived ? 'archived' : 'active'
+    if (archived) account.archivedAt = new Date().toISOString()
+    else delete account.archivedAt
+    log(draft, archived ? 'archived' : 'restored', account)
+    result = account
+  })
+  return result
+}
+
+/** REPLACE: POST /superadmin/admins/:id/archive; 403 for a superadmin's ID or a caller who is not a superadmin */
+export async function archiveAdminAccount(id: string, { signal, delayMs = 600 }: RequestOptions = {}) {
+  await wait(delayMs, signal)
+  return setAdminArchived(id, true)
+}
+
+/** REPLACE: POST /superadmin/admins/:id/restore */
+export async function restoreAdminAccount(id: string, { signal, delayMs = 600 }: RequestOptions = {}) {
+  await wait(delayMs, signal)
+  return setAdminArchived(id, false)
+}
+
 // ---- The signed-in person ----
 
 /** REPLACE: POST /auth/change-password  { newPassword }. The first-login screen has just signed in with the temporary password, so no current password is asked. */
@@ -264,7 +333,7 @@ export async function changePassword(accountId: string, newPassword: string, { s
   const problem = validatePassword(newPassword)
   if (problem) throw new ValidationError(problem)
   updateAccounts((draft) => {
-    const account = [...draft.staff, ...draft.admins].find((a) => a.id === accountId)
+    const account = [...draft.staff, ...draft.admins, ...draft.superadmins].find((a) => a.id === accountId)
     if (!account) throw new NotFoundError()
     draft.passwords[accountId] = newPassword
     account.mustChangePassword = false
