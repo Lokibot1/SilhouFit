@@ -177,7 +177,7 @@ export function SignUpPage() {
               />
 
               <div className="scroll-mt-28">
-                <label className="relative flex min-h-11 cursor-pointer items-start gap-2.5 py-2 text-sm lg:min-h-0 lg:py-1 leading-snug text-fg-muted">
+                <label className="relative flex min-h-11 cursor-pointer items-start gap-2.5 py-2 text-sm sm:text-xs lg:min-h-0 lg:py-1 leading-snug text-fg-muted">
                   <input
                     id={fieldId('consent')}
                     type="checkbox"

@@ -15,7 +15,7 @@ export function SignUpSkeleton() {
         <div className="h-11 rounded-xl bg-line lg:h-10" />
         <div className="h-11 rounded-xl bg-line lg:h-10" />
         <div className="h-11 rounded-xl bg-line lg:h-10" />
-        <div className="flex min-h-11 items-start gap-2.5 py-2 text-sm leading-snug lg:min-h-0 lg:py-1">
+        <div className="flex min-h-11 items-start gap-2.5 py-2 text-sm leading-snug sm:text-xs lg:min-h-0 lg:py-1">
           <div className="mt-px size-5 shrink-0 rounded-md bg-line" />
           <span>
             <span className="box-decoration-clone rounded bg-line text-transparent">
