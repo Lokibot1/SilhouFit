@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ConfirmDialog } from '../../components/admin/users/ConfirmDialog'
 import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { useToast } from '../../components/toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
+import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
 import { Tooltip } from '../../components/ui/Tooltip'
 import { ACCOUNTS_SAMPLE_DATA } from '../../config/accountPolicy'
 import { PAGE_GROUPS, PERMISSION_ROLES, type PageKey, type PermissionRole } from '../../config/pagePermissions'
@@ -14,8 +14,17 @@ import { resetPermissions, setRolePermissions } from '../../service/permissionSt
 const META_DESCRIPTION =
   'Choose which SilhouFit pages customers, staff and admins can open. Turn pages on or off per role, select every page at once, and save the changes for that role.'
 
-const CHECK = 'size-5 shrink-0 accent-chrome-strong'
-const ROW = 'font-ui flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-base text-fg hover:bg-fg/10'
+/** A native checkbox drawn as a switch, so keyboard and screen readers work as for any checkbox. */
+function Switch({ checked, onChange, label }: { checked: boolean; onChange: (on: boolean) => void; label?: string }) {
+  return (
+    <span className="relative inline-flex h-5 w-9 shrink-0">
+      <input type="checkbox" role="switch" aria-label={label} checked={checked} onChange={(event) => onChange(event.target.checked)} className="peer absolute inset-0 z-10 size-full cursor-pointer opacity-0" />
+      <span aria-hidden="true" className="absolute inset-0 rounded-full bg-line-strong transition-colors peer-checked:bg-chrome-strong peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-fg motion-reduce:transition-none" />
+      <span aria-hidden="true" className="absolute top-0.5 left-0.5 size-4 rounded-full bg-canvas shadow-sm transition-transform peer-checked:translate-x-4 motion-reduce:transition-none" />
+    </span>
+  )
+}
+const ROW = 'font-ui flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg px-2 text-sm text-fg hover:bg-fg/10'
 
 const sameSet = (a: PageKey[], b: PageKey[]) => a.length === b.length && a.every((key) => b.includes(key))
 
@@ -40,17 +49,17 @@ function RoleCard({ role, label, description }: { role: PermissionRole; label: s
     <section aria-labelledby={`perm-${role}`} className={`${STAFF_SECTION} grid gap-4 p-4 sm:p-5`}>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id={`perm-${role}`} className="display text-xl text-fg">
+          <h2 id={`perm-${role}`} className="display text-lg text-fg">
             {label}
           </h2>
-          <p className="mt-1 max-w-prose text-sm text-fg-muted">{description}</p>
+          <p className="mt-1 max-w-prose text-xs text-fg-muted">{description}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="font-ui flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium text-fg-muted">
-            <input type="checkbox" className={CHECK} checked={all} onChange={(event) => toggle(every, event.target.checked)} />
+          <label className="font-ui flex min-h-11 cursor-pointer items-center gap-2 text-xs font-medium text-fg-muted">
             Select all
+            <Switch checked={all} onChange={(on) => toggle(every, on)} />
           </label>
-          <button type="button" onClick={save} disabled={!dirty} className={PRIMARY_BUTTON}>
+          <button type="button" onClick={save} disabled={!dirty} className={PRIMARY_BUTTON_SM}>
             Save changes
           </button>
         </div>
@@ -62,16 +71,16 @@ function RoleCard({ role, label, description }: { role: PermissionRole; label: s
           return (
             <fieldset key={group.id} className="min-w-0 rounded-xl border border-line p-3">
               <legend className="sr-only">{group.label}</legend>
-              <label className="font-ui flex min-h-11 cursor-pointer items-center gap-3 border-b border-line px-2 text-xs font-semibold tracking-wide text-fg-muted uppercase">
-                <input type="checkbox" className={CHECK} checked={groupOn} onChange={(event) => toggle(keys, event.target.checked)} aria-label={`All ${group.label} pages for ${label}`} />
+              <label className="font-ui flex min-h-11 cursor-pointer items-center justify-between gap-3 border-b border-line px-2 text-xs font-semibold tracking-wide text-fg-muted uppercase">
                 {group.label}
+                <Switch checked={groupOn} onChange={(on) => toggle(keys, on)} label={`All ${group.label} pages for ${label}`} />
               </label>
               <ul className="mt-1 grid">
                 {group.pages.map((page) => (
                   <li key={page.key}>
                     <label className={ROW}>
-                      <input type="checkbox" className={CHECK} checked={draft.includes(page.key)} onChange={(event) => toggle([page.key], event.target.checked)} />
                       {page.label}
+                      <Switch checked={draft.includes(page.key)} onChange={(on) => toggle([page.key], on)} />
                     </label>
                   </li>
                 ))}
@@ -96,11 +105,11 @@ export function PermissionsPage() {
     <div className="grid gap-3">
       <header className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="display text-2xl text-fg sm:text-3xl">Permissions</h1>
-          <p className="mt-1 text-base text-fg-muted">Choose the pages each role can open. Superadmins always see every page, and dashboards and profiles stay on for everyone.</p>
+          <h1 className="display text-xl text-fg sm:text-2xl">Permissions</h1>
+          <p className="mt-1 text-sm text-fg-muted">Choose the pages each role can open. Superadmins always see every page, and dashboards and profiles stay on for everyone.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className={SECONDARY_BUTTON} onClick={() => setAsking(true)}>
+          <button type="button" className={SECONDARY_BUTTON_SM} onClick={() => setAsking(true)}>
             Reset to defaults
           </button>
           {ACCOUNTS_SAMPLE_DATA && (
