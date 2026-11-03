@@ -201,6 +201,11 @@ export function toPayload(entered: Entered, model: BodyModelId | null, build: Bo
   }
 }
 
+/** What differs from the saved profile, for a PATCH. A field the user cleared is null. */
+export function changedFields(payload: BodyProfile, saved: BodyProfile): Partial<BodyProfile> {
+  return Object.fromEntries(Object.entries(payload).filter(([key, value]) => value !== saved[key as keyof BodyProfile]))
+}
+
 /** A saved profile back to the setup's shape, for editing. */
 export function fromProfile(profile: BodyProfile): { model: BodyModelId | null; build: BodyBuildId | null; entered: Entered } {
   const values: Record<Field, number | null> = {

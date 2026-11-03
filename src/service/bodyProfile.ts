@@ -153,6 +153,7 @@ export async function saveBodyProfile(profile: BodyProfile, { signal }: RequestO
   return saved
 }
 
+/** Feature: Body profile – Update fields */
 /**
  * Changes only the fields passed; a field passed as null is cleared, one left out is kept. Returns the whole saved profile.
  * Nothing is saved yet when the API answers 404, and that surfaces as a 'server' error (as it does for save): create the profile with saveBodyProfile first.
