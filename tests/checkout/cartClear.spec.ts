@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { NAVY_M, POLO, setupShop, TROUSERS } from '../shared/checkoutShop'
+import { NAVY_M, setupShop, TROUSERS } from '../shared/checkoutShop'
 import type { CartMock } from '../shared/products'
 import { signedIn } from '../shared/session'
 
