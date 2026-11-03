@@ -31,7 +31,7 @@ const refreshShop = async <T,>(change: Promise<T>): Promise<T> => {
 export const setArchived = (productId: string, archived: boolean, options: RequestOptions = {}): Promise<void> =>
   refreshShop(setProductActive(productId, !archived, options))
 
-/** Sets variants to exact stock numbers, one by one, so some may fail while others are saved. */
+/** Sets variants to exact stock numbers in one request: either every change is saved or none is. */
 export const saveStocks = (productId: string, changes: StockChange[], options: RequestOptions = {}): Promise<StockResult> => updateStocks(productId, changes, options)
 
 const WHY: Record<string, string> = {
