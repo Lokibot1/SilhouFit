@@ -16,7 +16,7 @@ const REVEAL =
 // The chevrons also drift in from the edge and the dots rise into place, on the same timing.
 const DRIFT = 'transition-transform duration-500 ease-in-out group-hover/img:translate-x-0 group-has-focus-visible/img:translate-x-0 pointer-coarse:translate-x-0'
 
-const SAVED_ON = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const SAVED_ON = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 
 interface ProductCardProps {
   product: Product

@@ -128,10 +128,10 @@ describe('WishlistPage', () => {
         { productId: 'p02', createdAt: '2026-11-03T12:00:00.000Z' },
       ])
       renderPage()
-      await screen.findByText('Saved 3 Nov 2026')
+      await screen.findByText('Saved Nov 3, 2026')
       const cards = screen.getAllByRole('article')
       expect(cards.map((c) => within(c).getByRole('heading').textContent)).toEqual(['Fence-Line Blazer', 'Heritage Polo'])
-      expect(within(cards[1]).getByText('Saved 1 Oct 2026')).toBeInTheDocument()
+      expect(within(cards[1]).getByText('Saved Oct 1, 2026')).toBeInTheDocument()
     })
 
     it('still lists the pieces, without dates, when the dates cannot be loaded', async () => {
