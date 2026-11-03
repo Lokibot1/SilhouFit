@@ -309,7 +309,21 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
 
       </div>
 
-      <div className={PRODUCT_ACTIONS}>
+      <div
+        // Publishes its height so a toast sits above the bar instead of over the buttons.
+        ref={(el) => {
+          if (!el) return
+          const publish = () => document.documentElement.style.setProperty('--bottom-bar-h', `${el.offsetHeight}px`)
+          publish()
+          const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish)
+          resize?.observe(el)
+          return () => {
+            resize?.disconnect()
+            document.documentElement.style.removeProperty('--bottom-bar-h')
+          }
+        }}
+        className={PRODUCT_ACTIONS}
+      >
         {product.arReady && (
           <div className={`${SLOT} max-lg:order-2`}>
             <Tooltip label="AR try-on isn't available yet">
