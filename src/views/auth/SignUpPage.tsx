@@ -1,24 +1,22 @@
-import { motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { AuthHeading, AuthSplit } from '../../components/auth/AuthSplit'
 import { FloatingField } from '../../components/form/FloatingField'
 import { GoogleButton } from '../../components/form/GoogleButton'
 import { PasswordChecklist } from '../../components/form/PasswordChecklist'
 import { AlertIcon, CheckIcon, LockIcon, MailIcon, SpinnerIcon } from '../../components/form/icons'
-import { SilhouetteMark } from '../../components/landing/SilhouetteMark'
 import { LegalModal } from '../../components/legal/LegalModal'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { fieldId, SIGN_UP_ERROR_COPY, useSignUpForm } from '../../hooks/useSignUpForm'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
-import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { nextQuery } from '../../utils/safeNext'
 import { LIMITS, type FieldName } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
-  'Create your SilhouFit account to save your fit profile, try clothes with AR fitting and shop boutiques and online with one secure sign in. It takes a minute.'
+  'Create your KRAL account to save your fit profile, try clothes with AR fitting and shop boutiques and online with one secure sign in. It takes a minute.'
 
-const GAPS = '[&>*+*]:mt-4 short:[&>*+*]:mt-3'
+const GAPS = '[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3'
 const LEGAL_LINK =
   'underline decoration-chrome-strong decoration-2 underline-offset-2 hover:text-chrome-strong'
 
@@ -37,7 +35,7 @@ function WelcomeHeading({ children }: { children: ReactNode }) {
 }
 
 export function SignUpPage() {
-  useDocumentTitle('Sign up — SilhouFit')
+  useDocumentTitle('Sign up — KRAL')
   useMetaDescription(META_DESCRIPTION)
   const next = nextQuery(useSearchParams()[0].get('next'))
 
@@ -70,13 +68,8 @@ export function SignUpPage() {
   })
 
   return (
-    <div className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 max-[359px]:px-3 sm:px-6">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: DURATION.shift, ease: EASE_OUT }}
-        className="glass-card glass-elevated w-full max-w-md rounded-xl px-4 py-4 wrap-break-word max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4"
-      >
+    <>
+      <AuthSplit>
         {status === 'success' ? (
           <div>
             <span className="flex size-10 items-center justify-center rounded-full border border-line-strong text-success">
@@ -107,20 +100,9 @@ export function SignUpPage() {
         ) : (
           <>
             <form noValidate onSubmit={onSubmit} aria-busy={pending} className={GAPS}>
-              <div className="flex flex-col gap-5 pb-2 short:gap-3">
-                <div className="flex flex-col items-center gap-2 shortest:hidden">
-                  <span className="flex size-16 items-center justify-center rounded-md bg-fg shadow-sm short:size-12">
-                    <SilhouetteMark className="h-12 w-9 text-canvas short:h-9 short:w-7 [&>path]:stroke-[4]" />
-                  </span>
-                  <span className="font-display text-xl leading-none font-bold tracking-[-0.02em] text-fg">SilhouFit</span>
-                </div>
-                <div>
-                  <h1 className="display text-left text-3xl text-fg sm:text-4xl">Sign up</h1>
-                  <p className="mt-2 text-xs leading-snug text-fg-muted">Save your fit profile and try clothes with AR.</p>
-                </div>
-              </div>
+              <AuthHeading title="Sign up" subtitle="Save your fit profile and try clothes with AR." />
 
-              <div className="grid gap-4 short:gap-3 min-[360px]:grid-cols-2">
+              <div className="grid gap-4 short:gap-3 min-[360px]:grid-cols-2 lg:gap-3">
                 <FloatingField
                   {...field('firstName')}
                   label="First name"
@@ -181,7 +163,7 @@ export function SignUpPage() {
                   email={values.email}
                   firstName={values.firstName}
                   visible={passwordFocused}
-                  className="absolute inset-x-0 top-full z-10 mt-1 bg-canvas shadow-lg xl:inset-x-auto xl:top-0 xl:left-full xl:mt-0 xl:ml-4 xl:w-72 xl:[&_ul]:grid-cols-1"
+                  className="absolute inset-x-0 top-full z-10 mt-1 bg-canvas shadow-lg"
                 />
               </div>
 
@@ -195,7 +177,7 @@ export function SignUpPage() {
               />
 
               <div className="scroll-mt-28">
-                <label className="relative flex min-h-11 cursor-pointer items-start gap-2.5 py-2 text-sm leading-snug text-fg-muted">
+                <label className="relative flex min-h-11 cursor-pointer items-start gap-2.5 py-2 text-sm lg:min-h-0 lg:py-1 leading-snug text-fg-muted">
                   <input
                     id={fieldId('consent')}
                     type="checkbox"
@@ -291,7 +273,7 @@ export function SignUpPage() {
                 Already registered?{' '}
                 <Link
                   to={`/login${next}`}
-                  className="flex min-h-11 items-center font-medium text-fg underline underline-offset-2 hover:text-chrome-strong"
+                  className="flex min-h-11 items-center font-medium text-fg lg:min-h-9 underline underline-offset-2 hover:text-chrome-strong"
                 >
                   Login now!
                 </Link>
@@ -299,7 +281,7 @@ export function SignUpPage() {
             </form>
           </>
         )}
-      </motion.div>
+      </AuthSplit>
       {(['terms', 'privacy'] as const).map((doc) => (
         <LegalModal
           key={doc}
@@ -309,6 +291,6 @@ export function SignUpPage() {
           onClose={closeLegal}
         />
       ))}
-    </div>
+    </>
   )
 }

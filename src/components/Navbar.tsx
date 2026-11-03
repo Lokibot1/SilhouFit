@@ -24,8 +24,8 @@ export function Navbar() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
   const authPage = isAuthPath(pathname);
-  // The login page carries its own logo beside the form.
-  const hideBrand = pathname.replace(/\/$/, "") === "/login";
+  // Login and sign up carry their own logo beside the form.
+  const hideBrand = ["/login", "/signup"].includes(pathname.replace(/\/$/, ""));
   const user = useCurrentUser();
 
   const { scrollY, scrollYProgress } = useScroll();
