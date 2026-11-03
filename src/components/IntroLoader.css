@@ -1,0 +1,82 @@
+/* Intro loader: the KRAL wordmark fills with a flowing red surface. Identity follows src/assets/DESIGN.md. */
+
+.kl-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow: hidden;
+  background: #161113;
+  color: #85807c;
+  font-family: "SV2 Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.kl-stack {
+  width: min(100%, 72rem);
+}
+
+.kl-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.kl-ghost {
+  fill: #322d2f;
+}
+
+.kl-wave--front {
+  fill: #cb1c2b;
+  animation: kl-flow 3.2s linear infinite;
+}
+.kl-wave--back {
+  fill: #a81624;
+  animation: kl-flow 5.4s linear infinite reverse;
+}
+
+@keyframes kl-flow {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-1200px); /* one wave period, in SVG user units */
+  }
+}
+
+.kl-meta,
+.kl-tagline {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.kl-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+.kl-num {
+  min-width: 5ch;
+  text-align: right;
+}
+
+.kl-tagline {
+  position: absolute;
+  inset: auto 1rem 1.5rem;
+  text-align: center;
+  color: #85807c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kl-wave--front,
+  .kl-wave--back {
+    animation: none;
+  }
+}
