@@ -24,6 +24,8 @@ export function Navbar() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
   const authPage = isAuthPath(pathname);
+  // The login page carries its own logo beside the form.
+  const hideBrand = pathname.replace(/\/$/, "") === "/login";
   const user = useCurrentUser();
 
   const { scrollY, scrollYProgress } = useScroll();
@@ -88,17 +90,18 @@ export function Navbar() {
             solid ? "py-3" : "py-5"
           }`}
         >
-          {user ? (
-            <div className="flex items-center gap-3">{brandMark}</div>
-          ) : (
-            <Link
-              to="/"
-              className="tap group flex items-center gap-3"
-              onClick={() => setMenuOpen(false)}
-            >
-              {brandMark}
-            </Link>
-          )}
+          {!hideBrand &&
+            (user ? (
+              <div className="flex items-center gap-3">{brandMark}</div>
+            ) : (
+              <Link
+                to="/"
+                className="tap group flex items-center gap-3"
+                onClick={() => setMenuOpen(false)}
+              >
+                {brandMark}
+              </Link>
+            ))}
 
           {!authPage && (
             <div className="hidden items-center gap-8 lg:flex">
