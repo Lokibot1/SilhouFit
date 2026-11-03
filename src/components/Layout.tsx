@@ -8,6 +8,10 @@ import { OnboardingGate } from './onboarding/OnboardingGate'
 import { ShopNavbar } from './ShopNavbar'
 import { SiteSky } from './Sky'
 import { SkipLink } from './SkipLink'
+import { useToast } from './toast/useToast'
+import { pageKeyFor } from '../config/pagePermissions'
+import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useCanView } from '../hooks/usePermissions'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { isAuthPath } from '../utils/authRoutes'
 
@@ -27,6 +31,14 @@ export function Layout({ bare: bareProp = false }: { bare?: boolean }) {
   const { pathname, hash, key } = useLocation()
   const bare = bareProp || BARE_PATHS.includes(pathname.replace(/\/$/, ''))
   const navigationType = useNavigationType()
+  const toast = useToast()
+  const canView = useCanView(useCurrentUser()?.role)
+  // A superadmin turned this storefront page off for customers (and visitors who are not signed in).
+  const blocked = !canView(pageKeyFor(pathname))
+
+  useEffect(() => {
+    if (blocked) toast.show({ kind: 'info', message: 'That page is not available right now.' })
+  }, [blocked, pathname, toast])
 
   useEffect(() => {
     if (hash) {
@@ -41,6 +53,8 @@ export function Layout({ bare: bareProp = false }: { bare?: boolean }) {
     }
     // `key` changes per navigation, so choosing the same section twice rescrolls.
   }, [pathname, hash, key, navigationType])
+
+  if (blocked) return <Navigate to="/" replace />
 
   if (pathname === '/' && MOVED_TO_ABOUT.includes(hash)) {
     return <Navigate to={`/about${hash}`} replace />
