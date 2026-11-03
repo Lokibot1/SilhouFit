@@ -1,7 +1,7 @@
 // The saved accounts, kept in localStorage so a reload and other tabs agree. Stands in for the accounts tables until the backend has them.
 // Passwords are plain text here on purpose (demo only, never a real password), and live apart from the accounts so no list can leak one.
-import { MOCK_ADMINS, MOCK_CUSTOMERS, MOCK_PASSWORDS, MOCK_STAFF } from '../data/mockAccounts'
-import type { ActivityEntry, AdminAccount, Customer, StaffAccount } from '../types/accounts'
+import { MOCK_ADMINS, MOCK_CUSTOMERS, MOCK_PASSWORDS, MOCK_STAFF, MOCK_SUPERADMINS, MOCK_SUPERADMIN_PASSWORDS } from '../data/mockAccounts'
+import type { ActivityEntry, AdminAccount, Customer, StaffAccount, SuperadminAccount } from '../types/accounts'
 
 export const ACCOUNTS_KEY = 'silhoufit.accounts.v1'
 
@@ -9,6 +9,7 @@ export interface AccountsState {
   customers: Customer[]
   staff: StaffAccount[]
   admins: AdminAccount[]
+  superadmins: SuperadminAccount[]
   /** Account id to password. */
   passwords: Record<string, string>
   /** Newest first. */
@@ -18,7 +19,7 @@ export interface AccountsState {
 export const MAX_ACTIVITY = 20
 
 const seed = (): AccountsState =>
-  structuredClone({ customers: MOCK_CUSTOMERS, staff: MOCK_STAFF, admins: MOCK_ADMINS, passwords: MOCK_PASSWORDS, activity: [] })
+  structuredClone({ customers: MOCK_CUSTOMERS, staff: MOCK_STAFF, admins: MOCK_ADMINS, superadmins: MOCK_SUPERADMINS, passwords: MOCK_PASSWORDS, activity: [] })
 
 const isList = (value: unknown, role: string) =>
   Array.isArray(value) && value.every((item) => (item as { role?: string } | null)?.role === role && typeof (item as { id?: unknown }).id === 'string')
@@ -36,8 +37,15 @@ function load(): AccountsState {
       typeof parsed.passwords === 'object' &&
       Array.isArray(parsed.activity)
     ) {
-      // Activity saved before entries had a kind cannot be drawn.
-      return { ...parsed, activity: parsed.activity!.filter((entry) => entry?.kind) } as AccountsState
+      // Accounts saved before superadmins existed get the sample superadmin added.
+      const hasSuperadmins = isList(parsed.superadmins, 'superadmin') && parsed.superadmins!.length > 0
+      return {
+        ...parsed,
+        superadmins: hasSuperadmins ? parsed.superadmins : structuredClone(MOCK_SUPERADMINS),
+        passwords: hasSuperadmins ? parsed.passwords : { ...parsed.passwords, ...MOCK_SUPERADMIN_PASSWORDS },
+        // Activity saved before entries had a kind cannot be drawn.
+        activity: parsed.activity!.filter((entry) => entry?.kind),
+      } as AccountsState
     }
   } catch {
     // Unreadable or blocked storage: start again from the sample accounts.

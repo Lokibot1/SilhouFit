@@ -11,6 +11,7 @@ const [SAM, LIZA, RAMON, KRISTINE, DEV, BRIAN, ALYSSA] = ['Sam', 'Liza', 'Ramon'
 export const CATEGORY_OF: Record<ActivityAction, ActivityCategory> = {
   'staff-created': 'account',
   'admin-created': 'account',
+  'superadmin-created': 'account',
   'password-reset': 'account',
   archived: 'account',
   restored: 'account',

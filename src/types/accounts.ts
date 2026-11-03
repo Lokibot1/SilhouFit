@@ -22,9 +22,18 @@ export interface StaffAccount extends BaseAccount {
   archivedAt?: string
 }
 
-/** Admin accounts are never archived: there is no `archived` status or `archivedAt` for them. */
-export interface AdminAccount extends Omit<BaseAccount, 'status'> {
+/** Only a superadmin can archive an admin, so an admin is never archived by another admin. */
+export interface AdminAccount extends BaseAccount {
   role: 'admin'
+  username: string
+  mustChangePassword: boolean
+  /** ISO time, set while the account is archived. */
+  archivedAt?: string
+}
+
+/** Superadmins can create each other but never reset or archive one another, so there is no `archived` status or `archivedAt` for them. */
+export interface SuperadminAccount extends Omit<BaseAccount, 'status'> {
+  role: 'superadmin'
   status: Exclude<AccountStatus, 'archived'>
   username: string
   mustChangePassword: boolean
@@ -49,10 +58,10 @@ export interface Credentials {
 }
 
 export type AuthResult =
-  | { ok: true; account: StaffAccount | AdminAccount }
+  | { ok: true; account: StaffAccount | AdminAccount | SuperadminAccount }
   | { ok: false; reason: 'invalid' | 'archived' }
 
-export type ActivityKind = 'staff-created' | 'admin-created' | 'password-reset' | 'archived' | 'restored'
+export type ActivityKind = 'staff-created' | 'admin-created' | 'superadmin-created' | 'password-reset' | 'archived' | 'restored'
 
 /** One line of the dashboard's activity log. */
 export interface ActivityEntry {
