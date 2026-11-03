@@ -34,9 +34,9 @@ export function AuthSplit({ children }: { children: ReactNode }) {
         <Link
           to="/"
           aria-label="KRAL home"
-          className="tap absolute top-5 right-16 z-10 sm:right-20"
+          className="tap absolute top-5 right-16 z-10 text-fg transition-colors duration-250 ease-out hover:text-[#CB1C2B] focus-visible:text-[#CB1C2B] motion-reduce:transition-none sm:right-20"
         >
-          <Logo className="h-5 w-auto fill-fg sm:h-6" />
+          <Logo className="h-5 w-auto fill-current sm:h-6" />
         </Link>
         <motion.div
           initial={{ opacity: 0 }}

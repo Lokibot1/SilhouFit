@@ -76,6 +76,8 @@ export function Navbar() {
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] transition-colors duration-300 ${
+        hideBrand ? "pointer-events-none" : ""
+      } ${
         solid
           ? "border-b border-line bg-canvas/85 backdrop-blur-md"
           : authPage
@@ -159,7 +161,7 @@ export function Navbar() {
 
         {/* Pinned to the corner, centred on the nav row (which resizes on scroll), clear of the
             row's content via the nav's right padding. */}
-        <div className="absolute inset-y-0 right-2 z-10 flex items-center sm:right-3">
+        <div className="pointer-events-auto absolute inset-y-0 right-2 z-10 flex items-center sm:right-3">
           <ThemeToggle />
         </div>
       </div>
@@ -204,7 +206,10 @@ export function Navbar() {
               })}
               {user ? (
                 <div className="mt-6">
-                  <AccountLink user={user} onNavigate={() => setMenuOpen(false)} />
+                  <AccountLink
+                    user={user}
+                    onNavigate={() => setMenuOpen(false)}
+                  />
                 </div>
               ) : (
                 <Link
