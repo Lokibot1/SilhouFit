@@ -13,7 +13,7 @@ import {
   PAGER_FOOTER,
   PAGER_PAGINATION,
 } from "../../components/staff/inventory/layout";
-import { InventoryTabs } from "../../components/staff/inventory/InventoryTabs";
+import { SegmentedTabs } from "../../components/ui/SegmentedTabs";
 import { PlusIcon } from "../../components/form/icons";
 import { SectionError } from "../../components/staff/StaffSection";
 import { STAFF_SECTION } from "../../components/staff/StaffSkeleton";
@@ -413,8 +413,14 @@ export function StaffInventoryPage() {
   };
 
   const tabs = (
-    <InventoryTabs
-      value={status}
+    <SegmentedTabs
+      label="Product status"
+      name="inventory"
+      options={[
+        { value: "active", label: "Active" },
+        { value: "archived", label: "Archived" },
+      ]}
+      value={status === "archived" ? "archived" : "active"}
       onChange={(next) =>
         update({ status: next === "archived" ? "archived" : "" })
       }

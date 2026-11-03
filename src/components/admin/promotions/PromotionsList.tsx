@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { usePromotions } from '../../../hooks/usePromotions'
 import { deletePromotion, endPromotion, type PromoStatus, type PromotionRow } from '../../../service/promotions'
-import { SegmentedTabs } from '../../staff/measurements/SegmentedTabs'
+import { SegmentedTabs } from '../../ui/SegmentedTabs'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { useToast } from '../../toast/useToast'
 import { ConfirmDialog } from '../users/ConfirmDialog'
