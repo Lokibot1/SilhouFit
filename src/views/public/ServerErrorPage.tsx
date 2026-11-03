@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
+import { checkHealth } from '../../service/checkHealth'
 
 const META_DESCRIPTION =
   'Something went wrong on our side while loading this SilhouFit page. Try again in a moment, or head back to the main floor to keep shopping.'
@@ -8,6 +10,12 @@ const META_DESCRIPTION =
 export function ServerErrorPage({ onRetry = () => window.location.reload() }: { onRetry?: () => void }) {
   useDocumentTitle('500: Torn at the seams — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
+  const [status, setStatus] = useState<'idle' | 'checking' | 'up' | 'down'>('idle')
+
+  async function check() {
+    setStatus('checking')
+    setStatus((await checkHealth()) ? 'up' : 'down')
+  }
 
   return (
     <>
@@ -39,6 +47,20 @@ export function ServerErrorPage({ onRetry = () => window.location.reload() }: { 
                 >
                   Back to the main floor
                 </Link>
+              </div>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void check()}
+                  disabled={status === 'checking'}
+                  className="font-ui min-h-11 cursor-pointer rounded-full border-2 border-fg-muted px-6 py-2 text-sm font-semibold text-fg-muted hover:border-fg hover:text-fg disabled:cursor-wait disabled:opacity-60"
+                >
+                  {status === 'checking' ? 'Checking…' : status === 'down' ? 'Check again' : 'Check service status'}
+                </button>
+                <p role="status" className="text-sm text-fg-muted">
+                  {status === 'up' && 'The service is reachable. Try the page again.'}
+                  {status === 'down' && "The service can't be reached right now. Wait a moment, then check again."}
+                </p>
               </div>
             </div>
           </div>
