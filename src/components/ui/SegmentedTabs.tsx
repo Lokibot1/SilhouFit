@@ -1,8 +1,9 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { useRef, type KeyboardEvent } from 'react'
-import { DURATION, EASE_OUT } from '../../../motion/tokens'
+import { DURATION, EASE_OUT } from '../../motion/tokens'
 
 interface SegmentedTabsProps<T extends string> {
+  /** Names the group for screen readers. */
   label: string
   /** Makes the tab ids and the sliding pill unique on a page with more than one set. */
   name: string
@@ -11,7 +12,11 @@ interface SegmentedTabsProps<T extends string> {
   onChange: (value: T) => void
 }
 
-/** Tabs like the inventory's Active | Archived: arrows, Home and End move to the next tab and open it; only the open tab is in the Tab order. Wraps on narrow screens. */
+/**
+ * The one tab switcher for Active | Archived, status filters, categories and account types.
+ * Every set is the same size: 36px tall on a desktop pointer, 44px on touch and small screens. A tab is at least 64px wide, and wraps on narrow screens.
+ * Arrows, Home and End move to the next tab and open it; only the open tab is in the Tab order.
+ */
 export function SegmentedTabs<T extends string>({ label, name, options, value, onChange }: SegmentedTabsProps<T>) {
   const reduced = useReducedMotion()
   const refs = useRef<Record<string, HTMLButtonElement | null>>({})
@@ -27,7 +32,8 @@ export function SegmentedTabs<T extends string>({ label, name, options, value, o
   }
 
   return (
-    <div role="tablist" aria-label={label} onKeyDown={onKeyDown} className="font-ui inline-flex flex-wrap rounded-xl border border-line-strong p-0.5">
+    // The container is rounded-xl (12px) with a 3px border and padding, so a rounded-lg (8px) tab sits almost concentric and no wedge shows at the ends.
+    <div role="tablist" aria-label={label} onKeyDown={onKeyDown} className="font-ui inline-flex max-w-full flex-wrap rounded-xl border border-line-strong p-0.5">
       {options.map((option) => {
         const selected = option.value === value
         return (
@@ -42,13 +48,15 @@ export function SegmentedTabs<T extends string>({ label, name, options, value, o
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
-            className={`relative h-11 min-w-11 cursor-pointer rounded-md px-3 text-base font-semibold transition-colors md:text-sm duration-150 ${selected ? 'text-canvas' : 'text-fg hover:bg-line/60 hover:text-chrome-strong'}`}
+            className={`relative h-8 min-w-16 cursor-pointer rounded-lg px-3 text-sm font-semibold transition-colors duration-150 pointer-coarse:h-11 max-md:h-11 ${selected ? 'text-canvas' : 'text-fg hover:bg-line/60 hover:text-chrome-strong'}`}
           >
             {selected && (
               <motion.span
                 layoutId={`${name}-tab-pill`}
                 aria-hidden="true"
-                className="absolute inset-0 rounded-md bg-fg"
+                className="absolute inset-0 bg-fg"
+                // The radius is set here, not in a class, so the slide keeps the corners round instead of squashing them.
+                style={{ borderRadius: 8 }}
                 transition={reduced ? { duration: 0 } : { duration: DURATION.state, ease: EASE_OUT }}
               />
             )}
