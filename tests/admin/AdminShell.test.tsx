@@ -8,6 +8,7 @@ import { StaffNav } from '../../src/components/staff/StaffNav'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { getAccounts } from '../../src/service/accountStore'
+import { getPermissions, resetPermissions, setRolePermissions } from '../../src/service/permissionStore'
 import { fetchMe, type Me } from '../../src/service/fetchMe'
 import { fetchStaffNotifications } from '../../src/service/fetchStaffNotifications'
 import { clearSession, getSession, setSession } from '../../src/service/session'
@@ -36,6 +37,7 @@ const load = vi.mocked(fetchMe)
 
 beforeAll(setUpAdminDom)
 beforeEach(() => {
+  resetPermissions()
   resetAdminAccounts()
   sessionStorage.clear()
   vi.mocked(fetchStaffNotifications).mockResolvedValue([])
@@ -152,10 +154,26 @@ describe('StaffLayout for a simulated account', () => {
     )
   }
 
-  it('sends a staff member who opens /admin/users to their own dashboard, with a notice', async () => {
+  it('sends a staff member who opens /admin/users to their own dashboard, with a notice that a superadmin turned it off', async () => {
     act(() => setSession({ name: 'Sam Reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff' }))
     load.mockResolvedValue({ ...ADMIN_ME, role: 'staff' })
     renderLayout('/admin/users')
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/staff'))
+    expect(screen.getByText('That page is turned off for your role. Ask a superadmin if you need it.')).toBeInTheDocument()
+  })
+
+  it('lets staff open an admin page once a superadmin turns it on', async () => {
+    act(() => setSession({ name: 'Sam Reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff' }))
+    load.mockResolvedValue({ ...ADMIN_ME, role: 'staff' })
+    setRolePermissions('staff', [...getPermissions().staff, 'user-management'])
+    renderLayout('/admin/users')
+    expect(await screen.findByText('users page')).toBeInTheDocument()
+  })
+
+  it('sends staff who open /admin itself to their own dashboard', async () => {
+    act(() => setSession({ name: 'Sam Reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff' }))
+    load.mockResolvedValue({ ...ADMIN_ME, role: 'staff' })
+    renderLayout('/admin')
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/staff'))
     expect(screen.getByText('That page is for another role. This is your dashboard.')).toBeInTheDocument()
   })

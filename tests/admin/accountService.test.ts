@@ -91,8 +91,8 @@ describe('resetting passwords', () => {
     expect(getAccounts()).toEqual(before)
   })
 
-  it('has no admin reset function', () => {
-    expect(Object.keys(service).filter((name) => /reset/i.test(name) && /admin/i.test(name))).toEqual([])
+  it('leaves resetting an admin to superadmins: an admin is refused', async () => {
+    await expect(service.resetAdminPassword(getAccounts().admins[0].id, fast)).rejects.toMatchObject({ kind: 'forbidden' })
   })
 
   it('refuses an archived account', async () => {
@@ -118,9 +118,9 @@ describe('archiving', () => {
     expect(getAccounts().admins[0]).toEqual(admin)
   })
 
-  it('has no admin archive function and no archived status for admins', () => {
-    expect(Object.keys(service).filter((name) => /archive|restore/i.test(name) && /admin/i.test(name))).toEqual([])
-    expect(getAccounts().admins.some((a) => (a.status as string) === 'archived' || 'archivedAt' in a)).toBe(false)
+  it('leaves archiving an admin to superadmins: an admin is refused, and no admin starts archived', async () => {
+    await expect(service.archiveAdminAccount(getAccounts().admins[0].id, fast)).rejects.toMatchObject({ kind: 'forbidden' })
+    expect(getAccounts().admins.some((a) => a.status === 'archived' || 'archivedAt' in a)).toBe(false)
   })
 
   it('filters archived staff', async () => {
