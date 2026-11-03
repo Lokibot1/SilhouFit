@@ -133,7 +133,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
               type="button"
               onClick={step(-1)}
               aria-label="Previous image"
-              className={`absolute top-1/2 left-0 flex size-11 max-sm:size-9 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL}`}
+              className={`absolute top-1/2 left-0 flex size-11 max-sm:size-9 max-sm:pointer-coarse:size-11 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL}`}
             >
               <span className={`flex size-8 max-sm:size-6 -translate-x-2 items-center justify-center rounded-full bg-canvas ${DRIFT}`}>
                 <ChevronLeftIcon />
@@ -143,7 +143,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
               type="button"
               onClick={step(1)}
               aria-label="Next image"
-              className={`absolute top-1/2 right-0 flex size-11 max-sm:size-9 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL}`}
+              className={`absolute top-1/2 right-0 flex size-11 max-sm:size-9 max-sm:pointer-coarse:size-11 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL}`}
             >
               <span className={`flex size-8 max-sm:size-6 translate-x-2 items-center justify-center rounded-full bg-canvas ${DRIFT}`}>
                 <ChevronRightIcon />
