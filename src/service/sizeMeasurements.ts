@@ -81,6 +81,7 @@ export function fetchCategoryMeasurements(category: string): Promise<SizeMeasure
 
 export const clearCategoryMeasurements = () => baseCache.clear()
 
+/** Feature: Size measurements – View row */
 /** GET /size-measurements/:id. */
 export async function fetchSizeMeasurement(id: string, { signal }: RequestOptions = {}): Promise<SizeMeasurement> {
   return toSizeMeasurement(await request('GET', path(id), undefined, signal))
