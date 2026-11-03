@@ -11,17 +11,14 @@ import { ShaderBackground } from "../ui/ShaderBackground";
 export function AuthSplit({
   children,
   photo = true,
-  kralType = false,
 }: {
   children: ReactNode;
   /** false: no photo panel, the form sits in the middle of the shader and the theme toggle is hidden (forgot password, sign up success). */
   photo?: boolean;
-  /** KRAL fonts and type scale (login only for now). */
-  kralType?: boolean;
 }) {
   return (
     <div
-      className={`kral-login ${kralType ? "kral-type" : ""} relative grid min-h-svh bg-canvas ${photo ? "lg:grid-cols-2" : "kral-login--bare"}`}
+      className={`kral-login kral-type relative grid min-h-svh bg-canvas ${photo ? "lg:grid-cols-2" : "kral-login--bare"}`}
     >
       {photo && (
         <aside className="relative hidden overflow-hidden lg:block">

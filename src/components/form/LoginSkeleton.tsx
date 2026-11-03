@@ -5,7 +5,7 @@ import { AuthHeadingSkeleton, AuthSkeletonShell } from './AuthSkeletonShell'
 export function LoginSkeleton({ short = false }: { short?: boolean }) {
   if (!short) {
     return (
-      <AuthSkeletonShell label="Loading sign in form" kralType>
+      <AuthSkeletonShell label="Loading sign in form">
         <div className="[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3">
           <AuthHeadingSkeleton subtitle="Sign in your account." />
           <div className="h-11 rounded-xl bg-line lg:h-10" />
@@ -26,7 +26,10 @@ export function LoginSkeleton({ short = false }: { short?: boolean }) {
   return (
     <AuthSkeletonShell label="Loading password reset form" photo={false}>
       <div className="[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3">
-        <AuthHeadingSkeleton subtitle="Enter the email you signed up with and we'll send you a link to choose a new password." />
+        <AuthHeadingSkeleton
+          wraps
+          subtitle="Enter the email you signed up with and we'll send you a link to choose a new password."
+        />
         <div className="h-11 rounded-xl bg-line lg:h-10" />
         <div className="h-11 rounded-xl bg-line-strong lg:h-10" />
         <div className="h-11 rounded-xl bg-line lg:h-10" />

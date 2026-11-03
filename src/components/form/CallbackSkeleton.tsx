@@ -10,7 +10,7 @@ export function CallbackSkeleton() {
     <AuthSkeletonShell label="Signing you in with Google" photo={false}>
       <div className={CALLBACK_BLOCK}>
         <div className="size-10 rounded-full bg-line-strong" />
-        <div className="mt-4 h-8 w-3/4 rounded-md bg-line" />
+        <div className="mt-4 w-3/4 rounded-md bg-line" style={{ height: 'calc(var(--auth-h1) * 2)' }} />
         <div className="mt-2 space-y-2">
           <div className="h-5 rounded bg-line" />
           <div className="h-5 w-2/3 rounded bg-line" />

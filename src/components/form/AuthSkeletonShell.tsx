@@ -8,20 +8,17 @@ export function AuthSkeletonShell({
   label,
   children,
   photo = true,
-  kralType = false,
 }: {
   label: string
   children: ReactNode
   /** false: no photo block (forgot password). */
   photo?: boolean
-  /** Same KRAL type as the page, so the heading metrics match. */
-  kralType?: boolean
 }) {
   return (
     <div
       role="status"
       aria-label={label}
-      className={`kral-login ${kralType ? 'kral-type' : ''} relative grid min-h-svh bg-canvas ${photo ? 'lg:grid-cols-2' : ''}`}
+      className={`kral-login kral-type relative grid min-h-svh bg-canvas ${photo ? 'lg:grid-cols-2' : ''}`}
     >
       {photo && <div aria-hidden="true" className="hidden animate-pulse bg-line lg:block" />}
       <div className="relative flex items-center justify-center overflow-hidden px-4 py-14 max-[359px]:px-3 sm:px-6 lg:py-16">
@@ -37,11 +34,11 @@ export function AuthSkeletonShell({
   )
 }
 
-/** The border-bottom heading block of AuthHeading. The subtitle is a transparent copy so the bar wraps like the real text. */
-export function AuthHeadingSkeleton({ subtitle }: { subtitle: string }) {
+/** The border-bottom heading block of AuthHeading. `wraps`: the title runs to two lines below 480px (reset your password). The subtitle is a transparent copy so the bar wraps like the real text. */
+export function AuthHeadingSkeleton({ subtitle, wraps = false }: { subtitle: string; wraps?: boolean }) {
   return (
     <div className="border-b border-line-strong pb-4">
-      <div className="auth-heading-bar h-[calc(1.875rem*0.95)] w-40 rounded bg-line" />
+      <div className={`h-(--auth-h1) w-40 rounded bg-line ${wraps ? 'max-[479px]:h-[calc(var(--auth-h1)*2)]' : ''}`} />
       <p className="mt-2 text-sm leading-snug">
         <span className="box-decoration-clone rounded bg-line text-transparent">{subtitle}</span>
       </p>

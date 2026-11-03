@@ -23,6 +23,7 @@
 
 /* Display: extended heavy sans, caps, 0 to +2% tracking, 0.95 to 1.05 line height. */
 .kral-type h1,
+.kral-type h2,
 .kral-type .font-display {
   font-family: "KRAL Display", ui-sans-serif, system-ui, sans-serif;
   font-weight: 800;
@@ -31,13 +32,14 @@
   line-height: 1.05;
 }
 
-/* H2 scale, 28px. The loading skeleton's heading bar matches this line height. */
-.kral-type h1 {
-  font-size: 1.75rem;
+/* H2 scale, 28px, easing down on phones so the wide caps stay on one line. The skeleton heading bar reads the same height. */
+.kral-type {
+  --auth-h1: calc(clamp(1.375rem, 7vw, 1.75rem) * 1.05);
 }
 
-.kral-type .auth-heading-bar {
-  height: calc(1.75rem * 1.05);
+.kral-type h1,
+.kral-type h2 {
+  font-size: clamp(1.375rem, 7vw, 1.75rem);
 }
 
 /* The slogan over the photo scales with the panel, since extended caps run wide. */
