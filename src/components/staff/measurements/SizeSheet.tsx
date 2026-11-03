@@ -10,6 +10,7 @@ import { Select } from '../../ui/Select'
 import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../inventory/FormField'
 
 const FORM_ID = 'size-form'
+const MEASUREMENTS_HELP = 'Fill in the ones that apply to this garment; at least one is needed. Leave the rest empty.'
 const RETRYABLE = ['network', 'rate-limit', 'server']
 const CATEGORY_OPTIONS = CATEGORIES.map((c) => ({ value: c as string, label: c }))
 /** The field each error key belongs to, to move focus to the first problem. */
@@ -211,17 +212,17 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
             <div className="h-5 w-24 rounded-md bg-line" />
           </div>
           <div className="grid gap-1">
-            <div className="h-5 w-12 rounded-md bg-line" />
-            <div className="h-11 rounded-xl bg-line" />
+            <div className="field--compact h-(--field-h) rounded-xl bg-line" />
+            <div className="ml-auto h-4 w-8 rounded-md bg-line" />
           </div>
           <div className="grid gap-3">
-            <div className="h-5 w-36 rounded-md bg-line" />
+            <div>
+              <p className="text-sm font-semibold text-fg">Measurements (cm)</p>
+              <p className="text-xs text-fg-muted">{MEASUREMENTS_HELP}</p>
+            </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {fields.map(({ key }) => (
-                <div key={key} className="grid gap-1">
-                  <div className="h-5 w-24 rounded-md bg-line" />
-                  <div className="h-11 rounded-xl bg-line" />
-                </div>
+                <div key={key} className="field--compact h-(--field-h) rounded-xl bg-line" />
               ))}
             </div>
           </div>
@@ -278,7 +279,7 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
 
           <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
             <legend className="text-sm font-semibold text-fg">Measurements (cm)</legend>
-            <p className="text-xs text-fg-muted">Fill in the ones that apply to this garment; at least one is needed. Leave the rest empty.</p>
+            <p className="text-xs text-fg-muted">{MEASUREMENTS_HELP}</p>
             {noneError && (
               <p id="ss-measurements-error" role="alert" className="text-sm text-danger">
                 {noneError}
