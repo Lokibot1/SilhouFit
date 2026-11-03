@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, GridIcon, ListIcon, RestoreIcon, RulerIcon, UserIcon, UsersIcon } from '../form/icons'
+import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, GridIcon, ListIcon, LockIcon, RestoreIcon, RulerIcon, UserIcon, UsersIcon } from '../form/icons'
 import type { PageKey } from '../../config/pagePermissions'
 import type { Area } from '../../utils/staffRole'
 
@@ -14,9 +14,9 @@ export interface NavItem {
   page?: PageKey
 }
 
-export type NavGroup = 'operations' | 'admin'
+export type NavGroup = 'operations' | 'admin' | 'superadmin'
 
-export const NAV_GROUP_LABEL: Record<NavGroup, string> = { operations: 'Operations', admin: 'Admin tools' }
+export const NAV_GROUP_LABEL: Record<NavGroup, string> = { operations: 'Operations', admin: 'Admin tools', superadmin: 'Super admin tools' }
 
 // An admin gets every staff page plus the admin tools.
 const ADMIN_NAV: NavItem[] = [
@@ -45,8 +45,10 @@ export const NAV: Record<Area, NavItem[]> = {
     { label: 'Profile', to: '/staff/profile', icon: UserIcon },
   ],
   admin: ADMIN_NAV,
+  // A superadmin gets every admin page, plus the tools only a superadmin has.
   superadmin: [
-    { label: 'Dashboard', to: '/superadmin', icon: GridIcon },
+    ...ADMIN_NAV.map((item) => ({ ...item, to: item.to?.replace('/admin', '/superadmin') })),
+    { label: 'Permissions', to: '/superadmin/permissions', icon: LockIcon, group: 'superadmin' },
     { label: 'Profile', to: '/superadmin/profile', icon: UserIcon },
   ],
 }

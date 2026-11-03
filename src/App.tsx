@@ -77,8 +77,8 @@ const ProfilePage = lazy(() =>
 const StaffLayout = lazy(() =>
   import('./views/staff/StaffLayout').then((m) => ({ default: m.StaffLayout })),
 )
-const RoleDashboardPlaceholder = lazy(() =>
-  import('./views/staff/RoleDashboardPlaceholder').then((m) => ({ default: m.RoleDashboardPlaceholder })),
+const PermissionsPage = lazy(() =>
+  import('./views/superadmin/PermissionsPage').then((m) => ({ default: m.PermissionsPage })),
 )
 const StaffDashboardPage = lazy(() =>
   import('./views/staff/StaffDashboardPage').then((m) => ({ default: m.StaffDashboardPage })),
@@ -162,6 +162,52 @@ const operationsRoutes = (
       element={
         <Suspense fallback={<OrderLogSkeleton />}>
           <StaffOnlineOrdersPage />
+        </Suspense>
+      }
+    />
+  </>
+)
+
+// The admin tools. A superadmin has them under /superadmin too, and staff reach them under /admin once a superadmin turns them on.
+const adminToolRoutes = (
+  <>
+    <Route
+      path="activity-logs"
+      element={
+        <Suspense fallback={<OrderLogSkeleton />}>
+          <ActivityLogsPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="ar-insights"
+      element={
+        <Suspense fallback={<ArInsightsPageSkeleton />}>
+          <ArInsightsPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="promotions"
+      element={
+        <Suspense fallback={<PromotionsPageSkeleton />}>
+          <PromotionsPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="refunds"
+      element={
+        <Suspense fallback={<RefundsPageSkeleton />}>
+          <RefundsPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="users"
+      element={
+        <Suspense fallback={<AccountsPageSkeleton />}>
+          <UserManagementPage />
         </Suspense>
       }
     />
@@ -317,46 +363,7 @@ function App() {
             >
               <Route index element={<AdminDashboardPage />} />
               {operationsRoutes}
-              <Route
-                path="activity-logs"
-                element={
-                  <Suspense fallback={<OrderLogSkeleton />}>
-                    <ActivityLogsPage />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="ar-insights"
-                element={
-                  <Suspense fallback={<ArInsightsPageSkeleton />}>
-                    <ArInsightsPage />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="promotions"
-                element={
-                  <Suspense fallback={<PromotionsPageSkeleton />}>
-                    <PromotionsPage />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="refunds"
-                element={
-                  <Suspense fallback={<RefundsPageSkeleton />}>
-                    <RefundsPage />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="users"
-                element={
-                  <Suspense fallback={<AccountsPageSkeleton />}>
-                    <UserManagementPage />
-                  </Suspense>
-                }
-              />
+              {adminToolRoutes}
               <Route path="profile" element={<StaffProfile />} />
             </Route>
             <Route
@@ -367,7 +374,17 @@ function App() {
                 </Suspense>
               }
             >
-              <Route index element={<RoleDashboardPlaceholder area="superadmin" />} />
+              <Route index element={<AdminDashboardPage />} />
+              {operationsRoutes}
+              {adminToolRoutes}
+              <Route
+                path="permissions"
+                element={
+                  <Suspense fallback={<AccountsPageSkeleton />}>
+                    <PermissionsPage />
+                  </Suspense>
+                }
+              />
               <Route path="profile" element={<StaffProfile />} />
             </Route>
             <Route element={<Layout bare />}>
