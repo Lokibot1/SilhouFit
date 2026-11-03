@@ -24,9 +24,7 @@ export function AuthSkeletonShell({
       <div className="relative flex items-center justify-center overflow-hidden px-4 py-14 max-[359px]:px-3 sm:px-6 lg:py-16">
         <div
           aria-hidden="true"
-          className={`absolute top-5 h-5 w-44 animate-pulse rounded bg-line sm:h-6 sm:w-53 ${
-            photo ? 'right-16 sm:right-20' : 'right-4 sm:right-6'
-          }`}
+          className="absolute top-5 right-4 h-5 w-44 animate-pulse rounded bg-line sm:right-6 sm:h-6 sm:w-53"
         />
         <div className="relative z-10 w-full max-w-md animate-pulse">{children}</div>
       </div>

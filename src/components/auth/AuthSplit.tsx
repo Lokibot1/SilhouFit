@@ -46,13 +46,10 @@ export function AuthSplit({
         <div aria-hidden="true" className="absolute inset-0 z-0">
           <ShaderBackground />
         </div>
-        {/* Pages with the theme toggle keep the logo clear of it; without one it goes right into the corner. */}
         <Link
           to="/"
           aria-label="KRAL home"
-          className={`tap absolute top-5 z-10 text-fg transition-colors duration-250 ease-out hover:text-[#CB1C2B] focus-visible:text-[#CB1C2B] motion-reduce:transition-none ${
-            photo ? "right-16 sm:right-20" : "right-4 sm:right-6"
-          }`}
+          className="tap absolute top-5 right-4 z-10 text-fg transition-colors duration-250 ease-out hover:text-[#CB1C2B] focus-visible:text-[#CB1C2B] motion-reduce:transition-none sm:right-6"
         >
           <Logo className="h-5 w-auto fill-current sm:h-6" />
         </Link>
