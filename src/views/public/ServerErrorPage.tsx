@@ -19,8 +19,8 @@ export function ServerErrorPage({ onRetry = () => window.location.reload() }: { 
 
   return (
     <>
-      <section className="relative flex h-svh flex-col overflow-hidden">
-        <div className="relative z-10 flex min-h-0 flex-1 items-center px-6">
+      <section className="relative flex min-h-svh flex-col">
+        <div className="relative z-10 flex flex-1 items-center px-6 py-8">
           <div className="mx-auto w-full max-w-6xl">
             <div className="max-w-3xl">
               <p className="font-mono text-xs tracking-[0.2em] text-chrome-strong uppercase sm:text-sm">
