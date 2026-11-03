@@ -16,6 +16,8 @@ const REVEAL =
 // The chevrons also drift in from the edge and the dots rise into place, on the same timing.
 const DRIFT = 'transition-transform duration-500 ease-in-out group-hover/img:translate-x-0 group-has-focus-visible/img:translate-x-0 pointer-coarse:translate-x-0'
 
+const SAVED_ON = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+
 interface ProductCardProps {
   product: Product
   /** Position in the grid; the first few images load eagerly. */
@@ -27,9 +29,11 @@ interface ProductCardProps {
   onBuy: (product: Product) => void
   /** The wishlist page: a checkbox on the photo for acting on several pieces at once. */
   selection?: { selected: boolean; onChange: (selected: boolean) => void }
+  /** The wishlist page: when the piece was saved, as an ISO time. */
+  savedOn?: string
 }
 
-export function ProductCard({ product, index, list = false, saved, onToggleSaved, onAddToCart, onBuy, selection }: ProductCardProps) {
+export function ProductCard({ product, index, list = false, saved, onToggleSaved, onAddToCart, onBuy, selection, savedOn }: ProductCardProps) {
   const [failed, setFailed] = useState(false)
   const [current, setCurrent] = useState(0)
   const { name, salePrice, stock } = product
@@ -179,6 +183,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
               </span>
             </p>
           )}
+          {savedOn && <p className="font-ui text-xs text-fg-muted">Saved {SAVED_ON.format(new Date(savedOn))}</p>}
         </div>
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">

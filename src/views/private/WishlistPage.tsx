@@ -1,5 +1,5 @@
 import { MotionConfig } from 'motion/react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BagIcon, CartIcon, HeartIcon, SparkleIcon, StoreIcon, XIcon } from '../../components/form/icons'
 import { ProductCard } from '../../components/shop/ProductCard'
@@ -8,6 +8,7 @@ import { WishlistGridSkeleton } from '../../components/shop/ShopSkeleton'
 import { SHOP_PRIMARY, SHOP_SECONDARY } from '../../components/shop/shopControls'
 import { SpecSheet, type Choice } from '../../components/shop/SpecSheet'
 import { useToast } from '../../components/toast/useToast'
+import { ConfirmDialog } from '../../components/admin/users/ConfirmDialog'
 import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
 import type { Product } from '../../data/products'
 import { useCart } from '../../hooks/useCart'
@@ -17,6 +18,7 @@ import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProductsByIds } from '../../hooks/useProducts'
 import { useRequireSignIn } from '../../hooks/useRequireSignIn'
 import { useWishlist } from '../../hooks/useWishlist'
+import { fetchWishlist } from '../../service/wishlistApi'
 import { playAddToCart } from '../../utils/sound'
 
 const DESCRIPTION =
@@ -50,24 +52,53 @@ export function WishlistPage() {
   const [selected, setSelected] = useState<string[]>([])
   const [flow, setFlow] = useState<Flow | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [clearing, setClearing] = useState(false)
 
-  // In the order they were saved. Ids for pieces that are archived or gone are hidden, not deleted.
-  const saved = products.status === 'success' ? products.products : []
+  const idsReady = wishlist.status === 'ready'
+  const signedIn = !!user
+  // When each piece was saved (GET /wishlist), for a signed-in shopper. A failed request only means no dates: the page still lists from the ids.
+  const [savedAt, setSavedAt] = useState<Map<string, string>>(new Map())
+  useEffect(() => {
+    if (!signedIn || !idsReady) return
+    const controller = new AbortController()
+    fetchWishlist({ signal: controller.signal }).then(
+      (items) => setSavedAt(new Map(items.map((item) => [item.productId, item.createdAt]))),
+      () => {},
+    )
+    return () => controller.abort()
+  }, [signedIn, idsReady])
+
+  // Newest saved first. A piece with no date (saved a moment ago, or the dates did not load) keeps its place, the newest ones first; a guest's list has no dates and stays in the order saved.
+  // Ids for pieces that are archived or gone are hidden, not deleted.
+  const savedTime = (id: string) => Date.parse(savedAt.get(id) ?? '') || Number.MAX_SAFE_INTEGER
+  const saved = idsReady && products.status === 'success' ? (signedIn ? [...products.products].sort((a, b) => savedTime(b.id) - savedTime(a.id)) : products.products) : []
   const chosen = saved.filter((p) => selected.includes(p.id))
   const buyable = chosen.filter((p) => p.stock > 0)
   const allSelected = saved.length > 0 && chosen.length === saved.length
 
-  function remove(list: Product[]) {
+  async function remove(list: Product[]) {
     const ids = list.map((p) => p.id)
-    wishlist.remove(ids)
+    const kept = wishlist.remove(ids)
     setSelected((current) => current.filter((id) => !ids.includes(id)))
     // The cards disappear, so keep focus on the heading.
     headingRef.current?.focus()
+    if (!(await kept)) return
     toast.show({
       kind: 'info',
       message: list.length === 1 ? `Removed ${list[0].name} from wishlist` : `Removed ${plural(list.length)} from wishlist`,
       action: { label: 'Undo', onClick: () => wishlist.add(ids) },
     })
+  }
+
+  async function clearAll() {
+    // Every saved id, including pieces hidden because they were archived, so Undo restores exactly what was there.
+    const ids = wishlist.ids
+    setClearing(false)
+    const kept = wishlist.clear()
+    setSelected([])
+    headingRef.current?.focus()
+    if (!(await kept)) return
+    toast.show({ kind: 'info', message: 'Cleared your wishlist', action: { label: 'Undo', onClick: () => wishlist.add(ids) } })
   }
 
   function start(action: 'cart' | 'buy', list: Product[]) {
@@ -141,31 +172,31 @@ export function WishlistPage() {
         crumb="Wishlist"
         backToShop
         summary={
-          products.status === 'success' ? (
+          idsReady && products.status === 'success' ? (
             <p className="font-ui text-sm text-fg-muted tabular-nums">{plural(saved.length)} saved</p>
           ) : undefined
         }
       />
 
       <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
-        {products.status === 'loading' && <WishlistGridSkeleton />}
+        {(wishlist.status === 'loading' || (idsReady && products.status === 'loading')) && <WishlistGridSkeleton />}
 
-        {products.status === 'error' && (
+        {(wishlist.status === 'error' || (idsReady && products.status === 'error')) && (
           <div role="alert" className="glass-card rounded-xl p-6 sm:p-8">
             <h2 className="display text-2xl text-fg">Your wishlist did not load</h2>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
-              The request for stock and prices failed, most likely because the connection dropped or the service is
+              {wishlist.status === 'error' ? 'The request for your saved pieces' : 'The request for stock and prices'} failed, most likely because the connection dropped or the service is
               briefly unavailable. Your saved pieces are kept. Check your connection, then try again.
             </p>
-            <button type="button" onClick={products.retry} className={`${PRIMARY_BUTTON} mt-6`}>
+            <button type="button" onClick={wishlist.status === 'error' ? wishlist.retry : products.retry} className={`${PRIMARY_BUTTON} mt-6`}>
               Try again
             </button>
           </div>
         )}
 
-        {products.status === 'success' && saved.length === 0 && <EmptyWishlist name={user?.name} />}
+        {idsReady && products.status === 'success' && saved.length === 0 && <EmptyWishlist name={user?.name} />}
 
-        {products.status === 'success' && saved.length > 0 && (
+        {idsReady && products.status === 'success' && saved.length > 0 && (
           <>
             {/* Sticks just under the navbar (its 61px height) so the actions stay in reach while scrolling a long list. */}
             <div
@@ -217,6 +248,9 @@ export function WishlistPage() {
                   Remove
                 </button>
               </div>
+              <button type="button" onClick={() => setClearing(true)} className={`${SHOP_SECONDARY} max-sm:w-full`}>
+                Clear all
+              </button>
             </div>
             {chosen.length > buyable.length && (
               <p className="mt-2 text-sm text-fg-muted">
@@ -235,12 +269,17 @@ export function WishlistPage() {
                     onAddToCart={(p) => start('cart', [p])}
                     onBuy={(p) => start('buy', [p])}
                     selection={{ selected: selected.includes(product.id), onChange: (on) => toggle(product.id, on) }}
+                    savedOn={signedIn ? savedAt.get(product.id) : undefined}
                   />
                 </li>
               ))}
             </ul>
           </>
         )}
+
+        <ConfirmDialog open={clearing} title="Clear your wishlist?" confirmLabel="Clear wishlist" pending={false} onConfirm={clearAll} onClose={() => setClearing(false)}>
+          Every piece you saved is removed from your wishlist, including any that are sold out or no longer in the shop. You can undo this right after.
+        </ConfirmDialog>
 
         {flow && sheetProduct && (
           <SpecSheet
