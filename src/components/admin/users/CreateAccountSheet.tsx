@@ -72,7 +72,7 @@ export function CreateAccountSheet({ open, onClose, noun, create }: CreateAccoun
       }
     >
       {credentials ? (
-        <CredentialsPanel credentials={credentials} heading={`${values.firstName.trim()} ${values.lastName.trim()}`} />
+        <CredentialsPanel credentials={credentials} heading={`${values.firstName.trim()} ${values.lastName.trim()}`} canReset={noun !== 'superadmin'} />
       ) : (
         <form id={FORM_ID} noValidate onSubmit={onSubmit} aria-busy={pending} className="grid gap-4 pb-5">
           <p className="text-xs text-fg-muted">
