@@ -24,10 +24,13 @@ export function Navbar() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
   const authPage = isAuthPath(pathname);
-  // Login, sign up and forgot password carry their own logo beside the form.
-  const hideBrand = ["/login", "/signup", "/forgot-password"].includes(
-    pathname.replace(/\/$/, ""),
-  );
+  // Login, sign up, forgot password and the Google callback carry their own logo beside the form.
+  const hideBrand = [
+    "/login",
+    "/signup",
+    "/forgot-password",
+    "/auth/callback",
+  ].includes(pathname.replace(/\/$/, ""));
   const user = useCurrentUser();
 
   const { scrollY, scrollYProgress } = useScroll();
