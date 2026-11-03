@@ -367,3 +367,95 @@ test.describe('dark mode', () => {
     expect(input.text).not.toBe(input.bg)
   })
 })
+
+// Feature "Size measurements – View row" (GET /size-measurements/:id): Edit reads the row again before the form opens.
+test.describe('Size measurements – View row', () => {
+  const rowOf = (api: SizeMeasurementsMock, size: string) => api.rows.find((r) => r.size === size)!
+  const getsOne = (api: SizeMeasurementsMock) => api.of('GET').filter((c) => c.id !== null)
+
+  test('shows a skeleton, then the fresh values rather than the list row', async ({ page }) => {
+    const api = await start(page)
+    // The list was loaded with a chest of 55; someone has changed it since.
+    rowOf(api, 'M').chestWidthCm = 58
+    let open!: () => void
+    const held = new Promise<void>((resolve) => (open = resolve))
+    await page.route(
+      (url) => url.pathname === `/size-measurements/${rowOf(api, 'M').id}`,
+      async (route) => {
+        if (route.request().method() === 'GET') await held
+        return route.fallback()
+      },
+    )
+
+    await action(page, 'Edit', 'Hoodie M').click()
+    const dialog = sheet(page, 'Edit size')
+    await expect(dialog.getByRole('status', { name: 'Loading the size' })).toBeVisible()
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toBeHidden()
+    open()
+
+    await expect(dialog.getByRole('status', { name: 'Loading the size' })).toHaveCount(0)
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toHaveValue('58')
+    await expect(dialog.getByRole('button', { name: 'Save size' })).toBeDisabled()
+    expect(getsOne(api)).toHaveLength(1)
+
+    // Saving the fresh form changes only what the person edited.
+    await dialog.getByLabel('Chest width', { exact: true }).fill('59')
+    await dialog.getByRole('button', { name: 'Save size' }).click()
+    await expect(toast(page, 'Hoodie M updated')).toBeVisible()
+    expect(api.of('PATCH')[0].body).toEqual({ chestWidthCm: 59 })
+  })
+
+  test('a network error shows an alert with Try again, which loads the row', async ({ page }) => {
+    const api = await start(page)
+    let attempts = 0
+    await page.route(
+      (url) => url.pathname === `/size-measurements/${rowOf(api, 'M').id}`,
+      (route) => {
+        if (route.request().method() === 'GET' && (attempts += 1) === 1) return route.abort('failed')
+        return route.fallback()
+      },
+    )
+
+    await action(page, 'Edit', 'Hoodie M').click()
+    const dialog = sheet(page, 'Edit size')
+    const alert = dialog.getByRole('alert').filter({ hasText: "Couldn't open the size." })
+    await expect(alert).toBeVisible()
+    await expect(alert).toContainText('The connection dropped before the server answered. Check your connection, then try again.')
+    await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeVisible()
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toBeHidden()
+
+    await dialog.getByRole('button', { name: 'Try again' }).click()
+    await expect(alert).toHaveCount(0)
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toHaveValue('55')
+    expect(attempts).toBe(2)
+  })
+
+  test('a 404 says the size is gone and offers only Close', async ({ page }) => {
+    const api = await start(page)
+    api.failNext(404, { statusCode: 404, message: 'Size measurement not found' })
+    await action(page, 'Edit', 'Hoodie M').click()
+
+    const dialog = sheet(page, 'Edit size')
+    const alert = dialog.getByRole('alert').filter({ hasText: "Couldn't open the size." })
+    await expect(alert).toBeVisible()
+    await expect(alert).toContainText('That size no longer exists')
+    await expect(dialog.getByRole('button', { name: 'Try again' })).toHaveCount(0)
+    await expect(dialog.getByRole('button', { name: 'Save size' })).toHaveCount(0)
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    expect(getsOne(api)).toHaveLength(1)
+  })
+
+  test('a 409 on save still names the size and keeps the sheet open', async ({ page }) => {
+    const api = await start(page)
+    await action(page, 'Edit', 'Hoodie M').click()
+    const dialog = sheet(page, 'Edit size')
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toHaveValue('55')
+
+    api.failNext(409, { statusCode: 409, message: 'Size already exists', error: 'Conflict' })
+    await dialog.getByLabel('Chest width', { exact: true }).fill('56')
+    await dialog.getByRole('button', { name: 'Save size' }).click()
+    await expect(dialog.getByText('An active Hoodie M already exists. Edit that one, or use a different size.').first()).toBeVisible()
+    await expect(dialog.getByLabel('Chest width', { exact: true })).toHaveValue('56')
+  })
+})

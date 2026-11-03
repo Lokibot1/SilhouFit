@@ -7,6 +7,7 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { ProductListError } from '../../src/service/fetchProductList'
 import {
   createSizeMeasurement,
+  fetchSizeMeasurement,
   fetchSizeMeasurements,
   setSizeMeasurementActive,
   updateSizeMeasurement,
@@ -18,12 +19,14 @@ vi.mock('../../src/service/sizeMeasurements', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/sizeMeasurements')>()),
   fetchSizeMeasurements: vi.fn(),
   createSizeMeasurement: vi.fn(),
+  fetchSizeMeasurement: vi.fn(),
   updateSizeMeasurement: vi.fn(),
   setSizeMeasurementActive: vi.fn(),
 }))
 
 const list = vi.mocked(fetchSizeMeasurements)
 const create = vi.mocked(createSizeMeasurement)
+const fetchRow = vi.mocked(fetchSizeMeasurement)
 const update = vi.mocked(updateSizeMeasurement)
 const setActive = vi.mocked(setSizeMeasurementActive)
 
@@ -49,6 +52,7 @@ beforeAll(() => {
 beforeEach(() => {
   vi.resetAllMocks()
   list.mockResolvedValue([hoodie('M'), hoodie('S'), hoodie('XL')])
+  fetchRow.mockImplementation(async (id) => hoodie(id.replace('id-', '')))
 })
 
 function Where() {
@@ -289,6 +293,55 @@ describe('edit a size', () => {
     await waitFor(() => expect(update).toHaveBeenCalledWith('id-M', { totalLengthCm: null, neckCm: 38 }, expect.anything()))
     expect(await screen.findByText('Hoodie M updated')).toBeInTheDocument()
     await waitFor(() => expect(within(table()).getByRole('button', { name: 'Edit Hoodie M', hidden: true })).toHaveFocus())
+  })
+})
+
+describe('opening a size to edit', () => {
+  it('reads the row again and edits that fresh copy, not the one the list showed', async () => {
+    fetchRow.mockResolvedValue(hoodie('M', { chestWidthCm: 58 }))
+    const user = userEvent.setup()
+    renderPage()
+    await waitFor(() => expect(sizesInTable()).toHaveLength(3))
+    await user.click(within(table()).getByRole('button', { name: 'Edit Hoodie M', hidden: true }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit size' })
+    expect(await within(dialog).findByLabelText('Chest width')).toHaveValue('58')
+    expect(fetchRow).toHaveBeenCalledWith('id-M', expect.anything())
+  })
+
+  it('shows a skeleton while the row loads', async () => {
+    fetchRow.mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    renderPage()
+    await waitFor(() => expect(sizesInTable()).toHaveLength(3))
+    await user.click(within(table()).getByRole('button', { name: 'Edit Hoodie M', hidden: true }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit size' })
+    expect(within(dialog).getByRole('status', { name: 'Loading the size' })).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Size')).not.toBeVisible()
+  })
+
+  it('says what went wrong and retries when the row cannot be read', async () => {
+    fetchRow.mockRejectedValueOnce(new ProductListError('network'))
+    const user = userEvent.setup()
+    renderPage()
+    await waitFor(() => expect(sizesInTable()).toHaveLength(3))
+    await user.click(within(table()).getByRole('button', { name: 'Edit Hoodie M', hidden: true }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit size' })
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent("Couldn't open the size.")
+    await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
+    expect(await within(dialog).findByLabelText('Size')).toHaveValue('M')
+  })
+
+  it('offers no retry when the row is gone', async () => {
+    fetchRow.mockRejectedValue(new ProductListError('not-found'))
+    const user = userEvent.setup()
+    renderPage()
+    await waitFor(() => expect(sizesInTable()).toHaveLength(3))
+    await user.click(within(table()).getByRole('button', { name: 'Edit Hoodie M', hidden: true }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit size' })
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('That size no longer exists')
+    expect(within(dialog).queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit size' })).not.toBeInTheDocument())
   })
 })
 

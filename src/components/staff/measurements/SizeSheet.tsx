@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CATEGORIES, SIZES_BY_CATEGORY } from '../../../data/products'
-import { createSizeMeasurement, sizeFailureReason, updateSizeMeasurement, type SizeMeasurement } from '../../../service/sizeMeasurements'
+import { createSizeMeasurement, fetchSizeMeasurement, sizeFailureReason, updateSizeMeasurement, type SizeMeasurement } from '../../../service/sizeMeasurements'
 import { describedBy, filterMeasurement, MEASUREMENT_FIELDS } from '../../../utils/productValidation'
 import { COLUMNS_BY_CATEGORY, buildSizeInput, buildSizePatch, filterSizeLabel, SIZE_MAX, sizeFormValues, validateSizeForm, type SizeFormValues } from '../../../utils/sizeMeasurementValidation'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
@@ -25,11 +25,40 @@ interface SizeSheetProps {
   onClose: () => void
 }
 
-/** Add a size to a category, or edit one: the size label and the measurements in cm that apply to its category. Mount it fresh for each row. */
-export function SizeSheet({ row, category, onSaved, onClose }: SizeSheetProps) {
+/**
+ * Add a size to a category, or edit one: the size label and the measurements in cm that apply to its category. Mount it fresh for each row.
+ * An edit first reads the row again (GET /size-measurements/:id), so a row changed since the list loaded is not saved over from a stale copy.
+ */
+export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheetProps) {
+  const [row, setRow] = useState(listed)
   const editing = row !== undefined
-  const [values, setValues] = useState(() => sizeFormValues(category, row))
-  const [initial] = useState(() => JSON.stringify(values))
+  const [values, setValues] = useState(() => sizeFormValues(category, listed))
+  const [initial, setInitial] = useState(() => JSON.stringify(values))
+  const [load, setLoad] = useState<{ failure?: unknown } | null>(listed ? {} : null)
+  const [attempt, setAttempt] = useState(0)
+  const listedId = listed?.id
+
+  useEffect(() => {
+    if (!listedId) return
+    const controller = new AbortController()
+    fetchSizeMeasurement(listedId, { signal: controller.signal }).then(
+      (fresh) => {
+        const loaded = sizeFormValues(category, fresh)
+        setRow(fresh)
+        setValues(loaded)
+        setInitial(JSON.stringify(loaded))
+        setLoad(null)
+      },
+      (failure: unknown) => {
+        if (!controller.signal.aborted) setLoad({ failure })
+      },
+    )
+    return () => controller.abort()
+    // Only the row to open (or a retry) reads it again, not the page's category.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [listedId, attempt])
+  const loadFailure = load?.failure
+  const loadKind = (loadFailure as { kind?: string } | undefined)?.kind ?? ''
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set())
   const [attempted, setAttempted] = useState(false)
   const [pending, setPending] = useState(false)
@@ -118,7 +147,25 @@ export function SizeSheet({ row, category, onSaved, onClose }: SizeSheetProps) {
   }
 
   const buttons = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'
-  const footer = discarding ? (
+  const footer = load ? (
+    <div className={buttons}>
+      <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+        Close
+      </button>
+      {loadFailure !== undefined && RETRYABLE.includes(loadKind) && (
+        <button
+          type="button"
+          onClick={() => {
+            setLoad({})
+            setAttempt((n) => n + 1)
+          }}
+          className={PRIMARY_BUTTON}
+        >
+          Try again
+        </button>
+      )}
+    </div>
+  ) : discarding ? (
     <div key="discard" className={buttons}>
       <button type="button" autoFocus onClick={() => setDiscarding(false)} className={PRIMARY_BUTTON}>
         Cancel
@@ -142,13 +189,45 @@ export function SizeSheet({ row, category, onSaved, onClose }: SizeSheetProps) {
   const sizeError = error('size')
   const noneError = error('measurements')
   return (
-    <Modal variant="sheet" open onClose={requestClose} title={discarding ? 'Are you sure?' : editing ? 'Edit size' : 'Add size'} footer={footer}>
+    <Modal variant="sheet" open onClose={load ? onClose : requestClose} title={discarding ? 'Are you sure?' : editing ? 'Edit size' : 'Add size'} footer={footer}>
       {discarding && (
         <p className="pb-5 text-base leading-relaxed text-fg-muted">
           {editing ? "Your changes to this size haven't been saved yet." : "This size hasn't been added yet."} Closing now discards {editing ? 'them' : 'everything you entered'}.
         </p>
       )}
-      <form id={FORM_ID} noValidate hidden={discarding} onSubmit={submit} className="pb-5">
+      {load && loadFailure !== undefined && (
+        <div role="alert" className="mb-5 flex items-start gap-3 rounded-xl border border-line bg-canvas p-3">
+          <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-fg">Couldn&apos;t open the size.</p>
+            <p className="mt-1 text-sm text-fg-muted">{sizeFailureReason(loadFailure, label)}</p>
+          </div>
+        </div>
+      )}
+      {load && loadFailure === undefined && (
+        <div role="status" aria-label="Loading the size" className="grid animate-pulse gap-5 pb-5">
+          <div className="grid gap-1">
+            <div className="h-4 w-16 rounded-md bg-line" />
+            <div className="h-5 w-24 rounded-md bg-line" />
+          </div>
+          <div className="grid gap-1">
+            <div className="h-5 w-12 rounded-md bg-line" />
+            <div className="h-11 rounded-xl bg-line" />
+          </div>
+          <div className="grid gap-3">
+            <div className="h-5 w-36 rounded-md bg-line" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {fields.map(({ key }) => (
+                <div key={key} className="grid gap-1">
+                  <div className="h-5 w-24 rounded-md bg-line" />
+                  <div className="h-11 rounded-xl bg-line" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      <form id={FORM_ID} noValidate hidden={discarding || load !== null} onSubmit={submit} className="pb-5">
         <fieldset disabled={pending} className="m-0 grid min-w-0 gap-5 border-0 p-0">
           {banner && (
             <div role="alert" className="flex items-start gap-3 rounded-xl border border-line bg-canvas p-3">
