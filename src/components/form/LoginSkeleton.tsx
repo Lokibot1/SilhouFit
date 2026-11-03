@@ -1,7 +1,7 @@
 import { AuthHeadingSkeleton, AuthSkeletonShell } from './AuthSkeletonShell'
 
 // Sign in mirrors AuthSplit and the login form so the swap does not shift layout.
-// `short` is the /forgot-password card: paragraph, one field, two buttons.
+// `short` is /forgot-password: heading, one field, two buttons, with no photo panel.
 export function LoginSkeleton({ short = false }: { short?: boolean }) {
   if (!short) {
     return (
@@ -24,20 +24,13 @@ export function LoginSkeleton({ short = false }: { short?: boolean }) {
   }
 
   return (
-    <div
-      role="status"
-      aria-label="Loading password reset form"
-      className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 max-[359px]:px-3 sm:px-6"
-    >
-      <div className="mb-3 h-[calc(clamp(1.75rem,4vw,2.5rem)*0.95)] w-3/4 max-w-xs animate-pulse rounded-md bg-line-strong" />
-      <div className="glass-card glass-elevated w-full max-w-md animate-pulse rounded-xl px-4 py-4 max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4">
-        <div className="space-y-2.5">
-          <div className="h-[3.6rem] rounded bg-line min-[372px]:h-[2.4rem]" />
-          <div className="h-11 rounded-xl bg-line" />
-          <div className="h-11 rounded-xl bg-line-strong" />
-          <div className="h-11 rounded-xl bg-line" />
-        </div>
+    <AuthSkeletonShell label="Loading password reset form" photo={false}>
+      <div className="[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3">
+        <AuthHeadingSkeleton subtitle="Enter the email you signed up with and we'll send you a link to choose a new password." />
+        <div className="h-11 rounded-xl bg-line lg:h-10" />
+        <div className="h-11 rounded-xl bg-line-strong lg:h-10" />
+        <div className="h-11 rounded-xl bg-line lg:h-10" />
       </div>
-    </div>
+    </AuthSkeletonShell>
   )
 }

@@ -7,34 +7,51 @@ import { Logo } from "../landing-v2/Logo";
 import { ShaderBackground } from "../ui/ShaderBackground";
 
 /** Shared by login and sign up: a photo panel on the left, the form over the KRAL shader on the right. */
-export function AuthSplit({ children }: { children: ReactNode }) {
+export function AuthSplit({
+  children,
+  photo = true,
+}: {
+  children: ReactNode;
+  /** false: no photo panel, the form sits in the middle of the shader (forgot password). */
+  photo?: boolean;
+}) {
   return (
-    <div className="kral-login relative grid min-h-svh bg-canvas lg:grid-cols-2">
-      <aside className="relative hidden overflow-hidden lg:block">
-        <img
-          src="/images/login-fitting.webp"
-          alt="Tailor taking shoulder measurements on a client in a black top"
-          className="absolute inset-0 size-full object-cover object-[25%_50%]"
-          fetchPriority="high"
-        />
-        <div aria-hidden="true" className="absolute inset-0 bg-[#161113]/55" />
-        <div className="relative flex h-full flex-col justify-start gap-3 p-12 text-white">
-          <p className="font-display text-5xl leading-[1.05] font-bold tracking-[-0.02em]">
-            Find your fit.
-            <br />
-            Wear your identity.
-          </p>
-          <p className="text-base">Made to represent.</p>
-        </div>
-      </aside>
+    <div
+      className={`kral-login relative grid min-h-svh bg-canvas ${photo ? "lg:grid-cols-2" : ""}`}
+    >
+      {photo && (
+        <aside className="relative hidden overflow-hidden lg:block">
+          <img
+            src="/images/login-fitting.webp"
+            alt="Tailor taking shoulder measurements on a client in a black top"
+            className="absolute inset-0 size-full object-cover object-[25%_50%]"
+            fetchPriority="high"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-[#161113]/55"
+          />
+          <div className="relative flex h-full flex-col justify-start gap-3 p-12 text-white">
+            <p className="font-display text-5xl leading-[1.05] font-bold tracking-[-0.02em]">
+              Find your fit.
+              <br />
+              Wear your identity.
+            </p>
+            <p className="text-base">Made to represent.</p>
+          </div>
+        </aside>
+      )}
       <div className="relative flex items-center justify-center overflow-hidden px-4 py-14 max-[359px]:px-3 sm:px-6 lg:py-16">
         <div aria-hidden="true" className="absolute inset-0 z-0">
           <ShaderBackground />
         </div>
+        {/* Pages with the theme toggle keep the logo clear of it; without one it goes right into the corner. */}
         <Link
           to="/"
           aria-label="KRAL home"
-          className="tap absolute top-5 right-16 z-10 text-fg transition-colors duration-250 ease-out hover:text-[#CB1C2B] focus-visible:text-[#CB1C2B] motion-reduce:transition-none sm:right-20"
+          className={`tap absolute top-5 z-10 text-fg transition-colors duration-250 ease-out hover:text-[#CB1C2B] focus-visible:text-[#CB1C2B] motion-reduce:transition-none ${
+            photo ? "right-16 sm:right-20" : "right-4 sm:right-6"
+          }`}
         >
           <Logo className="h-5 w-auto fill-current sm:h-6" />
         </Link>

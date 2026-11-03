@@ -3,14 +3,29 @@ import type { ReactNode } from 'react'
 import '../auth/AuthSplit.css'
 
 /** Mirrors AuthSplit: the photo panel as a block, the form side flat Obsidian, the logo as a bar top right. */
-export function AuthSkeletonShell({ label, children }: { label: string; children: ReactNode }) {
+export function AuthSkeletonShell({
+  label,
+  children,
+  photo = true,
+}: {
+  label: string
+  children: ReactNode
+  /** false: no photo block (forgot password). */
+  photo?: boolean
+}) {
   return (
-    <div role="status" aria-label={label} className="kral-login relative grid min-h-svh bg-canvas lg:grid-cols-2">
-      <div aria-hidden="true" className="hidden animate-pulse bg-line lg:block" />
+    <div
+      role="status"
+      aria-label={label}
+      className={`kral-login relative grid min-h-svh bg-canvas ${photo ? 'lg:grid-cols-2' : ''}`}
+    >
+      {photo && <div aria-hidden="true" className="hidden animate-pulse bg-line lg:block" />}
       <div className="relative flex items-center justify-center overflow-hidden px-4 py-14 max-[359px]:px-3 sm:px-6 lg:py-16">
         <div
           aria-hidden="true"
-          className="absolute top-5 right-16 h-5 w-44 animate-pulse rounded bg-line sm:right-20 sm:h-6 sm:w-53"
+          className={`absolute top-5 h-5 w-44 animate-pulse rounded bg-line sm:h-6 sm:w-53 ${
+            photo ? 'right-16 sm:right-20' : 'right-4 sm:right-6'
+          }`}
         />
         <div className="relative z-10 w-full max-w-md animate-pulse">{children}</div>
       </div>

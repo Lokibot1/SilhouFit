@@ -24,8 +24,12 @@ export function Navbar() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
   const authPage = isAuthPath(pathname);
-  // Login and sign up carry their own logo beside the form.
-  const hideBrand = ["/login", "/signup"].includes(pathname.replace(/\/$/, ""));
+  // Login, sign up and forgot password carry their own logo beside the form.
+  // Forgot password is always the dark KRAL look, so there is no theme to switch.
+  const hideToggle = pathname.replace(/\/$/, "") === "/forgot-password";
+  const hideBrand = ["/login", "/signup", "/forgot-password"].includes(
+    pathname.replace(/\/$/, ""),
+  );
   const user = useCurrentUser();
 
   const { scrollY, scrollYProgress } = useScroll();
@@ -161,9 +165,11 @@ export function Navbar() {
 
         {/* Pinned to the corner, centred on the nav row (which resizes on scroll), clear of the
             row's content via the nav's right padding. */}
-        <div className="pointer-events-auto absolute inset-y-0 right-2 z-10 flex items-center sm:right-3">
-          <ThemeToggle />
-        </div>
+        {!hideToggle && (
+          <div className="pointer-events-auto absolute inset-y-0 right-2 z-10 flex items-center sm:right-3">
+            <ThemeToggle />
+          </div>
+        )}
       </div>
 
       {!authPage && (
