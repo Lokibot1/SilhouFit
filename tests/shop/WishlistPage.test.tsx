@@ -9,11 +9,13 @@ import { clearProductCache } from '../../src/hooks/useProducts'
 import { ProductListError } from '../../src/service/fetchProductList'
 import { fetchShopProduct } from '../../src/service/fetchShopProducts'
 import { clearSession, setSession } from '../../src/service/session'
+import { fetchWishlist, fetchWishlistIds } from '../../src/service/wishlistApi'
 import { WishlistPage } from '../../src/views/private/WishlistPage'
 import { BLAZER, POLO, SOLD_OUT, TROUSERS } from '../fixtures/shopProducts'
 import { wireShopProducts } from '../fixtures/wireCartApi'
 
 vi.mock('../../src/service/fetchShopProducts')
+vi.mock('../../src/service/wishlistApi')
 const fetchMock = vi.mocked(fetchShopProduct)
 
 function seed(key: 'wishlist' | 'cart', value: unknown) {
@@ -47,6 +49,8 @@ beforeEach(() => {
   seed('cart', [])
   act(() => clearSession())
   wireShopProducts([POLO, BLAZER, TROUSERS, SOLD_OUT])
+  vi.mocked(fetchWishlistIds).mockResolvedValue([])
+  vi.mocked(fetchWishlist).mockResolvedValue([])
 })
 afterEach(() => {
   vi.clearAllMocks()
@@ -110,6 +114,33 @@ describe('WishlistPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Your wishlist did not load')
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findAllByRole('article')).toHaveLength(1)
+  })
+
+  describe('signed in', () => {
+    beforeEach(() => {
+      act(() => setSession({ name: 'Maria Santos', email: 'maria@example.com' }))
+      vi.mocked(fetchWishlistIds).mockResolvedValue(['p01', 'p02'])
+    })
+
+    it('lists the newest saved first and says when each piece was saved', async () => {
+      vi.mocked(fetchWishlist).mockResolvedValue([
+        { productId: 'p01', createdAt: '2026-10-01T12:00:00.000Z' },
+        { productId: 'p02', createdAt: '2026-11-03T12:00:00.000Z' },
+      ])
+      renderPage()
+      await screen.findByText('Saved 3 Nov 2026')
+      const cards = screen.getAllByRole('article')
+      expect(cards.map((c) => within(c).getByRole('heading').textContent)).toEqual(['Fence-Line Blazer', 'Heritage Polo'])
+      expect(within(cards[1]).getByText('Saved 1 Oct 2026')).toBeInTheDocument()
+    })
+
+    it('still lists the pieces, without dates, when the dates cannot be loaded', async () => {
+      vi.mocked(fetchWishlist).mockRejectedValue(new ProductListError('network'))
+      renderPage()
+      const cards = await screen.findAllByRole('article')
+      expect(cards).toHaveLength(2)
+      expect(screen.queryByText(/^Saved \d/)).toBeNull()
+    })
   })
 
   describe('empty state', () => {

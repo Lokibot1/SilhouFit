@@ -45,10 +45,11 @@ export function ProductPage() {
   )
   useMetaDescription(product ? describe(product) : NOT_FOUND_DESCRIPTION)
 
-  function toggleSaved(item: Product) {
+  async function toggleSaved(item: Product) {
     if (requireSignIn('save to your wishlist')) return
     const wasSaved = wishlist.has(item.id)
-    wishlist.toggle(item.id)
+    // The heart flips at once; the toast waits for the server (a failure shows its own error).
+    if (!(await wishlist.toggle(item.id))) return
     toast.show(
       wasSaved
         ? { kind: 'info', message: 'Removed from wishlist', action: { label: 'Undo', onClick: () => wishlist.toggle(item.id) } }
