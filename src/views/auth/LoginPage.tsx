@@ -80,7 +80,7 @@ export function LoginPage() {
             : null;
 
   return (
-    <AuthSplit>
+    <AuthSplit kralType>
       <form noValidate onSubmit={onSubmit} aria-busy={pending} className={GAPS}>
         <AuthHeading title="Welcome Back!" subtitle="Sign in your account." />
         <FloatingField

@@ -1,0 +1,62 @@
+/* KRAL typography (DESIGN.md section 3) for the login page: Unbounded for display, JetBrains Mono for everything else.
+   Opt in with `.kral-type` on the page root, so sign up and the other auth pages keep the app fonts. The files are
+   the ones the landing page already ships. */
+@font-face {
+  font-family: "KRAL Display";
+  src: url("/assets/fonts/unbounded.woff2") format("woff2");
+  font-weight: 200 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "KRAL Mono";
+  src: url("/assets/fonts/jetbrains-mono.woff2") format("woff2");
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+/* Body and micro-copy: mono. Unlayered, so it beats the app's font utilities (font-ui, font-sans). */
+.kral-type,
+.kral-type * {
+  font-family: "KRAL Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+/* Display: extended heavy sans, caps, 0 to +2% tracking, 0.95 to 1.05 line height. */
+.kral-type h1,
+.kral-type .font-display {
+  font-family: "KRAL Display", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+}
+
+/* H2 scale, 28px. The loading skeleton's heading bar matches this line height. */
+.kral-type h1 {
+  font-size: 1.75rem;
+}
+
+.kral-type .auth-heading-bar {
+  height: calc(1.75rem * 1.05);
+}
+
+/* The slogan over the photo scales with the panel, since extended caps run wide. */
+.kral-type aside .font-display {
+  font-size: clamp(1.5rem, 2.6vw, 2.5rem);
+}
+
+/* Labels: 11px mono caps, +8% tracking. */
+.kral-type aside p:not(.font-display) {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.kral-login.kral-type .btn-lift {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}

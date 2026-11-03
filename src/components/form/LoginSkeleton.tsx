@@ -5,7 +5,7 @@ import { AuthHeadingSkeleton, AuthSkeletonShell } from './AuthSkeletonShell'
 export function LoginSkeleton({ short = false }: { short?: boolean }) {
   if (!short) {
     return (
-      <AuthSkeletonShell label="Loading sign in form">
+      <AuthSkeletonShell label="Loading sign in form" kralType>
         <div className="[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3">
           <AuthHeadingSkeleton subtitle="Sign in your account." />
           <div className="h-11 rounded-xl bg-line lg:h-10" />
