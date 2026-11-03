@@ -21,7 +21,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div className="pointer-events-none fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[95] flex justify-center lg:inset-x-auto lg:top-[calc(5rem+env(safe-area-inset-top))] lg:bottom-auto lg:right-4 lg:justify-end">
+      <div className="pointer-events-none fixed inset-x-4 bottom-[calc(max(5rem,var(--cookie-banner-h,0px)+1.75rem)+env(safe-area-inset-bottom))] z-[95] flex justify-center lg:inset-x-auto lg:top-[calc(5rem+env(safe-area-inset-top))] lg:bottom-auto lg:right-4 lg:justify-end">
         <AnimatePresence mode="wait">
           {toast && (
             <motion.div
