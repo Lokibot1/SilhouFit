@@ -28,7 +28,7 @@ export function CookieConsentBanner() {
       <div
         role="region"
         aria-label="Cookie notice"
-        className="glass-card glass-floating [--g-fill:0.72] mx-auto flex max-w-3xl flex-col gap-4 rounded-xl px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+        className="glass-card glass-floating [--g-fill:1.2]! mx-auto flex max-w-3xl flex-col gap-4 rounded-xl px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
       >
         <p className="max-w-xl text-sm leading-relaxed text-fg-muted">
           We store your theme and cookie choice in your browser. No
