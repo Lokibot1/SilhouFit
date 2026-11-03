@@ -15,6 +15,11 @@
   --color-chrome-strong: var(--chrome-strong);
 }
 
+/* Without the photo the page is always dark, so there is no theme to switch. */
+body:has(.kral-login--bare) .auth-toggle-slot {
+  display: none;
+}
+
 /* Desktop, where the photo panel shows: tighter fields and buttons so a long form like sign up fits one screen.
    Phones and tablets keep 44px targets and 16px text (tap target, no iOS zoom). Unlayered, so it beats the
    component-layer field rules; the floated label keeps its own 11px size. */

@@ -25,8 +25,6 @@ export function Navbar() {
   const { pathname } = useLocation();
   const authPage = isAuthPath(pathname);
   // Login, sign up and forgot password carry their own logo beside the form.
-  // Forgot password is always the dark KRAL look, so there is no theme to switch.
-  const hideToggle = pathname.replace(/\/$/, "") === "/forgot-password";
   const hideBrand = ["/login", "/signup", "/forgot-password"].includes(
     pathname.replace(/\/$/, ""),
   );
@@ -165,11 +163,10 @@ export function Navbar() {
 
         {/* Pinned to the corner, centred on the nav row (which resizes on scroll), clear of the
             row's content via the nav's right padding. */}
-        {!hideToggle && (
-          <div className="pointer-events-auto absolute inset-y-0 right-2 z-10 flex items-center sm:right-3">
-            <ThemeToggle />
-          </div>
-        )}
+        {/* auth-toggle-slot: AuthSplit hides it on the pages without a photo, which are always dark. */}
+        <div className="auth-toggle-slot pointer-events-auto absolute inset-y-0 right-2 z-10 flex items-center sm:right-3">
+          <ThemeToggle />
+        </div>
       </div>
 
       {!authPage && (

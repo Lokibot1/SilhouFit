@@ -69,7 +69,7 @@ export function SignUpPage() {
 
   return (
     <>
-      <AuthSplit>
+      <AuthSplit photo={status !== 'success'}>
         {status === 'success' ? (
           <div>
             <span className="flex size-10 items-center justify-center rounded-full border border-line-strong text-success">
@@ -84,7 +84,7 @@ export function SignUpPage() {
               We sent a confirmation link to <strong className="font-medium text-fg">{values.email.trim()}</strong>.
               Open it to activate your account, then go to login.
             </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row *:flex-1">
+            <div className="mt-6 flex flex-col gap-3">
               <Link to="/" className={PRIMARY_BUTTON}>
                 Back to home
               </Link>

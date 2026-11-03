@@ -12,12 +12,12 @@ export function AuthSplit({
   photo = true,
 }: {
   children: ReactNode;
-  /** false: no photo panel, the form sits in the middle of the shader (forgot password). */
+  /** false: no photo panel, the form sits in the middle of the shader and the theme toggle is hidden (forgot password, sign up success). */
   photo?: boolean;
 }) {
   return (
     <div
-      className={`kral-login relative grid min-h-svh bg-canvas ${photo ? "lg:grid-cols-2" : ""}`}
+      className={`kral-login relative grid min-h-svh bg-canvas ${photo ? "lg:grid-cols-2" : "kral-login--bare"}`}
     >
       {photo && (
         <aside className="relative hidden overflow-hidden lg:block">
