@@ -10,7 +10,21 @@ export function CookieConsentBanner() {
   if (status !== null || phase !== null) return null
 
   return (
-    <div className="fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 px-4">
+    <div
+      // Publishes its height so a toast sits above it instead of over its text.
+      ref={(el) => {
+        if (!el) return
+        const publish = () => document.documentElement.style.setProperty('--cookie-banner-h', `${el.offsetHeight}px`)
+        publish()
+        const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish)
+        resize?.observe(el)
+        return () => {
+          resize?.disconnect()
+          document.documentElement.style.removeProperty('--cookie-banner-h')
+        }
+      }}
+      className="fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 px-4"
+    >
       <div
         role="region"
         aria-label="Cookie notice"
