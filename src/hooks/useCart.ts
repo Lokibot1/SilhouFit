@@ -1,7 +1,7 @@
 import { useContext, useEffect, useSyncExternalStore } from 'react'
 import { ToastContext, type ToastOptions } from '../components/toast/useToast'
 import type { Product } from '../data/products'
-import { addCartItem, fetchCart, removeCartItem, setCartItemQuantity, type ApiCart } from '../service/cartApi'
+import { addCartItem, clearCart, fetchCart, removeCartItem, setCartItemQuantity, type ApiCart } from '../service/cartApi'
 import { ProductListError } from '../service/fetchProductList'
 import { getSession, subscribe as subscribeSession } from '../service/session'
 import { getCachedProduct, loadProduct } from './useProducts'
@@ -218,6 +218,22 @@ function removeLines(keys: string[]) {
   })
 }
 
+/** Empties the cart. Resolves to the lines that were in it (for Undo), or null when the cart said no: a toast says why and the cart is reloaded. */
+function clearLines() {
+  return enqueue(async () => {
+    const cleared = state.lines
+    if (cleared.length === 0) return cleared
+    try {
+      await clearCart()
+      commitServer({ items: [], totalItems: 0, subtotal: 0 })
+      return cleared
+    } catch (error) {
+      fail(error)
+      return null
+    }
+  })
+}
+
 /** Takes `qty` off a line (Undo), dropping the line at zero. */
 function removeFromCart(key: string, qty: number) {
   const line = lineOfVariant(key)
@@ -259,6 +275,7 @@ export function useCart() {
     setQty: setLineQty,
     changeVariant,
     removeLines,
+    clearLines,
   }
 }
 
