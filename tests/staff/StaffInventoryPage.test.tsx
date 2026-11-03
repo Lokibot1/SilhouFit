@@ -568,11 +568,11 @@ describe('StaffInventoryPage archive and restock (real API path)', () => {
     await waitFor(() => expect(list.mock.calls.length).toBeGreaterThan(1))
   })
 
-  it('reports a partly saved restock, keeps the failed size edited, and retries only that size', async () => {
+  it('reports a failed restock as nothing saved, keeps the sizes edited, and retries them together', async () => {
     const user = userEvent.setup()
     vi.mocked(updateStocks)
-      .mockResolvedValueOnce({ saved: ['v1'], failed: [{ variantId: 'v2', error: new ProductListError('conflict') }] })
-      .mockResolvedValueOnce({ saved: ['v2'], failed: [] })
+      .mockResolvedValueOnce({ saved: [], failed: [{ variantId: 'v1', error: new ProductListError('conflict') }, { variantId: 'v2', error: new ProductListError('conflict') }] })
+      .mockResolvedValueOnce({ saved: ['v1', 'v2'], failed: [] })
     renderPage()
     await user.click(await within(table()).findByRole('button', { name: /^Tee 1/ }))
     const drawer = await screen.findByRole('dialog', { name: 'Tee 1' })
@@ -580,21 +580,19 @@ describe('StaffInventoryPage archive and restock (real API path)', () => {
     expect(within(drawer).getByRole('button', { name: 'Save changes' })).toBeDisabled()
     await user.click(within(drawer).getByRole('button', { name: 'Increase stock for Black S' }))
     await user.click(within(drawer).getByRole('button', { name: 'Increase stock for Black M' }))
-    // What the reload after the save will say: v1 is saved, v2 is not.
-    detail.mockResolvedValue({ variants: [{ ...variants[0], stock: 1 }, variants[1]] })
     await user.click(within(drawer).getByRole('button', { name: 'Save changes' }))
 
     expect(updateStocks).toHaveBeenCalledWith(product(1).id, [{ variantId: 'v1', stock: 1 }, { variantId: 'v2', stock: 5 }], expect.anything())
     const alert = await within(drawer).findByRole('alert')
-    expect(alert).toHaveTextContent('1 of 2 saved.')
-    expect(alert).toHaveTextContent("1 size didn't save and stay edited below. Someone else changed this product")
+    expect(alert).toHaveTextContent("Couldn't save the stock for Tee 1.")
+    expect(alert).toHaveTextContent('Nothing was saved, and your edits stay below. Someone else changed this product')
 
-    // v2 is still the edit once the reload is back.
-    await within(drawer).findByRole('textbox', { name: 'Stock for Black M' }, T)
+    // Both sizes are still edited.
+    expect(within(drawer).getByRole('textbox', { name: 'Stock for Black S' })).toHaveValue('1')
     expect(within(drawer).getByRole('textbox', { name: 'Stock for Black M' })).toHaveValue('5')
     await user.click(within(drawer).getByRole('button', { name: 'Retry' }))
-    expect(updateStocks).toHaveBeenLastCalledWith(product(1).id, [{ variantId: 'v2', stock: 5 }], expect.anything())
-    expect(await screen.findByText('Stock updated for 1 size', {}, T)).toBeInTheDocument()
+    expect(updateStocks).toHaveBeenLastCalledWith(product(1).id, [{ variantId: 'v1', stock: 1 }, { variantId: 'v2', stock: 5 }], expect.anything())
+    expect(await screen.findByText('Stock updated for 2 sizes', {}, T)).toBeInTheDocument()
   })
 })
 

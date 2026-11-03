@@ -104,8 +104,8 @@ export const product = (overrides: Partial<MockProduct> = {}): MockProduct => {
 
 export interface ProductCall {
   method: string
-  /** list: /products, filters: /products/filters, product: /products/:id, slug: /products/slug/:slug, variants: /products/:id/variants, variant: /products/:id/variants/:variantId. */
-  kind: 'list' | 'filters' | 'product' | 'slug' | 'variants' | 'variant'
+  /** list: /products, filters: /products/filters, product: /products/:id, slug: /products/slug/:slug, variants: /products/:id/variants, variant: /products/:id/variants/:variantId, stock: /products/:id/stock. */
+  kind: 'list' | 'filters' | 'product' | 'slug' | 'variants' | 'variant' | 'stock'
   /** For a slug lookup, the slug. */
   productId: string | null
   variantId: string | null
@@ -257,7 +257,7 @@ export async function mockProducts(page: Page, initial: MockProduct[] = [], { st
     const [, , productId = null, section = null, variantId = null] = url.pathname.split('/')
     const body = (['POST', 'PATCH'].includes(method) ? request.postDataJSON() : null) as Record<string, unknown> | null
     const isSlug = productId === 'slug' && section !== null
-    const kind = isSlug ? 'slug' : productId === 'filters' && !section ? 'filters' : !productId ? 'list' : !section ? 'product' : variantId ? 'variant' : 'variants'
+    const kind = isSlug ? 'slug' : productId === 'filters' && !section ? 'filters' : !productId ? 'list' : !section ? 'product' : section === 'stock' ? 'stock' : variantId ? 'variant' : 'variants'
     mock.calls.push({ method, kind, productId: isSlug ? section : productId, variantId, body, query: Object.fromEntries(url.searchParams) })
     const reply = (status: number, json: unknown) => route.fulfill({ status, json, headers: CORS })
 
@@ -312,6 +312,19 @@ export async function mockProducts(page: Page, initial: MockProduct[] = [], { st
         return reply(200, detail(row))
       }
       return reply(405, {})
+    }
+
+    // PATCH /products/:id/stock { variants: [{ variantId, stock }] }: sets every stock in one go, all or nothing, and answers with the product.
+    if (section === 'stock') {
+      if (method !== 'PATCH') return reply(405, {})
+      const changes = Array.isArray(body?.variants) ? (body.variants as { variantId?: string; stock?: number }[]) : null
+      if (!changes?.length) return reply(400, { message: ['variants must contain at least 1 element'] })
+      const bad = changes.find((c) => typeof c.stock !== 'number' || c.stock < 0 || !Number.isInteger(c.stock))
+      if (bad) return reply(400, { message: ['stock must be a non-negative integer'] })
+      const missing = changes.find((c) => !row.variants.some((v) => v.id === c.variantId))
+      if (missing) return reply(404, { message: `Variant ${missing.variantId} not found` })
+      for (const c of changes) row.variants.find((v) => v.id === c.variantId)!.stock = c.stock as number
+      return reply(200, detail(row))
     }
 
     if (section !== 'variants') return reply(404, {})

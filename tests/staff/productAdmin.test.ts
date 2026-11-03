@@ -9,7 +9,6 @@ import {
   updateProduct,
   updateStocks,
   updateVariant,
-  updateVariantStock,
   uploadProductImage,
 } from '../../src/service/productAdmin'
 
@@ -35,52 +34,6 @@ const kindOf = async (call: Promise<unknown>) => {
   return (error as ProductListError).kind
 }
 
-describe('updateVariantStock', () => {
-  it('PATCHes the variant with exactly { stock }', async () => {
-    reply({ id: 'v1', stock: 12 })
-    await updateVariantStock('p 1', 'v/1', 12)
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(String(url)).toMatch(/\/products\/p%201\/variants\/v%2F1$/)
-    expect(init.method).toBe('PATCH')
-    expect(init.body).toBe('{"stock":12}')
-    expect(init.headers).toEqual({ Authorization: 'Bearer tok', 'Content-Type': 'application/json' })
-  })
-
-  it('accepts 0, since a sold-out size is a stock of zero', async () => {
-    reply({ id: 'v1', stock: 0 })
-    await expect(updateVariantStock('p1', 'v1', 0)).resolves.toBeUndefined()
-    expect(fetchMock.mock.calls[0][1].body).toBe('{"stock":0}')
-  })
-
-  it('rejects an answer that does not show the new stock as a server fault', async () => {
-    reply({ id: 'v1', stock: 3 })
-    expect(await kindOf(updateVariantStock('p1', 'v1', 12))).toBe('server')
-    reply('nope')
-    expect(await kindOf(updateVariantStock('p1', 'v1', 12))).toBe('server')
-  })
-
-  it.each([
-    [400, 'validation'],
-    [401, 'forbidden'],
-    [403, 'forbidden'],
-    [404, 'not-found'],
-    [409, 'conflict'],
-    [429, 'rate-limit'],
-    [500, 'server'],
-  ])('maps a %i answer to %s', async (status, kind) => {
-    reply({ message: 'x' }, status)
-    expect(await kindOf(updateVariantStock('p1', 'v1', 1))).toBe(kind)
-  })
-
-  it('reports a dropped connection as a network fault, and an abort as itself', async () => {
-    fetchMock.mockRejectedValue(new TypeError('failed'))
-    expect(await kindOf(updateVariantStock('p1', 'v1', 1))).toBe('network')
-    const controller = new AbortController()
-    controller.abort()
-    await expect(updateVariantStock('p1', 'v1', 1, { signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
-  })
-})
-
 describe('setProductActive', () => {
   it('sends only { isActive }, so the product images are never touched', async () => {
     reply({ id: 'p1', isActive: false })
@@ -104,31 +57,54 @@ describe('setProductActive', () => {
 })
 
 describe('updateStocks', () => {
-  it('sends one PATCH per variant and reports which saved and which failed', async () => {
-    fetchMock
-      .mockResolvedValueOnce(new Response(JSON.stringify({ stock: 5 })))
-      .mockResolvedValueOnce(new Response('{}', { status: 409 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ stock: 7 })))
-    const result = await updateStocks('p1', [
-      { variantId: 'a', stock: 5 },
-      { variantId: 'b', stock: 6 },
-      { variantId: 'c', stock: 7 },
-    ])
-    expect(result.saved).toEqual(['a', 'c'])
-    expect(result.failed).toHaveLength(1)
-    expect(result.failed[0]).toMatchObject({ variantId: 'b' })
-    expect((result.failed[0].error as ProductListError).kind).toBe('conflict')
-    expect(fetchMock.mock.calls.map((c) => c[1].body)).toEqual(['{"stock":5}', '{"stock":6}', '{"stock":7}'])
+  const changes = [
+    { variantId: 'a', stock: 5 },
+    { variantId: 'b', stock: 0 },
+  ]
+  const detail = { id: 'p 1', variants: [{ id: 'a', stock: 5 }, { id: 'b', stock: 0 }, { id: 'c', stock: 9 }] }
+
+  it('sends one PATCH to the stock route with { variants } and reports every variant saved', async () => {
+    reply(detail)
+    const result = await updateStocks('p 1', changes)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(url)).toMatch(/\/products\/p%201\/stock$/)
+    expect(init.method).toBe('PATCH')
+    expect(init.body).toBe('{"variants":[{"variantId":"a","stock":5},{"variantId":"b","stock":0}]}')
+    expect(init.headers).toEqual({ Authorization: 'Bearer tok', 'Content-Type': 'application/json' })
+    expect(result).toEqual({ saved: ['a', 'b'], failed: [] })
   })
 
-  it('stops and rejects when aborted', async () => {
+  it.each([
+    [400, 'validation'],
+    [401, 'forbidden'],
+    [403, 'forbidden'],
+    [404, 'not-found'],
+    [409, 'conflict'],
+    [429, 'rate-limit'],
+    [500, 'server'],
+  ])('reports every variant failed with the same error on a %i answer', async (status, kind) => {
+    reply({ message: 'x' }, status)
+    const result = await updateStocks('p1', changes)
+    expect(result.saved).toEqual([])
+    expect(result.failed.map((f) => f.variantId)).toEqual(['a', 'b'])
+    expect((result.failed[0].error as ProductListError).kind).toBe(kind)
+    expect(result.failed[1].error).toBe(result.failed[0].error)
+  })
+
+  it('treats an answer that does not show the new stock as a server fault', async () => {
+    reply({ variants: [{ id: 'a', stock: 4 }, { id: 'b', stock: 0 }] })
+    expect((await updateStocks('p1', changes)).failed[0].error).toMatchObject({ kind: 'server' })
+    reply('nope')
+    expect((await updateStocks('p1', changes)).failed[0].error).toMatchObject({ kind: 'server' })
+  })
+
+  it('reports a dropped connection as a network fault, and rejects when aborted', async () => {
+    fetchMock.mockRejectedValue(new TypeError('failed'))
+    expect((await updateStocks('p1', changes)).failed[0].error).toMatchObject({ kind: 'network' })
     const controller = new AbortController()
-    fetchMock.mockImplementation(async () => {
-      controller.abort()
-      throw new DOMException('Aborted', 'AbortError')
-    })
-    await expect(updateStocks('p1', [{ variantId: 'a', stock: 1 }, { variantId: 'b', stock: 2 }], { signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    controller.abort()
+    await expect(updateStocks('p1', changes, { signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
   })
 })
 

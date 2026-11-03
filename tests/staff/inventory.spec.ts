@@ -1111,3 +1111,81 @@ test.describe('dark mode', () => {
     expect(input.text).not.toBe(input.bg)
   })
 })
+
+// Feature "Products – Bulk stock update" (PATCH /products/:id/stock): Restock product saves every edited size in one request, all or nothing.
+test.describe('Products – Bulk stock update', () => {
+  const STOCK_PATH = /^\/products\/[^/]+\/stock$/
+  const stockCalls = (api: ProductsMock) => api.of('PATCH', 'stock')
+  const stockOf = (api: ProductsMock, id: string) => api.rows.find((p) => p.id === LINEN_ID)!.variants.find((v) => v.id === id)!.stock
+
+  async function restock(page: Page) {
+    const drawer = await openDrawer(page, 'Linen Shirt')
+    await drawer.getByRole('button', { name: 'Restock product', exact: true }).click()
+    await drawer.getByLabel('Stock for Navy S', { exact: true }).fill('12')
+    await drawer.getByLabel('Stock for Navy M', { exact: true }).fill('7')
+    return drawer
+  }
+
+  test('editing two sizes sends one PATCH /stock with both, toasts, and Undo sends one PATCH restoring the old values', async ({ page }) => {
+    const api = await start(page)
+    const drawer = await restock(page)
+    await drawer.getByRole('button', { name: 'Save changes', exact: true }).click()
+
+    await expect(toast(page, 'Stock updated for 2 sizes')).toBeVisible()
+    expect(stockCalls(api).map((c) => c.body)).toEqual([
+      {
+        variants: [
+          { variantId: 'linen-s', stock: 12 },
+          { variantId: 'linen-m', stock: 7 },
+        ],
+      },
+    ])
+    expect(api.of('PATCH', 'variant')).toHaveLength(0)
+    expect([stockOf(api, 'linen-s'), stockOf(api, 'linen-m')]).toEqual([12, 7])
+
+    await page.getByRole('button', { name: 'Undo' }).click()
+    await expect(toast(page, 'Stock change undone for Linen Shirt.')).toBeVisible()
+    expect(stockCalls(api)).toHaveLength(2)
+    expect(stockCalls(api)[1].body).toEqual({
+      variants: [
+        { variantId: 'linen-s', stock: 10 },
+        { variantId: 'linen-m', stock: 5 },
+      ],
+    })
+    expect([stockOf(api, 'linen-s'), stockOf(api, 'linen-m')]).toEqual([10, 5])
+    expect(api.of('PATCH', 'variant')).toHaveLength(0)
+  })
+
+  const failures = [
+    { name: '409', reply: failWith(409, { message: 'Conflict' }) },
+    { name: '500', reply: failWith(500) },
+    { name: 'offline', reply: (route: Route) => route.abort('failed') },
+  ]
+  for (const { name, reply } of failures) {
+    test(`a ${name} saves nothing, keeps both edits below, and Retry sends both again`, async ({ page }) => {
+      const api = await start(page)
+      await interceptOnce(page, 'PATCH', STOCK_PATH, reply)
+      const drawer = await restock(page)
+      await drawer.getByRole('button', { name: 'Save changes', exact: true }).click()
+
+      const alert = drawer.getByRole('alert').filter({ hasText: "Couldn't save the stock for Linen Shirt." })
+      await expect(alert).toBeVisible()
+      await expect(alert).toContainText("Nothing was saved, and your edits stay below.")
+      await expect(drawer.getByLabel('Stock for Navy S', { exact: true })).toHaveValue('12')
+      await expect(drawer.getByLabel('Stock for Navy M', { exact: true })).toHaveValue('7')
+      await expect(toast(page, 'Stock updated for 2 sizes')).toHaveCount(0)
+      expect([stockOf(api, 'linen-s'), stockOf(api, 'linen-m')]).toEqual([10, 5])
+
+      await alert.getByRole('button', { name: 'Retry' }).click()
+      await expect(toast(page, 'Stock updated for 2 sizes')).toBeVisible()
+      // The failed request never reached the API for a 409/500 (the intercept answered it), so the one call the API saw is the retry, with both sizes.
+      expect(stockCalls(api).at(-1)?.body).toEqual({
+        variants: [
+          { variantId: 'linen-s', stock: 12 },
+          { variantId: 'linen-m', stock: 7 },
+        ],
+      })
+      expect([stockOf(api, 'linen-s'), stockOf(api, 'linen-m')]).toEqual([12, 7])
+    })
+  }
+})

@@ -199,11 +199,10 @@ export function InventoryDrawer({
         toast.show({ kind: 'success', message: `Stock change undone for ${name}.` })
         return
       }
-      const left = previous.filter((p) => result.failed.some((f) => f.variantId === p.variantId))
       toast.show({
         kind: 'error',
-        message: `Only ${result.saved.length} of ${previous.length} sizes went back for ${name}. ${failureReason(result.failed[0].error)}`,
-        action: { label: 'Retry', onClick: () => void undoEdit(productId, name, left) },
+        message: `Couldn't undo the stock change for ${name}. Nothing was changed. ${failureReason(result.failed[0].error)}`,
+        action: { label: 'Retry', onClick: () => void undoEdit(productId, name, previous) },
       })
     } catch (error) {
       toast.show({
@@ -229,8 +228,7 @@ export function InventoryDrawer({
       const result = changes.length > 0 ? await saveStocks(product.id, changes) : { saved: [], failed: [] }
       if (result.saved.length > 0) onStockChanged()
       if (result.failed.length > 0) {
-        const title = result.saved.length > 0 ? `${result.saved.length} of ${changes.length} saved.` : `Couldn't save the stock for ${product.name}.`
-        setSaveError({ title, why: `${sizes(result.failed.length)} didn't save and stay edited below. ${failureReason(result.failed[0].error)}` })
+        setSaveError({ title: `Couldn't save the stock for ${product.name}.`, why: `Nothing was saved, and your edits stay below. ${failureReason(result.failed[0].error)}` })
         return
       }
       setEditing(false)

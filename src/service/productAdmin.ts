@@ -7,12 +7,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 const path = (productId: string, variantId?: string) =>
   `/products/${encodeURIComponent(productId)}${variantId ? `/variants/${encodeURIComponent(variantId)}` : ''}`
 
-/** PATCH /products/:id/variants/:variantId. Sets the variant's stock to exactly `stock` (it does not add to it). */
-export async function updateVariantStock(productId: string, variantId: string, stock: number, { signal }: RequestOptions = {}): Promise<void> {
-  const body = await request('PATCH', path(productId, variantId), { stock }, signal)
-  if (!isRecord(body) || body.stock !== stock) throw new ProductListError('server')
-}
-
 /**
  * PATCH /products/:id with only `isActive`: the API replaces a product's images whenever `images` is sent, so nothing else goes in the body.
  * Archiving is `isActive: false`; the shop hides the product and nothing is deleted.
@@ -32,19 +26,21 @@ export interface StockResult {
   failed: { variantId: string; error: unknown }[]
 }
 
-/** One request per variant, in turn, so a rate limit stops the rest instead of failing them all. An abort rejects; any other failure is reported per variant. */
-export async function updateStocks(productId: string, changes: StockChange[], options: RequestOptions = {}): Promise<StockResult> {
-  const result: StockResult = { saved: [], failed: [] }
-  for (const { variantId, stock } of changes) {
-    try {
-      await updateVariantStock(productId, variantId, stock, options)
-      result.saved.push(variantId)
-    } catch (error) {
-      if (options.signal?.aborted) throw error
-      result.failed.push({ variantId, error })
-    }
+/**
+ * Feature: Products – Bulk stock update
+ * PATCH /products/:id/stock with { variants: [{ variantId, stock }] }. Sets each variant to exactly `stock` (it does not add to it), all or nothing:
+ * on any failure the API saves none, so every change is reported as failed with the same error. An abort rejects.
+ */
+export async function updateStocks(productId: string, changes: StockChange[], { signal }: RequestOptions = {}): Promise<StockResult> {
+  try {
+    const body = await request('PATCH', `${path(productId)}/stock`, { variants: changes }, signal)
+    const saved = isRecord(body) && Array.isArray(body.variants) ? body.variants : null
+    if (!saved || !changes.every(({ variantId, stock }) => saved.some((v) => isRecord(v) && v.id === variantId && v.stock === stock))) throw new ProductListError('server')
+    return { saved: changes.map((c) => c.variantId), failed: [] }
+  } catch (error) {
+    if (signal?.aborted) throw error
+    return { saved: [], failed: changes.map(({ variantId }) => ({ variantId, error })) }
   }
-  return result
 }
 
 export interface NewProductInput {
