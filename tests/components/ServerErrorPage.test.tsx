@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RouteErrorBoundary } from '../../src/components/RouteErrorBoundary'
@@ -7,6 +7,22 @@ import { ServerErrorPage } from '../../src/views/public/ServerErrorPage'
 afterEach(() => vi.restoreAllMocks())
 
 describe('ServerErrorPage', () => {
+  it.each([
+    [true, 'The service is reachable.'],
+    [false, "The service can't be reached right now."],
+  ])('checks the service status (reachable: %s)', async (ok, text) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok }))
+    render(
+      <MemoryRouter>
+        <ServerErrorPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Check service status' }))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(text))
+    expect(screen.getByRole('button', { name: ok ? 'Check service status' : 'Check again' })).toBeEnabled()
+    vi.unstubAllGlobals()
+  })
+
   it('shows the heading, page title, meta description and both actions', () => {
     render(
       <MemoryRouter>
