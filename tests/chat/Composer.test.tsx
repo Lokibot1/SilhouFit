@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { Composer } from '../../src/components/chat/Composer'
 
-function setup(props: Partial<{ sending: boolean; canSend: boolean }> = {}) {
+function setup(props: Partial<{ sending: boolean }> = {}) {
   const onSend = vi.fn()
-  render(<Composer onSend={onSend} sending={false} canSend {...props} />)
+  render(<Composer onSend={onSend} sending={false} {...props} />)
   return { onSend, field: screen.getByRole('textbox', { name: 'Message' }), send: screen.getByRole('button', { name: 'Send message' }) }
 }
 
@@ -48,18 +48,11 @@ describe('Composer', () => {
     expect(field).toHaveAttribute('maxlength', '2000')
   })
 
-  it('waits while a message is sending', async () => {
+  it('waits while a message is sending, so one press cannot send twice', async () => {
     const user = userEvent.setup()
     const { onSend, field, send } = setup({ sending: true })
     await user.type(field, 'Again{Enter}')
     expect(send).toBeDisabled()
     expect(onSend).not.toHaveBeenCalled()
-  })
-
-  it('is read-only with a reason when the viewer cannot reply', () => {
-    const { field, send } = setup({ canSend: false })
-    expect(field).toBeDisabled()
-    expect(field).toHaveAttribute('placeholder', expect.stringContaining('not reply'))
-    expect(send).toBeDisabled()
   })
 })

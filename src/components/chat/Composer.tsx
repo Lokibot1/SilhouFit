@@ -7,16 +7,14 @@ interface ComposerProps {
   onSend: (body: string) => void
   /** A message is on its way: Send waits so one press cannot send twice. */
   sending: boolean
-  /** False when the viewer may read but not reply. */
-  canSend: boolean
 }
 
 /** Enter sends, Shift+Enter starts a new line. The text clears at once; a message that fails stays in the thread with Retry. */
-export function Composer({ onSend, sending, canSend }: ComposerProps) {
+export function Composer({ onSend, sending }: ComposerProps) {
   const [text, setText] = useState('')
   const field = useRef<HTMLTextAreaElement>(null)
   const body = text.trim()
-  const blocked = !canSend || sending || !body
+  const blocked = sending || !body
 
   function submit() {
     if (blocked) return
@@ -59,13 +57,12 @@ export function Composer({ onSend, sending, canSend }: ComposerProps) {
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
-          disabled={!canSend}
           maxLength={MAX_MESSAGE_LENGTH}
           rows={1}
           aria-label="Message"
           aria-describedby="chat-composer-count"
-          placeholder={canSend ? 'Write a message' : 'You can read this conversation but not reply'}
-          className="font-ui field-sizing-content max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-line-strong bg-canvas px-3 py-2.5 text-base leading-6 text-fg placeholder:text-fg-muted disabled:cursor-not-allowed disabled:opacity-60"
+          placeholder="Write a message"
+          className="font-ui field-sizing-content max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-line-strong bg-canvas px-3 py-2.5 text-base leading-6 text-fg placeholder:text-fg-muted"
         />
         <Tooltip label="Send message">
           <button

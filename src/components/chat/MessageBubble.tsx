@@ -1,5 +1,5 @@
 import type { ThreadMessage } from '../../hooks/useConversation'
-import { CHAT_BRAND_NAME, ROLE_LABEL } from '../../service/chatApi'
+import { CHAT_BRAND_NAME, ROLE_LABEL, displayName } from '../../service/chatApi'
 import { formatMessageTime } from '../../utils/format'
 import { Avatar } from '../ui/Avatar'
 
@@ -9,20 +9,21 @@ interface MessageBubbleProps {
   message: ThreadMessage
   /** Sent by the person looking at the thread: drawn on the right. */
   mine: boolean
-  /** The viewer is staff, so they see the real sender; a customer sees every non-customer sender as KRAL. */
+  /** The viewer is staff, so they see the real sender; a customer sees every sender who is not a customer as KRAL. */
   staff?: boolean
-  onRetry: (clientId: string) => void
-  onRemove: (clientId: string) => void
+  onRetry: (id: string) => void
+  onRemove: (id: string) => void
 }
 
 export function MessageBubble({ message, mine, staff = false, onRetry, onRemove }: MessageBubbleProps) {
   const { status } = message
-  const masked = !staff && !mine && message.senderRole !== 'customer'
-  const name = masked ? CHAT_BRAND_NAME : message.senderName
-  const label = masked ? '' : ROLE_LABEL[message.senderRole]
+  const { sender } = message
+  const masked = !staff && !mine && sender?.role !== 'customer'
+  const name = masked ? CHAT_BRAND_NAME : sender ? displayName(sender) : ''
+  const label = masked || !sender ? '' : ROLE_LABEL[sender.role]
   return (
     <li data-testid="chat-message" data-status={status ?? 'sent'} className={`flex items-end gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
-      <Avatar name={name} size="sm" />
+      <Avatar name={name} src={masked ? undefined : (sender?.avatarUrl ?? undefined)} size="sm" />
       <div className={`flex min-w-0 max-w-[85%] flex-col sm:max-w-[75%] ${mine ? 'items-end' : 'items-start'}`}>
         {!mine && (
           <p className="font-ui mb-1 truncate px-1 text-sm text-fg-muted">
@@ -35,15 +36,15 @@ export function MessageBubble({ message, mine, staff = false, onRetry, onRemove 
             mine ? 'bg-fg text-canvas' : 'border border-line bg-canvas-sub text-fg'
           } ${status === 'pending' ? 'opacity-70' : ''} ${status === 'failed' ? 'ring-2 ring-danger' : ''}`}
         >
-          {message.body}
+          {message.content}
         </div>
         {status === 'failed' ? (
           <div role="alert" className="mt-1 flex flex-wrap items-center gap-x-1 px-1 text-sm text-danger">
             <span>Not sent. The connection dropped before the server answered.</span>
-            <button type="button" onClick={() => onRetry(message.clientId)} className={`${ACTION} text-fg`}>
+            <button type="button" onClick={() => onRetry(message.id)} className={`${ACTION} text-fg`}>
               Retry
             </button>
-            <button type="button" onClick={() => onRemove(message.clientId)} className={`${ACTION} text-fg`}>
+            <button type="button" onClick={() => onRemove(message.id)} className={`${ACTION} text-fg`}>
               Remove
             </button>
           </div>

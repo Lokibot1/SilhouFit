@@ -1,6 +1,6 @@
 import { AnimatePresence } from 'motion/react'
 import { lazy, Suspense, useState } from 'react'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { LandingCometCursor } from './components/CometCursor'
 import { IntroLoader } from './components/IntroLoader'
 import { CallbackSkeleton } from './components/form/CallbackSkeleton'
@@ -9,7 +9,7 @@ import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
-import { MessagesPageSkeleton, OrderChatPageSkeleton, StaffMessagesPageSkeleton } from './components/chat/ChatSkeleton'
+import { MessagesPageSkeleton, StaffMessagesPageSkeleton } from './components/chat/ChatSkeleton'
 import { InventoryPageSkeleton } from './components/staff/InventorySkeleton'
 import { OrderLogSkeleton, StaffShellSkeleton } from './components/staff/StaffSkeleton'
 import { MeasurementsPageSkeleton } from './components/staff/MeasurementsSkeleton'
@@ -72,9 +72,6 @@ const ProfilePage = lazy(() =>
   import('./views/private/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 )
 
-const OrderChatPage = lazy(() =>
-  import('./views/private/OrderChatPage').then((m) => ({ default: m.OrderChatPage })),
-)
 const MessagesPage = lazy(() =>
   import('./views/private/MessagesPage').then((m) => ({ default: m.MessagesPage })),
 )
@@ -360,14 +357,7 @@ function App() {
                   </Suspense>
                 }
               />
-              <Route
-                path="messages/:conversationId"
-                element={
-                  <Suspense fallback={<OrderChatPageSkeleton />}>
-                    <OrderChatPage />
-                  </Suspense>
-                }
-              />
+              <Route path="messages/:conversationId" element={<Navigate to="/messages" replace />} />
               <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
               <Route path="terms-of-service" element={<TermsOfServicePage />} />
               <Route path="refund-policy" element={<RefundPolicyPage />} />

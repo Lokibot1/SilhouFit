@@ -1,7 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { POLL_MS, SAFETY_POLL_MS } from '../../src/hooks/useChatRealtime'
 import { useConversation } from '../../src/hooks/useConversation'
-import { ChatError, fetchConversation, fetchMessages, sendMessage, type ChatMessage, type ConversationDetail } from '../../src/service/chatApi'
+import { ChatError, fetchConversation, fetchMessages, markConversationRead, sendMessage, type ChatMessage, type Conversation, type MessageSender } from '../../src/service/chatApi'
 import { clearSession, setSession } from '../../src/service/session'
 
 vi.mock('../../src/service/chatApi', async (importOriginal) => ({
@@ -10,133 +11,157 @@ vi.mock('../../src/service/chatApi', async (importOriginal) => ({
   fetchMessages: vi.fn(),
   sendMessage: vi.fn(),
   markConversationRead: vi.fn().mockResolvedValue(undefined),
-  takeOverConversation: vi.fn(),
-  releaseConversation: vi.fn(),
 }))
 vi.mock('../../src/service/fetchMe', () => ({ fetchMe: vi.fn().mockResolvedValue({ id: 'me' }) }))
 
 const toast = { show: vi.fn(), dismiss: vi.fn() }
 vi.mock('../../src/components/toast/useToast', () => ({ useToast: () => toast }))
 
-type Handler = (...args: unknown[]) => void
-const handlers = new Map<string, Set<Handler>>()
-const socket = {
-  connected: true,
-  emit: vi.fn(),
-  on(event: string, handler: Handler) {
-    handlers.set(event, (handlers.get(event) ?? new Set()).add(handler))
-    return socket
+// The Realtime channel: the test plays the server by calling what the hook handed to subscribeToMessages.
+const channel = vi.hoisted(() => ({
+  open: undefined as undefined | { topic: string; onMessage: (message: ChatMessage) => void; onStatus: (status: string) => void },
+  unsubscribe: vi.fn(),
+}))
+vi.mock('../../src/service/chatRealtime', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/chatRealtime')>()),
+  subscribeToMessages: (topic: string, onMessage: (message: ChatMessage) => void, onStatus: (status: string) => void) => {
+    channel.open = { topic, onMessage, onStatus }
+    return channel.unsubscribe
   },
-  off(event: string, handler: Handler) {
-    handlers.get(event)?.delete(handler)
-    return socket
-  },
-}
-const fire = (event: string, ...args: unknown[]) => act(() => handlers.get(event)?.forEach((handler) => handler(...args)))
-vi.mock('../../src/service/chatSocket', () => ({ getChatSocket: async () => socket }))
+}))
+const status = (value: string) => act(() => channel.open!.onStatus(value))
+const insert = (broadcast: ChatMessage) => act(() => channel.open!.onMessage(broadcast))
+
+const sender = (role: MessageSender['role'], id: string, fullName: string): MessageSender => ({ id, firstName: '', lastName: '', fullName, role, avatarUrl: null })
+const STAFF = sender('staff', 'staff-1', 'Ana Cruz')
 
 const message = (id: string, createdAt: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
   id,
   conversationId: 'c1',
   senderId: 'staff-1',
-  senderName: 'Ana Cruz',
-  senderRole: 'staff',
-  body: `body ${id}`,
-  clientId: `client-${id}`,
+  content: `content ${id}`,
   createdAt,
+  updatedAt: createdAt,
+  sender: STAFF,
   ...extra,
 })
-
-const detail: ConversationDetail = {
+const detail: Conversation = {
   id: 'c1',
-  orderNo: 'SF-261104-ABCD',
-  customer: { id: 'u9', name: 'Lia Reyes' },
-  lastMessage: null,
+  customerId: 'u9',
+  customer: { id: 'u9', email: 'lia@example.com', firstName: 'Lia', lastName: 'Reyes', fullName: 'Lia Reyes', avatarUrl: null },
   lastMessageAt: null,
-  unreadCount: 0,
-  holder: null,
-  canSend: true,
-  canTakeOver: false,
-  canRelease: false,
+  customerReadAt: null,
+  staffReadAt: null,
+  hasUnreadMessages: false,
+  lastMessage: null,
+  createdAt: '2025-11-04T00:00:00Z',
+  updatedAt: '2025-11-04T00:00:00Z',
 }
 
-const page = (...messages: ChatMessage[]) => ({ messages, hasMore: false, nextCursor: null })
+const page = (...messages: ChatMessage[]) => ({ messages, hasMore: false })
 
 async function setup() {
   const hook = renderHook(() => useConversation('c1'))
   await waitFor(() => expect(hook.result.current.detail).toBeDefined())
-  await waitFor(() => expect(socket.emit).toHaveBeenCalledWith('conversation:join', { conversationId: 'c1' }, expect.any(Function)))
+  await waitFor(() => expect(channel.open).toBeDefined())
   return hook
 }
 
-const sentWith = (call: number) => vi.mocked(sendMessage).mock.calls[call]
-
 beforeEach(() => {
-  handlers.clear()
-  socket.connected = true
+  channel.open = undefined
   vi.mocked(fetchConversation).mockResolvedValue(detail)
   vi.mocked(fetchMessages).mockResolvedValue(page(message('m1', '2025-11-04T01:00:00Z')))
 })
 afterEach(() => {
   vi.clearAllMocks()
+  vi.useRealTimers()
   clearSession()
 })
 
 describe('useConversation', () => {
-  it('loads the thread, joins its room and leaves it on unmount', async () => {
+  it('loads the thread oldest first, listens to its own channel and stops on unmount', async () => {
+    vi.mocked(fetchMessages).mockResolvedValue(page(message('m1', '2025-11-04T01:00:00Z'), message('m2', '2025-11-04T02:00:00Z')))
     const { result, unmount } = await setup()
-    expect(result.current.messages.map((m) => m.id)).toEqual(['m1'])
-    expect(result.current.canSend).toBe(true)
+    expect(result.current.messages.map((m) => m.id)).toEqual(['m1', 'm2'])
+    expect(channel.open).toMatchObject({ topic: 'chat:conversation:c1' })
+    expect(markConversationRead).toHaveBeenCalledWith('c1')
     unmount()
-    expect(socket.emit).toHaveBeenCalledWith('conversation:leave', { conversationId: 'c1' })
-    expect(handlers.get('message:new')?.size).toBe(0)
+    expect(channel.unsubscribe).toHaveBeenCalled()
   })
 
-  it('shows a sent message at once as pending, then replaces it with the stored one', async () => {
+  it('opens no channel for a saved dev account', async () => {
+    setSession({ name: 'Dev', email: 'dev@example.com', simulated: true })
+    const { result } = renderHook(() => useConversation('c1'))
+    await waitFor(() => expect(result.current.detail).toBeDefined())
+    expect(channel.open).toBeUndefined()
+    expect(result.current.connectionState).toBe('connecting')
+  })
+
+  it('shows a sent message at once as pending under a local id, then replaces it with the stored one', async () => {
     const { result } = await setup()
     let finish!: (sent: ChatMessage) => void
     vi.mocked(sendMessage).mockReturnValue(new Promise((resolve) => (finish = resolve)))
 
     act(() => void result.current.send('Hello'))
-    expect(result.current.messages.at(-1)).toMatchObject({ body: 'Hello', status: 'pending' })
+    expect(result.current.messages.at(-1)).toMatchObject({ content: 'Hello', status: 'pending', id: expect.stringMatching(/^pending-/) })
     expect(result.current.sending).toBe(true)
+    expect(sendMessage).toHaveBeenCalledWith('c1', 'Hello')
 
-    const clientId = sentWith(0)[2]
-    expect(clientId).toMatch(/^[0-9a-f-]{36}$/)
-    await act(async () => finish(message('m2', '2025-11-04T02:00:00Z', { senderId: 'me', body: 'Hello', clientId })))
-    expect(result.current.messages).toHaveLength(2)
-    expect(result.current.messages.at(-1)).toMatchObject({ id: 'm2' })
+    await act(async () => finish(message('m2', '2025-11-04T02:00:00Z', { senderId: 'me', content: 'Hello' })))
+    expect(result.current.messages.map((m) => m.id)).toEqual(['m1', 'm2'])
     expect(result.current.messages.at(-1)).not.toHaveProperty('status')
     expect(result.current.sending).toBe(false)
   })
 
-  it('shows a message once when the socket echo arrives before the reply', async () => {
+  it('shows a message once when the Realtime echo arrives before the reply, and again after it', async () => {
     const { result } = await setup()
     let finish!: (sent: ChatMessage) => void
     vi.mocked(sendMessage).mockReturnValue(new Promise((resolve) => (finish = resolve)))
     act(() => void result.current.send('Hello'))
-    const clientId = sentWith(0)[2]
-    const stored = message('m2', '2025-11-04T02:00:00Z', { senderId: 'me', body: 'Hello', clientId })
 
-    fire('message:new', stored)
-    expect(result.current.messages.filter((m) => m.body === 'Hello')).toHaveLength(1)
-    await act(async () => finish(stored))
-    fire('message:new', stored)
-    expect(result.current.messages.filter((m) => m.body === 'Hello')).toHaveLength(1)
-    expect(result.current.messages).toHaveLength(2)
+    const echo = message('m2', '2025-11-04T02:00:00Z', { senderId: 'me', content: 'Hello', sender: sender('customer', 'me', 'Me') })
+    insert(echo)
+    expect(result.current.messages.filter((m) => m.content === 'Hello')).toHaveLength(1)
+    await act(async () => finish(echo))
+    insert(echo)
+    expect(result.current.messages.map((m) => m.id)).toEqual(['m1', 'm2'])
   })
 
-  it('marks a failed send, and Retry sends again with the same client id', async () => {
+  it('shows a broadcast message with the sender it carries, and marks the thread read', async () => {
+    const { result } = await setup()
+    vi.mocked(markConversationRead).mockClear()
+    insert(message('m2', '2025-11-04T02:00:00Z', { sender: sender('admin', 'adm-1', 'Bo Admin'), senderId: 'adm-1' }))
+    expect(result.current.messages.at(-1)).toMatchObject({ id: 'm2', sender: { role: 'admin', fullName: 'Bo Admin' } })
+    expect(markConversationRead).toHaveBeenCalledWith('c1')
+  })
+
+  it('shows a broadcast once however often it arrives, and does not mark read for an own message', async () => {
+    const { result } = await setup()
+    vi.mocked(markConversationRead).mockClear()
+    const mine = message('m3', '2025-11-04T03:00:00Z', { senderId: 'me', content: 'Mine', sender: sender('customer', 'me', 'Me') })
+    insert(mine)
+    insert(mine)
+    expect(result.current.messages.map((m) => m.id)).toEqual(['m1', 'm3'])
+    expect(markConversationRead).not.toHaveBeenCalled()
+  })
+
+  it('ignores a broadcast for another conversation', async () => {
+    const { result } = await setup()
+    insert(message('x', '2025-11-04T05:00:00Z', { conversationId: 'other' }))
+    expect(result.current.messages).toHaveLength(1)
+  })
+
+  it('marks a failed send, and Retry sends it again under the same local id', async () => {
     const { result } = await setup()
     vi.mocked(sendMessage).mockRejectedValueOnce(new ChatError('network'))
     await act(async () => void result.current.send('Hello'))
-    expect(result.current.messages.at(-1)).toMatchObject({ body: 'Hello', status: 'failed' })
+    const failed = result.current.messages.at(-1)!
+    expect(failed).toMatchObject({ content: 'Hello', status: 'failed' })
 
-    const clientId = sentWith(0)[2]
-    vi.mocked(sendMessage).mockResolvedValueOnce(message('m2', '2025-11-04T02:00:00Z', { senderId: 'me', body: 'Hello', clientId }))
-    await act(async () => void result.current.retrySend(clientId))
-    expect(sentWith(1)[2]).toBe(clientId)
-    expect(result.current.messages).toHaveLength(2)
+    vi.mocked(sendMessage).mockResolvedValueOnce(message('m2', '2025-11-04T02:00:00Z', { senderId: 'me', content: 'Hello' }))
+    await act(async () => void result.current.retrySend(failed.id))
+    expect(sendMessage).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.map((m) => m.id)).toEqual(['m1', 'm2'])
     expect(result.current.messages.at(-1)?.status).toBeUndefined()
   })
 
@@ -144,69 +169,62 @@ describe('useConversation', () => {
     const { result } = await setup()
     vi.mocked(sendMessage).mockRejectedValueOnce(new ChatError('server'))
     await act(async () => void result.current.send('Hello'))
-    act(() => result.current.removeFailed(sentWith(0)[2]))
+    act(() => result.current.removeFailed(result.current.messages.at(-1)!.id))
     expect(result.current.messages.map((m) => m.id)).toEqual(['m1'])
   })
 
-  it('turns read-only and drops the message when the server answers 403', async () => {
+  it('shows a banner state and one toast when the channel errors, then fetches what was missed once it is subscribed again', async () => {
     const { result } = await setup()
-    vi.mocked(sendMessage).mockRejectedValueOnce(new ChatError('forbidden'))
-    await act(async () => void result.current.send('Hello'))
-    expect(result.current.canSend).toBe(false)
-    expect(result.current.messages.map((m) => m.id)).toEqual(['m1'])
-    expect(toast.show).toHaveBeenCalledWith(expect.objectContaining({ kind: 'error', message: expect.stringContaining('no longer reply') }))
-  })
-
-  it('stops a staff member replying when an admin takes over, and restores it on release', async () => {
-    setSession({ name: 'Sam Staff', email: 'sam@example.com', role: 'staff' })
-    const { result } = await setup()
-    expect(result.current.canSend).toBe(true)
-
-    fire('conversation:takeover', { conversationId: 'c1', holder: { id: 'a1', name: 'Bo Admin', role: 'admin' } })
-    expect(result.current.holder).toEqual({ id: 'a1', name: 'Bo Admin', role: 'admin' })
-    expect(result.current.canSend).toBe(false)
-
-    fire('conversation:release', { conversationId: 'c1', holder: null })
-    expect(result.current.holder).toBeNull()
-    expect(result.current.canSend).toBe(true)
-  })
-
-  it('never locks a customer out when staff take over', async () => {
-    const { result } = await setup()
-    fire('conversation:takeover', { conversationId: 'c1', holder: { id: 'a1', name: 'Bo Admin', role: 'admin' } })
-    expect(result.current.holder?.name).toBe('Bo Admin')
-    expect(result.current.canSend).toBe(true)
-  })
-
-  it('ignores events for another conversation', async () => {
-    setSession({ name: 'Sam Staff', email: 'sam@example.com', role: 'staff' })
-    const { result } = await setup()
-    fire('conversation:takeover', { conversationId: 'other', holder: { id: 'a1', name: 'Bo Admin', role: 'admin' } })
-    fire('message:new', message('x', '2025-11-04T05:00:00Z', { conversationId: 'other' }))
-    expect(result.current.holder).toBeNull()
-    expect(result.current.messages).toHaveLength(1)
-  })
-
-  it('shows a banner state and a toast on a drop, then fetches what was missed on reconnect and merges it', async () => {
-    const { result } = await setup()
-    fire('disconnect')
+    await status('SUBSCRIBED')
+    expect(result.current.connectionState).toBe('connected')
+    await status('CHANNEL_ERROR')
     expect(result.current.connectionState).toBe('reconnecting')
-    expect(toast.show).toHaveBeenCalledTimes(1)
-    fire('connect_error')
+    await status('CLOSED')
     expect(toast.show).toHaveBeenCalledTimes(1)
 
     vi.mocked(fetchMessages).mockResolvedValue(page(message('m1', '2025-11-04T01:00:00Z'), message('m0', '2025-11-04T00:30:00Z'), message('m3', '2025-11-04T03:00:00Z')))
-    fire('connect')
+    await status('SUBSCRIBED')
     await waitFor(() => expect(result.current.messages.map((m) => m.id)).toEqual(['m0', 'm1', 'm3']))
     expect(result.current.connectionState).toBe('connected')
   })
 
-  it('loads earlier messages before the cursor', async () => {
-    vi.mocked(fetchMessages).mockResolvedValueOnce({ messages: [message('m2', '2025-11-04T02:00:00Z')], hasMore: true, nextCursor: '2025-11-04T02:00:00Z' })
+  it('polls the newest messages every 5 seconds while the channel is not subscribed, and stops once it is', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const { result } = await setup()
+    expect(result.current.connectionState).toBe('connecting')
+    vi.mocked(fetchMessages).mockClear()
+    vi.mocked(fetchMessages).mockResolvedValue(page(message('m1', '2025-11-04T01:00:00Z'), message('m2', '2025-11-04T02:00:00Z')))
+
+    await act(async () => void vi.advanceTimersByTime(POLL_MS))
+    expect(fetchMessages).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(result.current.messages.map((m) => m.id)).toEqual(['m1', 'm2']))
+
+    await status('SUBSCRIBED')
+    vi.mocked(fetchMessages).mockClear()
+    await act(async () => void vi.advanceTimersByTime(POLL_MS * 3))
+    expect(fetchMessages).not.toHaveBeenCalled()
+  })
+
+  it('fetches the newest messages every 30 seconds while subscribed, so a missed broadcast self-heals', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const { result } = await setup()
+    await status('SUBSCRIBED')
+    vi.mocked(fetchMessages).mockClear()
+    vi.mocked(fetchMessages).mockResolvedValue(page(message('m1', '2025-11-04T01:00:00Z'), message('m2', '2025-11-04T02:00:00Z')))
+
+    await act(async () => void vi.advanceTimersByTime(SAFETY_POLL_MS - 1))
+    expect(fetchMessages).not.toHaveBeenCalled()
+    await act(async () => void vi.advanceTimersByTime(1))
+    expect(fetchMessages).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(result.current.messages.map((m) => m.id)).toEqual(['m1', 'm2']))
+  })
+
+  it('loads earlier messages before the oldest one', async () => {
+    vi.mocked(fetchMessages).mockResolvedValueOnce({ messages: [message('m2', '2025-11-04T02:00:00Z')], hasMore: true })
     const { result } = await setup()
     expect(result.current.hasMore).toBe(true)
 
-    vi.mocked(fetchMessages).mockResolvedValue({ messages: [message('m1', '2025-11-04T01:00:00Z')], hasMore: false, nextCursor: null })
+    vi.mocked(fetchMessages).mockResolvedValue({ messages: [message('m1', '2025-11-04T01:00:00Z')], hasMore: false })
     await act(async () => result.current.loadEarlier())
     expect(vi.mocked(fetchMessages)).toHaveBeenLastCalledWith('c1', '2025-11-04T02:00:00Z')
     expect(result.current.messages.map((m) => m.id)).toEqual(['m1', 'm2'])

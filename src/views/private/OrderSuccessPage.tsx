@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { DownloadIcon, MessageIcon, SpinnerIcon } from '../../components/form/icons'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
@@ -8,7 +8,6 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
-import { ChatError, openConversation } from '../../service/chatApi'
 import { clearLastOrder, loadLastOrder } from '../../utils/checkout'
 import { formatPeso, formatPlacedAt } from '../../utils/format'
 
@@ -56,11 +55,9 @@ export function OrderSuccessPage() {
   const signedIn = useCurrentUser() !== null
   const order = signedIn ? saved : null
   const toast = useToast()
-  const navigate = useNavigate()
   const heading = useRef<HTMLHeadingElement>(null)
   const [downloading, setDownloading] = useState(false)
   const [downloadFailed, setDownloadFailed] = useState(false)
-  const [opening, setOpening] = useState(false)
   useEffect(() => {
     if (!signedIn) clearLastOrder()
     heading.current?.focus()
@@ -103,22 +100,6 @@ export function OrderSuccessPage() {
       setDownloadFailed(true)
     } finally {
       setDownloading(false)
-    }
-  }
-
-  async function messageStaff() {
-    if (!order || opening) return
-    setOpening(true)
-    try {
-      const conversation = await openConversation(order.orderId)
-      navigate(`/messages/${conversation.id}`)
-    } catch (failure) {
-      const why =
-        failure instanceof ChatError && failure.kind === 'simulated'
-          ? 'Chat needs a real signed-in account. Sign out, then sign in with a real account.'
-          : 'The server did not open the conversation. Check your connection, then press Message staff to try again.'
-      toast.show({ kind: 'error', message: `We couldn’t start a conversation about this order. ${why}` })
-      setOpening(false)
     }
   }
 
@@ -210,10 +191,10 @@ export function OrderSuccessPage() {
             {downloading ? <SpinnerIcon /> : <DownloadIcon />}
             Download receipt
           </button>
-          <button type="button" onClick={() => void messageStaff()} disabled={opening} aria-busy={opening} className={`${SECONDARY_BUTTON} gap-2`}>
-            {opening ? <SpinnerIcon /> : <MessageIcon size={16} />}
+          <Link to="/messages" className={`${SECONDARY_BUTTON} gap-2`}>
+            <MessageIcon size={16} />
             Message staff
-          </button>
+          </Link>
           {downloadFailed && (
             <p role="alert" className="text-sm leading-snug text-danger">
               We couldn&apos;t make your receipt. Something went wrong while building the PDF. Press Download receipt to try again.

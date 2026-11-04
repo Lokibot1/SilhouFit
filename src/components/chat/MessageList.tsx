@@ -15,22 +15,20 @@ interface MessageListProps {
   staff?: boolean
   hasMore: boolean
   loadingEarlier: boolean
-  /** Whether the viewer can write, so the empty state can point to the composer. */
-  canSend: boolean
   onLoadEarlier: () => void
-  onRetry: (clientId: string) => void
-  onRemove: (clientId: string) => void
+  onRetry: (id: string) => void
+  onRemove: (id: string) => void
 }
 
 /** The thread: oldest at the top, a date separator per day. It follows new messages only while the reader is near the bottom. */
-export function MessageList({ messages, selfId, staff, hasMore, loadingEarlier, canSend, onLoadEarlier, onRetry, onRemove }: MessageListProps) {
+export function MessageList({ messages, selfId, staff, hasMore, loadingEarlier, onLoadEarlier, onRetry, onRemove }: MessageListProps) {
   const scroller = useRef<HTMLDivElement>(null)
   const nearBottom = useRef(true)
   const previous = useRef({ first: '', height: 0 })
 
   useLayoutEffect(() => {
     const element = scroller.current!
-    const first = messages[0]?.clientId ?? ''
+    const first = messages[0]?.id ?? ''
     const last = messages[messages.length - 1]
     if (previous.current.first && first !== previous.current.first) {
       // Earlier messages were added above: keep what the reader was looking at in place.
@@ -61,7 +59,7 @@ export function MessageList({ messages, selfId, staff, hasMore, loadingEarlier, 
       <div role="log" aria-live="polite" aria-label="Messages">
         <ol className="grid gap-3">
         {messages.map((message, index) => (
-          <Fragment key={message.clientId || message.id}>
+          <Fragment key={message.id}>
             {(index === 0 || manilaDay(message.createdAt) !== manilaDay(messages[index - 1].createdAt)) && (
               <li role="separator" className="font-ui py-1 text-center text-sm text-fg-muted">
                 {formatChatDay(message.createdAt)}
@@ -74,7 +72,7 @@ export function MessageList({ messages, selfId, staff, hasMore, loadingEarlier, 
       </div>
       {messages.length === 0 && (
         <p className="py-10 text-center text-base text-fg-muted">
-          No messages yet. {canSend ? 'Write the first message below.' : 'Messages will show here when someone writes.'}
+          No messages yet. Write the first message below.
         </p>
       )}
     </div>
