@@ -1,4 +1,4 @@
-import type { ConnectionState } from '../../hooks/useConversation'
+import type { ConnectionState } from '../../hooks/useChatRealtime'
 import { SpinnerIcon } from '../form/icons'
 
 /** A thin non-blocking bar while the live connection is down. Sending and reading still work over the normal requests. */
