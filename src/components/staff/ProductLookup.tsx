@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { fetchProductById, fetchProductList, ProductListError, UUID, type ProductListErrorKind, type ProductListItem } from '../../service/fetchProductList'
+import { fetchProductById, fetchProductList, ProductListError, UUID, type ProductListItem } from '../../service/fetchProductList'
 import { SearchIcon, XIcon } from '../form/icons'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { ProductRow } from './ProductRow'
-import { errorKind, SectionError, StaffSection } from './StaffSection'
+import { errorKind, SectionError, StaffSection, type SectionErrorKind } from './StaffSection'
 import { ProductRowsSkeleton } from './StaffSkeleton'
 
 const MIN_CHARS = 2
@@ -12,7 +12,7 @@ const LIMIT = 10
 type State =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'error'; kind: ProductListErrorKind }
+  | { status: 'error'; kind: SectionErrorKind }
   | { status: 'success'; items: ProductListItem[]; total: number }
 
 export function ProductLookup() {

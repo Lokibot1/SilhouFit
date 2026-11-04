@@ -59,7 +59,7 @@ export function StaffSection({
   )
 }
 
-export type SectionErrorKind = 'network' | 'rate-limit' | 'not-found' | 'server' | 'forbidden' | 'validation' | 'conflict'
+export type SectionErrorKind = 'network' | 'rate-limit' | 'not-found' | 'server' | 'forbidden' | 'validation' | 'conflict' | 'simulated'
 
 const WHY: Record<SectionErrorKind, string> = {
   network: 'The connection dropped before we got a response. Check your connection, then try again.',
@@ -69,6 +69,7 @@ const WHY: Record<SectionErrorKind, string> = {
   forbidden: 'Your account is not allowed to see this. Sign in again, or ask an admin for access.',
   validation: 'The server could not use that request. Reload the page, then try again.',
   conflict: 'Someone else changed this at the same time. Reload the page, then try again.',
+  simulated: 'Chat needs a real signed-in account. Saved dev accounts have no session with the server, so sign out and sign in with a real account.',
 }
 
 export function SectionError({ what, kind, onRetry }: { what: string; kind: SectionErrorKind; onRetry: () => void }) {

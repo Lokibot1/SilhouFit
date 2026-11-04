@@ -19,10 +19,10 @@ import { isAuthPath } from '../utils/authRoutes'
 const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
 
 // Pages in the shopping flow share one bar (cart, account, theme; search on /shop only).
-const SHOP_BAR = ['/shop', '/wishlist', '/cart', '/checkout', '/checkout/success', '/profile']
+const SHOP_BAR = ['/shop', '/wishlist', '/cart', '/checkout', '/checkout/success', '/profile', '/messages']
 
 // The cart, wishlist and checkout are working pages, so they end without the site footer.
-const NO_FOOTER = ['/wishlist', '/cart', '/checkout']
+const NO_FOOTER = ['/wishlist', '/cart', '/checkout', '/messages']
 
 // Full-screen flows: no top bar or footer. Kept inside the main Layout so toasts and the tour carry across the exit.
 const BARE_PATHS = ['/profile/measurements']
@@ -64,7 +64,7 @@ export function Layout({ bare: bareProp = false }: { bare?: boolean }) {
     <div className="min-h-svh text-fg">
       <SiteSky />
       <SkipLink />
-      {!bare && (SHOP_BAR.includes(pathname.replace(/\/$/, '')) || pathname.startsWith('/shop/') ? <ShopNavbar /> : <Navbar />)}
+      {!bare && (SHOP_BAR.includes(pathname.replace(/\/$/, '')) || pathname.startsWith('/shop/') || pathname.startsWith('/messages/') ? <ShopNavbar /> : <Navbar />)}
       <main id="main-content">
         {/* Enter-only fade and rise, keyed by route. Settles to transform: none so sticky/fixed children keep working. */}
         <MotionConfig reducedMotion="user">
@@ -78,7 +78,7 @@ export function Layout({ bare: bareProp = false }: { bare?: boolean }) {
           </motion.div>
         </MotionConfig>
       </main>
-      {!bare && !isAuthPath(pathname) && !NO_FOOTER.includes(pathname.replace(/\/$/, '')) && !pathname.startsWith('/shop/') && <Footer />}
+      {!bare && !isAuthPath(pathname) && !NO_FOOTER.includes(pathname.replace(/\/$/, '')) && !pathname.startsWith('/shop/') && !pathname.startsWith('/messages/') && <Footer />}
       <CookieConsentBanner />
       <OnboardingGate />
     </div>

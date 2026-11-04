@@ -433,3 +433,15 @@ export const CalendarIcon = ({ size = 16, className }: IconProps) => (
     <path d="M3.5 10h17M8 3v4M16 3v4" />
   </Icon>
 )
+
+export const MessageIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4v-4h0A1.5 1.5 0 0 1 4 14.5z" />
+  </Icon>
+)
+
+export const SendIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M21 3 10 14M21 3l-7 18-4-7-7-4z" />
+  </Icon>
+)
