@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ChatError, fetchConversation, fetchConversations, fetchMessages, fetchMyConversations, openConversation, sendMessage, type ChatErrorKind } from '../../src/service/chatApi'
+import { ChatError, displayName, fetchConversation, fetchConversations, fetchMessages, fetchMyConversation, markConversationRead, sendMessage, type ChatErrorKind } from '../../src/service/chatApi'
 import { clearSession, setSession } from '../../src/service/session'
 
 vi.mock('../../src/service/supabase', () => ({
@@ -22,37 +22,45 @@ const kindOf = async (call: Promise<unknown>) => {
   return (error as ChatError).kind
 }
 
-const message = (id: string, createdAt: string, extra: object = {}) => ({
-  id,
-  conversationId: 'c1',
-  senderId: 'u1',
-  senderName: 'Ana Cruz',
-  senderRole: 'staff',
-  body: `body ${id}`,
-  clientId: `client-${id}`,
-  createdAt,
-  ...extra,
-})
+const sender = { id: 'u1', firstName: 'Ana', lastName: 'Cruz', fullName: 'Ana Cruz', role: 'staff', avatarUrl: null }
+const message = (id: string, createdAt: string, extra: object = {}) => ({ id, conversationId: 'c1', senderId: 'u1', content: `content ${id}`, createdAt, updatedAt: createdAt, sender, ...extra })
 
-const summary = { id: 'c1', orderNo: 'SF-261104-ABCD', customer: { id: 'u9', firstName: 'Lia', lastName: 'Reyes' }, lastMessage: 'Hi', lastMessageAt: '2026-11-04T01:00:00Z', unreadCount: 2, holder: null }
+const conversation = {
+  id: 'c1',
+  customerId: 'u9',
+  customer: { id: 'u9', email: 'lia@example.com', firstName: 'Lia', lastName: 'Reyes', fullName: null, avatarUrl: null },
+  lastMessageAt: '2026-11-04T01:00:00Z',
+  customerReadAt: null,
+  staffReadAt: null,
+  hasUnreadMessages: true,
+  lastMessage: message('m1', '2026-11-04T01:00:00Z'),
+  createdAt: '2026-11-04T00:00:00Z',
+  updatedAt: '2026-11-04T01:00:00Z',
+}
 
 describe('fetchMessages', () => {
-  it('asks for 30 before the cursor and returns the page oldest first', async () => {
-    reply({ data: [message('m2', '2026-11-04T02:00:00Z'), message('m1', '2026-11-04T01:00:00Z')], meta: { hasMore: true, nextCursor: '2026-11-04T01:00:00Z' } })
+  it('asks for 50 before the cursor and keeps the API order, oldest first', async () => {
+    reply({ data: [message('m1', '2026-11-04T01:00:00Z'), message('m2', '2026-11-04T02:00:00Z')], meta: { total: 9, limit: 50, hasMore: true } })
     const page = await fetchMessages('c1', '2026-11-04T03:00:00Z')
     const url = String(fetchMock.mock.calls[0][0])
-    expect(url).toContain('/conversations/c1/messages?')
-    expect(url).toContain('limit=30')
+    expect(url).toContain('/chat/conversations/c1/messages?')
+    expect(url).toContain('limit=50')
     expect(url).toContain('before=2026-11-04T03%3A00%3A00Z')
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer tok')
     expect(page.messages.map((m) => m.id)).toEqual(['m1', 'm2'])
-    expect(page).toMatchObject({ hasMore: true, nextCursor: '2026-11-04T01:00:00Z' })
+    expect(page.messages[0]).toMatchObject({ content: 'content m1', sender: { role: 'staff', fullName: 'Ana Cruz' } })
+    expect(page.hasMore).toBe(true)
   })
 
-  it('rejects a message with no body or a bad date as a server fault', async () => {
+  it('reads hasMore as false when the API does not say true', async () => {
+    reply({ data: [], meta: {} })
+    expect((await fetchMessages('c1')).hasMore).toBe(false)
+  })
+
+  it('rejects a message with no content or a bad date as a server fault', async () => {
     reply({ data: [message('m1', 'not a date')], meta: {} })
     expect(await kindOf(fetchMessages('c1'))).toBe('server')
-    reply({ data: [{ ...message('m1', '2026-11-04T01:00:00Z'), body: 5 }], meta: {} })
+    reply({ data: [{ ...message('m1', '2026-11-04T01:00:00Z'), content: 5 }], meta: {} })
     expect(await kindOf(fetchMessages('c1'))).toBe('server')
   })
 
@@ -63,66 +71,60 @@ describe('fetchMessages', () => {
 })
 
 describe('conversations', () => {
-  it('builds the customer name from firstName and lastName', async () => {
-    reply([summary])
-    const [thread] = await fetchMyConversations()
-    expect(thread.customer.name).toBe('Lia Reyes')
+  it("reads the customer's own conversation, with its unread flag and last message", async () => {
+    reply(conversation)
+    const thread = await fetchMyConversation()
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/chat\/my-conversation$/)
+    expect(thread).toMatchObject({ id: 'c1', customerId: 'u9', hasUnreadMessages: true, lastMessage: { id: 'm1' } })
   })
 
-  it('reads a detail and keeps only explicit rights as true', async () => {
-    reply({ ...summary, canSend: true, canTakeOver: 'yes', holder: { id: 'a1', name: 'Bo Admin', role: 'admin' } })
-    const detail = await fetchConversation('c1')
-    expect(detail).toMatchObject({ canSend: true, canTakeOver: false, canRelease: false, holder: { name: 'Bo Admin', role: 'admin' } })
+  it('builds a customer name from firstName and lastName, or uses fullName', async () => {
+    reply(conversation)
+    const thread = await fetchConversation('c1')
+    expect(displayName(thread.customer!)).toBe('Lia Reyes')
+    expect(displayName({ firstName: 'L', lastName: 'R', fullName: 'Lia Marie Reyes' })).toBe('Lia Marie Reyes')
   })
 
-  it('accepts a preview sent as an object and drops a holder with an unknown role', async () => {
-    reply({ data: [{ ...summary, lastMessage: { body: 'From object' }, holder: { id: 'a1', name: 'X', role: 'wizard' } }] })
-    const [thread] = await fetchConversations()
-    expect(thread).toMatchObject({ lastMessage: 'From object', holder: null })
+  it('lists a page with the total, sending only the filters that are on', async () => {
+    reply({ data: [conversation], meta: { total: 7, page: 1, limit: 100, totalPages: 1 } })
+    const page = await fetchConversations({ limit: 100, search: '', unreadOnly: true })
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/chat\/conversations\?limit=100&unreadOnly=true$/)
+    expect(page.total).toBe(7)
+    expect(page.conversations).toHaveLength(1)
   })
 
-  it('sends only the filters that are on', async () => {
-    reply({ data: [] })
-    await fetchConversations({ limit: 100, mine: false, takenOver: true })
-    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/conversations\?limit=100&takenOver=true$/)
+  it('sends the search text', async () => {
+    reply({ data: [], meta: { total: 0 } })
+    await fetchConversations({ search: 'lia reyes' })
+    expect(String(fetchMock.mock.calls[0][0])).toContain('search=lia+reyes')
   })
 
-  // TESTING: orderless chat, remove once orders exist (a thread without an order number is valid now; restore the old title)
-  it('rejects a thread without an id', async () => {
-    reply({ data: [{ orderNo: 'SF-1' }] })
+  it('treats a missing last message as none, and rejects a thread without an id', async () => {
+    reply({ data: [{ ...conversation, lastMessage: null }], meta: {} })
+    expect((await fetchConversations()).conversations[0].lastMessage).toBeNull()
+    reply({ data: [{ customerId: 'u9' }] })
     expect(await kindOf(fetchConversations())).toBe('server')
-  })
-
-  it('lists a customer\'s own threads from a bare array or a data wrapper', async () => {
-    reply([summary])
-    expect(await fetchMyConversations()).toHaveLength(1)
-    reply({ data: [summary] })
-    expect(await fetchMyConversations()).toHaveLength(1)
-  })
-
-  it('opens a thread with the order number', async () => {
-    reply(summary, 201)
-    const thread = await openConversation('SF-261104-ABCD')
-    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
-    expect(fetchMock.mock.calls[0][1].body).toBe('{"orderNo":"SF-261104-ABCD"}')
-    expect(thread.id).toBe('c1')
-  })
-
-  // TESTING: orderless chat, remove once orders exist
-  it('opens the general thread with an empty body and tolerates a null orderNo', async () => {
-    reply({ ...summary, orderNo: null }, 201)
-    const thread = await openConversation()
-    expect(fetchMock.mock.calls[0][1].body).toBe('{}')
-    expect(thread.orderNo).toBeNull()
   })
 })
 
-describe('sendMessage', () => {
-  it('posts the body with its client id and returns the stored message', async () => {
+describe('sendMessage and markConversationRead', () => {
+  it('posts the content and returns the stored message', async () => {
     reply(message('m1', '2026-11-04T01:00:00Z'), 201)
-    const sent = await sendMessage('c1', 'Hello', 'client-m1')
-    expect(fetchMock.mock.calls[0][1].body).toBe('{"body":"Hello","clientId":"client-m1"}')
-    expect(sent.clientId).toBe('client-m1')
+    const sent = await sendMessage('c1', 'Hello')
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/chat\/conversations\/c1\/messages$/)
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+    expect(fetchMock.mock.calls[0][1].body).toBe('{"content":"Hello"}')
+    expect(sent.id).toBe('m1')
+  })
+
+  it('posts to /read and tells the page it was read', async () => {
+    reply({ success: true })
+    const heard = vi.fn()
+    window.addEventListener('silhoufit:chat-read', heard)
+    await markConversationRead('c1')
+    window.removeEventListener('silhoufit:chat-read', heard)
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/chat\/conversations\/c1\/read$/)
+    expect(heard).toHaveBeenCalledOnce()
   })
 })
 
@@ -145,9 +147,9 @@ describe('error kinds', () => {
   })
 
   it('keeps the server message as the detail', async () => {
-    reply({ message: ['Body is too long'] }, 400)
-    const error = (await sendMessage('c1', 'x', 'k').catch((e: unknown) => e)) as ChatError
-    expect(error).toMatchObject({ kind: 'validation', detail: 'Body is too long' })
+    reply({ message: ['content must be shorter than or equal to 2000 characters'] }, 400)
+    const error = (await sendMessage('c1', 'x').catch((e: unknown) => e)) as ChatError
+    expect(error).toMatchObject({ kind: 'validation', detail: 'content must be shorter than or equal to 2000 characters' })
   })
 
   it('refuses a saved dev account without calling the server', async () => {
