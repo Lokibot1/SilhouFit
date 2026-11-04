@@ -1,9 +1,11 @@
 import { Fragment } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
+import { useChatUnread } from '../../hooks/useChatUnread'
 import { useCanView } from '../../hooks/usePermissions'
 import type { Area } from '../../utils/staffRole'
 import { BrandMark } from '../BrandMark'
+import { UnreadBadge } from '../chat/InboxList'
 import { Tooltip } from '../ui/Tooltip'
 import { NAV, NAV_GROUP_LABEL } from './navConfig'
 
@@ -11,7 +13,7 @@ export const AREA_LABEL: Record<Area, string> = { staff: 'Staff', admin: 'Admin'
 
 const ROW = 'font-ui flex min-h-11 items-center gap-2.5 rounded-xl px-2.5 text-sm font-semibold'
 // Collapsed rows are a centred 44px square, so the icon is the whole target.
-const ROW_COLLAPSED = 'font-ui flex size-11 items-center justify-center rounded-xl text-sm font-semibold'
+const ROW_COLLAPSED = 'font-ui relative flex size-11 items-center justify-center rounded-xl text-sm font-semibold'
 
 export function StaffBrand({ area = 'staff' }: { area?: Area }) {
   return (
@@ -32,6 +34,7 @@ interface StaffNavProps {
 export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps) {
   const role = useCurrentUser()?.role ?? area
   const canView = useCanView(role)
+  const unread = useChatUnread()
   // Staff who open an admin page (a superadmin turned it on) keep their own sidebar. Pages a superadmin turned off for the role are left out.
   const items = (role === 'staff' ? NAV.staff : NAV[area]).filter((item) => canView(item.page))
   return (
@@ -40,11 +43,14 @@ export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps)
         <ul className={`grid gap-1 ${collapsed ? 'justify-center' : ''}`}>
           {items.map((item, index) => {
             const Icon = item.icon
+            const badge = item.page === 'messages' ? unread : 0
             const row = collapsed ? ROW_COLLAPSED : ROW
             const content = (
               <>
                 <Icon size={collapsed ? 20 : 16} />
                 {collapsed ? <span className="sr-only">{item.label}</span> : <span className="min-w-0 flex-1 truncate">{item.label}</span>}
+                {badge > 0 && <span className="sr-only">, {badge} unread</span>}
+                {badge > 0 && (collapsed ? <span aria-hidden="true" className="absolute top-2 right-2 size-2.5 rounded-full bg-danger" /> : <span aria-hidden="true"><UnreadBadge count={badge} /></span>)}
                 {!collapsed && !item.to && (
                   <span className="rounded-full border border-line-strong px-1.5 py-0.5 text-xs font-medium">Soon</span>
                 )}

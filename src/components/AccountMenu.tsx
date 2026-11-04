@@ -2,11 +2,13 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
+import { useChatUnread } from '../hooks/useChatUnread'
 import type { CurrentUser } from '../hooks/useCurrentUser'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { signOut as endSession } from '../service/signOut'
 import { useToast } from './toast/useToast'
-import { LogOutIcon, MoonIcon, SettingsIcon, UserIcon } from './form/icons'
+import { UnreadBadge } from './chat/InboxList'
+import { LogOutIcon, MessageIcon, MoonIcon, SettingsIcon, UserIcon } from './form/icons'
 import { Avatar } from './ui/Avatar'
 import { ThemeToggle } from './ThemeToggle'
 import { computePlace, LISTBOX_PANEL } from './ui/listbox'
@@ -20,20 +22,24 @@ const ITEM_LIVE = `${ITEM} cursor-pointer hover:bg-fg/10`
  * The signed-in avatar as a button that opens a small panel with who is signed in and Sign out.
  * `profileTo` is where Profile goes; null shows it as coming soon, for an area with no profile page yet.
  * `onSignOut` runs just before the session ends. `themeSwitch` adds a Dark mode row with the theme switch.
+ * `showMessages` adds the customer's Messages row with its unread count; staff reach their conversations from the sidebar.
  */
 export function AccountMenu({
   user,
   profileTo = '/profile',
   onSignOut,
   themeSwitch = false,
+  showMessages = false,
 }: {
   user: CurrentUser
   profileTo?: string | null
   onSignOut?: () => void
   themeSwitch?: boolean
+  showMessages?: boolean
 }) {
   const toast = useToast()
   const navigate = useNavigate()
+  const unread = useChatUnread(showMessages)
   const panelId = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -146,6 +152,17 @@ export function AccountMenu({
                   Profile
                   <span className="ml-auto text-sm">Soon</span>
                 </button>
+              )}
+              {showMessages && (
+                <Link to="/messages" onClick={() => close(false)} className={ITEM_LIVE}>
+                  <MessageIcon />
+                  Messages
+                  {unread > 0 && (
+                    <span className="ml-auto flex items-center">
+                      <UnreadBadge count={unread} />
+                    </span>
+                  )}
+                </Link>
               )}
               {/* The settings page is still to do, so the row shows but does nothing yet. */}
               <button type="button" aria-disabled="true" className={`${ITEM_LIVE} text-fg-muted`}>
