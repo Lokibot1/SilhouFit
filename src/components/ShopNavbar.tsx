@@ -77,7 +77,7 @@ export function ShopNavbar() {
           SilhouFit
         </span>
         <span className="font-ui hidden text-xs tracking-[0.22em] text-fg-muted uppercase transition-colors group-hover:text-chrome-strong sm:block lg:hidden xl:block">
-          Omnichannel apparel
+          Online apparel
         </span>
       </span>
     </>

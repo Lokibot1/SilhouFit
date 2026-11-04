@@ -14,7 +14,7 @@ import { nextQuery } from '../../utils/safeNext'
 import { LIMITS, type FieldName } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
-  'Create your KRAL account to save your fit profile, try clothes with AR fitting and shop boutiques and online with one secure sign in. It takes a minute.'
+  'Create your KRAL account to save your fit profile, try clothes with AR fitting and shop boutiques online with one secure sign in. It takes a minute.'
 
 const GAPS = '[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3'
 const LEGAL_LINK =

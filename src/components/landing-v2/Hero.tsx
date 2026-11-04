@@ -199,7 +199,6 @@ export function Hero() {
           <p className="sv2-meta" data-rise="4">
             <span>(Prototype // BSIT capstone)</span>
             <span>AR fit in your browser</span>
-            <span>Online + in-store</span>
           </p>
         </div>
       </section>

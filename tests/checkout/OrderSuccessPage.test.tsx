@@ -27,17 +27,6 @@ const DELIVERY: PlacedOrder = {
   note: 'Please gift wrap.',
 }
 
-const PICKUP: PlacedOrder = {
-  orderId: 'SF-261011-WXYZ',
-  items: [{ name: 'Heritage Polo', size: 'M', color: 'Navy', qty: 1, price: 1890, arReady: false }],
-  total: 1890,
-  shipping: 0,
-  payment: 'Pay at pickup',
-  fulfilment: 'Pick up in store',
-  eta: 'Ready at Ayala Atelier tomorrow from 2:00 PM',
-  pickupAt: 'Ayala Atelier',
-}
-
 function renderPage() {
   return render(
     <ToastProvider>
@@ -92,19 +81,8 @@ describe('OrderSuccessPage', () => {
     expect(document.querySelector('img')).toBeNull()
   })
 
-  it('shows the boutique, free shipping and no address for a pickup order', () => {
-    saveLastOrder(PICKUP)
-    renderPage()
-    expect(screen.getByRole('heading', { name: 'Waiting for you at' })).toBeInTheDocument()
-    expect(screen.getByText('Ayala Atelier')).toBeInTheDocument()
-    expect(screen.getByText('Free')).toBeInTheDocument()
-    expect(screen.getByText('Ready at Ayala Atelier tomorrow from 2:00 PM')).toBeInTheDocument()
-    expect(screen.queryByText('Phone')).toBeNull()
-    expect(screen.queryByText('Your note')).toBeNull()
-  })
-
   it('has a unique title and a 150-160 character description', () => {
-    saveLastOrder(PICKUP)
+    saveLastOrder(DELIVERY)
     renderPage()
     expect(document.title).toBe('Order placed — SilhouFit')
     const description = document.querySelector<HTMLMetaElement>('meta[name="description"]')!.content
@@ -113,12 +91,12 @@ describe('OrderSuccessPage', () => {
   })
 
   it('offers the AR try-on link only when an item is AR-ready', () => {
-    saveLastOrder(PICKUP)
+    saveLastOrder(DELIVERY)
     const { unmount } = renderPage()
     expect(screen.queryByRole('link', { name: 'Try it on with AR' })).toBeNull()
     unmount()
 
-    saveLastOrder({ ...PICKUP, items: [{ ...PICKUP.items[0], arReady: true }] })
+    saveLastOrder({ ...DELIVERY, items: [{ ...DELIVERY.items[0], arReady: true }] })
     renderPage()
     expect(screen.getByRole('link', { name: 'Try it on with AR' })).toHaveAttribute('href', '/about#how-it-works')
   })

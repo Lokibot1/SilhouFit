@@ -87,7 +87,7 @@ describe('sizes, price and stock of a product from the API', () => {
   const piece: Product = {
     id: 'a', name: 'Shirt', category: 'Hats', boutique: '', price: 1000, priceMax: 1400, image: '', alt: '',
     colors: [{ name: 'Black', hex: '' }, { name: 'Navy', hex: '' }],
-    badges: [], stock: 9, channels: [], arReady: false, addedAt: '', rating: 0, reviews: 0,
+    badges: [], stock: 9, arReady: false, addedAt: '', rating: 0, reviews: 0,
     variants: [v('S', 'Black', 1000, 4), v('M', 'Black', 1400, 0), v('M', 'Navy', 1200, 5)],
   }
 

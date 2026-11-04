@@ -104,7 +104,6 @@ export function OrderSuccessPage() {
   }
 
   const arReady = order.items.some((item) => item.arReady)
-  const delivery = order.fulfilment === 'Delivery'
   const subtotal = order.items.reduce((sum, item) => sum + item.price * item.qty, 0)
 
   return (
@@ -144,20 +143,14 @@ export function OrderSuccessPage() {
           </dl>
 
           <h2 className={`mt-4 pt-4 text-xs font-semibold tracking-wider text-fg-muted uppercase ${RULE}`}>
-            {delivery ? 'On its way to' : 'Waiting for you at'}
+            On its way to
           </h2>
           <dl className="mt-2 space-y-1">
-            {delivery ? (
-              <>
-                <Row label="Name">{order.recipient}</Row>
-                <Row label="Address">{order.address}</Row>
-                <Row label="Phone">
-                  <span className="tabular-nums">{order.phone}</span>
-                </Row>
-              </>
-            ) : (
-              <Row label="Boutique">{order.pickupAt}</Row>
-            )}
+            <Row label="Name">{order.recipient}</Row>
+            <Row label="Address">{order.address}</Row>
+            <Row label="Phone">
+              <span className="tabular-nums">{order.phone}</span>
+            </Row>
             <Row label="When">{order.eta}</Row>
             <Row label="Payment">{order.payment}</Row>
             {order.note && <Row label="Your note">{order.note}</Row>}

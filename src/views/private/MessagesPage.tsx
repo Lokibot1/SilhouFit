@@ -9,7 +9,7 @@ import { useSection } from '../../hooks/useSection'
 import { fetchMyConversation } from '../../service/chatApi'
 
 const META_DESCRIPTION =
-  'Message the SilhouFit team. Ask about sizing, orders, delivery or pickup and read their replies in the same conversation, as soon as they arrive.'
+  'Message the SilhouFit team. Ask about sizing, orders or delivery and read their replies in the same conversation, as soon as they arrive.'
 
 /** A customer's one conversation with the SilhouFit team. A guest goes to sign in before anything is requested. */
 export function MessagesPage() {

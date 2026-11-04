@@ -40,7 +40,6 @@ const piece = (n: number, overrides: Partial<Product> = {}): Product => ({
   colors: [{ name: 'Black', hex: '#111111' }, { name: 'Navy', hex: '#1b2a49' }],
   badges: [],
   stock: 10,
-  channels: [],
   arReady: false,
   addedAt: '2026-05-05T08:00:00.000Z',
   rating: 0,

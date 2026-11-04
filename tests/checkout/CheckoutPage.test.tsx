@@ -20,12 +20,10 @@ vi.mock('../../src/service/placeOrder', () => ({ placeOrder: vi.fn() }))
 const fetchMock = vi.mocked(fetchShopProduct)
 const placeMock = vi.mocked(placeOrder)
 
-const JACKET_PIECE = shopProduct('p12', 'Hook Wall Jacket', [variant('p12-m-olive', 'M', 'Olive', { price: 3790, stock: 3 })], { boutique: 'Lumban Loom', channels: ['store'] })
-const PULLOVER_PIECE = shopProduct('p05', 'Cable Knit Pullover', [variant('p05-m-sand', 'M', 'Sand', { price: 1500 })], { channels: ['online'] })
-const PIECES = [POLO_PIECE, JACKET_PIECE, PULLOVER_PIECE]
+const PULLOVER_PIECE = shopProduct('p05', 'Cable Knit Pullover', [variant('p05-m-sand', 'M', 'Sand', { price: 1500 })])
+const PIECES = [POLO_PIECE, PULLOVER_PIECE]
 
-const POLO = '/checkout?item=p01&variant=p01-m-navy&qty=2' // 2,100 each, no channels listed
-const JACKET = '/checkout?item=p12&variant=p12-m-olive&qty=1' // store only
+const POLO = '/checkout?item=p01&variant=p01-m-navy&qty=2' // 2,100 each
 
 vi.setConfig({ testTimeout: 30000 }) // typing a whole address is slow when the suite runs in parallel
 
@@ -156,7 +154,6 @@ describe('CheckoutPage options and totals', () => {
   it('offers delivery only: no fulfilment choice, the delivery address and cash on delivery', async () => {
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
-    expect(screen.queryByRole('radio', { name: /Pick up in store/ })).toBeNull()
     expect(screen.queryByText('How do you want to get it?')).toBeNull()
     expect(screen.getByRole('heading', { name: 'Delivery address' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /Cash on delivery/ })).toBeInTheDocument()
@@ -166,18 +163,6 @@ describe('CheckoutPage options and totals', () => {
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
     expect(screen.getByRole('complementary')).not.toHaveTextContent('Sale discount')
-  })
-
-  it('blocks a store-only piece with an alert, since it cannot be delivered', async () => {
-    const user = userEvent.setup({ delay: null })
-    renderCheckout(JACKET)
-    await screen.findByRole('heading', { name: 'Hook Wall Jacket' })
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      "Hook Wall Jacket is sold in store only and can't be delivered. Remove it from your order to check out.",
-    )
-    expect(placeButton()).toBeDisabled()
-    await user.click(placeButton())
-    expect(placeMock).not.toHaveBeenCalled()
   })
 
   it('offers GCash and Maya under E-Wallet', async () => {

@@ -7,5 +7,3 @@ export const SHOP_PRIMARY = `skeuo-ink ${BASE}`
 export const SHOP_SECONDARY = `skeuo ${BASE}`
 /** Toggle and pill buttons: the selected one takes the ink face from a sliding indicator behind it. */
 export const SHOP_TOGGLE = `skeuo skeuo-slide ${BASE}`
-
-export const CHANNEL_LABEL = { both: 'Online and in store', online: 'Online only', store: 'In store only' } as const

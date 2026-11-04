@@ -6,7 +6,7 @@ import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { Reveal } from '../../motion/Reveal'
 
 const META_DESCRIPTION =
-  'See how SilhouFit works for boutiques: connect your POS, publish your catalogue, and let shoppers try pieces on in the browser with AR fitting, no app.'
+  'See how SilhouFit works for boutiques: publish your catalogue, and let shoppers try pieces on in the browser with AR fitting, no app.'
 
 export function AboutPage() {
   useDocumentTitle('About SilhouFit — How the platform works for boutiques')
@@ -22,9 +22,9 @@ export function AboutPage() {
         </Reveal>
         <Reveal delay={0.12}>
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-fg-muted">
-            An omnichannel commerce platform for local apparel boutiques:
-            one inventory across the store and the storefront, browser-based
-            AR fitting, and the numbers owners need to decide what to stock.
+            An e-commerce platform for local apparel boutiques: an online
+            storefront, browser-based AR fitting, and the numbers owners
+            need to decide what to stock.
           </p>
         </Reveal>
       </header>

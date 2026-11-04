@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import type { Line } from '../../src/hooks/useCart'
 import {
   computeTotals,
-  orderBlock,
   resolveCartItems,
   SHIPPING_FEE,
   type CheckoutItem,
@@ -11,7 +10,6 @@ import { filterPhone } from '../../src/utils/checkoutValidation'
 import { BLAZER, POLO, SOLD_OUT, TROUSERS } from '../fixtures/shopProducts'
 
 const PRODUCTS = [POLO, BLAZER, SOLD_OUT, TROUSERS]
-const storeOnly = { ...POLO, id: 'p12', name: 'Hook Wall Jacket', boutique: 'Lumban Loom', channels: ['store' as const] }
 const item = (product = POLO, qty = 1): CheckoutItem => {
   const v = product.variants![0]
   return { product, variantId: v.id, size: v.size ?? '', color: v.color ?? '', qty, unit: v.price }
@@ -64,22 +62,6 @@ describe('resolveCartItems', () => {
 })
 
 describe('several items together', () => {
-  it('lets pieces from different boutiques go in one order', () => {
-    expect(orderBlock([item(POLO), item(TROUSERS)])).toBeNull() // Ayala Atelier, Binondo Basics
-  })
-
-  it('blocks a store-only piece, naming it', () => {
-    expect(orderBlock([item(POLO), item(storeOnly)])).toBe(
-      "Hook Wall Jacket is sold in store only and can't be delivered. Remove it from your order to check out.",
-    )
-  })
-
-  it('names every store-only piece', () => {
-    expect(orderBlock([item(storeOnly), item({ ...storeOnly, name: 'Loom Vest' })])).toBe(
-      "Hook Wall Jacket and Loom Vest are sold in store only and can't be delivered. Remove them from your order to check out.",
-    )
-  })
-
   it('charges one flat shipping fee per order, not per item', () => {
     expect(computeTotals([item(POLO), item(TROUSERS)]).shipping).toBe(SHIPPING_FEE)
   })

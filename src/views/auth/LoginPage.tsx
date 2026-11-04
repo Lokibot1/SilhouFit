@@ -21,7 +21,7 @@ import type { LoginField } from "../../utils/loginValidation";
 import { nextQuery } from "../../utils/safeNext";
 
 const META_DESCRIPTION =
-  "Sign in to KRAL to open your saved fit profile, pick up AR fitting where you left off and shop boutiques and online with one secure KRAL account.";
+  "Sign in to KRAL to open your saved fit profile, pick up AR fitting where you left off and shop boutiques online with one secure KRAL account.";
 
 const ARCHIVED_COPY = {
   title: "This account has been archived.",

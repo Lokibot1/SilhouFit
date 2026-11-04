@@ -8,7 +8,6 @@ const TAPE = [
   'BEFORE IT SHIPS',
   'MEASURED, NOT GUESSED',
   'ONE CATALOGUE',
-  'ONLINE + IN-STORE',
   'AR IN YOUR BROWSER',
 ]
 
@@ -48,10 +47,10 @@ const SPECS = [
   },
   {
     code: 'SPEC // 03',
-    tag: 'CHANNEL // STORE + WEB',
-    title: 'One catalogue, two doors',
-    body: 'The boutique register and the online storefront share one inventory. Get it delivered, or reserve online and pick it up in the store.',
-    foot: 'STOCK // SHARED ACROSS CHANNELS',
+    tag: 'CHANNEL // WEB',
+    title: 'One catalogue, delivered',
+    body: 'Browse the boutique catalogue online, check what is in stock, and get your order delivered to your door.',
+    foot: 'STOCK // LIVE ON THE STOREFRONT',
   },
 ]
 
@@ -104,12 +103,12 @@ export function Study() {
   )
 }
 
-// Store-floor photos from Unsplash (Unsplash License); as used across the app. `pos` is the focal point kept when a tile crops.
+// Apparel photos from Unsplash (Unsplash License); as used across the app. `pos` is the focal point kept when a tile crops.
 const PLATES = [
-  { src: 'denim-jacket', alt: 'Denim jacket hanging among folded denim in a shop', label: 'Frame // Store floor', title: 'Denim, in store', sub: 'Jacket and folded denim on display', pos: '50% 45%', size: 'lg' },
+  { src: 'denim-jacket', alt: 'Denim jacket hanging among folded denim in a shop', label: 'Frame // Denim', title: 'Folded denim', sub: 'Jacket and folded denim on display', pos: '50% 45%', size: 'lg' },
   { src: 'white-shirt-rail', alt: 'White shirts hanging on a rail against a black wall', label: 'Frame // Rail', title: 'Shirt rail', sub: 'White shirts on one rail', pos: '50% 35%', size: 'lg' },
   { src: 'tank-top-outfit', alt: 'Model in a white tank top and camouflage trousers', label: 'Frame // On body', title: 'Tank and camo', sub: 'How it sits on a person', pos: '50% 35%', size: 'sm' },
-  { src: 'jackets-on-hooks', alt: 'Jackets and a cap hanging on wall hooks', label: 'Frame // Store floor', title: 'The fitting wall', sub: 'Outerwear on wall hooks', pos: '50% 60%', size: 'sm' },
+  { src: 'jackets-on-hooks', alt: 'Jackets and a cap hanging on wall hooks', label: 'Frame // Outerwear', title: 'The fitting wall', sub: 'Outerwear on wall hooks', pos: '50% 60%', size: 'sm' },
   { src: 'blazer', alt: 'Black blazer hanging on a rustic fence', label: 'Piece // Outerwear', title: 'Black blazer', sub: 'Tailoring on a hanger', pos: '50% 55%', size: 'sm' },
 ] as const
 
@@ -165,8 +164,8 @@ export function Lookbook() {
 // Sample copy written for the prototype, not from real shoppers; the section says so.
 const DISPATCHES = [
   { no: '001', quote: 'I typed in my measurements once. After that every product page told me if a size was going to be tight.', who: 'First-time online shopper', ctx: 'Sample feedback' },
-  { no: '002', quote: 'Seeing the garment on the camera view settled it before I walked into the store to pick it up.', who: 'Reserve-and-pickup customer', ctx: 'Sample feedback' },
-  { no: '003', quote: 'Stock on the register and on the site match. That alone cuts the back-and-forth at the counter.', who: 'Boutique floor staff', ctx: 'Sample feedback' },
+  { no: '002', quote: 'Seeing the garment on the camera view settled it before I added it to my cart.', who: 'Online shopper', ctx: 'Sample feedback' },
+  { no: '003', quote: 'The stock on the site is always current. That alone cuts the back-and-forth with customers.', who: 'Boutique staff', ctx: 'Sample feedback' },
 ]
 
 export function Reception() {

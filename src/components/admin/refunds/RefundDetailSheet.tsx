@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
-import { approveRefund, REFUND_CHANNEL_LABELS, REFUND_REASON_LABELS, rejectRefund, type RefundDecision, type RefundRequest } from '../../../service/refunds'
+import { approveRefund, REFUND_REASON_LABELS, rejectRefund, type RefundDecision, type RefundRequest } from '../../../service/refunds'
 import { filterPriceInput, formatPeso, formatPlacedAt, withCommas } from '../../../utils/format'
 import { REFUND_LIMITS, sanitizeText, validateApproval, validateRejection } from '../../../utils/refundValidation'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
@@ -42,7 +42,6 @@ function Details({ request }: { request: RefundRequest }) {
       <Fact label="Order date">
         <time dateTime={request.orderPlacedAt}>{formatPlacedAt(request.orderPlacedAt)}</time>
       </Fact>
-      <Fact label="Channel">{REFUND_CHANNEL_LABELS[request.channel]}</Fact>
       <Fact label="Requested by">{request.requestedBy}</Fact>
       <Fact label="Requested at">
         <time dateTime={request.requestedAt}>{formatPlacedAt(request.requestedAt)}</time>

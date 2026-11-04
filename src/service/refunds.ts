@@ -17,7 +17,6 @@ const wait = (section: string, delayMs: number, signal?: AbortSignal) =>
 
 export type RefundStatus = 'pending' | 'approved' | 'rejected'
 export type RefundReason = 'wrong-size' | 'defective' | 'not-as-described' | 'changed-mind' | 'other'
-export type RefundChannel = 'online' | 'in-store'
 export type RefundSort = 'requestNo' | 'orderNo' | 'customerName' | 'requestedBy' | 'reason' | 'amount' | 'requestedAt' | 'status' | 'decidedAt'
 export type RefundDir = 'asc' | 'desc'
 
@@ -29,7 +28,6 @@ export const REFUND_REASON_LABELS: Record<RefundReason, string> = {
   'changed-mind': 'Changed mind',
   other: 'Other',
 }
-export const REFUND_CHANNEL_LABELS: Record<RefundChannel, string> = { online: 'Online', 'in-store': 'In store' }
 
 /** An item of the order, kept on the request so the sheet needs no order request. */
 export interface RefundItem {
@@ -48,7 +46,6 @@ export interface RefundRequest {
   orderPlacedAt: string
   orderTotal: number
   customerName: string
-  channel: RefundChannel
   /** "Customer", or the name of the staff member who took the request. */
   requestedBy: string
   reason: RefundReason
@@ -118,8 +115,6 @@ const REJECT_NOTES = [
   'The photos sent do not show the defect described.',
 ]
 
-const channelOf = (orderNo: string): RefundChannel => (seedOf(orderNo) % 2 === 0 ? 'online' : 'in-store')
-
 function seedRefunds(): RefundRequest[] {
   const now = Date.now()
   const today = manilaToday().date
@@ -140,7 +135,6 @@ function seedRefunds(): RefundRequest[] {
     orderPlacedAt: order.placedAt,
     orderTotal: order.total,
     customerName: order.customerName,
-    channel: channelOf(order.orderId),
     requestedBy: requestedBy(order.orderId),
     reason,
     reasonText: pick(REASON_TEXTS[reason], `${order.orderId}:text`),

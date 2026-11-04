@@ -5,7 +5,6 @@ export const CATEGORIES = ['Hoodie', 'Pants', 'Headwear', 'Shorts'] as const
 export type Category = string
 
 export type Badge = 'New' | 'Best seller' | 'Limited' | 'AR-ready'
-export type Channel = 'online' | 'store'
 
 /** Default sizes per category: Hoodie XS to XL, Pants and Shorts waist 28 to 36, Headwear one size. Stock is tracked per piece, not per size. */
 export const SIZES_BY_CATEGORY: Record<string, string[]> = {
@@ -37,7 +36,6 @@ export interface Product {
   colors: { name: string; hex: string }[]
   badges: Badge[]
   stock: number
-  channels: Channel[]
   arReady: boolean
   addedAt: string
   /** Longer copy for the product page; collapsed behind "View more" when it runs long. */

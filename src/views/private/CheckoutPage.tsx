@@ -25,7 +25,6 @@ import { placeOrder } from '../../service/placeOrder'
 import {
   computeTotals,
   deliveryEta,
-  orderBlock,
   paymentLabel,
   parseCheckoutItems,
   resolveCartItems,
@@ -59,7 +58,7 @@ import { formatPeso, variantLabel } from '../../utils/format'
 import { LIMITS, normalizePhone, sanitizePhoneDigits, validatePhone } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
-  'Review your SilhouFit order, choose delivery or pick-up in store, pay with GCash, Maya or cash, and add a note for the seller before you place the order.'
+  'Review your SilhouFit order, add your delivery address, pay with GCash, Maya or cash on delivery, and add a note for the seller before you place the order.'
 
 const SECTION = 'glass-card rounded-xl p-5'
 const fieldId = (name: AddressField) => `checkout-${name}`
@@ -247,7 +246,6 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     }
   }, [user.email])
 
-  const blocked = orderBlock(items)
   const itemCount = items.reduce((sum, i) => sum + i.qty, 0)
   const totals = computeTotals(items)
   const eta = deliveryEta()
@@ -327,7 +325,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   }
 
   async function submit() {
-    if (inFlight.current || blocked) return
+    if (inFlight.current) return
     const first = checkAddress()
     if (first) {
       // The fields only exist while the sheet is open: focus moves once it has rendered.
@@ -639,13 +637,6 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
         </p>
         <PriceSummary totals={totals} itemCount={itemCount} />
 
-        {blocked && (
-          <div role="alert" className="flex items-start gap-3 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm leading-snug">
-            <AlertIcon size={20} className="mt-px shrink-0 text-danger" />
-            <p className="min-w-0 text-fg">{blocked}</p>
-          </div>
-        )}
-
         {failed && (
           <div role="alert" className="flex items-start gap-3 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm leading-snug">
             <AlertIcon size={20} className="mt-px shrink-0 text-danger" />
@@ -666,7 +657,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           </div>
         )}
 
-        <button type="submit" data-tour="checkout-place" disabled={pending || Boolean(blocked)} className={`${PRIMARY_BUTTON} w-full`}>
+        <button type="submit" data-tour="checkout-place" disabled={pending} className={`${PRIMARY_BUTTON} w-full`}>
           {pending ? (
             <>
               <SpinnerIcon />

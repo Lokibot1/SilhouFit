@@ -13,9 +13,9 @@ import { SPRING } from '../../motion/tokens'
 
 const CAPABILITIES = [
   {
-    term: 'Inventory that matches in real time',
+    term: 'Inventory that stays accurate',
     detail:
-      'Stock changes at the register update the storefront immediately, and the reverse. One inventory count, not two ledgers to reconcile by hand.',
+      'Every sale updates the storefront stock immediately, so shoppers only see what is actually available.',
     span: 'lg:col-span-2',
     wide: true,
   },
@@ -28,9 +28,9 @@ const CAPABILITIES = [
     image: '/images/measuring-tape.jpg',
   },
   {
-    term: 'One cart, either channel',
+    term: 'One cart, saved to your account',
     detail:
-      'Add items online or in the store and check out with Buy Online, Pick Up In-Store. The cart follows the shopper across channels.',
+      'Add items online and check out for delivery. The cart follows the shopper across devices.',
     span: 'lg:col-span-1',
     wide: false,
   },

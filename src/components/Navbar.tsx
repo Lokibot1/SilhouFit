@@ -77,7 +77,7 @@ export function Navbar() {
   const brandMark = (
     <BrandMark>
       <span className="font-ui block text-xs tracking-[0.22em] max-[359px]:hidden text-fg-muted uppercase transition-colors group-hover:text-chrome-strong">
-        Omnichannel apparel
+        Online apparel
       </span>
     </BrandMark>
   );

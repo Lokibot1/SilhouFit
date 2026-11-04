@@ -27,13 +27,9 @@ const ITEMS: { q: string; a: ReactNode }[] = [
     q: 'What about shipping and returns?',
     a: (
       <>
-        At checkout you choose delivery or in-store pickup. Returns and refunds follow the refund policy. <Link to="/refund-policy">Read the refund policy</Link>
+        Orders are delivered to the address you give at checkout. Returns and refunds follow the refund policy. <Link to="/refund-policy">Read the refund policy</Link>
       </>
     ),
-  },
-  {
-    q: 'How does in-store pickup work?',
-    a: 'Reserve online, then collect the order at the store with your order confirmation, within the window stated at checkout. An order that is not collected in time may be cancelled and refunded.',
   },
   {
     q: 'Are my measurements and camera private?',

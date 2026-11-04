@@ -124,7 +124,7 @@ export function SizeGuideModal({ open, onClose, category, variants, selected, pr
           failure
         ) : !available ? (
           <p role="status" className="py-6 text-base text-fg-muted">
-            Size guide isn't available for this piece yet. Check the description for sizing notes, or ask in store.
+            Size guide isn't available for this piece yet. Check the description for sizing notes, or message the team.
           </p>
         ) : (
           <>

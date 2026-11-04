@@ -121,7 +121,6 @@ test('a signed-in cart checkout with pieces from two boutiques go in one deliver
   cart.seed(only(TROUSERS), 1) // Lumban Loom
   await page.goto('/checkout?source=cart')
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
-  await expect(page.getByRole('radio', { name: /Pick up in store/ })).toHaveCount(0)
   await expect(page.getByRole('complementary')).toContainText('₱99.00') // one flat fee for the whole order
 })
 

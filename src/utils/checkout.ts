@@ -41,20 +41,6 @@ export function parseCheckoutItems(params: URLSearchParams, products: Product[])
   return items
 }
 
-const joinNames = (names: string[]) =>
-  names.length < 3 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
-
-// The API lists no sales channels, so a piece with none is not restricted to either.
-const isStoreOnly = (i: CheckoutItem) => i.product.channels.length > 0 && !i.product.channels.includes('online')
-
-/** Why these items cannot be ordered: store-only pieces cannot be delivered. Null when all can. */
-export function orderBlock(items: CheckoutItem[]): string | null {
-  const storeOnly = [...new Set(items.filter(isStoreOnly).map((i) => i.product.name))]
-  if (storeOnly.length === 0) return null
-  const [they, verb] = storeOnly.length === 1 ? ['it', 'is'] : ['them', 'are']
-  return `${joinNames(storeOnly)} ${verb} sold in store only and can't be delivered. Remove ${they} from your order to check out.`
-}
-
 /**
  * Turns the cart's lines into the items to check out. Lines that cannot be bought are left out, each with a notice;
  * quantities are lowered to the variant's stock. `products` are the lines' pieces, loaded in full.
@@ -125,9 +111,6 @@ export interface PlacedOrder {
   payment: string
   fulfilment: string
   eta: string
-  /** Pickup orders: the boutique to collect from. */
-  pickupAt?: string
-  /** Delivery orders. */
   recipient?: string
   address?: string
   phone?: string

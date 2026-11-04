@@ -77,13 +77,11 @@ function draw(doc: jsPDF, order: PlacedOrder): number {
   rule()
 
   font(9, 'bold')
-  write(order.fulfilment === 'Delivery' ? 'On its way to' : 'Waiting for you at', MARGIN, RIGHT - MARGIN)
+  write('On its way to', MARGIN, RIGHT - MARGIN)
   y += 1
-  if (order.fulfilment === 'Delivery') {
-    if (order.recipient) detail('Name', order.recipient)
-    if (order.address) detail('Address', order.address)
-    if (order.phone) detail('Phone', order.phone)
-  } else if (order.pickupAt) detail('Boutique', order.pickupAt)
+  if (order.recipient) detail('Name', order.recipient)
+  if (order.address) detail('Address', order.address)
+  if (order.phone) detail('Phone', order.phone)
   detail('When', order.eta)
   detail('Payment', order.payment)
   if (order.note && plain(order.note)) detail('Your note', plain(order.note))
