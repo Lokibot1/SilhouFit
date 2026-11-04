@@ -350,11 +350,12 @@ export interface AccountSummary {
   customers: number
   staff: number
   admins: number
+  superadmins: number
 }
 
 /** REPLACE: GET /admin/summary */
 export async function getAccountSummary({ signal, delayMs = 700 }: RequestOptions = {}): Promise<AccountSummary> {
   await wait(delayMs, signal)
-  const { customers, staff, admins } = getAccounts()
-  return { customers: customers.length, staff: staff.length, admins: admins.length }
+  const { customers, staff, admins, superadmins } = getAccounts()
+  return { customers: customers.length, staff: staff.length, admins: admins.length, superadmins: superadmins.length }
 }

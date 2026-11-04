@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router-dom'
+import { AccountSummaryCards } from '../../components/admin/AdminSummaryCards'
 import { AdminsTab } from '../../components/admin/users/AdminsTab'
 import { CustomersTab } from '../../components/admin/users/CustomersTab'
 import { StaffTab } from '../../components/admin/users/StaffTab'
@@ -44,6 +45,7 @@ export function UserManagementPage() {
           </Tooltip>
         )}
       </header>
+      {superadmin && <AccountSummaryCards base="/superadmin" superadmins />}
       <div>
         <SegmentedTabs label="Account type" name="users" options={tabs} value={tab} onChange={(next) => setParams({ tab: next }, { replace: true })} />
       </div>

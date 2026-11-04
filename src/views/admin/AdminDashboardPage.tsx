@@ -4,6 +4,7 @@ import { AdminSummaryCards } from '../../components/admin/AdminSummaryCards'
 import { UsersIcon } from '../../components/form/icons'
 import { longDate } from '../../components/staff/StaffSkeleton'
 import { SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { StaffDashboardWidgets } from '../staff/StaffDashboardPage'
@@ -18,6 +19,7 @@ export function AdminDashboardPage() {
   useMetaDescription(META_DESCRIPTION)
 
   const me = useStaffMe()
+  const superadmin = useCurrentUser()?.role === 'superadmin'
   const today = new Date()
 
   return (
@@ -29,12 +31,12 @@ export function AdminDashboardPage() {
             <time dateTime={today.toISOString()}>{longDate(today)}</time>
           </p>
         </div>
-        <Link to="/admin/users" className={SECONDARY_BUTTON_SM}>
+        <Link to={superadmin ? '/superadmin/users' : '/admin/users'} className={SECONDARY_BUTTON_SM}>
           <UsersIcon size={16} />
           Manage users
         </Link>
       </header>
-      <AdminSummaryCards />
+      <AdminSummaryCards accounts={!superadmin} />
       <StaffDashboardWidgets base="/admin" asideTop={<ActivityLogs />} />
     </div>
   )
