@@ -1,5 +1,5 @@
 import type { ThreadMessage } from '../../hooks/useConversation'
-import { CHAT_BRAND_NAME, ROLE_LABEL, displayName } from '../../service/chatApi'
+import { CHAT_BRAND_NAME, ROLE_LABEL, displayName, sendFailureCopy } from '../../service/chatApi'
 import { formatMessageTime } from '../../utils/format'
 import { Avatar } from '../ui/Avatar'
 
@@ -7,6 +7,8 @@ const ACTION = 'font-ui min-h-11 cursor-pointer rounded-xl px-3 text-sm font-sem
 
 interface MessageBubbleProps {
   message: ThreadMessage
+  /** Arrived after the thread showed: fades and settles in. */
+  enter?: boolean
   /** Sent by the person looking at the thread: drawn on the right. */
   mine: boolean
   /** The viewer is staff, so they see the real sender; a customer sees every sender who is not a customer as KRAL. */
@@ -15,14 +17,14 @@ interface MessageBubbleProps {
   onRemove: (id: string) => void
 }
 
-export function MessageBubble({ message, mine, staff = false, onRetry, onRemove }: MessageBubbleProps) {
+export function MessageBubble({ message, enter = false, mine, staff = false, onRetry, onRemove }: MessageBubbleProps) {
   const { status } = message
   const { sender } = message
   const masked = !staff && !mine && sender?.role !== 'customer'
   const name = masked ? CHAT_BRAND_NAME : sender ? displayName(sender) : ''
   const label = masked || !sender ? '' : ROLE_LABEL[sender.role]
   return (
-    <li data-testid="chat-message" data-status={status ?? 'sent'} className={`flex items-end gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
+    <li data-testid="chat-message" data-status={status ?? 'sent'} className={`flex items-end gap-2 ${mine ? 'origin-bottom-right flex-row-reverse' : 'origin-bottom-left'} ${enter ? 'enter-message' : ''}`}>
       <Avatar name={name} src={masked ? undefined : (sender?.avatarUrl ?? undefined)} size="sm" />
       <div className={`flex min-w-0 max-w-[85%] flex-col sm:max-w-[75%] ${mine ? 'items-end' : 'items-start'}`}>
         {!mine && (
@@ -34,16 +36,18 @@ export function MessageBubble({ message, mine, staff = false, onRetry, onRemove 
         <div
           className={`max-w-full rounded-xl px-3 py-2 text-base leading-6 break-words whitespace-pre-wrap ${
             mine ? 'bg-fg text-canvas' : 'border border-line bg-canvas-sub text-fg'
-          } ${status === 'pending' ? 'opacity-70' : ''} ${status === 'failed' ? 'ring-2 ring-danger' : ''}`}
+          } transition-opacity duration-200 ${status === 'pending' ? 'opacity-70' : ''} ${status === 'failed' ? 'ring-2 ring-danger' : ''}`}
         >
           {message.content}
         </div>
         {status === 'failed' ? (
           <div role="alert" className="mt-1 flex flex-wrap items-center gap-x-1 px-1 text-sm text-danger">
-            <span>Not sent. The connection dropped before the server answered.</span>
-            <button type="button" onClick={() => onRetry(message.id)} className={`${ACTION} text-fg`}>
-              Retry
-            </button>
+            <span>{sendFailureCopy(message.failure ?? 'network')}</span>
+            {message.failure !== 'validation' && (
+              <button type="button" onClick={() => onRetry(message.id)} className={`${ACTION} text-fg`}>
+                Retry
+              </button>
+            )}
             <button type="button" onClick={() => onRemove(message.id)} className={`${ACTION} text-fg`}>
               Remove
             </button>

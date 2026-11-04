@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ChatError, displayName, fetchConversation, fetchConversations, fetchMessages, fetchMyConversation, markConversationRead, sendMessage, type ChatErrorKind } from '../../src/service/chatApi'
+import { ChatError, displayName, fetchConversation, fetchConversations, fetchMessages, fetchMyConversation, markConversationRead, sendFailureCopy, sendMessage, sendTyping, toTyping, type ChatErrorKind } from '../../src/service/chatApi'
 import { clearSession, setSession } from '../../src/service/session'
 
 vi.mock('../../src/service/supabase', () => ({
@@ -156,5 +156,36 @@ describe('error kinds', () => {
     setSession({ name: 'Dev', email: 'dev@example.com', simulated: true })
     expect(await kindOf(fetchConversation('c1'))).toBe('simulated')
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('sendFailureCopy', () => {
+  it.each<[ChatErrorKind, string]>([
+    ['network', "Not sent. We couldn't reach the server, so check your connection and press Retry."],
+    ['validation', 'Not sent. The message was refused as invalid (it may be empty or over 2,000 characters). Edit it and send a new one.'],
+    ['forbidden', 'Not sent. You may not have permission, or your sign-in expired. Sign in again, then retry.'],
+    ['rate-limit', "Not sent. You're sending too fast. Wait a moment, then press Retry."],
+    ['server', 'Not sent. Something went wrong on our side. Press Retry in a minute.'],
+    ['simulated', 'Not sent. Something went wrong on our side. Press Retry in a minute.'],
+    ['not-found', 'Not sent. This conversation is no longer available. Reload the page.'],
+    ['conflict', 'Not sent. This conversation is no longer available. Reload the page.'],
+  ])('%s', (kind, copy) => {
+    expect(sendFailureCopy(kind)).toBe(copy)
+  })
+})
+
+describe('typing', () => {
+  it('posts to the typing endpoint with no body, and swallows a failure', async () => {
+    reply({}, 500)
+    sendTyping('c1')
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(fetchMock.mock.calls[0][0]).toContain('/chat/conversations/c1/typing')
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' })
+  })
+
+  it('reads the sender of a typing payload and refuses anything else', () => {
+    expect(toTyping({ conversationId: 'c1', sender })).toMatchObject({ id: 'u1', role: 'staff' })
+    expect(toTyping({ conversationId: 'c1' })).toBeUndefined()
+    expect(toTyping(null)).toBeUndefined()
   })
 })

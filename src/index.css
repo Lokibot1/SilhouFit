@@ -1635,6 +1635,35 @@ a {
     opacity: 0;
   }
 }
+/* A message that arrives or is sent while the thread is open settles in from just below; reduced motion shows it at once. */
+@media (prefers-reduced-motion: no-preference) {
+  .enter-message {
+    animation: enter-message 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .typing-dot {
+    animation: typing-dot 1.2s ease-in-out infinite;
+    animation-delay: calc(var(--i, 0) * 160ms);
+  }
+}
+@keyframes enter-message {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+    scale: 0.97;
+  }
+}
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.4;
+    translate: 0 0;
+  }
+  30% {
+    opacity: 1;
+    translate: 0 -3px;
+  }
+}
 /* Product cards lag in and out by row as the page scrolls: scrubbed by scroll position in both directions (cards in one grid row share a position, so they move together), compositor-only, and at rest only outside these ranges so nothing stays offset. Unsupported browsers show them static. */
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
