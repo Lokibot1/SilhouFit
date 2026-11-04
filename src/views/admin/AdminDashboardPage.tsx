@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ActivityLogs } from '../../components/admin/ActivityLogs'
-import { AdminSummaryCards } from '../../components/admin/AdminSummaryCards'
+import { OperationsSummary } from '../../components/admin/AdminSummaryCards'
 import { UsersIcon } from '../../components/form/icons'
 import { longDate } from '../../components/staff/StaffSkeleton'
 import { SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
@@ -11,7 +11,7 @@ import { StaffDashboardWidgets } from '../staff/StaffDashboardPage'
 import { useStaffMe } from '../staff/StaffLayout'
 
 const META_DESCRIPTION =
-  'See how many customers, staff and admins SilhouFit has, refunds, AR-ready products, low stock, the latest account changes, and the shop sales and orders.'
+  'See refunds, AR-ready products and low stock at a glance, the latest account changes, and the shop sales and orders across SilhouFit.'
 
 /** The admin's home: account and shop figures first, then the same sales and order widgets staff see. */
 export function AdminDashboardPage() {
@@ -36,7 +36,7 @@ export function AdminDashboardPage() {
           Manage users
         </Link>
       </header>
-      <AdminSummaryCards accounts={!superadmin} />
+      <OperationsSummary base="/admin" />
       <StaffDashboardWidgets base="/admin" asideTop={<ActivityLogs />} />
     </div>
   )

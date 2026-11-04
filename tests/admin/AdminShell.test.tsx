@@ -91,7 +91,7 @@ describe('admin navigation', () => {
 })
 
 describe('admin dashboard', () => {
-  it('shows the account figures and the shared widgets', async () => {
+  it('shows the operations figures and the shared widgets, with the account figures left to user management', async () => {
     load.mockResolvedValue(ADMIN_ME)
     act(() => setSession({ name: 'Dev Admin', email: ADMIN_ME.email, role: 'admin' }))
     render(
@@ -108,20 +108,14 @@ describe('admin dashboard', () => {
       </MemoryRouter>,
     )
     expect(await screen.findByRole('heading', { level: 1, name: 'Hello, Dev' })).toBeInTheDocument()
-    const accounts = getAccounts()
-    const figures = await screen.findByRole('region', { name: 'Accounts at a glance' })
-    await within(figures).findByText('Customers')
-    expect(within(figures).getByText('Customers').nextSibling).toHaveTextContent(String(accounts.customers.length))
-    expect(within(figures).getByText('Staff').nextSibling).toHaveTextContent(String(accounts.staff.length))
+    const figures = await screen.findByRole('region', { name: 'Refunds, AR and stock at a glance' })
+    for (const gone of ['Customers', 'Staff', 'Admins']) expect(within(figures).queryByText(gone)).toBeNull()
     // The operations figures come from the sample orders and products.
     for (const label of ['Refunds', 'AR-ready products', 'Low or out of stock']) expect(await within(figures).findByText(label)).toBeInTheDocument()
     expect(within(figures).getByText('AR-ready products').nextSibling).toHaveTextContent('8')
     expect(within(figures).getByText('Low or out of stock').nextSibling).toHaveTextContent('2')
     for (const gone of ['Active accounts', 'Archived staff', 'First sign-in due']) expect(within(figures).queryByText(gone)).toBeNull()
     const hrefOf = (name: RegExp) => within(figures).getByRole('link', { name }).getAttribute('href')
-    expect(hrefOf(/^Customers: \d+, open customer list$/)).toBe('/admin/users?tab=customers')
-    expect(hrefOf(/^Staff: \d+, open staff list$/)).toBe('/admin/users?tab=staff')
-    expect(hrefOf(/^Admins: \d+, open admin list$/)).toBe('/admin/users?tab=admins')
     expect(hrefOf(/^Refunds: .*open returned transactions$/)).toBe('/admin/transactions?status=returned')
     expect(hrefOf(/^AR-ready products: 8, /)).toBe('/admin/inventory?ar=yes')
     expect(hrefOf(/^Low or out of stock: 2, /)).toBe('/admin/inventory')

@@ -11,8 +11,6 @@ import { ArIcon, BoxIcon, LockIcon, RestoreIcon, SettingsIcon, UserIcon, UsersIc
 import { SectionBody } from '../staff/StaffSection'
 import { STAFF_SECTION, STAT_CARD, STAT_CONTEXT, STAT_LABEL, STAT_VALUE, statIcon, type StatTone } from '../staff/StaffSkeleton'
 
-// Six cards in even rows (1, 2, 3 or 6 across) by the width the section is given, sidebar open or collapsed, so none is squeezed under 13rem and none is left alone on a row.
-const GRID = 'grid gap-3 @[28rem]:grid-cols-2 @3xl:grid-cols-3 @[84rem]:grid-cols-6'
 // Wrap instead of truncating (the shared classes cut a long label off with an ellipsis).
 const LABEL = STAT_LABEL.replace('truncate ', '')
 const CONTEXT = STAT_CONTEXT.replace('truncate ', '')
@@ -163,30 +161,15 @@ export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'
   )
 }
 
-/** The operations cards on their own, for the staff dashboard. */
-export function OperationsSummary() {
+/** The operations cards on their own, for the staff and admin dashboards. The account counts live on the user management page. */
+export function OperationsSummary({ base = '/staff' }: { base?: '/admin' | '/staff' }) {
   return (
     <section aria-labelledby="operations-figures" className="@container">
       <h2 id="operations-figures" className="sr-only">
         Refunds, AR and stock at a glance
       </h2>
       <div className="grid gap-3 @[28rem]:grid-cols-2 @3xl:grid-cols-3">
-        <OperationsCards base="/staff" />
-      </div>
-    </section>
-  )
-}
-
-/** The account counts and the operations figures across the top of the admin dashboard. A superadmin's account counts live on the user management page, so only the operations cards show. */
-export function AdminSummaryCards({ accounts = true }: { accounts?: boolean }) {
-  return (
-    <section aria-labelledby="account-figures" className="@container">
-      <h2 id="account-figures" className="sr-only">
-        {accounts ? 'Accounts at a glance' : 'Refunds, AR and stock at a glance'}
-      </h2>
-      <div className={accounts ? GRID : 'grid gap-3 @[28rem]:grid-cols-2 @3xl:grid-cols-3'}>
-        {accounts && <AccountCards />}
-        <OperationsCards base="/admin" first={accounts ? 3 : 0} />
+        <OperationsCards base={base} />
       </div>
     </section>
   )

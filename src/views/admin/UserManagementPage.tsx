@@ -45,7 +45,7 @@ export function UserManagementPage() {
           </Tooltip>
         )}
       </header>
-      {superadmin && <AccountSummaryCards base="/superadmin" superadmins />}
+      <AccountSummaryCards base={superadmin ? '/superadmin' : '/admin'} superadmins={superadmin} />
       <div>
         <SegmentedTabs label="Account type" name="users" options={tabs} value={tab} onChange={(next) => setParams({ tab: next }, { replace: true })} />
       </div>
