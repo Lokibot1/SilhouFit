@@ -1,3 +1,4 @@
+import { useReducedMotion } from 'motion/react'
 import { Fragment, useLayoutEffect, useRef } from 'react'
 import type { ThreadMessage } from '../../hooks/useConversation'
 import { formatChatDay, manilaDay } from '../../utils/format'
@@ -25,6 +26,7 @@ export function MessageList({ messages, selfId, staff, hasMore, loadingEarlier, 
   const scroller = useRef<HTMLDivElement>(null)
   const nearBottom = useRef(true)
   const previous = useRef({ first: '', height: 0 })
+  const reduced = useReducedMotion()
 
   useLayoutEffect(() => {
     const element = scroller.current!
@@ -34,10 +36,11 @@ export function MessageList({ messages, selfId, staff, hasMore, loadingEarlier, 
       // Earlier messages were added above: keep what the reader was looking at in place.
       element.scrollTop += element.scrollHeight - previous.current.height
     } else if (nearBottom.current || (last && last.senderId === selfId)) {
-      element.scrollTop = element.scrollHeight
+      // The first view jumps to the latest message; after that it glides, unless the reader prefers less motion.
+      element.scrollTo({ top: element.scrollHeight, behavior: previous.current.height === 0 || reduced ? 'auto' : 'smooth' })
     }
     previous.current = { first, height: element.scrollHeight }
-  }, [messages, selfId])
+  }, [messages, selfId, reduced])
 
   return (
     <div
@@ -59,13 +62,13 @@ export function MessageList({ messages, selfId, staff, hasMore, loadingEarlier, 
       <div role="log" aria-live="polite" aria-label="Messages">
         <ol className="grid gap-3">
         {messages.map((message, index) => (
-          <Fragment key={message.id}>
+          <Fragment key={message.key ?? message.id}>
             {(index === 0 || manilaDay(message.createdAt) !== manilaDay(messages[index - 1].createdAt)) && (
               <li role="separator" className="font-ui py-1 text-center text-sm text-fg-muted">
                 {formatChatDay(message.createdAt)}
               </li>
             )}
-            <MessageBubble message={message} mine={message.senderId === selfId} staff={staff} onRetry={onRetry} onRemove={onRemove} />
+            <MessageBubble message={message} enter={message.fresh} mine={message.senderId === selfId} staff={staff} onRetry={onRetry} onRemove={onRemove} />
           </Fragment>
         ))}
         </ol>

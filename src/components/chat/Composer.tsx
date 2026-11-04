@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { MAX_MESSAGE_LENGTH } from '../../service/chatApi'
 import { SendIcon } from '../form/icons'
 import { Tooltip } from '../ui/Tooltip'
@@ -7,14 +7,24 @@ interface ComposerProps {
   onSend: (body: string) => void
   /** A message is on its way: Send waits so one press cannot send twice. */
   sending: boolean
+  /** Called as the text changes while it is not empty, for a typing hint. */
+  onTyping?: () => void
+  /** Puts the cursor in the box when it appears. */
+  focusOnMount?: boolean
+  /** Publishes its height as --bottom-bar-h so a toast sits above it. The dock turns this off: it reads that variable itself. */
+  publishOffset?: boolean
 }
 
 /** Enter sends, Shift+Enter starts a new line. The text clears at once; a message that fails stays in the thread with Retry. */
-export function Composer({ onSend, sending }: ComposerProps) {
+export function Composer({ onSend, sending, onTyping, focusOnMount = false, publishOffset = true }: ComposerProps) {
   const [text, setText] = useState('')
   const field = useRef<HTMLTextAreaElement>(null)
   const body = text.trim()
   const blocked = sending || !body
+
+  useEffect(() => {
+    if (focusOnMount) field.current?.focus()
+  }, [focusOnMount])
 
   function submit() {
     if (blocked) return
@@ -33,7 +43,7 @@ export function Composer({ onSend, sending }: ComposerProps) {
     <form
       // Publishes how far its top sits above the screen bottom so a toast lands above the composer instead of over it.
       ref={(el) => {
-        if (!el) return
+        if (!el || !publishOffset) return
         const publish = () => document.documentElement.style.setProperty('--bottom-bar-h', `${Math.ceil(window.innerHeight - el.getBoundingClientRect().top)}px`)
         publish()
         const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish)
@@ -55,7 +65,10 @@ export function Composer({ onSend, sending }: ComposerProps) {
         <textarea
           ref={field}
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => {
+            setText(event.target.value)
+            if (event.target.value.trim()) onTyping?.()
+          }}
           onKeyDown={onKeyDown}
           maxLength={MAX_MESSAGE_LENGTH}
           rows={1}

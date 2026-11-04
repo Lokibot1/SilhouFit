@@ -92,6 +92,25 @@ export class ChatError extends Error {
   }
 }
 
+/** Why a message was not sent, for the copy under it. Never includes the server's own text. */
+export function sendFailureCopy(kind: ChatErrorKind) {
+  switch (kind) {
+    case 'network':
+      return "Not sent. We couldn't reach the server, so check your connection and press Retry."
+    case 'validation':
+      return 'Not sent. The message was refused as invalid (it may be empty or over 2,000 characters). Edit it and send a new one.'
+    case 'forbidden':
+      return 'Not sent. You may not have permission, or your sign-in expired. Sign in again, then retry.'
+    case 'rate-limit':
+      return "Not sent. You're sending too fast. Wait a moment, then press Retry."
+    case 'not-found':
+    case 'conflict':
+      return 'Not sent. This conversation is no longer available. Reload the page.'
+    default:
+      return 'Not sent. Something went wrong on our side. Press Retry in a minute.'
+  }
+}
+
 /** Sent after a conversation is marked read, so the unread badge and the inbox can ask again. */
 export const CHAT_READ_EVENT = 'silhoufit:chat-read'
 
@@ -117,6 +136,11 @@ export const displayName = (person: { firstName: string; lastName: string; fullN
 function toSender(value: unknown): MessageSender | undefined {
   if (!isRecord(value) || typeof value.id !== 'string' || !isRole(value.role)) return undefined
   return { id: value.id, firstName: text(value.firstName), lastName: text(value.lastName), fullName: nullableText(value.fullName), role: value.role, avatarUrl: nullableText(value.avatarUrl) }
+}
+
+/** The sender of a `typing` broadcast, or undefined when the payload is not one. */
+export function toTyping(value: unknown) {
+  return isRecord(value) ? toSender(value.sender) : undefined
 }
 
 export function toMessage(value: unknown): ChatMessage {
@@ -195,4 +219,10 @@ export async function sendMessage(id: string, content: string, { signal }: Reque
 export async function markConversationRead(id: string, { signal }: RequestOptions = {}) {
   await call('POST', `${idPath(id)}/read`, {}, signal)
   window.dispatchEvent(new Event(CHAT_READ_EVENT))
+}
+
+/** Feature: Chat – Typing */
+/** POST /chat/conversations/:id/typing. Fire and forget: a missed typing hint is not worth an error. */
+export function sendTyping(id: string) {
+  call('POST', `${idPath(id)}/typing`).catch(() => {})
 }

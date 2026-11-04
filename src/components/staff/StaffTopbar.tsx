@@ -1,6 +1,7 @@
 import type { CurrentUser } from '../../hooks/useCurrentUser'
 import type { Area } from '../../utils/staffRole'
 import { AccountMenu } from '../AccountMenu'
+import { MessagesButton } from '../chat/dock/MessagesButton'
 import { MenuIcon } from '../form/icons'
 import { Tooltip } from '../ui/Tooltip'
 import { VisitWebsiteLink } from '../VisitWebsiteLink'
@@ -20,7 +21,7 @@ interface StaffTopbarProps {
   onSignOut: () => void
 }
 
-/** The staff pages' top bar: the burger and logo, then the visit-website globe, the notifications bell and the account menu. */
+/** The staff pages' top bar: the burger and logo, then the visit-website globe, the notifications bell, the messages icon and the account menu. */
 export function StaffTopbar({ area, user, wide, collapsed, onToggleSidebar, onMenu, onSignOut }: StaffTopbarProps) {
   const label = !wide ? 'Open menu' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'
 
@@ -44,6 +45,7 @@ export function StaffTopbar({ area, user, wide, collapsed, onToggleSidebar, onMe
       <div className="flex shrink-0 items-center gap-1">
         <VisitWebsiteLink />
         <NotificationMenu />
+        <MessagesButton area={area} />
         <AccountMenu user={user} profileTo={`/${area}/profile`} onSignOut={onSignOut} themeSwitch />
       </div>
     </header>

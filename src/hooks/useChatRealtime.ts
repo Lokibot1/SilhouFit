@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { SIMULATED_AUTH } from '../config/accountPolicy'
-import { CHAT_READ_EVENT, type ChatMessage } from '../service/chatApi'
+import { CHAT_READ_EVENT, type ChatMessage, type MessageSender } from '../service/chatApi'
 import { subscribeToMessages } from '../service/chatRealtime'
 import { getSession } from '../service/session'
 
@@ -22,6 +22,8 @@ interface RealtimeOptions {
   onMessage: (message: ChatMessage) => void
   /** Ask the server for what may have been missed: on every (re)SUBSCRIBED, every SAFETY_POLL_MS while it is up and every POLL_MS while the channel is down. */
   onSync: () => void
+  /** Someone is typing in this conversation. */
+  onTyping?: (sender: MessageSender) => void
 }
 
 /**
@@ -29,11 +31,11 @@ interface RealtimeOptions {
  * 'reconnecting' only after the channel reports an error or closes; it stays 'connecting' before the first answer. A dev account has no token,
  * so it opens no channel and polls nothing (every request would be refused anyway).
  */
-export function useChatRealtime({ topic, enabled = true, onMessage, onSync }: RealtimeOptions) {
+export function useChatRealtime({ topic, enabled = true, onMessage, onSync, onTyping }: RealtimeOptions) {
   const [connection, setConnection] = useState<ConnectionState>('connecting')
-  const latest = useRef({ onMessage, onSync })
+  const latest = useRef({ onMessage, onSync, onTyping })
   useEffect(() => {
-    latest.current = { onMessage, onSync }
+    latest.current = { onMessage, onSync, onTyping }
   })
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export function useChatRealtime({ topic, enabled = true, onMessage, onSync }: Re
           pollEvery(POLL_MS)
         }
       },
+      (sender) => latest.current.onTyping?.(sender),
     )
     return () => {
       unsubscribe()

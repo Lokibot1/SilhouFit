@@ -4,6 +4,7 @@ import { clearCartCache } from '../hooks/useCart'
 import { resetTour } from '../hooks/useOnboarding'
 import { clearLastOrder } from '../utils/checkout'
 import { clearAddressCache } from './addresses'
+import { reset as resetChatDock } from './chatDock'
 import { clearStashedNext } from './googleAuth'
 import { clearSession } from './session'
 import { getSupabase } from './supabase'
@@ -17,6 +18,7 @@ export function signOut() {
   clearStashedNext() // a pending Google `next` belongs to the session that is ending
   clearLastOrder() // an order's address and phone must not outlive the session
   clearBodyDraft() // measurements must not outlive the session
+  resetChatDock() // open chats must not outlive the session
   resetTour() // the next sign-in is offered the tour again
   clearPasswordGateSkips() // a skipped first-login screen returns at the next sign-in
 }

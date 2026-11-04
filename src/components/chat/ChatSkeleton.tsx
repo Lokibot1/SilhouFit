@@ -1,12 +1,14 @@
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
-/** Stands in for ChatThread while it loads: the same header, list and composer heights, so nothing shifts on swap. */
-export function ChatSkeleton() {
+/** Stands in for ChatThread while it loads: the same header, list and composer heights, so nothing shifts on swap. `compact` has no header, like a dock box. */
+export function ChatSkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <div role="status" aria-label="Loading conversation" className="flex min-h-0 flex-1 animate-pulse flex-col">
-      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-line px-3">
-        <Bar className="h-6 w-40" />
-      </div>
+      {!compact && (
+        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-line px-3">
+          <Bar className="h-6 w-40" />
+        </div>
+      )}
       <div className="grid min-h-0 flex-1 content-end gap-3 overflow-hidden px-3 py-4 sm:px-4">
         <div className="flex items-end gap-2">
           <div className="size-8 shrink-0 rounded-full bg-line-strong" />
@@ -20,6 +22,7 @@ export function ChatSkeleton() {
           <Bar className="h-10 w-1/2" />
         </div>
       </div>
+      <div className="h-6 shrink-0" />
       <div className="border-t border-line p-3">
         <Bar className="h-11 w-full" />
         <div className="mt-1 h-4" />
