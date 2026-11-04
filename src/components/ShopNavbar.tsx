@@ -170,7 +170,7 @@ export function ShopNavbar() {
           {user ? (
             <>
               <VisitWebsiteLink />
-              <AccountMenu user={user} />
+              <AccountMenu user={user} showMessages={!user.role || user.role === 'customer'} />
             </>
           ) : (
             <Tooltip label="Sign in">

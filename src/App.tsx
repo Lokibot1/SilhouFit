@@ -8,6 +8,7 @@ import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
 import { Layout } from './components/Layout'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
+import { MessagesPageSkeleton, OrderChatPageSkeleton, StaffMessagesPageSkeleton } from './components/chat/ChatSkeleton'
 import { InventoryPageSkeleton } from './components/staff/InventorySkeleton'
 import { OrderLogSkeleton, StaffShellSkeleton } from './components/staff/StaffSkeleton'
 import { MeasurementsPageSkeleton } from './components/staff/MeasurementsSkeleton'
@@ -74,6 +75,15 @@ const ProfilePage = lazy(() =>
   import('./views/private/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 )
 
+const OrderChatPage = lazy(() =>
+  import('./views/private/OrderChatPage').then((m) => ({ default: m.OrderChatPage })),
+)
+const MessagesPage = lazy(() =>
+  import('./views/private/MessagesPage').then((m) => ({ default: m.MessagesPage })),
+)
+const StaffMessagesPage = lazy(() =>
+  import('./views/staff/StaffMessagesPage').then((m) => ({ default: m.StaffMessagesPage })),
+)
 const StaffLayout = lazy(() =>
   import('./views/staff/StaffLayout').then((m) => ({ default: m.StaffLayout })),
 )
@@ -162,6 +172,14 @@ const operationsRoutes = (
       element={
         <Suspense fallback={<OrderLogSkeleton />}>
           <StaffOnlineOrdersPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="messages"
+      element={
+        <Suspense fallback={<StaffMessagesPageSkeleton />}>
+          <StaffMessagesPage />
         </Suspense>
       }
     />
@@ -332,6 +350,22 @@ function App() {
                 element={
                   <Suspense fallback={<ProfileSkeleton />}>
                     <BodySetupPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="messages"
+                element={
+                  <Suspense fallback={<MessagesPageSkeleton />}>
+                    <MessagesPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="messages/:conversationId"
+                element={
+                  <Suspense fallback={<OrderChatPageSkeleton />}>
+                    <OrderChatPage />
                   </Suspense>
                 }
               />

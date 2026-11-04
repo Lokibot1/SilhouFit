@@ -65,3 +65,20 @@ export const variantLabel = (size: string | null, color: string | null) => [size
 
 /** An amount or count typed in a box, with thousands commas for display (`1234.5` -> `1,234.5`). The value kept in state stays comma-free. */
 export const withCommas = (value: string) => value.replace(/^\d+/, (int) => int.replace(/\B(?=(\d{3})+$)/g, ','))
+
+const MESSAGE_TIME = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })
+const MANILA_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' })
+
+/** An ISO time as Manila store time in 12-hour form: "3:45 PM". */
+export const formatMessageTime = (iso: string) => MESSAGE_TIME.format(new Date(iso))
+
+/** The Manila calendar day of an ISO time, "2026-11-03", for grouping a thread by day. */
+export const manilaDay = (iso: string) => MANILA_DAY.format(new Date(iso))
+
+/** "Today", "Yesterday" or "Nov 3, 2026" (Manila days), the date separator in a thread. */
+export function formatChatDay(iso: string, now = new Date()) {
+  const day = manilaDay(iso)
+  if (day === MANILA_DAY.format(now)) return 'Today'
+  if (day === MANILA_DAY.format(new Date(now.getTime() - 86_400_000))) return 'Yesterday'
+  return formatDayWithYear(day)
+}
