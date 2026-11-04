@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, useLocation, useOutletContext } from 'react-router-dom'
 import { FirstLoginPasswordGate } from '../../components/auth/FirstLoginPasswordGate'
+import { ChatDock } from '../../components/chat/dock/ChatDock'
 import { AlertIcon } from '../../components/form/icons'
 import { SkipLink } from '../../components/SkipLink'
 import { StaffNav } from '../../components/staff/StaffNav'
@@ -178,6 +179,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
           <StaffNav area={shellArea} onNavigate={() => setMenuOpen(false)} />
         </div>
       </Modal>
+      <ChatDock staff />
       <FirstLoginPasswordGate me={me} onChanged={() => setState({ status: 'success', me: { ...me, mustChangePassword: false } })} />
     </div>
   )

@@ -33,7 +33,7 @@ export function UnreadBadge({ count }: { count: number }) {
   )
 }
 
-function Row({ thread, selected, onSelect }: { thread: Conversation; selected: boolean; onSelect: (id: string) => void }) {
+export function Row({ thread, selected, onSelect }: { thread: Conversation; selected: boolean; onSelect: (id: string) => void }) {
   const name = (thread.customer && displayName(thread.customer)) || 'Customer'
   return (
     <li>

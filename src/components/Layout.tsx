@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { MotionConfig, motion } from 'motion/react'
 import { Navigate, Outlet, useLocation, useNavigationType } from 'react-router-dom'
+import { ChatDock } from './chat/dock/ChatDock'
 import { CookieConsentBanner } from './CookieConsentBanner'
 import { Footer } from './Footer'
 import { Navbar } from './Navbar'
@@ -81,6 +82,7 @@ export function Layout({ bare: bareProp = false }: { bare?: boolean }) {
       {!bare && !isAuthPath(pathname) && !NO_FOOTER.includes(pathname.replace(/\/$/, '')) && !pathname.startsWith('/shop/') && !pathname.startsWith('/messages/') && <Footer />}
       <CookieConsentBanner />
       <OnboardingGate />
+      {!bare && <ChatDock />}
     </div>
   )
 }

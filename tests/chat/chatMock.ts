@@ -6,7 +6,7 @@ import { DEMO, mockAuth } from '../shared/session'
 //  - Sign-in: the real form against the mocked Supabase from tests/shared/session.ts, so the session is a real (not simulated) one.
 //  - Realtime: page.routeWebSocket plays the Supabase Realtime server (Phoenix protocol, serializer 2.0.0: [join_ref, ref, topic, event, payload]).
 //    It accepts every private join (or refuses it, to simulate a channel error) and pushes a `broadcast` event `message` carrying the camelCase message
-//    the way the API does, through `realtime.push`.
+//    the way the API does, through `realtime.push`, and a `typing` one through `realtime.pushTyping`.
 //    No app code is touched, so the real supabase-js channel code runs.
 
 export type Role = 'customer' | 'staff' | 'admin' | 'superadmin'
@@ -109,6 +109,8 @@ export interface RealtimeMock {
   topics: () => string[]
   /** Broadcasts `message` like the API: to the conversation's channel, the staff inbox and the customer's channel, for those that are joined. Waits until one is. */
   push: (message: Msg, customerId?: string) => Promise<void>
+  /** Broadcasts `typing` for `sender` on `topic` (default: the conversation's channel). Waits until the topic is joined. */
+  pushTyping: (sender: Person, topic?: string) => Promise<void>
 }
 
 export interface ChatMock {
@@ -122,6 +124,8 @@ export interface ChatMock {
   me: Person
   /** Every POST /messages content, in order. */
   sends: string[]
+  /** The conversation id of every POST /typing, in order. */
+  typings: string[]
   sendReply: (attempt: number) => SendReply
   /** Make a GET answer with this status instead of its data (cleared by setting null). */
   fail: { inbox: number | null; conversation: number | null }
@@ -146,6 +150,13 @@ async function mockRealtime(page: Page): Promise<RealtimeMock> {
       for (let tries = 0; matches().length === 0 && tries < 100; tries++) await new Promise((resolve) => setTimeout(resolve, 100))
       for (const join of matches()) {
         join.ws.send(JSON.stringify([join.joinRef, null, join.topic, 'broadcast', { type: 'broadcast', event: 'message', payload: message }]))
+      }
+    },
+    pushTyping: async (who, topic = `realtime:chat:conversation:${CID}`) => {
+      const matches = () => joins.filter((j) => j.topic === topic)
+      for (let tries = 0; matches().length === 0 && tries < 100; tries++) await new Promise((resolve) => setTimeout(resolve, 100))
+      for (const join of matches()) {
+        join.ws.send(JSON.stringify([join.joinRef, null, join.topic, 'broadcast', { type: 'broadcast', event: 'typing', payload: { conversationId: CID, sender: senderOf(who) } }]))
       }
     },
   }
@@ -178,6 +189,7 @@ export async function mockChat(page: Page, role: Role = 'customer', init: Partia
     messages: init.messages ?? [],
     me: ME[role],
     sends: [],
+    typings: [],
     sendReply: () => 'ok',
     fail: { inbox: null, conversation: null },
     calls: [],
@@ -219,6 +231,10 @@ export async function mockChat(page: Page, role: Role = 'customer', init: Partia
         await gates.conversation
         if (mock.fail.conversation) return json(route, { message: 'Boom' }, mock.fail.conversation)
         return json(route, mock.conversations.find((c) => c.id === id) ?? mock.mine)
+      }
+      if (action === 'typing') {
+        mock.typings.push(id)
+        return route.fulfill({ status: 204, headers: CORS })
       }
       if (action === 'messages' && method === 'GET') return json(route, { data: mock.messages, meta: { total: mock.messages.length, limit: 50, hasMore: false } })
       if (action === 'messages' && method === 'POST') {

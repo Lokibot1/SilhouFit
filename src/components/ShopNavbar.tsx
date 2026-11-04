@@ -6,6 +6,7 @@ import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useShopSearch } from '../hooks/useShopSearch'
 import { useSavedIds } from '../hooks/useWishlist'
 import { CartIcon, HeartIcon, SearchIcon, UserIcon, XIcon } from './form/icons'
+import { CustomerMessagesButton } from './chat/dock/CustomerMessagesButton'
 import { SilhouetteMark } from './landing/SilhouetteMark'
 import { ThemeToggle } from './ThemeToggle'
 import { AccountMenu } from './AccountMenu'
@@ -167,10 +168,11 @@ export function ShopNavbar() {
               <Badge count={cartCount} />
             </Link>
           </Tooltip>
+          {user && (!user.role || user.role === 'customer') && <CustomerMessagesButton />}
           {user ? (
             <>
               <VisitWebsiteLink />
-              <AccountMenu user={user} showMessages={!user.role || user.role === 'customer'} />
+              <AccountMenu user={user} />
             </>
           ) : (
             <Tooltip label="Sign in">
