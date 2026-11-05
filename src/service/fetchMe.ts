@@ -29,6 +29,8 @@ export interface Me {
   passwordChangeSkippable?: boolean
   /** An administrator reset this staff member's password to the default and they have not changed it yet. */
   passwordResetRequired?: boolean
+  /** False for accounts that sign in only with Google (or another provider) and so have no password; absent means true. */
+  canChangePassword?: boolean
 }
 
 export type MeErrorKind = 'unauthorized' | 'not-found' | 'rate-limit' | 'network' | 'server'

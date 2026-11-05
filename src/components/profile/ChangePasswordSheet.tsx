@@ -35,6 +35,10 @@ const BANNER_COPY: Record<Exclude<Failure, 'wrong-password' | 'same'>, { title: 
     title: 'Password changes are unavailable right now.',
     body: 'Your password was not changed because the server could not complete the request. Try again later, or contact an administrator if it keeps happening.',
   },
+  'no-password': {
+    title: 'There is no password to change.',
+    body: 'This account signs in with Google (or another provider), so there is no password to change here.',
+  },
   server: {
     title: 'Your password was not changed.',
     body: 'Something went wrong on our side. Try again in a moment.',
@@ -50,8 +54,8 @@ interface ChangePasswordSheetProps {
 }
 
 /**
- * Staff only: the right-hand sheet on the profile where a signed-in staff member picks their own password. A success ends the session.
- * After an administrator reset the password it cannot be closed: the only ways out are changing the password or signing out.
+ * The right-hand sheet on the profile where any signed-in user picks their own password. A success ends the session.
+ * After an administrator reset a staff password it cannot be closed: the only ways out are changing the password or signing out.
  */
 export function ChangePasswordSheet({ open, onClose, onSignOut, me }: ChangePasswordSheetProps) {
   const locked = Boolean(me.passwordResetRequired)

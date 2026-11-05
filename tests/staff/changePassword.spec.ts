@@ -34,7 +34,10 @@ interface Network {
 }
 
 /** Stands in for Supabase Auth and the API for one non-simulated user. */
-async function stubNetwork(page: Page, { role = 'staff', mustChangePassword = true }: { role?: Role; mustChangePassword?: boolean } = {}) {
+async function stubNetwork(
+  page: Page,
+  { role = 'staff', mustChangePassword = true, canChangePassword }: { role?: Role; mustChangePassword?: boolean; canChangePassword?: boolean } = {},
+) {
   const net: Network = {
     password: NETWORK.password,
     posts: [],
@@ -73,6 +76,7 @@ async function stubNetwork(page: Page, { role = 'staff', mustChangePassword = tr
             birthday: null,
             gender: null,
             mustChangePassword,
+            ...(canChangePassword === undefined ? {} : { canChangePassword }),
             createdAt: '2026-01-15T08:30:00.000Z',
             updatedAt: '2026-01-15T08:30:00.000Z',
           },
@@ -90,7 +94,11 @@ async function stubNetwork(page: Page, { role = 'staff', mustChangePassword = tr
 
 test.beforeEach(async ({ page }) => {
   // Keep the cookie banner out of the way, and the staff API (Staff tab) off the network.
-  await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
+  // The customer welcome tour is kept out of the way too (the "not again in this tab" flag).
+  await page.addInitScript(() => {
+    localStorage.setItem('silhoufit-cookie-consent', 'accepted')
+    sessionStorage.setItem('silhoufit-tour', JSON.stringify({ phase: null, step: 0, stop: 0, exited: true }))
+  })
   await stubStaffApi(page)
 })
 
@@ -99,6 +107,20 @@ async function signIn(page: Page, { email, password }: { email: string; password
   await page.getByLabel('Email', { exact: true }).fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+}
+
+/** Simulated staff, admin and superadmin plus a stubbed network customer. */
+const EVERY_ROLE_PROFILES = [
+  { role: 'staff', account: UNFLAGGED, home: /\/staff$/, profile: '/staff/profile' },
+  { role: 'admin', account: ADMIN, home: /\/admin$/, profile: '/admin/profile' },
+  { role: 'superadmin', account: SUPERADMIN, home: /\/superadmin$/, profile: '/superadmin/profile' },
+  { role: 'customer', account: NETWORK, home: /\/profile$/, profile: '/profile' },
+] as const
+
+async function signInAs(page: Page, role: Role, account: { email: string; password: string }) {
+  if (role === 'customer') await stubNetwork(page, { role, mustChangePassword: false })
+  await signIn(page, account)
+  await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
 }
 
 const gate = (page: Page) => page.getByRole('dialog', { name: 'Change your temporary password' })
@@ -185,8 +207,6 @@ test.describe('first-login pop-up', () => {
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
     await expect(gate(page)).toHaveCount(0)
     await page.goto('/admin/profile')
-    await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Change password', exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: 'Sign out', exact: true }).click()
     await expect(page).toHaveURL(/\/login/)
 
@@ -236,12 +256,87 @@ test.describe('profile buttons', () => {
     expect(a!.y < b!.y || (a!.y === b!.y && a!.x < b!.x)).toBe(true)
   })
 
-  test('a customer profile has no Change password button', async ({ page }) => {
-    await stubNetwork(page, { role: 'customer', mustChangePassword: false })
+  for (const { role, account, profile } of EVERY_ROLE_PROFILES) {
+    test(`a ${role} profile shows Change password before Sign out`, async ({ page }) => {
+      await signInAs(page, role, account)
+      if (role !== 'customer') await page.goto(profile) // a customer already lands on /profile
+      const change = page.getByRole('button', { name: 'Change password', exact: true })
+      const out = page.getByRole('button', { name: 'Sign out', exact: true })
+      await expect(change).toBeVisible()
+      await expect(change.locator('svg')).toBeVisible()
+      const [a, b] = await Promise.all([change.boundingBox(), out.boundingBox()])
+      expect(a!.height).toBeGreaterThanOrEqual(44)
+      expect(a!.y < b!.y || (a!.y === b!.y && a!.x < b!.x)).toBe(true)
+    })
+  }
+
+  test('is hidden for an account that signs in only with Google (canChangePassword false)', async ({ page }) => {
+    await stubNetwork(page, { role: 'customer', mustChangePassword: false, canChangePassword: false })
     await signIn(page, NETWORK)
     await expect(page).toHaveURL(/\/profile$/)
     await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Change password', exact: true })).toHaveCount(0)
+  })
+})
+
+test.describe('every role can change its password', () => {
+  for (const { role, account, home, profile } of EVERY_ROLE_PROFILES) {
+    test(`${role}: the drawer opens closable, validates, and a success signs out to plain /login with the banner`, async ({ page }) => {
+      await signInAs(page, role, account)
+      if (role !== 'customer') await page.goto(profile) // a customer already lands on /profile
+      await page.getByRole('button', { name: 'Change password', exact: true }).click()
+      const sheet = drawer(page)
+      await expect(sheet).toBeVisible()
+      await expect(sheet.getByRole('button', { name: 'Sign out' })).toHaveCount(0)
+
+      await submit(sheet).click()
+      await expect(sheet.getByText('Enter your current password.')).toBeVisible()
+      await expect(sheet.getByRole('group', { name: 'Password requirements' })).toBeVisible()
+
+      await fillForm(sheet, account.password, NEW_PASSWORD)
+      await submit(sheet).click()
+
+      await expect(page).toHaveURL(/\/login$/)
+      expect(new URL(page.url()).searchParams.has('next')).toBe(false)
+      await expect(page.getByRole('status').filter({ has: page.getByText('Password changed.', { exact: true }) })).toContainText('Sign in with your new password.')
+
+      await page.reload()
+      await expect(page.getByText('Password changed.', { exact: true })).toHaveCount(0)
+      await page.goto(profile)
+      await expect(page).toHaveURL(/\/login/) // the session really ended
+
+      if (role === 'customer') {
+        await signIn(page, { email: NETWORK.email, password: NETWORK.password }) // the stub now only accepts the new password
+        await expect(page).toHaveURL(/\/login$/)
+      } else {
+        await signIn(page, account) // the old password
+        await expect(page).toHaveURL(/\/login$/)
+        await signIn(page, { email: account.email, password: NEW_PASSWORD })
+        await expect(page).toHaveURL(home)
+      }
+    })
+  }
+
+  test('a wrong current password is shown on the field for an admin', async ({ page }) => {
+    await signIn(page, ADMIN)
+    await page.goto('/admin/profile')
+    await page.getByRole('button', { name: 'Change password', exact: true }).click()
+    const sheet = drawer(page)
+    await fillForm(sheet, 'Wrong#Pass-123', NEW_PASSWORD)
+    await submit(sheet).click()
+    await expect(sheet.getByText('That is not your current password. Check it and try again.')).toBeVisible()
+  })
+
+  test('a customer whose account has no password sees the Google explanation and can retry', async ({ page }) => {
+    const net = await stubNetwork(page, { role: 'customer', mustChangePassword: false })
+    net.onPost = (route) => json(route, 403, { code: 'password_login_not_available' })
+    await signIn(page, NETWORK)
+    await page.getByRole('button', { name: 'Change password', exact: true }).click()
+    const sheet = drawer(page)
+    await fillForm(sheet)
+    await submit(sheet).click()
+    await expect(sheet.getByRole('alert')).toContainText('This account signs in with Google (or another provider), so there is no password to change here.')
+    await expect(submit(sheet)).toBeEnabled()
   })
 })
 

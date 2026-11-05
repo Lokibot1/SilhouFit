@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Outlet, Route, Routes, useLocation } from 'react-router-dom'
@@ -163,13 +163,18 @@ describe('ProfilePage', () => {
   })
 
   it.each([
-    ['customer', false],
-    ['staff', true],
-    ['admin', false],
-    ['superadmin', false],
-    [undefined, false],
-  ] as const)('shows Change password for a %s: %s, and Sign out has its icon for everyone', async (role, shown) => {
-    load.mockResolvedValue({ ...ME, role })
+    ['customer', undefined, true],
+    ['staff', undefined, true],
+    ['admin', undefined, true],
+    ['superadmin', undefined, true],
+    [undefined, undefined, true],
+    ['customer', true, true],
+    ['customer', false, false],
+    ['staff', false, false],
+    ['admin', false, false],
+    ['superadmin', false, false],
+  ] as const)('shows Change password for a %s with canChangePassword %s: %s, and Sign out has its icon for everyone', async (role, can, shown) => {
+    load.mockResolvedValue({ ...ME, role, canChangePassword: can })
     act(() => setSession({ name: 'Anne Santos', email: ME.email, role }))
     render(
       <MemoryRouter initialEntries={[role && role !== 'customer' ? `/${role}/profile` : '/profile']}>
@@ -188,21 +193,27 @@ describe('ProfilePage', () => {
     expect(screen.getByRole('button', { name: 'Sign out' }).querySelector('svg')).not.toBeNull()
   })
 
-  it('opens the Change password sheet for staff', async () => {
+  it.each(['staff', 'admin', 'superadmin', 'customer'] as const)('opens the same closable Change password sheet for a %s', async (role) => {
     const user = userEvent.setup()
-    load.mockResolvedValue({ ...ME, role: 'staff' })
-    act(() => setSession({ name: 'Anne Santos', email: ME.email, role: 'staff' }))
+    load.mockResolvedValue({ ...ME, role })
+    act(() => setSession({ name: 'Anne Santos', email: ME.email, role }))
     render(
-      <MemoryRouter initialEntries={['/staff/profile']}>
+      <MemoryRouter initialEntries={[role === 'customer' ? '/profile' : `/${role}/profile`]}>
         <ToastProvider>
           <Routes>
-            <Route path="/staff/profile" element={<ProfilePage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/:role/profile" element={<ProfilePage />} />
           </Routes>
         </ToastProvider>
       </MemoryRouter>,
     )
     await user.click(await screen.findByRole('button', { name: 'Change password' }))
-    expect(await screen.findByRole('dialog', { name: 'Change password' })).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog', { name: 'Change password' })
+    expect(within(dialog).getByLabelText('Current password')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('New password')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Confirm password')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Close Change password' })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
   })
 
   it('goes to plain sign in, without a next, when the session ends after a password change', async () => {

@@ -263,7 +263,7 @@ export function ProfilePage() {
               Replay the tour
             </button>
           )}
-          {me.role === 'staff' && (
+          {me.canChangePassword !== false && (
             <button type="button" onClick={() => setChangingPassword(true)} className={`${SECONDARY_BUTTON} gap-2`}>
               <LockIcon size={16} />
               Change password
@@ -284,7 +284,7 @@ export function ProfilePage() {
           <BodyMeasurements />
         </div>
       )}
-      {me.role === 'staff' && <ChangePasswordSheet open={changingPassword} onClose={() => setChangingPassword(false)} onSignOut={leave} me={me} />}
+      {me.canChangePassword !== false && <ChangePasswordSheet open={changingPassword} onClose={() => setChangingPassword(false)} onSignOut={leave} me={me} />}
       {me.role === 'customer' && (
         <Modal open={editing} onClose={closeEditor} title="Edit your profile">
           <EditProfileForm me={me} onSaved={saved} onCancel={closeEditor} onUnauthorized={expire} onPendingChange={setSaving} />

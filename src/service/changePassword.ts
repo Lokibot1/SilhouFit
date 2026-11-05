@@ -4,7 +4,7 @@ import { endExpiredSession, endRevokedSession } from './sessionRevoked'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
-export type ChangePasswordErrorKind = 'wrong-password' | 'same' | 'weak' | 'rate-limit' | 'network' | 'unauthorized' | 'unavailable' | 'server'
+export type ChangePasswordErrorKind = 'wrong-password' | 'same' | 'weak' | 'rate-limit' | 'network' | 'unauthorized' | 'unavailable' | 'no-password' | 'server'
 
 /** `kind` lets the sheet pick accurate copy. */
 export class ChangePasswordError extends Error {
@@ -25,8 +25,8 @@ const codeOf = async (response: Response) => {
 }
 
 /**
- * POST /users/me/password (staff only). The server answers 204; 403 `invalid_current_password` is a wrong current password and 422
- * `same_password` a new one equal to it. A simulated account is answered from the saved accounts instead.
+ * POST /users/me/password (every role). The server answers 204; 403 `invalid_current_password` is a wrong current password, 403
+ * `password_login_not_available` an account with no password (Google only) and 422 `same_password` a new one equal to it. A simulated account is answered from the saved accounts instead.
  */
 export async function changePassword(currentPassword: string, newPassword: string, { signal }: RequestOptions = {}): Promise<void> {
   const session = getSession()
@@ -75,6 +75,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
       throw new ChangePasswordError('unauthorized')
     }
     if (code === 'invalid_current_password') throw new ChangePasswordError('wrong-password')
+    if (code === 'password_login_not_available') throw new ChangePasswordError('no-password')
   }
   if (response.status === 422) throw new ChangePasswordError((await codeOf(response)) === 'same_password' ? 'same' : 'weak')
   if (response.status === 429) throw new ChangePasswordError('rate-limit')

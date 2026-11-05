@@ -38,6 +38,7 @@ describe('changePassword', () => {
     [400, {}, 'weak'],
     [401, {}, 'unauthorized'],
     [403, { code: 'invalid_current_password' }, 'wrong-password'],
+    [403, { code: 'password_login_not_available' }, 'no-password'],
     [403, { code: 'other' }, 'server'],
     [422, { code: 'same_password' }, 'same'],
     [422, {}, 'weak'],
@@ -95,6 +96,21 @@ describe('changePassword', () => {
       await expect(changePassword('Wrong#Pass1', 'Fresh#Pass1')).rejects.toMatchObject({ kind: 'wrong-password' })
       await expect(changePassword(temporary, temporary)).rejects.toMatchObject({ kind: 'same' })
       await expect(changePassword(temporary, 'weak')).rejects.toMatchObject({ kind: 'weak' })
+    })
+
+    it.each([
+      ['admins', 'admin'],
+      ['superadmins', 'superadmin'],
+    ] as const)('works for the simulated %s account: verifies, rejects the same, and the new password replaces the old', async (list, role) => {
+      const account = getAccounts()[list][0]
+      const old = getAccounts().passwords[account.id]
+      setSession({ name: 'Admin', email: account.email, role, simulated: true, accountId: account.id, mustChangePassword: false })
+      await expect(changePassword('Wrong#Pass1', 'Fresh#Pass1')).rejects.toMatchObject({ kind: 'wrong-password' })
+      await expect(changePassword(old, old)).rejects.toMatchObject({ kind: 'same' })
+      await expect(changePassword(old, 'Fresh#Pass1')).resolves.toBeUndefined()
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(getAccounts().passwords[account.id]).toBe('Fresh#Pass1')
+      await expect(changePassword(old, 'Other#Pass1')).rejects.toMatchObject({ kind: 'wrong-password' })
     })
   })
 })

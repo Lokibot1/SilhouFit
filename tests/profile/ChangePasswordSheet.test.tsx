@@ -81,6 +81,12 @@ describe('ChangePasswordSheet', () => {
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
   })
 
+  it.each(['admin', 'superadmin', 'customer'] as const)('is closable with no Sign out button for a %s', (role) => {
+    renderSheet(vi.fn(), { ...ME, role })
+    expect(screen.getByRole('button', { name: 'Close Change password' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+  })
+
   it('lists the fields in order with the requirements checklist, as a dialog', () => {
     renderSheet()
     const dialog = screen.getByRole('dialog', { name: 'Change password' })
@@ -169,6 +175,7 @@ describe('ChangePasswordSheet', () => {
     ['network', /connection dropped/, 'Your password was not changed.'],
     ['server', /went wrong on our side/, 'Your password was not changed.'],
     ['unavailable', /could not complete the request.*contact an administrator/, 'Password changes are unavailable right now.'],
+    ['no-password', /signs in with Google \(or another provider\), so there is no password to change here\./, 'There is no password to change.'],
   ] as const)('explains a %s failure in an alert, keeps the form and lets you retry', async (kind, body, title) => {
     const user = userEvent.setup()
     change.mockRejectedValueOnce(new ChangePasswordError(kind)).mockResolvedValueOnce(undefined)
