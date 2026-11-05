@@ -37,7 +37,7 @@ export function UserManagementPage() {
     <div className="grid gap-3">
       <header className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         <h1 className="display min-w-0 text-2xl text-fg sm:text-3xl">User management</h1>
-        {ACCOUNTS_SAMPLE_DATA && (
+        {ACCOUNTS_SAMPLE_DATA && tab !== 'staff' && (
           <Tooltip label="These accounts are saved in this browser only, until the accounts backend is connected." describe>
             <span tabIndex={0} className="font-ui inline-flex h-8 items-center rounded-full border border-line-strong px-3 text-sm font-medium text-fg-muted">
               Sample data

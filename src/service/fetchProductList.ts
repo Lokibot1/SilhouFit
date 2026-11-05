@@ -68,11 +68,14 @@ export class ProductListError extends Error {
   kind: ProductListErrorKind
   /** What the server said was wrong, when it said (a 400 or 409 on creating a product). */
   detail?: string
+  /** The HTTP status, when the server answered (401 and 403 share the 'forbidden' kind). */
+  status?: number
 
-  constructor(kind: ProductListErrorKind, detail?: string) {
+  constructor(kind: ProductListErrorKind, detail?: string, status?: number) {
     super(`Loading products failed (${kind}).`)
     this.kind = kind
     this.detail = detail
+    this.status = status
   }
 }
 
@@ -112,7 +115,7 @@ export async function request(method: 'GET' | 'PATCH' | 'POST' | 'DELETE', path:
     if (signal?.aborted) throw failure
     throw new ProductListError('network')
   }
-  if (!response.ok) throw new ProductListError(STATUS_KIND[response.status] ?? 'server', await errorDetail(response))
+  if (!response.ok) throw new ProductListError(STATUS_KIND[response.status] ?? 'server', await errorDetail(response), response.status)
   try {
     return await response.json()
   } catch {

@@ -11,9 +11,10 @@ interface AccountToolbarProps {
   noun: string
   text: string
   onText: (text: string) => void
-  status: AccountStatus | ''
-  onStatus: (status: AccountStatus | '') => void
-  statuses: { value: AccountStatus | ''; label: string }[]
+  /** The status filter; a tab without statuses (staff) leaves all three out and the filter is not shown. */
+  status?: AccountStatus | ''
+  onStatus?: (status: AccountStatus | '') => void
+  statuses?: { value: AccountStatus | ''; label: string }[]
   per: number
   onPer: (per: number) => void
   /** The create button, when the tab has one. */
@@ -48,9 +49,11 @@ export function AccountToolbar({ noun, text, onText, status, onStatus, statuses,
         )}
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <div className="w-full @sm:w-44">
-          <Select label="Status" triggerPrefix="Status: " value={status} options={statuses} onChange={onStatus} />
-        </div>
+        {statuses && onStatus && (
+          <div className="w-full @sm:w-44">
+            <Select label="Status" triggerPrefix="Status: " value={status ?? ''} options={statuses} onChange={onStatus} />
+          </div>
+        )}
         <div className="w-full @sm:w-44">
           <Select label="Rows per page" value={per} options={PER_PAGE_CHOICES} onChange={onPer} />
         </div>

@@ -22,7 +22,10 @@ export interface AccountColumn<T> {
   right?: boolean
   /** A width class. The first column has none and takes what is left. */
   width?: string
-  cell: (row: T) => ReactNode
+  /** The row's place in the shown page (0-based), for numbering columns. */
+  cell: (row: T, index: number) => ReactNode
+  /** The mobile card's heading; the first column when none is marked. Other columns, this one included, list beneath it. */
+  title?: boolean
 }
 
 interface AccountTableProps<T extends { id: string }> {
@@ -45,6 +48,7 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
   const { state, result, stale, retry, sorted, sortBy, page, setPage, per, filtered, clear } = list
   const rows = result?.data ?? null
   const cells = columns.length + (actions ? 1 : 0)
+  const heading = columns.find((column) => column.title) ?? columns[0]
 
   if (state.status === 'error' && !result) return <SectionError what={`the ${noun}`} kind={state.kind} onRetry={retry} />
 
@@ -125,7 +129,7 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
               >
                 {columns.map((column) => (
                   <td key={column.key} className={`${TD} text-sm text-fg ${column.right ? 'text-right tabular-nums' : ''}`}>
-                    {column.cell(row)}
+                    {column.cell(row, index)}
                   </td>
                 ))}
                 {actions && (
@@ -154,14 +158,14 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
               className={`enter-row flex min-h-24 flex-col justify-center gap-1 py-3 hover:bg-line/40 ${onOpen ? 'cursor-pointer' : ''}`}
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">{columns[0].cell(row)}</div>
+                <div className="min-w-0 flex-1">{heading.cell(row, index)}</div>
                 {actions && <div className="flex shrink-0">{actions(row)}</div>}
               </div>
               <dl className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-fg-muted">
-                {columns.slice(1).map((column) => (
+                {columns.filter((column) => column !== heading).map((column) => (
                   <div key={column.key} className={`flex items-center ${column.right ? 'tabular-nums' : ''}`}>
                     <dt className={column.cardLabel ? 'mr-1' : 'sr-only'}>{column.cardLabel ?? column.header}</dt>
-                    <dd>{column.cell(row)}</dd>
+                    <dd>{column.cell(row, index)}</dd>
                   </div>
                 ))}
               </dl>
