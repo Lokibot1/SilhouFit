@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { GoogleAuthError, startGoogleAuth } from '../../src/service/googleAuth'
+import { peekLoginNotice, setLoginNotice } from '../../src/service/loginNotice'
 import { submitSignIn } from '../../src/service/signIn'
 import { LoginPage } from '../../src/views/auth/LoginPage'
 
@@ -644,5 +645,19 @@ describe('LoginPage document metadata', () => {
     expect(document.title).toBe('Before')
     expect(meta.content).toBe('Previous description')
     meta.remove()
+  })
+})
+
+describe('LoginPage after a password change', () => {
+  it('shows a success status once, and clears the notice', () => {
+    setLoginNotice('password-changed')
+    const { unmount } = renderPage()
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Password changed.')
+    expect(status).toHaveTextContent('Sign in with your new password.')
+    expect(peekLoginNotice()).toBeNull()
+    unmount()
+    renderPage()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })

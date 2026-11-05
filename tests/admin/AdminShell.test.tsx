@@ -7,7 +7,6 @@ import { FirstLoginPasswordGate } from '../../src/components/auth/FirstLoginPass
 import { StaffNav } from '../../src/components/staff/StaffNav'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
-import { getAccounts } from '../../src/service/accountStore'
 import { getPermissions, resetPermissions, setRolePermissions } from '../../src/service/permissionStore'
 import { fetchMe, type Me } from '../../src/service/fetchMe'
 import { fetchStaffNotifications } from '../../src/service/fetchStaffNotifications'
@@ -181,65 +180,61 @@ describe('StaffLayout for a simulated account', () => {
     expect(screen.getByText('This account has been archived. Contact an administrator.')).toBeInTheDocument()
   })
 
-  it('asks for a new password over the page when the account must change it, and hides the screen once saved', async () => {
+  it('never asks an admin to change the password over the page, even when the account is flagged', async () => {
     act(() => setSession({ name: 'Dev Admin', email: ADMIN_ME.email, role: 'admin' }))
     load.mockResolvedValue({ ...ADMIN_ME, mustChangePassword: true })
     renderLayout('/admin/users')
     expect(await screen.findByText('users page')).toBeInTheDocument()
-    const dialog = await screen.findByRole('dialog', { name: 'Choose a new password' })
-    await userEvent.type(within(dialog).getByLabelText('New password'), 'Fresh#Pass1')
-    await userEvent.type(within(dialog).getByLabelText('Confirm new password'), 'Fresh#Pass1')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Save password' }))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Choose a new password' })).not.toBeInTheDocument())
-    expect(getAccounts().passwords['adm-001']).toBe('Fresh#Pass1')
-    expect(getAccounts().admins[0].mustChangePassword).toBe(false)
+    expect(screen.queryByRole('dialog', { name: 'Change your temporary password' })).not.toBeInTheDocument()
   })
 })
 
 describe('FirstLoginPasswordGate', () => {
-  const pending = { ...ADMIN_ME, mustChangePassword: true }
+  const pending = { ...ADMIN_ME, id: 'stf-001', role: 'staff' as const, mustChangePassword: true }
+  const TITLE = 'Change your temporary password'
 
-  function gate(me: Me = pending, onChanged = vi.fn()) {
-    renderAdmin(<FirstLoginPasswordGate me={me} onChanged={onChanged} />, '/admin')
-    return { onChanged }
+  function gate(me: Me = pending) {
+    renderAdmin(<FirstLoginPasswordGate me={me} />, '/staff')
   }
 
-  it('shows the requirements as you type and checks the two passwords match', async () => {
+  it('tells a staff member on the temporary password to change it, with no form in it', async () => {
     gate()
-    const dialog = await screen.findByRole('dialog', { name: 'Choose a new password' })
-    const password = within(dialog).getByLabelText('New password')
-    await userEvent.type(password, 'abc')
-    expect(within(dialog).getByRole('group', { name: 'Password requirements' })).toHaveTextContent('At least 8 characters')
-    await userEvent.type(within(dialog).getByLabelText('Confirm new password'), 'other')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Save password' }))
-    expect(within(dialog).getByText('Use at least 8 characters.')).toBeInTheDocument()
-    expect(within(dialog).getByText('The two passwords do not match.')).toBeInTheDocument()
-    expect(getAccounts().admins[0].mustChangePassword).toBe(false)
+    const dialog = await screen.findByRole('dialog', { name: TITLE })
+    expect(within(dialog).getByRole('button', { name: 'Change password' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Remind me later' })).toBeInTheDocument()
+    expect(within(dialog).queryByLabelText('New password')).not.toBeInTheDocument()
   })
 
-  it('keeps emoji out of the password', async () => {
+  it('sends them to the staff profile with the change sheet open and stays hidden for the session', async () => {
     gate()
-    const dialog = await screen.findByRole('dialog', { name: 'Choose a new password' })
-    await userEvent.type(within(dialog).getByLabelText('New password'), 'Ab😀cd')
-    expect(within(dialog).getByLabelText('New password')).toHaveValue('Abcd')
+    await userEvent.click(await screen.findByRole('button', { name: 'Change password' }))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/staff/profile'))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).not.toBeInTheDocument())
+    expect(sessionStorage.getItem('silhoufit.password-gate.skipped.stf-001')).toBe('1')
   })
 
-  it('can be skipped for now, comes back in a new session, and leaves the account flagged', async () => {
-    const { onChanged } = gate()
-    await userEvent.click(await screen.findByRole('button', { name: 'Skip for now' }))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Choose a new password' })).not.toBeInTheDocument())
-    expect(onChanged).not.toHaveBeenCalled()
-    expect(sessionStorage.getItem('silhoufit.password-gate.skipped.adm-001')).toBe('1')
+  it('can be put off with Remind me later, and Escape does the same', async () => {
+    gate()
+    await userEvent.click(await screen.findByRole('button', { name: 'Remind me later' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).not.toBeInTheDocument())
+    expect(screen.getByTestId('where')).toHaveTextContent('/staff')
+    expect(screen.getByTestId('where')).not.toHaveTextContent('/staff/profile')
+    expect(sessionStorage.getItem('silhoufit.password-gate.skipped.stf-001')).toBe('1')
   })
 
-  it('does not offer Skip when the account cannot skip', async () => {
-    gate({ ...pending, passwordChangeSkippable: false })
-    await screen.findByRole('dialog', { name: 'Choose a new password' })
-    expect(screen.queryByRole('button', { name: 'Skip for now' })).not.toBeInTheDocument()
+  it('stays hidden when it was already put off this session', () => {
+    sessionStorage.setItem('silhoufit.password-gate.skipped.stf-001', '1')
+    gate()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('is not shown when no change is due', () => {
-    gate(ADMIN_ME)
+    gate({ ...pending, mustChangePassword: false })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it.each(['admin', 'superadmin', 'customer'] as const)('is never shown to a %s', (role) => {
+    gate({ ...pending, role })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

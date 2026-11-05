@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AuthHeading, AuthSplit } from "../../components/auth/AuthSplit";
 import { FloatingField } from "../../components/form/FloatingField";
@@ -17,6 +18,7 @@ import {
 } from "../../hooks/useLoginForm";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useMetaDescription } from "../../hooks/useMetaDescription";
+import { peekLoginNotice, takeLoginNotice } from "../../service/loginNotice";
 import type { LoginField } from "../../utils/loginValidation";
 import { nextQuery } from "../../utils/safeNext";
 
@@ -51,6 +53,11 @@ export function LoginPage() {
   const pending = status === "pending";
   const params = useSearchParams()[0];
   const next = nextQuery(params.get("next"));
+  // Kept for this visit; the one-shot notice is cleared so a reload or a later sign-out does not repeat it.
+  const [passwordChanged] = useState(() => peekLoginNotice() === "password-changed");
+  useEffect(() => {
+    takeLoginNotice();
+  }, []);
 
   const field = (name: LoginField) => ({
     id: fieldId(name),
@@ -138,6 +145,21 @@ export function LoginPage() {
                 {banner.title}
               </strong>
               <span className="text-fg-muted">{banner.body}</span>
+            </p>
+          </div>
+        )}
+
+        {passwordChanged && !banner && (
+          <div
+            role="status"
+            className="flex items-start gap-3 rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-base leading-snug sm:text-sm"
+          >
+            <CheckIcon size={20} className="mt-px shrink-0 text-success" />
+            <p>
+              <strong className="block font-semibold text-fg">
+                Password changed.
+              </strong>
+              <span className="text-fg-muted">Sign in with your new password.</span>
             </p>
           </div>
         )}

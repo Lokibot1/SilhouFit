@@ -1,12 +1,13 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { getBodyProfile } from '../../src/service/bodyProfile'
 import { fetchMe, MeError, type Me } from '../../src/service/fetchMe'
 import { updateMe, UpdateMeError } from '../../src/service/updateMe'
+import { setLoginNotice, takeLoginNotice } from '../../src/service/loginNotice'
 import { clearSession, getSession, setSession } from '../../src/service/session'
 import { ProfilePage } from '../../src/views/private/ProfilePage'
 
@@ -161,6 +162,59 @@ describe('ProfilePage', () => {
     expect(screen.queryByRole('region', { name: /delivery address/i }) !== null).toBe(shown)
   })
 
+  it.each([
+    ['customer', false],
+    ['staff', true],
+    ['admin', false],
+    ['superadmin', false],
+    [undefined, false],
+  ] as const)('shows Change password for a %s: %s, and Sign out has its icon for everyone', async (role, shown) => {
+    load.mockResolvedValue({ ...ME, role })
+    act(() => setSession({ name: 'Anne Santos', email: ME.email, role }))
+    render(
+      <MemoryRouter initialEntries={[role && role !== 'customer' ? `/${role}/profile` : '/profile']}>
+        <ToastProvider>
+          <Routes>
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/:role/profile" element={<ProfilePage />} />
+          </Routes>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Anne Santos' })
+    const change = screen.queryByRole('button', { name: 'Change password' })
+    expect(change !== null).toBe(shown)
+    if (change) expect(change.querySelector('svg')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Sign out' }).querySelector('svg')).not.toBeNull()
+  })
+
+  it('opens the Change password sheet for staff', async () => {
+    const user = userEvent.setup()
+    load.mockResolvedValue({ ...ME, role: 'staff' })
+    act(() => setSession({ name: 'Anne Santos', email: ME.email, role: 'staff' }))
+    render(
+      <MemoryRouter initialEntries={['/staff/profile']}>
+        <ToastProvider>
+          <Routes>
+            <Route path="/staff/profile" element={<ProfilePage />} />
+          </Routes>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Change password' }))
+    expect(await screen.findByRole('dialog', { name: 'Change password' })).toBeInTheDocument()
+  })
+
+  it('goes to plain sign in, without a next, when the session ends after a password change', async () => {
+    load.mockResolvedValue(ME)
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Anne Santos' })
+    setLoginNotice('password-changed')
+    act(() => clearSession())
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/login$/))
+    takeLoginNotice()
+  })
+
   it('explains a missing profile with Sign out and no retry', async () => {
     load.mockRejectedValue(new MeError('not-found'))
     renderPage()
@@ -186,6 +240,25 @@ describe('ProfilePage', () => {
     expect(getSession()).toBeNull()
     expect(signOutSupabase).toHaveBeenCalled()
     expect(screen.getByText('Signed out')).toBeInTheDocument()
+  })
+
+  it('tells the surrounding staff shell about a chosen sign out', async () => {
+    const user = userEvent.setup()
+    const onSignOut = vi.fn()
+    load.mockResolvedValue(ME)
+    render(
+      <MemoryRouter initialEntries={['/staff/profile']}>
+        <ToastProvider>
+          <Routes>
+            <Route element={<Outlet context={{ onSignOut }} />}>
+              <Route path="/staff/profile" element={<ProfilePage />} />
+            </Route>
+          </Routes>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Sign out' }))
+    expect(onSignOut).toHaveBeenCalledTimes(1)
   })
 
   describe('editing the profile', () => {

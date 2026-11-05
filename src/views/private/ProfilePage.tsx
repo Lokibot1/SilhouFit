@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
-import { AlertIcon } from '../../components/form/icons'
+import { Navigate, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
+import { AlertIcon, LockIcon, LogOutIcon } from '../../components/form/icons'
 import { BodyMeasurements } from '../../components/profile/BodyMeasurements'
+import { ChangePasswordSheet } from '../../components/profile/ChangePasswordSheet'
 import { DeliveryAddress } from '../../components/profile/DeliveryAddress'
 import { EditProfileForm } from '../../components/profile/EditProfileForm'
 import { PROFILE_CARD, PROFILE_SHELL, ProfileSkeleton } from '../../components/profile/ProfileSkeleton'
@@ -15,6 +16,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOnboarding } from '../../hooks/useOnboarding'
 import { fetchMe, type Me, type MeErrorKind } from '../../service/fetchMe'
+import { peekLoginNotice } from '../../service/loginNotice'
 import { getSession, setSession } from '../../service/session'
 import { signOut } from '../../service/signOut'
 import { isStaffRole } from '../../utils/staffRole'
@@ -66,8 +68,10 @@ export function ProfilePage() {
   useDocumentTitle('Your profile — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
 
-  const { pathname } = useLocation()
+  const { pathname, state: navState } = useLocation()
+  const navigate = useNavigate()
   const user = useCurrentUser()
+  const outlet = useOutletContext<{ onSignOut?: () => void } | null>()
   const toast = useToast()
   const { startTour } = useOnboarding()
   const [state, setState] = useState<State>({ status: 'loading' })
@@ -78,6 +82,15 @@ export function ProfilePage() {
   const [expired, setExpired] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
+
+  // The first-login notice sends staff here with the Change password sheet already open; clear the state so a reload doesn't open it again.
+  useEffect(() => {
+    if ((navState as { openChangePassword?: boolean } | null)?.openChangePassword) {
+      setChangingPassword(true)
+      navigate(pathname, { replace: true, state: null })
+    }
+  }, [navState, navigate, pathname])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -124,7 +137,7 @@ export function ProfilePage() {
   }
 
   if (!user) {
-    return <Navigate to={hadUser && !expired ? '/login' : '/login?next=%2Fprofile'} replace />
+    return <Navigate to={(hadUser && !expired) || peekLoginNotice() ? '/login' : '/login?next=%2Fprofile'} replace />
   }
 
   function retry() {
@@ -153,6 +166,8 @@ export function ProfilePage() {
   }
 
   function leave() {
+    // Inside the staff shell, tell it this is a chosen sign out so it lands on a plain /login.
+    outlet?.onSignOut?.()
     signOut()
     toast.show({ kind: 'success', message: 'Signed out' })
   }
@@ -241,7 +256,14 @@ export function ProfilePage() {
               Replay the tour
             </button>
           )}
-          <button type="button" onClick={leave} className={SECONDARY_BUTTON}>
+          {me.role === 'staff' && (
+            <button type="button" onClick={() => setChangingPassword(true)} className={`${SECONDARY_BUTTON} gap-2`}>
+              <LockIcon size={16} />
+              Change password
+            </button>
+          )}
+          <button type="button" onClick={leave} className={`${SECONDARY_BUTTON} gap-2`}>
+            <LogOutIcon size={16} />
             Sign out
           </button>
         </div>
@@ -255,6 +277,7 @@ export function ProfilePage() {
           <BodyMeasurements />
         </div>
       )}
+      {me.role === 'staff' && <ChangePasswordSheet open={changingPassword} onClose={() => setChangingPassword(false)} me={me} />}
       {me.role === 'customer' && (
         <Modal open={editing} onClose={closeEditor} title="Edit your profile">
           <EditProfileForm me={me} onSaved={saved} onCancel={closeEditor} onUnauthorized={expire} onPendingChange={setSaving} />

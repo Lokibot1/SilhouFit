@@ -23,6 +23,8 @@ interface FloatingFieldProps {
   readOnly?: boolean
   /** A value the user cannot change (a derived one): muted, skipped by Tab, and no keyboard on a phone. */
   locked?: boolean
+  /** Names the field in the password toggle's label ("Show <toggleLabel>"); defaults to "password". */
+  toggleLabel?: string
 }
 
 export function FloatingField({
@@ -42,6 +44,7 @@ export function FloatingField({
   enterKeyHint,
   readOnly,
   locked,
+  toggleLabel = 'password',
 }: FloatingFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [revealed, setRevealed] = useState(false)
@@ -98,7 +101,7 @@ export function FloatingField({
             type="button"
             onClick={() => setRevealed((shown) => !shown)}
             aria-pressed={revealed}
-            aria-label={revealed ? 'Hide password' : 'Show password'}
+            aria-label={`${revealed ? 'Hide' : 'Show'} ${toggleLabel}`}
             className="field__action"
           >
             {revealed ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}

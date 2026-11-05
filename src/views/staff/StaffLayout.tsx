@@ -18,6 +18,7 @@ import { useStaffArea } from '../../hooks/useStaffArea'
 import { useSidebarCollapsed } from '../../hooks/useSidebarCollapsed'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { fetchMe, type Me, type MeErrorKind } from '../../service/fetchMe'
+import { peekLoginNotice } from '../../service/loginNotice'
 import { getSession } from '../../service/session'
 import { signOut } from '../../service/signOut'
 import { homeFor, isStaffRole, type Area } from '../../utils/staffRole'
@@ -125,7 +126,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
     toast.show({ kind: 'success', message: 'Signed out' })
   }
 
-  if (!user) return <Navigate to={leaving ? '/login' : archived ? '/login?archived=1' : `/login?next=${encodeURIComponent(pathname)}`} replace />
+  if (!user) return <Navigate to={leaving || peekLoginNotice() ? '/login' : archived ? '/login?archived=1' : `/login?next=${encodeURIComponent(pathname)}`} replace />
   if (state.status === 'loading') return <StaffShellSkeleton />
   if (denied || off) return <Navigate to={homeFor(role)} replace />
   if (archived) return <StaffShellSkeleton />
@@ -169,7 +170,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
         <div className="min-w-0 flex-1">
           <main id="main-content" className={STAFF_MAIN}>
             <Suspense fallback={null}>
-              <Outlet context={{ me }} />
+              <Outlet context={{ me, onSignOut: () => setLeaving(true) }} />
             </Suspense>
           </main>
         </div>
@@ -180,7 +181,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
         </div>
       </Modal>
       <ChatDock staff />
-      <FirstLoginPasswordGate me={me} onChanged={() => setState({ status: 'success', me: { ...me, mustChangePassword: false } })} />
+      <FirstLoginPasswordGate me={me} />
     </div>
   )
 }
