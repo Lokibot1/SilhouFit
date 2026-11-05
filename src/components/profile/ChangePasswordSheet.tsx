@@ -8,7 +8,7 @@ import { FloatingField } from '../form/FloatingField'
 import { PasswordChecklist } from '../form/PasswordChecklist'
 import { AlertIcon, LockIcon, SpinnerIcon } from '../form/icons'
 import { useToast } from '../toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
+import { PRIMARY_BUTTON, SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
 import { Modal } from '../ui/Modal'
 
 type Failure = ChangePasswordErrorKind
@@ -44,11 +44,17 @@ const BANNER_COPY: Record<Exclude<Failure, 'wrong-password' | 'same'>, { title: 
 interface ChangePasswordSheetProps {
   open: boolean
   onClose: () => void
+  /** The profile's chosen sign out; the sheet of a reset account offers it because it cannot be closed. */
+  onSignOut: () => void
   me: Me
 }
 
-/** Staff only: the right-hand sheet on the profile where a signed-in staff member picks their own password. A success ends the session. */
-export function ChangePasswordSheet({ open, onClose, me }: ChangePasswordSheetProps) {
+/**
+ * Staff only: the right-hand sheet on the profile where a signed-in staff member picks their own password. A success ends the session.
+ * After an administrator reset the password it cannot be closed: the only ways out are changing the password or signing out.
+ */
+export function ChangePasswordSheet({ open, onClose, onSignOut, me }: ChangePasswordSheetProps) {
+  const locked = Boolean(me.passwordResetRequired)
   const toast = useToast()
   const [current, setCurrent] = useState('')
   const [password, setPassword] = useState('')
@@ -108,14 +114,22 @@ export function ChangePasswordSheet({ open, onClose, me }: ChangePasswordSheetPr
   return (
     <Modal
       open={open}
-      onClose={close}
+      onClose={locked ? () => {} : close}
+      closable={!locked}
       title="Change password"
       variant="sheet"
       footer={
-        <button type="submit" form="change-password-form" disabled={pending} aria-busy={pending} className={`${PRIMARY_BUTTON} w-full`}>
-          {pending ? <SpinnerIcon /> : <LockIcon size={16} />}
-          Change password
-        </button>
+        <div className="flex flex-col gap-3">
+          <button type="submit" form="change-password-form" disabled={pending} aria-busy={pending} className={`${PRIMARY_BUTTON} w-full`}>
+            {pending ? <SpinnerIcon /> : <LockIcon size={16} />}
+            Change password
+          </button>
+          {locked && (
+            <button type="button" onClick={onSignOut} disabled={pending} className={`${SECONDARY_BUTTON} w-full`}>
+              Sign out
+            </button>
+          )}
+        </div>
       }
     >
       <form id="change-password-form" noValidate onSubmit={(event) => void submit(event)} className="grid gap-4 pb-5">

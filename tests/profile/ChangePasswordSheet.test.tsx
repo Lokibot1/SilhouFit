@@ -46,13 +46,13 @@ afterEach(() => {
   act(() => clearSession())
 })
 
-function renderSheet(onClose = vi.fn()) {
+function renderSheet(onClose = vi.fn(), me: Me = ME, onSignOut = vi.fn()) {
   render(
     <ToastProvider>
-      <ChangePasswordSheet open onClose={onClose} me={ME} />
+      <ChangePasswordSheet open onClose={onClose} onSignOut={onSignOut} me={me} />
     </ToastProvider>,
   )
-  return { onClose }
+  return { onClose, onSignOut }
 }
 
 async function fill(user: ReturnType<typeof userEvent.setup>, current: string, next: string, confirm: string) {
@@ -66,6 +66,21 @@ async function fill(user: ReturnType<typeof userEvent.setup>, current: string, n
 const submit = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Change password' }))
 
 describe('ChangePasswordSheet', () => {
+  it('after a reset cannot be closed (no X, Escape or backdrop) and offers Sign out', async () => {
+    const { onClose, onSignOut } = renderSheet(vi.fn(), { ...ME, passwordResetRequired: true })
+    expect(screen.queryByRole('button', { name: 'Close Change password' })).not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(onClose).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    expect(onSignOut).toHaveBeenCalledTimes(1)
+  })
+
+  it('is closable with no Sign out button for a normal first login', () => {
+    renderSheet()
+    expect(screen.getByRole('button', { name: 'Close Change password' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+  })
+
   it('lists the fields in order with the requirements checklist, as a dialog', () => {
     renderSheet()
     const dialog = screen.getByRole('dialog', { name: 'Change password' })

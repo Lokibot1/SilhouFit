@@ -8,12 +8,15 @@ export class StaffApiError extends Error {
   kind: ProductListErrorKind
   detail?: string
   status?: number
+  /** The server's `code` (`staff_not_found`, `not_a_staff_account`, `weak_password`), when it sent one. */
+  code?: string
 
-  constructor(kind: ProductListErrorKind, detail?: string, status?: number) {
+  constructor(kind: ProductListErrorKind, detail?: string, status?: number, code?: string) {
     super(`Staff request failed (${kind}).`)
     this.kind = kind
     this.detail = detail
     this.status = status
+    this.code = code
   }
 }
 
@@ -25,7 +28,7 @@ async function call(method: 'GET' | 'POST', path: string, body: unknown, signal?
   try {
     return await request(method, path, body, signal)
   } catch (failure) {
-    if (failure instanceof ProductListError) throw new StaffApiError(failure.kind, failure.detail, failure.status)
+    if (failure instanceof ProductListError) throw new StaffApiError(failure.kind, failure.detail, failure.status, failure.code)
     throw failure
   }
 }
@@ -83,4 +86,11 @@ export async function createStaffAccountApi(input: { firstName: string; lastName
     account: toStaffAccount(body.account),
     credentials: { username: localPart(credentials.email), email: credentials.email, password: credentials.password, mustChangePassword: true },
   }
+}
+
+/** POST /users/staff/:id/reset-password (no body). The server sets the default password, signs the person out everywhere and makes them choose a new one; it never sends a password back. */
+export async function resetStaffPasswordApi(id: string): Promise<{ id: string }> {
+  const body = await call('POST', `/users/staff/${encodeURIComponent(id)}/reset-password`, undefined)
+  if (!isRecord(body) || !isText(body.id)) throw new StaffApiError('server')
+  return { id: body.id }
 }

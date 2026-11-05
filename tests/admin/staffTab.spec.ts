@@ -237,3 +237,102 @@ test.describe('creating staff', () => {
     expect(api.posts).toEqual([])
   })
 })
+
+test.describe('resetting a staff password', () => {
+  let api: StaffStub
+  const lock = (page: Page, name = 'Lara Santos') => page.getByRole('button', { name: `Reset password for ${name}` }).filter({ visible: true }).first()
+  const dialog = (page: Page, name = 'Lara Santos') => page.getByRole('dialog', { name: `Reset password for ${name}?` })
+  const confirm = (page: Page) => page.getByRole('dialog').getByRole('button', { name: 'Reset Password', exact: true })
+
+  test.beforeEach(async ({ page }) => {
+    api = await stubStaffApi(page)
+    await open(page)
+    await expect(lock(page)).toBeVisible({ timeout: 20_000 })
+  })
+
+  test('has a 44px lock action per row, with the shared tooltip (never a native title), and no horizontal scroll', async ({ page }) => {
+    const box = await lock(page).boundingBox()
+    expect(box!.width).toBeGreaterThanOrEqual(44)
+    expect(box!.height).toBeGreaterThanOrEqual(44)
+    expect(await overflow(page)).toBeLessThanOrEqual(0)
+    await expect(lock(page, 'Miguel Cruz')).toBeVisible()
+    await expect(lock(page, 'Nina Reyes')).toBeVisible()
+    await expect(lock(page)).not.toHaveAttribute('title', /.+/)
+    await lock(page).focus()
+    const tip = page.getByRole('tooltip').filter({ hasText: 'Reset password for Lara Santos' })
+    await expect(tip).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(tip).toHaveCount(0)
+  })
+
+  test('asks first, cancels without sending anything, and Escape does the same', async ({ page }) => {
+    await lock(page).click()
+    const ask = dialog(page)
+    await expect(ask).toBeVisible()
+    await expect(ask.getByText('Are you sure?')).toBeVisible()
+    await expect(ask.getByText(/default password 1234567a and they will be signed out everywhere/)).toBeVisible()
+    await expect(confirm(page)).toBeVisible()
+    await ask.getByRole('button', { name: 'Cancel' }).click()
+    await expect(ask).toBeHidden()
+    await lock(page).click()
+    await page.keyboard.press('Escape')
+    await expect(ask).toBeHidden()
+    expect(api.resets).toEqual([])
+    expect(await overflow(page)).toBeLessThanOrEqual(0)
+  })
+
+  test('confirming waits, sends one request for that person, and shows the success toast without credentials', async ({ page }) => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    api.onReset = async () => {
+      await gate
+    }
+    await lock(page, 'Miguel Cruz').click()
+    await confirm(page).dblclick()
+    await expect(confirm(page)).toBeDisabled()
+    await expect(confirm(page)).toHaveAttribute('aria-busy', 'true')
+    await expect(lock(page, 'Miguel Cruz')).toBeDisabled()
+    expect(api.resets).toEqual([api.rows[1].id])
+    release()
+    await expect(page.getByText('Password reset for Miguel Cruz. They are signed out and must sign in with the default password.').first()).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByText('1234567a')).toHaveCount(0)
+    expect(api.resets).toHaveLength(1)
+  })
+
+  for (const [label, status, body, copy, retry] of [
+    ['403', 403, { code: 'forbidden' }, /isn't allowed to reset staff passwords/, false],
+    ['403 not a staff account', 403, { code: 'not_a_staff_account' }, /is not a staff account, so it can't be reset here\. Refresh the list\./, false],
+    ['401', 401, { message: 'Unauthorized' }, /Your session expired\. Sign in again, then retry\./, false],
+    ['404', 404, { code: 'staff_not_found' }, /no longer exists/, false],
+    ['422', 422, { code: 'weak_password' }, /rejected the default password/, false],
+    ['429', 429, {}, /Wait a few minutes/, false],
+    ['502 reset_not_applied', 502, { code: 'reset_not_applied' }, /nothing changed/, true],
+    ['502 reset_incomplete', 502, { code: 'reset_incomplete' }, /may already be reset to the default.*safe to repeat/, true],
+    ['500', 500, {}, /couldn't confirm the result.*Retry is safe/, true],
+  ] as const) {
+    test(`explains a ${label} answer${retry ? ' and offers Retry' : ''}`, async ({ page }) => {
+      api.onReset = (route) => json(route, status, body).then(() => true)
+      await lock(page).click()
+      await confirm(page).click()
+      await expect(page.getByText(copy).first()).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Retry', exact: true })).toHaveCount(retry ? 1 : 0)
+      await expect(lock(page)).toBeEnabled()
+    })
+  }
+
+  test('Retry asks again and the second attempt succeeds', async ({ page }) => {
+    let first = true
+    api.onReset = (route) => {
+      if (!first) return false
+      first = false
+      return json(route, 503, {}).then(() => true)
+    }
+    await lock(page).click()
+    await confirm(page).click()
+    await page.getByRole('button', { name: 'Retry', exact: true }).click()
+    await confirm(page).click()
+    await expect(page.getByText(/Password reset for Lara Santos\./).first()).toBeVisible()
+    expect(api.resets).toHaveLength(2)
+  })
+})

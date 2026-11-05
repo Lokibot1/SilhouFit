@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -193,8 +193,9 @@ describe('FirstLoginPasswordGate', () => {
   const pending = { ...ADMIN_ME, id: 'stf-001', role: 'staff' as const, mustChangePassword: true }
   const TITLE = 'Change your temporary password'
 
-  function gate(me: Me = pending) {
-    renderAdmin(<FirstLoginPasswordGate me={me} />, '/staff')
+  const onSignOut = vi.fn()
+  function gate(me: Me = pending, sheetOpen = false) {
+    renderAdmin(<FirstLoginPasswordGate me={me} sheetOpen={sheetOpen} onSignOut={onSignOut} />, '/staff')
   }
 
   it('tells a staff member on the temporary password to change it, with no form in it', async () => {
@@ -220,6 +221,47 @@ describe('FirstLoginPasswordGate', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/staff')
     expect(screen.getByTestId('where')).not.toHaveTextContent('/staff/profile')
     expect(sessionStorage.getItem('silhoufit.password-gate.skipped.stf-001')).toBe('1')
+  })
+
+  describe('after an administrator reset the password', () => {
+    const reset = { ...pending, passwordResetRequired: true }
+    const RESET_TITLE = 'Choose a new password'
+
+    it('cannot be put off: only Change password and Sign out, no close button', async () => {
+      gate(reset)
+      const dialog = await screen.findByRole('dialog', { name: RESET_TITLE })
+      expect(within(dialog).getByText('An administrator reset your password to the default. Choose your own now before you continue.')).toBeInTheDocument()
+      expect(within(dialog).getByRole('button', { name: 'Change password' })).toBeInTheDocument()
+      expect(within(dialog).getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+      expect(within(dialog).queryByRole('button', { name: 'Remind me later' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: `Close ${RESET_TITLE}` })).not.toBeInTheDocument()
+    })
+
+    it('ignores Escape and the backdrop', async () => {
+      gate(reset)
+      await screen.findByRole('dialog', { name: RESET_TITLE })
+      await userEvent.keyboard('{Escape}')
+      fireEvent.pointerDown(document.querySelector('[aria-hidden="true"].absolute')!)
+      expect(screen.getByRole('dialog', { name: RESET_TITLE })).toBeInTheDocument()
+    })
+
+    it('Sign out goes through the layout sign out, and the gate hides only while the change sheet is open', async () => {
+      gate(reset)
+      await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+      expect(onSignOut).toHaveBeenCalledTimes(1)
+    })
+
+    it('stays hidden while the change sheet is open', () => {
+      gate(reset, true)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('is shown even when it was put off earlier this session, and Change password does not record a dismissal', async () => {
+      sessionStorage.setItem('silhoufit.password-gate.skipped.stf-001', '1')
+      gate({ ...reset, mustChangePassword: false })
+      await userEvent.click(await screen.findByRole('button', { name: 'Change password' }))
+      await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/staff/profile'))
+    })
   })
 
   it('stays hidden when it was already put off this session', () => {

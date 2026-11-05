@@ -1,5 +1,5 @@
 // A one-shot message for the sign-in page, set just before a sign-out that is not a plain "Signed out". In memory only: it must not survive a reload.
-export type LoginNotice = 'password-changed'
+export type LoginNotice = 'password-changed' | 'password-reset' | 'password-expired'
 
 let notice: LoginNotice | null = null
 

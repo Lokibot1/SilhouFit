@@ -45,6 +45,10 @@ export interface StaffStub {
   onGet?: (route: Route, url: URL) => Promise<boolean | void> | boolean | void
   /** Answer a POST yourself, same rule. */
   onPost?: (route: Route, body: { firstName: string; lastName: string }) => Promise<boolean | void> | boolean | void
+  /** Every id the page asked to reset (POST /users/staff/:id/reset-password). */
+  resets: string[]
+  /** Answer a reset yourself, same rule; the default answers 200 with the id. */
+  onReset?: (route: Route, id: string) => Promise<boolean | void> | boolean | void
 }
 
 const CORS = {
@@ -57,7 +61,7 @@ export const json = (route: Route, status: number, body: unknown) =>
   route.fulfill({ status, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) })
 
 export async function stubStaffApi(page: Page, rows: StaffRow[] = SAMPLE_STAFF): Promise<StaffStub> {
-  const stub: StaffStub = { rows: [...rows], gets: [], posts: [] }
+  const stub: StaffStub = { rows: [...rows], gets: [], posts: [], resets: [] }
 
   await page.route(
     (url) => url.pathname === '/users/staff' && url.port !== '5173',
@@ -91,6 +95,18 @@ export async function stubStaffApi(page: Page, rows: StaffRow[] = SAMPLE_STAFF):
         account,
         credentials: { email: account.email, password: 'Tmp#Pass-2026x', mustChangePassword: true },
       })
+    },
+  )
+
+  await page.route(
+    (url) => /^\/users\/staff\/[^/]+\/reset-password$/.test(url.pathname) && url.port !== '5173',
+    async (route) => {
+      const request = route.request()
+      if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+      const id = new URL(request.url()).pathname.split('/')[3]
+      stub.resets.push(id)
+      if (await stub.onReset?.(route, id)) return
+      return json(route, 200, { id, mustChangePassword: true, sessionsRevoked: true })
     },
   )
   return stub

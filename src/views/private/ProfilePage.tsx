@@ -71,7 +71,8 @@ export function ProfilePage() {
   const { pathname, state: navState } = useLocation()
   const navigate = useNavigate()
   const user = useCurrentUser()
-  const outlet = useOutletContext<{ onSignOut?: () => void } | null>()
+  const outlet = useOutletContext<{ onSignOut?: () => void; onPasswordSheet?: (open: boolean) => void } | null>()
+  const onPasswordSheet = outlet?.onPasswordSheet
   const toast = useToast()
   const { startTour } = useOnboarding()
   const [state, setState] = useState<State>({ status: 'loading' })
@@ -91,6 +92,12 @@ export function ProfilePage() {
       navigate(pathname, { replace: true, state: null })
     }
   }, [navState, navigate, pathname])
+
+  // The staff shell hides its first-login notice while the sheet is open.
+  useEffect(() => {
+    onPasswordSheet?.(changingPassword)
+    return () => onPasswordSheet?.(false)
+  }, [changingPassword, onPasswordSheet])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -277,7 +284,7 @@ export function ProfilePage() {
           <BodyMeasurements />
         </div>
       )}
-      {me.role === 'staff' && <ChangePasswordSheet open={changingPassword} onClose={() => setChangingPassword(false)} me={me} />}
+      {me.role === 'staff' && <ChangePasswordSheet open={changingPassword} onClose={() => setChangingPassword(false)} onSignOut={leave} me={me} />}
       {me.role === 'customer' && (
         <Modal open={editing} onClose={closeEditor} title="Edit your profile">
           <EditProfileForm me={me} onSaved={saved} onCancel={closeEditor} onUnauthorized={expire} onPendingChange={setSaving} />

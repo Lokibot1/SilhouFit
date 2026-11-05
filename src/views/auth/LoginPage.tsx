@@ -54,7 +54,8 @@ export function LoginPage() {
   const params = useSearchParams()[0];
   const next = nextQuery(params.get("next"));
   // Kept for this visit; the one-shot notice is cleared so a reload or a later sign-out does not repeat it.
-  const [passwordChanged] = useState(() => peekLoginNotice() === "password-changed");
+  const [notice] = useState(peekLoginNotice);
+  const passwordChanged = notice === "password-changed";
   useEffect(() => {
     takeLoginNotice();
   }, []);
@@ -160,6 +161,25 @@ export function LoginPage() {
                 Password changed.
               </strong>
               <span className="text-fg-muted">Sign in with your new password.</span>
+            </p>
+          </div>
+        )}
+
+        {(notice === "password-reset" || notice === "password-expired") && !banner && (
+          <div
+            role="status"
+            className="flex items-start gap-3 rounded-xl border border-info/40 bg-info/10 px-4 py-3 text-base leading-snug sm:text-sm"
+          >
+            <AlertIcon size={20} className="mt-px shrink-0 text-info" />
+            <p>
+              <strong className="block font-semibold text-fg">
+                {notice === "password-reset" ? "Your password was reset." : "Your temporary password expired."}
+              </strong>
+              <span className="text-fg-muted">
+                {notice === "password-reset"
+                  ? "Your password was reset by an administrator. Sign in with the default password and choose a new one."
+                  : "Your temporary password expired. Ask an administrator to reset your password again."}
+              </span>
             </p>
           </div>
         )}

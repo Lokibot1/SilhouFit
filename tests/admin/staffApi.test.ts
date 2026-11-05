@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createStaffAccountApi, listStaffAccounts, StaffApiError } from '../../src/service/staffApi'
+import { createStaffAccountApi, listStaffAccounts, resetStaffPasswordApi, StaffApiError } from '../../src/service/staffApi'
 import { errorKind } from '../../src/components/staff/StaffSection'
 
 vi.mock('../../src/service/supabase', () => ({
@@ -104,5 +104,45 @@ describe('createStaffAccountApi', () => {
   it('rejects a created answer without credentials', async () => {
     reply({ account: ITEM }, 201)
     expect((await failure(createStaffAccountApi({ firstName: 'Sam', lastName: 'Reyes' }))).kind).toBe('server')
+  })
+})
+
+describe('resetStaffPasswordApi', () => {
+  it('posts to the staff reset path with no body and returns the id', async () => {
+    reply({ id: 'u1', mustChangePassword: true, sessionsRevoked: true })
+    expect(await resetStaffPasswordApi('u1')).toEqual({ id: 'u1' })
+    expect(requested().pathname).toBe('/users/staff/u1/reset-password')
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: undefined })
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ Authorization: 'Bearer tok' })
+    expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty('Content-Type')
+  })
+
+  it('encodes the id in the path', async () => {
+    reply({ id: 'a/b' })
+    await resetStaffPasswordApi('a/b')
+    expect(requested().pathname).toBe('/users/staff/a%2Fb/reset-password')
+  })
+
+  it('rejects an answer without an id', async () => {
+    reply({ mustChangePassword: true })
+    expect((await failure(resetStaffPasswordApi('u1'))).kind).toBe('server')
+  })
+
+  it.each([
+    [403, 'not_a_staff_account', 'forbidden'],
+    [403, 'forbidden', 'forbidden'],
+    [404, 'staff_not_found', 'not-found'],
+    [422, 'weak_password', 'server'],
+    [429, undefined, 'rate-limit'],
+    [502, undefined, 'server'],
+    [503, undefined, 'server'],
+  ])('keeps the %i status and code %s on a %s error', async (status, code, kind) => {
+    reply(code ? { code } : {}, status)
+    expect(await failure(resetStaffPasswordApi('u1'))).toMatchObject({ kind, status, code })
+  })
+
+  it('reports a dropped connection as network', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    expect((await failure(resetStaffPasswordApi('u1'))).kind).toBe('network')
   })
 })

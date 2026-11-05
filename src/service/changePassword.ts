@@ -1,5 +1,6 @@
 import { SIMULATED_AUTH } from '../config/accountPolicy'
 import { getSession } from './session'
+import { endExpiredSession, endRevokedSession } from './sessionRevoked'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
@@ -63,8 +64,18 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
   if (response.ok) return
   if (response.status === 400) throw new ChangePasswordError('weak')
-  if (response.status === 401) throw new ChangePasswordError('unauthorized')
-  if (response.status === 403 && (await codeOf(response)) === 'invalid_current_password') throw new ChangePasswordError('wrong-password')
+  if (response.status === 401) {
+    if ((await codeOf(response)) === 'session_revoked') endRevokedSession()
+    throw new ChangePasswordError('unauthorized')
+  }
+  if (response.status === 403) {
+    const code = await codeOf(response)
+    if (code === 'password_reset_expired') {
+      endExpiredSession()
+      throw new ChangePasswordError('unauthorized')
+    }
+    if (code === 'invalid_current_password') throw new ChangePasswordError('wrong-password')
+  }
   if (response.status === 422) throw new ChangePasswordError((await codeOf(response)) === 'same_password' ? 'same' : 'weak')
   if (response.status === 429) throw new ChangePasswordError('rate-limit')
   if (response.status === 502 || response.status === 503) throw new ChangePasswordError('unavailable')

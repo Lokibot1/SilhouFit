@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useAccounts } from '../../../hooks/useAccounts'
+import { useResetStaffPassword } from '../../../hooks/useResetStaffPassword'
 import { createStaffAccountApi, listStaffAccounts } from '../../../service/staffApi'
 import type { StaffAccount } from '../../../types/accounts'
-import { PlusIcon } from '../../form/icons'
-import { AddedDate } from '../../staff/inventory/InventoryParts'
+import { fullName } from '../../../utils/accountQuery'
+import { LockIcon, PlusIcon } from '../../form/icons'
+import { AddedDate, RowAction } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { PRIMARY_BUTTON } from '../../ui/buttonStyles'
 import { AccountName } from './AccountName'
@@ -15,6 +17,7 @@ const create = async ({ firstName, lastName }: { firstName: string; lastName: st
 
 export function StaffTab() {
   const list = useAccounts(listStaffAccounts)
+  const reset = useResetStaffPassword(list.retry)
   const [creating, setCreating] = useState(false)
   const [session, setSession] = useState(0)
 
@@ -58,6 +61,9 @@ export function StaffTab() {
         label="Staff accounts with email and date added"
         noun="staff accounts"
         columns={columns}
+        actions={(account) => (
+          <RowAction label={`Reset password for ${fullName(account)}`} icon={<LockIcon size={16} />} disabled={reset.pendingId === account.id} onClick={() => reset.ask(account)} />
+        )}
         empty={
           <>
             <p className="text-base font-semibold text-fg">No staff accounts yet</p>
@@ -67,6 +73,7 @@ export function StaffTab() {
         }
       />
       <CreateAccountSheet key={session} open={creating} onClose={() => setCreating(false)} noun="staff" create={create} server taken={list.result?.data.map((a) => a.username)} onCreated={list.retry} />
+      {reset.element}
     </section>
   )
 }

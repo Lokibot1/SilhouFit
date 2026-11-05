@@ -17,10 +17,13 @@ function wasDismissed(id: string) {
 /**
  * Tells a staff member still on the temporary password to choose their own, over whatever page they opened. The change itself is made in
  * the profile's Change password sheet. Dismissing hides this for the browser session only (sign-out clears it), so it returns at the next sign-in.
+ * After an administrator reset the password it cannot be dismissed: the only ways out are changing the password or signing out.
  */
-export function FirstLoginPasswordGate({ me }: { me: Me }) {
+export function FirstLoginPasswordGate({ me, sheetOpen, onSignOut }: { me: Me; sheetOpen: boolean; onSignOut: () => void }) {
   const navigate = useNavigate()
   const [dismissed, setDismissed] = useState(() => wasDismissed(me.id))
+  // The gate steps aside only while the Change password sheet is open (two stacked modals would fight over focus).
+  const reset = Boolean(me.passwordResetRequired)
 
   function dismiss() {
     try {
@@ -32,21 +35,28 @@ export function FirstLoginPasswordGate({ me }: { me: Me }) {
   }
 
   function changePassword() {
-    dismiss()
+    if (!reset) dismiss()
     navigate('/staff/profile', { state: { openChangePassword: true } })
   }
 
   return (
     <Modal
-      open={me.role === 'staff' && Boolean(me.mustChangePassword) && !dismissed}
-      onClose={dismiss}
-      title="Change your temporary password"
+      open={me.role === 'staff' && !sheetOpen && (reset || (Boolean(me.mustChangePassword) && !dismissed))}
+      onClose={reset ? () => {} : dismiss}
+      closable={!reset}
+      title={reset ? 'Choose a new password' : 'Change your temporary password'}
       icon={<LockIcon />}
       footer={
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={dismiss} className={SECONDARY_BUTTON}>
-            Remind me later
-          </button>
+          {reset ? (
+            <button type="button" onClick={onSignOut} className={SECONDARY_BUTTON}>
+              Sign out
+            </button>
+          ) : (
+            <button type="button" onClick={dismiss} className={SECONDARY_BUTTON}>
+              Remind me later
+            </button>
+          )}
           <button type="button" onClick={changePassword} className={PRIMARY_BUTTON}>
             <LockIcon size={16} />
             Change password
@@ -55,7 +65,9 @@ export function FirstLoginPasswordGate({ me }: { me: Me }) {
       }
     >
       <p className="pb-5 text-base leading-relaxed text-fg-muted">
-        You signed in with a temporary password that was shared with you. Choose your own now so only you know it.
+        {reset
+          ? 'An administrator reset your password to the default. Choose your own now before you continue.'
+          : 'You signed in with a temporary password that was shared with you. Choose your own now so only you know it.'}
       </p>
     </Modal>
   )

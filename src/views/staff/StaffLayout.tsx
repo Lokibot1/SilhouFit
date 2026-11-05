@@ -42,6 +42,9 @@ const ERROR_COPY: Record<'network' | 'rate-limit' | 'server' | 'not-found', { ti
   },
 }
 
+/** The least time between two checks that the session is still valid, when the tab is shown again. */
+const RECHECK_MS = 30_000
+
 type State =
   | { status: 'loading' }
   | { status: 'error'; kind: keyof typeof ERROR_COPY }
@@ -61,6 +64,8 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
   const [attempt, setAttempt] = useState(0)
   const [leaving, setLeaving] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  // The profile's Change password sheet reports here, so the first-login notice does not stack over it.
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [collapsed, toggleSidebar] = useSidebarCollapsed()
   const notified = useRef(false)
   const signedIn = user !== null
@@ -93,6 +98,19 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
     // `recheck` only triggers the request again; it is not read inside.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt, signedIn, recheck])
+
+  // An idle tab notices a revoked session (an administrator reset this password) when it is shown again: fetchMe signs out on a 401 `session_revoked`.
+  useEffect(() => {
+    if (!signedIn || getSession()?.simulated) return
+    let last = Date.now()
+    function onVisible() {
+      if (document.visibilityState !== 'visible' || Date.now() - last < RECHECK_MS) return
+      last = Date.now()
+      fetchMe().catch(() => {})
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [signedIn])
 
   useEffect(() => {
     if (!denied || notified.current) return
@@ -170,7 +188,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
         <div className="min-w-0 flex-1">
           <main id="main-content" className={STAFF_MAIN}>
             <Suspense fallback={null}>
-              <Outlet context={{ me, onSignOut: () => setLeaving(true) }} />
+              <Outlet context={{ me, onSignOut: () => setLeaving(true), onPasswordSheet: setSheetOpen }} />
             </Suspense>
           </main>
         </div>
@@ -181,7 +199,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
         </div>
       </Modal>
       <ChatDock staff />
-      <FirstLoginPasswordGate me={me} />
+      <FirstLoginPasswordGate me={me} sheetOpen={sheetOpen} onSignOut={leave} />
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import type { RequestOptions } from './simulateRequest'
+import { endExpiredSession, endRevokedSession } from './sessionRevoked'
 import { getSupabase } from './supabase'
 
 export interface ProductListItem {
@@ -70,25 +71,28 @@ export class ProductListError extends Error {
   detail?: string
   /** The HTTP status, when the server answered (401 and 403 share the 'forbidden' kind). */
   status?: number
+  /** The server's machine-readable `code` (`staff_not_found`, `weak_password`), when it sent one. */
+  code?: string
 
-  constructor(kind: ProductListErrorKind, detail?: string, status?: number) {
+  constructor(kind: ProductListErrorKind, detail?: string, status?: number, code?: string) {
     super(`Loading products failed (${kind}).`)
     this.kind = kind
     this.detail = detail
     this.status = status
+    this.code = code
   }
 }
 
 const STATUS_KIND: Record<number, ProductListErrorKind> = { 400: 'validation', 401: 'forbidden', 403: 'forbidden', 404: 'not-found', 409: 'conflict', 429: 'rate-limit' }
 
-/** The server's own message (Nest sends a string or a list of them), or undefined when the body is not that. */
-async function errorDetail(response: Response): Promise<string | undefined> {
+/** The server's own message (Nest sends a string or a list of them) and its `code`, each undefined when the body does not have it. */
+async function errorBody(response: Response): Promise<{ detail?: string; code?: string }> {
   try {
-    const { message } = (await response.json()) as { message?: unknown }
+    const { message, code } = (await response.json()) as { message?: unknown; code?: unknown }
     const text = Array.isArray(message) ? message.filter((m) => typeof m === 'string').join('; ') : message
-    return typeof text === 'string' && text ? text.slice(0, 300) : undefined
+    return { detail: typeof text === 'string' && text ? text.slice(0, 300) : undefined, code: typeof code === 'string' ? code : undefined }
   } catch {
-    return undefined
+    return {}
   }
 }
 
@@ -115,7 +119,12 @@ export async function request(method: 'GET' | 'PATCH' | 'POST' | 'DELETE', path:
     if (signal?.aborted) throw failure
     throw new ProductListError('network')
   }
-  if (!response.ok) throw new ProductListError(STATUS_KIND[response.status] ?? 'server', await errorDetail(response), response.status)
+  if (!response.ok) {
+    const { detail, code } = await errorBody(response)
+    if (response.status === 401 && code === 'session_revoked') endRevokedSession()
+    if (response.status === 403 && code === 'password_reset_expired') endExpiredSession()
+    throw new ProductListError(STATUS_KIND[response.status] ?? 'server', detail, response.status, code)
+  }
   try {
     return await response.json()
   } catch {

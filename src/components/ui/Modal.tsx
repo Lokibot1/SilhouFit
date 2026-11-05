@@ -26,12 +26,14 @@ interface ModalProps {
   variant?: 'center' | 'sheet' | 'sheet-left' | 'drawer-left'
   children: ReactNode
   footer?: ReactNode
+  /** False hides the close button, for a modal that must be answered (its `onClose` should then do nothing). */
+  closable?: boolean
   /** The scrolling content area, for callers that track how far it is read. */
   bodyRef?: Ref<HTMLDivElement>
   onBodyScroll?: UIEventHandler<HTMLDivElement>
 }
 
-export function Modal({ open, onClose, title, icon, variant = 'center', children, footer, bodyRef, onBodyScroll }: ModalProps) {
+export function Modal({ open, onClose, title, icon, variant = 'center', children, footer, closable = true, bodyRef, onBodyScroll }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -107,6 +109,7 @@ export function Modal({ open, onClose, title, icon, variant = 'center', children
           icon={icon}
           variant={variant}
           footer={footer}
+          closable={closable}
           panelRef={panelRef}
           bodyRef={bodyRef}
           onBodyScroll={onBodyScroll}
@@ -120,11 +123,11 @@ export function Modal({ open, onClose, title, icon, variant = 'center', children
   )
 }
 
-interface ModalViewProps extends Pick<ModalProps, 'title' | 'icon' | 'variant' | 'footer' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children'> {
+interface ModalViewProps extends Pick<ModalProps, 'title' | 'icon' | 'variant' | 'footer' | 'closable' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children'> {
   panelRef: Ref<HTMLDivElement>
 }
 
-function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScroll, onClose, children }: ModalViewProps) {
+function ModalView({ title, icon, variant, footer, closable, panelRef, bodyRef, onBodyScroll, onClose, children }: ModalViewProps) {
   const titleId = useId()
   const reduced = useReducedMotion()
   const isPresent = useIsPresent()
@@ -192,14 +195,16 @@ function ModalView({ title, icon, variant, footer, panelRef, bodyRef, onBodyScro
             {icon}
             {title}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={`Close ${title}`}
-            className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-xl text-fg-muted hover:text-fg"
-          >
-            <XIcon />
-          </button>
+          {closable && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={`Close ${title}`}
+              className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-xl text-fg-muted hover:text-fg"
+            >
+              <XIcon />
+            </button>
+          )}
         </div>
         <div
           ref={bodyRef}

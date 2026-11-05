@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -116,6 +116,47 @@ describe('StaffLayout', () => {
       expect(document.documentElement.dataset.area).toBe('staff')
       unmount()
       expect(document.documentElement.dataset.area).toBeUndefined()
+    })
+
+    describe('when the tab is shown again', () => {
+      const show = (state: 'visible' | 'hidden') => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state })
+        fireEvent(document, new Event('visibilitychange'))
+      }
+      afterEach(() => {
+        vi.useRealTimers()
+        delete (document as { visibilityState?: unknown }).visibilityState
+      })
+
+      it('checks the session again, but not while hidden and not more than once in 30 seconds', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        load.mockResolvedValue(ME)
+        renderStaff()
+        await screen.findByText('dashboard page')
+        expect(load).toHaveBeenCalledTimes(1)
+        show('hidden')
+        vi.setSystemTime(Date.now() + 60_000)
+        show('hidden')
+        expect(load).toHaveBeenCalledTimes(1)
+        show('visible')
+        expect(load).toHaveBeenCalledTimes(2)
+        show('visible')
+        expect(load).toHaveBeenCalledTimes(2)
+        vi.setSystemTime(Date.now() + 31_000)
+        show('visible')
+        expect(load).toHaveBeenCalledTimes(3)
+      })
+
+      it('does not check a simulated session', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        act(() => setSession({ name: 'Sam Reyes', email: ME.email, simulated: true, accountId: 'stf-001' }))
+        load.mockResolvedValue(ME)
+        renderStaff()
+        await screen.findByText('dashboard page')
+        vi.setSystemTime(Date.now() + 60_000)
+        show('visible')
+        expect(load).toHaveBeenCalledTimes(1)
+      })
     })
 
     it('offers a retry when the profile fails to load', async () => {

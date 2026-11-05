@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAccounts } from '../../src/service/accountStore'
-import { createStaffAccountApi, listStaffAccounts, StaffApiError } from '../../src/service/staffApi'
+import { createStaffAccountApi, listStaffAccounts, resetStaffPasswordApi, StaffApiError } from '../../src/service/staffApi'
 import type { StaffAccount } from '../../src/types/accounts'
 import { UserManagementPage } from '../../src/views/admin/UserManagementPage'
 import { renderAdmin, resetAdminAccounts, setUpAdminDom } from '../shared/adminSession'
@@ -13,6 +13,7 @@ vi.mock('../../src/service/staffApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/staffApi')>()),
   listStaffAccounts: vi.fn(() => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })),
   createStaffAccountApi: vi.fn(),
+  resetStaffPasswordApi: vi.fn(),
 }))
 
 beforeAll(setUpAdminDom)
@@ -101,6 +102,7 @@ describe('Staff tab', () => {
   beforeEach(() => {
     vi.mocked(listStaffAccounts).mockReset().mockResolvedValue(page([SAM, person('s2', 'Ana', 'Cruz')]))
     vi.mocked(createStaffAccountApi).mockReset()
+    vi.mocked(resetStaffPasswordApi).mockReset()
   })
 
   async function openStaff() {
@@ -111,12 +113,12 @@ describe('Staff tab', () => {
   it('lists staff with a running number, email and date, without status, sign-in or sample-data badge', async () => {
     await openStaff()
     const table = screen.getAllByRole('table', { hidden: true })[0]
-    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Staff', 'Email', 'Added'])
+    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Staff', 'Email', 'Added', 'Actions'])
     expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^1.*Sam Reyes/)
     expect(within(table).getAllByRole('row', { hidden: true })[2]).toHaveTextContent(/^2.*Ana Cruz/)
     expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument()
     expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Archive|Reset password|Restore/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Archive|Restore/ })).not.toBeInTheDocument()
   })
 
   it('numbers rows across pages', async () => {
@@ -175,6 +177,86 @@ describe('Staff tab', () => {
     expect(await within(sheet).findByText(title)).toBeInTheDocument()
     expect(within(sheet).getByLabelText('First name')).toHaveValue('Maria')
     expect(within(sheet).getByRole('button', { name: 'Create Account' })).toBeEnabled()
+  })
+
+  describe('reset password', () => {
+    // jsdom loads no CSS, so the table and the card list both render: the first button is the table's.
+    const resetButton = (name: string) => screen.getAllByRole('button', { name: `Reset password for ${name}` })[0]
+    const confirmButton = async () => within(await screen.findByRole('dialog', { name: /Reset password for/ })).getByRole('button', { name: 'Reset Password' })
+
+    it('offers the action on every row, named after the person', async () => {
+      await openStaff()
+      expect(resetButton('Sam Reyes')).toBeInTheDocument()
+      expect(resetButton('Ana Cruz')).toBeInTheDocument()
+    })
+
+    it('asks first, names the default password and the sign-out, and sends nothing on Cancel', async () => {
+      await openStaff()
+      await userEvent.click(resetButton('Sam Reyes'))
+      const dialog = await screen.findByRole('dialog', { name: 'Reset password for Sam Reyes?' })
+      expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
+      expect(within(dialog).getByText(/default password 1234567a and they will be signed out everywhere/)).toBeInTheDocument()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: /Reset password for/ })).not.toBeInTheDocument())
+      expect(resetStaffPasswordApi).not.toHaveBeenCalled()
+    })
+
+    it('waits while the request is pending, then confirms with a toast and no credentials sheet', async () => {
+      let finish: () => void = () => {}
+      vi.mocked(resetStaffPasswordApi).mockReturnValue(new Promise((resolve) => (finish = () => resolve({ id: 's1' }))))
+      await openStaff()
+      await userEvent.click(resetButton('Sam Reyes'))
+      const confirm = await confirmButton()
+      await userEvent.click(confirm)
+      expect(resetStaffPasswordApi).toHaveBeenCalledWith('s1')
+      expect(confirm).toBeDisabled()
+      expect(confirm).toHaveAttribute('aria-busy', 'true')
+      expect(resetButton('Sam Reyes')).toBeDisabled()
+      finish()
+      expect(await screen.findByText('Password reset for Sam Reyes. They are signed out and must sign in with the default password.')).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(resetStaffPasswordApi).toHaveBeenCalledTimes(1)
+    })
+
+    const CLEAR = /nothing changed/
+    const UNSURE = /couldn't confirm the result.*may or may not have been reset.*Retry is safe/
+    const PARTIAL = /may already be reset to the default, but the account wasn't fully secured.*safe to repeat/
+    it.each([
+      // [error, copy, Retry offered, "Couldn't reset ..." head shown, list reloaded]
+      [new StaffApiError('forbidden', undefined, 403, 'not_a_staff_account'), /Sam Reyes is not a staff account, so it can't be reset here\. Refresh the list\./, false, false, true],
+      [new StaffApiError('forbidden', undefined, 403), /isn't allowed to reset staff passwords/, false, true, false],
+      [new StaffApiError('forbidden', undefined, 401), /Your session expired\. Sign in again, then retry\./, false, true, false],
+      [new StaffApiError('not-found', undefined, 404, 'staff_not_found'), /no longer exists.*Refresh the list/, false, true, true],
+      [new StaffApiError('server', undefined, 422, 'weak_password'), /rejected the default password.*project owner/, false, true, false],
+      [new StaffApiError('rate-limit', undefined, 429), /Wait a few minutes/, false, true, false],
+      [new StaffApiError('server', undefined, 503), CLEAR, true, true, false],
+      [new StaffApiError('server', undefined, 502, 'reset_not_applied'), CLEAR, true, true, false],
+      [new StaffApiError('server', undefined, 502, 'reset_incomplete'), PARTIAL, true, false, false],
+      [new StaffApiError('server', undefined, 502), PARTIAL, true, false, false],
+      [new StaffApiError('server', undefined, 500), UNSURE, true, false, false],
+      [new StaffApiError('network'), UNSURE, true, false, false],
+    ])('explains a failed reset (%#)', async (error, copy, retry, head, reloads) => {
+      vi.mocked(resetStaffPasswordApi).mockRejectedValue(error)
+      await openStaff()
+      const loads = vi.mocked(listStaffAccounts).mock.calls.length
+      await userEvent.click(resetButton('Sam Reyes'))
+      await userEvent.click(await confirmButton())
+      expect(await screen.findByText(copy)).toBeInTheDocument()
+      expect(screen.queryByText(/Couldn't reset the password for Sam Reyes\./) !== null).toBe(head)
+      expect(screen.queryByText(/before anything changed/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
+      if (reloads) await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
+      expect(resetButton('Sam Reyes')).toBeEnabled()
+    })
+
+    it('asks again from Retry', async () => {
+      vi.mocked(resetStaffPasswordApi).mockRejectedValueOnce(new StaffApiError('network'))
+      await openStaff()
+      await userEvent.click(resetButton('Sam Reyes'))
+      await userEvent.click(await confirmButton())
+      await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+      expect(await screen.findByRole('dialog', { name: 'Reset password for Sam Reyes?' })).toBeInTheDocument()
+    })
   })
 
   it('shows the error with a retry when the list fails to load', async () => {

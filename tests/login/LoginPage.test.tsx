@@ -661,3 +661,27 @@ describe('LoginPage after a password change', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
+
+describe('LoginPage after an administrator reset the password', () => {
+  it('shows the notice once, in a status banner, and clears it', () => {
+    setLoginNotice('password-reset')
+    const { unmount } = renderPage()
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Your password was reset by an administrator. Sign in with the default password and choose a new one.')
+    expect(status).toHaveClass('text-base', 'border-info/40')
+    expect(status).not.toHaveClass('border-danger/40')
+    expect(peekLoginNotice()).toBeNull()
+    unmount()
+    renderPage()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('shows the expired temporary password notice in the same informational style', () => {
+    setLoginNotice('password-expired')
+    renderPage()
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Your temporary password expired. Ask an administrator to reset your password again.')
+    expect(status).toHaveClass('text-base', 'border-info/40')
+    expect(peekLoginNotice()).toBeNull()
+  })
+})
