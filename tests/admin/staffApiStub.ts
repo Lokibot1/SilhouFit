@@ -11,6 +11,8 @@ export interface StaffRow {
   email: string
   role: 'staff'
   createdAt: string
+  status: 'active' | 'archived'
+  archivedAt: string | null
 }
 
 export const staffRow = (firstName: string, lastName: string, n = 0): StaffRow => {
@@ -23,6 +25,8 @@ export const staffRow = (firstName: string, lastName: string, n = 0): StaffRow =
     email: `${username}@silhoufit.dev`,
     role: 'staff',
     createdAt: `2026-01-${String((n % 27) + 1).padStart(2, '0')}T08:00:00.000Z`,
+    status: 'active',
+    archivedAt: null,
   }
 }
 
@@ -32,6 +36,9 @@ export const manyStaff = (count: number): StaffRow[] =>
     const tag = String(i + 1).padStart(2, '0')
     return staffRow(`Staff${tag.replace(/\d/g, (d) => 'abcdefghij'[Number(d)])}`, `Person${tag.replace(/\d/g, (d) => 'abcdefghij'[Number(d)])}`, i + 1)
   })
+
+/** The same person, already archived. */
+export const archivedRow = (row: StaffRow): StaffRow => ({ ...row, status: 'archived', archivedAt: '2026-02-01T08:00:00.000Z' })
 
 export const SAMPLE_STAFF: StaffRow[] = [staffRow('Lara', 'Santos', 1), staffRow('Miguel', 'Cruz', 2), staffRow('Nina', 'Reyes', 3)]
 
@@ -49,6 +56,14 @@ export interface StaffStub {
   resets: string[]
   /** Answer a reset yourself, same rule; the default answers 200 with the id. */
   onReset?: (route: Route, id: string) => Promise<boolean | void> | boolean | void
+  /** Every id the page asked to archive (POST /users/staff/:id/archive). */
+  archives: string[]
+  /** Answer an archive yourself, same rule (delay it, fail it); the default flips the row to archived and answers 200. */
+  onArchive?: (route: Route, id: string) => Promise<boolean | void> | boolean | void
+  /** Every id the page asked to restore (POST /users/staff/:id/restore). */
+  restores: string[]
+  /** Answer a restore yourself, same rule; the default flips the row to active and answers 200. */
+  onRestore?: (route: Route, id: string) => Promise<boolean | void> | boolean | void
 }
 
 const CORS = {
@@ -61,7 +76,7 @@ export const json = (route: Route, status: number, body: unknown) =>
   route.fulfill({ status, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) })
 
 export async function stubStaffApi(page: Page, rows: StaffRow[] = SAMPLE_STAFF): Promise<StaffStub> {
-  const stub: StaffStub = { rows: [...rows], gets: [], posts: [], resets: [] }
+  const stub: StaffStub = { rows: rows.map((r) => ({ ...r })), gets: [], posts: [], resets: [], archives: [], restores: [] }
 
   await page.route(
     (url) => url.pathname === '/users/staff' && url.port !== '5173',
@@ -78,7 +93,11 @@ export async function stubStaffApi(page: Page, rows: StaffRow[] = SAMPLE_STAFF):
         const limit = Number(q.get('limit') ?? 10)
         const pageNo = Number(q.get('page') ?? 1)
         const dir = q.get('dir') === 'desc' ? -1 : 1
-        const matched = stub.rows.filter((r) => !search || [r.fullName, r.email].some((v) => v.toLowerCase().includes(search)))
+        // The server's default is active; the page always sends a status.
+        const status = q.get('status') ?? 'active'
+        const matched = stub.rows
+          .filter((r) => status === 'all' || r.status === status)
+          .filter((r) => !search || [r.fullName, r.email].some((v) => v.toLowerCase().includes(search)))
         matched.sort((a, b) => dir * (q.get('sort') === 'createdAt' ? a.createdAt.localeCompare(b.createdAt) : a.fullName.localeCompare(b.fullName)))
         return json(route, 200, {
           data: matched.slice((pageNo - 1) * limit, pageNo * limit),
@@ -109,5 +128,22 @@ export async function stubStaffApi(page: Page, rows: StaffRow[] = SAMPLE_STAFF):
       return json(route, 200, { id, mustChangePassword: true, sessionsRevoked: true })
     },
   )
+
+  for (const action of ['archive', 'restore'] as const) {
+    await page.route(
+      (url) => new RegExp(`^/users/staff/[^/]+/${action}$`).test(url.pathname) && url.port !== '5173',
+      async (route) => {
+        const request = route.request()
+        if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+        const id = new URL(request.url()).pathname.split('/')[3]
+        const archiving = action === 'archive'
+        ;(archiving ? stub.archives : stub.restores).push(id)
+        if (await (archiving ? stub.onArchive : stub.onRestore)?.(route, id)) return
+        const row = stub.rows.find((r) => r.id === id)
+        if (row) Object.assign(row, archiving ? { status: 'archived', archivedAt: '2026-03-01T08:00:00.000Z' } : { status: 'active', archivedAt: null })
+        return json(route, 200, archiving ? { id, status: 'archived', archivedAt: row?.archivedAt, sessionsRevoked: true } : { id, status: 'active', archivedAt: null })
+      },
+    )
+  }
   return stub
 }

@@ -30,6 +30,21 @@ const ARCHIVED_COPY = {
   body: "Contact an administrator to have it restored.",
 };
 
+const SESSION_NOTICES = {
+  "password-reset": {
+    title: "Your password was reset.",
+    body: "Your password was reset by an administrator. Sign in with the default password and choose a new one.",
+  },
+  "password-expired": {
+    title: "Your temporary password expired.",
+    body: "Your temporary password expired. Ask an administrator to reset your password again.",
+  },
+  "account-archived": {
+    title: "Your account was archived.",
+    body: "An administrator archived this account. Contact an administrator to have it restored.",
+  },
+} as const;
+
 const GAPS = "[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3";
 
 export function LoginPage() {
@@ -56,6 +71,7 @@ export function LoginPage() {
   // Kept for this visit; the one-shot notice is cleared so a reload or a later sign-out does not repeat it.
   const [notice] = useState(peekLoginNotice);
   const passwordChanged = notice === "password-changed";
+  const sessionNotice = notice && notice !== "password-changed" ? SESSION_NOTICES[notice] : null;
   useEffect(() => {
     takeLoginNotice();
   }, []);
@@ -165,7 +181,7 @@ export function LoginPage() {
           </div>
         )}
 
-        {(notice === "password-reset" || notice === "password-expired") && !banner && (
+        {sessionNotice && !banner && (
           <div
             role="status"
             className="flex items-start gap-3 rounded-xl border border-info/40 bg-info/10 px-4 py-3 text-base leading-snug sm:text-sm"
@@ -173,12 +189,10 @@ export function LoginPage() {
             <AlertIcon size={20} className="mt-px shrink-0 text-info" />
             <p>
               <strong className="block font-semibold text-fg">
-                {notice === "password-reset" ? "Your password was reset." : "Your temporary password expired."}
+                {sessionNotice.title}
               </strong>
               <span className="text-fg-muted">
-                {notice === "password-reset"
-                  ? "Your password was reset by an administrator. Sign in with the default password and choose a new one."
-                  : "Your temporary password expired. Ask an administrator to reset your password again."}
+                {sessionNotice.body}
               </span>
             </p>
           </div>

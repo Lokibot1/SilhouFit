@@ -41,10 +41,12 @@ interface AccountTableProps<T extends { id: string }> {
   onOpen?: (row: T) => void
   /** Shown when there are no accounts at all (not when a search or filter hides them). */
   empty: ReactNode
+  /** Replaces "No ___ match" when a filter hides every account and its own message fits better. */
+  emptyFiltered?: ReactNode
 }
 
 /** A tab's list: the table from @4xl of its panel and cards below, with the loading, error and empty states and the pager. */
-export function AccountTable<T extends { id: string }>({ list, label, noun, columns, actions, onOpen, empty }: AccountTableProps<T>) {
+export function AccountTable<T extends { id: string }>({ list, label, noun, columns, actions, onOpen, empty, emptyFiltered }: AccountTableProps<T>) {
   const { state, result, stale, retry, sorted, sortBy, page, setPage, per, filtered, clear } = list
   const rows = result?.data ?? null
   const cells = columns.length + (actions ? 1 : 0)
@@ -65,13 +67,15 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
             </button>
           </>
         ) : filtered ? (
-          <>
-            <p className="text-base font-semibold text-fg">No {noun} match</p>
-            <p className="mt-1 text-base text-fg-muted">Check the spelling, or clear the search and status filter and try again.</p>
-            <button type="button" onClick={clear} className={`${SECONDARY_BUTTON} mt-3`}>
-              Clear filters
-            </button>
-          </>
+          (emptyFiltered ?? (
+            <>
+              <p className="text-base font-semibold text-fg">No {noun} match</p>
+              <p className="mt-1 text-base text-fg-muted">Check the spelling, or clear the search and status filter and try again.</p>
+              <button type="button" onClick={clear} className={`${SECONDARY_BUTTON} mt-3`}>
+                Clear filters
+              </button>
+            </>
+          ))
         ) : (
           empty
         )}

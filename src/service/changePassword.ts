@@ -1,6 +1,6 @@
 import { SIMULATED_AUTH } from '../config/accountPolicy'
 import { getSession } from './session'
-import { endExpiredSession, endRevokedSession } from './sessionRevoked'
+import { endArchivedSession, endExpiredSession, endRevokedSession } from './sessionRevoked'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
@@ -65,7 +65,9 @@ export async function changePassword(currentPassword: string, newPassword: strin
   if (response.ok) return
   if (response.status === 400) throw new ChangePasswordError('weak')
   if (response.status === 401) {
-    if ((await codeOf(response)) === 'session_revoked') endRevokedSession()
+    const code = await codeOf(response)
+    if (code === 'session_revoked') endRevokedSession()
+    if (code === 'account_archived') endArchivedSession()
     throw new ChangePasswordError('unauthorized')
   }
   if (response.status === 403) {

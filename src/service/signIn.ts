@@ -53,6 +53,8 @@ export async function submitSignIn(
     // supabase-js cannot be aborted, so check once it settles.
     signal?.throwIfAborted()
     if (error.code && INVALID_CODES.includes(error.code)) return { ok: false, reason: 'invalid' }
+    // An archived account is banned in GoTrue; the form says so instead of the generic invalid copy.
+    if (error.code === 'user_banned' || (error.status === 403 && /banned/i.test(error.message))) return { ok: false, reason: 'archived' }
     // Status 0 is supabase-js's fetch failure.
     throw new SignInError(error.status === 429 ? 'rate-limit' : error.status === 0 ? 'network' : 'server')
   }

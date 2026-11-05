@@ -207,7 +207,7 @@ test.describe('staff accounts', () => {
   test('lists the staff from the server and searches by name and email through the API', async ({ page }) => {
     await expect(seen(page, 'Lara Santos')).toBeVisible()
     await expect(seen(page, 'Miguel Cruz')).toBeVisible()
-    await expect(page.getByRole('combobox', { name: 'Status' })).toHaveCount(0)
+    await expect(page.getByRole('combobox', { name: 'Status' })).toBeVisible()
     const search = page.getByLabel('Search staff by name or email')
     await search.fill('nina.reyes@silhoufit.dev')
     await expect(seen(page, 'Nina Reyes')).toBeVisible()

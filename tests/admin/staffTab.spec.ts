@@ -57,7 +57,7 @@ test.describe('staff list', () => {
       await expect(rows.nth(1).getByRole('cell').first()).toHaveText('1')
       await expect(rows.nth(10).getByRole('cell').first()).toHaveText('10')
     } else {
-      const cards = page.getByRole('list', { name: 'Staff accounts with email and date added' }).getByRole('listitem')
+      const cards = page.getByRole('list', { name: 'Staff accounts with email, status and date added' }).getByRole('listitem')
       await expect(cards).toHaveCount(10)
       await expect(cards.first().getByText('#', { exact: true })).toBeVisible()
       await expect(cards.first()).toContainText(/#\s*1(?!\d)/)
@@ -72,7 +72,7 @@ test.describe('staff list', () => {
       await expect(rows.nth(1).getByRole('cell').first()).toHaveText('11')
       await expect(rows.nth(10).getByRole('cell').first()).toHaveText('20')
     } else {
-      const cards = page.getByRole('list', { name: 'Staff accounts with email and date added' }).getByRole('listitem')
+      const cards = page.getByRole('list', { name: 'Staff accounts with email, status and date added' }).getByRole('listitem')
       await expect(cards.first()).toContainText(/#\s*11(?!\d)/)
       await expect(cards.last()).toContainText(/#\s*20(?!\d)/)
     }

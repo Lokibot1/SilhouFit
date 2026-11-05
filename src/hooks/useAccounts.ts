@@ -8,10 +8,10 @@ import { useSection } from './useSection'
 
 type Lister<T> = (query: { search?: string; status?: AccountStatus; sort: AccountSort; dir: AccountDir; page: number; limit: number }, options: RequestOptions) => Promise<AccountPage<T>>
 
-/** One tab's list: `expectedTotal` (when the tab knows how many accounts it has) sizes the loading skeleton so the rows do not jump when they arrive. Search (debounced), status filter, sort and page, loaded as its own section. The list loads again when the saved accounts change, here or in another tab. */
-export function useAccounts<T>(list: Lister<T>, defaultSort: AccountSort = 'name', expectedTotal?: number) {
+/** One tab's list: `expectedTotal` (when the tab knows how many accounts it has) sizes the loading skeleton so the rows do not jump when they arrive. `initialStatus` is the status filter the tab opens on ('' is all). Search (debounced), status filter, sort and page, loaded as its own section. The list loads again when the saved accounts change, here or in another tab. */
+export function useAccounts<T>(list: Lister<T>, defaultSort: AccountSort = 'name', expectedTotal?: number, initialStatus: AccountStatus | '' = '') {
   const [text, setText] = useState('')
-  const [status, setStatus] = useState<AccountStatus | ''>('')
+  const [status, setStatus] = useState<AccountStatus | ''>(initialStatus)
   const [sorted, setSorted] = useState<{ sort: AccountSort; dir: AccountDir }>({ sort: defaultSort, dir: 'asc' })
   const [page, setPage] = useState(1)
   const [per, setPer] = useState<number>(ACCOUNT_PER_PAGE)
@@ -61,10 +61,11 @@ export function useAccounts<T>(list: Lister<T>, defaultSort: AccountSort = 'name
       setPer(value)
       setPage(1)
     },
-    filtered: Boolean(search || status),
+    // The starting status (Staff opens on Active) is the unfiltered view.
+    filtered: Boolean(search || status !== initialStatus),
     clear: () => {
       setText('')
-      setStatus('')
+      setStatus(initialStatus)
       setPage(1)
     },
   }

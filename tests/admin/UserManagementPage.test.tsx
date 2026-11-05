@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAccounts } from '../../src/service/accountStore'
-import { createStaffAccountApi, listStaffAccounts, resetStaffPasswordApi, StaffApiError } from '../../src/service/staffApi'
+import { archiveStaffAccountApi, createStaffAccountApi, listStaffAccounts, resetStaffPasswordApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
 import type { StaffAccount } from '../../src/types/accounts'
 import { UserManagementPage } from '../../src/views/admin/UserManagementPage'
 import { renderAdmin, resetAdminAccounts, setUpAdminDom } from '../shared/adminSession'
@@ -14,6 +14,8 @@ vi.mock('../../src/service/staffApi', async (importOriginal) => ({
   listStaffAccounts: vi.fn(() => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })),
   createStaffAccountApi: vi.fn(),
   resetStaffPasswordApi: vi.fn(),
+  archiveStaffAccountApi: vi.fn(),
+  restoreStaffAccountApi: vi.fn(),
 }))
 
 beforeAll(setUpAdminDom)
@@ -103,6 +105,8 @@ describe('Staff tab', () => {
     vi.mocked(listStaffAccounts).mockReset().mockResolvedValue(page([SAM, person('s2', 'Ana', 'Cruz')]))
     vi.mocked(createStaffAccountApi).mockReset()
     vi.mocked(resetStaffPasswordApi).mockReset()
+    vi.mocked(archiveStaffAccountApi).mockReset()
+    vi.mocked(restoreStaffAccountApi).mockReset()
   })
 
   async function openStaff() {
@@ -110,15 +114,41 @@ describe('Staff tab', () => {
     await screen.findAllByText('Sam Reyes')
   }
 
-  it('lists staff with a running number, email and date, without status, sign-in or sample-data badge', async () => {
+  it('lists staff with a running number, email, status and date, without a sign-in or sample-data badge', async () => {
     await openStaff()
     const table = screen.getAllByRole('table', { hidden: true })[0]
-    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Staff', 'Email', 'Added', 'Actions'])
+    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Staff', 'Email', 'Status', 'Added', 'Actions'])
     expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^1.*Sam Reyes/)
     expect(within(table).getAllByRole('row', { hidden: true })[2]).toHaveTextContent(/^2.*Ana Cruz/)
-    expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument()
+    expect(within(table).getAllByText('Active', { selector: 'span' }).length).toBeGreaterThan(0)
     expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Archive|Restore/ })).not.toBeInTheDocument()
+  })
+
+  it('opens on Active, offers Active, Archived and All, and asks the list for each', async () => {
+    await openStaff()
+    expect(vi.mocked(listStaffAccounts).mock.calls[0][0]).toMatchObject({ status: 'active' })
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent('Active')
+    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
+    expect(within(screen.getByRole('listbox', { name: 'Status' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['Active', 'Archived', 'All'])
+    await userEvent.click(screen.getByRole('option', { name: 'All' }))
+    await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.at(-1)![0].status).toBeUndefined())
+    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Archived' }))
+    await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.at(-1)![0].status).toBe('archived'))
+  })
+
+  it('shows "No staff accounts yet" with Add when Active is empty, and the archived copy when Archived is', async () => {
+    vi.mocked(listStaffAccounts).mockResolvedValue(page([]))
+    renderAdmin(<UserManagementPage />, '/admin/users?tab=staff')
+    expect(await screen.findByText('No staff accounts yet')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Add staff account/ }).length).toBeGreaterThan(0)
+    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Archived' }))
+    expect(await screen.findByText('No archived staff accounts')).toBeInTheDocument()
+    expect(screen.getByText('Archived accounts show up here and can be restored.')).toBeInTheDocument()
+    expect(screen.queryByText('No staff accounts yet')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show active staff' }))
+    expect(await screen.findByText('No staff accounts yet')).toBeInTheDocument()
   })
 
   it('numbers rows across pages', async () => {
@@ -256,6 +286,139 @@ describe('Staff tab', () => {
       await userEvent.click(await confirmButton())
       await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
       expect(await screen.findByRole('dialog', { name: 'Reset password for Sam Reyes?' })).toBeInTheDocument()
+    })
+  })
+
+  describe('archive and restore', () => {
+    const ANA = person('s2', 'Ana', 'Cruz')
+    const OLD: StaffAccount = { ...ANA, status: 'archived', archivedAt: '2026-04-01T08:00:00.000Z' }
+    // jsdom loads no CSS, so the table and the card list both render: the first button is the table's.
+    const button = (name: string) => screen.getAllByRole('button', { name })[0]
+    const confirmButton = async () => within(await screen.findByRole('dialog', { name: /^Archive / })).getByRole('button', { name: 'Archive Staff' })
+
+    it('gives an active row Reset and Archive, and an archived row only Restore, all named after the person', async () => {
+      vi.mocked(listStaffAccounts).mockResolvedValue(page([SAM, OLD]))
+      await openStaff()
+      expect(button('Reset password for Sam Reyes')).toBeInTheDocument()
+      expect(button('Archive Sam Reyes')).toBeInTheDocument()
+      expect(button('Restore Ana Cruz')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Reset password for Ana Cruz' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Archive Ana Cruz' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Restore Sam Reyes' })).not.toBeInTheDocument()
+      expect(screen.getAllByText('Archived', { selector: 'span' }).length).toBeGreaterThan(0)
+    })
+
+    it('asks first, with the consequences, and sends nothing on Cancel', async () => {
+      await openStaff()
+      await userEvent.click(button('Archive Sam Reyes'))
+      const dialog = await screen.findByRole('dialog', { name: 'Archive Sam Reyes?' })
+      expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
+      expect(
+        within(dialog).getByText("Sam Reyes will be signed out everywhere and won't be able to sign in. Their account is hidden from the staff list but kept, and you can restore it from the Archived filter."),
+      ).toBeInTheDocument()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(archiveStaffAccountApi).not.toHaveBeenCalled()
+    })
+
+    it('waits while pending, then reloads the list and toasts with Undo', async () => {
+      let finish: () => void = () => {}
+      vi.mocked(archiveStaffAccountApi).mockReturnValue(new Promise((resolve) => (finish = () => resolve({ id: 's1' }))))
+      await openStaff()
+      await userEvent.click(button('Archive Sam Reyes'))
+      const confirm = await confirmButton()
+      const loads = vi.mocked(listStaffAccounts).mock.calls.length
+      await userEvent.click(confirm)
+      expect(archiveStaffAccountApi).toHaveBeenCalledWith('s1')
+      expect(confirm).toBeDisabled()
+      expect(confirm).toHaveAttribute('aria-busy', 'true')
+      expect(button('Archive Sam Reyes')).toBeDisabled()
+      expect(button('Archive Ana Cruz')).toBeEnabled()
+      finish()
+      expect(await screen.findByText('Sam Reyes archived.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
+      expect(archiveStaffAccountApi).toHaveBeenCalledTimes(1)
+    })
+
+    it('Undo restores the account and says so', async () => {
+      vi.mocked(archiveStaffAccountApi).mockResolvedValue({ id: 's1' })
+      vi.mocked(restoreStaffAccountApi).mockResolvedValue({ id: 's1' })
+      await openStaff()
+      await userEvent.click(button('Archive Sam Reyes'))
+      await userEvent.click(await confirmButton())
+      await userEvent.click(await screen.findByRole('button', { name: 'Undo' }))
+      expect(restoreStaffAccountApi).toHaveBeenCalledWith('s1')
+      expect(await screen.findByText('Archive undone. Sam Reyes can sign in again.')).toBeInTheDocument()
+    })
+
+    it('restores at once with no question, and toasts', async () => {
+      vi.mocked(listStaffAccounts).mockResolvedValue(page([SAM, OLD]))
+      vi.mocked(restoreStaffAccountApi).mockResolvedValue({ id: 's2' })
+      await openStaff()
+      const loads = vi.mocked(listStaffAccounts).mock.calls.length
+      await userEvent.click(button('Restore Ana Cruz'))
+      expect(restoreStaffAccountApi).toHaveBeenCalledWith('s2')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(await screen.findByText('Ana Cruz restored. They can sign in with their current password.')).toBeInTheDocument()
+      await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
+    })
+
+    const NOTHING = /Nothing changed\./
+    const UNSURE = /couldn't confirm the result\. Retry is safe, or check the list after a minute\./
+    it.each([
+      // [error, copy, Retry offered, list reloaded]
+      [new StaffApiError('forbidden', undefined, 401), /Your session expired\. Sign in again, then retry\./, false, false],
+      [new StaffApiError('forbidden', undefined, 403, 'not_a_staff_account'), /Sam Reyes is not a staff account, so it can't be archived here/, false, true],
+      [new StaffApiError('forbidden', undefined, 403, 'forbidden'), /isn't allowed to archive staff/, false, false],
+      [new StaffApiError('not-found', undefined, 404, 'staff_not_found'), /no longer exists/, false, true],
+      [new StaffApiError('conflict', undefined, 409, 'already_archived'), /Sam Reyes is already archived\. The list was out of date/, false, true],
+      [new StaffApiError('rate-limit', undefined, 429), /Wait a few minutes/, false, false],
+      [new StaffApiError('server', undefined, 502, 'archive_incomplete'), /blocked from signing in, but the archive did not finish\. Retry now to finish; it is safe to repeat\./, true, false],
+      [new StaffApiError('server', undefined, 502, 'archive_not_applied'), NOTHING, true, false],
+      [new StaffApiError('server', undefined, 502, 'other'), NOTHING, true, false],
+      [new StaffApiError('server', undefined, 503), NOTHING, true, false],
+      [new StaffApiError('server', undefined, 500), UNSURE, true, false],
+      [new StaffApiError('network'), UNSURE, true, false],
+    ])('explains a failed archive (%#)', async (error, copy, retry, reloads) => {
+      vi.mocked(archiveStaffAccountApi).mockRejectedValue(error)
+      await openStaff()
+      const loads = vi.mocked(listStaffAccounts).mock.calls.length
+      await userEvent.click(button('Archive Sam Reyes'))
+      await userEvent.click(await confirmButton())
+      expect(await screen.findByText(copy)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
+      if (reloads) await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
+      else expect(vi.mocked(listStaffAccounts).mock.calls.length).toBe(loads)
+      expect(button('Archive Sam Reyes')).toBeEnabled()
+    })
+
+    it.each([
+      [new StaffApiError('conflict', undefined, 409, 'not_archived'), /Ana Cruz is already active\. The list was out of date/, false, true],
+      [new StaffApiError('server', undefined, 502, 'restore_incomplete'), /restore for Ana Cruz was only partly applied.*safe to repeat/, true, false],
+      [new StaffApiError('server', undefined, 502, 'restore_not_applied'), NOTHING, true, false],
+      [new StaffApiError('network'), UNSURE, true, false],
+    ])('explains a failed restore (%#)', async (error, copy, retry, reloads) => {
+      vi.mocked(listStaffAccounts).mockResolvedValue(page([SAM, OLD]))
+      vi.mocked(restoreStaffAccountApi).mockRejectedValue(error)
+      await openStaff()
+      const loads = vi.mocked(listStaffAccounts).mock.calls.length
+      await userEvent.click(button('Restore Ana Cruz'))
+      expect(await screen.findByText(copy)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
+      if (reloads) await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
+      expect(button('Restore Ana Cruz')).toBeEnabled()
+    })
+
+    it('runs the archive again from Retry, without asking', async () => {
+      vi.mocked(archiveStaffAccountApi).mockRejectedValueOnce(new StaffApiError('server', undefined, 502, 'archive_incomplete')).mockResolvedValue({ id: 's1' })
+      await openStaff()
+      await userEvent.click(button('Archive Sam Reyes'))
+      await userEvent.click(await confirmButton())
+      await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+      expect(await screen.findByText('Sam Reyes archived.')).toBeInTheDocument()
+      expect(archiveStaffAccountApi).toHaveBeenCalledTimes(2)
     })
   })
 

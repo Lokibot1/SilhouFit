@@ -21,7 +21,7 @@ afterEach(() => {
   takeLoginNotice()
 })
 
-const endedWithNotice = (notice: 'password-reset' | 'password-expired' = 'password-reset') => {
+const endedWithNotice = (notice: 'password-reset' | 'password-expired' | 'account-archived' = 'password-reset') => {
   expect(signOut).toHaveBeenCalledTimes(1)
   expect(peekLoginNotice()).toBe(notice)
 }
@@ -51,6 +51,33 @@ describe('a 401 session_revoked answer', () => {
     await expect(resetStaffPasswordApi('u1')).rejects.toMatchObject({ status: 401 })
     await expect(changePassword('a', 'b')).rejects.toMatchObject({ kind: 'unauthorized' })
     reply({ code: 'session_revoked' }, 403)
+    await expect(resetStaffPasswordApi('u1')).rejects.toMatchObject({ status: 403 })
+    expect(signOut).not.toHaveBeenCalled()
+    expect(peekLoginNotice()).toBeNull()
+  })
+})
+
+describe('a 401 account_archived answer', () => {
+  it('ends the session from fetchMe with the archived notice and still reports unauthorized', async () => {
+    reply({ code: 'account_archived' }, 401)
+    await expect(fetchMe()).rejects.toMatchObject({ kind: 'unauthorized' })
+    endedWithNotice('account-archived')
+  })
+
+  it('ends the session from the shared request (staff calls)', async () => {
+    reply({ code: 'account_archived', message: 'Account archived' }, 401)
+    await expect(resetStaffPasswordApi('u1')).rejects.toMatchObject({ status: 401, code: 'account_archived' })
+    endedWithNotice('account-archived')
+  })
+
+  it('ends the session from changePassword', async () => {
+    reply({ code: 'account_archived' }, 401)
+    await expect(changePassword('Old#Pass1', 'New#Pass1')).rejects.toMatchObject({ kind: 'unauthorized' })
+    endedWithNotice('account-archived')
+  })
+
+  it('leaves the session alone on a 403 account_archived', async () => {
+    reply({ code: 'account_archived' }, 403)
     await expect(resetStaffPasswordApi('u1')).rejects.toMatchObject({ status: 403 })
     expect(signOut).not.toHaveBeenCalled()
     expect(peekLoginNotice()).toBeNull()

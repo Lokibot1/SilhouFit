@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createStaffAccountApi, listStaffAccounts, resetStaffPasswordApi, StaffApiError } from '../../src/service/staffApi'
+import { archiveStaffAccountApi, createStaffAccountApi, listStaffAccounts, resetStaffPasswordApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
 import { errorKind } from '../../src/components/staff/StaffSection'
 
 vi.mock('../../src/service/supabase', () => ({
@@ -31,7 +31,7 @@ describe('listStaffAccounts', () => {
     const result = await listStaffAccounts({ search: ' sam ', sort: 'createdAt', dir: 'desc', page: 2, limit: 10 })
     const url = requested()
     expect(url.pathname).toBe('/users/staff')
-    expect(Object.fromEntries(url.searchParams)).toEqual({ search: 'sam', sort: 'createdAt', dir: 'desc', page: '2', limit: '10' })
+    expect(Object.fromEntries(url.searchParams)).toEqual({ search: 'sam', sort: 'createdAt', dir: 'desc', page: '2', limit: '10', status: 'all' })
     expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ Authorization: 'Bearer tok' })
     expect(result.meta).toEqual({ total: 11, page: 2, limit: 10, totalPages: 2 })
     expect(result.data[0]).toMatchObject({ id: 'u1', firstName: 'Sam', lastName: 'Reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff', createdAt: ITEM.createdAt })
@@ -40,7 +40,29 @@ describe('listStaffAccounts', () => {
   it('falls back to name for a sort the server does not have, and leaves out an empty search', async () => {
     reply({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })
     await listStaffAccounts({ search: '  ', sort: 'status' })
-    expect(Object.fromEntries(requested().searchParams)).toEqual({ sort: 'name', dir: 'asc', page: '1', limit: '10' })
+    expect(Object.fromEntries(requested().searchParams)).toEqual({ sort: 'name', dir: 'asc', page: '1', limit: '10', status: 'all' })
+  })
+
+  it.each([
+    ['active', 'active'],
+    ['archived', 'archived'],
+    [undefined, 'all'],
+  ] as const)('sends status %s as %s (no status is All)', async (status, sent) => {
+    reply({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })
+    await listStaffAccounts({ status })
+    expect(requested().searchParams.get('status')).toBe(sent)
+  })
+
+  it('reads status and archivedAt from the server, and treats a missing status as active', async () => {
+    reply({
+      data: [{ ...ITEM, status: 'archived', archivedAt: '2026-04-01T08:00:00.000Z' }, { ...ITEM, id: 'u2', status: 'active', archivedAt: null }, { ...ITEM, id: 'u3' }],
+      meta: { total: 3, page: 1, limit: 10, totalPages: 1 },
+    })
+    const [archived, active, bare] = (await listStaffAccounts({ status: 'archived' })).data
+    expect(archived).toMatchObject({ status: 'archived', archivedAt: '2026-04-01T08:00:00.000Z' })
+    expect(active.status).toBe('active')
+    expect(active.archivedAt).toBeUndefined()
+    expect(bare.status).toBe('active')
   })
 
   it('rejects a body that is not a list', async () => {
@@ -144,5 +166,48 @@ describe('resetStaffPasswordApi', () => {
   it('reports a dropped connection as network', async () => {
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
     expect((await failure(resetStaffPasswordApi('u1'))).kind).toBe('network')
+  })
+})
+
+describe.each([
+  ['archiveStaffAccountApi', archiveStaffAccountApi, 'archive', 'archived'],
+  ['restoreStaffAccountApi', restoreStaffAccountApi, 'restore', 'active'],
+] as const)('%s', (_name, call, path, status) => {
+  it('posts to the staff path with no body and returns the id', async () => {
+    reply({ id: 'u1', status, archivedAt: null })
+    expect(await call('u1')).toEqual({ id: 'u1' })
+    expect(requested().pathname).toBe(`/users/staff/u1/${path}`)
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: undefined })
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ Authorization: 'Bearer tok' })
+    expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty('Content-Type')
+  })
+
+  it('encodes the id in the path', async () => {
+    reply({ id: 'a/b' })
+    await call('a/b')
+    expect(requested().pathname).toBe(`/users/staff/a%2Fb/${path}`)
+  })
+
+  it('rejects an answer without an id', async () => {
+    reply({ status })
+    expect((await failure(call('u1'))).kind).toBe('server')
+  })
+
+  it.each([
+    [403, 'not_a_staff_account', 'forbidden'],
+    [404, 'staff_not_found', 'not-found'],
+    [409, 'already_archived', 'conflict'],
+    [429, undefined, 'rate-limit'],
+    [502, `${path}_incomplete`, 'server'],
+    [502, `${path}_not_applied`, 'server'],
+    [503, 'other', 'server'],
+  ])('keeps the %i status and code %s on a %s error', async (statusCode, code, kind) => {
+    reply(code ? { code } : {}, statusCode)
+    expect(await failure(call('u1'))).toMatchObject({ kind, status: statusCode, code })
+  })
+
+  it('reports a dropped connection as network', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    expect((await failure(call('u1'))).kind).toBe('network')
   })
 })

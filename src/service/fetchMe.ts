@@ -1,6 +1,6 @@
 import { SIMULATED_AUTH } from '../config/accountPolicy'
 import { getSession } from './session'
-import { endExpiredSession, endRevokedSession } from './sessionRevoked'
+import { endArchivedSession, endExpiredSession, endRevokedSession } from './sessionRevoked'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
@@ -94,6 +94,7 @@ export async function fetchMe({ signal }: RequestOptions = {}): Promise<Me> {
   }
   const code = response.status === 401 || response.status === 403 ? await codeOf(response) : undefined
   if (response.status === 401 && code === 'session_revoked') endRevokedSession()
+  if (response.status === 401 && code === 'account_archived') endArchivedSession()
   if (response.status === 403 && code === 'password_reset_expired') endExpiredSession()
   if (!response.ok) throw new MeError(STATUS_KIND[response.status] ?? 'server')
   let body: Partial<Me> | null

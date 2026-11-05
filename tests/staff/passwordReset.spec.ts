@@ -7,6 +7,7 @@ import { stubStaffApi } from '../admin/staffApiStub'
 
 const NETWORK = { email: 'net.staff@example.com', password: 'Temp#Pass-2026x' }
 const SIMULATED = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
+const ARCHIVED = { code: 'account_archived', message: 'This account has been archived' }
 const REVOKED = { code: 'session_revoked', message: 'Your password was reset by an administrator' }
 const SKIP_KEY = 'silhoufit.password-gate.skipped.net-1'
 
@@ -16,11 +17,11 @@ const jwt = () => `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: 'net-
 
 interface Session {
   /** Answers GET /users/me; change it mid-test. Default: 200 with the profile + `flags`. */
-  me: 'ok' | 'revoked' | 'plain401' | 'expired'
+  me: 'ok' | 'revoked' | 'archived' | 'plain401' | 'expired'
   flags: { mustChangePassword?: boolean; passwordResetRequired?: boolean }
   meCalls: number
   /** What GET /products (a request() call) answers. */
-  products: 'ok' | 'revoked' | 'plain401'
+  products: 'ok' | 'revoked' | 'archived' | 'plain401'
 }
 
 /** A signed-in-able "network" staff account, answered by page.route. */
@@ -38,6 +39,7 @@ async function stubSession(page: Page, flags: Session['flags'] = {}) {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
     session.meCalls++
     if (session.me === 'revoked') return route.fulfill({ status: 401, json: REVOKED, headers: CORS })
+    if (session.me === 'archived') return route.fulfill({ status: 401, json: ARCHIVED, headers: CORS })
     if (session.me === 'expired') return route.fulfill({ status: 403, json: { code: 'password_reset_expired' }, headers: CORS })
     if (session.me === 'plain401') return route.fulfill({ status: 401, json: { message: 'Unauthorized' }, headers: CORS })
     return route.fulfill({
@@ -66,6 +68,7 @@ async function stubSession(page: Page, flags: Session['flags'] = {}) {
     (route) => {
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
       if (session.products === 'revoked') return route.fulfill({ status: 401, json: REVOKED, headers: CORS })
+      if (session.products === 'archived') return route.fulfill({ status: 401, json: ARCHIVED, headers: CORS })
       if (session.products === 'plain401') return route.fulfill({ status: 401, json: { message: 'Unauthorized' }, headers: CORS })
       return route.fulfill({ status: 200, json: { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } }, headers: CORS })
     },
@@ -105,6 +108,48 @@ const showAgain = (page: Page, skew = 31_000) =>
     ;(window as unknown as { __skew: number }).__skew += ms
     document.dispatchEvent(new Event('visibilitychange'))
   }, skew)
+
+test.describe('forced sign-out after an administrator archived the account', () => {
+  const archivedNotice = (page: Page) => page.getByRole('status').filter({ hasText: 'Your account was archived.' })
+
+  for (const [where, set, path] of [
+    ['GET /users/me', (s: Session) => (s.me = 'archived'), '/staff/profile'],
+    ['a request() call (the inventory list)', (s: Session) => (s.products = 'archived'), '/staff/inventory'],
+  ] as const) {
+    test(`a 401 account_archived from ${where} lands on /login with the archived notice, gone after a reload`, async ({ page }) => {
+      const session = await stubSession(page)
+      await signIn(page, NETWORK)
+      await expect(page).toHaveURL(/\/staff$/)
+      set(session)
+      await page.goto(path)
+
+      await expect(page).toHaveURL(/\/login$/)
+      expect(search(page)).toBe('')
+      const notice = archivedNotice(page)
+      await expect(notice).toBeVisible()
+      await expect(notice).toContainText('An administrator archived this account. Contact an administrator to have it restored.')
+      await expect(banner(page)).toHaveCount(0)
+      expect(await overflow(page)).toBeLessThanOrEqual(0)
+
+      await page.reload()
+      await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+      await expect(archivedNotice(page)).toHaveCount(0)
+    })
+  }
+
+  test('the notice text is 16px on a phone and the page does not scroll sideways at 320px', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 })
+    const session = await stubSession(page)
+    await signIn(page, NETWORK)
+    await expect(page).toHaveURL(/\/staff$/)
+    session.me = 'archived'
+    await page.goto('/staff/profile')
+    const notice = archivedNotice(page)
+    await expect(notice).toBeVisible()
+    expect(await notice.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px')
+    expect(await overflow(page)).toBeLessThanOrEqual(0)
+  })
+})
 
 test.describe('forced sign-out after an administrator reset', () => {
   test('a 401 session_revoked from GET /users/me lands on plain /login with the notice, which is gone after a reload', async ({ page }) => {

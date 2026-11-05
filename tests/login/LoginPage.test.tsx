@@ -662,6 +662,22 @@ describe('LoginPage after a password change', () => {
   })
 })
 
+describe('LoginPage after an administrator archived the account', () => {
+  it('shows the archived notice once, in the informational style, and clears it', () => {
+    setLoginNotice('account-archived')
+    const { unmount } = renderPage()
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Your account was archived.')
+    expect(status).toHaveTextContent('An administrator archived this account. Contact an administrator to have it restored.')
+    expect(status).toHaveClass('text-base', 'border-info/40')
+    expect(status).not.toHaveClass('border-danger/40')
+    expect(peekLoginNotice()).toBeNull()
+    unmount()
+    renderPage()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+})
+
 describe('LoginPage after an administrator reset the password', () => {
   it('shows the notice once, in a status banner, and clears it', () => {
     setLoginNotice('password-reset')

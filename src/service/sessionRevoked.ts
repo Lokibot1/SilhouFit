@@ -12,3 +12,9 @@ export function endExpiredSession() {
   setLoginNotice('password-expired')
   signOut()
 }
+
+/** The API answered 401 `account_archived` (an administrator archived this account): end the session and let the sign-in page say why. */
+export function endArchivedSession() {
+  setLoginNotice('account-archived')
+  signOut()
+}

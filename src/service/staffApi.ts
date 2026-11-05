@@ -33,12 +33,12 @@ async function call(method: 'GET' | 'POST', path: string, body: unknown, signal?
   }
 }
 
-// The API sends no username, phone, status or sign-in time for staff; the shared account shape gets neutral values, and `username` is the email's local part.
+// The API sends no username, phone or sign-in time for staff; the shared account shape gets neutral values, and `username` is the email's local part.
 const localPart = (email: string) => email.split('@')[0]
 
 function toStaffAccount(value: unknown): StaffAccount {
   if (!isRecord(value)) throw new StaffApiError('server')
-  const { id, firstName, lastName, email, createdAt } = value
+  const { id, firstName, lastName, email, createdAt, status, archivedAt } = value
   if (!isText(id) || !isText(firstName) || !isText(lastName) || !isText(email)) throw new StaffApiError('server')
   return {
     id,
@@ -48,19 +48,20 @@ function toStaffAccount(value: unknown): StaffAccount {
     email,
     role: 'staff',
     phone: '',
-    status: 'active',
+    status: status === 'archived' ? 'archived' : 'active',
     createdAt: isText(createdAt) ? createdAt : '',
     lastSignInAt: null,
     mustChangePassword: false,
+    ...(isText(archivedAt) && { archivedAt }),
   }
 }
 
-/** GET /users/staff. Search, sort (name or createdAt), direction and page are the server's; any other sort falls back to name. */
+/** GET /users/staff. Search, status, sort (name or createdAt), direction and page are the server's; any other sort falls back to name, and no status is "all". */
 export async function listStaffAccounts(
-  { search, sort, dir = 'asc', page = 1, limit = 10 }: AccountQuery,
+  { search, status, sort, dir = 'asc', page = 1, limit = 10 }: AccountQuery,
   { signal }: RequestOptions = {},
 ): Promise<AccountPage<StaffAccount>> {
-  const query = new URLSearchParams({ page: String(page), limit: String(limit), sort: sort === 'createdAt' ? 'createdAt' : 'name', dir })
+  const query = new URLSearchParams({ page: String(page), limit: String(limit), sort: sort === 'createdAt' ? 'createdAt' : 'name', dir, status: status ?? 'all' })
   if (search?.trim()) query.set('search', search.trim())
   const body = await call('GET', `/users/staff?${query}`, undefined, signal)
   const meta = isRecord(body) ? body.meta : null
@@ -91,6 +92,20 @@ export async function createStaffAccountApi(input: { firstName: string; lastName
 /** POST /users/staff/:id/reset-password (no body). The server sets the default password, signs the person out everywhere and makes them choose a new one; it never sends a password back. */
 export async function resetStaffPasswordApi(id: string): Promise<{ id: string }> {
   const body = await call('POST', `/users/staff/${encodeURIComponent(id)}/reset-password`, undefined)
+  if (!isRecord(body) || !isText(body.id)) throw new StaffApiError('server')
+  return { id: body.id }
+}
+
+/** POST /users/staff/:id/archive (no body). The server blocks sign-in and signs the person out everywhere; the account is kept. */
+export async function archiveStaffAccountApi(id: string): Promise<{ id: string }> {
+  const body = await call('POST', `/users/staff/${encodeURIComponent(id)}/archive`, undefined)
+  if (!isRecord(body) || !isText(body.id)) throw new StaffApiError('server')
+  return { id: body.id }
+}
+
+/** POST /users/staff/:id/restore (no body). The person can sign in again with their current password. */
+export async function restoreStaffAccountApi(id: string): Promise<{ id: string }> {
+  const body = await call('POST', `/users/staff/${encodeURIComponent(id)}/restore`, undefined)
   if (!isRecord(body) || !isText(body.id)) throw new StaffApiError('server')
   return { id: body.id }
 }
