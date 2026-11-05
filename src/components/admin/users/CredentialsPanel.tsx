@@ -75,7 +75,7 @@ export function CredentialsPanel({
   async function download() {
     setSaving(true)
     try {
-      await downloadCredentialsImage(credentials, heading)
+      await downloadCredentialsImage(credentials, heading, demo)
       toast.show({ kind: 'success', message: 'Credentials image downloaded' })
     } catch {
       toast.show({ kind: 'error', message: "Couldn't make the image. Your browser could not draw it, so copy the details or print the card instead." })
@@ -91,7 +91,7 @@ export function CredentialsPanel({
           <h3 ref={headingRef} tabIndex={-1} className="display text-lg text-fg outline-none">{heading}</h3>
           <p className="text-xs text-fg-muted">Hand these to the account holder. They choose their own password at first sign-in.</p>
         </div>
-        <Block label="Username" value={credentials.username} onCopy={() => void copy(credentials.username, 'Username')} />
+        {demo && <Block label="Username" value={credentials.username} onCopy={() => void copy(credentials.username, 'Username')} />}
         <Block label="Sign-in email" value={credentials.email} onCopy={demo ? undefined : () => void copy(credentials.email, 'Email')} />
         <Block label="Temporary password" value={credentials.password} onCopy={() => void copy(credentials.password, 'Password')} strong />
       </div>
@@ -101,7 +101,7 @@ export function CredentialsPanel({
         {demo && ' Demo only, not secure: these accounts live in this browser.'}
       </p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => void copy(formatCredentials(credentials), 'Credentials')} className={SECONDARY_BUTTON_SM}>
+        <button type="button" onClick={() => void copy(formatCredentials(credentials, demo), 'Credentials')} className={SECONDARY_BUTTON_SM}>
           <CopyIcon />
           Copy both
         </button>

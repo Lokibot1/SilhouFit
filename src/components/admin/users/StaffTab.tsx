@@ -28,7 +28,7 @@ export function StaffTab() {
       width: 'w-12',
       cell: (_, index) => <span className="tabular-nums">{((meta?.page ?? list.page) - 1) * (meta?.limit ?? list.per) + index + 1}</span>,
     },
-    { key: 'name', header: 'Staff', sort: 'name', title: true, cell: (a) => <AccountName account={a} sub={a.username} /> },
+    { key: 'name', header: 'Staff', sort: 'name', title: true, cell: (a) => <AccountName account={a} /> },
     { key: 'email', header: 'Email', width: 'w-[30%]', cell: (a) => <span className="block truncate">{a.email}</span> },
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
   ]
@@ -52,7 +52,7 @@ export function StaffTab() {
       <h2 id="staff-list" className="sr-only">
         Staff
       </h2>
-      <AccountToolbar noun="staff" text={list.text} onText={list.setText} per={list.per} onPer={list.setPer} action={add} />
+      <AccountToolbar noun="staff" searchBy="name or email" text={list.text} onText={list.setText} per={list.per} onPer={list.setPer} action={add} />
       <AccountTable
         list={list}
         label="Staff accounts with email and date added"

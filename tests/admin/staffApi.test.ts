@@ -10,8 +10,8 @@ const fetchMock = vi.fn()
 const reply = (body: unknown, status = 200) => fetchMock.mockResolvedValue(new Response(JSON.stringify(body), { status }))
 const requested = () => new URL(String(fetchMock.mock.calls[0][0]), 'http://api.test')
 
-const ITEM = { id: 'u1', firstName: 'Sam', lastName: 'Reyes', fullName: 'Sam Reyes', username: 'sam.reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff', createdAt: '2026-03-01T08:00:00.000Z' }
-const CREDENTIALS = { username: 'sam.reyes', email: 'sam.reyes@silhoufit.dev', password: 'Xk9#mQ2!', mustChangePassword: true }
+const ITEM = { id: 'u1', firstName: 'Sam', lastName: 'Reyes', fullName: 'Sam Reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff', createdAt: '2026-03-01T08:00:00.000Z' }
+const CREDENTIALS = { email: 'sam.reyes@silhoufit.dev', password: 'Xk9#mQ2!', mustChangePassword: true }
 
 beforeEach(() => vi.stubGlobal('fetch', fetchMock))
 afterEach(() => {
@@ -34,7 +34,7 @@ describe('listStaffAccounts', () => {
     expect(Object.fromEntries(url.searchParams)).toEqual({ search: 'sam', sort: 'createdAt', dir: 'desc', page: '2', limit: '10' })
     expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ Authorization: 'Bearer tok' })
     expect(result.meta).toEqual({ total: 11, page: 2, limit: 10, totalPages: 2 })
-    expect(result.data[0]).toMatchObject({ id: 'u1', firstName: 'Sam', lastName: 'Reyes', username: 'sam.reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff', createdAt: ITEM.createdAt })
+    expect(result.data[0]).toMatchObject({ id: 'u1', firstName: 'Sam', lastName: 'Reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff', createdAt: ITEM.createdAt })
   })
 
   it('falls back to name for a sort the server does not have, and leaves out an empty search', async () => {
@@ -75,8 +75,8 @@ describe('createStaffAccountApi', () => {
     const result = await createStaffAccountApi({ firstName: 'Sam', lastName: 'Reyes' })
     expect(requested().pathname).toBe('/users/staff')
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: JSON.stringify({ firstName: 'Sam', lastName: 'Reyes' }) })
-    expect(result.account).toMatchObject({ id: 'u1', username: 'sam.reyes' })
-    expect(result.credentials).toEqual(CREDENTIALS)
+    expect(result.account).toMatchObject({ id: 'u1', email: 'sam.reyes@silhoufit.dev' })
+    expect(result.credentials).toMatchObject(CREDENTIALS)
   })
 
   it('carries the server message on a 400, whether it is a string or a list', async () => {

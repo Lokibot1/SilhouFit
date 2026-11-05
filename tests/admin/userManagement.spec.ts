@@ -60,7 +60,8 @@ async function createAccount(page: Page, noun: 'staff' | 'admin', first: string,
   await expect(done).toBeVisible()
   return {
     done,
-    username: (await credential(done, 'Username').innerText()).trim(),
+    // Staff accounts have no username: the Username block is only there for admins.
+    username: noun === 'staff' ? '' : (await credential(done, 'Username').innerText()).trim(),
     password: (await credential(done, 'Temporary password').innerText()).trim(),
     email: (await credential(done, 'Sign-in email').innerText()).trim(),
   }
@@ -203,11 +204,11 @@ test.describe('staff accounts', () => {
     await expect(tab(page, 'Staff')).toHaveAttribute('aria-selected', 'true')
   })
 
-  test('lists the staff from the server and searches by name, email and username through the API', async ({ page }) => {
+  test('lists the staff from the server and searches by name and email through the API', async ({ page }) => {
     await expect(seen(page, 'Lara Santos')).toBeVisible()
     await expect(seen(page, 'Miguel Cruz')).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Status' })).toHaveCount(0)
-    const search = page.getByLabel('Search staff by name, username, email or phone')
+    const search = page.getByLabel('Search staff by name or email')
     await search.fill('nina.reyes@silhoufit.dev')
     await expect(seen(page, 'Nina Reyes')).toBeVisible()
     await expect(seen(page, 'Lara Santos')).toBeHidden()
@@ -241,16 +242,17 @@ test.describe('staff accounts', () => {
   test('creates a staff account: distinct credentials, copy feedback, a PNG download, and a new row', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     const created = await createAccount(page, 'staff', 'Maya', 'Lopez')
-    expect(created.username).toBe('maya.lopez')
     expect(created.email).toBe('maya.lopez@silhoufit.dev')
     expect(created.password.length).toBeGreaterThanOrEqual(8)
-    expect(created.password).not.toBe(created.username)
+    expect(created.password).not.toBe(created.email)
+    await expect(created.done.getByText('Username', { exact: true })).toHaveCount(0)
     // The account lives on the server, so the browser-only demo note is not shown.
     await expect(created.done.getByText('Demo only', { exact: false })).toHaveCount(0)
 
-    await created.done.getByRole('button', { name: 'Copy username', exact: true }).click()
-    await expect(toast(page, 'Username copied')).toBeVisible()
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(created.username)
+    await expect(created.done.getByRole('button', { name: 'Copy username', exact: true })).toHaveCount(0)
+    await created.done.getByRole('button', { name: 'Copy sign-in email', exact: true }).click()
+    await expect(toast(page, 'Email copied')).toBeVisible()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(created.email)
 
     await created.done.getByRole('button', { name: 'Copy temporary password', exact: true }).click()
     await expect(toast(page, 'Password copied')).toBeVisible()
@@ -259,7 +261,8 @@ test.describe('staff accounts', () => {
     await created.done.getByRole('button', { name: 'Copy both', exact: true }).click()
     await expect(toast(page, 'Credentials copied')).toBeVisible()
     const both = await page.evaluate(() => navigator.clipboard.readText())
-    expect(both).toContain(created.username)
+    expect(both).not.toContain('Username')
+    expect(both).toContain(created.email)
     expect(both).toContain(created.password)
 
     const download = page.waitForEvent('download')
@@ -272,7 +275,7 @@ test.describe('staff accounts', () => {
     await created.done.getByRole('button', { name: 'Done', exact: true }).click()
     await expect(created.done).toHaveCount(0)
     await expect(seen(page, 'Maya Lopez')).toBeVisible()
-    await expect(seen(page, 'maya.lopez')).toBeVisible()
+    await expect(seen(page, 'maya.lopez@silhoufit.dev')).toBeVisible()
   })
 
   test('shows a blocked-clipboard message instead of a false success when copying is not allowed', async ({ page }) => {
@@ -281,8 +284,8 @@ test.describe('staff accounts', () => {
     })
     await page.reload()
     const created = await createAccount(page, 'staff', 'Rita', 'Chan')
-    await created.done.getByRole('button', { name: 'Copy username', exact: true }).click()
-    await expect(toast(page, /Couldn't copy the username/)).toBeVisible()
+    await created.done.getByRole('button', { name: 'Copy sign-in email', exact: true }).click()
+    await expect(toast(page, /Couldn't copy the email/)).toBeVisible()
   })
 
   test('changing the password at first sign-in clears the gate for the next sign-in', async ({ page }) => {
@@ -491,7 +494,7 @@ test.describe('layout', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     const targets = [
       addStaff(page),
-      page.getByLabel('Search staff by name, username, email or phone'),
+      page.getByLabel('Search staff by name or email'),
       tab(page, 'Admins'),
     ]
     for (const target of targets) {
@@ -645,9 +648,9 @@ test.describe('create sheet', () => {
   test('print output hides the copy buttons', async ({ page }) => {
     await signInAsAdmin(page, '/admin/users?tab=staff')
     const created = await createAccount(page, 'staff', 'Print', 'Test')
-    await expect(created.done.getByRole('button', { name: 'Copy username', exact: true })).toBeVisible()
+    await expect(created.done.getByRole('button', { name: 'Copy sign-in email', exact: true })).toBeVisible()
     await page.emulateMedia({ media: 'print' })
-    await expect(created.done.getByRole('button', { name: 'Copy username', exact: true })).toBeHidden()
+    await expect(created.done.getByRole('button', { name: 'Copy sign-in email', exact: true })).toBeHidden()
     await expect(created.done.getByRole('button', { name: 'Copy temporary password', exact: true })).toBeHidden()
   })
 })

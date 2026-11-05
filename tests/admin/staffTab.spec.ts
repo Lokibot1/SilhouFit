@@ -165,14 +165,15 @@ test.describe('creating staff', () => {
     await submit(page).click()
     const done = created(page)
     await expect(done.getByRole('heading', { name: 'Maya Lopez' })).toBeVisible()
-    await expect(done.getByText('maya.lopez', { exact: true })).toBeVisible()
+    await expect(done.getByText('Username', { exact: true })).toHaveCount(0)
     await expect(done.getByText('maya.lopez@silhoufit.dev', { exact: true })).toBeVisible()
     await expect(done.getByText('Tmp#Pass-2026x', { exact: true })).toBeVisible()
     expect(api.posts).toEqual([{ firstName: 'Maya', lastName: 'Lopez' }])
 
-    await done.getByRole('button', { name: 'Copy username', exact: true }).click()
-    await expect(page.getByText('Username copied').first()).toBeVisible()
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('maya.lopez')
+    await expect(done.getByRole('button', { name: 'Copy username', exact: true })).toHaveCount(0)
+    await done.getByRole('button', { name: 'Copy sign-in email', exact: true }).click()
+    await expect(page.getByText('Email copied').first()).toBeVisible()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('maya.lopez@silhoufit.dev')
     await done.getByRole('button', { name: 'Copy temporary password', exact: true }).click()
     await expect(page.getByText('Password copied').first()).toBeVisible()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Tmp#Pass-2026x')
@@ -190,7 +191,7 @@ test.describe('creating staff', () => {
 
   const FAILURES: { name: string; reply: (route: Parameters<NonNullable<StaffStub['onPost']>>[0]) => Promise<unknown>; title: string; body: RegExp }[] = [
     { name: '403', reply: (r) => json(r, 403, { message: 'Forbidden' }), title: "You can't create staff accounts.", body: /Only admins and superadmins can.*no account was made.*Sign in with an admin account/ },
-    { name: '409', reply: (r) => json(r, 409, { message: 'taken' }), title: "We couldn't reserve a username.", body: /took the generated username.*no account was made.*Try again/ },
+    { name: '409', reply: (r) => json(r, 409, { message: 'taken' }), title: "We couldn't reserve that email.", body: /took the generated email.*no account was made.*Try again/ },
     { name: '400', reply: (r) => json(r, 400, { message: ['firstName must be a string'] }), title: 'The server rejected the names.', body: /firstName must be a string.*No account was made.*Fix the names/ },
     { name: '503', reply: (r) => json(r, 503, {}), title: 'No account was made.', body: /Something went wrong on our side.*Try again in a moment/ },
     { name: 'network abort', reply: (r) => r.abort('failed'), title: 'Nothing was created.', body: /connection dropped.*Check your connection, then try again/ },

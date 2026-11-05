@@ -145,7 +145,8 @@ describe('Staff tab', () => {
 
     const created = await screen.findByRole('dialog', { name: 'Staff account created' })
     expect(createStaffAccountApi).toHaveBeenCalledWith({ firstName: 'Maria', lastName: 'Santos' })
-    expect(within(created).getByText('maria.santos')).toBeInTheDocument()
+    expect(within(created).queryByText('maria.santos')).not.toBeInTheDocument()
+    expect(within(created).queryByText('Username')).not.toBeInTheDocument()
     expect(within(created).getByText('maria.santos@silhoufit.dev')).toBeInTheDocument()
     expect(within(created).getByText('Xk9#mQ2!')).toBeInTheDocument()
     expect(within(created).getByRole('button', { name: 'Copy sign-in email' })).toBeInTheDocument()
@@ -158,7 +159,7 @@ describe('Staff tab', () => {
   it.each([
     [new StaffApiError('forbidden', undefined, 401), 'Your session has expired.'],
     [new StaffApiError('forbidden', undefined, 403), "You can't create staff accounts."],
-    [new StaffApiError('conflict', undefined, 409), "We couldn't reserve a username."],
+    [new StaffApiError('conflict', undefined, 409), "We couldn't reserve that email."],
     [new StaffApiError('validation', 'firstName must contain letters only', 400), 'The server rejected the names.'],
     [new StaffApiError('rate-limit', undefined, 429), 'Too many requests.'],
     [new StaffApiError('network'), 'Nothing was created.'],

@@ -44,7 +44,7 @@ interface Op {
 }
 
 /** Draws the credentials as a PNG (2x for sharpness), with the account holder's full name when given: a username block and a temporary password block, ready to download or send. */
-export function renderCredentialsImage(credentials: Credentials, holder?: string): Promise<Blob> {
+export function renderCredentialsImage(credentials: Credentials, holder?: string, withUsername = true): Promise<Blob> {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
   if (!ctx) return Promise.reject(new Error('Canvas is not available.'))
@@ -64,7 +64,7 @@ export function renderCredentialsImage(credentials: Credentials, holder?: string
   y += 12
   const rows: [string, string][] = [
     ...(holder ? ([['Account holder', holder]] as [string, string][]) : []),
-    ['Username', credentials.username],
+    ...(withUsername ? ([['Username', credentials.username]] as [string, string][]) : []),
     ['Sign-in email', credentials.email],
     ['Temporary password', credentials.password],
   ]
@@ -103,6 +103,6 @@ export function renderCredentialsImage(credentials: Credentials, holder?: string
   return new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('The image could not be made.'))), 'image/png'))
 }
 
-export async function downloadCredentialsImage(credentials: Credentials, holder?: string) {
-  downloadFile(await renderCredentialsImage(credentials, holder), `silhoufit-${credentials.username}-credentials.png`)
+export async function downloadCredentialsImage(credentials: Credentials, holder?: string, withUsername = true) {
+  downloadFile(await renderCredentialsImage(credentials, holder, withUsername), `silhoufit-${credentials.username}-credentials.png`)
 }

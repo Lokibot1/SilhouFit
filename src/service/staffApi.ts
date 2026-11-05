@@ -1,4 +1,4 @@
-import type { StaffAccount } from '../types/accounts'
+import type { Credentials, StaffAccount } from '../types/accounts'
 import type { AccountPage, AccountQuery } from '../utils/accountQuery'
 import { ProductListError, request, type ProductListErrorKind } from './fetchProductList'
 import type { RequestOptions } from './simulateRequest'
@@ -30,16 +30,18 @@ async function call(method: 'GET' | 'POST', path: string, body: unknown, signal?
   }
 }
 
-// The API sends no phone, status or sign-in time for staff; the shared account shape gets neutral values.
+// The API sends no username, phone, status or sign-in time for staff; the shared account shape gets neutral values, and `username` is the email's local part.
+const localPart = (email: string) => email.split('@')[0]
+
 function toStaffAccount(value: unknown): StaffAccount {
   if (!isRecord(value)) throw new StaffApiError('server')
-  const { id, firstName, lastName, username, email, createdAt } = value
-  if (!isText(id) || !isText(firstName) || !isText(lastName) || !isText(username) || !isText(email)) throw new StaffApiError('server')
+  const { id, firstName, lastName, email, createdAt } = value
+  if (!isText(id) || !isText(firstName) || !isText(lastName) || !isText(email)) throw new StaffApiError('server')
   return {
     id,
     firstName,
     lastName,
-    username,
+    username: localPart(email),
     email,
     role: 'staff',
     phone: '',
@@ -69,16 +71,16 @@ export async function listStaffAccounts(
 /** What the server made for a new staff account. Shown once; the password is never listed again. */
 export interface CreatedStaff {
   account: StaffAccount
-  credentials: { username: string; email: string; password: string; mustChangePassword: true }
+  credentials: Credentials
 }
 
-/** POST /users/staff. The server makes the username, email and temporary password. */
+/** POST /users/staff. The server makes the email and temporary password. */
 export async function createStaffAccountApi(input: { firstName: string; lastName: string }): Promise<CreatedStaff> {
   const body = await call('POST', '/users/staff', { firstName: input.firstName, lastName: input.lastName })
   const credentials = isRecord(body) ? body.credentials : null
-  if (!isRecord(body) || !isRecord(credentials) || !isText(credentials.username) || !isText(credentials.email) || !isText(credentials.password)) throw new StaffApiError('server')
+  if (!isRecord(body) || !isRecord(credentials) || !isText(credentials.email) || !isText(credentials.password)) throw new StaffApiError('server')
   return {
     account: toStaffAccount(body.account),
-    credentials: { username: credentials.username, email: credentials.email, password: credentials.password, mustChangePassword: true },
+    credentials: { username: localPart(credentials.email), email: credentials.email, password: credentials.password, mustChangePassword: true },
   }
 }

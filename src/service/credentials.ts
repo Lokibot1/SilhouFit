@@ -49,5 +49,5 @@ export function generatePassword(): string {
 
 export const emailFor = (username: string) => `${username}@${ACCOUNT_EMAIL_DOMAIN}`
 
-export const formatCredentials = ({ username, email, password }: Pick<Credentials, 'username' | 'email' | 'password'>) =>
-  `Username: ${username}\nSign-in email: ${email}\nTemporary password: ${password}`
+export const formatCredentials = ({ username, email, password }: Pick<Credentials, 'username' | 'email' | 'password'>, withUsername = true) =>
+  `${withUsername ? `Username: ${username}\n` : ''}Sign-in email: ${email}\nTemporary password: ${password}`

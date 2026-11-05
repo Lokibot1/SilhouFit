@@ -8,7 +8,6 @@ export interface StaffRow {
   firstName: string
   lastName: string
   fullName: string
-  username: string
   email: string
   role: 'staff'
   createdAt: string
@@ -21,7 +20,6 @@ export const staffRow = (firstName: string, lastName: string, n = 0): StaffRow =
     firstName,
     lastName,
     fullName: `${firstName} ${lastName}`,
-    username,
     email: `${username}@silhoufit.dev`,
     role: 'staff',
     createdAt: `2026-01-${String((n % 27) + 1).padStart(2, '0')}T08:00:00.000Z`,
@@ -76,7 +74,7 @@ export async function stubStaffApi(page: Page, rows: StaffRow[] = SAMPLE_STAFF):
         const limit = Number(q.get('limit') ?? 10)
         const pageNo = Number(q.get('page') ?? 1)
         const dir = q.get('dir') === 'desc' ? -1 : 1
-        const matched = stub.rows.filter((r) => !search || [r.fullName, r.username, r.email].some((v) => v.toLowerCase().includes(search)))
+        const matched = stub.rows.filter((r) => !search || [r.fullName, r.email].some((v) => v.toLowerCase().includes(search)))
         matched.sort((a, b) => dir * (q.get('sort') === 'createdAt' ? a.createdAt.localeCompare(b.createdAt) : a.fullName.localeCompare(b.fullName)))
         return json(route, 200, {
           data: matched.slice((pageNo - 1) * limit, pageNo * limit),
@@ -91,7 +89,7 @@ export async function stubStaffApi(page: Page, rows: StaffRow[] = SAMPLE_STAFF):
       stub.rows.push(account)
       return json(route, 201, {
         account,
-        credentials: { username: account.username, email: account.email, password: 'Tmp#Pass-2026x', mustChangePassword: true },
+        credentials: { email: account.email, password: 'Tmp#Pass-2026x', mustChangePassword: true },
       })
     },
   )
