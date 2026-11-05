@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
+import { stubAdminApi } from './adminApiStub'
 import { json, stubStaffApi, type StaffStub } from './staffApiStub'
 
 // Staff "Reset password" beyond the block in staffTab.spec.ts: focus handling, pending state per row, toasts, both roles, 320px, dark mode,
-// and the other tabs (Admins keeps the old mock flow with a credentials sheet; Superadmins and Customers have no row actions).
+// and the other tabs (Admins has no row actions until the server has them; Superadmins and Customers have none).
 // The API is stubbed (staffApiStub.ts); sign-in is the dev-only simulated one.
 
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -196,22 +197,12 @@ test.describe('staff reset: roles and layout', () => {
 })
 
 test.describe('other tabs are unchanged', () => {
-  test('Admins (as a superadmin) still use the mock reset: its own wording, a credentials sheet, and no API call', async ({ page }) => {
+  test('Admins (as a superadmin) has no reset action yet, and never calls the staff reset API', async ({ page }) => {
     const api = await stubStaffApi(page)
+    await stubAdminApi(page)
     await open(page, SUPERADMIN, '/superadmin/users?tab=admins', 'Admins')
-    const reset = page.getByRole('button', { name: /^Reset password for / }).filter({ visible: true }).first()
-    await expect(reset).toBeVisible({ timeout: 20_000 })
-    await reset.click()
-    const ask = page.getByRole('dialog', { name: /^Reset password for .+\?$/ })
-    await expect(ask).toBeVisible()
-    await expect(ask.getByText(/You get a new temporary password to hand over/)).toBeVisible()
-    await expect(ask.getByText(/1234567a/)).toHaveCount(0)
-    await ask.getByRole('button', { name: 'Reset password', exact: true }).click()
-    const sheet = page.getByRole('dialog', { name: 'Password reset' })
-    await expect(sheet).toBeVisible()
-    await expect(sheet.getByText('Temporary password', { exact: true })).toBeVisible()
-    await sheet.getByRole('button', { name: 'Done', exact: true }).click()
-    await expect(sheet).toBeHidden()
+    await expect(page.getByRole('tabpanel').getByText('Brian Dijamco', { exact: true }).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('button', { name: /Reset password/ })).toHaveCount(0)
     expect(api.resets).toEqual([])
   })
 

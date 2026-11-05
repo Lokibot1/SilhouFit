@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { stubAdminApi } from './adminApiStub'
 import { archivedRow, json, SAMPLE_STAFF, stubStaffApi, type StaffStub } from './staffApiStub'
 
 // Staff "Archive" and "Restore": the question, the pending state, Undo, the Archived filter, every failure answer, 320px, dark mode,
@@ -361,14 +362,12 @@ test.describe('staff archive: other tabs are unchanged', () => {
     await expect(page.getByRole('button', { name: /Archive|Restore/ })).toHaveCount(0)
   })
 
-  test('Admins keeps its own Archive flow and never calls the staff archive API', async ({ page }) => {
+  test('Admins has no archive or restore action yet, and never calls the staff archive API', async ({ page }) => {
     const api = await stubStaffApi(page)
+    await stubAdminApi(page)
     await open(page, SUPERADMIN, '/superadmin/users?tab=admins', 'Admins')
-    const archive = page.getByRole('button', { name: /^Archive / }).filter({ visible: true }).first()
-    await expect(archive).toBeVisible({ timeout: 20_000 })
-    await archive.click()
-    await expect(page.getByRole('dialog', { name: /^Archive .+\?$/ }).getByRole('button', { name: 'Archive account', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Archive Staff', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('tabpanel').getByText('Brian Dijamco', { exact: true }).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('button', { name: /Archive|Restore/ })).toHaveCount(0)
     expect(api.archives).toEqual([])
   })
 })

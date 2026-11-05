@@ -2,16 +2,18 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAccounts } from '../../src/service/accountStore'
-import { archiveStaffAccountApi, createStaffAccountApi, listStaffAccounts, resetStaffPasswordApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
-import type { StaffAccount } from '../../src/types/accounts'
+import { archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetStaffPasswordApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
+import type { AdminAccount, StaffAccount } from '../../src/types/accounts'
 import { UserManagementPage } from '../../src/views/admin/UserManagementPage'
 import { renderAdmin, resetAdminAccounts, setUpAdminDom } from '../shared/adminSession'
 
-// The simulated requests answer at once. The Staff tab talks to the API, so its two calls are mocked here.
+// The simulated requests answer at once. The Staff and Admins tabs talk to the API, so their calls are mocked here.
 vi.mock('../../src/service/simulateRequest', () => ({ simulateRequest: () => Promise.resolve({ ok: true }) }))
 vi.mock('../../src/service/staffApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/staffApi')>()),
   listStaffAccounts: vi.fn(() => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })),
+  listAdminAccounts: vi.fn(() => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })),
+  createAdminAccountApi: vi.fn(),
   createStaffAccountApi: vi.fn(),
   resetStaffPasswordApi: vi.fn(),
   archiveStaffAccountApi: vi.fn(),
@@ -39,7 +41,7 @@ describe('User management', () => {
 
   it('reads the tab from the URL and falls back to Customers for an unknown one', async () => {
     renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
-    expect(await screen.findByRole('button', { name: /Add admin account/ })).toBeInTheDocument()
+    expect((await screen.findAllByRole('button', { name: /Add admin account/ })).length).toBeGreaterThan(0)
   })
 
   it('treats an unknown tab as Customers', () => {
@@ -438,24 +440,116 @@ describe('Staff tab', () => {
 })
 
 describe('Admins tab', () => {
-  it('adds, but an admin has no reset, archive or restore action on admins', async () => {
-    renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
-    expect((await screen.findAllByText('Brian Dijamco')).length).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
+  const person = (id: string, firstName: string, lastName: string): AdminAccount => ({
+    id,
+    firstName,
+    lastName,
+    username: `${firstName}.${lastName}`.toLowerCase(),
+    email: `${firstName}.${lastName}@silhoufit.dev`.toLowerCase(),
+    role: 'admin',
+    phone: '',
+    status: 'active',
+    createdAt: '2026-03-01T08:00:00.000Z',
+    lastSignInAt: null,
+    mustChangePassword: false,
+  })
+  const IVY = person('a1', 'Ivy', 'Lim')
+  const page = (data: AdminAccount[], p = 1, limit = 10) => ({ data, meta: { total: data.length, page: p, limit, totalPages: 1 } })
+  const CREDENTIALS = { username: 'noel.tan', email: 'noel.tan@silhoufit.dev', password: 'Xk9#mQ2!', mustChangePassword: true as const }
 
-    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
-    const options = within(screen.getByRole('listbox', { name: 'Status' })).getAllByRole('option')
-    expect(options.map((o) => o.textContent)).toEqual(['All statuses', 'Active', 'Inactive', 'Archived'])
+  beforeEach(() => {
+    vi.mocked(listAdminAccounts).mockReset().mockResolvedValue(page([IVY, person('a2', 'Ana', 'Cruz')]))
+    vi.mocked(createAdminAccountApi).mockReset()
   })
 
-  it('creates an admin account', async () => {
+  async function openAdmins() {
     renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
-    await userEvent.click(await screen.findByRole('button', { name: /Add admin account/ }))
+    await screen.findAllByText('Ivy Lim')
+  }
+
+  it('lists admins with a running number, email and date, without a status, row actions or sample-data badge', async () => {
+    await openAdmins()
+    const table = screen.getAllByRole('table', { hidden: true })[0]
+    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Admin', 'Email', 'Added'])
+    expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^1.*Ivy Lim/)
+    expect(within(table).getAllByRole('row', { hidden: true })[2]).toHaveTextContent(/^2.*Ana Cruz/)
+    expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Name or email')).toBeInTheDocument()
+    expect(vi.mocked(listAdminAccounts).mock.calls[0][0]).toMatchObject({ sort: 'name', page: 1, limit: 10 })
+  })
+
+  it('shows "No admin accounts yet" with Add when there are none', async () => {
+    vi.mocked(listAdminAccounts).mockResolvedValue(page([]))
+    renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
+    expect(await screen.findByText('No admin accounts yet')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Add admin account/ }).length).toBeGreaterThan(1)
+  })
+
+  it('shows the error with a retry when the list fails to load', async () => {
+    vi.mocked(listAdminAccounts).mockRejectedValueOnce(new StaffApiError('network'))
+    renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
+    expect(await screen.findByText("We couldn't load the admin accounts.")).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect((await screen.findAllByText('Ivy Lim')).length).toBeGreaterThan(0)
+  })
+
+  it('numbers rows across pages', async () => {
+    vi.mocked(listAdminAccounts).mockResolvedValue({ data: [IVY], meta: { total: 11, page: 2, limit: 10, totalPages: 2 } })
+    await openAdmins()
+    expect(within(screen.getAllByRole('table', { hidden: true })[0]).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^11.*Ivy Lim/)
+  })
+
+  it('creates an account with a sign-in email preview, shows the credentials once and loads the list again', async () => {
+    vi.mocked(createAdminAccountApi).mockResolvedValue({ account: person('a3', 'Noel', 'Tan'), credentials: CREDENTIALS })
+    await openAdmins()
+    await userEvent.click(screen.getByRole('button', { name: /Add admin account/ }))
     const sheet = await screen.findByRole('dialog', { name: 'Add admin account' })
+    expect(within(sheet).queryByLabelText(/Phone/)).not.toBeInTheDocument()
+
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
+    expect(within(sheet).getByText('First name is required.')).toBeInTheDocument()
+    expect(createAdminAccountApi).not.toHaveBeenCalled()
+
     await userEvent.type(within(sheet).getByLabelText('First name'), 'Ivy')
     await userEvent.type(within(sheet).getByLabelText('Last name'), 'Lim')
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Create account' }))
-    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Admin account created' })).toBeInTheDocument())
-    expect(getAccounts().admins[0]).toMatchObject({ username: 'ivy.lim', role: 'admin', mustChangePassword: true })
+    // Ivy Lim is on the list, so the preview moves past her address.
+    expect(within(sheet).queryByText('ivy.lim@silhoufit.dev')).not.toBeInTheDocument()
+    await userEvent.clear(within(sheet).getByLabelText('First name'))
+    await userEvent.type(within(sheet).getByLabelText('First name'), 'Noel')
+    await userEvent.clear(within(sheet).getByLabelText('Last name'))
+    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Tan')
+    expect(within(sheet).getByText('noel.tan@silhoufit.dev')).toBeInTheDocument()
+    const loads = vi.mocked(listAdminAccounts).mock.calls.length
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
+
+    const created = await screen.findByRole('dialog', { name: 'Admin account created' })
+    expect(createAdminAccountApi).toHaveBeenCalledWith({ firstName: 'Noel', lastName: 'Tan' })
+    expect(within(created).queryByText('Username')).not.toBeInTheDocument()
+    expect(within(created).getByText('noel.tan@silhoufit.dev')).toBeInTheDocument()
+    expect(within(created).getByText('Xk9#mQ2!')).toBeInTheDocument()
+    expect(within(created).getByRole('button', { name: 'Download as PNG' })).toBeInTheDocument()
+    expect(within(created).queryByText(/Demo only/)).not.toBeInTheDocument()
+    await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.length).toBeGreaterThan(loads))
+  })
+
+  it.each([
+    [new StaffApiError('forbidden', undefined, 403), "You can't create admin accounts."],
+    [new StaffApiError('conflict', undefined, 409), "We couldn't reserve that email."],
+    [new StaffApiError('validation', 'firstName must contain letters only', 400), 'The server rejected the names.'],
+    [new StaffApiError('network'), 'Nothing was created.'],
+    [new StaffApiError('server', undefined, 503), 'No account was made.'],
+  ])('explains a failed create (%#) and keeps the form', async (error, title) => {
+    vi.mocked(createAdminAccountApi).mockRejectedValue(error)
+    await openAdmins()
+    await userEvent.click(screen.getByRole('button', { name: /Add admin account/ }))
+    const sheet = await screen.findByRole('dialog', { name: 'Add admin account' })
+    await userEvent.type(within(sheet).getByLabelText('First name'), 'Noel')
+    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Tan')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
+    expect(await within(sheet).findByText(title)).toBeInTheDocument()
+    expect(within(sheet).getByLabelText('First name')).toHaveValue('Noel')
+    expect(within(sheet).getByRole('button', { name: 'Create Account' })).toBeEnabled()
   })
 })

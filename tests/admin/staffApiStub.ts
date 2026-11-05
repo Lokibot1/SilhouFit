@@ -66,7 +66,7 @@ export interface StaffStub {
   onRestore?: (route: Route, id: string) => Promise<boolean | void> | boolean | void
 }
 
-const CORS = {
+export const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization,content-type',
   'access-control-allow-methods': 'GET,POST,OPTIONS',

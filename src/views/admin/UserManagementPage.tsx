@@ -27,7 +27,7 @@ export function UserManagementPage() {
   useMetaDescription(META_DESCRIPTION)
 
   const [params, setParams] = useSearchParams()
-  // Only a superadmin has the Superadmins tab, and only a superadmin can reset or archive an admin.
+  // Only a superadmin has the Superadmins tab.
   const superadmin = useCurrentUser()?.role === 'superadmin'
   const tabs = TABS.filter((t) => superadmin || t.value !== 'superadmins')
   const requested = params.get('tab')
@@ -37,7 +37,7 @@ export function UserManagementPage() {
     <div className="grid gap-3">
       <header className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         <h1 className="display min-w-0 text-2xl text-fg sm:text-3xl">User management</h1>
-        {ACCOUNTS_SAMPLE_DATA && tab !== 'staff' && (
+        {ACCOUNTS_SAMPLE_DATA && tab !== 'staff' && tab !== 'admins' && (
           <Tooltip label="These accounts are saved in this browser only, until the accounts backend is connected." describe>
             <span tabIndex={0} className="font-ui inline-flex h-8 items-center rounded-full border border-line-strong px-3 text-sm font-medium text-fg-muted">
               Sample data
@@ -50,7 +50,7 @@ export function UserManagementPage() {
         <SegmentedTabs label="Account type" name="users" options={tabs} value={tab} onChange={(next) => setParams({ tab: next }, { replace: true })} />
       </div>
       <div role="tabpanel" aria-labelledby={`users-tab-${tab}`}>
-        {tab === 'customers' ? <CustomersTab /> : tab === 'staff' ? <StaffTab /> : tab === 'admins' ? <AdminsTab manage={superadmin} /> : <SuperadminsTab />}
+        {tab === 'customers' ? <CustomersTab /> : tab === 'staff' ? <StaffTab /> : tab === 'admins' ? <AdminsTab /> : <SuperadminsTab />}
       </div>
     </div>
   )

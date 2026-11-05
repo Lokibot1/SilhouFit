@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { manyAdmins, stubAdminApi } from './adminApiStub'
 import { stubStaffApi, type StaffStub } from './staffApiStub'
 
 // Admin dashboard and User Management. The accounts are simulated and saved in the browser (localStorage), and the dev-only simulated
@@ -15,8 +16,9 @@ let staffApi: StaffStub
 test.beforeEach(async ({ page }) => {
   // Keep the cookie banner out of the way.
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
-  // The Staff tab is served by GET/POST /users/staff; it is answered here so no test reaches the network.
+  // The Staff and Admins tabs are served by GET/POST /users/staff and /users/admins; they are answered here so no test reaches the network.
   staffApi = await stubStaffApi(page)
+  await stubAdminApi(page)
 })
 
 const toast = (page: Page, text: string | RegExp) => page.getByText(text).first()
@@ -50,18 +52,16 @@ const addStaff = (page: Page) => page.getByRole('button', { name: 'Add staff acc
 /** The value shown under a label ("Username", "Temporary password") in the credentials card. */
 const credential = (scope: Locator, label: string) => scope.getByText(label, { exact: true }).locator('xpath=following-sibling::*[1]')
 
-async function createAccount(page: Page, noun: 'staff' | 'admin', first: string, last: string, { opened = false } = {}) {
-  if (!opened) await page.getByRole('button', { name: `Add ${noun} account`, exact: true }).click()
-  const sheet = dialog(page, `Add ${noun} account`)
+async function createStaffAccount(page: Page, first: string, last: string, { opened = false } = {}) {
+  if (!opened) await page.getByRole('button', { name: 'Add staff account', exact: true }).click()
+  const sheet = dialog(page, 'Add staff account')
   await sheet.getByLabel('First name').fill(first)
   await sheet.getByLabel('Last name').fill(last)
-  await sheet.getByRole('button', { name: noun === 'staff' ? 'Create Account' : 'Create account', exact: true }).click()
+  await sheet.getByRole('button', { name: 'Create Account', exact: true }).click()
   const done = dialog(page, /account created/)
   await expect(done).toBeVisible()
   return {
     done,
-    // Staff accounts have no username: the Username block is only there for admins.
-    username: noun === 'staff' ? '' : (await credential(done, 'Username').innerText()).trim(),
     password: (await credential(done, 'Temporary password').innerText()).trim(),
     email: (await credential(done, 'Sign-in email').innerText()).trim(),
   }
@@ -241,7 +241,7 @@ test.describe('staff accounts', () => {
 
   test('creates a staff account: distinct credentials, copy feedback, a PNG download, and a new row', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-    const created = await createAccount(page, 'staff', 'Maya', 'Lopez')
+    const created = await createStaffAccount(page, 'Maya', 'Lopez')
     expect(created.email).toBe('maya.lopez@silhoufit.dev')
     expect(created.password.length).toBeGreaterThanOrEqual(8)
     expect(created.password).not.toBe(created.email)
@@ -283,7 +283,7 @@ test.describe('staff accounts', () => {
       Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.reject(new Error('denied')) }, configurable: true })
     })
     await page.reload()
-    const created = await createAccount(page, 'staff', 'Rita', 'Chan')
+    const created = await createStaffAccount(page, 'Rita', 'Chan')
     await created.done.getByRole('button', { name: 'Copy sign-in email', exact: true }).click()
     await expect(toast(page, /Couldn't copy the email/)).toBeVisible()
   })
@@ -333,49 +333,20 @@ test.describe('admin accounts', () => {
     await expect(tab(page, 'Admins')).toHaveAttribute('aria-selected', 'true')
   })
 
-  test('has no Archive action on any row and no Archived filter', async ({ page }) => {
+  // The list is server-backed now (see adminsTab.spec.ts). Reset and archive for admins come back when the server has them.
+  test('has no row actions, no status filter and no Sample data badge', async ({ page }) => {
     await expect(seen(page, 'Brian Dijamco')).toBeVisible()
-    await expect(page.getByRole('button', { name: /^Archive/ })).toHaveCount(0)
-    await expect(page.getByRole('menuitem', { name: /Archive/ })).toHaveCount(0)
-    // An admin's password cannot be reset by another admin, so rows have no actions at all.
-    await expect(page.getByRole('button', { name: /^Reset password|^Restore/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Archive|^Reset password|^Restore/ })).toHaveCount(0)
     await expect(page.getByRole('columnheader', { name: 'Actions' })).toHaveCount(0)
-    await expect(page.getByText(/archive/i)).toHaveCount(0)
-
-    await page.getByRole('combobox', { name: 'Status' }).click()
-    await expect(page.getByRole('option', { name: 'Active', exact: true })).toBeVisible()
-    await expect(page.getByRole('option', { name: 'Archived' })).toHaveCount(0)
-  })
-
-  test('has no reset-password control on any admin row, including the signed-in admin (the service refusal is in accountService.test.ts)', async ({ page }) => {
-    await expect(seen(page, 'Alyssa Ferrer')).toBeVisible()
-    await expect(page.getByRole('button', { name: /Reset password/i })).toHaveCount(0)
-    await expect(page.getByRole('menuitem', { name: /Reset/i })).toHaveCount(0)
-  })
-
-  test('creates another admin who can sign in and reach User Management', async ({ page }) => {
-    const created = await createAccount(page, 'admin', 'Lena', 'Cruz')
-    await created.done.getByRole('button', { name: 'Done', exact: true }).click()
-    await expect(seen(page, 'Lena Cruz')).toBeVisible()
-    await signOut(page)
-
-    await signIn(page, { email: created.email, password: created.password })
-    await expect(page).toHaveURL(/\/admin$/)
-    // A new admin is on a temporary password too, so skip the first-login screen to reach the page.
-    const gate = dialog(page, 'Choose a new password')
-    await expect(gate).toBeVisible()
-    await gate.getByRole('button', { name: 'Skip for now', exact: true }).click()
-    await expect(gate).toHaveCount(0)
-    await (await nav(page)).getByRole('link', { name: 'User Management', exact: true }).click()
-    await expect(page).toHaveURL(/\/admin\/users/)
-    await expect(page.getByRole('heading', { level: 1, name: 'User management' })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Status' })).toHaveCount(0)
+    await expect(page.getByText('Sample data', { exact: true })).toHaveCount(0)
   })
 })
 
 test.describe('navigation and persistence', () => {
   test('accounts created survive a reload', async ({ page }) => {
     await signInAsAdmin(page, '/admin/users?tab=staff')
-    const created = await createAccount(page, 'staff', 'Omar', 'Diaz')
+    const created = await createStaffAccount(page, 'Omar', 'Diaz')
     await created.done.getByRole('button', { name: 'Done', exact: true }).click()
     await page.reload()
     await expect(seen(page, 'Omar Diaz')).toBeVisible()
@@ -484,7 +455,7 @@ test.describe('layout', () => {
     await addStaff(page).click()
     await expect(dialog(page, 'Add staff account')).toBeVisible()
     expect(await overflow(page)).toBeLessThanOrEqual(0)
-    const created = await createAccount(page, 'staff', 'Wide', 'Name', { opened: true })
+    const created = await createStaffAccount(page, 'Wide', 'Name', { opened: true })
     await expect(created.done).toBeVisible()
     expect(await overflow(page)).toBeLessThanOrEqual(0)
   })
@@ -541,9 +512,6 @@ test.describe('dark mode and console', () => {
 })
 
 test.describe('accounts are genuinely interactive', () => {
-  const count = (page: Page, label: string) =>
-    page.getByRole('region', { name: 'Accounts at a glance' }).getByText(label, { exact: true }).locator('xpath=following-sibling::*[1]')
-
   /** Another tab of the same browser changes Sam's status in the saved accounts; this tab hears about it through the storage event. */
   async function setSamStatus(page: Page, status: 'active' | 'archived') {
     const other = await page.context().newPage()
@@ -556,23 +524,6 @@ test.describe('accounts are genuinely interactive', () => {
     }, status)
     await other.close()
   }
-
-  test('a created admin account appears in its table, moves the dashboard count, and signs in on /login', async ({ page }) => {
-    await signInAsAdmin(page)
-    const adminsBefore = Number((await count(page, 'Admins').innerText()).replace(/,/g, ''))
-
-    await page.goto('/admin/users?tab=admins')
-    const admin = await createAccount(page, 'admin', 'Uma', 'Reyes')
-    await admin.done.getByRole('button', { name: 'Done', exact: true }).click()
-    await expect(seen(page, 'Uma Reyes')).toBeVisible()
-
-    await page.goto('/admin')
-    await expect(count(page, 'Admins')).toHaveText(String(adminsBefore + 1))
-
-    await signOut(page)
-    await signIn(page, { email: admin.email, password: admin.password })
-    await expect(page).toHaveURL(/\/admin$/)
-  })
 
   test('archiving a signed-in staff account signs them out on the next page with a message, and Restore re-enables login', async ({ page }) => {
     await signIn(page, STAFF)
@@ -630,7 +581,7 @@ test.describe('profile for a simulated session', () => {
 test.describe('create sheet', () => {
   test('moves focus into the credentials panel once the account is created', async ({ page }) => {
     await signInAsAdmin(page, '/admin/users?tab=staff')
-    const created = await createAccount(page, 'staff', 'Focus', 'Check')
+    const created = await createStaffAccount(page, 'Focus', 'Check')
     await expect(created.done.getByRole('heading', { name: 'Focus Check' })).toBeFocused()
   })
 
@@ -647,7 +598,7 @@ test.describe('create sheet', () => {
 
   test('print output hides the copy buttons', async ({ page }) => {
     await signInAsAdmin(page, '/admin/users?tab=staff')
-    const created = await createAccount(page, 'staff', 'Print', 'Test')
+    const created = await createStaffAccount(page, 'Print', 'Test')
     await expect(created.done.getByRole('button', { name: 'Copy sign-in email', exact: true })).toBeVisible()
     await page.emulateMedia({ media: 'print' })
     await expect(created.done.getByRole('button', { name: 'Copy sign-in email', exact: true })).toBeHidden()
@@ -737,10 +688,12 @@ test.describe('small screens', () => {
   })
 
   test('the loading skeleton has as many rows as the loaded list', async ({ page }) => {
+    const api = await stubAdminApi(page, manyAdmins(25))
+    api.onGet = () => new Promise((resolve) => setTimeout(resolve, 600))
     await signInAsAdmin(page)
     await page.goto('/admin/users?tab=admins')
     // The cards list is in the page at every width (it is only hidden from @4xl), so its rows can be counted.
-    const list = page.locator('ul[aria-label^="Admin accounts with status"]')
+    const list = page.locator('ul[aria-label^="Admin accounts with email"]')
     await expect(list).toHaveAttribute('aria-busy', 'true')
     const loading = await list.locator('li').count()
     await expect(list).toHaveAttribute('aria-busy', 'false')
