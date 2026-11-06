@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
+import { archiveAdminAccountApi, archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreAdminAccountApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
 import { errorKind } from '../../src/components/staff/StaffSection'
 
 vi.mock('../../src/service/supabase', () => ({
@@ -132,12 +132,12 @@ describe('createStaffAccountApi', () => {
 describe('listAdminAccounts', () => {
   const ADMIN_ITEM = { ...ITEM, id: 'a1', firstName: 'Ivy', lastName: 'Lim', fullName: 'Ivy Lim', email: 'ivy.lim@silhoufit.dev', role: 'admin' }
 
-  it('sends search, sort, direction and paging, never a status, and maps the admins', async () => {
+  it('sends search, sort, direction, paging and status, and maps the admins', async () => {
     reply({ data: [ADMIN_ITEM], meta: { total: 11, page: 2, limit: 10, totalPages: 2 } })
     const result = await listAdminAccounts({ search: ' ivy ', status: 'active', sort: 'createdAt', dir: 'desc', page: 2, limit: 10 })
     const url = requested()
     expect(url.pathname).toBe('/users/admins')
-    expect(Object.fromEntries(url.searchParams)).toEqual({ search: 'ivy', sort: 'createdAt', dir: 'desc', page: '2', limit: '10' })
+    expect(Object.fromEntries(url.searchParams)).toEqual({ search: 'ivy', sort: 'createdAt', dir: 'desc', page: '2', limit: '10', status: 'active' })
     expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ Authorization: 'Bearer tok' })
     expect(result.meta).toEqual({ total: 11, page: 2, limit: 10, totalPages: 2 })
     expect(result.data[0]).toMatchObject({ id: 'a1', firstName: 'Ivy', email: 'ivy.lim@silhoufit.dev', role: 'admin', username: 'ivy.lim', status: 'active' })
@@ -146,7 +146,22 @@ describe('listAdminAccounts', () => {
   it('falls back to name for a sort the server does not have', async () => {
     reply({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })
     await listAdminAccounts({ search: '  ', sort: 'status' })
-    expect(Object.fromEntries(requested().searchParams)).toEqual({ sort: 'name', dir: 'asc', page: '1', limit: '10' })
+    expect(Object.fromEntries(requested().searchParams)).toEqual({ sort: 'name', dir: 'asc', page: '1', limit: '10', status: 'all' })
+  })
+
+  it.each([
+    ['active', 'active'],
+    ['archived', 'archived'],
+    [undefined, 'all'],
+  ] as const)('sends status %s as %s (no status is All)', async (status, sent) => {
+    reply({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })
+    await listAdminAccounts({ status })
+    expect(requested().searchParams.get('status')).toBe(sent)
+  })
+
+  it('reads status and archivedAt from the server', async () => {
+    reply({ data: [{ ...ADMIN_ITEM, status: 'archived', archivedAt: '2026-04-01T08:00:00.000Z' }], meta: { total: 1, page: 1, limit: 10, totalPages: 1 } })
+    expect((await listAdminAccounts({ status: 'archived' })).data[0]).toMatchObject({ status: 'archived', archivedAt: '2026-04-01T08:00:00.000Z' })
   })
 
   it('rejects a body that is not a list', async () => {
@@ -285,13 +300,15 @@ describe('resetAdminPasswordApi', () => {
 })
 
 describe.each([
-  ['archiveStaffAccountApi', archiveStaffAccountApi, 'archive', 'archived'],
-  ['restoreStaffAccountApi', restoreStaffAccountApi, 'restore', 'active'],
-] as const)('%s', (_name, call, path, status) => {
-  it('posts to the staff path with no body and returns the id', async () => {
+  ['archiveStaffAccountApi', archiveStaffAccountApi, 'staff', 'archive', 'archived'],
+  ['restoreStaffAccountApi', restoreStaffAccountApi, 'staff', 'restore', 'active'],
+  ['archiveAdminAccountApi', archiveAdminAccountApi, 'admins', 'archive', 'archived'],
+  ['restoreAdminAccountApi', restoreAdminAccountApi, 'admins', 'restore', 'active'],
+] as const)('%s', (_name, call, kind, path, status) => {
+  it('posts to the account path with no body and returns the id', async () => {
     reply({ id: 'u1', status, archivedAt: null })
     expect(await call('u1')).toEqual({ id: 'u1' })
-    expect(requested().pathname).toBe(`/users/staff/u1/${path}`)
+    expect(requested().pathname).toBe(`/users/${kind}/u1/${path}`)
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: undefined })
     expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ Authorization: 'Bearer tok' })
     expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty('Content-Type')
@@ -300,7 +317,7 @@ describe.each([
   it('encodes the id in the path', async () => {
     reply({ id: 'a/b' })
     await call('a/b')
-    expect(requested().pathname).toBe(`/users/staff/a%2Fb/${path}`)
+    expect(requested().pathname).toBe(`/users/${kind}/a%2Fb/${path}`)
   })
 
   it('rejects an answer without an id', async () => {
@@ -310,7 +327,9 @@ describe.each([
 
   it.each([
     [403, 'not_a_staff_account', 'forbidden'],
+    [403, 'not_an_admin_account', 'forbidden'],
     [404, 'staff_not_found', 'not-found'],
+    [404, 'admin_not_found', 'not-found'],
     [409, 'already_archived', 'conflict'],
     [429, undefined, 'rate-limit'],
     [502, `${path}_incomplete`, 'server'],

@@ -362,12 +362,12 @@ test.describe('staff archive: other tabs are unchanged', () => {
     await expect(page.getByRole('button', { name: /Archive|Restore/ })).toHaveCount(0)
   })
 
-  test('Admins has no archive or restore action yet, and never calls the staff archive API', async ({ page }) => {
+  test('Admins archive through the admin API only, and never call the staff archive API', async ({ page }) => {
     const api = await stubStaffApi(page)
     await stubAdminApi(page)
     await open(page, SUPERADMIN, '/superadmin/users?tab=admins', 'Admins')
     await expect(page.getByRole('tabpanel').getByText('Brian Dijamco', { exact: true }).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByRole('button', { name: /Archive|Restore/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Archive / }).first()).toBeAttached()
     expect(api.archives).toEqual([])
   })
 })

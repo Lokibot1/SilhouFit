@@ -32,7 +32,7 @@ const sheet = (page: Page) => page.getByRole('dialog', { name: 'Add admin accoun
 const created = (page: Page) => page.getByRole('dialog', { name: 'Admin account created' })
 const submit = (page: Page) => sheet(page).getByRole('button', { name: /^(Create Account|Creating…)$/ })
 const visibleText = (page: Page, text: string) => page.getByText(text, { exact: true }).filter({ visible: true }).first()
-const LIST = 'Admin accounts with email and date added'
+const LIST = 'Admin accounts with email, status and date added'
 
 async function fillNames(page: Page, first = 'Maya', last = 'Lopez') {
   await addButton(page).click()
@@ -52,7 +52,7 @@ test.describe('admins list', () => {
 
     if (isTable) {
       const headers = page.getByRole('columnheader')
-      await expect(headers).toHaveText(['#', 'Admin', 'Email', 'Added'])
+      await expect(headers).toHaveText(['#', 'Admin', 'Email', 'Status', 'Added'])
       const rows = page.getByRole('table').getByRole('row')
       await expect(rows).toHaveCount(11)
       await expect(rows.nth(1).getByRole('cell').first()).toHaveText('1')
@@ -65,8 +65,8 @@ test.describe('admins list', () => {
       await expect(cards.last()).toContainText(/#\s*10(?!\d)/)
     }
     expect(api.gets[0].searchParams.get('limit')).toBe('10')
-    expect(api.gets[0].searchParams.has('status')).toBe(false)
-    await expect(page.getByRole('combobox', { name: 'Status' })).toHaveCount(0)
+    expect(api.gets[0].searchParams.get('status')).toBe('active')
+    await expect(page.getByRole('combobox', { name: 'Status' })).toContainText('Active')
     await expect(page.getByText('Sample data', { exact: true })).toHaveCount(0)
     await expect(page.getByPlaceholder('Name or email')).toBeVisible()
 
@@ -118,13 +118,13 @@ test.describe('admins list', () => {
     await expect(alert).toHaveCount(0)
   })
 
-  test('the superadmin route lists the same admins, with Reset only (no archive or restore yet)', async ({ page }) => {
+  test('the superadmin route lists the same admins, with Reset and Archive on every row', async ({ page }) => {
     await stubAdminApi(page)
     await open(page, SUPERADMIN, '/superadmin/users?tab=admins')
     await expect(visibleText(page, 'Brian Dijamco')).toBeVisible()
     await expect(visibleText(page, 'Carlo Mendoza')).toBeVisible()
     await expect(page.getByRole('button', { name: /^Reset password for / }).filter({ visible: true })).toHaveCount(3)
-    await expect(page.getByRole('button', { name: /Archive|Restore/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Archive / }).filter({ visible: true })).toHaveCount(3)
   })
 
   test('the admin route has no row actions', async ({ page }) => {

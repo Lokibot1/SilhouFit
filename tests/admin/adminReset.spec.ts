@@ -46,7 +46,6 @@ test.describe('who sees the admin reset', () => {
     await expect(lock(page)).toBeVisible({ timeout: 20_000 })
     await expect(lock(page, 'Alyssa Ferrer')).toBeVisible()
     await expect(lock(page, 'Carlo Mendoza')).toBeVisible()
-    await expect(page.getByRole('button', { name: /Archive|Restore/ })).toHaveCount(0)
     expect(staff.resets).toEqual([])
   })
 })

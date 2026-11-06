@@ -73,8 +73,8 @@ async function list<T>(path: string, map: (value: unknown) => T, params: Record<
 /** GET /users/staff. Search, status, sort (name or createdAt), direction and page are the server's; any other sort falls back to name, and no status is "all". */
 export const listStaffAccounts = (query: AccountQuery, { signal }: RequestOptions = {}) => list('/users/staff', toStaffAccount, { status: query.status ?? 'all' }, query, signal)
 
-/** GET /users/admins. Same as staff but without a status: the server lists every admin. */
-export const listAdminAccounts = (query: AccountQuery, { signal }: RequestOptions = {}) => list('/users/admins', toAdminAccount, {}, query, signal)
+/** GET /users/admins. Same as staff: the server filters by status, and no status is "all". */
+export const listAdminAccounts = (query: AccountQuery, { signal }: RequestOptions = {}) => list('/users/admins', toAdminAccount, { status: query.status ?? 'all' }, query, signal)
 
 /** What the server made for a new staff account. Shown once; the password is never listed again. */
 export interface CreatedStaff {
@@ -118,16 +118,20 @@ export async function resetAdminPasswordApi(id: string): Promise<{ id: string }>
   return { id: body.id }
 }
 
-/** POST /users/staff/:id/archive (no body). The server blocks sign-in and signs the person out everywhere; the account is kept. */
-export async function archiveStaffAccountApi(id: string): Promise<{ id: string }> {
-  const body = await call('POST', `/users/staff/${encodeURIComponent(id)}/archive`, undefined)
+async function setArchived(kind: 'staff' | 'admins', action: 'archive' | 'restore', id: string): Promise<{ id: string }> {
+  const body = await call('POST', `/users/${kind}/${encodeURIComponent(id)}/${action}`, undefined)
   if (!isRecord(body) || !isText(body.id)) throw new StaffApiError('server')
   return { id: body.id }
 }
 
+/** POST /users/staff/:id/archive (no body). The server blocks sign-in and signs the person out everywhere; the account is kept. */
+export const archiveStaffAccountApi = (id: string) => setArchived('staff', 'archive', id)
+
 /** POST /users/staff/:id/restore (no body). The person can sign in again with their current password. */
-export async function restoreStaffAccountApi(id: string): Promise<{ id: string }> {
-  const body = await call('POST', `/users/staff/${encodeURIComponent(id)}/restore`, undefined)
-  if (!isRecord(body) || !isText(body.id)) throw new StaffApiError('server')
-  return { id: body.id }
-}
+export const restoreStaffAccountApi = (id: string) => setArchived('staff', 'restore', id)
+
+/** POST /users/admins/:id/archive (no body, superadmin only). Same as staff. */
+export const archiveAdminAccountApi = (id: string) => setArchived('admins', 'archive', id)
+
+/** POST /users/admins/:id/restore (no body, superadmin only). The admin can sign in again with their current password. */
+export const restoreAdminAccountApi = (id: string) => setArchived('admins', 'restore', id)

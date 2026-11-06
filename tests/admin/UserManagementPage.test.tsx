@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAccounts } from '../../src/service/accountStore'
 import { clearSession, setSession } from '../../src/service/session'
-import { archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
+import { archiveAdminAccountApi, archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreAdminAccountApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
 import type { AdminAccount, StaffAccount } from '../../src/types/accounts'
 import { UserManagementPage } from '../../src/views/admin/UserManagementPage'
 import { renderAdmin, resetAdminAccounts, setUpAdminDom } from '../shared/adminSession'
@@ -20,6 +20,8 @@ vi.mock('../../src/service/staffApi', async (importOriginal) => ({
   resetAdminPasswordApi: vi.fn(),
   archiveStaffAccountApi: vi.fn(),
   restoreStaffAccountApi: vi.fn(),
+  archiveAdminAccountApi: vi.fn(),
+  restoreAdminAccountApi: vi.fn(),
 }))
 
 beforeAll(setUpAdminDom)
@@ -463,6 +465,8 @@ describe('Admins tab', () => {
     vi.mocked(listAdminAccounts).mockReset().mockResolvedValue(page([IVY, person('a2', 'Ana', 'Cruz')]))
     vi.mocked(createAdminAccountApi).mockReset()
     vi.mocked(resetAdminPasswordApi).mockReset()
+    vi.mocked(archiveAdminAccountApi).mockReset()
+    vi.mocked(restoreAdminAccountApi).mockReset()
   })
   afterEach(() => act(() => clearSession()))
 
@@ -471,17 +475,17 @@ describe('Admins tab', () => {
     await screen.findAllByText('Ivy Lim')
   }
 
-  it('lists admins with a running number, email and date, without a status, row actions or sample-data badge', async () => {
+  it('lists admins with a running number, email, status and date, without row actions or a sample-data badge', async () => {
     await openAdmins()
     const table = screen.getAllByRole('table', { hidden: true })[0]
-    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Admin', 'Email', 'Added'])
+    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Admin', 'Email', 'Status', 'Added'])
     expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^1.*Ivy Lim/)
     expect(within(table).getAllByRole('row', { hidden: true })[2]).toHaveTextContent(/^2.*Ana Cruz/)
-    expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent('Active')
     expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
     expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
     expect(screen.getByPlaceholderText('Name or email')).toBeInTheDocument()
-    expect(vi.mocked(listAdminAccounts).mock.calls[0][0]).toMatchObject({ sort: 'name', page: 1, limit: 10 })
+    expect(vi.mocked(listAdminAccounts).mock.calls[0][0]).toMatchObject({ sort: 'name', page: 1, limit: 10, status: 'active' })
   })
 
   describe('reset password (superadmin only)', () => {
@@ -494,8 +498,8 @@ describe('Admins tab', () => {
     it('gives an admin viewer no row actions and no Actions column', async () => {
       asRole('admin')
       await openAdmins()
-      expect(screen.queryByRole('button', { name: /Reset password/ })).not.toBeInTheDocument()
-      expect(headers()).toEqual(['#', 'Admin', 'Email', 'Added'])
+      expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
+      expect(headers()).toEqual(['#', 'Admin', 'Email', 'Status', 'Added'])
     })
 
     it('gives a superadmin a Reset action on every row, named after the person, and an Actions column', async () => {
@@ -503,8 +507,7 @@ describe('Admins tab', () => {
       await openAdmins()
       expect(resetButton('Ivy Lim')).toBeInTheDocument()
       expect(resetButton('Ana Cruz')).toBeInTheDocument()
-      expect(headers()).toEqual(['#', 'Admin', 'Email', 'Added', 'Actions'])
-      expect(screen.queryByRole('button', { name: /Archive|Restore/ })).not.toBeInTheDocument()
+      expect(headers()).toEqual(['#', 'Admin', 'Email', 'Status', 'Added', 'Actions'])
     })
 
     it('asks first, names the default password and the sign-out, and sends nothing on Cancel', async () => {
@@ -577,6 +580,142 @@ describe('Admins tab', () => {
       await userEvent.click(await confirmButton())
       await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
       expect(await screen.findByRole('dialog', { name: 'Reset password for Ivy Lim?' })).toBeInTheDocument()
+    })
+  })
+
+  describe('archive and restore (superadmin only)', () => {
+    const OLD: AdminAccount = { ...person('a2', 'Ana', 'Cruz'), status: 'archived', archivedAt: '2026-04-01T08:00:00.000Z' }
+    const asRole = (role: 'admin' | 'superadmin') => act(() => setSession({ name: 'Dev', email: 'dev@silhoufit.dev', role }))
+    // jsdom loads no CSS, so the table and the card list both render: the first button is the table's.
+    const button = (name: string) => screen.getAllByRole('button', { name })[0]
+    const confirmButton = async () => within(await screen.findByRole('dialog', { name: /^Archive / })).getByRole('button', { name: 'Archive Admin' })
+
+    it('gives an admin viewer no archive or restore, even on an archived row', async () => {
+      asRole('admin')
+      vi.mocked(listAdminAccounts).mockResolvedValue(page([IVY, OLD]))
+      await openAdmins()
+      expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
+      expect(screen.getAllByText('Archived', { selector: 'span' }).length).toBeGreaterThan(0)
+    })
+
+    it('gives a superadmin Reset and Archive on an active row and only Restore on an archived one', async () => {
+      asRole('superadmin')
+      vi.mocked(listAdminAccounts).mockResolvedValue(page([IVY, OLD]))
+      await openAdmins()
+      expect(button('Reset password for Ivy Lim')).toBeInTheDocument()
+      expect(button('Archive Ivy Lim')).toBeInTheDocument()
+      expect(button('Restore Ana Cruz')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Reset password for Ana Cruz' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Archive Ana Cruz' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Restore Ivy Lim' })).not.toBeInTheDocument()
+    })
+
+    it('asks first with the admin consequences, and sends nothing on Cancel', async () => {
+      asRole('superadmin')
+      await openAdmins()
+      await userEvent.click(button('Archive Ivy Lim'))
+      const dialog = await screen.findByRole('dialog', { name: 'Archive Ivy Lim?' })
+      expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
+      expect(
+        within(dialog).getByText("Ivy Lim will be signed out everywhere and can't sign in until restored. Their account is hidden from the admin list but kept, and you can restore it from the Archived filter."),
+      ).toBeInTheDocument()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(archiveAdminAccountApi).not.toHaveBeenCalled()
+    })
+
+    it('waits while pending, sends one admin request, reloads, and Undo restores', async () => {
+      let finish: () => void = () => {}
+      vi.mocked(archiveAdminAccountApi).mockReturnValue(new Promise((resolve) => (finish = () => resolve({ id: 'a1' }))))
+      vi.mocked(restoreAdminAccountApi).mockResolvedValue({ id: 'a1' })
+      asRole('superadmin')
+      await openAdmins()
+      await userEvent.click(button('Archive Ivy Lim'))
+      const confirm = await confirmButton()
+      const loads = vi.mocked(listAdminAccounts).mock.calls.length
+      await userEvent.click(confirm)
+      expect(archiveAdminAccountApi).toHaveBeenCalledWith('a1')
+      expect(confirm).toBeDisabled()
+      expect(confirm).toHaveAttribute('aria-busy', 'true')
+      expect(button('Archive Ivy Lim')).toBeDisabled()
+      expect(button('Archive Ana Cruz')).toBeEnabled()
+      finish()
+      expect(await screen.findByText('Ivy Lim archived.')).toBeInTheDocument()
+      await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.length).toBeGreaterThan(loads))
+      await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+      expect(restoreAdminAccountApi).toHaveBeenCalledWith('a1')
+      expect(await screen.findByText('Archive undone. Ivy Lim can sign in again.')).toBeInTheDocument()
+      expect(archiveAdminAccountApi).toHaveBeenCalledTimes(1)
+      expect(archiveStaffAccountApi).not.toHaveBeenCalled()
+    })
+
+    it('restores at once with no question, and toasts', async () => {
+      asRole('superadmin')
+      vi.mocked(listAdminAccounts).mockResolvedValue(page([IVY, OLD]))
+      vi.mocked(restoreAdminAccountApi).mockResolvedValue({ id: 'a2' })
+      await openAdmins()
+      await userEvent.click(button('Restore Ana Cruz'))
+      expect(restoreAdminAccountApi).toHaveBeenCalledWith('a2')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(await screen.findByText('Ana Cruz restored. They can sign in with their current password.')).toBeInTheDocument()
+    })
+
+    it('has a status filter that asks the server for archived admins, with its own empty state', async () => {
+      asRole('superadmin')
+      await openAdmins()
+      vi.mocked(listAdminAccounts).mockResolvedValue(page([]))
+      await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
+      await userEvent.click(await screen.findByRole('option', { name: 'Archived' }))
+      await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.at(-1)![0].status).toBe('archived'))
+      expect(await screen.findByText('No archived admin accounts')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Show active admins' })).toBeInTheDocument()
+    })
+
+    const NOTHING = /Nothing changed\./
+    const UNSURE = /couldn't confirm the result\. Retry is safe, or check the list after a minute\./
+    it.each([
+      // [error, copy, Retry offered, list reloaded]
+      [new StaffApiError('forbidden', undefined, 401), /Your session expired\. Sign in again, then retry\./, false, false],
+      [new StaffApiError('forbidden', undefined, 403, 'not_an_admin_account'), /Ivy Lim is not an admin account, so it can't be archived here/, false, true],
+      [new StaffApiError('forbidden', undefined, 403, 'forbidden'), /Only a superadmin can archive admins.*Sign in with a superadmin account/, false, false],
+      [new StaffApiError('not-found', undefined, 404, 'admin_not_found'), /This admin account no longer exists/, false, true],
+      [new StaffApiError('conflict', undefined, 409, 'already_archived'), /Ivy Lim is already archived\. The list was out of date/, false, true],
+      [new StaffApiError('rate-limit', undefined, 429), /Wait a few minutes/, false, false],
+      [new StaffApiError('server', undefined, 502, 'archive_incomplete'), /blocked from signing in, but the archive did not finish\. Retry now to finish; it is safe to repeat\./, true, false],
+      [new StaffApiError('server', undefined, 502, 'archive_not_applied'), NOTHING, true, false],
+      [new StaffApiError('server', undefined, 503), NOTHING, true, false],
+      [new StaffApiError('network'), UNSURE, true, false],
+    ])('explains a failed archive in admin wording (%#)', async (error, copy, retry, reloads) => {
+      vi.mocked(archiveAdminAccountApi).mockRejectedValue(error)
+      asRole('superadmin')
+      await openAdmins()
+      const loads = vi.mocked(listAdminAccounts).mock.calls.length
+      await userEvent.click(button('Archive Ivy Lim'))
+      await userEvent.click(await confirmButton())
+      expect(await screen.findByText(copy)).toBeInTheDocument()
+      expect(screen.queryByText(/staff/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
+      if (reloads) await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.length).toBeGreaterThan(loads))
+      else expect(vi.mocked(listAdminAccounts).mock.calls.length).toBe(loads)
+      expect(button('Archive Ivy Lim')).toBeEnabled()
+    })
+
+    it.each([
+      [new StaffApiError('conflict', undefined, 409, 'not_archived'), /Ana Cruz is already active\. The list was out of date/, false, true],
+      [new StaffApiError('server', undefined, 502, 'restore_incomplete'), /restore for Ana Cruz was only partly applied.*safe to repeat/, true, false],
+      [new StaffApiError('server', undefined, 502, 'restore_not_applied'), NOTHING, true, false],
+      [new StaffApiError('network'), UNSURE, true, false],
+    ])('explains a failed restore (%#)', async (error, copy, retry, reloads) => {
+      vi.mocked(listAdminAccounts).mockResolvedValue(page([IVY, OLD]))
+      vi.mocked(restoreAdminAccountApi).mockRejectedValue(error)
+      asRole('superadmin')
+      await openAdmins()
+      const loads = vi.mocked(listAdminAccounts).mock.calls.length
+      await userEvent.click(button('Restore Ana Cruz'))
+      expect(await screen.findByText(copy)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
+      if (reloads) await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.length).toBeGreaterThan(loads))
+      expect(button('Restore Ana Cruz')).toBeEnabled()
     })
   })
 
