@@ -44,7 +44,18 @@ function printCard() {
 }
 
 /** The credentials of a new or reset account, shown once: the username and the temporary password apart, with copy, download and print. */
-export function CredentialsPanel({ credentials, heading, canReset = true }: { credentials: Credentials; heading: string; canReset?: boolean }) {
+export function CredentialsPanel({
+  credentials,
+  heading,
+  canReset = true,
+  demo = true,
+}: {
+  credentials: Credentials
+  heading: string
+  canReset?: boolean
+  /** The account lives in this browser only. False for one the server made: no demo note, no reset hint. */
+  demo?: boolean
+}) {
   const toast = useToast()
   const [saving, setSaving] = useState(false)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -64,7 +75,7 @@ export function CredentialsPanel({ credentials, heading, canReset = true }: { cr
   async function download() {
     setSaving(true)
     try {
-      await downloadCredentialsImage(credentials, heading)
+      await downloadCredentialsImage(credentials, heading, demo)
       toast.show({ kind: 'success', message: 'Credentials image downloaded' })
     } catch {
       toast.show({ kind: 'error', message: "Couldn't make the image. Your browser could not draw it, so copy the details or print the card instead." })
@@ -80,21 +91,23 @@ export function CredentialsPanel({ credentials, heading, canReset = true }: { cr
           <h3 ref={headingRef} tabIndex={-1} className="display text-lg text-fg outline-none">{heading}</h3>
           <p className="text-xs text-fg-muted">Hand these to the account holder. They choose their own password at first sign-in.</p>
         </div>
-        <Block label="Username" value={credentials.username} onCopy={() => void copy(credentials.username, 'Username')} />
-        <Block label="Sign-in email" value={credentials.email} />
+        {demo && <Block label="Username" value={credentials.username} onCopy={() => void copy(credentials.username, 'Username')} />}
+        <Block label="Sign-in email" value={credentials.email} onCopy={demo ? undefined : () => void copy(credentials.email, 'Email')} />
         <Block label="Temporary password" value={credentials.password} onCopy={() => void copy(credentials.password, 'Password')} strong />
       </div>
       <p role="note" className="text-xs text-fg-muted">
-        This is the only time the password is shown.{canReset ? ' If it is lost, reset the password to make a new one.' : ' A superadmin password cannot be reset, so keep it safe.'} Demo only, not secure: these accounts live in this browser.
+        This is the only time the password is shown.
+        {demo && (canReset ? ' If it is lost, reset the password to make a new one.' : ' A superadmin password cannot be reset, so keep it safe.')}
+        {demo && ' Demo only, not secure: these accounts live in this browser.'}
       </p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => void copy(formatCredentials(credentials), 'Credentials')} className={SECONDARY_BUTTON_SM}>
+        <button type="button" onClick={() => void copy(formatCredentials(credentials, demo), 'Credentials')} className={SECONDARY_BUTTON_SM}>
           <CopyIcon />
           Copy both
         </button>
         <button type="button" onClick={() => void download()} disabled={saving} aria-busy={saving} className={SECONDARY_BUTTON_SM}>
           {saving ? <SpinnerIcon /> : <DownloadIcon />}
-          Download image
+          {demo ? 'Download image' : saving ? 'Preparing PNG…' : 'Download as PNG'}
         </button>
         <button type="button" onClick={printCard} className={SECONDARY_BUTTON_SM}>
           <PrinterIcon />

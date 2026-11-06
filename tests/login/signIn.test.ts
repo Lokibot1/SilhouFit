@@ -45,6 +45,20 @@ describe('submitSignIn', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ['the user_banned code', { code: 'user_banned', status: 400, message: 'User is banned' }],
+    ['a 403 banned message without a code', { status: 403, message: 'User is banned until 2999' }],
+  ])('returns the archived result for %s, with no profile request', async (_name, error) => {
+    signInWithPassword.mockResolvedValue({ data: { session: null }, error })
+    expect(await submitSignIn(PAYLOAD)).toEqual({ ok: false, reason: 'archived' })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('does not read a 403 without "banned" as archived', async () => {
+    signInWithPassword.mockResolvedValue({ data: { session: null }, error: { status: 403, message: 'Forbidden' } })
+    await expect(submitSignIn(PAYLOAD)).rejects.toMatchObject({ kind: 'server' })
+  })
+
   it('signs out of Supabase and throws when the profile is missing (404)', async () => {
     fetchMock.mockResolvedValue(new Response('{}', { status: 404 }))
     await expect(submitSignIn(PAYLOAD)).rejects.toMatchObject({ kind: 'profile' })

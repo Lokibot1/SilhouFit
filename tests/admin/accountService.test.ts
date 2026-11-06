@@ -133,15 +133,25 @@ describe('archiving', () => {
 describe('changing the password', () => {
   it('clears the flag and stores the new password', async () => {
     const pending = getAccounts().staff.find((a) => a.mustChangePassword)!
-    await changePassword(pending.id, 'Fresh#Pass1', fast)
+    const temporary = getAccounts().passwords[pending.id]
+    await changePassword(pending.id, temporary, 'Fresh#Pass1', fast)
     expect(getAccounts().staff.find((a) => a.id === pending.id)!.mustChangePassword).toBe(false)
     expect(getAccounts().passwords[pending.id]).toBe('Fresh#Pass1')
   })
 
   it('rejects a weak password and keeps the flag', async () => {
     const pending = getAccounts().staff.find((a) => a.mustChangePassword)!
-    await expect(changePassword(pending.id, 'weak', fast)).rejects.toMatchObject({ kind: 'validation' })
+    await expect(changePassword(pending.id, getAccounts().passwords[pending.id], 'weak', fast)).rejects.toMatchObject({ kind: 'validation' })
     expect(getAccounts().staff.find((a) => a.id === pending.id)!.mustChangePassword).toBe(true)
+  })
+
+  it('rejects a wrong current password and the same password, and keeps the flag', async () => {
+    const pending = getAccounts().staff.find((a) => a.mustChangePassword)!
+    const temporary = getAccounts().passwords[pending.id]
+    await expect(changePassword(pending.id, 'Wrong#Pass1', 'Fresh#Pass1', fast)).rejects.toMatchObject({ kind: 'wrong-password' })
+    await expect(changePassword(pending.id, temporary, temporary, fast)).rejects.toMatchObject({ kind: 'same' })
+    expect(getAccounts().staff.find((a) => a.id === pending.id)!.mustChangePassword).toBe(true)
+    expect(getAccounts().passwords[pending.id]).toBe(temporary)
   })
 })
 

@@ -31,7 +31,7 @@ import { formatPeso, parseFilterPrice } from '../../utils/format'
 import { playAddToCart } from '../../utils/sound'
 
 const DESCRIPTION =
-  'Browse the SilhouFit catalogue: filter by category, check online and in-store stock, and preview how each piece fits with browser-based AR before you buy it.'
+  'Browse the SilhouFit catalogue: filter by category, check stock, and preview how each piece fits with browser-based AR before you buy it.'
 
 // Params holding their default are dropped from the URL. The API has no featured order, so Featured asks for newest first.
 const DEFAULT_SORT = SORT_OPTIONS[0].value

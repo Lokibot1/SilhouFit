@@ -5,7 +5,7 @@ import { BagIcon, CameraIcon, CartIcon, MinusIcon, PaletteIcon, PlusIcon, RulerI
 import { Tooltip } from '../ui/Tooltip'
 import { SizeGuideModal } from './SizeGuideModal'
 import { PRODUCT_ACTIONS, PRODUCT_PANEL } from './ProductSkeleton'
-import { CHANNEL_LABEL, SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
+import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 import { OPTION_BASE, type Choice } from './SpecSheet'
 
 interface ProductPurchasePanelProps {
@@ -49,7 +49,6 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
   const colorGroup = useRef<HTMLFieldSetElement>(null)
   // Adding to the cart can lower what is left below the chosen quantity.
   const qty = Math.max(1, Math.min(wanted, left))
-  const channel = product.channels.length === 2 ? CHANNEL_LABEL.both : product.channels.length === 1 ? CHANNEL_LABEL[product.channels[0]] : null
 
   useEffect(() => {
     const el = descRef.current
@@ -143,15 +142,9 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
             </span>
           </p>
         )}
-        {(product.stock <= LOW_STOCK || channel) && (
+        {product.stock <= LOW_STOCK && (
           <p className="font-ui text-sm text-fg-muted">
-            {product.stock <= LOW_STOCK && (
-              <>
-                <span className="font-semibold text-danger">{product.stock === 0 ? 'Sold out' : `Only ${product.stock} left`}</span>
-                {channel && ' · '}
-              </>
-            )}
-            {channel}
+            <span className="font-semibold text-danger">{product.stock === 0 ? 'Sold out' : `Only ${product.stock} left`}</span>
           </p>
         )}
       </div>

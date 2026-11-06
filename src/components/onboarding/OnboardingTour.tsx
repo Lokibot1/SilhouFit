@@ -242,7 +242,7 @@ export function OnboardingTour() {
     >
       <p className="pb-4 text-base leading-relaxed text-fg-muted">
         {first ? `Welcome to SilhouFit, ${first}.` : 'Welcome to SilhouFit.'} You have seen search, the cart, checkout and
-        store pickup. Replay the tour any time from your profile.
+        delivery. Replay the tour any time from your profile.
       </p>
     </Modal>
   )
@@ -267,8 +267,7 @@ export function OnboardingTour() {
         >
           <WelcomeMark />
           <p className="pb-4 text-base leading-relaxed text-fg-muted">
-            {first ? `${first}, here is a` : 'Here is a'} quick tour of searching the shop, adding to your cart, checking out
-            and picking up in store. It takes about a minute and nothing is ordered.
+            {first ? `${first}, here is a` : 'Here is a'} quick tour of searching the shop, adding to your cart, and checking out. It takes about a minute and nothing is ordered.
           </p>
         </Modal>
       </MotionConfig>

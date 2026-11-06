@@ -1,7 +1,7 @@
 import { motion, useTransform, type MotionValue } from 'motion/react'
 
 const ROWS = [
-  { label: 'Sales by channel', value: 72 },
+  { label: 'Sales by category', value: 72 },
   { label: 'Inventory turnover', value: 54 },
   { label: 'Fitting to checkout', value: 38 },
 ]

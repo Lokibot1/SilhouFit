@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { GoogleAuthError, startGoogleAuth } from '../../src/service/googleAuth'
+import { peekLoginNotice, setLoginNotice } from '../../src/service/loginNotice'
 import { submitSignIn } from '../../src/service/signIn'
 import { LoginPage } from '../../src/views/auth/LoginPage'
 
@@ -644,5 +645,59 @@ describe('LoginPage document metadata', () => {
     expect(document.title).toBe('Before')
     expect(meta.content).toBe('Previous description')
     meta.remove()
+  })
+})
+
+describe('LoginPage after a password change', () => {
+  it('shows a success status once, and clears the notice', () => {
+    setLoginNotice('password-changed')
+    const { unmount } = renderPage()
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Password changed.')
+    expect(status).toHaveTextContent('Sign in with your new password.')
+    expect(peekLoginNotice()).toBeNull()
+    unmount()
+    renderPage()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+})
+
+describe('LoginPage after an administrator archived the account', () => {
+  it('shows the archived notice once, in the informational style, and clears it', () => {
+    setLoginNotice('account-archived')
+    const { unmount } = renderPage()
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Your account was archived.')
+    expect(status).toHaveTextContent('An administrator archived this account. Contact an administrator to have it restored.')
+    expect(status).toHaveClass('text-base', 'border-info/40')
+    expect(status).not.toHaveClass('border-danger/40')
+    expect(peekLoginNotice()).toBeNull()
+    unmount()
+    renderPage()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+})
+
+describe('LoginPage after an administrator reset the password', () => {
+  it('shows the notice once, in a status banner, and clears it', () => {
+    setLoginNotice('password-reset')
+    const { unmount } = renderPage()
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Your password was reset by an administrator. Sign in with the default password and choose a new one.')
+    expect(status).toHaveClass('text-base', 'border-info/40')
+    expect(status).not.toHaveClass('border-danger/40')
+    expect(peekLoginNotice()).toBeNull()
+    unmount()
+    renderPage()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('shows the expired temporary password notice in the same informational style', () => {
+    setLoginNotice('password-expired')
+    renderPage()
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Your temporary password expired. Ask an administrator to reset your password again.')
+    expect(status).toHaveClass('text-base', 'border-info/40')
+    expect(peekLoginNotice()).toBeNull()
   })
 })

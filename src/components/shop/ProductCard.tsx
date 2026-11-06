@@ -4,7 +4,7 @@ import { LOW_STOCK, productImages, type Product } from '../../data/products'
 import { BagIcon, CartIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, HeartIcon, StarIcon } from '../form/icons'
 import { formatPeso } from '../../utils/format'
 import { SilhouetteMark } from '../landing/SilhouetteMark'
-import { CHANNEL_LABEL, SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
+import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
 
 // flex-auto: each button is as wide as its label needs, then they share what is left, so "Add to cart" never wraps.
 const BUY_BUTTON = `${SHOP_PRIMARY} min-w-0 flex-auto whitespace-nowrap max-sm:px-2 max-sm:text-xs`
@@ -46,7 +46,6 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
     e.stopPropagation()
     setCurrent((c) => (c + by + images.length) % images.length)
   }
-  const channel = product.channels.length === 2 ? CHANNEL_LABEL.both : product.channels.length === 1 ? CHANNEL_LABEL[product.channels[0]] : null
   const href = `/shop/${product.slug ?? product.id}`
 
   return (
@@ -217,15 +216,9 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
               )}
             </p>
           </div>
-          {(stock <= LOW_STOCK || channel) && (
+          {stock <= LOW_STOCK && (
             <p className="font-ui text-xs text-fg-muted sm:text-xs">
-              {stock <= LOW_STOCK && (
-                <>
-                  <span className="font-semibold text-danger">{soldOut ? 'Sold out' : `Only ${stock} left`}</span>
-                  {channel && ' · '}
-                </>
-              )}
-              {channel}
+              <span className="font-semibold text-danger">{soldOut ? 'Sold out' : `Only ${stock} left`}</span>
             </p>
           )}
         </div>

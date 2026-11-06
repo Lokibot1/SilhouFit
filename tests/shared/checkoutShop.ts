@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import { mockCart, mockProducts, product, variant, type CartMock, type MockProduct, type ProductsMock } from './products'
 import { mockAuth } from './session'
 
-// A small shop for the cart and checkout flows. Ids are fixed so a test can write checkout URLs; the API has no channels or sale
+// A small shop for the cart and checkout flows. Ids are fixed so a test can write checkout URLs; the API has no sale
 // prices, and the boutique is the brand.
 const id = (n: number) => `00000000-0000-4000-8000-0000000002${String(n).padStart(2, '0')}`
 const NAVY = { color: 'Navy', colorHex: '#1b2a49' }

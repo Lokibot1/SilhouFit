@@ -1,5 +1,6 @@
 import { SIMULATED_AUTH } from '../config/accountPolicy'
 import { getSession } from './session'
+import { endArchivedSession, endExpiredSession, endRevokedSession } from './sessionRevoked'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
@@ -26,6 +27,10 @@ export interface Me {
   mustChangePassword?: boolean
   /** False when the first-login screen must not offer "Skip for now". */
   passwordChangeSkippable?: boolean
+  /** An administrator reset this staff member's password to the default and they have not changed it yet. */
+  passwordResetRequired?: boolean
+  /** False for accounts that sign in only with Google (or another provider) and so have no password; absent means true. */
+  canChangePassword?: boolean
 }
 
 export type MeErrorKind = 'unauthorized' | 'not-found' | 'rate-limit' | 'network' | 'server'
@@ -55,6 +60,14 @@ export function toMe(body: Partial<Me> | null): Me | null {
   } as Me
 }
 
+const codeOf = async (response: Response) => {
+  try {
+    return ((await response.json()) as { code?: unknown } | null)?.code
+  } catch {
+    return undefined
+  }
+}
+
 // Loads the signed-in user's profile with the Supabase access token. An abort rejects with the AbortError itself.
 export async function fetchMe({ signal }: RequestOptions = {}): Promise<Me> {
   // A simulated account has no Supabase token; a production build drops this branch unless SIMULATED_AUTH is on.
@@ -79,6 +92,10 @@ export async function fetchMe({ signal }: RequestOptions = {}): Promise<Me> {
     if (signal?.aborted) throw failure
     throw new MeError('network')
   }
+  const code = response.status === 401 || response.status === 403 ? await codeOf(response) : undefined
+  if (response.status === 401 && code === 'session_revoked') endRevokedSession()
+  if (response.status === 401 && code === 'account_archived') endArchivedSession()
+  if (response.status === 403 && code === 'password_reset_expired') endExpiredSession()
   if (!response.ok) throw new MeError(STATUS_KIND[response.status] ?? 'server')
   let body: Partial<Me> | null
   try {

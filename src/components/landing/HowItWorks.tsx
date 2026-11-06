@@ -8,7 +8,7 @@ const STEPS = [
   {
     title: 'Browse the catalog',
     detail:
-      'Product pages show what is in stock at the connected boutique, pulled from the same inventory the register uses.',
+      'Product pages show what is in stock at the boutique, so you know a size is available before you pick it.',
     tag: 'Storefront',
   },
   {
@@ -18,15 +18,15 @@ const STEPS = [
     tag: 'AR fitting',
   },
   {
-    title: 'Choose how to receive it',
+    title: 'Check out for delivery',
     detail:
-      'Check out for delivery, or reserve online and pick up in the store the same day.',
-    tag: 'Delivery or BOPIS',
+      'Confirm your address and place the order. It is delivered to your door.',
+    tag: 'Delivery',
   },
   {
-    title: 'Store and site stay in sync',
+    title: 'Stock stays accurate',
     detail:
-      'The sale updates inventory across channels immediately, so the next shopper sees accurate stock.',
+      'The sale updates inventory immediately, so the next shopper sees accurate stock.',
     tag: 'Inventory',
   },
 ]
@@ -84,7 +84,7 @@ export function HowItWorks() {
       <div className="mx-auto max-w-6xl px-6 py-24">
         <Reveal>
           <h2 className="display max-w-2xl text-[clamp(2rem,4.5vw,3.75rem)] text-fg drop-shadow-sm">
-            From browsing to pickup
+            From browsing to delivery
           </h2>
         </Reveal>
 

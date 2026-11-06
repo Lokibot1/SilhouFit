@@ -13,7 +13,7 @@ export function RefundPolicyPage() {
       <LegalSection heading="Return window">
         <p>
           Unless a product page states otherwise, items can be returned
-          within 7 days of delivery or pickup, unworn, unwashed, and with
+          within 7 days of delivery, unworn, unwashed, and with
           original tags attached.
         </p>
       </LegalSection>
@@ -23,13 +23,6 @@ export function RefundPolicyPage() {
           Items marked final sale, intimate apparel and undergarments for
           hygiene reasons, and items altered or made to custom
           measurements.
-        </p>
-      </LegalSection>
-
-      <LegalSection heading="Returning a Buy Online, Pick Up In-Store order">
-        <p>
-          These orders can be returned at the boutique where they were
-          picked up, or by mail where the boutique offers that option.
         </p>
       </LegalSection>
 
@@ -43,8 +36,7 @@ export function RefundPolicyPage() {
 
       <LegalSection heading="Damaged or incorrect items">
         <p>
-          Report a damaged or incorrect item within 48 hours of delivery or
-          pickup. The boutique will arrange a replacement or a full
+          Report a damaged or incorrect item within 48 hours of delivery. The boutique will arrange a replacement or a full
           refund, including return shipping where applicable, at no cost
           to you.
         </p>

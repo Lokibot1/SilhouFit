@@ -1,7 +1,6 @@
 import { AnimatePresence } from 'motion/react'
 import { lazy, Suspense, useState } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { LandingCometCursor } from './components/CometCursor'
 import { IntroLoader } from './components/IntroLoader'
 import { CallbackSkeleton } from './components/form/CallbackSkeleton'
 import { LoginSkeleton } from './components/form/LoginSkeleton'
@@ -24,7 +23,7 @@ import { ProductRouteSkeleton } from './components/shop/ProductSkeleton'
 import { CartSkeleton, ShopSkeleton, WishlistSkeleton } from './components/shop/ShopSkeleton'
 import { AboutPage } from './views/public/AboutPage'
 import { CookiePolicyPage } from './views/legal/CookiePolicyPage'
-import { LandingPage } from './views/public/LandingPage'
+import { ContactPage } from './views/public/ContactPage'
 import { NotFoundPage } from './views/public/NotFoundPage'
 import { ServerErrorPage } from './views/public/ServerErrorPage'
 import { PrivacyPolicyPage } from './views/legal/PrivacyPolicyPage'
@@ -51,6 +50,10 @@ const ShopPage = lazy(() =>
 
 const ProductPage = lazy(() =>
   import('./views/public/ProductPage').then((m) => ({ default: m.ProductPage })),
+)
+
+const LandingV2Page = lazy(() =>
+  import('./views/public/LandingV2Page').then((m) => ({ default: m.LandingV2Page })),
 )
 
 const WishlistPage = lazy(() =>
@@ -239,7 +242,6 @@ function App() {
 
   return (
     <>
-      <LandingCometCursor />
       <AnimatePresence>
         {!introDone && (
           <IntroLoader key="intro" onFinished={() => setIntroDone(true)} />
@@ -251,7 +253,6 @@ function App() {
           <RouteErrorBoundary resetKey={pathname}>
           <Routes>
             <Route element={<Layout />}>
-              <Route index element={<LandingPage />} />
               <Route path="about" element={<AboutPage />} />
               <Route
                 path="signup"
@@ -358,6 +359,7 @@ function App() {
                 }
               />
               <Route path="messages/:conversationId" element={<Navigate to="/messages" replace />} />
+              <Route path="contact" element={<ContactPage />} />
               <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
               <Route path="terms-of-service" element={<TermsOfServicePage />} />
               <Route path="refund-policy" element={<RefundPolicyPage />} />
@@ -410,6 +412,14 @@ function App() {
               <Route path="profile" element={<StaffProfile />} />
             </Route>
             <Route element={<Layout bare />}>
+              <Route
+                index
+                element={
+                  <Suspense fallback={<div className="min-h-svh bg-[#161113]" />}>
+                    <LandingV2Page />
+                  </Suspense>
+                }
+              />
               <Route path="500" element={<ServerErrorPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>

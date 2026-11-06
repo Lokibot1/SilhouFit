@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { AuthSplit } from '../../components/auth/AuthSplit'
 import { AlertIcon } from '../../components/form/icons'
-import { CALLBACK_CARD, CALLBACK_SHELL, CallbackSkeleton } from '../../components/form/CallbackSkeleton'
+import { CALLBACK_BLOCK, CallbackSkeleton } from '../../components/form/CallbackSkeleton'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
@@ -15,7 +16,7 @@ import { nextQuery, safeNext } from '../../utils/safeNext'
 import { homeFor } from '../../utils/staffRole'
 
 const META_DESCRIPTION =
-  'Finishing your Google sign-in to SilhouFit. If something went wrong, you can head back to the login page and try again whenever you are ready to continue.'
+  'Finishing your Google sign-in to KRAL. If something went wrong, you can head back to the login page and try again whenever you are ready to continue.'
 
 // Waiting on the Supabase code exchange plus /users/me; past this the connection is treated as dropped.
 const TIMEOUT_MS = 15_000
@@ -30,7 +31,7 @@ const ERROR_COPY: Record<FailKind, { title: string; body: string }> = {
   },
   'not-found': {
     title: "We couldn't find your profile.",
-    body: 'Google confirmed your account, but no SilhouFit profile is saved for it. You were signed out. Go back to login and try again, or contact support if it keeps happening.',
+    body: 'Google confirmed your account, but no KRAL profile is saved for it. You were signed out. Go back to login and try again, or contact support if it keeps happening.',
   },
   network: {
     title: "We couldn't finish signing you in.",
@@ -126,10 +127,10 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
 
   useDocumentTitle(
     view.status === 'cancelled'
-      ? 'Google sign-in cancelled — SilhouFit'
+      ? 'Google sign-in cancelled — KRAL'
       : view.status === 'failed'
-        ? "Couldn't sign you in — SilhouFit"
-        : 'Signing you in — SilhouFit',
+        ? "Couldn't sign you in — KRAL"
+        : 'Signing you in — KRAL',
   )
 
   useEffect(() => {
@@ -232,20 +233,20 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
   const retryable = !cancelled && RETRYABLE.includes(view.kind)
 
   return (
-    <div className={CALLBACK_SHELL}>
-      <div className={CALLBACK_CARD}>
+    <AuthSplit photo={false}>
+      <div className={CALLBACK_BLOCK}>
         <span
           className={`flex size-10 items-center justify-center rounded-full border border-line-strong ${cancelled ? 'text-fg-muted' : 'text-danger'}`}
         >
           <AlertIcon size={20} />
         </span>
         <div role={cancelled ? undefined : 'alert'}>
-          <h1 ref={headingRef} tabIndex={-1} className="display mt-4 text-2xl text-fg outline-none">
+          <h1 ref={headingRef} tabIndex={-1} className="display mt-4 text-3xl text-fg outline-none">
             {copy.title}
           </h1>
           <p className="mt-2 text-base leading-relaxed text-fg-muted">{copy.body}</p>
         </div>
-        <div className="mt-auto flex flex-col gap-3 pt-6 sm:flex-row *:flex-1">
+        <div className="mt-auto flex flex-col gap-3 pt-6">
           {retryable && (
             <button
               type="button"
@@ -271,6 +272,6 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
           </Link>
         </div>
       </div>
-    </div>
+    </AuthSplit>
   )
 }

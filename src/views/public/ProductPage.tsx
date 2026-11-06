@@ -18,7 +18,7 @@ import { formatPeso } from '../../utils/format'
 import { playAddToCart } from '../../utils/sound'
 
 const NOT_FOUND_DESCRIPTION =
-  'This piece is no longer in the SilhouFit catalogue. Browse the shop to see what is in stock online and in store, and preview how each piece fits with AR.'
+  'This piece is no longer in the SilhouFit catalogue. Browse the shop to see what is in stock, and preview how each piece fits with AR.'
 
 // Name, category, brand and price in a sentence of about 150-160 characters; short names get the brand added.
 function describe(product: Product) {

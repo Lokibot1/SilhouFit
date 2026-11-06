@@ -9,18 +9,21 @@ const PER_PAGE_CHOICES = ACCOUNT_PER_PAGE_OPTIONS.map((n) => ({ value: n, label:
 interface AccountToolbarProps {
   /** What the search box looks through: "customers", "staff". */
   noun: string
+  /** What the box matches, for the tab whose fields differ: "name or email". Defaults to name, username, email or phone. */
+  searchBy?: string
   text: string
   onText: (text: string) => void
-  status: AccountStatus | ''
-  onStatus: (status: AccountStatus | '') => void
-  statuses: { value: AccountStatus | ''; label: string }[]
+  /** The status filter; a tab without statuses (staff) leaves all three out and the filter is not shown. */
+  status?: AccountStatus | ''
+  onStatus?: (status: AccountStatus | '') => void
+  statuses?: { value: AccountStatus | ''; label: string }[]
   per: number
   onPer: (per: number) => void
   /** The create button, when the tab has one. */
   action?: ReactNode
 }
 
-export function AccountToolbar({ noun, text, onText, status, onStatus, statuses, per, onPer, action }: AccountToolbarProps) {
+export function AccountToolbar({ noun, searchBy, text, onText, status, onStatus, statuses, per, onPer, action }: AccountToolbarProps) {
   return (
     <div className="mb-3 grid gap-3">
       <div className="relative">
@@ -30,8 +33,8 @@ export function AccountToolbar({ noun, text, onText, status, onStatus, statuses,
           value={text}
           onChange={(event) => onText(event.target.value)}
           maxLength={MAX_ACCOUNT_SEARCH}
-          placeholder="Name, email or phone"
-          aria-label={`Search ${noun} by name, username, email or phone`}
+          placeholder={searchBy ? searchBy[0].toUpperCase() + searchBy.slice(1) : 'Name, email or phone'}
+          aria-label={`Search ${noun} by ${searchBy ?? 'name, username, email or phone'}`}
           autoComplete="off"
           spellCheck={false}
           className="font-ui min-h-11 w-full rounded-xl border border-line-strong bg-canvas pr-11 pl-10 text-base text-fg placeholder:text-fg-muted"
@@ -48,9 +51,11 @@ export function AccountToolbar({ noun, text, onText, status, onStatus, statuses,
         )}
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <div className="w-full @sm:w-44">
-          <Select label="Status" triggerPrefix="Status: " value={status} options={statuses} onChange={onStatus} />
-        </div>
+        {statuses && onStatus && (
+          <div className="w-full @sm:w-44">
+            <Select label="Status" triggerPrefix="Status: " value={status ?? ''} options={statuses} onChange={onStatus} />
+          </div>
+        )}
         <div className="w-full @sm:w-44">
           <Select label="Rows per page" value={per} options={PER_PAGE_CHOICES} onChange={onPer} />
         </div>

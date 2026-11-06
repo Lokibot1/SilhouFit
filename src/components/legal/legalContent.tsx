@@ -28,10 +28,9 @@ export const TERMS: LegalDocument = {
       heading: 'The service',
       body: (
         <p>
-          SilhouFit connects a local apparel boutique&apos;s in-store point
-          of sale with an online storefront, offers an in-browser
-          augmented-reality fitting preview, and provides Buy Online, Pick
-          Up In-Store fulfillment.
+          SilhouFit gives a local apparel boutique an online storefront and
+          offers an in-browser augmented-reality fitting preview, with
+          orders fulfilled by delivery.
         </p>
       ),
     },
@@ -69,13 +68,11 @@ export const TERMS: LegalDocument = {
       ),
     },
     {
-      heading: 'Pickup and delivery',
+      heading: 'Delivery',
       body: (
         <p>
-          Buy Online, Pick Up In-Store orders must be collected within the
-          window stated at checkout, with a valid order confirmation.
-          Orders not collected within that window may be canceled and
-          refunded under the refund policy.
+          Orders are delivered to the address given at checkout. Delivery
+          times are estimates and can vary by location.
         </p>
       ),
     },
@@ -156,8 +153,8 @@ export const PRIVACY: LegalDocument = {
       body: (
         <p>
           Account details such as name, email address, and shipping
-          address. Order history and purchase records from both the
-          storefront and in-store point-of-sale terminals. Sizing
+          address. Order history and purchase records from the
+          storefront. Sizing
           preferences and wishlist items saved to a customer profile. Video
           frames from your device&apos;s camera during a fitting session,
           used to estimate body landmarks and scale a garment model. Basic
@@ -181,8 +178,8 @@ export const PRIVACY: LegalDocument = {
       heading: 'How information would be used',
       body: (
         <p>
-          To fulfill orders and coordinate pickup or delivery, keep
-          inventory accurate across the store and the site, remember sizing
+          To fulfill orders and coordinate delivery, keep
+          inventory accurate on the site, remember sizing
           preferences and wishlist items, improve the accuracy of the
           fitting module, and prevent fraud.
         </p>

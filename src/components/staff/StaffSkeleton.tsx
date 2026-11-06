@@ -7,7 +7,7 @@ import { StaffBrand } from './StaffNav'
 // Shared by the real shell (views/staff/StaffLayout) and its skeleton so the swap does not shift anything.
 // The sidebar sits under the 3.5rem top bar. The bar's side padding centres its burger (44px) over the collapsed rail's icons (72px wide).
 export const staffAside = (collapsed = false) =>
-  `staff-aside sticky top-14 hidden h-[calc(100svh-3.5rem)] shrink-0 flex-col overflow-hidden border-r border-line bg-canvas-sub transition-[width] duration-300 ease-out motion-reduce:transition-none lg:flex ${collapsed ? 'w-[4.5rem] items-center p-3' : 'w-52 p-2.5'}`
+  `staff-aside sticky top-14 hidden h-[calc(100svh-3.5rem)] shrink-0 flex-col overflow-hidden border-r border-line bg-canvas-sub transition-[width] duration-300 ease-out motion-reduce:transition-none lg:flex ${collapsed ? 'w-[4.5rem] items-center p-3' : 'w-72 p-3'}`
 export const STAFF_TOPBAR =
   'staff-topbar sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-line bg-canvas-sub px-3.5 shadow-bar dark:shadow-none'
 export const STAFF_MAIN = 'mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-10 lg:py-6'

@@ -1,7 +1,7 @@
 import type { Product } from '../../src/data/products'
 import type { ProductVariant } from '../../src/service/fetchProductList'
 
-// Shop products as the API gives them, loaded in full: no sale price, rating, badge or channels, and a brand in place of the boutique.
+// Shop products as the API gives them, loaded in full: no sale price, rating or badge, and a brand in place of the boutique.
 // Ids are plain strings because the unit tests never go near the network.
 
 export const variant = (id: string, size: string | null, color: string | null, over: Partial<ProductVariant> = {}): ProductVariant => ({
@@ -35,7 +35,6 @@ export function shopProduct(id: string, name: string, variants: ProductVariant[]
     colors: [...colors.values()],
     badges: [],
     stock: variants.reduce((sum, v) => sum + v.stock, 0),
-    channels: [],
     arReady: false,
     addedAt: '2026-05-01T08:00:00.000Z',
     rating: 0,
@@ -58,5 +57,5 @@ export const BLAZER = shopProduct('p02', 'Fence-Line Blazer', [variant('p02-m-bl
 /** Every variant sold out. */
 export const SOLD_OUT = shopProduct('p24', 'Field Denim Jacket', [variant('p24-m-indigo', 'M', 'Indigo', { stock: 0 })], { category: 'Hoodie' })
 
-/** A second brand, for pieces that cannot share a pickup. */
+/** A second brand, for pieces from a different boutique. */
 export const TROUSERS = shopProduct('p03', 'Wool Trousers', [variant('p03-30-black', '30', 'Black', { stock: 8, price: 2600 })], { category: 'Pants', boutique: 'Binondo Basics' })

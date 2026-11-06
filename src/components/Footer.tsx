@@ -8,8 +8,8 @@ const ClothingRack = lazy(() =>
   import('./ClothingRack').then((m) => ({ default: m.ClothingRack })),
 )
 
-// The rack belongs to the landing and about pages only.
-const RACK_PATHS = ['/', '/about']
+// The rack belongs to the about page only.
+const RACK_PATHS = ['/about']
 
 const EXPLORE_LINKS = [
   { label: 'Shop', href: '/shop' },
@@ -75,7 +75,7 @@ export function Footer() {
               SilhouFit
             </span>
             <p className="mt-3 max-w-[26ch] text-sm leading-relaxed text-fg-muted">
-              Omnichannel store platform with browser-based AR fitting and
+              E-commerce platform with browser-based AR fitting and
               retail analytics. A capstone project, not a live storefront.
             </p>
           </div>

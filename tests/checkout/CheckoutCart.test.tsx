@@ -22,10 +22,9 @@ const placeMock = vi.mocked(placeOrder)
 vi.setConfig({ testTimeout: 30000 })
 
 const SHIRT = shopProduct('p17', 'Rail White Shirt', [variant('p17-l-white', 'L', 'White', { price: 1790 })])
-const JACKET = shopProduct('p12', 'Hook Wall Jacket', [variant('p12-m-olive', 'M', 'Olive', { price: 3790 })], { boutique: 'Lumban Loom', channels: ['store'] })
-const PULLOVER = shopProduct('p05', 'Cable Knit Pullover', [variant('p05-m-sand', 'M', 'Sand', { price: 1500 })], { channels: ['online'] })
+const PULLOVER = shopProduct('p05', 'Cable Knit Pullover', [variant('p05-m-sand', 'M', 'Sand', { price: 1500 })])
 const TROUSERS = shopProduct('p04', 'Wool Trousers', [variant('p04-30-indigo', '30', 'Indigo', { price: 2600 })], { boutique: 'Lumban Loom' })
-const PIECES = [POLO, BLAZER, SOLD_OUT, SHIRT, JACKET, PULLOVER, TROUSERS]
+const PIECES = [POLO, BLAZER, SOLD_OUT, SHIRT, PULLOVER, TROUSERS]
 
 const NAVY = 'p01-m-navy' // 2,100
 const SHIRT_L = 'p17-l-white' // 1,790
@@ -78,7 +77,7 @@ const where = () => screen.getByTestId('where').textContent
 const placeButton = () => screen.getByRole('button', { name: /Place order|Placing order/ })
 const user = () => userEvent.setup({ delay: null })
 
-// Same boutique (Ayala Atelier), both sold online and in store.
+// Same boutique (Ayala Atelier).
 const seedTwoAyala = () => {
   server.seed(NAVY, 2)
   server.seed(SHIRT_L, 1)
@@ -151,22 +150,8 @@ describe('CheckoutPage from the cart', () => {
     server.seed('p04-30-indigo', 1) // Lumban Loom
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
-    expect(screen.queryByRole('radio', { name: /Pick up in store/ })).toBeNull()
     expect(screen.queryByRole('alert')).toBeNull()
     expect(placeButton()).toBeEnabled()
-  })
-
-  it('blocks the order with an alert when a piece is store-only', async () => {
-    const u = user()
-    server.seed('p12-m-olive', 1) // store only
-    renderCheckout()
-    await screen.findByRole('heading', { name: 'Hook Wall Jacket' })
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      "Hook Wall Jacket is sold in store only and can't be delivered. Remove it from your order to check out.",
-    )
-    expect(placeButton()).toBeDisabled()
-    await u.click(placeButton())
-    expect(placeMock).not.toHaveBeenCalled()
   })
 
   it('sends one order for all lines with one shipping fee', async () => {

@@ -1,5 +1,4 @@
 // The accounts API as the admin pages use it, answered from the saved accounts (accountStore). Each function names the endpoint that replaces it.
-import { ALLOW_SKIP_PASSWORD_CHANGE } from '../config/accountPolicy'
 import type { ActivityEntry, ActivityKind, AdminAccount, BaseAccount, Credentials, Customer, StaffAccount, SuperadminAccount } from '../types/accounts'
 import { queryAccounts, type AccountPage, type AccountQuery } from '../utils/accountQuery'
 import { validatePassword } from '../utils/signUpValidation'
@@ -327,34 +326,44 @@ export async function restoreAdminAccount(id: string, { signal, delayMs = 600 }:
 
 // ---- The signed-in person ----
 
-/** REPLACE: POST /auth/change-password  { newPassword }. The first-login screen has just signed in with the temporary password, so no current password is asked. */
-export async function changePassword(accountId: string, newPassword: string, { signal, delayMs = 700 }: RequestOptions = {}) {
+/** 403 `invalid_current_password` from the API. */
+export class WrongPasswordError extends AccountError {
+  constructor() {
+    super('wrong-password', 'That is not your current password.')
+  }
+}
+/** 422 `same_password` from the API. */
+export class SamePasswordError extends AccountError {
+  constructor() {
+    super('same', 'The new password must differ from the current one.')
+  }
+}
+
+/** REPLACE: POST /users/me/password  { currentPassword, newPassword }  (see service/changePassword). */
+export async function changePassword(accountId: string, currentPassword: string, newPassword: string, { signal, delayMs = 700 }: RequestOptions = {}) {
   await wait(delayMs, signal)
   const problem = validatePassword(newPassword)
-  if (problem) throw new ValidationError(problem)
   updateAccounts((draft) => {
     const account = [...draft.staff, ...draft.admins, ...draft.superadmins].find((a) => a.id === accountId)
     if (!account) throw new NotFoundError()
+    if (draft.passwords[accountId] !== currentPassword) throw new WrongPasswordError()
+    if (problem) throw new ValidationError(problem)
+    if (newPassword === currentPassword) throw new SamePasswordError()
     draft.passwords[accountId] = newPassword
     account.mustChangePassword = false
   })
-}
-
-/** REPLACE: POST /auth/skip-password-change. Leaves the account flagged, so the screen returns on the next sign-in. */
-export async function skipPasswordChange({ signal, delayMs = 200 }: RequestOptions = {}) {
-  await wait(delayMs, signal)
-  if (!ALLOW_SKIP_PASSWORD_CHANGE) throw new ForbiddenError('You need to change your password before you continue.')
 }
 
 export interface AccountSummary {
   customers: number
   staff: number
   admins: number
+  superadmins: number
 }
 
 /** REPLACE: GET /admin/summary */
 export async function getAccountSummary({ signal, delayMs = 700 }: RequestOptions = {}): Promise<AccountSummary> {
   await wait(delayMs, signal)
-  const { customers, staff, admins } = getAccounts()
-  return { customers: customers.length, staff: staff.length, admins: admins.length }
+  const { customers, staff, admins, superadmins } = getAccounts()
+  return { customers: customers.length, staff: staff.length, admins: admins.length, superadmins: superadmins.length }
 }

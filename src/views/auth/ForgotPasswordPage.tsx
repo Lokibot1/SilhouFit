@@ -1,24 +1,22 @@
-import { motion } from 'motion/react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { AuthHeading, AuthSplit } from '../../components/auth/AuthSplit'
 import { FloatingField } from '../../components/form/FloatingField'
 import { AlertIcon, CheckIcon, MailIcon, SpinnerIcon } from '../../components/form/icons'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { useToast } from '../../components/toast/useToast'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
-import { DURATION, EASE_OUT } from '../../motion/tokens'
-import { Reveal } from '../../motion/Reveal'
 import { requestPasswordReset } from '../../service/requestPasswordReset'
 import { normalizeEmail, stripEmoji, validateEmail } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
-  'Forgot your SilhouFit password? Enter your email and we will send a link to choose a new one. The link works for 30 minutes, then you can sign in again.'
+  'Forgot your KRAL password? Enter your email and we will send a link to choose a new one. The link works for 30 minutes, then you can sign in again.'
 
 type Status = 'editing' | 'pending' | 'success' | 'error'
 
 export function ForgotPasswordPage() {
-  useDocumentTitle('Reset your password — SilhouFit')
+  useDocumentTitle('Reset your password — KRAL')
   useMetaDescription(META_DESCRIPTION)
 
   const toast = useToast()
@@ -79,16 +77,16 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh flex-col items-center justify-center px-4 py-14 max-[359px]:px-3 sm:px-6">
-      <Reveal>
-        <h1 className="display mb-3 text-center text-[clamp(1.75rem,4vw,2.5rem)] text-fg">Reset your password</h1>
-      </Reveal>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: DURATION.shift, ease: EASE_OUT }}
-        className="glass-card glass-elevated w-full max-w-md rounded-xl px-4 py-4 wrap-break-word max-[359px]:px-3 sm:px-6 sm:py-6 short:py-4"
-      >
+    <AuthSplit photo={false}>
+      <div className="[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3">
+        <AuthHeading
+          title="Reset your password"
+          subtitle={
+            status === 'success'
+              ? 'Check your email.'
+              : "Enter the email you signed up with and we'll send you a link to choose a new password."
+          }
+        />
         {status === 'success' ? (
           <div>
             <span className="flex size-10 items-center justify-center rounded-full border border-line-strong text-success">
@@ -103,10 +101,7 @@ export function ForgotPasswordPage() {
             </Link>
           </div>
         ) : (
-          <form noValidate onSubmit={onSubmit} aria-busy={pending} className="[&>*+*]:mt-2.5">
-            <p className="text-xs leading-snug text-fg-muted">
-              Enter the email you signed up with and we'll send you a link to choose a new password.
-            </p>
+          <form noValidate onSubmit={onSubmit} aria-busy={pending} className="[&>*+*]:mt-4 lg:[&>*+*]:mt-3">
             <FloatingField
               id="forgot-email"
               label="Email"
@@ -152,7 +147,7 @@ export function ForgotPasswordPage() {
             </Link>
           </form>
         )}
-      </motion.div>
-    </div>
+      </div>
+    </AuthSplit>
   )
 }

@@ -4,7 +4,7 @@ import { Avatar } from '../../ui/Avatar'
 interface AccountNameProps {
   account: { firstName: string; lastName: string }
   /** The line under the name: an email or a username. */
-  sub: string
+  sub?: string
   /** The cell is the row's open button (a customer row opens its drawer). */
   asButton?: boolean
 }
@@ -17,7 +17,7 @@ export function AccountName({ account, sub, asButton }: AccountNameProps) {
       <Avatar name={name} size="sm" />
       <span className="min-w-0">
         <span className="block truncate text-base font-semibold text-fg">{name}</span>
-        <span className="block truncate text-base font-normal text-fg-muted @4xl:text-sm">{sub}</span>
+        {sub && <span className="block truncate text-base font-normal text-fg-muted @4xl:text-sm">{sub}</span>}
       </span>
     </>
   )

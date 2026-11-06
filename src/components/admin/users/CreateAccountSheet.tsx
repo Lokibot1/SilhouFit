@@ -19,11 +19,17 @@ interface CreateAccountSheetProps {
   /** "staff" or "admin", for the title and the toast. */
   noun: string
   create: (input: NewAccountInput) => Promise<{ credentials: Credentials }>
+  /** The server makes the username, email and password: the form asks for names only and previews nothing. */
+  server?: boolean
+  /** Usernames already on the list, for the email preview in server mode. */
+  taken?: string[]
+  /** Runs once the account exists, so the list can load again. */
+  onCreated?: () => void
 }
 
 /** Creates a staff or admin account: the form, then the credentials once. Give it a new `key` for every open so it starts empty. */
-export function CreateAccountSheet({ open, onClose, noun, create }: CreateAccountSheetProps) {
-  const flow = useCreateAccountFlow(create, noun)
+export function CreateAccountSheet({ open, onClose, noun, create, server, taken, onCreated }: CreateAccountSheetProps) {
+  const flow = useCreateAccountFlow(create, noun, onCreated, taken)
   const { values, errors, username, pending, credentials, failure } = flow
 
   function onSubmit(event: FormEvent) {
@@ -65,18 +71,20 @@ export function CreateAccountSheet({ open, onClose, noun, create }: CreateAccoun
             </button>
             <button type="submit" form={FORM_ID} disabled={pending} aria-busy={pending} className={PRIMARY_BUTTON}>
               {pending && <SpinnerIcon />}
-              {pending ? 'Creating…' : 'Create account'}
+              {pending ? 'Creating…' : server ? 'Create Account' : 'Create account'}
             </button>
           </div>
         )
       }
     >
       {credentials ? (
-        <CredentialsPanel credentials={credentials} heading={`${values.firstName.trim()} ${values.lastName.trim()}`} canReset={noun !== 'superadmin'} />
+        <CredentialsPanel credentials={credentials} heading={`${values.firstName.trim()} ${values.lastName.trim()}`} canReset={noun !== 'superadmin'} demo={!server} />
       ) : (
         <form id={FORM_ID} noValidate onSubmit={onSubmit} aria-busy={pending} className="grid gap-4 pb-5">
           <p className="text-xs text-fg-muted">
-            A username and a temporary password are made for you. The new {noun} member signs in with them and chooses their own password.
+            {server
+              ? 'The email is made from the names. The password is generated when the account is created.'
+              : `A username and a temporary password are made for you. The new ${noun} member signs in with them and chooses their own password.`}
           </p>
           <Field id={fieldId('firstName')} label="First name" count={{ value: values.firstName.length, max: LIMITS.nameMaxLength }} error={errors.firstName}>
             <input {...input('firstName', { autoComplete: 'off' })} type="text" />
@@ -84,17 +92,29 @@ export function CreateAccountSheet({ open, onClose, noun, create }: CreateAccoun
           <Field id={fieldId('lastName')} label="Last name" count={{ value: values.lastName.length, max: LIMITS.nameMaxLength }} error={errors.lastName}>
             <input {...input('lastName', { autoComplete: 'off' })} type="text" />
           </Field>
-          <Field id={fieldId('phone')} label="Phone" optional count={{ value: phoneLength, max: PHONE_MAX }} error={errors.phone}>
-            <input {...input('phone', { inputMode: 'tel' })} type="tel" placeholder="+639171234567" />
-          </Field>
-          <dl className="grid gap-1 rounded-xl border border-line bg-canvas-sub p-3 text-sm">
-            <dt className="text-fg-muted">Username</dt>
-            <dd className="font-mono text-base font-semibold break-all text-fg" aria-live="polite">
-              {username ?? 'Enter both names to see it'}
-            </dd>
-            <dt className="mt-1 text-fg-muted">Sign-in email</dt>
-            <dd className="font-mono text-base break-all text-fg">{username ? `${username}@${ACCOUNT_EMAIL_DOMAIN}` : '—'}</dd>
-          </dl>
+          {server && (
+            <dl className="grid gap-1 rounded-xl border border-line bg-canvas-sub p-3 text-sm">
+              <dt className="text-fg-muted">Sign-in email</dt>
+              <dd className="font-mono text-base break-all text-fg" aria-live="polite">
+                {username ? `${username}@${ACCOUNT_EMAIL_DOMAIN}` : 'Enter both names to see it'}
+              </dd>
+            </dl>
+          )}
+          {!server && (
+            <>
+              <Field id={fieldId('phone')} label="Phone" optional count={{ value: phoneLength, max: PHONE_MAX }} error={errors.phone}>
+                <input {...input('phone', { inputMode: 'tel' })} type="tel" placeholder="+639171234567" />
+              </Field>
+              <dl className="grid gap-1 rounded-xl border border-line bg-canvas-sub p-3 text-sm">
+                <dt className="text-fg-muted">Username</dt>
+                <dd className="font-mono text-base font-semibold break-all text-fg" aria-live="polite">
+                  {username ?? 'Enter both names to see it'}
+                </dd>
+                <dt className="mt-1 text-fg-muted">Sign-in email</dt>
+                <dd className="font-mono text-base break-all text-fg">{username ? `${username}@${ACCOUNT_EMAIL_DOMAIN}` : '—'}</dd>
+              </dl>
+            </>
+          )}
           {failure && (
             <div role="alert" className="flex items-start gap-3 rounded-xl border border-danger p-3">
               <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />

@@ -45,7 +45,7 @@ export function ForBoutiques() {
           <Reveal delay={0.14}>
             <p className="mt-6 text-base leading-relaxed text-fg-muted">
               The admin side surfaces sales performance, inventory turnover,
-              and revenue trends pulled from both channels. It also tracks how
+              and revenue trends from the storefront. It also tracks how
               often a virtual fitting session leads to a purchase, so a store
               can see whether the AR module is doing its job.
             </p>

@@ -1,0 +1,43 @@
+/* KRAL palette for the login and sign up pages. The form sits on the Obsidian and red shader in both themes, so the
+   tokens are always the dark set. Utilities read --color-*, other rules read the plain tokens, so both are set. */
+.kral-login {
+  --canvas: #161113;
+  --fg: #fffbfd;
+  --fg-muted: #eeeced;
+  --line: #322d2f;
+  --line-strong: #85807c;
+  --chrome-strong: #eeeced;
+  --color-canvas: var(--canvas);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-chrome-strong: var(--chrome-strong);
+}
+
+/* Without the photo the page is always dark, so there is no theme to switch. */
+body:has(.kral-login--bare) .auth-toggle-slot {
+  display: none;
+}
+
+/* Desktop, where the photo panel shows: tighter fields and buttons so a long form like sign up fits one screen.
+   Phones and tablets keep 44px targets and 16px text (tap target, no iOS zoom). Unlayered, so it beats the
+   component-layer field rules; the floated label keeps its own 11px size. */
+@media (min-width: 64rem) {
+  .kral-login .field {
+    --field-h: 40px;
+  }
+
+  .kral-login .field__input {
+    font-size: 14px;
+  }
+
+  .kral-login .field__input:not(:focus):placeholder-shown ~ .field__label {
+    font-size: 14px;
+  }
+
+  .kral-login .btn-lift {
+    min-height: 40px;
+    font-size: 14px;
+  }
+}

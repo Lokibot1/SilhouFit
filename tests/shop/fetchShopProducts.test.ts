@@ -41,13 +41,13 @@ beforeEach(() => {
 })
 
 describe('fetchShopProducts', () => {
-  it('adapts list items without inventing a sale price, colours, badges, channels or ratings', async () => {
+  it('adapts list items without inventing a sale price, colours, badges or ratings', async () => {
     const result = await fetchShopProducts({ page: 2, limit: 12 })
     expect(list).toHaveBeenCalledWith({ page: 2, limit: 12 }, expect.anything())
     expect(result).toMatchObject({ total: 30, page: 2, pageCount: 3 })
     expect(result.products[0]).toMatchObject({
       id: 'a', slug: 'tee', category: 'Hoodie', boutique: 'Nike', price: 500, priceMax: 700, image: '/t.webp', stock: 4,
-      colors: [], badges: [], channels: [], arReady: false, rating: 0, reviews: 0,
+      colors: [], badges: [], arReady: false, rating: 0, reviews: 0,
     })
     expect(result.products[0].salePrice).toBeUndefined()
     expect(result.products[1]).toMatchObject({ boutique: '', category: 'Hats', image: '', stock: 0 })

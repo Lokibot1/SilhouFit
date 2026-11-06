@@ -12,7 +12,7 @@ export interface ShopApiPage {
 const priceRange = (min: number, max: number) => ({ price: min, ...(max > min && { priceMax: max }) })
 
 /**
- * A list item as a shop product. The API sends no sale price, badges, channels, ratings or boutique details, so those stay
+ * A list item as a shop product. The API sends no sale price, badges, ratings or boutique details, so those stay
  * empty (the UI hides them) and `brand` stands in for the boutique. Stock is the API's `totalStock`; colours come with the list item
  * (one per name, the first swatch wins) and sizes with the detail.
  */
@@ -31,7 +31,6 @@ function toShopProduct(item: ProductListItem): Product {
     colors: [...colors.values()],
     badges: [],
     stock: item.totalStock,
-    channels: [],
     arReady: item.arReady ?? false,
     addedAt: item.createdAt,
     rating: 0,

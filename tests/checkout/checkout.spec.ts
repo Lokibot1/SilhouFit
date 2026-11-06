@@ -85,7 +85,6 @@ test('Buy now to success: delivery total and ETA, then Back does not return to t
 
   await expect(summary(page)).toContainText('₱1,989.00') // 1,890 + 99 delivery
   await expect(summary(page)).toContainText(/Arrives \w{3}, \w{3} \d+ – \w{3}, \w{3} \d+/)
-  await expect(page.getByRole('radio', { name: /Pick up in store/ })).toHaveCount(0)
   await fillAddress(page)
   await choose(page, /Cash on delivery/)
 

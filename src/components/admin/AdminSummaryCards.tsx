@@ -7,12 +7,10 @@ import { getAccountSummary, type AccountSummary } from '../../service/accountSer
 import { getArFigures, getRefundFigures, getStockFigures, type ArFigures, type RefundFigures, type StockFigures } from '../../service/adminOverview'
 import { LOW_STOCK } from '../../data/products'
 import type { RequestOptions } from '../../service/simulateRequest'
-import { ArIcon, BoxIcon, RestoreIcon, SettingsIcon, UserIcon, UsersIcon } from '../form/icons'
+import { ArIcon, BoxIcon, LockIcon, RestoreIcon, SettingsIcon, UserIcon, UsersIcon } from '../form/icons'
 import { SectionBody } from '../staff/StaffSection'
 import { STAFF_SECTION, STAT_CARD, STAT_CONTEXT, STAT_LABEL, STAT_VALUE, statIcon, type StatTone } from '../staff/StaffSkeleton'
 
-// Six cards in even rows (1, 2, 3 or 6 across) by the width the section is given, sidebar open or collapsed, so none is squeezed under 13rem and none is left alone on a row.
-const GRID = 'grid gap-3 @[28rem]:grid-cols-2 @3xl:grid-cols-3 @[84rem]:grid-cols-6'
 // Wrap instead of truncating (the shared classes cut a long label off with an ellipsis).
 const LABEL = STAT_LABEL.replace('truncate ', '')
 const CONTEXT = STAT_CONTEXT.replace('truncate ', '')
@@ -61,26 +59,44 @@ function Card({ index, icon: Icon, tone, label, value, context, to, action }: Ca
   )
 }
 
-/** Customers, staff and admins, from one request. */
-function AccountCards() {
+/** Customers, staff and admins from one request, plus superadmins on the superadmin's side. Each card opens its tab on the user management page. */
+export function AccountCards({ base = '/admin', superadmins = false }: { base?: '/admin' | '/superadmin'; superadmins?: boolean }) {
   const section = useSection(getAccountSummary)
   const skeleton = (
     <>
       <CardSkeleton label="Loading customers" />
       <CardSkeleton label="Loading staff" />
       <CardSkeleton label="Loading admins" />
+      {superadmins && <CardSkeleton label="Loading superadmins" />}
     </>
   )
   return (
     <SectionBody section={section} what="the account figures" skeleton={skeleton} errorClassName={`${STAFF_SECTION} col-span-full`}>
       {(summary: AccountSummary) => (
         <>
-          <Card index={0} icon={UsersIcon} tone="rose" label="Customers" value={summary.customers} context="Registered shoppers" to="/admin/users?tab=customers" action="open customer list" />
-          <Card index={1} icon={UserIcon} tone="success" label="Staff" value={summary.staff} context="Including archived" to="/admin/users?tab=staff" action="open staff list" />
-          <Card index={2} icon={SettingsIcon} tone="violet" label="Admins" value={summary.admins} context="Including archived" to="/admin/users?tab=admins" action="open admin list" />
+          <Card index={0} icon={UsersIcon} tone="rose" label="Customers" value={summary.customers} context="Registered shoppers" to={`${base}/users?tab=customers`} action="open customer list" />
+          <Card index={1} icon={UserIcon} tone="success" label="Staff" value={summary.staff} context="Including archived" to={`${base}/users?tab=staff`} action="open staff list" />
+          <Card index={2} icon={SettingsIcon} tone="violet" label="Admins" value={summary.admins} context="Including archived" to={`${base}/users?tab=admins`} action="open admin list" />
+          {superadmins && (
+            <Card index={3} icon={LockIcon} tone="info" label="Superadmins" value={summary.superadmins} context="Full access accounts" to={`${base}/users?tab=superadmins`} action="open superadmin list" />
+          )}
         </>
       )}
     </SectionBody>
+  )
+}
+
+/** The account cards across the top of the user management page: always one row, three cards or four for a superadmin. */
+export function AccountSummaryCards({ base, superadmins }: { base: '/admin' | '/superadmin'; superadmins: boolean }) {
+  return (
+    <section aria-labelledby="account-figures" className="@container">
+      <h2 id="account-figures" className="sr-only">
+        Accounts at a glance
+      </h2>
+      <div className="grid auto-cols-fr grid-flow-col gap-3">
+        <AccountCards base={base} superadmins={superadmins} />
+      </div>
+    </section>
   )
 }
 
@@ -145,30 +161,15 @@ export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'
   )
 }
 
-/** The operations cards on their own, for the staff dashboard. */
-export function OperationsSummary() {
+/** The operations cards on their own, for the staff and admin dashboards. The account counts live on the user management page. */
+export function OperationsSummary({ base = '/staff' }: { base?: '/admin' | '/staff' }) {
   return (
     <section aria-labelledby="operations-figures" className="@container">
       <h2 id="operations-figures" className="sr-only">
         Refunds, AR and stock at a glance
       </h2>
       <div className="grid gap-3 @[28rem]:grid-cols-2 @3xl:grid-cols-3">
-        <OperationsCards base="/staff" />
-      </div>
-    </section>
-  )
-}
-
-/** The account counts and the operations figures across the top of the admin dashboard. */
-export function AdminSummaryCards() {
-  return (
-    <section aria-labelledby="account-figures" className="@container">
-      <h2 id="account-figures" className="sr-only">
-        Accounts at a glance
-      </h2>
-      <div className={GRID}>
-        <AccountCards />
-        <OperationsCards base="/admin" first={3} />
+        <OperationsCards base={base} />
       </div>
     </section>
   )

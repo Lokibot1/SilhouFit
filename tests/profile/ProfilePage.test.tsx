@@ -1,12 +1,13 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { getBodyProfile } from '../../src/service/bodyProfile'
 import { fetchMe, MeError, type Me } from '../../src/service/fetchMe'
 import { updateMe, UpdateMeError } from '../../src/service/updateMe'
+import { setLoginNotice, takeLoginNotice } from '../../src/service/loginNotice'
 import { clearSession, getSession, setSession } from '../../src/service/session'
 import { ProfilePage } from '../../src/views/private/ProfilePage'
 
@@ -161,6 +162,70 @@ describe('ProfilePage', () => {
     expect(screen.queryByRole('region', { name: /delivery address/i }) !== null).toBe(shown)
   })
 
+  it.each([
+    ['customer', undefined, true],
+    ['staff', undefined, true],
+    ['admin', undefined, true],
+    ['superadmin', undefined, true],
+    [undefined, undefined, true],
+    ['customer', true, true],
+    ['customer', false, false],
+    ['staff', false, false],
+    ['admin', false, false],
+    ['superadmin', false, false],
+  ] as const)('shows Change password for a %s with canChangePassword %s: %s, and Sign out has its icon for everyone', async (role, can, shown) => {
+    load.mockResolvedValue({ ...ME, role, canChangePassword: can })
+    act(() => setSession({ name: 'Anne Santos', email: ME.email, role }))
+    render(
+      <MemoryRouter initialEntries={[role && role !== 'customer' ? `/${role}/profile` : '/profile']}>
+        <ToastProvider>
+          <Routes>
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/:role/profile" element={<ProfilePage />} />
+          </Routes>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Anne Santos' })
+    const change = screen.queryByRole('button', { name: 'Change password' })
+    expect(change !== null).toBe(shown)
+    if (change) expect(change.querySelector('svg')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Sign out' }).querySelector('svg')).not.toBeNull()
+  })
+
+  it.each(['staff', 'admin', 'superadmin', 'customer'] as const)('opens the same closable Change password sheet for a %s', async (role) => {
+    const user = userEvent.setup()
+    load.mockResolvedValue({ ...ME, role })
+    act(() => setSession({ name: 'Anne Santos', email: ME.email, role }))
+    render(
+      <MemoryRouter initialEntries={[role === 'customer' ? '/profile' : `/${role}/profile`]}>
+        <ToastProvider>
+          <Routes>
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/:role/profile" element={<ProfilePage />} />
+          </Routes>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Change password' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Change password' })
+    expect(within(dialog).getByLabelText('Current password')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('New password')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Confirm password')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Close Change password' })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+  })
+
+  it('goes to plain sign in, without a next, when the session ends after a password change', async () => {
+    load.mockResolvedValue(ME)
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Anne Santos' })
+    setLoginNotice('password-changed')
+    act(() => clearSession())
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/login$/))
+    takeLoginNotice()
+  })
+
   it('explains a missing profile with Sign out and no retry', async () => {
     load.mockRejectedValue(new MeError('not-found'))
     renderPage()
@@ -186,6 +251,25 @@ describe('ProfilePage', () => {
     expect(getSession()).toBeNull()
     expect(signOutSupabase).toHaveBeenCalled()
     expect(screen.getByText('Signed out')).toBeInTheDocument()
+  })
+
+  it('tells the surrounding staff shell about a chosen sign out', async () => {
+    const user = userEvent.setup()
+    const onSignOut = vi.fn()
+    load.mockResolvedValue(ME)
+    render(
+      <MemoryRouter initialEntries={['/staff/profile']}>
+        <ToastProvider>
+          <Routes>
+            <Route element={<Outlet context={{ onSignOut }} />}>
+              <Route path="/staff/profile" element={<ProfilePage />} />
+            </Route>
+          </Routes>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Sign out' }))
+    expect(onSignOut).toHaveBeenCalledTimes(1)
   })
 
   describe('editing the profile', () => {

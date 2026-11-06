@@ -2,9 +2,8 @@ import { simulateRequest, type RequestOptions } from './simulateRequest'
 
 export interface OrderPayload {
   items: { id: string; size: string; color: string; qty: number }[]
-  fulfilment: 'delivery' | 'pickup'
+  fulfilment: 'delivery'
   payment: string
-  /** Only for delivery. */
   address?: { fullName: string; phone: string; street: string; city: string; postal: string }
   note: string
   total: number
