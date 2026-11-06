@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAccounts } from '../../../hooks/useAccounts'
-import { createSuperadminAccountApi, listSuperadminAccounts } from '../../../service/staffApi'
+import { inviteSuperadminAccountApi, listSuperadminAccounts } from '../../../service/staffApi'
 import type { SuperadminAccount } from '../../../types/accounts'
 import { PlusIcon } from '../../form/icons'
 import { AddedDate } from '../../staff/inventory/InventoryParts'
@@ -11,9 +11,7 @@ import { AccountTable, type AccountColumn } from './AccountTable'
 import { AccountToolbar } from './AccountToolbar'
 import { CreateAccountSheet } from './CreateAccountSheet'
 
-const create = async ({ firstName, lastName }: { firstName: string; lastName: string }) => ({ credentials: (await createSuperadminAccountApi({ firstName, lastName })).credentials })
-
-/** Superadmins can add each other and be listed and searched, from the server. Nobody can reset or archive a superadmin, so there are no row actions or status. */
+/** Superadmins can invite each other and be listed and searched, from the server. The tab offers no row actions or status filter. */
 export function SuperadminsTab() {
   const list = useAccounts(listSuperadminAccounts, 'name')
   const [creating, setCreating] = useState(false)
@@ -62,12 +60,12 @@ export function SuperadminsTab() {
         empty={
           <>
             <p className="text-base font-semibold text-fg">No superadmin accounts yet</p>
-            <p className="mt-1 mb-3 text-base text-fg-muted">Add a superadmin account to give someone full access.</p>
+            <p className="mt-1 mb-3 text-base text-fg-muted">Invite a superadmin account to give someone full access.</p>
             {add}
           </>
         }
       />
-      <CreateAccountSheet key={session} open={creating} onClose={() => setCreating(false)} noun="superadmin" create={create} server taken={list.result?.data.map((a) => a.username)} onCreated={list.retry} />
+      <CreateAccountSheet key={session} open={creating} onClose={() => setCreating(false)} noun="superadmin" invite={inviteSuperadminAccountApi} onCreated={list.retry} />
     </section>
   )
 }

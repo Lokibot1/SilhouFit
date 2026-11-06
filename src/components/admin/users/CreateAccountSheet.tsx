@@ -1,43 +1,53 @@
-import type { FormEvent } from 'react'
-import { ACCOUNT_EMAIL_DOMAIN } from '../../../config/accountPolicy'
+import type { FormEvent, ReactNode } from 'react'
 import { fieldId, useCreateAccountFlow } from '../../../hooks/useCreateAccountFlow'
-import type { NewAccountInput } from '../../../service/accountService'
-import type { Credentials } from '../../../types/accounts'
-import { normalizeAccountPhone, PHONE_MAX, type AccountFormField } from '../../../utils/accountValidation'
+import type { Invited, InviteInput } from '../../../service/staffApi'
+import { latestBirthday, type AccountFormField, type AccountGender } from '../../../utils/accountValidation'
 import { LIMITS } from '../../../utils/signUpValidation'
-import { AlertIcon, SpinnerIcon } from '../../form/icons'
-import { Field, FIELD_INPUT } from '../../staff/inventory/FormField'
+import { AlertIcon, CheckIcon, SpinnerIcon } from '../../form/icons'
+import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../../staff/inventory/FormField'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
-import { CredentialsPanel } from './CredentialsPanel'
+import { Select } from '../../ui/Select'
+import { Tooltip } from '../../ui/Tooltip'
 
 const FORM_ID = 'create-account-form'
+
+const GENDER_OPTIONS: { value: AccountGender; label: string }[] = [
+  { value: '', label: 'Not specified' },
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other', label: 'Other' },
+  { value: 'unisex', label: 'Unisex' },
+]
+
+/** The hint for an optional field: on mouse hover and on keyboard focus, never the field's accessible name. */
+const Hint = ({ label, children }: { label: string; children: ReactNode }) => (
+  <Tooltip label={label} wrap>
+    <div className="w-full min-w-0">{children}</div>
+  </Tooltip>
+)
 
 interface CreateAccountSheetProps {
   open: boolean
   onClose: () => void
-  /** "staff" or "admin", for the title and the toast. */
+  /** "staff", "admin" or "superadmin": the role the invitation gives, for the title and the toast. */
   noun: string
-  create: (input: NewAccountInput) => Promise<{ credentials: Credentials }>
-  /** The server makes the username, email and password: the form asks for names only and previews nothing. */
-  server?: boolean
-  /** Usernames already on the list, for the email preview in server mode. */
-  taken?: string[]
-  /** Runs once the account exists, so the list can load again. */
+  invite: (input: InviteInput) => Promise<Invited<unknown>>
+  /** Runs once the invitation is sent, so the list can load again. */
   onCreated?: () => void
 }
 
-/** Creates a staff or admin account: the form, then the credentials once. Give it a new `key` for every open so it starts empty. */
-export function CreateAccountSheet({ open, onClose, noun, create, server, taken, onCreated }: CreateAccountSheetProps) {
-  const flow = useCreateAccountFlow(create, noun, onCreated, taken)
-  const { values, errors, username, pending, credentials, failure } = flow
+/** Invites a staff, admin or superadmin account by email: the form, then a confirmation. Give it a new `key` for every open so it starts empty. */
+export function CreateAccountSheet({ open, onClose, noun, invite, onCreated }: CreateAccountSheetProps) {
+  const flow = useCreateAccountFlow(invite, noun, onCreated)
+  const { values, errors, pending, invitedEmail, failure } = flow
 
   function onSubmit(event: FormEvent) {
     event.preventDefault()
     void flow.submit()
   }
 
-  const input = (name: AccountFormField, extra: { inputMode?: 'tel'; autoComplete?: string }) => ({
+  const input = (name: AccountFormField, extra: { inputMode?: 'email'; autoComplete?: string }) => ({
     id: fieldId(name),
     value: values[name],
     readOnly: pending,
@@ -51,16 +61,14 @@ export function CreateAccountSheet({ open, onClose, noun, create, server, taken,
     className: FIELD_INPUT,
   })
 
-  const phoneLength = normalizeAccountPhone(values.phone).length
-
   return (
     <Modal
       variant="sheet"
       open={open}
       onClose={pending ? () => {} : onClose}
-      title={credentials ? `${noun[0].toUpperCase()}${noun.slice(1)} account created` : `Add ${noun} account`}
+      title={invitedEmail ? 'Invitation sent' : `Add ${noun} account`}
       footer={
-        credentials ? (
+        invitedEmail ? (
           <button type="button" onClick={onClose} className={`${PRIMARY_BUTTON} w-full sm:ml-auto sm:w-auto`}>
             Done
           </button>
@@ -71,50 +79,55 @@ export function CreateAccountSheet({ open, onClose, noun, create, server, taken,
             </button>
             <button type="submit" form={FORM_ID} disabled={pending} aria-busy={pending} className={PRIMARY_BUTTON}>
               {pending && <SpinnerIcon />}
-              {pending ? 'Creating…' : server ? 'Create Account' : 'Create account'}
+              {pending ? 'Sending…' : 'Send Invitation'}
             </button>
           </div>
         )
       }
     >
-      {credentials ? (
-        <CredentialsPanel credentials={credentials} heading={`${values.firstName.trim()} ${values.lastName.trim()}`} canReset={noun !== 'superadmin'} demo={!server} />
-      ) : (
-        <form id={FORM_ID} noValidate onSubmit={onSubmit} aria-busy={pending} className="grid gap-4 pb-5">
-          <p className="text-xs text-fg-muted">
-            {server
-              ? 'The email is made from the names. The password is generated when the account is created.'
-              : `A username and a temporary password are made for you. The new ${noun} member signs in with them and chooses their own password.`}
+      {invitedEmail ? (
+        <div role="status" className="flex items-start gap-3 pb-5">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line-strong text-success">
+            <CheckIcon />
+          </span>
+          <p className="min-w-0 text-base leading-relaxed wrap-anywhere text-fg">
+            Invitation sent to <strong className="font-semibold">{invitedEmail}</strong>. They will set their own password from the email link.
           </p>
+        </div>
+      ) : (
+        <form id={FORM_ID} noValidate onSubmit={onSubmit} aria-busy={pending} className="grid gap-4 pb-5 md:[&_.field]:[--field-h:44px] md:[&_[role=combobox]]:min-h-11">
+          <p className="text-base text-fg-muted sm:text-sm">We email them an invitation. They choose their own password from the link, so you never see or share one.</p>
           <Field id={fieldId('firstName')} label="First name" count={{ value: values.firstName.length, max: LIMITS.nameMaxLength }} error={errors.firstName}>
-            <input {...input('firstName', { autoComplete: 'off' })} type="text" />
+            <input {...input('firstName', {})} type="text" />
           </Field>
+          <Hint label="Optional. Leave it empty if they have no middle name.">
+            <Field id={fieldId('middleName')} label="Middle name" optional count={{ value: values.middleName.length, max: LIMITS.nameMaxLength }} error={errors.middleName}>
+              <input {...input('middleName', {})} type="text" />
+            </Field>
+          </Hint>
           <Field id={fieldId('lastName')} label="Last name" count={{ value: values.lastName.length, max: LIMITS.nameMaxLength }} error={errors.lastName}>
-            <input {...input('lastName', { autoComplete: 'off' })} type="text" />
+            <input {...input('lastName', {})} type="text" />
           </Field>
-          {server && (
-            <dl className="grid gap-1 rounded-xl border border-line bg-canvas-sub p-3 text-sm">
-              <dt className="text-fg-muted">Sign-in email</dt>
-              <dd className="font-mono text-base break-all text-fg" aria-live="polite">
-                {username ? `${username}@${ACCOUNT_EMAIL_DOMAIN}` : 'Enter both names to see it'}
-              </dd>
-            </dl>
-          )}
-          {!server && (
-            <>
-              <Field id={fieldId('phone')} label="Phone" optional count={{ value: phoneLength, max: PHONE_MAX }} error={errors.phone}>
-                <input {...input('phone', { inputMode: 'tel' })} type="tel" placeholder="+639171234567" />
-              </Field>
-              <dl className="grid gap-1 rounded-xl border border-line bg-canvas-sub p-3 text-sm">
-                <dt className="text-fg-muted">Username</dt>
-                <dd className="font-mono text-base font-semibold break-all text-fg" aria-live="polite">
-                  {username ?? 'Enter both names to see it'}
-                </dd>
-                <dt className="mt-1 text-fg-muted">Sign-in email</dt>
-                <dd className="font-mono text-base break-all text-fg">{username ? `${username}@${ACCOUNT_EMAIL_DOMAIN}` : '—'}</dd>
-              </dl>
-            </>
-          )}
+          <Hint label="Optional. Goes after the last name, like Jr. or III.">
+            <Field id={fieldId('suffix')} label="Suffix" optional count={{ value: values.suffix.length, max: LIMITS.suffixMaxLength }} error={errors.suffix}>
+              <input {...input('suffix', {})} type="text" />
+            </Field>
+          </Hint>
+          <Field id={fieldId('email')} label="Email" count={{ value: values.email.length, max: LIMITS.emailMaxLength }} error={errors.email}>
+            <input {...input('email', { inputMode: 'email' })} type="email" maxLength={LIMITS.emailMaxLength} />
+          </Field>
+          <Hint label="Optional. Pick a day before today.">
+            <Field id={fieldId('birthday')} label="Birthday" optional error={errors.birthday}>
+              <input {...input('birthday', {})} type="date" max={latestBirthday()} />
+            </Field>
+          </Hint>
+          <Hint label="Optional. Leave it as Not specified to skip it.">
+            <div className="w-full">
+              <SelectField label="Gender (optional)">
+                <Select label="Gender (optional)" value={values.gender} options={GENDER_OPTIONS} onChange={(gender) => flow.setField('gender', gender)} className={SELECT_FLAT} />
+              </SelectField>
+            </div>
+          </Hint>
           {failure && (
             <div role="alert" className="flex items-start gap-3 rounded-xl border border-danger p-3">
               <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
@@ -126,33 +139,6 @@ export function CreateAccountSheet({ open, onClose, noun, create, server, taken,
           )}
         </form>
       )}
-    </Modal>
-  )
-}
-
-interface CredentialsSheetProps {
-  open: boolean
-  /** Stays set while the sheet slides out. */
-  credentials: Credentials | null
-  heading: string
-  onClose: () => void
-}
-
-/** Shows new credentials after a password reset. */
-export function CredentialsSheet({ open, credentials, heading, onClose }: CredentialsSheetProps) {
-  return (
-    <Modal
-      variant="sheet"
-      open={open}
-      onClose={onClose}
-      title="Password reset"
-      footer={
-        <button type="button" onClick={onClose} className={`${PRIMARY_BUTTON} w-full sm:ml-auto sm:w-auto`}>
-          Done
-        </button>
-      }
-    >
-      {open && credentials && <CredentialsPanel credentials={credentials} heading={heading} />}
     </Modal>
   )
 }

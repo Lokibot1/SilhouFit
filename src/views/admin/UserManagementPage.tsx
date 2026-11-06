@@ -5,14 +5,12 @@ import { CustomersTab } from '../../components/admin/users/CustomersTab'
 import { StaffTab } from '../../components/admin/users/StaffTab'
 import { SuperadminsTab } from '../../components/admin/users/SuperadminsTab'
 import { SegmentedTabs } from '../../components/ui/SegmentedTabs'
-import { Tooltip } from '../../components/ui/Tooltip'
-import { ACCOUNTS_SAMPLE_DATA } from '../../config/accountPolicy'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 
 const META_DESCRIPTION =
-  'Look up SilhouFit customers and their orders, add staff and admin accounts, hand over temporary credentials, reset passwords and archive staff who have left.'
+  'Invite SilhouFit staff and admins by email, look up customers, and manage accounts: search, filter, send password resets, and deactivate or reactivate people.'
 
 const TABS = [
   { value: 'customers', label: 'Customers' },
@@ -34,16 +32,9 @@ export function UserManagementPage() {
   const tab: Tab = tabs.find((t) => t.value === requested)?.value ?? 'customers'
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3 md:[&_[role=combobox]]:min-h-11 md:[&_nav[aria-label=Pagination]_button]:min-h-11 md:[&_nav[aria-label=Pagination]_button]:min-w-11">
       <header className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         <h1 className="display min-w-0 text-2xl text-fg sm:text-3xl">User management</h1>
-        {ACCOUNTS_SAMPLE_DATA && tab === 'customers' && (
-          <Tooltip label="These accounts are saved in this browser only, until the accounts backend is connected." describe>
-            <span tabIndex={0} className="font-ui inline-flex h-8 items-center rounded-full border border-line-strong px-3 text-sm font-medium text-fg-muted">
-              Sample data
-            </span>
-          </Tooltip>
-        )}
       </header>
       <AccountSummaryCards base={superadmin ? '/superadmin' : '/admin'} superadmins={superadmin} />
       <div>

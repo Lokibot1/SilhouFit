@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useAccounts } from '../../../hooks/useAccounts'
-import { useArchiveAdmin } from '../../../hooks/useArchiveStaff'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
-import { useResetAdminPassword } from '../../../hooks/useResetStaffPassword'
-import { createAdminAccountApi, listAdminAccounts } from '../../../service/staffApi'
+import { useDeactivateAdmin } from '../../../hooks/useDeactivateAccount'
+import { useSendPasswordReset } from '../../../hooks/useSendPasswordReset'
+import { inviteAdminAccountApi, listAdminAccounts } from '../../../service/staffApi'
 import type { AdminAccount } from '../../../types/accounts'
 import { fullName } from '../../../utils/accountQuery'
-import { ArchiveIcon, LockIcon, PlusIcon, RestoreIcon } from '../../form/icons'
+import { ArchiveIcon, MailIcon, PlusIcon, RestoreIcon } from '../../form/icons'
 import { AddedDate, RowAction } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
@@ -18,17 +18,16 @@ import { StatusBadge } from './StatusBadge'
 
 const STATUSES = [
   { value: 'active' as const, label: 'Active' },
-  { value: 'archived' as const, label: 'Archived' },
+  { value: 'inactive' as const, label: 'Inactive' },
   { value: '' as const, label: 'All' },
 ]
 
-const create = async ({ firstName, lastName }: { firstName: string; lastName: string }) => ({ credentials: (await createAdminAccountApi({ firstName, lastName })).credentials })
 
-/** Admins can be added, listed and searched, from the server. Only a superadmin can reset, archive or restore an admin; the Status filter opens on Active. */
+/** Admins can be added, listed and searched, from the server. Only a superadmin can send a reset email to, deactivate or activate an admin; the Status filter opens on Active. */
 export function AdminsTab() {
   const list = useAccounts(listAdminAccounts, 'name', undefined, 'active')
-  const reset = useResetAdminPassword(list.retry)
-  const archive = useArchiveAdmin(list.retry)
+  const reset = useSendPasswordReset()
+  const deactivate = useDeactivateAdmin(list.retry)
   const superadmin = useCurrentUser()?.role === 'superadmin'
   const [creating, setCreating] = useState(false)
   const [session, setSession] = useState(0)
@@ -77,21 +76,21 @@ export function AdminsTab() {
         actions={
           superadmin
             ? (account) =>
-                account.status === 'archived' ? (
-                  <RowAction label={`Restore ${fullName(account)}`} icon={<RestoreIcon size={16} />} disabled={archive.pendingId === account.id} onClick={() => archive.restore(account)} />
+                account.status === 'inactive' ? (
+                  <RowAction label={`Activate ${fullName(account)}`} icon={<RestoreIcon size={16} />} disabled={deactivate.pendingId === account.id} onClick={() => deactivate.activate(account)} />
                 ) : (
                   <>
-                    <RowAction label={`Reset password for ${fullName(account)}`} icon={<LockIcon size={16} />} disabled={reset.pendingId === account.id || archive.pendingId === account.id} onClick={() => reset.ask(account)} />
-                    <RowAction label={`Archive ${fullName(account)}`} icon={<ArchiveIcon size={16} />} disabled={reset.pendingId === account.id || archive.pendingId === account.id} onClick={() => archive.ask(account)} />
+                    <RowAction label={`Send password reset email to ${fullName(account)}`} icon={<MailIcon size={16} />} disabled={reset.pendingId === account.id || deactivate.pendingId === account.id} onClick={() => reset.ask(account)} />
+                    <RowAction label={`Deactivate ${fullName(account)}`} icon={<ArchiveIcon size={16} />} disabled={reset.pendingId === account.id || deactivate.pendingId === account.id} onClick={() => deactivate.ask(account)} />
                   </>
                 )
             : undefined
         }
         emptyFiltered={
-          list.status === 'archived' && !list.text.trim() ? (
+          list.status === 'inactive' && !list.text.trim() ? (
             <>
-              <p className="text-base font-semibold text-fg">No archived admin accounts</p>
-              <p className="mt-1 mb-3 text-base text-fg-muted">Archived accounts show up here and can be restored.</p>
+              <p className="text-base font-semibold text-fg">No inactive admin accounts</p>
+              <p className="mt-1 mb-3 text-base text-fg-muted">Deactivated accounts show up here and can be activated again.</p>
               <button type="button" onClick={list.clear} className={`${SECONDARY_BUTTON} mt-3`}>
                 Show active admins
               </button>
@@ -101,14 +100,14 @@ export function AdminsTab() {
         empty={
           <>
             <p className="text-base font-semibold text-fg">No admin accounts yet</p>
-            <p className="mt-1 mb-3 text-base text-fg-muted">Add an admin account to give someone access to user management.</p>
+            <p className="mt-1 mb-3 text-base text-fg-muted">Invite an admin account to give someone access to user management.</p>
             {add}
           </>
         }
       />
-      <CreateAccountSheet key={session} open={creating} onClose={() => setCreating(false)} noun="admin" create={create} server taken={list.result?.data.map((a) => a.username)} onCreated={list.retry} />
+      <CreateAccountSheet key={session} open={creating} onClose={() => setCreating(false)} noun="admin" invite={inviteAdminAccountApi} onCreated={list.retry} />
       {reset.element}
-      {archive.element}
+      {deactivate.element}
     </section>
   )
 }

@@ -4,7 +4,11 @@ export type AccountStatus = 'active' | 'inactive' | 'archived'
 export interface BaseAccount {
   id: string
   firstName: string
+  /** Only when the server has one (the invite form takes it). */
+  middleName?: string
   lastName: string
+  /** Only when the server has one, e.g. Jr. */
+  suffix?: string
   email: string
   phone: string
   status: AccountStatus
@@ -17,7 +21,7 @@ export interface BaseAccount {
 export interface StaffAccount extends BaseAccount {
   role: 'staff'
   username: string
-  mustChangePassword: boolean
+  mustChangePassword?: boolean
   /** ISO time, set while the account is archived. */
   archivedAt?: string
 }
@@ -26,7 +30,7 @@ export interface StaffAccount extends BaseAccount {
 export interface AdminAccount extends BaseAccount {
   role: 'admin'
   username: string
-  mustChangePassword: boolean
+  mustChangePassword?: boolean
   /** ISO time, set while the account is archived. */
   archivedAt?: string
 }
@@ -36,7 +40,12 @@ export interface SuperadminAccount extends Omit<BaseAccount, 'status'> {
   role: 'superadmin'
   status: Exclude<AccountStatus, 'archived'>
   username: string
-  mustChangePassword: boolean
+  mustChangePassword?: boolean
+}
+
+/** A customer as the accounts API lists them: the profile only, no orders or spend. */
+export interface CustomerAccount extends BaseAccount {
+  role: 'customer'
 }
 
 export interface Customer extends BaseAccount {

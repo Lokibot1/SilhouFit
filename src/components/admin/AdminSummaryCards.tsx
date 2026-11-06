@@ -3,9 +3,10 @@ import type { ComponentType } from 'react'
 import { Link } from 'react-router-dom'
 import { useReveal } from '../../hooks/useReveal'
 import { useSection } from '../../hooks/useSection'
-import { getAccountSummary, type AccountSummary } from '../../service/accountService'
+import { useAccountCount } from '../../hooks/useAccountCount'
 import { getArFigures, getRefundFigures, getStockFigures, type ArFigures, type RefundFigures, type StockFigures } from '../../service/adminOverview'
 import { LOW_STOCK } from '../../data/products'
+import type { ManagedRole } from '../../service/staffApi'
 import type { RequestOptions } from '../../service/simulateRequest'
 import { ArIcon, BoxIcon, LockIcon, RestoreIcon, SettingsIcon, UserIcon, UsersIcon } from '../form/icons'
 import { SectionBody } from '../staff/StaffSection'
@@ -33,20 +34,22 @@ interface CardProps {
   label: string
   value: number
   context: string
+  /** What the number counts, said after it in the link's name: "active". */
+  unit?: string
   /** The page the card opens, and what that does in words (for the link's name). */
   to: string
   action: string
 }
 
 // The whole card is one link, so there is no nested anchor.
-function Card({ index, icon: Icon, tone, label, value, context, to, action }: CardProps) {
+function Card({ index, icon: Icon, tone, label, value, context, unit, to, action }: CardProps) {
   const { ref, fade } = useReveal<HTMLAnchorElement>(index)
   return (
     <MotionLink
       ref={ref}
       {...fade}
       to={to}
-      aria-label={`${label}: ${value.toLocaleString('en-PH')}, ${action}`}
+      aria-label={`${label}: ${value.toLocaleString('en-PH')}${unit ? ` ${unit}` : ''}, ${context}, ${action}`}
       className={`${STAT_CARD} cursor-pointer transition-colors hover:border-line-strong hover:bg-canvas-raised focus-visible:outline-2 focus-visible:outline-offset-2`}
     >
       <span className={LABEL}>{label}</span>
@@ -59,42 +62,43 @@ function Card({ index, icon: Icon, tone, label, value, context, to, action }: Ca
   )
 }
 
-/** Customers, staff and admins from one request, plus superadmins on the superadmin's side. Each card opens its tab on the user management page. */
-export function AccountCards({ base = '/admin', superadmins = false }: { base?: '/admin' | '/superadmin'; superadmins?: boolean }) {
-  const section = useSection(getAccountSummary)
-  const skeleton = (
-    <>
-      <CardSkeleton label="Loading customers" />
-      <CardSkeleton label="Loading staff" />
-      <CardSkeleton label="Loading admins" />
-      {superadmins && <CardSkeleton label="Loading superadmins" />}
-    </>
-  )
+const ACCOUNT_CARDS = [
+  { role: 'customer', tab: 'customers', icon: UsersIcon, tone: 'rose', label: 'Customers' },
+  { role: 'staff', tab: 'staff', icon: UserIcon, tone: 'success', label: 'Staff' },
+  { role: 'admin', tab: 'admins', icon: SettingsIcon, tone: 'violet', label: 'Admins' },
+  { role: 'superadmin', tab: 'superadmins', icon: LockIcon, tone: 'info', label: 'Superadmins' },
+] as const satisfies readonly { role: ManagedRole; tab: string; icon: CardProps['icon']; tone: StatTone; label: string }[]
+
+/** One account card: the active accounts of a role as the number, the inactive ones beneath. It loads, fails and retries on its own, and keeps its number on screen while it counts again after a change. */
+function AccountCard({ index, base, role, tab, icon, tone, label }: (typeof ACCOUNT_CARDS)[number] & { index: number; base: '/admin' | '/superadmin' }) {
+  const { state, previous, retry } = useAccountCount(role)
+  const shown = state.status === 'loading' && previous ? ({ status: 'success', data: previous } as const) : state
   return (
-    <SectionBody section={section} what="the account figures" skeleton={skeleton} errorClassName={`${STAFF_SECTION} col-span-full`}>
-      {(summary: AccountSummary) => (
-        <>
-          <Card index={0} icon={UsersIcon} tone="rose" label="Customers" value={summary.customers} context="Registered shoppers" to={`${base}/users?tab=customers`} action="open customer list" />
-          <Card index={1} icon={UserIcon} tone="success" label="Staff" value={summary.staff} context="Including archived" to={`${base}/users?tab=staff`} action="open staff list" />
-          <Card index={2} icon={SettingsIcon} tone="violet" label="Admins" value={summary.admins} context="Including archived" to={`${base}/users?tab=admins`} action="open admin list" />
-          {superadmins && (
-            <Card index={3} icon={LockIcon} tone="info" label="Superadmins" value={summary.superadmins} context="Full access accounts" to={`${base}/users?tab=superadmins`} action="open superadmin list" />
-          )}
-        </>
+    <SectionBody
+      section={{ state: shown, retry }}
+      what={`the ${label.toLowerCase()} count`}
+      skeleton={<CardSkeleton label={`Loading ${label.toLowerCase()}`} />}
+      errorClassName={STAFF_SECTION}
+    >
+      {({ active, inactive }) => (
+        <Card index={index} icon={icon} tone={tone} label={label} value={active} unit="active" context={`${inactive.toLocaleString('en-PH')} inactive`} to={`${base}/users?tab=${tab}`} action={`open ${role} list`} />
       )}
     </SectionBody>
   )
 }
 
-/** The account cards across the top of the user management page: always one row, three cards or four for a superadmin. */
+/** The account cards across the top of the user management page: customers, staff and admins, plus superadmins on the superadmin's side. Each opens its tab. */
 export function AccountSummaryCards({ base, superadmins }: { base: '/admin' | '/superadmin'; superadmins: boolean }) {
+  const cards = ACCOUNT_CARDS.filter((card) => superadmins || card.role !== 'superadmin')
   return (
     <section aria-labelledby="account-figures" className="@container">
       <h2 id="account-figures" className="sr-only">
         Accounts at a glance
       </h2>
-      <div className="grid auto-cols-fr grid-flow-col gap-3">
-        <AccountCards base={base} superadmins={superadmins} />
+      <div className={`grid gap-3 @[28rem]:grid-cols-2 ${superadmins ? '@3xl:grid-cols-4' : '@3xl:grid-cols-3'}`}>
+        {cards.map((card, index) => (
+          <AccountCard key={card.role} index={index} base={base} {...card} />
+        ))}
       </div>
     </section>
   )

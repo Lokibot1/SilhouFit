@@ -23,7 +23,9 @@ export interface AccountPage<T> {
 
 type Account = Customer | StaffAccount | AdminAccount | SuperadminAccount
 
-export const fullName = (account: Pick<Account, 'firstName' | 'lastName'>) => `${account.firstName} ${account.lastName}`
+/** First, middle, last and suffix, the order the backend builds its own fullName in; a missing middle name or suffix is left out. */
+export const fullName = (account: Pick<Account, 'firstName' | 'lastName'> & { middleName?: string; suffix?: string }) =>
+  [account.firstName, account.middleName, account.lastName, account.suffix].filter(Boolean).join(' ')
 
 function sortValue(account: Account, key: AccountSort): string | number {
   if (key === 'name') return `${account.lastName} ${account.firstName}`.toLowerCase()
