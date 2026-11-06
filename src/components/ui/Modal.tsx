@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'motion/react'
-import { useEffect, useId, useRef, type ReactNode, type Ref, type UIEventHandler } from 'react'
+import { useEffect, useId, useRef, type ReactNode, type Ref, type RefObject, type UIEventHandler } from 'react'
 import { createPortal } from 'react-dom'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
@@ -31,9 +31,11 @@ interface ModalProps {
   /** The scrolling content area, for callers that track how far it is read. */
   bodyRef?: Ref<HTMLDivElement>
   onBodyScroll?: UIEventHandler<HTMLDivElement>
+  /** The control that takes focus when the modal opens (the panel itself when left out). */
+  initialFocusRef?: RefObject<HTMLElement | null>
 }
 
-export function Modal({ open, onClose, title, icon, variant = 'center', children, footer, closable = true, bodyRef, onBodyScroll }: ModalProps) {
+export function Modal({ open, onClose, title, icon, variant = 'center', children, footer, closable = true, bodyRef, onBodyScroll, initialFocusRef }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -68,7 +70,7 @@ export function Modal({ open, onClose, title, icon, variant = 'center', children
         if (scrollbar > 0) style.paddingRight = `calc(${getComputedStyle(document.body).paddingRight} + ${scrollbar}px)`
       }
     }
-    panelRef.current?.focus()
+    ;(initialFocusRef?.current ?? panelRef.current)?.focus()
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -99,7 +101,7 @@ export function Modal({ open, onClose, title, icon, variant = 'center', children
       document.removeEventListener('keydown', onKeyDown)
       if (returnTo?.isConnected) returnTo.focus()
     }
-  }, [open])
+  }, [open, initialFocusRef])
 
   return createPortal(
     <AnimatePresence onExitComplete={unlock}>

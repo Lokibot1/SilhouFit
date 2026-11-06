@@ -1,6 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, useLocation, useOutletContext } from 'react-router-dom'
-import { FirstLoginPasswordGate } from '../../components/auth/FirstLoginPasswordGate'
 import { ChatDock } from '../../components/chat/dock/ChatDock'
 import { AlertIcon } from '../../components/form/icons'
 import { SkipLink } from '../../components/SkipLink'
@@ -42,9 +41,6 @@ const ERROR_COPY: Record<'network' | 'rate-limit' | 'server' | 'not-found', { ti
   },
 }
 
-/** The least time between two checks that the session is still valid, when the tab is shown again. */
-const RECHECK_MS = 30_000
-
 type State =
   | { status: 'loading' }
   | { status: 'error'; kind: keyof typeof ERROR_COPY }
@@ -64,8 +60,6 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
   const [attempt, setAttempt] = useState(0)
   const [leaving, setLeaving] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  // The profile's Change password sheet reports here, so the first-login notice does not stack over it.
-  const [sheetOpen, setSheetOpen] = useState(false)
   const [collapsed, toggleSidebar] = useSidebarCollapsed()
   const notified = useRef(false)
   const signedIn = user !== null
@@ -77,7 +71,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
   const denied = state.status === 'success' && !sameArea
   // Signed in with the right role, but a superadmin turned this page off for it.
   const off = state.status === 'success' && sameArea && !canView(pageKey)
-  const archived = state.status === 'success' && state.me.status === 'archived'
+  const archived = state.status === 'success' && (state.me.status === 'archived' || state.me.isActive === false)
   // A simulated account is read again on every navigation, so archiving it elsewhere ends this session at the next page.
   const recheck = getSession()?.simulated ? pathname : ''
 
@@ -99,19 +93,6 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt, signedIn, recheck])
 
-  // An idle tab notices a revoked session (an administrator reset this password) when it is shown again: fetchMe signs out on a 401 `session_revoked`.
-  useEffect(() => {
-    if (!signedIn || getSession()?.simulated) return
-    let last = Date.now()
-    function onVisible() {
-      if (document.visibilityState !== 'visible' || Date.now() - last < RECHECK_MS) return
-      last = Date.now()
-      fetchMe().catch(() => {})
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [signedIn])
-
   useEffect(() => {
     if (!denied || notified.current) return
     notified.current = true
@@ -126,11 +107,11 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
     toast.show({ kind: 'info', message: 'That page is turned off for your role. Ask a superadmin if you need it.' })
   }, [off, pathname, toast])
 
-  // An archived account cannot use the dashboard: end the session and say why on the sign-in page.
+  // A deactivated account cannot use the dashboard: end the session and say why on the sign-in page.
   useEffect(() => {
     if (!archived) return
     signOut()
-    toast.show({ kind: 'info', message: 'This account has been archived. Contact an administrator.' })
+    toast.show({ kind: 'info', message: 'This account has been deactivated. Contact an administrator.' })
   }, [archived, toast])
 
   function retry() {
@@ -188,7 +169,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
         <div className="min-w-0 flex-1">
           <main id="main-content" className={STAFF_MAIN}>
             <Suspense fallback={null}>
-              <Outlet context={{ me, onSignOut: () => setLeaving(true), onPasswordSheet: setSheetOpen }} />
+              <Outlet context={{ me, onSignOut: () => setLeaving(true) }} />
             </Suspense>
           </main>
         </div>
@@ -199,7 +180,6 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
         </div>
       </Modal>
       <ChatDock staff />
-      <FirstLoginPasswordGate me={me} sheetOpen={sheetOpen} onSignOut={leave} />
     </div>
   )
 }

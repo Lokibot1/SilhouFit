@@ -7,13 +7,20 @@ import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyl
 import { useToast } from '../../components/toast/useToast'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
-import { requestPasswordReset } from '../../service/requestPasswordReset'
+import { requestPasswordReset, type PasswordResetErrorKind } from '../../service/requestPasswordReset'
 import { normalizeEmail, stripEmoji, validateEmail } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
   'Forgot your KRAL password? Enter your email and we will send a link to choose a new one. The link works for 30 minutes, then you can sign in again.'
 
 type Status = 'editing' | 'pending' | 'success' | 'error'
+
+// What happened, why and the next step, for each way the request can fail.
+const FAILURE_COPY: Record<PasswordResetErrorKind, string> = {
+  network: 'The connection dropped before we got a response. Check your connection and try again.',
+  'rate-limit': 'Too many reset emails were requested, so none was sent. Wait a few minutes, then try again.',
+  server: 'Something went wrong on our side, so no email was sent. Try again in a moment.',
+}
 
 export function ForgotPasswordPage() {
   useDocumentTitle('Reset your password — KRAL')
@@ -23,6 +30,7 @@ export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [touched, setTouched] = useState(false)
   const [status, setStatus] = useState<Status>('editing')
+  const [failure, setFailure] = useState<PasswordResetErrorKind>('network')
   const inFlight = useRef(false)
   const controller = useRef<AbortController | null>(null)
   const submitRef = useRef<() => void>(() => {})
@@ -55,12 +63,14 @@ export function ForgotPasswordPage() {
       await requestPasswordReset({ email: normalizeEmail(email) }, { signal: abort.signal })
       setStatus('success')
       toast.show({ kind: 'success', message: 'Reset request sent. Check your email.' })
-    } catch {
+    } catch (error) {
       if (abort.signal.aborted) return
+      const kind = (error as { kind?: PasswordResetErrorKind } | null)?.kind ?? 'network'
+      setFailure(kind)
       setStatus('error')
       toast.show({
         kind: 'error',
-        message: "We couldn't send the reset link. Check your connection and try again.",
+        message: `We couldn't send the reset link. ${FAILURE_COPY[kind]}`,
         action: { label: 'Try again', onClick: () => submitRef.current() },
       })
     } finally {
@@ -125,9 +135,7 @@ export function ForgotPasswordPage() {
                 <AlertIcon size={20} className="mt-px text-danger" />
                 <p>
                   <strong className="block font-semibold text-fg">We couldn't send the reset link.</strong>
-                  <span className="text-fg-muted">
-                    The connection dropped before we got a response. Check your connection and try again.
-                  </span>
+                  <span className="text-fg-muted">{FAILURE_COPY[failure]}</span>
                 </p>
               </div>
             )}

@@ -5,6 +5,7 @@ import { MemoryRouter, Outlet, Route, Routes, useLocation } from 'react-router-d
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { getBodyProfile } from '../../src/service/bodyProfile'
+import { hasPasswordLogin } from '../../src/service/changePassword'
 import { fetchMe, MeError, type Me } from '../../src/service/fetchMe'
 import { updateMe, UpdateMeError } from '../../src/service/updateMe'
 import { setLoginNotice, takeLoginNotice } from '../../src/service/loginNotice'
@@ -23,6 +24,10 @@ vi.mock('../../src/service/bodyProfile', async (importOriginal) => ({
 vi.mock('../../src/service/updateMe', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/updateMe')>()),
   updateMe: vi.fn(),
+}))
+vi.mock('../../src/service/changePassword', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/changePassword')>()),
+  hasPasswordLogin: vi.fn(),
 }))
 const signOutSupabase = vi.fn()
 vi.mock('../../src/service/supabase', () => ({
@@ -53,6 +58,7 @@ beforeEach(() => {
   act(() => setSession({ name: 'Anne Santos', email: ME.email }))
   signOutSupabase.mockResolvedValue({ error: null })
   vi.mocked(getBodyProfile).mockResolvedValue(null)
+  vi.mocked(hasPasswordLogin).mockResolvedValue(true)
 })
 afterEach(() => {
   vi.clearAllMocks()
@@ -103,7 +109,7 @@ describe('ProfilePage', () => {
   })
 
   it('keeps a simulated session simulated, shows the account and a note, and never signs out', async () => {
-    act(() => setSession({ name: 'Sam Reyes', email: 'sam@silhoufit.dev', role: 'staff', simulated: true, accountId: 'stf-001', mustChangePassword: false }))
+    act(() => setSession({ name: 'Sam Reyes', email: 'sam@silhoufit.dev', role: 'staff', simulated: true, accountId: 'stf-001' }))
     load.mockResolvedValue({ ...ME, id: 'stf-001', email: 'sam@silhoufit.dev', firstName: 'Sam', lastName: 'Reyes', fullName: 'Sam Reyes', role: 'staff', phone: '+639171234567' })
     render(
       <MemoryRouter initialEntries={['/staff/profile']}>
@@ -163,18 +169,18 @@ describe('ProfilePage', () => {
   })
 
   it.each([
-    ['customer', undefined, true],
-    ['staff', undefined, true],
-    ['admin', undefined, true],
-    ['superadmin', undefined, true],
-    [undefined, undefined, true],
     ['customer', true, true],
+    ['staff', true, true],
+    ['admin', true, true],
+    ['superadmin', true, true],
+    [undefined, true, true],
     ['customer', false, false],
     ['staff', false, false],
     ['admin', false, false],
     ['superadmin', false, false],
-  ] as const)('shows Change password for a %s with canChangePassword %s: %s, and Sign out has its icon for everyone', async (role, can, shown) => {
-    load.mockResolvedValue({ ...ME, role, canChangePassword: can })
+  ] as const)('shows Change password for a %s when the account has a password login %s: %s, and Sign out has its icon for everyone', async (role, can, shown) => {
+    load.mockResolvedValue({ ...ME, role })
+    vi.mocked(hasPasswordLogin).mockResolvedValue(can)
     act(() => setSession({ name: 'Anne Santos', email: ME.email, role }))
     render(
       <MemoryRouter initialEntries={[role && role !== 'customer' ? `/${role}/profile` : '/profile']}>
@@ -187,6 +193,7 @@ describe('ProfilePage', () => {
       </MemoryRouter>,
     )
     await screen.findByRole('heading', { level: 1, name: 'Anne Santos' })
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Change password' }) !== null).toBe(shown))
     const change = screen.queryByRole('button', { name: 'Change password' })
     expect(change !== null).toBe(shown)
     if (change) expect(change.querySelector('svg')).not.toBeNull()

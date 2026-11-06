@@ -24,8 +24,6 @@ export const ADMIN_ME: Me = {
   createdAt: '2026-01-15T08:30:00.000Z',
   updatedAt: '2026-01-15T08:30:00.000Z',
   status: 'active',
-  mustChangePassword: false,
-  passwordChangeSkippable: true,
 }
 
 /** Call from beforeAll: no animation delays, and a matchMedia that reports a narrow screen (the table's cards and the modals' sheets still render). */

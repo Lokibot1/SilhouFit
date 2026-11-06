@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
+import { Navigate, useLocation, useOutletContext } from 'react-router-dom'
 import { AlertIcon, LockIcon, LogOutIcon } from '../../components/form/icons'
 import { BodyMeasurements } from '../../components/profile/BodyMeasurements'
 import { ChangePasswordSheet } from '../../components/profile/ChangePasswordSheet'
@@ -15,6 +15,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOnboarding } from '../../hooks/useOnboarding'
+import { hasPasswordLogin } from '../../service/changePassword'
 import { fetchMe, type Me, type MeErrorKind } from '../../service/fetchMe'
 import { peekLoginNotice } from '../../service/loginNotice'
 import { getSession, setSession } from '../../service/session'
@@ -54,7 +55,7 @@ const initialsOf = (me: Me) => `${me.firstName[0]}${me.lastName[0]}`.toUpperCase
 /** A simulated account's session keeps its flags when the profile refreshes it, or the next /users/me call would go to Supabase and sign it out. */
 const simulatedFlags = () => {
   const current = getSession()
-  return current?.simulated ? { simulated: true, accountId: current.accountId, mustChangePassword: current.mustChangePassword } : {}
+  return current?.simulated ? { simulated: true, accountId: current.accountId } : {}
 }
 
 function formatDate(iso: string) {
@@ -68,11 +69,9 @@ export function ProfilePage() {
   useDocumentTitle('Your profile — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
 
-  const { pathname, state: navState } = useLocation()
-  const navigate = useNavigate()
+  const { pathname } = useLocation()
   const user = useCurrentUser()
-  const outlet = useOutletContext<{ onSignOut?: () => void; onPasswordSheet?: (open: boolean) => void } | null>()
-  const onPasswordSheet = outlet?.onPasswordSheet
+  const outlet = useOutletContext<{ onSignOut?: () => void } | null>()
   const toast = useToast()
   const { startTour } = useOnboarding()
   const [state, setState] = useState<State>({ status: 'loading' })
@@ -84,20 +83,12 @@ export function ProfilePage() {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
+  // An account that signs in only with Google has no password to change.
+  const [passwordLogin, setPasswordLogin] = useState(true)
 
-  // The first-login notice sends staff here with the Change password sheet already open; clear the state so a reload doesn't open it again.
   useEffect(() => {
-    if ((navState as { openChangePassword?: boolean } | null)?.openChangePassword) {
-      setChangingPassword(true)
-      navigate(pathname, { replace: true, state: null })
-    }
-  }, [navState, navigate, pathname])
-
-  // The staff shell hides its first-login notice while the sheet is open.
-  useEffect(() => {
-    onPasswordSheet?.(changingPassword)
-    return () => onPasswordSheet?.(false)
-  }, [changingPassword, onPasswordSheet])
+    void hasPasswordLogin().then(setPasswordLogin)
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -263,7 +254,7 @@ export function ProfilePage() {
               Replay the tour
             </button>
           )}
-          {me.canChangePassword !== false && (
+          {passwordLogin && (
             <button type="button" onClick={() => setChangingPassword(true)} className={`${SECONDARY_BUTTON} gap-2`}>
               <LockIcon size={16} />
               Change password
@@ -284,7 +275,7 @@ export function ProfilePage() {
           <BodyMeasurements />
         </div>
       )}
-      {me.canChangePassword !== false && <ChangePasswordSheet open={changingPassword} onClose={() => setChangingPassword(false)} onSignOut={leave} me={me} />}
+      {passwordLogin && <ChangePasswordSheet open={changingPassword} onClose={() => setChangingPassword(false)} />}
       {me.role === 'customer' && (
         <Modal open={editing} onClose={closeEditor} title="Edit your profile">
           <EditProfileForm me={me} onSaved={saved} onCancel={closeEditor} onUnauthorized={expire} onPendingChange={setSaving} />

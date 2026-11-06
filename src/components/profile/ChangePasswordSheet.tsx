@@ -1,24 +1,19 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { changePassword, type ChangePasswordErrorKind } from '../../service/changePassword'
 import { setLoginNotice } from '../../service/loginNotice'
-import type { Me } from '../../service/fetchMe'
 import { signOut } from '../../service/signOut'
 import { stripEmoji, validateConfirmPassword, validatePassword } from '../../utils/signUpValidation'
 import { FloatingField } from '../form/FloatingField'
 import { PasswordChecklist } from '../form/PasswordChecklist'
 import { AlertIcon, LockIcon, SpinnerIcon } from '../form/icons'
 import { useToast } from '../toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
+import { PRIMARY_BUTTON, SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
 import { Modal } from '../ui/Modal'
 
 type Failure = ChangePasswordErrorKind
 
 /** What happened, why, and what to do next. Wrong and same passwords are shown on their fields instead. */
-const BANNER_COPY: Record<Exclude<Failure, 'wrong-password' | 'same'>, { title: string; body: string }> = {
-  weak: {
-    title: 'Your password was not changed.',
-    body: 'The server found the new password too weak. Make it longer and mix uppercase, lowercase, numbers and symbols, then try again.',
-  },
+const BANNER_COPY: Record<Exclude<Failure, 'wrong-password' | 'same' | 'weak'>, { title: string; body: string }> = {
   'rate-limit': {
     title: 'Too many attempts.',
     body: 'Your password was not changed. Wait a few minutes, then try again.',
@@ -35,10 +30,6 @@ const BANNER_COPY: Record<Exclude<Failure, 'wrong-password' | 'same'>, { title: 
     title: 'Password changes are unavailable right now.',
     body: 'Your password was not changed because the server could not complete the request. Try again later, or contact an administrator if it keeps happening.',
   },
-  'no-password': {
-    title: 'There is no password to change.',
-    body: 'This account signs in with Google (or another provider), so there is no password to change here.',
-  },
   server: {
     title: 'Your password was not changed.',
     body: 'Something went wrong on our side. Try again in a moment.',
@@ -48,17 +39,10 @@ const BANNER_COPY: Record<Exclude<Failure, 'wrong-password' | 'same'>, { title: 
 interface ChangePasswordSheetProps {
   open: boolean
   onClose: () => void
-  /** The profile's chosen sign out; the sheet of a reset account offers it because it cannot be closed. */
-  onSignOut: () => void
-  me: Me
 }
 
-/**
- * The right-hand sheet on the profile where any signed-in user picks their own password. A success ends the session.
- * After an administrator reset a staff password it cannot be closed: the only ways out are changing the password or signing out.
- */
-export function ChangePasswordSheet({ open, onClose, onSignOut, me }: ChangePasswordSheetProps) {
-  const locked = Boolean(me.passwordResetRequired)
+/** The right-hand sheet on the profile where any signed-in user picks their own password, straight through Supabase Auth. A success ends the session. */
+export function ChangePasswordSheet({ open, onClose }: ChangePasswordSheetProps) {
   const toast = useToast()
   const [current, setCurrent] = useState('')
   const [password, setPassword] = useState('')
@@ -66,6 +50,8 @@ export function ChangePasswordSheet({ open, onClose, onSignOut, me }: ChangePass
   const [touched, setTouched] = useState({ current: false, password: false, confirm: false })
   const [pending, setPending] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
+  // Supabase's own words for a password it refused.
+  const [detail, setDetail] = useState<string | undefined>()
   const inFlight = useRef(false)
 
   const currentError = !current ? 'Enter your current password.' : undefined
@@ -75,7 +61,12 @@ export function ChangePasswordSheet({ open, onClose, onSignOut, me }: ChangePass
   const shown = (name: keyof typeof touched, error: string | undefined) => (touched[name] ? error : undefined)
   const serverCurrent = failure === 'wrong-password' ? 'That is not your current password. Check it and try again.' : undefined
   const serverPassword = failure === 'same' ? 'This is already your password. Choose a different one.' : undefined
-  const banner = failure && failure !== 'wrong-password' && failure !== 'same' ? BANNER_COPY[failure] : null
+  const banner =
+    failure === 'weak'
+      ? { title: 'Your password was not changed.', body: `${detail ?? 'The sign-in service found the new password too weak.'} Choose a longer or less common password, then try again.` }
+      : failure && failure !== 'wrong-password' && failure !== 'same'
+        ? BANNER_COPY[failure]
+        : null
 
   function close() {
     if (pending) return
@@ -84,6 +75,7 @@ export function ChangePasswordSheet({ open, onClose, onSignOut, me }: ChangePass
     setConfirm('')
     setTouched({ current: false, password: false, confirm: false })
     setFailure(null)
+    setDetail(undefined)
     onClose()
   }
 
@@ -99,14 +91,16 @@ export function ChangePasswordSheet({ open, onClose, onSignOut, me }: ChangePass
     inFlight.current = true
     setPending(true)
     setFailure(null)
+    setDetail(undefined)
     try {
       await changePassword(current, password)
       toast.show({ kind: 'success', message: 'Password changed. Sign in with your new password.' })
       setLoginNotice('password-changed')
       signOut()
     } catch (error) {
-      const kind = (error as { kind?: Failure } | null)?.kind ?? 'server'
+      const { kind = 'server', detail: why } = (error ?? {}) as { kind?: Failure; detail?: string }
       setFailure(kind)
+      setDetail(why)
       if (kind === 'wrong-password') document.getElementById('cp-current')?.focus()
       else if (kind === 'same') document.getElementById('cp-password')?.focus()
     } finally {
@@ -118,8 +112,7 @@ export function ChangePasswordSheet({ open, onClose, onSignOut, me }: ChangePass
   return (
     <Modal
       open={open}
-      onClose={locked ? () => {} : close}
-      closable={!locked}
+      onClose={close}
       title="Change password"
       variant="sheet"
       footer={
@@ -128,11 +121,6 @@ export function ChangePasswordSheet({ open, onClose, onSignOut, me }: ChangePass
             {pending ? <SpinnerIcon /> : <LockIcon size={16} />}
             Change password
           </button>
-          {locked && (
-            <button type="button" onClick={onSignOut} disabled={pending} className={`${SECONDARY_BUTTON} w-full`}>
-              Sign out
-            </button>
-          )}
         </div>
       }
     >
@@ -170,7 +158,7 @@ export function ChangePasswordSheet({ open, onClose, onSignOut, me }: ChangePass
           autoComplete="new-password"
           readOnly={pending}
         />
-        <PasswordChecklist password={password} email={me.email} firstName={me.firstName} visible />
+        <PasswordChecklist password={password} email="" firstName="" visible />
         <FloatingField
           id="cp-confirm"
           label="Confirm password"

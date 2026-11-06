@@ -5,7 +5,7 @@ import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { checkHealth } from '../../service/checkHealth'
 
 const META_DESCRIPTION =
-  'Something went wrong on our side while loading this SilhouFit page. Try again in a moment, or head back to the main floor to keep shopping.'
+  'Something went wrong on our side while loading this SilhouFit page. Try again in a moment, or head back to the main floor to keep shopping with us today.'
 
 export function ServerErrorPage({ onRetry = () => window.location.reload() }: { onRetry?: () => void }) {
   useDocumentTitle('500: Torn at the seams — SilhouFit')

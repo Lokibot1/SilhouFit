@@ -80,6 +80,7 @@ function renderCallback(url: string, { strict = false } = {}) {
         <Routes>
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/profile" element={<p>profile page</p>} />
+          <Route path="/auth/set-password" element={<p>set password page</p>} />
           <Route path="/login" element={<p>login page</p>} />
           <Route path="/checkout" element={<p>checkout page</p>} />
           <Route path="*" element={<p>somewhere else</p>} />
@@ -159,6 +160,15 @@ describe('AuthCallbackPage exchange', () => {
     expect(exchangeCodeForSession).not.toHaveBeenCalled()
   })
 
+  it.each(['invite', 'recovery'])('sends an emailed %s link to choose a password, with no profile loaded and no sign-in toast', async (type) => {
+    renderCallback(`/auth/callback#access_token=at&refresh_token=rt&type=${type}`)
+    expect(await screen.findByText('set password page')).toBeInTheDocument()
+    expect(setSupabaseSession).toHaveBeenCalledWith({ access_token: 'at', refresh_token: 'rt' })
+    expect(me).not.toHaveBeenCalled()
+    expect(getSession()).toBeNull()
+    expect(screen.queryByText('Signed in. Welcome back.')).not.toBeInTheDocument()
+  })
+
   it('shows the expired-sign-in card and signs out when the exchange fails', async () => {
     exchangeCodeForSession.mockResolvedValue({ data: {}, error: new Error('invalid flow state') })
     renderCallback('/auth/callback?code=abc')
@@ -217,6 +227,28 @@ describe('AuthCallbackPage titles', () => {
     renderCallback('/auth/callback?code=abc')
     await screen.findByRole('alert')
     expect(document.title).toBe("Couldn't sign you in — SilhouFit")
+  })
+})
+
+describe('AuthCallbackPage expired or reused links', () => {
+  it.each([
+    ['hash', '/auth/callback#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired'],
+    ['query', '/auth/callback?error=access_denied&error_code=otp_expired'],
+  ])('says the link has expired, not that Google sign-in was cancelled, in the %s', async (_where, url) => {
+    renderCallback(url)
+    const heading = await screen.findByRole('heading', { name: 'This link has expired or was already used' })
+    expect(heading).toHaveFocus()
+    expect(screen.getByRole('alert')).toHaveTextContent('Send a new reset email')
+    expect(screen.getByRole('link', { name: 'Send a new reset email' })).toHaveAttribute('href', '/forgot-password')
+    expect(screen.getByRole('link', { name: 'Back to login' })).toHaveAttribute('href', '/login')
+    expect(document.body.textContent).not.toContain('cancelled')
+    expect(document.body.textContent).not.toContain('Email link is invalid')
+    expect(document.title).toBe('Link expired — KRAL')
+    const description = document.querySelector('meta[name="description"]')?.getAttribute('content') ?? ''
+    expect(description).toMatch(/expired/)
+    expect(description.length).toBeGreaterThanOrEqual(150)
+    expect(description.length).toBeLessThanOrEqual(160)
+    expect(me).not.toHaveBeenCalled()
   })
 })
 
