@@ -8,6 +8,7 @@ import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { PAGER_FOOTER } from '../../components/staff/inventory/layout'
 import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
 import { Modal } from '../../components/ui/Modal'
+import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
@@ -96,7 +97,10 @@ export function ActivityLogsPage() {
   return (
     <div className="grid gap-3">
       <header className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-2xl text-fg sm:text-3xl">Activity logs</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="display text-2xl text-fg sm:text-3xl">Activity logs</h1>
+          <SampleDataBadge reason="These entries are generated placeholders until the activity log backend is connected." />
+        </div>
         <ActivityFilterBar
           filters={filters}
           users={[...new Set(logs.map((log) => log.actor))].sort()}

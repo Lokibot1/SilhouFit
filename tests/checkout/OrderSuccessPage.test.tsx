@@ -53,6 +53,8 @@ describe('OrderSuccessPage', () => {
     expect(screen.getByText("Reserved for you. We'll keep you posted until it's in your hands.")).toBeInTheDocument()
     expect(screen.getByText('SF-261011-ABCD')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to shop' })).toHaveAttribute('href', '/shop')
+    // The order came from the stubbed order call.
+    expect(screen.getByText('Sample data')).toBeInTheDocument()
   })
 
   it('lists every item with its price, then shipping and the total', () => {

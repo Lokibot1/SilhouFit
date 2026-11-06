@@ -1,4 +1,6 @@
 import { OrderLog } from '../../components/staff/OrderLog'
+import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
+import { SAMPLE_DATA } from '../../service/fetchStaffAnalytics'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 
@@ -12,8 +14,9 @@ export function StaffOnlineOrdersPage() {
 
   return (
     <div className="grid gap-3">
-      <header>
+      <header className="flex flex-wrap items-center gap-3">
         <h1 className="display text-2xl text-fg sm:text-3xl">Online orders</h1>
+        {SAMPLE_DATA && <SampleDataBadge reason="These orders are generated placeholders until the orders backend is connected." />}
       </header>
       <OrderLog all />
     </div>

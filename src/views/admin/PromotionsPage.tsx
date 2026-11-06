@@ -1,6 +1,6 @@
 import { PromotionSummaryCards } from '../../components/admin/promotions/PromotionSummaryCards'
 import { PromotionsList } from '../../components/admin/promotions/PromotionsList'
-import { Tooltip } from '../../components/ui/Tooltip'
+import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 
@@ -19,11 +19,7 @@ export function PromotionsPage() {
           <h1 className="display text-2xl text-fg sm:text-3xl">Pricing &amp; Promotions</h1>
           <p className="mt-1 text-xs text-fg-muted">Discount codes shoppers can use at checkout</p>
         </div>
-        <Tooltip label="Promotions are saved in this browser's session only until the pricing backend is connected." describe>
-          <span tabIndex={0} className="font-ui inline-flex h-8 items-center rounded-full border border-line-strong px-3 text-sm font-medium text-fg-muted">
-            Sample data
-          </span>
-        </Tooltip>
+        <SampleDataBadge reason="Promotions are saved in this browser's session only until the pricing backend is connected." />
       </header>
       <PromotionSummaryCards />
       <PromotionsList />

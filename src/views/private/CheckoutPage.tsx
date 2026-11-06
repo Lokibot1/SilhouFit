@@ -10,6 +10,7 @@ import { SHOP_PRIMARY } from '../../components/shop/shopControls'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { IconEditButton } from '../../components/ui/IconEditButton'
 import { Modal } from '../../components/ui/Modal'
+import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { PhotoImg } from '../../components/ui/PhotoImg'
 import { Select } from '../../components/ui/Select'
 import { useToast } from '../../components/toast/useToast'
@@ -626,10 +627,13 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
       </div>
 
       <aside aria-labelledby="checkout-summary" className={`${SECTION} space-y-4 lg:sticky! lg:top-38`}>
-        <h2 id="checkout-summary" className="display flex items-center gap-2 text-xl text-fg">
-          <ReceiptIcon />
-          Order summary
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="checkout-summary" className="display flex items-center gap-2 text-xl text-fg">
+            <ReceiptIcon />
+            Order summary
+          </h2>
+          <SampleDataBadge reason="Placing an order is a demo until the orders backend is connected. Nothing is charged or saved." />
+        </div>
         <p className="text-sm leading-snug text-fg-muted">
           <span className="font-semibold text-fg">Delivery</span>
           <br />

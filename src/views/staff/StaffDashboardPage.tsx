@@ -5,7 +5,7 @@ import { ProductMixChart } from '../../components/staff/ProductMixChart'
 import { SalesChart } from '../../components/staff/SalesChart'
 import { StatCards } from '../../components/staff/StatCards'
 import { TrendingItems } from '../../components/staff/TrendingItems'
-import { Tooltip } from '../../components/ui/Tooltip'
+import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { SAMPLE_DATA } from '../../service/fetchStaffAnalytics'
@@ -62,13 +62,7 @@ export function StaffDashboardPage() {
             <time dateTime={today.toISOString()}>{longDate(today)}</time>
           </p>
         </div>
-        {SAMPLE_DATA && (
-          <Tooltip label="These figures are placeholders until the orders backend exists." describe>
-            <span tabIndex={0} className="font-ui inline-flex h-8 items-center rounded-full border border-line-strong px-3 text-sm font-medium text-fg-muted">
-              Sample data
-            </span>
-          </Tooltip>
-        )}
+        {SAMPLE_DATA && <SampleDataBadge reason="These figures are placeholders until the orders backend exists." />}
       </header>
       <StaffDashboardWidgets operations base="/staff" />
     </div>

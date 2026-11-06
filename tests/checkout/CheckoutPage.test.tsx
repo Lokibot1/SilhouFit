@@ -97,6 +97,8 @@ describe('CheckoutPage gate and states', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Checkout' })).toBeInTheDocument()
     resolve(POLO_PIECE)
     expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
+    // Placing the order is a stub, so the summary that holds the button says so.
+    expect(within(screen.getByRole('complementary', { name: 'Order summary' })).getByText('Sample data')).toBeInTheDocument()
     expect(screen.queryByRole('status')).toBeNull()
   })
 

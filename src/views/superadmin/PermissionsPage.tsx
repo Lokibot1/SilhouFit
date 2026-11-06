@@ -3,7 +3,7 @@ import { ConfirmDialog } from '../../components/admin/users/ConfirmDialog'
 import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
-import { Tooltip } from '../../components/ui/Tooltip'
+import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { ACCOUNTS_SAMPLE_DATA } from '../../config/accountPolicy'
 import { PAGE_GROUPS, PERMISSION_ROLES, type PageKey, type PermissionRole } from '../../config/pagePermissions'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
@@ -112,13 +112,7 @@ export function PermissionsPage() {
           <button type="button" className={SECONDARY_BUTTON_SM} onClick={() => setAsking(true)}>
             Reset to defaults
           </button>
-          {ACCOUNTS_SAMPLE_DATA && (
-            <Tooltip label="These permissions are saved in this browser only, until the permissions backend is connected." describe>
-              <span tabIndex={0} className="font-ui inline-flex h-8 items-center rounded-full border border-line-strong px-3 text-sm font-medium text-fg-muted">
-                Sample data
-              </span>
-            </Tooltip>
-          )}
+          {ACCOUNTS_SAMPLE_DATA && <SampleDataBadge reason="These permissions are saved in this browser only, until the permissions backend is connected." />}
         </div>
       </header>
       {PERMISSION_ROLES.map((item) => (
