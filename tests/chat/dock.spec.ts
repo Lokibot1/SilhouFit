@@ -73,9 +73,9 @@ test.describe('customer dock', () => {
     await startChat(page, 'customer', { path: '/wishlist', init: { messages: [HELLO] } })
     await page.getByRole('button', { name: 'Messages', exact: true }).click()
     await expect(messages(page)).toHaveCount(1)
-    const rect = await box(page, 'KRAL').boundingBox()
-    expect(rect?.x).toBe(0)
-    expect(rect?.width).toBe(320)
+    // The sheet scales in; measure it once it has settled.
+    await expect.poll(async () => (await box(page, 'KRAL').boundingBox())?.width).toBe(320)
+    expect((await box(page, 'KRAL').boundingBox())?.x).toBe(0)
     expect(await overflow(page)).toBe(0)
   })
 })

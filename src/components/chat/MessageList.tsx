@@ -60,7 +60,7 @@ export function MessageList({ messages, selfId, staff, hasMore, loadingEarlier, 
         </div>
       )}
       <div role="log" aria-live="polite" aria-label="Messages">
-        <ol className="grid gap-3">
+        <ol className="grid grid-cols-[minmax(0,1fr)] gap-3">
         {messages.map((message, index) => (
           <Fragment key={message.key ?? message.id}>
             {(index === 0 || manilaDay(message.createdAt) !== manilaDay(messages[index - 1].createdAt)) && (

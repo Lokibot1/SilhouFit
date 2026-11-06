@@ -24,9 +24,9 @@ export function MessageBubble({ message, enter = false, mine, staff = false, onR
   const name = masked ? CHAT_BRAND_NAME : sender ? displayName(sender) : ''
   const label = masked || !sender ? '' : ROLE_LABEL[sender.role]
   return (
-    <li data-testid="chat-message" data-status={status ?? 'sent'} className={`flex items-end gap-2 ${mine ? 'origin-bottom-right flex-row-reverse' : 'origin-bottom-left'} ${enter ? 'enter-message' : ''}`}>
+    <li data-testid="chat-message" data-status={status ?? 'sent'} className={`flex min-w-0 items-end gap-2 ${mine ? 'origin-bottom-right flex-row-reverse' : 'origin-bottom-left'} ${enter ? 'enter-message' : ''}`}>
       <Avatar name={name} src={masked ? undefined : (sender?.avatarUrl ?? undefined)} size="sm" />
-      <div className={`flex min-w-0 max-w-[85%] flex-col sm:max-w-[75%] ${mine ? 'items-end' : 'items-start'}`}>
+      <div className={`flex min-w-0 max-w-[80%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
         {!mine && (
           <p className="font-ui mb-1 truncate px-1 text-sm text-fg-muted">
             <span className="font-semibold text-fg">{name}</span>
@@ -34,7 +34,7 @@ export function MessageBubble({ message, enter = false, mine, staff = false, onR
           </p>
         )}
         <div
-          className={`max-w-full rounded-xl px-3 py-2 text-base leading-6 break-words whitespace-pre-wrap ${
+          className={`max-w-full min-w-0 rounded-xl px-3 py-2 text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap ${
             mine ? 'bg-fg text-canvas' : 'border border-line bg-canvas-sub text-fg'
           } transition-opacity duration-200 ${status === 'pending' ? 'opacity-70' : ''} ${status === 'failed' ? 'ring-2 ring-danger' : ''}`}
         >
