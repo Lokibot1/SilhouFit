@@ -333,8 +333,8 @@ test.describe('admin accounts', () => {
     await expect(tab(page, 'Admins')).toHaveAttribute('aria-selected', 'true')
   })
 
-  // The list is server-backed now (see adminsTab.spec.ts). Reset and archive for admins come back when the server has them.
-  test('has no row actions, no status filter and no Sample data badge', async ({ page }) => {
+  // The list is server-backed now (see adminsTab.spec.ts). Reset is superadmin only (adminReset.spec.ts); archive comes back when the server has it.
+  test('has no row actions for an admin, no status filter and no Sample data badge', async ({ page }) => {
     await expect(seen(page, 'Brian Dijamco')).toBeVisible()
     await expect(page.getByRole('button', { name: /^Archive|^Reset password|^Restore/ })).toHaveCount(0)
     await expect(page.getByRole('columnheader', { name: 'Actions' })).toHaveCount(0)

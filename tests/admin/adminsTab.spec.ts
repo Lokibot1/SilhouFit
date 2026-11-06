@@ -118,11 +118,19 @@ test.describe('admins list', () => {
     await expect(alert).toHaveCount(0)
   })
 
-  test('the superadmin route lists the same admins, with no row actions', async ({ page }) => {
+  test('the superadmin route lists the same admins, with Reset only (no archive or restore yet)', async ({ page }) => {
     await stubAdminApi(page)
     await open(page, SUPERADMIN, '/superadmin/users?tab=admins')
     await expect(visibleText(page, 'Brian Dijamco')).toBeVisible()
     await expect(visibleText(page, 'Carlo Mendoza')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Reset password for / }).filter({ visible: true })).toHaveCount(3)
+    await expect(page.getByRole('button', { name: /Archive|Restore/ })).toHaveCount(0)
+  })
+
+  test('the admin route has no row actions', async ({ page }) => {
+    await stubAdminApi(page)
+    await open(page)
+    await expect(visibleText(page, 'Brian Dijamco')).toBeVisible()
     await expect(page.getByRole('button', { name: /Reset password|Archive|Restore/ })).toHaveCount(0)
   })
 

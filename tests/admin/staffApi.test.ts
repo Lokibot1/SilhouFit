@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetStaffPasswordApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
+import { archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
 import { errorKind } from '../../src/components/staff/StaffSection'
 
 vi.mock('../../src/service/supabase', () => ({
@@ -242,6 +242,45 @@ describe('resetStaffPasswordApi', () => {
   it('reports a dropped connection as network', async () => {
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
     expect((await failure(resetStaffPasswordApi('u1'))).kind).toBe('network')
+  })
+})
+
+describe('resetAdminPasswordApi', () => {
+  it('posts to the admin reset path with no body and returns the id', async () => {
+    reply({ id: 'a1', mustChangePassword: true, sessionsRevoked: true })
+    expect(await resetAdminPasswordApi('a1')).toEqual({ id: 'a1' })
+    expect(requested().pathname).toBe('/users/admins/a1/reset-password')
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: undefined })
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ Authorization: 'Bearer tok' })
+  })
+
+  it('encodes the id in the path', async () => {
+    reply({ id: 'a/b' })
+    await resetAdminPasswordApi('a/b')
+    expect(requested().pathname).toBe('/users/admins/a%2Fb/reset-password')
+  })
+
+  it('rejects an answer without an id', async () => {
+    reply({ mustChangePassword: true })
+    expect((await failure(resetAdminPasswordApi('a1'))).kind).toBe('server')
+  })
+
+  it.each([
+    [403, 'not_an_admin_account', 'forbidden'],
+    [403, 'forbidden', 'forbidden'],
+    [404, 'admin_not_found', 'not-found'],
+    [422, 'weak_password', 'server'],
+    [429, undefined, 'rate-limit'],
+    [502, 'reset_incomplete', 'server'],
+    [503, undefined, 'server'],
+  ])('keeps the %i status and code %s on a %s error', async (status, code, kind) => {
+    reply(code ? { code } : {}, status)
+    expect(await failure(resetAdminPasswordApi('a1'))).toMatchObject({ kind, status, code })
+  })
+
+  it('reports a dropped connection as network', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    expect((await failure(resetAdminPasswordApi('a1'))).kind).toBe('network')
   })
 })
 

@@ -42,10 +42,14 @@ export interface AdminStub {
   onGet?: (route: Route, url: URL) => Promise<boolean | void> | boolean | void
   /** Answer a POST yourself, same rule. */
   onPost?: (route: Route, body: { firstName: string; lastName: string }) => Promise<boolean | void> | boolean | void
+  /** Every id the page asked to reset (POST /users/admins/:id/reset-password). */
+  resets: string[]
+  /** Answer a reset yourself, same rule; the default answers 200 with the id. */
+  onReset?: (route: Route, id: string) => Promise<boolean | void> | boolean | void
 }
 
 export async function stubAdminApi(page: Page, rows: AdminRow[] = SAMPLE_ADMINS): Promise<AdminStub> {
-  const stub: AdminStub = { rows: rows.map((r) => ({ ...r })), gets: [], posts: [] }
+  const stub: AdminStub = { rows: rows.map((r) => ({ ...r })), gets: [], posts: [], resets: [] }
 
   await page.route(
     (url) => url.pathname === '/users/admins' && url.port !== '5173',
@@ -76,6 +80,18 @@ export async function stubAdminApi(page: Page, rows: AdminRow[] = SAMPLE_ADMINS)
       const account = adminRow(body.firstName, body.lastName, stub.rows.length + 100)
       stub.rows.push(account)
       return json(route, 201, { account, credentials: { email: account.email, password: 'Tmp#Pass-2026x', mustChangePassword: true } })
+    },
+  )
+
+  await page.route(
+    (url) => /^\/users\/admins\/[^/]+\/reset-password$/.test(url.pathname) && url.port !== '5173',
+    async (route) => {
+      const request = route.request()
+      if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+      const id = new URL(request.url()).pathname.split('/')[3]
+      stub.resets.push(id)
+      if (await stub.onReset?.(route, id)) return
+      return json(route, 200, { id, mustChangePassword: true, sessionsRevoked: true })
     },
   )
   return stub

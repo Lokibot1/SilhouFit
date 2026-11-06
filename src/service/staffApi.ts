@@ -8,7 +8,7 @@ export class StaffApiError extends Error {
   kind: ProductListErrorKind
   detail?: string
   status?: number
-  /** The server's `code` (`staff_not_found`, `not_a_staff_account`, `weak_password`), when it sent one. */
+  /** The server's `code` (`staff_not_found`, `not_a_staff_account`, `admin_not_found`, `not_an_admin_account`, `weak_password`), when it sent one. */
   code?: string
 
   constructor(kind: ProductListErrorKind, detail?: string, status?: number, code?: string) {
@@ -107,6 +107,13 @@ export const createAdminAccountApi = (input: { firstName: string; lastName: stri
 /** POST /users/staff/:id/reset-password (no body). The server sets the default password, signs the person out everywhere and makes them choose a new one; it never sends a password back. */
 export async function resetStaffPasswordApi(id: string): Promise<{ id: string }> {
   const body = await call('POST', `/users/staff/${encodeURIComponent(id)}/reset-password`, undefined)
+  if (!isRecord(body) || !isText(body.id)) throw new StaffApiError('server')
+  return { id: body.id }
+}
+
+/** POST /users/admins/:id/reset-password (no body, superadmin only). Same as staff: the server sets the default password, signs the admin out everywhere and makes them choose a new one. */
+export async function resetAdminPasswordApi(id: string): Promise<{ id: string }> {
+  const body = await call('POST', `/users/admins/${encodeURIComponent(id)}/reset-password`, undefined)
   if (!isRecord(body) || !isText(body.id)) throw new StaffApiError('server')
   return { id: body.id }
 }

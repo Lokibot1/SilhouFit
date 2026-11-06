@@ -3,7 +3,7 @@ import { stubAdminApi } from './adminApiStub'
 import { json, stubStaffApi, type StaffStub } from './staffApiStub'
 
 // Staff "Reset password" beyond the block in staffTab.spec.ts: focus handling, pending state per row, toasts, both roles, 320px, dark mode,
-// and the other tabs (Admins has no row actions until the server has them; Superadmins and Customers have none).
+// and the other tabs (Admins' reset is superadmin only, in adminReset.spec.ts; Superadmins and Customers have none).
 // The API is stubbed (staffApiStub.ts); sign-in is the dev-only simulated one.
 
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -197,12 +197,14 @@ test.describe('staff reset: roles and layout', () => {
 })
 
 test.describe('other tabs are unchanged', () => {
-  test('Admins (as a superadmin) has no reset action yet, and never calls the staff reset API', async ({ page }) => {
+  test('Admins: only a superadmin has a reset action (see adminReset.spec.ts), and it never calls the staff reset API', async ({ page }) => {
     const api = await stubStaffApi(page)
     await stubAdminApi(page)
     await open(page, SUPERADMIN, '/superadmin/users?tab=admins', 'Admins')
-    await expect(page.getByRole('tabpanel').getByText('Brian Dijamco', { exact: true }).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByRole('button', { name: /Reset password/ })).toHaveCount(0)
+    await expect(lock(page, 'Brian Dijamco')).toBeVisible({ timeout: 20_000 })
+    await lock(page, 'Brian Dijamco').click()
+    await confirm(page).click()
+    await expect(page.getByText(SUCCESS('Brian Dijamco')).first()).toBeVisible()
     expect(api.resets).toEqual([])
   })
 

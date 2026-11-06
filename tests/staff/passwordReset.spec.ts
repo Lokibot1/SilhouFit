@@ -18,7 +18,7 @@ const jwt = () => `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: 'net-
 interface Session {
   /** Answers GET /users/me; change it mid-test. Default: 200 with the profile + `flags`. */
   me: 'ok' | 'revoked' | 'archived' | 'plain401' | 'expired'
-  flags: { mustChangePassword?: boolean; passwordResetRequired?: boolean }
+  flags: { role?: 'staff' | 'admin'; mustChangePassword?: boolean; passwordResetRequired?: boolean }
   meCalls: number
   /** What GET /products (a request() call) answers. */
   products: 'ok' | 'revoked' | 'archived' | 'plain401'
@@ -399,4 +399,70 @@ test.describe('reset-account gate', () => {
     expect(panel!.x).toBeGreaterThanOrEqual(0)
     expect(panel!.x + panel!.width).toBeLessThanOrEqual(320)
   })
+})
+
+// The same reset for an admin account (a superadmin resets it): the gate and the forced sign-out are role-neutral and land on the admin pages.
+test.describe('reset admin account', () => {
+  const ADMIN_RESET = { role: 'admin' as const, mustChangePassword: true, passwordResetRequired: true }
+
+  test('the gate cannot be dismissed, and Change password opens /admin/profile with the drawer', async ({ page }) => {
+    await stubSession(page, ADMIN_RESET)
+    await signIn(page, NETWORK)
+    const popup = gate(page)
+    await expect(popup).toBeVisible()
+    await expect(page).toHaveURL(/\/admin$/)
+    await expect(popup.getByRole('button')).toHaveText(['Sign out', 'Change password'])
+    await expect(popup.getByRole('button', { name: /close|Remind me later/i })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(popup).toBeVisible()
+    await popup.getByRole('button', { name: 'Change password' }).click()
+    await expect(page).toHaveURL(/\/admin\/profile$/)
+    await expect(drawer(page)).toBeVisible()
+    await expect(gate(page)).toHaveCount(0)
+    await expect(drawer(page).getByRole('button', { name: /close/i })).toHaveCount(0)
+    await expect(drawer(page).getByRole('button', { name: 'Sign out' })).toBeVisible()
+  })
+
+  test('Sign out from the gate lands on a plain /login', async ({ page }) => {
+    await stubSession(page, ADMIN_RESET)
+    await signIn(page, NETWORK)
+    await gate(page).getByRole('button', { name: 'Sign out' }).click()
+    await expect(page).toHaveURL(/\/login$/)
+    expect(search(page)).toBe('')
+  })
+
+  test('a normal admin (even with mustChangePassword) never sees either pop-up', async ({ page }) => {
+    await stubSession(page, { role: 'admin', mustChangePassword: true })
+    await signIn(page, NETWORK)
+    await expect(page).toHaveURL(/\/admin$/)
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(gate(page)).toHaveCount(0)
+    await expect(plainGate(page)).toHaveCount(0)
+  })
+
+  test('is readable in dark mode at 320px with no horizontal scroll', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.setViewportSize({ width: 320, height: 568 })
+    await stubSession(page, ADMIN_RESET)
+    await signIn(page, NETWORK)
+    await expect(gate(page)).toBeVisible()
+    expect(await overflow(page)).toBeLessThanOrEqual(0)
+  })
+
+  for (const [name, set, path, notice] of [
+    ['a 401 session_revoked from GET /users/me', (s: Session) => (s.me = 'revoked'), '/admin/profile', banner],
+    ['a 401 session_revoked from a request() call', (s: Session) => (s.products = 'revoked'), '/admin/inventory', banner],
+    ['a 403 password_reset_expired from GET /users/me', (s: Session) => (s.me = 'expired'), '/admin/profile', (p: Page) => p.getByRole('status').filter({ hasText: 'Your temporary password expired' })],
+  ] as const) {
+    test(`${name} signs an admin out onto /login with the notice`, async ({ page }) => {
+      const session = await stubSession(page, { role: 'admin' })
+      await signIn(page, NETWORK)
+      await expect(page).toHaveURL(/\/admin$/)
+      set(session)
+      await page.goto(path)
+      await expect(page).toHaveURL(/\/login$/)
+      expect(search(page)).toBe('')
+      await expect(notice(page)).toBeVisible()
+    })
+  }
 })

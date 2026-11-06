@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useAccounts } from '../../../hooks/useAccounts'
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { useResetAdminPassword } from '../../../hooks/useResetStaffPassword'
 import { createAdminAccountApi, listAdminAccounts } from '../../../service/staffApi'
 import type { AdminAccount } from '../../../types/accounts'
-import { PlusIcon } from '../../form/icons'
-import { AddedDate } from '../../staff/inventory/InventoryParts'
+import { fullName } from '../../../utils/accountQuery'
+import { LockIcon, PlusIcon } from '../../form/icons'
+import { AddedDate, RowAction } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { PRIMARY_BUTTON } from '../../ui/buttonStyles'
 import { AccountName } from './AccountName'
@@ -13,9 +16,11 @@ import { CreateAccountSheet } from './CreateAccountSheet'
 
 const create = async ({ firstName, lastName }: { firstName: string; lastName: string }) => ({ credentials: (await createAdminAccountApi({ firstName, lastName })).credentials })
 
-/** Admins can be added, listed and searched, from the server. Reset and archive come back when the server has them. */
+/** Admins can be added, listed and searched, from the server. Only a superadmin can reset an admin's password; archive comes back when the server has it. */
 export function AdminsTab() {
   const list = useAccounts(listAdminAccounts, 'name')
+  const reset = useResetAdminPassword(list.retry)
+  const superadmin = useCurrentUser()?.role === 'superadmin'
   const [creating, setCreating] = useState(false)
   const [session, setSession] = useState(0)
 
@@ -59,6 +64,11 @@ export function AdminsTab() {
         label="Admin accounts with email and date added"
         noun="admin accounts"
         columns={columns}
+        actions={
+          superadmin
+            ? (account) => <RowAction label={`Reset password for ${fullName(account)}`} icon={<LockIcon size={16} />} disabled={reset.pendingId === account.id} onClick={() => reset.ask(account)} />
+            : undefined
+        }
         empty={
           <>
             <p className="text-base font-semibold text-fg">No admin accounts yet</p>
@@ -68,6 +78,7 @@ export function AdminsTab() {
         }
       />
       <CreateAccountSheet key={session} open={creating} onClose={() => setCreating(false)} noun="admin" create={create} server taken={list.result?.data.map((a) => a.username)} onCreated={list.retry} />
+      {reset.element}
     </section>
   )
 }

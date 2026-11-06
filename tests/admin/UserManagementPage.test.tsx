@@ -1,8 +1,9 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAccounts } from '../../src/service/accountStore'
-import { archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetStaffPasswordApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
+import { clearSession, setSession } from '../../src/service/session'
+import { archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
 import type { AdminAccount, StaffAccount } from '../../src/types/accounts'
 import { UserManagementPage } from '../../src/views/admin/UserManagementPage'
 import { renderAdmin, resetAdminAccounts, setUpAdminDom } from '../shared/adminSession'
@@ -16,6 +17,7 @@ vi.mock('../../src/service/staffApi', async (importOriginal) => ({
   createAdminAccountApi: vi.fn(),
   createStaffAccountApi: vi.fn(),
   resetStaffPasswordApi: vi.fn(),
+  resetAdminPasswordApi: vi.fn(),
   archiveStaffAccountApi: vi.fn(),
   restoreStaffAccountApi: vi.fn(),
 }))
@@ -460,7 +462,9 @@ describe('Admins tab', () => {
   beforeEach(() => {
     vi.mocked(listAdminAccounts).mockReset().mockResolvedValue(page([IVY, person('a2', 'Ana', 'Cruz')]))
     vi.mocked(createAdminAccountApi).mockReset()
+    vi.mocked(resetAdminPasswordApi).mockReset()
   })
+  afterEach(() => act(() => clearSession()))
 
   async function openAdmins() {
     renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
@@ -478,6 +482,102 @@ describe('Admins tab', () => {
     expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
     expect(screen.getByPlaceholderText('Name or email')).toBeInTheDocument()
     expect(vi.mocked(listAdminAccounts).mock.calls[0][0]).toMatchObject({ sort: 'name', page: 1, limit: 10 })
+  })
+
+  describe('reset password (superadmin only)', () => {
+    const asRole = (role: 'admin' | 'superadmin') => act(() => setSession({ name: 'Dev', email: 'dev@silhoufit.dev', role }))
+    // jsdom loads no CSS, so the table and the card list both render: the first button is the table's.
+    const resetButton = (name: string) => screen.getAllByRole('button', { name: `Reset password for ${name}` })[0]
+    const confirmButton = async () => within(await screen.findByRole('dialog', { name: /Reset password for/ })).getByRole('button', { name: 'Reset Password' })
+    const headers = () => within(screen.getAllByRole('table', { hidden: true })[0]).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)
+
+    it('gives an admin viewer no row actions and no Actions column', async () => {
+      asRole('admin')
+      await openAdmins()
+      expect(screen.queryByRole('button', { name: /Reset password/ })).not.toBeInTheDocument()
+      expect(headers()).toEqual(['#', 'Admin', 'Email', 'Added'])
+    })
+
+    it('gives a superadmin a Reset action on every row, named after the person, and an Actions column', async () => {
+      asRole('superadmin')
+      await openAdmins()
+      expect(resetButton('Ivy Lim')).toBeInTheDocument()
+      expect(resetButton('Ana Cruz')).toBeInTheDocument()
+      expect(headers()).toEqual(['#', 'Admin', 'Email', 'Added', 'Actions'])
+      expect(screen.queryByRole('button', { name: /Archive|Restore/ })).not.toBeInTheDocument()
+    })
+
+    it('asks first, names the default password and the sign-out, and sends nothing on Cancel', async () => {
+      asRole('superadmin')
+      await openAdmins()
+      await userEvent.click(resetButton('Ivy Lim'))
+      const dialog = await screen.findByRole('dialog', { name: 'Reset password for Ivy Lim?' })
+      expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
+      expect(within(dialog).getByText(/default password 1234567a and they will be signed out everywhere/)).toBeInTheDocument()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: /Reset password for/ })).not.toBeInTheDocument())
+      expect(resetAdminPasswordApi).not.toHaveBeenCalled()
+      expect(resetStaffPasswordApi).not.toHaveBeenCalled()
+    })
+
+    it('waits while the request is pending, then confirms with a toast, sending one request', async () => {
+      let finish: () => void = () => {}
+      vi.mocked(resetAdminPasswordApi).mockReturnValue(new Promise((resolve) => (finish = () => resolve({ id: 'a1' }))))
+      asRole('superadmin')
+      await openAdmins()
+      await userEvent.click(resetButton('Ivy Lim'))
+      const confirm = await confirmButton()
+      await userEvent.click(confirm)
+      expect(resetAdminPasswordApi).toHaveBeenCalledWith('a1')
+      expect(confirm).toBeDisabled()
+      expect(confirm).toHaveAttribute('aria-busy', 'true')
+      expect(resetButton('Ivy Lim')).toBeDisabled()
+      finish()
+      expect(await screen.findByText('Password reset for Ivy Lim. They are signed out and must sign in with the default password.')).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(resetAdminPasswordApi).toHaveBeenCalledTimes(1)
+    })
+
+    const CLEAR = /nothing changed/
+    const UNSURE = /couldn't confirm the result.*may or may not have been reset.*Retry is safe/
+    const PARTIAL = /may already be reset to the default, but the account wasn't fully secured.*safe to repeat/
+    it.each([
+      // [error, copy, Retry offered, "Couldn't reset ..." head shown, list reloaded]
+      [new StaffApiError('forbidden', undefined, 403, 'not_an_admin_account'), /Ivy Lim is not an admin account, so it can't be reset here\. Refresh the list\./, false, false, true],
+      [new StaffApiError('forbidden', undefined, 403, 'forbidden'), /Only a superadmin can reset admin passwords.*Sign in with a superadmin account/, false, true, false],
+      [new StaffApiError('forbidden', undefined, 401), /Your session expired\. Sign in again, then retry\./, false, true, false],
+      [new StaffApiError('not-found', undefined, 404, 'admin_not_found'), /This admin account no longer exists.*Refresh the list/, false, true, true],
+      [new StaffApiError('server', undefined, 422, 'weak_password'), /rejected the default password.*project owner/, false, true, false],
+      [new StaffApiError('rate-limit', undefined, 429), /Wait a few minutes/, false, true, false],
+      [new StaffApiError('server', undefined, 503), CLEAR, true, true, false],
+      [new StaffApiError('server', undefined, 502, 'reset_not_applied'), CLEAR, true, true, false],
+      [new StaffApiError('server', undefined, 502, 'reset_incomplete'), PARTIAL, true, false, false],
+      [new StaffApiError('server', undefined, 500), UNSURE, true, false, false],
+      [new StaffApiError('network'), UNSURE, true, false, false],
+    ])('explains a failed reset (%#)', async (error, copy, retry, head, reloads) => {
+      vi.mocked(resetAdminPasswordApi).mockRejectedValue(error)
+      asRole('superadmin')
+      await openAdmins()
+      const loads = vi.mocked(listAdminAccounts).mock.calls.length
+      await userEvent.click(resetButton('Ivy Lim'))
+      await userEvent.click(await confirmButton())
+      expect(await screen.findByText(copy)).toBeInTheDocument()
+      expect(screen.queryByText(/Couldn't reset the password for Ivy Lim\./) !== null).toBe(head)
+      expect(screen.queryByText(/staff/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
+      if (reloads) await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.length).toBeGreaterThan(loads))
+      expect(resetButton('Ivy Lim')).toBeEnabled()
+    })
+
+    it('asks again from Retry', async () => {
+      vi.mocked(resetAdminPasswordApi).mockRejectedValueOnce(new StaffApiError('network'))
+      asRole('superadmin')
+      await openAdmins()
+      await userEvent.click(resetButton('Ivy Lim'))
+      await userEvent.click(await confirmButton())
+      await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+      expect(await screen.findByRole('dialog', { name: 'Reset password for Ivy Lim?' })).toBeInTheDocument()
+    })
   })
 
   it('shows "No admin accounts yet" with Add when there are none', async () => {
