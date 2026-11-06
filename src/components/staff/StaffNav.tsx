@@ -18,9 +18,12 @@ const ROW_COLLAPSED = 'font-ui relative flex size-11 items-center justify-center
 
 export function StaffBrand({ area = 'staff' }: { area?: Area }) {
   return (
-    <BrandMark bold inline>
-      <span className="font-ui text-sm font-semibold tracking-normal text-fg-muted max-[399px]:hidden">{AREA_LABEL[area]}</span>
-    </BrandMark>
+    // Below 360px the wordmark would run under the globe and bell, so only the logo mark shows; the name stays for screen readers.
+    <span className="max-[359px]:[&_.font-display]:sr-only">
+      <BrandMark bold inline>
+        <span className="font-ui text-sm font-semibold tracking-normal text-fg-muted max-[399px]:hidden">{AREA_LABEL[area]}</span>
+      </BrandMark>
+    </span>
   )
 }
 
