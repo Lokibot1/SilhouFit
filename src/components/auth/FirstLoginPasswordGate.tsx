@@ -15,9 +15,8 @@ function wasDismissed(id: string) {
 }
 
 /**
- * Tells a staff member still on the temporary password (or an admin whose password was reset) to choose their own, over whatever page they opened. The change itself is made in
+ * Tells a staff member or admin still on the temporary password to choose their own, over whatever page they opened. The change itself is made in
  * the profile's Change password sheet. Dismissing hides this for the browser session only (sign-out clears it), so it returns at the next sign-in.
- * An admin sees it only after a reset; a new admin's first-login change is not prompted here.
  * After an administrator reset the password it cannot be dismissed: the only ways out are changing the password or signing out.
  */
 export function FirstLoginPasswordGate({ me, sheetOpen, onSignOut }: { me: Me; sheetOpen: boolean; onSignOut: () => void }) {
@@ -25,7 +24,7 @@ export function FirstLoginPasswordGate({ me, sheetOpen, onSignOut }: { me: Me; s
   const [dismissed, setDismissed] = useState(() => wasDismissed(me.id))
   // The gate steps aside only while the Change password sheet is open (two stacked modals would fight over focus).
   const reset = Boolean(me.passwordResetRequired)
-  const staff = me.role === 'staff'
+  const eligible = me.role === 'staff' || me.role === 'admin'
 
   function dismiss() {
     try {
@@ -43,7 +42,7 @@ export function FirstLoginPasswordGate({ me, sheetOpen, onSignOut }: { me: Me; s
 
   return (
     <Modal
-      open={!sheetOpen && ((reset && (staff || me.role === 'admin')) || (staff && Boolean(me.mustChangePassword) && !dismissed))}
+      open={!sheetOpen && (reset ? eligible : eligible && Boolean(me.mustChangePassword) && !dismissed)}
       onClose={reset ? () => {} : dismiss}
       closable={!reset}
       title={reset ? 'Choose a new password' : 'Change your temporary password'}

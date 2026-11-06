@@ -117,6 +117,16 @@ const EVERY_ROLE_PROFILES = [
   { role: 'customer', account: NETWORK, home: /\/profile$/, profile: '/profile' },
 ] as const
 
+/** Marks the saved sample admin as still on the temporary password (the accounts live in localStorage). */
+async function flagSimulatedAdmin(page: Page) {
+  await page.goto('/login')
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('silhoufit.accounts.v1')!)
+    state.admins.find((a: { email: string }) => a.email === 'admin@silhoufit.dev').mustChangePassword = true
+    localStorage.setItem('silhoufit.accounts.v1', JSON.stringify(state))
+  })
+}
+
 async function signInAs(page: Page, role: Role, account: { email: string; password: string }) {
   if (role === 'customer') await stubNetwork(page, { role, mustChangePassword: false })
   await signIn(page, account)
@@ -201,7 +211,7 @@ test.describe('first-login pop-up', () => {
     await expect(gate(page)).toHaveCount(0)
   })
 
-  test('is not shown to an admin or a superadmin', async ({ page }) => {
+  test('is not shown to an unflagged admin or a superadmin', async ({ page }) => {
     await signIn(page, ADMIN)
     await expect(page).toHaveURL(/\/admin$/)
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
@@ -216,7 +226,7 @@ test.describe('first-login pop-up', () => {
     await expect(gate(page)).toHaveCount(0)
   })
 
-  for (const role of ['admin', 'superadmin', 'customer'] as const) {
+  for (const role of ['superadmin', 'customer'] as const) {
     test(`is not shown to a ${role} even when the API flags mustChangePassword`, async ({ page }) => {
       await stubNetwork(page, { role })
       await signIn(page, NETWORK)
@@ -225,6 +235,56 @@ test.describe('first-login pop-up', () => {
       await expect(gate(page)).toHaveCount(0)
     })
   }
+
+  test('a flagged simulated admin gets the dismissible pop-up and Change password opens /admin/profile with the drawer', async ({ page }) => {
+    await flagSimulatedAdmin(page)
+    await signIn(page, ADMIN)
+    await expect(page).toHaveURL(/\/admin$/)
+    await expect(gate(page)).toBeVisible()
+    await expect(gate(page).getByText('You signed in with a temporary password')).toBeVisible()
+    await gate(page).getByRole('button', { name: 'Change password' }).click()
+    await expect(page).toHaveURL(/\/admin\/profile$/)
+    await expect(gate(page)).toBeHidden()
+    await expect(drawer(page)).toBeVisible()
+    await expect(drawer(page).getByRole('button', { name: 'Sign out' })).toHaveCount(0)
+
+    await fillForm(drawer(page), ADMIN.password, NEW_PASSWORD)
+    await submit(drawer(page)).click()
+    await expect(page).toHaveURL(/\/login$/)
+    await expect(page.getByRole('status').filter({ has: page.getByText('Password changed.', { exact: true }) })).toContainText('Sign in with your new password.')
+  })
+
+  test('a flagged simulated admin can put the pop-up off with Remind me later or Escape, and it returns after sign-out', async ({ page }) => {
+    await flagSimulatedAdmin(page)
+    await signIn(page, ADMIN)
+    await dismissGate(page)
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(gate(page)).toBeHidden()
+    await page.goto('/admin/profile')
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+    await expect(page).toHaveURL(/\/login/)
+    await signIn(page, ADMIN)
+    await expect(gate(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(gate(page)).toBeHidden()
+  })
+
+  test('a network admin flagged by the API gets the dismissible pop-up; the full path ends on /login with the banner', async ({ page }) => {
+    const net = await stubNetwork(page, { role: 'admin' })
+    await signIn(page, NETWORK)
+    await expect(page).toHaveURL(/\/admin$/)
+    await expect(gate(page)).toBeVisible()
+    await expect(gate(page).getByRole('button', { name: 'Remind me later' })).toBeVisible()
+    await gate(page).getByRole('button', { name: 'Change password' }).click()
+    await expect(page).toHaveURL(/\/admin\/profile$/)
+    await expect(drawer(page)).toBeVisible()
+    await fillForm(drawer(page))
+    await submit(drawer(page)).click()
+    await expect(page).toHaveURL(/\/login$/)
+    expect(net.posts).toHaveLength(1)
+    await expect(page.getByRole('status').filter({ has: page.getByText('Password changed.', { exact: true }) })).toContainText('Sign in with your new password.')
+  })
 
   test('is shown from the API flag for a non-simulated staff member', async ({ page }) => {
     await stubNetwork(page)

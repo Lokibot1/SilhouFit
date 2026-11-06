@@ -431,13 +431,14 @@ test.describe('reset admin account', () => {
     expect(search(page)).toBe('')
   })
 
-  test('a normal admin (even with mustChangePassword) never sees either pop-up', async ({ page }) => {
+  test('an admin with mustChangePassword and no reset gets the dismissible pop-up, not the reset one', async ({ page }) => {
     await stubSession(page, { role: 'admin', mustChangePassword: true })
     await signIn(page, NETWORK)
     await expect(page).toHaveURL(/\/admin$/)
-    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(plainGate(page)).toBeVisible()
     await expect(gate(page)).toHaveCount(0)
-    await expect(plainGate(page)).toHaveCount(0)
+    await plainGate(page).getByRole('button', { name: 'Remind me later' }).click()
+    await expect(plainGate(page)).toBeHidden()
   })
 
   test('is readable in dark mode at 320px with no horizontal scroll', async ({ page }) => {
