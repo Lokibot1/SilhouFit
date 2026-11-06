@@ -40,6 +40,9 @@ const LoginPage = lazy(() =>
 const AuthCallbackPage = lazy(() =>
   import('./views/auth/AuthCallbackPage').then((m) => ({ default: m.AuthCallbackPage })),
 )
+const SetPasswordPage = lazy(() =>
+  import('./views/auth/SetPasswordPage').then((m) => ({ default: m.SetPasswordPage })),
+)
 const ForgotPasswordPage = lazy(() =>
   import('./views/auth/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
 )
@@ -275,6 +278,14 @@ function App() {
                 element={
                   <Suspense fallback={<CallbackSkeleton />}>
                     <AuthCallbackPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="auth/set-password"
+                element={
+                  <Suspense fallback={<CallbackSkeleton />}>
+                    <SetPasswordPage />
                   </Suspense>
                 }
               />

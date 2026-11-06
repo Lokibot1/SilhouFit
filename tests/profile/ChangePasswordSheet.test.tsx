@@ -5,7 +5,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { ChangePasswordSheet } from '../../src/components/profile/ChangePasswordSheet'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { ChangePasswordError, changePassword } from '../../src/service/changePassword'
-import type { Me } from '../../src/service/fetchMe'
 import { peekLoginNotice, takeLoginNotice } from '../../src/service/loginNotice'
 import { clearSession, getSession, setSession } from '../../src/service/session'
 
@@ -16,21 +15,7 @@ vi.mock('../../src/service/changePassword', async (importOriginal) => ({
 vi.mock('../../src/service/supabase', () => ({ getSupabase: async () => ({ auth: { signOut: vi.fn().mockResolvedValue({ error: null }) } }) }))
 const change = vi.mocked(changePassword)
 
-const ME: Me = {
-  id: 'stf-1',
-  email: 'sam@silhoufit.dev',
-  role: 'staff',
-  firstName: 'Sam',
-  middleName: null,
-  lastName: 'Reyes',
-  suffix: null,
-  fullName: 'Sam Reyes',
-  avatarUrl: null,
-  birthday: null,
-  gender: null,
-  createdAt: '2026-01-15T08:30:00.000Z',
-  updatedAt: '2026-01-15T08:30:00.000Z',
-}
+const ME = { email: 'sam@silhoufit.dev' }
 
 beforeAll(() => {
   vi.setConfig({ testTimeout: 15000 })
@@ -46,13 +31,13 @@ afterEach(() => {
   act(() => clearSession())
 })
 
-function renderSheet(onClose = vi.fn(), me: Me = ME, onSignOut = vi.fn()) {
+function renderSheet(onClose = vi.fn()) {
   render(
     <ToastProvider>
-      <ChangePasswordSheet open onClose={onClose} onSignOut={onSignOut} me={me} />
+      <ChangePasswordSheet open onClose={onClose} />
     </ToastProvider>,
   )
-  return { onClose, onSignOut }
+  return { onClose }
 }
 
 async function fill(user: ReturnType<typeof userEvent.setup>, current: string, next: string, confirm: string) {
@@ -66,23 +51,8 @@ async function fill(user: ReturnType<typeof userEvent.setup>, current: string, n
 const submit = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Change password' }))
 
 describe('ChangePasswordSheet', () => {
-  it('after a reset cannot be closed (no X, Escape or backdrop) and offers Sign out', async () => {
-    const { onClose, onSignOut } = renderSheet(vi.fn(), { ...ME, passwordResetRequired: true })
-    expect(screen.queryByRole('button', { name: 'Close Change password' })).not.toBeInTheDocument()
-    await userEvent.keyboard('{Escape}')
-    expect(onClose).not.toHaveBeenCalled()
-    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
-    expect(onSignOut).toHaveBeenCalledTimes(1)
-  })
-
-  it('is closable with no Sign out button for a normal first login', () => {
+  it('is closable and has no Sign out button, for every role', () => {
     renderSheet()
-    expect(screen.getByRole('button', { name: 'Close Change password' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
-  })
-
-  it.each(['admin', 'superadmin', 'customer'] as const)('is closable with no Sign out button for a %s', (role) => {
-    renderSheet(vi.fn(), { ...ME, role })
     expect(screen.getByRole('button', { name: 'Close Change password' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
   })
@@ -95,14 +65,21 @@ describe('ChangePasswordSheet', () => {
     expect(within(dialog).getByRole('group', { name: 'Password requirements' })).toBeInTheDocument()
   })
 
-  it('ticks the checklist as you type and keeps emoji out', async () => {
+  it('ticks each requirement and moves the strength meter as you type, and keeps emoji out', async () => {
     const user = userEvent.setup()
     renderSheet()
-    const dialog = await fill(user, '', 'Ab😀cd', '')
-    expect(within(dialog).getByLabelText('New password')).toHaveValue('Abcd')
+    const dialog = await fill(user, '', 'ab😀cd', '')
+    expect(within(dialog).getByLabelText('New password')).toHaveValue('abcd')
     const group = within(dialog).getByRole('group', { name: 'Password requirements' })
-    expect(within(group).getByText('One uppercase letter').parentElement).toHaveTextContent('met')
-    expect(within(group).getByText('One number').parentElement).toHaveTextContent('not met')
+    expect(group).toHaveTextContent('Too weak')
+    const item = (text: string) => within(group).getByText(text).parentElement
+    expect(item('At least 8 characters')).toHaveTextContent('not met')
+    expect(item('One lowercase letter')).not.toHaveTextContent('not met')
+    await user.type(within(dialog).getByLabelText('New password'), 'efG1!')
+    for (const text of ['At least 8 characters', 'One uppercase letter', 'One lowercase letter', 'One number', 'One special character']) {
+      expect(item(text)).not.toHaveTextContent('not met')
+    }
+    expect(group).not.toHaveTextContent('Too weak')
   })
 
   it('shows what is wrong inline and sends nothing', async () => {
@@ -113,6 +90,21 @@ describe('ChangePasswordSheet', () => {
     expect(within(dialog).getByText('Enter your current password.')).toBeInTheDocument()
     expect(within(dialog).getByText('Use at least 8 characters.')).toBeInTheDocument()
     expect(within(dialog).getByText("Passwords don't match.")).toBeInTheDocument()
+    expect(change).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['abcdefg1!', 'Add an uppercase letter.'],
+    ['ABCDEFG1!', 'Add a lowercase letter.'],
+    ['Abcdefgh!', 'Add a number.'],
+    ['Abcdefg12', 'Add a special character, like ! or #.'],
+  ])('blocks the new password %s with a clear message and does not strength-check the current one', async (next, message) => {
+    const user = userEvent.setup()
+    renderSheet()
+    const dialog = await fill(user, 'old', next, next)
+    await submit(user)
+    expect(within(dialog).getByText(message)).toBeInTheDocument()
+    expect(within(dialog).queryByText('Enter your current password.')).not.toBeInTheDocument()
     expect(change).not.toHaveBeenCalled()
   })
 
@@ -170,12 +162,10 @@ describe('ChangePasswordSheet', () => {
   })
 
   it.each([
-    ['weak', /too weak/, 'Your password was not changed.'],
     ['rate-limit', /Wait a few minutes/, 'Too many attempts.'],
     ['network', /connection dropped/, 'Your password was not changed.'],
     ['server', /went wrong on our side/, 'Your password was not changed.'],
     ['unavailable', /could not complete the request.*contact an administrator/, 'Password changes are unavailable right now.'],
-    ['no-password', /signs in with Google \(or another provider\), so there is no password to change here\./, 'There is no password to change.'],
   ] as const)('explains a %s failure in an alert, keeps the form and lets you retry', async (kind, body, title) => {
     const user = userEvent.setup()
     change.mockRejectedValueOnce(new ChangePasswordError(kind)).mockResolvedValueOnce(undefined)
@@ -191,6 +181,17 @@ describe('ChangePasswordSheet', () => {
     await submit(user)
     await waitFor(() => expect(getSession()).toBeNull())
     expect(change).toHaveBeenCalledTimes(2)
+  })
+
+  it("shows Supabase's own message when it refuses the password as weak", async () => {
+    const user = userEvent.setup()
+    change.mockRejectedValue(new ChangePasswordError('weak', 'Password should be at least 6 characters.'))
+    renderSheet()
+    await fill(user, 'Old#Pass1', 'New#Pass1x', 'New#Pass1x')
+    await submit(user)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Password should be at least 6 characters.')
+    expect(alert).toHaveTextContent('Choose a longer or less common password')
   })
 
   it('offers Sign in again when the session has expired', async () => {

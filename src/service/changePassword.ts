@@ -1,32 +1,51 @@
+import type { User } from '@supabase/supabase-js'
 import { SIMULATED_AUTH } from '../config/accountPolicy'
 import { getSession } from './session'
-import { endArchivedSession, endExpiredSession, endRevokedSession } from './sessionRevoked'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
-export type ChangePasswordErrorKind = 'wrong-password' | 'same' | 'weak' | 'rate-limit' | 'network' | 'unauthorized' | 'unavailable' | 'no-password' | 'server'
+export type ChangePasswordErrorKind = 'wrong-password' | 'same' | 'weak' | 'rate-limit' | 'network' | 'unauthorized' | 'unavailable' | 'server'
 
-/** `kind` lets the sheet pick accurate copy. */
+/** `kind` lets the sheet pick accurate copy; `detail` is Supabase's own message for a password it refuses (`weak`). */
 export class ChangePasswordError extends Error {
   kind: ChangePasswordErrorKind
+  detail?: string
 
-  constructor(kind: ChangePasswordErrorKind) {
+  constructor(kind: ChangePasswordErrorKind, detail?: string) {
     super(`Changing the password failed (${kind}).`)
     this.kind = kind
+    this.detail = detail
   }
 }
 
-const codeOf = async (response: Response) => {
+type AuthFailure = { code?: string; status?: number; message?: string }
+
+/** Whether the signed-in account has a password to change: false for one that signs in only with Google (or another provider). Unknown reads as true. */
+export async function hasPasswordLogin(): Promise<boolean> {
+  if (SIMULATED_AUTH && getSession()?.simulated) return true
   try {
-    return ((await response.json()) as { code?: unknown } | null)?.code
+    const supabase = await getSupabase()
+    const user: User | undefined = (await supabase.auth.getSession()).data.session?.user
+    if (!user) return true
+    const providers = [...(user.identities ?? []).map((identity) => identity.provider), ...((user.app_metadata?.providers as string[] | undefined) ?? [])]
+    return providers.length === 0 || providers.includes('email')
   } catch {
-    return undefined
+    return true
   }
+}
+
+/** Supabase answers status 0 when the request never reached it. */
+function failureKind({ code, status }: AuthFailure): ChangePasswordErrorKind {
+  if (status === 0) return 'network'
+  if (status === 429 || code === 'over_request_rate_limit') return 'rate-limit'
+  if (status === 502 || status === 503 || status === 504) return 'unavailable'
+  return 'server'
 }
 
 /**
- * POST /users/me/password (every role). The server answers 204; 403 `invalid_current_password` is a wrong current password, 403
- * `password_login_not_available` an account with no password (Google only) and 422 `same_password` a new one equal to it. A simulated account is answered from the saved accounts instead.
+ * Changes the signed-in person's password straight through Supabase Auth (the API has no password routes), for every role. The current password is checked
+ * first by signing in with it again, then `updateUser` sets the new one. The app's sign-up password rules are checked by the form first; Supabase may still refuse a password, and its message
+ * for a refused password is kept in `detail`. A simulated account is answered from the saved accounts instead.
  */
 export async function changePassword(currentPassword: string, newPassword: string, { signal }: RequestOptions = {}): Promise<void> {
   const session = getSession()
@@ -41,46 +60,31 @@ export async function changePassword(currentPassword: string, newPassword: strin
     return
   }
 
-  let token: string | undefined
+  let supabase: Awaited<ReturnType<typeof getSupabase>>
+  let email: string | undefined
   try {
-    const supabase = await getSupabase()
-    token = (await supabase.auth.getSession()).data.session?.access_token
+    supabase = await getSupabase()
+    email = (await supabase.auth.getSession()).data.session?.user.email
   } catch {
     throw new ChangePasswordError('server')
   }
-  if (!token) throw new ChangePasswordError('unauthorized')
+  if (!email) throw new ChangePasswordError('unauthorized')
 
-  let response: Response
-  try {
-    response = await fetch(`${import.meta.env.VITE_API_URL}/users/me/password`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentPassword, newPassword }),
-      signal,
-    })
-  } catch (failure) {
-    if (signal?.aborted) throw failure
-    throw new ChangePasswordError('network')
+  const check = await supabase.auth.signInWithPassword({ email, password: currentPassword })
+  signal?.throwIfAborted()
+  if (check.error) {
+    const { code } = check.error as AuthFailure
+    if (code === 'invalid_credentials') throw new ChangePasswordError('wrong-password')
+    if (code === 'user_banned') throw new ChangePasswordError('unauthorized')
+    throw new ChangePasswordError(failureKind(check.error))
   }
-  if (response.ok) return
-  if (response.status === 400) throw new ChangePasswordError('weak')
-  if (response.status === 401) {
-    const code = await codeOf(response)
-    if (code === 'session_revoked') endRevokedSession()
-    if (code === 'account_archived') endArchivedSession()
-    throw new ChangePasswordError('unauthorized')
-  }
-  if (response.status === 403) {
-    const code = await codeOf(response)
-    if (code === 'password_reset_expired') {
-      endExpiredSession()
-      throw new ChangePasswordError('unauthorized')
-    }
-    if (code === 'invalid_current_password') throw new ChangePasswordError('wrong-password')
-    if (code === 'password_login_not_available') throw new ChangePasswordError('no-password')
-  }
-  if (response.status === 422) throw new ChangePasswordError((await codeOf(response)) === 'same_password' ? 'same' : 'weak')
-  if (response.status === 429) throw new ChangePasswordError('rate-limit')
-  if (response.status === 502 || response.status === 503) throw new ChangePasswordError('unavailable')
-  throw new ChangePasswordError('server')
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  signal?.throwIfAborted()
+  if (!error) return
+  const { code, status, message } = error as AuthFailure
+  if (code === 'same_password') throw new ChangePasswordError('same')
+  if (code === 'weak_password') throw new ChangePasswordError('weak', message)
+  if (status === 401 || code === 'session_not_found' || code === 'session_expired') throw new ChangePasswordError('unauthorized')
+  throw new ChangePasswordError(failureKind(error))
 }

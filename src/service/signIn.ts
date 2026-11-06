@@ -10,7 +10,7 @@ export interface SignInPayload {
 }
 
 export type SignInResult =
-  | { ok: true; user: { name: string; email: string; avatarUrl?: string; role?: Me['role']; simulated?: boolean; accountId?: string; mustChangePassword?: boolean } }
+  | { ok: true; user: { name: string; email: string; avatarUrl?: string; role?: Me['role']; simulated?: boolean; accountId?: string } }
   | { ok: false; reason: 'invalid' | 'archived' }
 
 // Wrong password, unknown email and unconfirmed email all read the same, so the form never reveals which emails exist.

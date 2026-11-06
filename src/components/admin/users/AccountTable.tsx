@@ -3,7 +3,7 @@ import type { AccountsList } from '../../../hooks/useAccounts'
 import type { AccountSort } from '../../../utils/accountQuery'
 import { Pagination } from '../../shop/Pagination'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
-import { openRow } from '../../staff/inventory/InventoryParts'
+import { Select } from '../../ui/Select'
 import { PAGER_FOOTER, PAGER_PAGINATION, TABLE_ROW, TD, TH } from '../../staff/inventory/layout'
 import { SortHeader } from '../../staff/inventory/SortHeader'
 import { SectionError } from '../../staff/StaffSection'
@@ -37,8 +37,6 @@ interface AccountTableProps<T extends { id: string }> {
   columns: AccountColumn<T>[]
   /** A last column of buttons, one set per row. Their clicks must not reach the row (use RowAction). */
   actions?: (row: T) => ReactNode
-  /** Makes the whole row open something. The first column's cell must hold a button, which gets the focus back. */
-  onOpen?: (row: T) => void
   /** Shown when there are no accounts at all (not when a search or filter hides them). */
   empty: ReactNode
   /** Replaces "No ___ match" when a filter hides every account and its own message fits better. */
@@ -46,11 +44,12 @@ interface AccountTableProps<T extends { id: string }> {
 }
 
 /** A tab's list: the table from @4xl of its panel and cards below, with the loading, error and empty states and the pager. */
-export function AccountTable<T extends { id: string }>({ list, label, noun, columns, actions, onOpen, empty, emptyFiltered }: AccountTableProps<T>) {
+export function AccountTable<T extends { id: string }>({ list, label, noun, columns, actions, empty, emptyFiltered }: AccountTableProps<T>) {
   const { state, result, stale, retry, sorted, sortBy, page, setPage, per, filtered, clear } = list
   const rows = result?.data ?? null
   const cells = columns.length + (actions ? 1 : 0)
   const heading = columns.find((column) => column.title) ?? columns[0]
+  const sortChoices = columns.flatMap((column) => (column.sort ? [{ value: column.sort, label: column.sort === 'name' ? 'Name' : column.header }] : []))
 
   if (state.status === 'error' && !result) return <SectionError what={`the ${noun}`} kind={state.kind} onRetry={retry} />
 
@@ -127,9 +126,8 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
             rows.map((row, index) => (
               <tr
                 key={row.id}
-                onClick={onOpen && ((event) => openRow(event, () => onOpen(row)))}
                 style={{ '--i': index } as CSSProperties}
-                className={`${TABLE_ROW} enter-row hover:bg-line/40 ${onOpen ? 'cursor-pointer' : ''}`}
+                className={`${TABLE_ROW} enter-row hover:bg-line/40`}
               >
                 {columns.map((column) => (
                   <td key={column.key} className={`${TD} text-sm text-fg ${column.right ? 'text-right tabular-nums' : ''}`}>
@@ -146,6 +144,22 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
           )}
         </tbody>
       </table>
+      {sortChoices.length > 0 && (
+        // The header buttons are hidden below @4xl, so the cards get their own sort control.
+        <div className="mb-3 flex items-end gap-3 @4xl:hidden">
+          <div className="min-w-0 flex-1">
+            <Select label="Sort by" triggerPrefix="Sort by: " value={sorted.sort} options={sortChoices} onChange={sortBy} />
+          </div>
+          <button
+            type="button"
+            onClick={() => sortBy(sorted.sort)}
+            aria-label={`Sorted ${sorted.dir === 'asc' ? 'ascending' : 'descending'}. Switch to ${sorted.dir === 'asc' ? 'descending' : 'ascending'}`}
+            className={`${SECONDARY_BUTTON} shrink-0`}
+          >
+            {sorted.dir === 'asc' ? '↑ Ascending' : '↓ Descending'}
+          </button>
+        </div>
+      )}
       <ul
         aria-busy={rows === null || stale}
         aria-label={label}
@@ -157,9 +171,8 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
           rows.map((row, index) => (
             <li
               key={row.id}
-              onClick={onOpen && ((event) => openRow(event, () => onOpen(row)))}
               style={{ '--i': index } as CSSProperties}
-              className={`enter-row flex min-h-24 flex-col justify-center gap-1 py-3 hover:bg-line/40 ${onOpen ? 'cursor-pointer' : ''}`}
+              className="enter-row flex min-h-24 flex-col justify-center gap-1 py-3 hover:bg-line/40"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">{heading.cell(row, index)}</div>
@@ -167,9 +180,9 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
               </div>
               <dl className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-fg-muted">
                 {columns.filter((column) => column !== heading).map((column) => (
-                  <div key={column.key} className={`flex items-center ${column.right ? 'tabular-nums' : ''}`}>
+                  <div key={column.key} className={`flex min-w-0 items-center ${column.right ? 'tabular-nums' : ''}`}>
                     <dt className={column.cardLabel ? 'mr-1' : 'sr-only'}>{column.cardLabel ?? column.header}</dt>
-                    <dd>{column.cell(row, index)}</dd>
+                    <dd className="min-w-0">{column.cell(row, index)}</dd>
                   </div>
                 ))}
               </dl>

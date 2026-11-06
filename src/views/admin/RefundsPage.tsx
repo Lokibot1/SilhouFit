@@ -1,6 +1,6 @@
 import { RefundSummaryCards } from '../../components/admin/refunds/RefundSummaryCards'
 import { RefundsList } from '../../components/admin/refunds/RefundsList'
-import { Tooltip } from '../../components/ui/Tooltip'
+import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 
@@ -19,11 +19,7 @@ export function RefundsPage() {
           <h1 className="display text-2xl text-fg sm:text-3xl">Returns &amp; Refunds</h1>
           <p className="mt-1 text-xs text-fg-muted">Refund and return requests waiting for an admin decision</p>
         </div>
-        <Tooltip label="Requests and decisions are kept in this browser's session only until the orders backend is connected." describe>
-          <span tabIndex={0} className="font-ui inline-flex h-8 items-center rounded-full border border-line-strong px-3 text-sm font-medium text-fg-muted">
-            Sample data
-          </span>
-        </Tooltip>
+        <SampleDataBadge reason="Requests and decisions are kept in this browser's session only until the orders backend is connected." />
       </header>
       <RefundSummaryCards />
       <RefundsList />

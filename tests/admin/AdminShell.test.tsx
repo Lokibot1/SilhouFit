@@ -1,19 +1,17 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { FirstLoginPasswordGate } from '../../src/components/auth/FirstLoginPasswordGate'
 import { StaffNav } from '../../src/components/staff/StaffNav'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { getPermissions, resetPermissions, setRolePermissions } from '../../src/service/permissionStore'
-import { fetchMe, type Me } from '../../src/service/fetchMe'
+import { fetchMe } from '../../src/service/fetchMe'
 import { fetchStaffNotifications } from '../../src/service/fetchStaffNotifications'
 import { clearSession, getSession, setSession } from '../../src/service/session'
 import { AdminDashboardPage } from '../../src/views/admin/AdminDashboardPage'
 import { StaffLayout } from '../../src/views/staff/StaffLayout'
-import { ADMIN_ME, renderAdmin, resetAdminAccounts, setUpAdminDom, Where } from '../shared/adminSession'
+import { ADMIN_ME, resetAdminAccounts, setUpAdminDom, Where } from '../shared/adminSession'
 
 vi.mock('../../src/service/simulateRequest', () => ({ simulateRequest: () => Promise.resolve({ ok: true }) }))
 vi.mock('../../src/service/fetchMe', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../src/service/fetchMe')>()), fetchMe: vi.fn() }))
@@ -124,6 +122,8 @@ describe('admin dashboard', () => {
     // Sample orders, transactions and product changes are listed next to the account changes.
     expect(await screen.findByText('Order placed: SF-10231')).toBeInTheDocument()
     expect(screen.queryByText('Recent activity')).toBeNull()
+    // Every section reads sample data, so the page says so once, next to the greeting.
+    expect(screen.getAllByText('Sample data')).toHaveLength(1)
   })
 })
 
@@ -177,221 +177,22 @@ describe('StaffLayout for a simulated account', () => {
     renderLayout('/admin/users')
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/login'))
     expect(getSession()).toBeNull()
-    expect(screen.getByText('This account has been archived. Contact an administrator.')).toBeInTheDocument()
+    expect(screen.getByText('This account has been deactivated. Contact an administrator.')).toBeInTheDocument()
   })
 
-  it('asks a flagged admin to change the temporary password over the page, and not an unflagged one', async () => {
+  it('signs out an account the API reports as deactivated (isActive false)', async () => {
     act(() => setSession({ name: 'Dev Admin', email: ADMIN_ME.email, role: 'admin' }))
-    load.mockResolvedValue({ ...ADMIN_ME, mustChangePassword: true })
+    load.mockResolvedValue({ ...ADMIN_ME, status: undefined, isActive: false })
+    renderLayout('/admin/users')
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/login'))
+    expect(getSession()).toBeNull()
+  })
+
+  it('never shows a temporary-password pop-up, even for an old flagged profile', async () => {
+    act(() => setSession({ name: 'Dev Admin', email: ADMIN_ME.email, role: 'admin' }))
+    load.mockResolvedValue({ ...ADMIN_ME, mustChangePassword: true } as typeof ADMIN_ME)
     renderLayout('/admin/users')
     expect(await screen.findByText('users page')).toBeInTheDocument()
-    expect(await screen.findByRole('dialog', { name: 'Change your temporary password' })).toBeInTheDocument()
-  })
-
-  it('does not ask an admin who is not flagged', async () => {
-    act(() => setSession({ name: 'Dev Admin', email: ADMIN_ME.email, role: 'admin' }))
-    load.mockResolvedValue({ ...ADMIN_ME, mustChangePassword: false })
-    renderLayout('/admin/users')
-    expect(await screen.findByText('users page')).toBeInTheDocument()
-    expect(screen.queryByRole('dialog', { name: 'Change your temporary password' })).not.toBeInTheDocument()
-  })
-})
-
-describe('FirstLoginPasswordGate', () => {
-  const pending = { ...ADMIN_ME, id: 'stf-001', role: 'staff' as const, mustChangePassword: true }
-  const TITLE = 'Change your temporary password'
-
-  const onSignOut = vi.fn()
-  function gate(me: Me = pending, sheetOpen = false) {
-    renderAdmin(<FirstLoginPasswordGate me={me} sheetOpen={sheetOpen} onSignOut={onSignOut} />, '/staff')
-  }
-
-  it('tells a staff member on the temporary password to change it, with no form in it', async () => {
-    gate()
-    const dialog = await screen.findByRole('dialog', { name: TITLE })
-    expect(within(dialog).getByRole('button', { name: 'Change password' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: 'Remind me later' })).toBeInTheDocument()
-    expect(within(dialog).queryByLabelText('New password')).not.toBeInTheDocument()
-  })
-
-  it('sends them to the staff profile with the change sheet open and stays hidden for the session', async () => {
-    gate()
-    await userEvent.click(await screen.findByRole('button', { name: 'Change password' }))
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/staff/profile'))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).not.toBeInTheDocument())
-    expect(sessionStorage.getItem('silhoufit.password-gate.skipped.stf-001')).toBe('1')
-  })
-
-  it('can be put off with Remind me later, and Escape does the same', async () => {
-    gate()
-    await userEvent.click(await screen.findByRole('button', { name: 'Remind me later' }))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).not.toBeInTheDocument())
-    expect(screen.getByTestId('where')).toHaveTextContent('/staff')
-    expect(screen.getByTestId('where')).not.toHaveTextContent('/staff/profile')
-    expect(sessionStorage.getItem('silhoufit.password-gate.skipped.stf-001')).toBe('1')
-  })
-
-  describe('after an administrator reset the password', () => {
-    const reset = { ...pending, passwordResetRequired: true }
-    const RESET_TITLE = 'Choose a new password'
-
-    it('cannot be put off: only Change password and Sign out, no close button', async () => {
-      gate(reset)
-      const dialog = await screen.findByRole('dialog', { name: RESET_TITLE })
-      expect(within(dialog).getByText('An administrator reset your password to the default. Choose your own now before you continue.')).toBeInTheDocument()
-      expect(within(dialog).getByRole('button', { name: 'Change password' })).toBeInTheDocument()
-      expect(within(dialog).getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
-      expect(within(dialog).queryByRole('button', { name: 'Remind me later' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: `Close ${RESET_TITLE}` })).not.toBeInTheDocument()
-    })
-
-    it('ignores Escape and the backdrop', async () => {
-      gate(reset)
-      await screen.findByRole('dialog', { name: RESET_TITLE })
-      await userEvent.keyboard('{Escape}')
-      fireEvent.pointerDown(document.querySelector('[aria-hidden="true"].absolute')!)
-      expect(screen.getByRole('dialog', { name: RESET_TITLE })).toBeInTheDocument()
-    })
-
-    it('Sign out goes through the layout sign out, and the gate hides only while the change sheet is open', async () => {
-      gate(reset)
-      await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
-      expect(onSignOut).toHaveBeenCalledTimes(1)
-    })
-
-    it('stays hidden while the change sheet is open', () => {
-      gate(reset, true)
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    })
-
-    it('is shown even when it was put off earlier this session, and Change password does not record a dismissal', async () => {
-      sessionStorage.setItem('silhoufit.password-gate.skipped.stf-001', '1')
-      gate({ ...reset, mustChangePassword: false })
-      await userEvent.click(await screen.findByRole('button', { name: 'Change password' }))
-      await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/staff/profile'))
-    })
-  })
-
-  it('stays hidden when it was already put off this session', () => {
-    sessionStorage.setItem('silhoufit.password-gate.skipped.stf-001', '1')
-    gate()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  it('is not shown when no change is due', () => {
-    gate({ ...pending, mustChangePassword: false })
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  it('is never shown to a customer on the temporary password', () => {
-    gate({ ...pending, role: 'customer' })
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  describe('a superadmin on the temporary password', () => {
-    const pendingSuper = { ...pending, id: 'sup-001', role: 'superadmin' as const }
-
-    it('sees the dismissible pop-up, with no Sign out', async () => {
-      gate(pendingSuper)
-      const dialog = await screen.findByRole('dialog', { name: TITLE })
-      expect(within(dialog).getByRole('button', { name: 'Remind me later' })).toBeInTheDocument()
-      expect(within(dialog).queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
-    })
-
-    it('can put it off for the session, and Change password goes to the superadmin profile', async () => {
-      gate(pendingSuper)
-      await userEvent.click(await screen.findByRole('button', { name: 'Remind me later' }))
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).not.toBeInTheDocument())
-      expect(sessionStorage.getItem('silhoufit.password-gate.skipped.sup-001')).toBe('1')
-      cleanup()
-      sessionStorage.clear()
-      gate(pendingSuper)
-      await userEvent.click(await screen.findByRole('button', { name: 'Change password' }))
-      await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/superadmin/profile'))
-    })
-
-    it('is not shown when no change is due', () => {
-      gate({ ...pendingSuper, mustChangePassword: false })
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    })
-  })
-
-  it.each(['superadmin', 'customer'] as const)('is never shown to a %s, even with the reset flag', (role) => {
-    gate({ ...pending, role, passwordResetRequired: true })
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  describe('after a superadmin reset an admin password', () => {
-    const adminReset = { ...ADMIN_ME, mustChangePassword: true, passwordResetRequired: true }
-    const RESET_TITLE = 'Choose a new password'
-
-    it('cannot be put off: only Change password and Sign out, no close button', async () => {
-      gate(adminReset)
-      const dialog = await screen.findByRole('dialog', { name: RESET_TITLE })
-      expect(within(dialog).getByText('An administrator reset your password to the default. Choose your own now before you continue.')).toBeInTheDocument()
-      expect(within(dialog).getByRole('button', { name: 'Change password' })).toBeInTheDocument()
-      expect(within(dialog).getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
-      expect(within(dialog).queryByRole('button', { name: 'Remind me later' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: `Close ${RESET_TITLE}` })).not.toBeInTheDocument()
-      await userEvent.keyboard('{Escape}')
-      expect(screen.getByRole('dialog', { name: RESET_TITLE })).toBeInTheDocument()
-    })
-
-    it('sends them to the admin profile, not the staff one, without recording a dismissal', async () => {
-      gate(adminReset)
-      await userEvent.click(await screen.findByRole('button', { name: 'Change password' }))
-      await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/admin/profile'))
-      expect(sessionStorage.getItem('silhoufit.password-gate.skipped.adm-001')).toBeNull()
-    })
-
-    it('Sign out goes through the layout sign out', async () => {
-      gate(adminReset)
-      await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
-      expect(onSignOut).toHaveBeenCalledTimes(1)
-    })
-
-    it('stays hidden while the change sheet is open', () => {
-      gate(adminReset, true)
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    })
-  })
-
-  describe('an admin on the temporary password', () => {
-    const pendingAdmin = { ...ADMIN_ME, mustChangePassword: true }
-
-    it('sees the dismissible pop-up', async () => {
-      gate(pendingAdmin)
-      const dialog = await screen.findByRole('dialog', { name: TITLE })
-      expect(within(dialog).getByRole('button', { name: 'Remind me later' })).toBeInTheDocument()
-      expect(within(dialog).queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
-    })
-
-    it('can put it off with Remind me later or Escape, and it stays hidden for the session', async () => {
-      gate(pendingAdmin)
-      await userEvent.click(await screen.findByRole('button', { name: 'Remind me later' }))
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).not.toBeInTheDocument())
-      expect(sessionStorage.getItem('silhoufit.password-gate.skipped.adm-001')).toBe('1')
-      cleanup()
-      gate(pendingAdmin)
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      cleanup()
-      sessionStorage.clear()
-      gate(pendingAdmin)
-      await screen.findByRole('dialog', { name: TITLE })
-      await userEvent.keyboard('{Escape}')
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).not.toBeInTheDocument())
-      expect(sessionStorage.getItem('silhoufit.password-gate.skipped.adm-001')).toBe('1')
-    })
-
-    it('Change password goes to the admin profile', async () => {
-      gate(pendingAdmin)
-      await userEvent.click(await screen.findByRole('button', { name: 'Change password' }))
-      await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/admin/profile'))
-    })
-
-    it('is not shown when no change is due', () => {
-      gate(ADMIN_ME)
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    })
   })
 })

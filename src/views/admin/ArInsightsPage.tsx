@@ -6,6 +6,8 @@ import { ArSizeAgreement } from '../../components/admin/ar/ArSizeAgreement'
 import { ArSummaryCards } from '../../components/admin/ar/ArSummaryCards'
 import { ArTopProductsTable } from '../../components/admin/ar/ArTopProductsTable'
 import { PeriodSegments, YearSelect } from '../../components/staff/PeriodFilter'
+import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
+import { SAMPLE_DATA } from '../../service/fetchStaffAnalytics'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { defaultFilter, resolvePeriod } from '../../utils/period'
@@ -24,7 +26,10 @@ export function ArInsightsPage() {
     <div className="grid gap-3">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="display text-2xl text-fg sm:text-3xl">AR Fitting Insights</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="display text-2xl text-fg sm:text-3xl">AR Fitting Insights</h1>
+            {SAMPLE_DATA && <SampleDataBadge reason="These figures are placeholders until the AR fitting analytics backend exists." />}
+          </div>
           <p className="mt-1 text-xs text-fg-muted">How shoppers use AR Fitting · {resolvePeriod(filter).scope}</p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">

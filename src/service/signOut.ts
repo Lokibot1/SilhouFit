@@ -1,4 +1,3 @@
-import { PASSWORD_GATE_SKIP_PREFIX } from '../config/accountPolicy'
 import { clearBodyDraft } from '../components/body-setup/draft'
 import { clearCartCache } from '../hooks/useCart'
 import { resetTour } from '../hooks/useOnboarding'
@@ -20,15 +19,4 @@ export function signOut() {
   clearBodyDraft() // measurements must not outlive the session
   resetChatDock() // open chats must not outlive the session
   resetTour() // the next sign-in is offered the tour again
-  clearPasswordGateSkips() // a skipped first-login screen returns at the next sign-in
-}
-
-function clearPasswordGateSkips() {
-  try {
-    Object.keys(sessionStorage)
-      .filter((key) => key.startsWith(PASSWORD_GATE_SKIP_PREFIX))
-      .forEach((key) => sessionStorage.removeItem(key))
-  } catch {
-    // Storage is blocked: nothing was kept.
-  }
 }

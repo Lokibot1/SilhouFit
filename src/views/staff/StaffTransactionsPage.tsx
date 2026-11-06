@@ -19,7 +19,7 @@ import { TransactionTotals } from "../../components/staff/transactions/Transacti
 import { useToast } from "../../components/toast/useToast";
 import { Pagination } from "../../components/shop/Pagination";
 import { SECONDARY_BUTTON } from "../../components/ui/buttonStyles";
-import { Tooltip } from "../../components/ui/Tooltip";
+import { SampleDataBadge } from "../../components/ui/SampleDataBadge";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useMetaDescription } from "../../hooks/useMetaDescription";
@@ -258,17 +258,7 @@ export function StaffTransactionsPage() {
           Transactions
         </h1>
         {TRANSACTIONS_SAMPLE_DATA && (
-          <Tooltip
-            label="These orders are generated placeholders until the orders backend is connected."
-            describe
-          >
-            <span
-              tabIndex={0}
-              className="font-ui inline-flex h-8 items-center rounded-full border border-line-strong px-3 text-sm font-medium text-fg-muted"
-            >
-              Sample data
-            </span>
-          </Tooltip>
+          <SampleDataBadge reason="These orders are generated placeholders until the orders backend is connected." />
         )}
       </header>
 

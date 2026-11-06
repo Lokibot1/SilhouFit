@@ -1,5 +1,4 @@
 import type { RequestOptions } from './simulateRequest'
-import { endArchivedSession, endExpiredSession, endRevokedSession } from './sessionRevoked'
 import { getSupabase } from './supabase'
 
 export interface ProductListItem {
@@ -121,9 +120,6 @@ export async function request(method: 'GET' | 'PATCH' | 'POST' | 'DELETE', path:
   }
   if (!response.ok) {
     const { detail, code } = await errorBody(response)
-    if (response.status === 401 && code === 'session_revoked') endRevokedSession()
-    if (response.status === 401 && code === 'account_archived') endArchivedSession()
-    if (response.status === 403 && code === 'password_reset_expired') endExpiredSession()
     throw new ProductListError(STATUS_KIND[response.status] ?? 'server', detail, response.status, code)
   }
   try {

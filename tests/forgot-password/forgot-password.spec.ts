@@ -6,6 +6,12 @@ const MIN_TARGET = 44
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
+  // The request goes to Supabase Auth (POST /auth/v1/recover); there are no real credentials, so it is answered here.
+  await page.route('**/auth/v1/recover*', (route) =>
+    route.request().method() === 'OPTIONS'
+      ? route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } })
+      : route.fulfill({ json: {}, headers: { 'access-control-allow-origin': '*' } }),
+  )
 })
 
 const emailField = (page: Page) => page.getByLabel('Email', { exact: true })

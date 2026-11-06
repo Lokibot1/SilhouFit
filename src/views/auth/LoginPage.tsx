@@ -23,27 +23,12 @@ import type { LoginField } from "../../utils/loginValidation";
 import { nextQuery } from "../../utils/safeNext";
 
 const META_DESCRIPTION =
-  "Sign in to KRAL to open your saved fit profile, pick up AR fitting where you left off and shop boutiques online with one secure KRAL account.";
+  "Sign in to KRAL to open your saved fit profile, pick up AR fitting where you left off and shop boutiques online with one secure KRAL account on any device.";
 
 const ARCHIVED_COPY = {
-  title: "This account has been archived.",
-  body: "Contact an administrator to have it restored.",
+  title: "This account has been deactivated.",
+  body: "Contact an administrator to have it activated again.",
 };
-
-const SESSION_NOTICES = {
-  "password-reset": {
-    title: "Your password was reset.",
-    body: "Your password was reset by an administrator. Sign in with the default password and choose a new one.",
-  },
-  "password-expired": {
-    title: "Your temporary password expired.",
-    body: "Your temporary password expired. Ask an administrator to reset your password again.",
-  },
-  "account-archived": {
-    title: "Your account was archived.",
-    body: "An administrator archived this account. Contact an administrator to have it restored.",
-  },
-} as const;
 
 const GAPS = "[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3";
 
@@ -71,7 +56,6 @@ export function LoginPage() {
   // Kept for this visit; the one-shot notice is cleared so a reload or a later sign-out does not repeat it.
   const [notice] = useState(peekLoginNotice);
   const passwordChanged = notice === "password-changed";
-  const sessionNotice = notice && notice !== "password-changed" ? SESSION_NOTICES[notice] : null;
   useEffect(() => {
     takeLoginNotice();
   }, []);
@@ -177,23 +161,6 @@ export function LoginPage() {
                 Password changed.
               </strong>
               <span className="text-fg-muted">Sign in with your new password.</span>
-            </p>
-          </div>
-        )}
-
-        {sessionNotice && !banner && (
-          <div
-            role="status"
-            className="flex items-start gap-3 rounded-xl border border-info/40 bg-info/10 px-4 py-3 text-base leading-snug sm:text-sm"
-          >
-            <AlertIcon size={20} className="mt-px shrink-0 text-info" />
-            <p>
-              <strong className="block font-semibold text-fg">
-                {sessionNotice.title}
-              </strong>
-              <span className="text-fg-muted">
-                {sessionNotice.body}
-              </span>
             </p>
           </div>
         )}

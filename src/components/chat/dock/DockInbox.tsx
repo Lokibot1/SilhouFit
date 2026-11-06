@@ -1,14 +1,18 @@
 import { motion } from 'motion/react'
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import { useInbox } from '../../../hooks/useInbox'
+import { useSelfId } from '../../../hooks/useSelfId'
 import { DURATION, EASE_OUT } from '../../../motion/tokens'
 import { displayName } from '../../../service/chatApi'
 import { openChat } from '../../../service/chatDock'
+import { SearchIcon, XIcon } from '../../form/icons'
 import { SectionBody } from '../../staff/StaffSection'
 import { computePlace, LISTBOX_PANEL } from '../../ui/listbox'
 import { InboxSkeleton } from '../ChatSkeleton'
+import { Tooltip } from '../../ui/Tooltip'
 import { Row } from '../InboxList'
 import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { SegmentedTabs } from '../../ui/SegmentedTabs'
@@ -39,7 +43,17 @@ interface DockInboxProps {
 export function DockInbox({ area, anchor, onClose }: DockInboxProps) {
   const inbox = useInbox('all', '')
   const [tab, setTab] = useState<Tab>('all')
-  const rows = tab === 'all' ? inbox.conversations : inbox.conversations.filter((thread) => thread.hasUnreadMessages === (tab === 'unread'))
+  const [search, setSearch] = useState('')
+  const query = useDebouncedValue(search.trim().toLowerCase(), 200)
+  const selfId = useSelfId()
+  const searchField = useRef<HTMLInputElement>(null)
+  const rows = inbox.conversations
+    .filter((thread) => tab === 'all' || thread.hasUnreadMessages === (tab === 'unread'))
+    .filter((thread) => {
+      if (!query) return true
+      const who = thread.customer ? `${displayName(thread.customer)} ${thread.customer.email}` : 'Customer'
+      return `${who} ${thread.lastMessage?.content ?? ''}`.toLowerCase().includes(query)
+    })
   const panel = useRef<HTMLDivElement>(null)
   const [place, setPlace] = useState<ReturnType<typeof computePlace>>()
 
@@ -68,6 +82,22 @@ export function DockInbox({ area, anchor, onClose }: DockInboxProps) {
     }
   }, [anchor, onClose])
 
+  // Keyboard users land in the panel (Tab reaches Close, then the search); a phone's keyboard does not pop up.
+  const placed = !!place
+  useEffect(() => {
+    if (placed) panel.current?.focus()
+  }, [placed])
+
+  /** Arrow Down and Up walk from the search through the rows; Up from the first row returns to the search. */
+  function onArrows(event: ReactKeyboardEvent) {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+    const items = [searchField.current!, ...panel.current!.querySelectorAll<HTMLElement>('[data-testid="inbox-row"]')]
+    const next = items.indexOf(document.activeElement as HTMLElement) + (event.key === 'ArrowDown' ? 1 : -1)
+    if (next < 0 || next >= items.length || !items.includes(document.activeElement as HTMLElement)) return
+    event.preventDefault()
+    items[next].focus()
+  }
+
   if (!place) return null
   return createPortal(
     <motion.div
@@ -78,33 +108,66 @@ export function DockInbox({ area, anchor, onClose }: DockInboxProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: DURATION.state, ease: EASE_OUT }}
       style={{ left: place.left, width: place.width, top: place.top, bottom: place.bottom, maxHeight: place.maxHeight }}
-      className={LISTBOX_PANEL}
+      tabIndex={-1}
+      onKeyDown={onArrows}
+      className={`${LISTBOX_PANEL} outline-none`}
     >
-      {/* The shared tabs are 36px on a desktop pointer; touch targets here stay 44px at every width. */}
-      <div className="shrink-0 border-b border-line p-2 [&_[role=tab]]:min-h-11">
-        <SegmentedTabs label="Filter conversations" name="dock-inbox-filter" options={TABS} value={tab} onChange={setTab} />
+      <div className="flex shrink-0 items-center justify-between gap-2 pt-1 pr-1 pl-4">
+        <h2 className="display text-lg text-fg">Messages</h2>
+        <Tooltip label="Close">
+          <button type="button" onClick={() => onClose(true)} aria-label="Close conversations" className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg hover:bg-fg/10">
+            <XIcon />
+          </button>
+        </Tooltip>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+      <div className="shrink-0 px-2 pb-2">
+        <label className="relative block">
+          <span className="sr-only">Search conversations</span>
+          <SearchIcon size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-muted" />
+          {/* 16px on a phone so iOS does not zoom in on focus. */}
+          <input
+            ref={searchField}
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search conversations"
+            className="font-ui min-h-11 w-full rounded-xl border border-line-strong bg-canvas pr-3 pl-9 text-base text-fg placeholder:text-fg-muted sm:text-sm"
+          />
+        </label>
+      </div>
+      {/* Compact tabs: 28px on a desktop pointer, 44px on touch and small screens. */}
+      <div className="shrink-0 border-b border-line px-2 pb-2">
+        <SegmentedTabs compact label="Filter conversations" name="dock-inbox-filter" options={TABS} value={tab} onChange={setTab} />
+      </div>
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-2">
         <SectionBody section={inbox.section} what="conversations" skeleton={<InboxSkeleton />} errorClassName="p-2">
           {() =>
             rows.length === 0 ? (
-              tab === 'all' ? (
-                <p className="p-2 text-base text-fg-muted">No conversations yet. When a customer messages us, it shows up here.</p>
+              query ? (
+                <div className="grid justify-items-start gap-3 p-2">
+                  <p className="text-sm text-fg-muted">No conversations match “{search.trim()}”. Check the spelling, or clear the search.</p>
+                  <button type="button" onClick={() => setSearch('')} className={SECONDARY_BUTTON_SM}>
+                    Clear search
+                  </button>
+                </div>
+              ) : tab === 'all' ? (
+                <p className="p-2 text-sm text-fg-muted">No conversations yet. When a customer messages us, it shows up here.</p>
               ) : (
                 <div className="grid justify-items-start gap-3 p-2">
-                  <p className="text-base text-fg-muted">{NOTHING[tab]}</p>
+                  <p className="text-sm text-fg-muted">{NOTHING[tab]}</p>
                   <button type="button" onClick={() => setTab('all')} className={SECONDARY_BUTTON_SM}>
                     Show all
                   </button>
                 </div>
               )
             ) : (
-              <ul aria-label="Conversations" className="grid gap-1">
+              <ul aria-label="Conversations" className="grid grid-cols-[minmax(0,1fr)] gap-1">
                 {rows.map((thread) => (
                   <Row
                     key={thread.id}
                     thread={thread}
                     selected={false}
+                    selfId={selfId}
                     onSelect={() => {
                       openChat(thread.id, { name: (thread.customer && displayName(thread.customer)) || 'Customer', avatarUrl: thread.customer?.avatarUrl ?? undefined })
                       onClose(false)

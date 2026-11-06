@@ -89,6 +89,13 @@ describe('StaffMeasurementsPage list', () => {
     expect(document.title).toBe('Base measurements — SilhouFit')
   })
 
+  it('marks only the custom sizings as sample data: the base sizes come from the API', async () => {
+    renderPage()
+    await waitFor(() => expect(sizesInTable()).toHaveLength(3))
+    expect(screen.getAllByText('Sample data')).toHaveLength(1)
+    expect(within(screen.getByRole('region', { name: 'Custom sizings' })).getByText('Sample data')).toBeInTheDocument()
+  })
+
   it('offers exactly the four categories and an Active / Archived toggle as tabs', async () => {
     renderPage()
     await waitFor(() => expect(sizesInTable()).toHaveLength(3))

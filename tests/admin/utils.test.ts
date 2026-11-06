@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { MOCK_CUSTOMERS, MOCK_STAFF } from '../../src/data/mockAccounts'
-import { queryAccounts } from '../../src/utils/accountQuery'
-import { normalizeAccountPhone, sanitizeAccountName, validateAccountForm, validateAccountPhone } from '../../src/utils/accountValidation'
-import { wrapText } from '../../src/utils/credentialsImage'
-import { canSkipPasswordChange, passwordGateSkipKey } from '../../src/config/accountPolicy'
-import { signOut } from '../../src/service/signOut'
-import { formatCredentials } from '../../src/service/credentials'
+import { fullName, queryAccounts } from '../../src/utils/accountQuery'
+import { latestBirthday, sanitizeAccountEmail, sanitizeAccountName, sanitizeAccountSuffix, validateAccountForm } from '../../src/utils/accountValidation'
+import { LIMITS } from '../../src/utils/signUpValidation'
 
 describe('accountQuery', () => {
   it('searches names, usernames, emails and phone digits', () => {
@@ -44,49 +41,50 @@ describe('accountValidation', () => {
     expect(sanitizeAccountName('Ma5ria😀 Sa_ntos')).toBe('Maria Santos')
   })
 
-  it('requires both names and limits each word', () => {
-    expect(validateAccountForm({ firstName: '', lastName: '', phone: '' })).toEqual({ firstName: 'First name is required.', lastName: 'Last name is required.' })
-    expect(validateAccountForm({ firstName: 'A'.repeat(21), lastName: 'Santos', phone: '' }).firstName).toMatch(/at most 20/)
+  it('keeps emoji and spaces out of the email', () => {
+    expect(sanitizeAccountEmail(' sam 😀@Example.com ')).toBe('sam@Example.com')
   })
 
-  it('accepts a forgiving phone and normalizes it, and rejects letters and long numbers', () => {
-    expect(validateAccountPhone('')).toBeNull()
-    expect(validateAccountPhone('+63 (917) 123-4567')).toBeNull()
-    expect(normalizeAccountPhone('+63 (917) 123-4567')).toBe('+639171234567')
-    expect(normalizeAccountPhone('0917 123 4567')).toBe('09171234567')
-    expect(validateAccountPhone('0917abc4567')).toMatch(/numbers/)
-    expect(validateAccountPhone('09+171234567')).toMatch(/numbers/)
-    expect(validateAccountPhone('123')).toMatch(/at least 7/)
-    expect(validateAccountPhone('+63 917 123 45678')).toMatch(/at most 13/)
+  const FORM = { firstName: 'Sam', middleName: '', lastName: 'Santos', suffix: '', email: 'sam@example.com', birthday: '', gender: '' } as const
+
+  it('requires both names and a valid email, and limits each word', () => {
+    expect(validateAccountForm({ ...FORM, firstName: '', lastName: '' })).toEqual({ firstName: 'First name is required.', lastName: 'Last name is required.' })
+    expect(validateAccountForm({ ...FORM, email: '' }).email).toBe('Email is required.')
+    expect(validateAccountForm({ ...FORM, email: 'not-an-email' }).email).toMatch(/valid email/)
+    expect(validateAccountForm({ ...FORM, firstName: 'A'.repeat(41) }).firstName).toMatch(/at most/)
+    expect(validateAccountForm(FORM)).toEqual({})
+  })
+
+  it('treats middle name, suffix, birthday and gender as optional, within the backend limits (names 100, suffix 20)', () => {
+    expect(validateAccountForm({ ...FORM, middleName: 'de la Cruz', suffix: 'Jr.', birthday: '1998-04-23', gender: 'other' })).toEqual({})
+    expect(validateAccountForm({ ...FORM, middleName: 'Ma5ria' }).middleName).toMatch(/only contain letters/)
+    expect(validateAccountForm({ ...FORM, middleName: 'A'.repeat(41) }).middleName).toMatch(/at most/)
+    expect(validateAccountForm({ ...FORM, suffix: 'J1' }).suffix).toMatch(/letters and periods/)
+    expect(validateAccountForm({ ...FORM, suffix: 'Junior' }).suffix).toMatch(/at most/)
+    expect(LIMITS.nameMaxLength).toBeLessThanOrEqual(100)
+    expect(LIMITS.suffixMaxLength).toBeLessThanOrEqual(20)
+  })
+
+  it('accepts only a past birthday: not today, not the future, not a day that does not exist', () => {
+    const now = new Date(2026, 10, 6)
+    expect(latestBirthday(now)).toBe('2026-11-05')
+    expect(latestBirthday(new Date(2026, 0, 1))).toBe('2025-12-31')
+    const day = new Date()
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    expect(validateAccountForm({ ...FORM, birthday: iso(day) }).birthday).toMatch(/past date/)
+    expect(validateAccountForm({ ...FORM, birthday: '2999-01-01' }).birthday).toMatch(/past date/)
+    expect(validateAccountForm({ ...FORM, birthday: iso(new Date(day.getFullYear(), day.getMonth(), day.getDate() - 1)) })).toEqual({})
+    expect(validateAccountForm({ ...FORM, birthday: '1998-02-31' }).birthday).toMatch(/valid date/)
+  })
+
+  it('keeps emoji out of the suffix', () => {
+    expect(sanitizeAccountSuffix('Jr.😀')).toBe('Jr.')
   })
 })
 
-describe('credentials card', () => {
-  it('wraps words, and breaks a word that is wider than a line', () => {
-    const measure = (text: string) => text.length * 10
-    expect(wrapText(measure, 'aaa bbb ccc', 70)).toEqual(['aaa bbb', 'ccc'])
-    expect(wrapText(measure, 'abcdefghij', 40)).toEqual(['abcd', 'efgh', 'ij'])
-    expect(wrapText(measure, '', 40)).toEqual([])
-  })
-
-  it('formats the plain text copy', () => {
-    expect(formatCredentials({ username: 'a.b', email: 'a.b@silhoufit.dev', password: 'Pw' })).toBe('Username: a.b\nSign-in email: a.b@silhoufit.dev\nTemporary password: Pw')
-  })
-})
-
-describe('sign-out', () => {
-  it('clears the skipped first-login screen flag so it returns at the next sign-in', () => {
-    sessionStorage.setItem(passwordGateSkipKey('adm-001'), '1')
-    sessionStorage.setItem('other', 'keep')
-    signOut()
-    expect(sessionStorage.getItem(passwordGateSkipKey('adm-001'))).toBeNull()
-    expect(sessionStorage.getItem('other')).toBe('keep')
-  })
-})
-
-describe('password change policy', () => {
-  it('allows skipping unless the backend says the account cannot', () => {
-    expect(canSkipPasswordChange({ mustChangePassword: true })).toBe(true)
-    expect(canSkipPasswordChange({ mustChangePassword: true, passwordChangeSkippable: false })).toBe(false)
+describe('fullName', () => {
+  it('joins first, middle, last and suffix like the backend, leaving out what is missing', () => {
+    expect(fullName({ firstName: 'Jane', lastName: 'Doe' })).toBe('Jane Doe')
+    expect(fullName({ firstName: 'Jane', middleName: 'Marie', lastName: 'Doe', suffix: 'Jr.' })).toBe('Jane Marie Doe Jr.')
   })
 })

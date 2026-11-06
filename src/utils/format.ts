@@ -72,6 +72,17 @@ const MANILA_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' })
 /** An ISO time as Manila store time in 12-hour form: "3:45 PM". */
 export const formatMessageTime = (iso: string) => MESSAGE_TIME.format(new Date(iso))
 
+const SHORT_DAY = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' })
+
+/** "now", "5m", "2h", then "Nov 4" from a day on: the short time on an inbox row. */
+export function formatShortAgo(iso: string, now = new Date()) {
+  const minutes = Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000)
+  if (minutes < 1) return 'now'
+  if (minutes < 60) return `${minutes}m`
+  if (minutes < 1440) return `${Math.floor(minutes / 60)}h`
+  return SHORT_DAY.format(new Date(iso))
+}
+
 /** The Manila calendar day of an ISO time, "2026-11-03", for grouping a thread by day. */
 export const manilaDay = (iso: string) => MANILA_DAY.format(new Date(iso))
 

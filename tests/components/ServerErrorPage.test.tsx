@@ -31,7 +31,10 @@ describe('ServerErrorPage', () => {
     )
     expect(screen.getByRole('heading', { level: 1, name: /torn at the\s+seams/i })).toBeInTheDocument()
     expect(document.title).toBe('500: Torn at the seams — SilhouFit')
-    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toMatch(/something went wrong/i)
+    const description = document.querySelector('meta[name="description"]')?.getAttribute('content') ?? ''
+    expect(description).toMatch(/something went wrong/i)
+    expect(description.length).toBeGreaterThanOrEqual(150)
+    expect(description.length).toBeLessThanOrEqual(160)
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to the main floor' })).toHaveAttribute('href', '/')
   })

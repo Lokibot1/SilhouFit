@@ -11,6 +11,7 @@ import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, PRIMARY_BUTTON_SM, SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
 import { Modal } from '../../components/ui/Modal'
+import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { CATEGORIES, SIZES_BY_CATEGORY } from '../../data/products'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
@@ -276,9 +277,12 @@ export function StaffMeasurementsPage() {
       </section>
 
       <section aria-labelledby="custom-sizings" className={`${STAFF_SECTION} scroll-mt-14`}>
-        <h2 id="custom-sizings" className="text-lg font-semibold text-fg">
-          Custom sizings
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="custom-sizings" className="text-lg font-semibold text-fg">
+            Custom sizings
+          </h2>
+          <SampleDataBadge reason="Custom sizings are saved in this browser only until the sizing backend is connected." />
+        </div>
         <p className="mt-1 text-sm text-fg-muted">Sizes that belong to one product line instead of following the {category} base sizes.</p>
         <div className="mt-3">
           {sizings.length === 0 && status === 'archived' ? (

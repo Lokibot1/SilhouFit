@@ -1,40 +1,52 @@
-import { act, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getAccounts } from '../../src/service/accountStore'
+import { requestPasswordReset } from '../../src/service/requestPasswordReset'
 import { clearSession, setSession } from '../../src/service/session'
-import { archiveAdminAccountApi, archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, createSuperadminAccountApi, listAdminAccounts, listStaffAccounts, listSuperadminAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreAdminAccountApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
-import type { AdminAccount, StaffAccount, SuperadminAccount } from '../../src/types/accounts'
+import { activateAccountApi, countAccounts, deactivateAccountApi, inviteAdminAccountApi, inviteStaffAccountApi, inviteSuperadminAccountApi, listAdminAccounts, listCustomerAccounts, listStaffAccounts, listSuperadminAccounts, StaffApiError } from '../../src/service/staffApi'
+import type { AdminAccount, CustomerAccount, StaffAccount, SuperadminAccount } from '../../src/types/accounts'
 import { UserManagementPage } from '../../src/views/admin/UserManagementPage'
 import { renderAdmin, resetAdminAccounts, setUpAdminDom } from '../shared/adminSession'
 
-// The simulated requests answer at once. The Staff and Admins tabs talk to the API, so their calls are mocked here.
+// The simulated requests answer at once. The tabs and the summary cards talk to the API, so their calls are mocked here.
 vi.mock('../../src/service/simulateRequest', () => ({ simulateRequest: () => Promise.resolve({ ok: true }) }))
+const empty = () => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })
 vi.mock('../../src/service/staffApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/staffApi')>()),
-  listStaffAccounts: vi.fn(() => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })),
-  listAdminAccounts: vi.fn(() => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })),
-  listSuperadminAccounts: vi.fn(() => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })),
-  createAdminAccountApi: vi.fn(),
-  createSuperadminAccountApi: vi.fn(),
-  createStaffAccountApi: vi.fn(),
-  resetStaffPasswordApi: vi.fn(),
-  resetAdminPasswordApi: vi.fn(),
-  archiveStaffAccountApi: vi.fn(),
-  restoreStaffAccountApi: vi.fn(),
-  archiveAdminAccountApi: vi.fn(),
-  restoreAdminAccountApi: vi.fn(),
+  countAccounts: vi.fn(),
+  listCustomerAccounts: vi.fn(),
+  listStaffAccounts: vi.fn(),
+  listAdminAccounts: vi.fn(),
+  listSuperadminAccounts: vi.fn(),
+  inviteStaffAccountApi: vi.fn(),
+  inviteAdminAccountApi: vi.fn(),
+  inviteSuperadminAccountApi: vi.fn(),
+  deactivateAccountApi: vi.fn(),
+  activateAccountApi: vi.fn(),
+}))
+vi.mock('../../src/service/requestPasswordReset', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/requestPasswordReset')>()),
+  requestPasswordReset: vi.fn(),
 }))
 
 beforeAll(setUpAdminDom)
-beforeEach(resetAdminAccounts)
+beforeEach(() => {
+  resetAdminAccounts()
+  vi.mocked(countAccounts).mockReset().mockResolvedValue(0)
+  for (const list of [listCustomerAccounts, listStaffAccounts, listAdminAccounts, listSuperadminAccounts]) vi.mocked(list).mockReset().mockImplementation(empty)
+  for (const call of [inviteStaffAccountApi, inviteAdminAccountApi, inviteSuperadminAccountApi, deactivateAccountApi, activateAccountApi]) vi.mocked(call).mockReset()
+  vi.mocked(requestPasswordReset).mockReset().mockResolvedValue({ ok: true })
+})
+afterEach(() => act(() => clearSession()))
 
+const signInAs = (role: 'admin' | 'superadmin' | 'staff') => act(() => setSession({ name: 'Dev', email: 'dev@silhoufit.dev', role }))
 const tabpanel = () => screen.getByRole('tabpanel')
 // jsdom loads no CSS, so a tab's table and its card list are both on screen: row buttons come twice, and the first is the table's.
 const row = (name: string | RegExp) => screen.getAllByRole('button', { name })[0]
 
 describe('User management', () => {
   it('opens on Customers with a total, and puts the tab in the URL when it changes', async () => {
+    vi.mocked(listCustomerAccounts).mockResolvedValue(page([KIM], 1, 10, 25))
     renderAdmin(<UserManagementPage />)
     expect(screen.getByRole('heading', { level: 1, name: 'User management' })).toBeInTheDocument()
     expect(await screen.findByText('Displaying 1–10 of 25')).toBeInTheDocument()
@@ -54,852 +66,639 @@ describe('User management', () => {
     renderAdmin(<UserManagementPage />, '/admin/users?tab=nope')
     expect(screen.getByRole('tab', { name: 'Customers', selected: true })).toBeInTheDocument()
   })
+
+  it('has no sample-data badge', async () => {
+    renderAdmin(<UserManagementPage />, '/admin/users')
+    expect(await screen.findByText('No customers yet')).toBeInTheDocument()
+    expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
+  })
 })
 
+const base = { phone: '', createdAt: '2026-03-01T08:00:00.000Z', lastSignInAt: null }
+const staff = (id: string, firstName: string, lastName: string, status: StaffAccount['status'] = 'active'): StaffAccount => ({
+  ...base,
+  id,
+  firstName,
+  lastName,
+  role: 'staff',
+  username: `${firstName}.${lastName}`.toLowerCase(),
+  email: `${firstName}.${lastName}@example.com`.toLowerCase(),
+  status,
+})
+const admin = (id: string, firstName: string, lastName: string, status: AdminAccount['status'] = 'active'): AdminAccount => ({ ...staff(id, firstName, lastName, status), role: 'admin' })
+const superadmin = (id: string, firstName: string, lastName: string): SuperadminAccount => ({ ...staff(id, firstName, lastName), role: 'superadmin', status: 'active' })
+const page = <T,>(data: T[], p = 1, limit = 10, total = data.length) => ({ data, meta: { total, page: p, limit, totalPages: Math.ceil(total / limit) } })
+const customer = (id: string, firstName: string, lastName: string, status: CustomerAccount['status'] = 'active'): CustomerAccount => ({
+  ...base,
+  id,
+  firstName,
+  lastName,
+  role: 'customer',
+  email: `${firstName}.${lastName}@example.com`.toLowerCase(),
+  status,
+})
+const SAM = staff('s1', 'Sam', 'Reyes')
+const ANA = staff('s2', 'Ana', 'Cruz')
+const KIM = customer('c1', 'Kim', 'Tan')
+const LEO = customer('c2', 'Leo', 'Uy')
+
 describe('Customers tab', () => {
-  it('is read only and opens a drawer with the profile, orders and transactions', async () => {
+  async function openCustomers(role: 'admin' | 'superadmin' = 'admin') {
+    signInAs(role)
+    vi.mocked(listCustomerAccounts).mockResolvedValue(page([KIM, LEO]))
     renderAdmin(<UserManagementPage />)
-    expect(await screen.findByText('Displaying 1–10 of 25')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Add|Archive|Reset/ })).not.toBeInTheDocument()
+    await screen.findAllByText('Kim Tan')
+  }
 
-    // The list opens sorted by last name.
-    const [customer] = [...getAccounts().customers].sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`))
-    await userEvent.click(row(new RegExp(`^${customer.firstName} ${customer.lastName}`)))
-    const drawer = await screen.findByRole('dialog', { name: `${customer.firstName} ${customer.lastName}` })
-    expect(within(drawer).getByText(customer.email)).toBeInTheDocument()
-    expect(await within(drawer).findByRole('list', { name: 'Orders' })).toBeInTheDocument()
-    expect(within(drawer).getAllByRole('link', { name: /View order SF-/ })[0]).toHaveAttribute('href', expect.stringMatching(/^\/admin\/transactions\?q=SF-/))
-
-    await userEvent.click(within(drawer).getByRole('tab', { name: 'Transactions' }))
-    expect(await within(drawer).findByRole('list', { name: 'Transactions' })).toBeInTheDocument()
+  it('lists customers from the API with a running number, email, Active status and date, and no add button', async () => {
+    await openCustomers()
+    expect(vi.mocked(listCustomerAccounts).mock.calls[0][0]).toMatchObject({ status: 'active', sort: 'name', page: 1, limit: 10 })
+    const table = screen.getAllByRole('table', { hidden: true })[0]
+    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Customer', 'Email', 'Status', 'Added', 'Actions'])
+    expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^1.*Kim Tan.*kim\.tan@example\.com/)
+    expect(within(table).getAllByRole('row', { hidden: true })[2]).toHaveTextContent(/^2.*Leo Uy/)
+    expect(screen.queryByRole('button', { name: /Add .* account/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Orders|Lifetime spend/)).not.toBeInTheDocument()
   })
 
-  it('says nothing matches, and clears the search', async () => {
+  it('sorts the cards from a Sort by select and a direction button, since the header buttons are hidden below the table breakpoint', async () => {
+    await openCustomers()
+    const sortBy = screen.getByRole('combobox', { name: 'Sort by' })
+    expect(sortBy).toHaveTextContent('Name')
+    await userEvent.click(sortBy)
+    await userEvent.click(await screen.findByRole('option', { name: 'Added' }))
+    await waitFor(() => expect(vi.mocked(listCustomerAccounts).mock.calls.at(-1)![0]).toMatchObject({ sort: 'createdAt', dir: 'asc' }))
+    await userEvent.click(screen.getByRole('button', { name: /^Sorted ascending\. Switch to descending$/ }))
+    await waitFor(() => expect(vi.mocked(listCustomerAccounts).mock.calls.at(-1)![0]).toMatchObject({ sort: 'createdAt', dir: 'desc' }))
+    expect(screen.getByRole('button', { name: /^Sorted descending\. Switch to ascending$/ })).toHaveTextContent('Descending')
+  })
+
+  it('numbers rows across pages', async () => {
+    signInAs('admin')
+    vi.mocked(listCustomerAccounts).mockResolvedValue(page([KIM], 3, 10, 25))
     renderAdmin(<UserManagementPage />)
-    await screen.findByText('Displaying 1–10 of 25')
-    await userEvent.type(screen.getByRole('textbox', { name: /Search customers/ }), 'zzzz')
-    expect(await screen.findByText('No customers match')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
-    expect(await screen.findByText('Displaying 1–10 of 25')).toBeInTheDocument()
+    await screen.findAllByText('Kim Tan')
+    expect(within(screen.getAllByRole('table', { hidden: true })[0]).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^21.*Kim Tan/)
+  })
+
+  it('offers Active, Inactive and All, searches by name or email, and asks the list for each', async () => {
+    await openCustomers()
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent('Active')
+    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
+    expect(within(screen.getByRole('listbox', { name: 'Status' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['Active', 'Inactive', 'All'])
+    await userEvent.click(screen.getByRole('option', { name: 'Inactive' }))
+    await waitFor(() => expect(vi.mocked(listCustomerAccounts).mock.calls.at(-1)![0].status).toBe('inactive'))
+    await userEvent.type(screen.getByRole('textbox', { name: 'Search customers by name or email' }), 'kim')
+    await waitFor(() => expect(vi.mocked(listCustomerAccounts).mock.calls.at(-1)![0]).toMatchObject({ search: 'kim', status: 'inactive' }))
   })
 
   it('pages through the list', async () => {
+    signInAs('admin')
+    vi.mocked(listCustomerAccounts).mockImplementation((query) => Promise.resolve(page([KIM], query.page, 10, 25)))
     renderAdmin(<UserManagementPage />)
     await screen.findByText('Displaying 1–10 of 25')
     await userEvent.click(screen.getByRole('button', { name: 'Next' }))
     expect(await screen.findByText('Displaying 11–20 of 25')).toBeInTheDocument()
   })
+
+  it('shows the empty state, the no-match state with a way back, and the inactive one', async () => {
+    signInAs('admin')
+    renderAdmin(<UserManagementPage />)
+    expect(await screen.findByText('No customers yet')).toBeInTheDocument()
+    await userEvent.type(screen.getByRole('textbox', { name: /Search customers/ }), 'zzzz')
+    expect(await screen.findByText('No customers match')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(await screen.findByText('No customers yet')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Inactive' }))
+    expect(await screen.findByText('No inactive customers')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show active customers' }))
+    expect(await screen.findByText('No customers yet')).toBeInTheDocument()
+  })
+
+  it('shows the error and loads again from the retry button', async () => {
+    signInAs('admin')
+    vi.mocked(listCustomerAccounts).mockRejectedValueOnce(new StaffApiError('server', undefined, 500)).mockResolvedValue(page([KIM]))
+    renderAdmin(<UserManagementPage />)
+    await userEvent.click(await screen.findByRole('button', { name: /Try again|Retry/ }))
+    expect((await screen.findAllByText('Kim Tan')).length).toBeGreaterThan(0)
+  })
+
+  it.each(['admin', 'superadmin'] as const)('lets %s deactivate after a question, with Undo, using the customer wording', async (role) => {
+    vi.mocked(deactivateAccountApi).mockResolvedValue({ id: 'c1' })
+    vi.mocked(activateAccountApi).mockResolvedValue({ id: 'c1' })
+    await openCustomers(role)
+    expect(screen.queryByRole('button', { name: /reset email/ })).not.toBeInTheDocument()
+    await userEvent.click(row('Deactivate Kim Tan'))
+    const dialog = await screen.findByRole('dialog', { name: 'Deactivate Kim Tan?' })
+    expect(dialog).toHaveTextContent('Are you sure?')
+    // Cancel is the safe default.
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    const loads = vi.mocked(listCustomerAccounts).mock.calls.length
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Deactivate Customer' }))
+    expect(await screen.findByText('Kim Tan deactivated.')).toBeInTheDocument()
+    expect(deactivateAccountApi).toHaveBeenCalledWith('c1')
+    await waitFor(() => expect(vi.mocked(listCustomerAccounts).mock.calls.length).toBeGreaterThan(loads))
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(await screen.findByText('Deactivation undone. Kim Tan can sign in again.')).toBeInTheDocument()
+    expect(activateAccountApi).toHaveBeenCalledWith('c1')
+  })
+
+  it('activates an inactive customer at once, with no question', async () => {
+    signInAs('superadmin')
+    vi.mocked(activateAccountApi).mockResolvedValue({ id: 'c9' })
+    vi.mocked(listCustomerAccounts).mockResolvedValue(page([customer('c9', 'Off', 'Line', 'inactive')]))
+    renderAdmin(<UserManagementPage />)
+    await screen.findAllByText('Off Line')
+    await userEvent.click(row('Activate Off Line'))
+    expect(await screen.findByText(/Off Line activated\./)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Deactivate Off Line' })).not.toBeInTheDocument()
+  })
+
+  it('explains a 403 for customers in the customer wording', async () => {
+    vi.mocked(deactivateAccountApi).mockRejectedValue(new StaffApiError('forbidden', 'insufficient authority', 403))
+    await openCustomers()
+    await userEvent.click(row('Deactivate Kim Tan'))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Deactivate Customer' }))
+    expect(await screen.findByText(/isn't allowed to deactivate customers/)).toBeInTheDocument()
+  })
+})
+
+describe('Account summary cards', () => {
+  const figures = () => screen.getByRole('region', { name: 'Accounts at a glance' })
+  /** What countAccounts answers for each role: [active, inactive]. */
+  const COUNTS: Record<string, [number, number]> = { customer: [120, 7], staff: [8, 2], admin: [3, 0], superadmin: [2, 1] }
+  const answer = () => vi.mocked(countAccounts).mockImplementation((role, active) => Promise.resolve(COUNTS[role][active ? 0 : 1]))
+
+  it('shows the active count with the inactive count beneath, each card linking to its tab', async () => {
+    answer()
+    renderAdmin(<UserManagementPage />)
+    const link = await within(figures()).findByRole('link', { name: /^Customers: 120 active, 7 inactive/ })
+    expect(link).toHaveAttribute('href', '/admin/users?tab=customers')
+    expect(within(figures()).getByRole('link', { name: /^Staff: 8 active, 2 inactive/ })).toHaveAttribute('href', '/admin/users?tab=staff')
+    expect(within(figures()).getByRole('link', { name: /^Admins: 3 active, 0 inactive/ })).toHaveAttribute('href', '/admin/users?tab=admins')
+    expect(within(figures()).queryByRole('link', { name: /^Superadmins/ })).not.toBeInTheDocument()
+    expect(within(figures()).queryByText(/archived|Registered shoppers/)).not.toBeInTheDocument()
+    expect(within(link).getByText('120')).toHaveClass('tabular-nums')
+    expect(within(link).getByText('120')).not.toHaveClass('text-right')
+    expect(within(link).getByText('7 inactive')).toBeInTheDocument()
+  })
+
+  it('adds the Superadmins card for a superadmin, and asks for two counts per card with one call each', async () => {
+    answer()
+    signInAs('superadmin')
+    renderAdmin(<UserManagementPage />, '/superadmin/users')
+    expect(await within(figures()).findByRole('link', { name: /^Superadmins: 2 active, 1 inactive/ })).toHaveAttribute('href', '/superadmin/users?tab=superadmins')
+    const calls = vi.mocked(countAccounts).mock.calls.map(([role, active]) => `${role}:${active}`).sort()
+    expect(calls).toEqual(['admin:false', 'admin:true', 'customer:false', 'customer:true', 'staff:false', 'staff:true', 'superadmin:false', 'superadmin:true'])
+  })
+
+  it('shows a skeleton per card while counting, matching the card size', async () => {
+    vi.mocked(countAccounts).mockImplementation(() => new Promise(() => {}))
+    renderAdmin(<UserManagementPage />)
+    for (const name of ['Loading customers', 'Loading staff', 'Loading admins']) expect(within(figures()).getByRole('status', { name })).toBeInTheDocument()
+  })
+
+  it('lets one card fail with its own Retry while the others and the page keep working', async () => {
+    answer()
+    let staffFails = true
+    vi.mocked(countAccounts).mockImplementation((role, active) => (role === 'staff' && staffFails ? Promise.reject(new StaffApiError('server', undefined, 500)) : Promise.resolve(COUNTS[role][active ? 0 : 1])))
+    vi.mocked(listCustomerAccounts).mockResolvedValue(page([KIM]))
+    renderAdmin(<UserManagementPage />)
+    const alert = await within(figures()).findByRole('alert')
+    expect(alert).toHaveTextContent("We couldn't load the staff count.")
+    expect(within(figures()).getByRole('link', { name: /^Customers: 120 active/ })).toBeInTheDocument()
+    expect(within(figures()).getByRole('link', { name: /^Admins: 3 active/ })).toBeInTheDocument()
+    expect((await screen.findAllByText('Kim Tan')).length).toBeGreaterThan(0)
+
+    staffFails = false
+    await userEvent.click(within(alert).getByRole('button', { name: 'Retry' }))
+    expect(await within(figures()).findByRole('link', { name: /^Staff: 8 active, 2 inactive/ })).toBeInTheDocument()
+    expect(within(figures()).queryByRole('alert')).not.toBeInTheDocument()
+  })
 })
 
 describe('Staff tab', () => {
-  const person = (id: string, firstName: string, lastName: string): StaffAccount => ({
-    id,
-    firstName,
-    lastName,
-    username: `${firstName}.${lastName}`.toLowerCase(),
-    email: `${firstName}.${lastName}@silhoufit.dev`.toLowerCase(),
-    role: 'staff',
-    phone: '',
-    status: 'active',
-    createdAt: '2026-03-01T08:00:00.000Z',
-    lastSignInAt: null,
-    mustChangePassword: false,
-  })
-  const SAM = person('s1', 'Sam', 'Reyes')
-  const page = (data: StaffAccount[], p = 1, limit = 10) => ({ data, meta: { total: data.length, page: p, limit, totalPages: 1 } })
-  const CREDENTIALS = { username: 'maria.santos', email: 'maria.santos@silhoufit.dev', password: 'Xk9#mQ2!', mustChangePassword: true as const }
-
-  beforeEach(() => {
-    vi.mocked(listStaffAccounts).mockReset().mockResolvedValue(page([SAM, person('s2', 'Ana', 'Cruz')]))
-    vi.mocked(createStaffAccountApi).mockReset()
-    vi.mocked(resetStaffPasswordApi).mockReset()
-    vi.mocked(archiveStaffAccountApi).mockReset()
-    vi.mocked(restoreStaffAccountApi).mockReset()
-  })
-
-  async function openStaff() {
+  async function openStaff(role: 'admin' | 'superadmin' = 'admin') {
+    signInAs(role)
+    vi.mocked(listStaffAccounts).mockResolvedValue(page([SAM, ANA]))
     renderAdmin(<UserManagementPage />, '/admin/users?tab=staff')
     await screen.findAllByText('Sam Reyes')
   }
 
-  it('lists staff with a running number, email, status and date, without a sign-in or sample-data badge', async () => {
+  it('lists staff with a running number, email, Active status and date', async () => {
     await openStaff()
     const table = screen.getAllByRole('table', { hidden: true })[0]
     expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Staff', 'Email', 'Status', 'Added', 'Actions'])
     expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^1.*Sam Reyes/)
     expect(within(table).getAllByRole('row', { hidden: true })[2]).toHaveTextContent(/^2.*Ana Cruz/)
     expect(within(table).getAllByText('Active', { selector: 'span' }).length).toBeGreaterThan(0)
-    expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
   })
 
-  it('opens on Active, offers Active, Archived and All, and asks the list for each', async () => {
+  it('opens on Active, offers Active, Inactive and All, and asks the list for each', async () => {
     await openStaff()
-    expect(vi.mocked(listStaffAccounts).mock.calls[0][0]).toMatchObject({ status: 'active' })
+    expect(vi.mocked(listStaffAccounts).mock.calls[0][0]).toMatchObject({ status: 'active', sort: 'name' })
     expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent('Active')
     await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
-    expect(within(screen.getByRole('listbox', { name: 'Status' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['Active', 'Archived', 'All'])
+    expect(within(screen.getByRole('listbox', { name: 'Status' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['Active', 'Inactive', 'All'])
     await userEvent.click(screen.getByRole('option', { name: 'All' }))
     await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.at(-1)![0].status).toBeUndefined())
     await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
-    await userEvent.click(screen.getByRole('option', { name: 'Archived' }))
-    await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.at(-1)![0].status).toBe('archived'))
+    await userEvent.click(screen.getByRole('option', { name: 'Inactive' }))
+    await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.at(-1)![0].status).toBe('inactive'))
   })
 
-  it('shows "No staff accounts yet" with Add when Active is empty, and the archived copy when Archived is', async () => {
-    vi.mocked(listStaffAccounts).mockResolvedValue(page([]))
+  it('shows the first-account empty state, and the inactive one with a way back', async () => {
+    signInAs('admin')
     renderAdmin(<UserManagementPage />, '/admin/users?tab=staff')
     expect(await screen.findByText('No staff accounts yet')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /Add staff account/ }).length).toBeGreaterThan(0)
     await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
-    await userEvent.click(screen.getByRole('option', { name: 'Archived' }))
-    expect(await screen.findByText('No archived staff accounts')).toBeInTheDocument()
-    expect(screen.getByText('Archived accounts show up here and can be restored.')).toBeInTheDocument()
-    expect(screen.queryByText('No staff accounts yet')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('option', { name: 'Inactive' }))
+    expect(await screen.findByText('No inactive staff accounts')).toBeInTheDocument()
+    expect(screen.getByText('Deactivated accounts show up here and can be activated again.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Show active staff' }))
     expect(await screen.findByText('No staff accounts yet')).toBeInTheDocument()
   })
 
   it('numbers rows across pages', async () => {
+    signInAs('admin')
     vi.mocked(listStaffAccounts).mockResolvedValue({ data: [SAM], meta: { total: 11, page: 2, limit: 10, totalPages: 2 } })
-    await openStaff()
+    renderAdmin(<UserManagementPage />, '/admin/users?tab=staff')
+    await screen.findAllByText('Sam Reyes')
     expect(within(screen.getAllByRole('table', { hidden: true })[0]).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^11.*Sam Reyes/)
   })
 
-  it('creates an account, shows the credentials once and loads the list again', async () => {
-    vi.mocked(createStaffAccountApi).mockResolvedValue({ account: person('s3', 'Maria', 'Santos'), credentials: CREDENTIALS })
-    await openStaff()
-    await userEvent.click(screen.getByRole('button', { name: /Add staff account/ }))
-    const sheet = await screen.findByRole('dialog', { name: 'Add staff account' })
-    expect(within(sheet).queryByLabelText(/Phone/)).not.toBeInTheDocument()
-    expect(within(sheet).getByText(/generated when the account is created/)).toBeInTheDocument()
-
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
-    expect(within(sheet).getByText('First name is required.')).toBeInTheDocument()
-    expect(createStaffAccountApi).not.toHaveBeenCalled()
-
-    await userEvent.type(within(sheet).getByLabelText('First name'), 'Mar1ia')
-    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Santos')
-    expect(within(sheet).getByLabelText('First name')).toHaveValue('Maria')
-    const loads = vi.mocked(listStaffAccounts).mock.calls.length
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
-
-    const created = await screen.findByRole('dialog', { name: 'Staff account created' })
-    expect(createStaffAccountApi).toHaveBeenCalledWith({ firstName: 'Maria', lastName: 'Santos' })
-    expect(within(created).queryByText('maria.santos')).not.toBeInTheDocument()
-    expect(within(created).queryByText('Username')).not.toBeInTheDocument()
-    expect(within(created).getByText('maria.santos@silhoufit.dev')).toBeInTheDocument()
-    expect(within(created).getByText('Xk9#mQ2!')).toBeInTheDocument()
-    expect(within(created).getByRole('button', { name: 'Copy sign-in email' })).toBeInTheDocument()
-    expect(within(created).getByRole('button', { name: 'Download as PNG' })).toBeInTheDocument()
-    expect(within(created).queryByText(/Demo only/)).not.toBeInTheDocument()
-    expect(within(created).getByText(/only time the password is shown/)).toBeInTheDocument()
-    await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
+  it('shows the error and loads again from the retry button', async () => {
+    signInAs('admin')
+    vi.mocked(listStaffAccounts).mockRejectedValueOnce(new StaffApiError('server', undefined, 500)).mockResolvedValue(page([SAM]))
+    renderAdmin(<UserManagementPage />, '/admin/users?tab=staff')
+    await userEvent.click(await screen.findByRole('button', { name: /Try again|Retry/ }))
+    expect((await screen.findAllByText('Sam Reyes')).length).toBeGreaterThan(0)
   })
 
-  it.each([
-    [new StaffApiError('forbidden', undefined, 401), 'Your session has expired.'],
-    [new StaffApiError('forbidden', undefined, 403), "You can't create staff accounts."],
-    [new StaffApiError('conflict', undefined, 409), "We couldn't reserve that email."],
-    [new StaffApiError('validation', 'firstName must contain letters only', 400), 'The server rejected the names.'],
-    [new StaffApiError('rate-limit', undefined, 429), 'Too many requests.'],
-    [new StaffApiError('network'), 'Nothing was created.'],
-    [new StaffApiError('server', undefined, 503), 'No account was made.'],
-  ])('explains a failed create (%#) and keeps the form', async (error, title) => {
-    vi.mocked(createStaffAccountApi).mockRejectedValue(error)
-    await openStaff()
-    await userEvent.click(screen.getByRole('button', { name: /Add staff account/ }))
-    const sheet = await screen.findByRole('dialog', { name: 'Add staff account' })
-    await userEvent.type(within(sheet).getByLabelText('First name'), 'Maria')
-    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Santos')
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
-    expect(await within(sheet).findByText(title)).toBeInTheDocument()
-    expect(within(sheet).getByLabelText('First name')).toHaveValue('Maria')
-    expect(within(sheet).getByRole('button', { name: 'Create Account' })).toBeEnabled()
-  })
+  describe('invite', () => {
+    async function fillInvite(email = 'maria@example.com') {
+      await userEvent.click(screen.getByRole('button', { name: /Add staff account/ }))
+      const sheet = await screen.findByRole('dialog', { name: 'Add staff account' })
+      await userEvent.type(within(sheet).getByLabelText('First name'), 'Maria')
+      await userEvent.type(within(sheet).getByLabelText('Last name'), 'Santos')
+      await userEvent.type(within(sheet).getByLabelText('Email'), email)
+      return sheet
+    }
 
-  describe('reset password', () => {
-    // jsdom loads no CSS, so the table and the card list both render: the first button is the table's.
-    const resetButton = (name: string) => screen.getAllByRole('button', { name: `Reset password for ${name}` })[0]
-    const confirmButton = async () => within(await screen.findByRole('dialog', { name: /Reset password for/ })).getByRole('button', { name: 'Reset Password' })
-
-    it('offers the action on every row, named after the person', async () => {
+    it('asks for names and email with no generated-email preview, validates, then sends the lowercased email', async () => {
+      vi.mocked(inviteStaffAccountApi).mockResolvedValue({ account: staff('s3', 'Maria', 'Santos'), message: 'Staff invitation sent' })
       await openStaff()
-      expect(resetButton('Sam Reyes')).toBeInTheDocument()
-      expect(resetButton('Ana Cruz')).toBeInTheDocument()
-    })
+      await userEvent.click(screen.getByRole('button', { name: /Add staff account/ }))
+      const sheet = await screen.findByRole('dialog', { name: 'Add staff account' })
+      expect(within(sheet).queryByText(/Sign-in email/)).not.toBeInTheDocument()
 
-    it('asks first, names the default password and the sign-out, and sends nothing on Cancel', async () => {
-      await openStaff()
-      await userEvent.click(resetButton('Sam Reyes'))
-      const dialog = await screen.findByRole('dialog', { name: 'Reset password for Sam Reyes?' })
-      expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
-      expect(within(dialog).getByText(/default password 1234567a and they will be signed out everywhere/)).toBeInTheDocument()
-      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: /Reset password for/ })).not.toBeInTheDocument())
-      expect(resetStaffPasswordApi).not.toHaveBeenCalled()
-    })
+      await userEvent.click(within(sheet).getByRole('button', { name: 'Send Invitation' }))
+      expect(within(sheet).getByText('First name is required.')).toBeInTheDocument()
+      expect(within(sheet).getByText('Email is required.')).toBeInTheDocument()
+      expect(inviteStaffAccountApi).not.toHaveBeenCalled()
 
-    it('waits while the request is pending, then confirms with a toast and no credentials sheet', async () => {
-      let finish: () => void = () => {}
-      vi.mocked(resetStaffPasswordApi).mockReturnValue(new Promise((resolve) => (finish = () => resolve({ id: 's1' }))))
-      await openStaff()
-      await userEvent.click(resetButton('Sam Reyes'))
-      const confirm = await confirmButton()
-      await userEvent.click(confirm)
-      expect(resetStaffPasswordApi).toHaveBeenCalledWith('s1')
-      expect(confirm).toBeDisabled()
-      expect(confirm).toHaveAttribute('aria-busy', 'true')
-      expect(resetButton('Sam Reyes')).toBeDisabled()
-      finish()
-      expect(await screen.findByText('Password reset for Sam Reyes. They are signed out and must sign in with the default password.')).toBeInTheDocument()
-      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-      expect(resetStaffPasswordApi).toHaveBeenCalledTimes(1)
-    })
+      await userEvent.type(within(sheet).getByLabelText('First name'), 'Mar1ia')
+      await userEvent.type(within(sheet).getByLabelText('Last name'), 'Santos')
+      await userEvent.type(within(sheet).getByLabelText('Email'), 'not-an-email')
+      expect(within(sheet).getByLabelText('First name')).toHaveValue('Maria')
+      await userEvent.click(within(sheet).getByRole('button', { name: 'Send Invitation' }))
+      expect(within(sheet).getByText(/valid email/)).toBeInTheDocument()
+      expect(inviteStaffAccountApi).not.toHaveBeenCalled()
 
-    const CLEAR = /nothing changed/
-    const UNSURE = /couldn't confirm the result.*may or may not have been reset.*Retry is safe/
-    const PARTIAL = /may already be reset to the default, but the account wasn't fully secured.*safe to repeat/
-    it.each([
-      // [error, copy, Retry offered, "Couldn't reset ..." head shown, list reloaded]
-      [new StaffApiError('forbidden', undefined, 403, 'not_a_staff_account'), /Sam Reyes is not a staff account, so it can't be reset here\. Refresh the list\./, false, false, true],
-      [new StaffApiError('forbidden', undefined, 403), /isn't allowed to reset staff passwords/, false, true, false],
-      [new StaffApiError('forbidden', undefined, 401), /Your session expired\. Sign in again, then retry\./, false, true, false],
-      [new StaffApiError('not-found', undefined, 404, 'staff_not_found'), /no longer exists.*Refresh the list/, false, true, true],
-      [new StaffApiError('server', undefined, 422, 'weak_password'), /rejected the default password.*project owner/, false, true, false],
-      [new StaffApiError('rate-limit', undefined, 429), /Wait a few minutes/, false, true, false],
-      [new StaffApiError('server', undefined, 503), CLEAR, true, true, false],
-      [new StaffApiError('server', undefined, 502, 'reset_not_applied'), CLEAR, true, true, false],
-      [new StaffApiError('server', undefined, 502, 'reset_incomplete'), PARTIAL, true, false, false],
-      [new StaffApiError('server', undefined, 502), PARTIAL, true, false, false],
-      [new StaffApiError('server', undefined, 500), UNSURE, true, false, false],
-      [new StaffApiError('network'), UNSURE, true, false, false],
-    ])('explains a failed reset (%#)', async (error, copy, retry, head, reloads) => {
-      vi.mocked(resetStaffPasswordApi).mockRejectedValue(error)
-      await openStaff()
+      await userEvent.clear(within(sheet).getByLabelText('Email'))
+      await userEvent.type(within(sheet).getByLabelText('Email'), 'Maria.Santos@Example.com')
       const loads = vi.mocked(listStaffAccounts).mock.calls.length
-      await userEvent.click(resetButton('Sam Reyes'))
-      await userEvent.click(await confirmButton())
-      expect(await screen.findByText(copy)).toBeInTheDocument()
-      expect(screen.queryByText(/Couldn't reset the password for Sam Reyes\./) !== null).toBe(head)
-      expect(screen.queryByText(/before anything changed/)).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
-      if (reloads) await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
-      expect(resetButton('Sam Reyes')).toBeEnabled()
+      await userEvent.click(within(sheet).getByRole('button', { name: 'Send Invitation' }))
+
+      const sent = await screen.findByRole('dialog', { name: 'Invitation sent' })
+      expect(inviteStaffAccountApi).toHaveBeenCalledTimes(1)
+      expect(inviteStaffAccountApi).toHaveBeenCalledWith({ email: 'maria.santos@example.com', firstName: 'Maria', lastName: 'Santos' })
+      expect(sent).toHaveTextContent('Invitation sent to maria.santos@example.com. They will set their own password from the email link.')
+      expect(within(sent).queryByText(/Temporary password|Copy|Download/)).not.toBeInTheDocument()
+      // The toast is short; the sheet already says where the invitation went.
+      expect(screen.getAllByRole('status').some((toast) => toast.textContent?.trim() === 'Invitation sent')).toBe(true)
+      await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
+      await userEvent.click(within(sent).getByRole('button', { name: 'Done' }))
     })
 
-    it('asks again from Retry', async () => {
-      vi.mocked(resetStaffPasswordApi).mockRejectedValueOnce(new StaffApiError('network'))
+    it('has the fields in order, with the optional ones marked, and every gender the backend accepts', async () => {
       await openStaff()
-      await userEvent.click(resetButton('Sam Reyes'))
-      await userEvent.click(await confirmButton())
-      await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
-      expect(await screen.findByRole('dialog', { name: 'Reset password for Sam Reyes?' })).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: /Add staff account/ }))
+      const sheet = await screen.findByRole('dialog', { name: 'Add staff account' })
+      const order = ['First name', 'Middle name (optional)', 'Last name', 'Suffix (optional)', 'Email', 'Birthday (optional)']
+      const ids = order.map((label) => within(sheet).getByLabelText(label).id)
+      const inDom = [...sheet.querySelectorAll('input')].map((el) => el.id)
+      expect(inDom).toEqual(ids)
+      await userEvent.click(within(sheet).getByRole('combobox', { name: 'Gender (optional)' }))
+      expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Not specified', 'Male', 'Female', 'Other', 'Unisex'])
+    })
+
+    it('sends the optional fields when filled, trimmed, and shows the count against the backend limits', async () => {
+      vi.mocked(inviteStaffAccountApi).mockResolvedValue({ account: staff('s3', 'Maria', 'Santos'), message: 'ok' })
+      await openStaff()
+      const sheet = await fillInvite()
+      await userEvent.type(within(sheet).getByLabelText('Middle name (optional)'), 'de la Cruz')
+      await userEvent.type(within(sheet).getByLabelText('Suffix (optional)'), 'J1r.')
+      expect(within(sheet).getByLabelText('Suffix (optional)')).toHaveValue('Jr.')
+      expect(within(sheet).getByText('3/5')).toBeInTheDocument()
+      fireEvent.change(within(sheet).getByLabelText('Birthday (optional)'), { target: { value: '1998-04-23' } })
+      await userEvent.click(within(sheet).getByRole('combobox', { name: 'Gender (optional)' }))
+      await userEvent.click(screen.getByRole('option', { name: 'Female' }))
+      await userEvent.click(within(sheet).getByRole('button', { name: 'Send Invitation' }))
+      await screen.findByRole('dialog', { name: 'Invitation sent' })
+      expect(inviteStaffAccountApi).toHaveBeenCalledWith({
+        email: 'maria@example.com',
+        firstName: 'Maria',
+        middleName: 'de la Cruz',
+        lastName: 'Santos',
+        suffix: 'Jr.',
+        birthday: '1998-04-23',
+        gender: 'female',
+      })
+    })
+
+    it('leaves the optional keys out of the request when they are empty', async () => {
+      vi.mocked(inviteStaffAccountApi).mockResolvedValue({ account: staff('s3', 'Maria', 'Santos'), message: 'ok' })
+      await openStaff()
+      const sheet = await fillInvite()
+      await userEvent.click(within(sheet).getByRole('button', { name: 'Send Invitation' }))
+      await screen.findByRole('dialog', { name: 'Invitation sent' })
+      expect(Object.keys(vi.mocked(inviteStaffAccountApi).mock.calls[0][0])).toEqual(['email', 'firstName', 'lastName'])
+    })
+
+    it('refuses a birthday of today or later with an inline message, and sends nothing', async () => {
+      await openStaff()
+      const sheet = await fillInvite()
+      const birthday = within(sheet).getByLabelText('Birthday (optional)')
+      const now = new Date()
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      expect(birthday).toHaveAttribute('max')
+      expect(birthday.getAttribute('max')! < today).toBe(true)
+      fireEvent.change(birthday, { target: { value: today } })
+      await userEvent.click(within(sheet).getByRole('button', { name: 'Send Invitation' }))
+      expect(within(sheet).getByText('Birthday must be a past date. Pick a day before today.')).toBeInTheDocument()
+      expect(birthday).toHaveAttribute('aria-invalid', 'true')
+      expect(birthday).toHaveFocus()
+      expect(inviteStaffAccountApi).not.toHaveBeenCalled()
+    })
+
+    it('shows several server validation messages as separate capitalised sentences', async () => {
+      vi.mocked(inviteStaffAccountApi).mockRejectedValue(new StaffApiError('validation', 'email must be an email; lastName should not be empty', 400))
+      await openStaff()
+      const sheet = await fillInvite()
+      await userEvent.click(within(sheet).getByRole('button', { name: 'Send Invitation' }))
+      expect(await within(sheet).findByRole('alert')).toHaveTextContent('Email must be an email. Last name should not be empty. No invitation was sent.')
+    })
+
+    it.each([
+      [new StaffApiError('forbidden', undefined, 401), 'Your session has expired.'],
+      [new StaffApiError('forbidden', 'insufficient authority', 403), "You can't invite staff accounts."],
+      [new StaffApiError('conflict', 'A user with this email address already exists', 409), 'That email already has an account.'],
+      [new StaffApiError('validation', 'email must be an email', 400), 'The server rejected the details.'],
+      [new StaffApiError('rate-limit', undefined, 429), 'Too many requests.'],
+      [new StaffApiError('network'), 'No invitation was sent.'],
+      [new StaffApiError('server', undefined, 500), 'No invitation was sent.'],
+    ])('explains failure %# in an alert and keeps the form', async (error, title) => {
+      vi.mocked(inviteStaffAccountApi).mockRejectedValue(error)
+      await openStaff()
+      const sheet = await fillInvite()
+      await userEvent.click(within(sheet).getByRole('button', { name: 'Send Invitation' }))
+      expect(await within(sheet).findByRole('alert')).toHaveTextContent(title)
+      expect(within(sheet).getByLabelText('Email')).toHaveValue('maria@example.com')
+      expect(within(sheet).getByRole('button', { name: 'Send Invitation' })).toBeEnabled()
     })
   })
 
-  describe('archive and restore', () => {
-    const ANA = person('s2', 'Ana', 'Cruz')
-    const OLD: StaffAccount = { ...ANA, status: 'archived', archivedAt: '2026-04-01T08:00:00.000Z' }
-    // jsdom loads no CSS, so the table and the card list both render: the first button is the table's.
-    const button = (name: string) => screen.getAllByRole('button', { name })[0]
-    const confirmButton = async () => within(await screen.findByRole('dialog', { name: /^Archive / })).getByRole('button', { name: 'Archive Staff' })
-
-    it('gives an active row Reset and Archive, and an archived row only Restore, all named after the person', async () => {
-      vi.mocked(listStaffAccounts).mockResolvedValue(page([SAM, OLD]))
+  describe('password reset email', () => {
+    it('is offered to an admin on each active row, named after the person, and the old reset is gone', async () => {
       await openStaff()
-      expect(button('Reset password for Sam Reyes')).toBeInTheDocument()
-      expect(button('Archive Sam Reyes')).toBeInTheDocument()
-      expect(button('Restore Ana Cruz')).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Reset password for Ana Cruz' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Archive Ana Cruz' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Restore Sam Reyes' })).not.toBeInTheDocument()
-      expect(screen.getAllByText('Archived', { selector: 'span' }).length).toBeGreaterThan(0)
+      expect(row('Send password reset email to Sam Reyes')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Reset password for/ })).not.toBeInTheDocument()
+    })
+
+    it('asks first, names the address, and sends nothing on Cancel', async () => {
+      await openStaff()
+      await userEvent.click(row('Send password reset email to Sam Reyes'))
+      const dialog = await screen.findByRole('dialog', { name: 'Send a password reset email to Sam Reyes?' })
+      expect(dialog).toHaveTextContent('sam.reyes@example.com')
+      expect(dialog).toHaveTextContent('Are you sure?')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      expect(requestPasswordReset).not.toHaveBeenCalled()
+    })
+
+    it('sends one request for the row email and toasts', async () => {
+      await openStaff()
+      await userEvent.click(row('Send password reset email to Sam Reyes'))
+      const dialog = await screen.findByRole('dialog', { name: /Send a password reset email/ })
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Send Reset Email' }))
+      expect(await screen.findByText('Password reset email sent to sam.reyes@example.com')).toBeInTheDocument()
+      expect(requestPasswordReset).toHaveBeenCalledTimes(1)
+      expect(requestPasswordReset).toHaveBeenCalledWith({ email: 'sam.reyes@example.com' })
+    })
+
+    it.each([
+      ['rate-limit', /limits how many emails/, false],
+      ['network', /connection dropped/, true],
+      ['server', /Retry in a moment/, true],
+    ] as const)('explains a %s failure, with Retry only when it can help', async (kind, copy, retry) => {
+      vi.mocked(requestPasswordReset).mockRejectedValue(Object.assign(new Error('x'), { kind }))
+      await openStaff()
+      await userEvent.click(row('Send password reset email to Sam Reyes'))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Send Reset Email' }))
+      expect(await screen.findByText(copy)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
+    })
+  })
+
+  describe('deactivate and activate', () => {
+    it('gives an active row Reset email and Deactivate, and an inactive row only Activate, with Inactive shown', async () => {
+      signInAs('admin')
+      vi.mocked(listStaffAccounts).mockResolvedValue(page([SAM, staff('s9', 'Off', 'Duty', 'inactive')]))
+      renderAdmin(<UserManagementPage />, '/admin/users?tab=staff')
+      await screen.findAllByText('Sam Reyes')
+      expect(row('Deactivate Sam Reyes')).toBeInTheDocument()
+      expect(row('Activate Off Duty')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Deactivate Off Duty' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Send password reset email to Off Duty' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Archive|Restore/ })).not.toBeInTheDocument()
+      expect(screen.getAllByText('Inactive', { selector: 'span' }).length).toBeGreaterThan(0)
+    })
+
+    it('gives a viewer who is only staff no row actions', async () => {
+      signInAs('staff')
+      vi.mocked(listStaffAccounts).mockResolvedValue(page([SAM]))
+      renderAdmin(<UserManagementPage />, '/admin/users?tab=staff')
+      await screen.findAllByText('Sam Reyes')
+      expect(screen.queryByRole('button', { name: /Deactivate|Activate|reset email/ })).not.toBeInTheDocument()
     })
 
     it('asks first, with the consequences, and sends nothing on Cancel', async () => {
       await openStaff()
-      await userEvent.click(button('Archive Sam Reyes'))
-      const dialog = await screen.findByRole('dialog', { name: 'Archive Sam Reyes?' })
-      expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
-      expect(
-        within(dialog).getByText("Sam Reyes will be signed out everywhere and won't be able to sign in. Their account is hidden from the staff list but kept, and you can restore it from the Archived filter."),
-      ).toBeInTheDocument()
+      await userEvent.click(row('Deactivate Sam Reyes'))
+      const dialog = await screen.findByRole('dialog', { name: 'Deactivate Sam Reyes?' })
+      expect(dialog).toHaveTextContent(/can't sign in or refresh their session/)
       await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-      expect(archiveStaffAccountApi).not.toHaveBeenCalled()
+      expect(deactivateAccountApi).not.toHaveBeenCalled()
     })
 
-    it('waits while pending, then reloads the list and toasts with Undo', async () => {
-      let finish: () => void = () => {}
-      vi.mocked(archiveStaffAccountApi).mockReturnValue(new Promise((resolve) => (finish = () => resolve({ id: 's1' }))))
+    it('deactivates once, reloads the list, toasts with Undo, and Undo activates', async () => {
+      vi.mocked(deactivateAccountApi).mockResolvedValue({ id: 's1' })
+      vi.mocked(activateAccountApi).mockResolvedValue({ id: 's1' })
       await openStaff()
-      await userEvent.click(button('Archive Sam Reyes'))
-      const confirm = await confirmButton()
       const loads = vi.mocked(listStaffAccounts).mock.calls.length
-      await userEvent.click(confirm)
-      expect(archiveStaffAccountApi).toHaveBeenCalledWith('s1')
-      expect(confirm).toBeDisabled()
-      expect(confirm).toHaveAttribute('aria-busy', 'true')
-      expect(button('Archive Sam Reyes')).toBeDisabled()
-      expect(button('Archive Ana Cruz')).toBeEnabled()
-      finish()
-      expect(await screen.findByText('Sam Reyes archived.')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
-      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      await userEvent.click(row('Deactivate Sam Reyes'))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Deactivate Staff' }))
+      expect(await screen.findByText('Sam Reyes deactivated.')).toBeInTheDocument()
+      expect(deactivateAccountApi).toHaveBeenCalledTimes(1)
+      expect(deactivateAccountApi).toHaveBeenCalledWith('s1')
       await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
-      expect(archiveStaffAccountApi).toHaveBeenCalledTimes(1)
+      await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+      expect(await screen.findByText('Deactivation undone. Sam Reyes can sign in again.')).toBeInTheDocument()
+      expect(activateAccountApi).toHaveBeenCalledWith('s1')
     })
 
-    it('Undo restores the account and says so', async () => {
-      vi.mocked(archiveStaffAccountApi).mockResolvedValue({ id: 's1' })
-      vi.mocked(restoreStaffAccountApi).mockResolvedValue({ id: 's1' })
-      await openStaff()
-      await userEvent.click(button('Archive Sam Reyes'))
-      await userEvent.click(await confirmButton())
-      await userEvent.click(await screen.findByRole('button', { name: 'Undo' }))
-      expect(restoreStaffAccountApi).toHaveBeenCalledWith('s1')
-      expect(await screen.findByText('Archive undone. Sam Reyes can sign in again.')).toBeInTheDocument()
-    })
-
-    it('restores at once with no question, and toasts', async () => {
-      vi.mocked(listStaffAccounts).mockResolvedValue(page([SAM, OLD]))
-      vi.mocked(restoreStaffAccountApi).mockResolvedValue({ id: 's2' })
-      await openStaff()
-      const loads = vi.mocked(listStaffAccounts).mock.calls.length
-      await userEvent.click(button('Restore Ana Cruz'))
-      expect(restoreStaffAccountApi).toHaveBeenCalledWith('s2')
+    it('activates at once with no question, and toasts', async () => {
+      signInAs('admin')
+      vi.mocked(activateAccountApi).mockResolvedValue({ id: 's9' })
+      vi.mocked(listStaffAccounts).mockResolvedValue(page([staff('s9', 'Off', 'Duty', 'inactive')]))
+      renderAdmin(<UserManagementPage />, '/admin/users?tab=staff')
+      await screen.findAllByText('Off Duty')
+      await userEvent.click(row('Activate Off Duty'))
+      expect(await screen.findByText(/Off Duty activated\./)).toBeInTheDocument()
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(await screen.findByText('Ana Cruz restored. They can sign in with their current password.')).toBeInTheDocument()
+    })
+
+    it.each([
+      [new StaffApiError('forbidden', 'You cannot deactivate your own account', 403), /can't deactivate your own account/, false],
+      [new StaffApiError('forbidden', 'User account is deactivated', 403), /Your own account has been deactivated/, false],
+      [new StaffApiError('forbidden', 'Cannot deactivate a user with role', 403), /isn't allowed to deactivate staff/, false],
+      [new StaffApiError('forbidden', undefined, 401), /session expired/, false],
+      [new StaffApiError('not-found', undefined, 404), /no longer exists/, false],
+      [new StaffApiError('rate-limit', undefined, 429), /Too many requests/, false],
+      [new StaffApiError('server', undefined, 500), /couldn't confirm the result/, true],
+      [new StaffApiError('network'), /couldn't confirm the result/, true],
+    ])('explains failure %# and offers Retry only when it can help', async (error, copy, retry) => {
+      vi.mocked(deactivateAccountApi).mockRejectedValue(error)
+      await openStaff()
+      await userEvent.click(row('Deactivate Sam Reyes'))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Deactivate Staff' }))
+      expect(await screen.findByText(copy)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
+    })
+
+    it('reloads the list when the account no longer exists', async () => {
+      vi.mocked(deactivateAccountApi).mockRejectedValue(new StaffApiError('not-found', undefined, 404))
+      await openStaff()
+      const loads = vi.mocked(listStaffAccounts).mock.calls.length
+      await userEvent.click(row('Deactivate Sam Reyes'))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Deactivate Staff' }))
+      await screen.findByText(/no longer exists/)
       await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
     })
-
-    const NOTHING = /Nothing changed\./
-    const UNSURE = /couldn't confirm the result\. Retry is safe, or check the list after a minute\./
-    it.each([
-      // [error, copy, Retry offered, list reloaded]
-      [new StaffApiError('forbidden', undefined, 401), /Your session expired\. Sign in again, then retry\./, false, false],
-      [new StaffApiError('forbidden', undefined, 403, 'not_a_staff_account'), /Sam Reyes is not a staff account, so it can't be archived here/, false, true],
-      [new StaffApiError('forbidden', undefined, 403, 'forbidden'), /isn't allowed to archive staff/, false, false],
-      [new StaffApiError('not-found', undefined, 404, 'staff_not_found'), /no longer exists/, false, true],
-      [new StaffApiError('conflict', undefined, 409, 'already_archived'), /Sam Reyes is already archived\. The list was out of date/, false, true],
-      [new StaffApiError('rate-limit', undefined, 429), /Wait a few minutes/, false, false],
-      [new StaffApiError('server', undefined, 502, 'archive_incomplete'), /blocked from signing in, but the archive did not finish\. Retry now to finish; it is safe to repeat\./, true, false],
-      [new StaffApiError('server', undefined, 502, 'archive_not_applied'), NOTHING, true, false],
-      [new StaffApiError('server', undefined, 502, 'other'), NOTHING, true, false],
-      [new StaffApiError('server', undefined, 503), NOTHING, true, false],
-      [new StaffApiError('server', undefined, 500), UNSURE, true, false],
-      [new StaffApiError('network'), UNSURE, true, false],
-    ])('explains a failed archive (%#)', async (error, copy, retry, reloads) => {
-      vi.mocked(archiveStaffAccountApi).mockRejectedValue(error)
-      await openStaff()
-      const loads = vi.mocked(listStaffAccounts).mock.calls.length
-      await userEvent.click(button('Archive Sam Reyes'))
-      await userEvent.click(await confirmButton())
-      expect(await screen.findByText(copy)).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
-      if (reloads) await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
-      else expect(vi.mocked(listStaffAccounts).mock.calls.length).toBe(loads)
-      expect(button('Archive Sam Reyes')).toBeEnabled()
-    })
-
-    it.each([
-      [new StaffApiError('conflict', undefined, 409, 'not_archived'), /Ana Cruz is already active\. The list was out of date/, false, true],
-      [new StaffApiError('server', undefined, 502, 'restore_incomplete'), /restore for Ana Cruz was only partly applied.*safe to repeat/, true, false],
-      [new StaffApiError('server', undefined, 502, 'restore_not_applied'), NOTHING, true, false],
-      [new StaffApiError('network'), UNSURE, true, false],
-    ])('explains a failed restore (%#)', async (error, copy, retry, reloads) => {
-      vi.mocked(listStaffAccounts).mockResolvedValue(page([SAM, OLD]))
-      vi.mocked(restoreStaffAccountApi).mockRejectedValue(error)
-      await openStaff()
-      const loads = vi.mocked(listStaffAccounts).mock.calls.length
-      await userEvent.click(button('Restore Ana Cruz'))
-      expect(await screen.findByText(copy)).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
-      if (reloads) await waitFor(() => expect(vi.mocked(listStaffAccounts).mock.calls.length).toBeGreaterThan(loads))
-      expect(button('Restore Ana Cruz')).toBeEnabled()
-    })
-
-    it('runs the archive again from Retry, without asking', async () => {
-      vi.mocked(archiveStaffAccountApi).mockRejectedValueOnce(new StaffApiError('server', undefined, 502, 'archive_incomplete')).mockResolvedValue({ id: 's1' })
-      await openStaff()
-      await userEvent.click(button('Archive Sam Reyes'))
-      await userEvent.click(await confirmButton())
-      await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
-      expect(await screen.findByText('Sam Reyes archived.')).toBeInTheDocument()
-      expect(archiveStaffAccountApi).toHaveBeenCalledTimes(2)
-    })
-  })
-
-  it('shows the error with a retry when the list fails to load', async () => {
-    vi.mocked(listStaffAccounts).mockRejectedValueOnce(new StaffApiError('network'))
-    renderAdmin(<UserManagementPage />, '/admin/users?tab=staff')
-    expect(await screen.findByText("We couldn't load the staff accounts.")).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect((await screen.findAllByText('Sam Reyes')).length).toBeGreaterThan(0)
-  })
-
-  it('shows the empty state with a way to add the first account', async () => {
-    vi.mocked(listStaffAccounts).mockResolvedValue(page([]))
-    renderAdmin(<UserManagementPage />, '/admin/users?tab=staff')
-    expect(await screen.findByText('No staff accounts yet')).toBeInTheDocument()
   })
 })
 
 describe('Admins tab', () => {
-  const person = (id: string, firstName: string, lastName: string): AdminAccount => ({
-    id,
-    firstName,
-    lastName,
-    username: `${firstName}.${lastName}`.toLowerCase(),
-    email: `${firstName}.${lastName}@silhoufit.dev`.toLowerCase(),
-    role: 'admin',
-    phone: '',
-    status: 'active',
-    createdAt: '2026-03-01T08:00:00.000Z',
-    lastSignInAt: null,
-    mustChangePassword: false,
-  })
-  const IVY = person('a1', 'Ivy', 'Lim')
-  const page = (data: AdminAccount[], p = 1, limit = 10) => ({ data, meta: { total: data.length, page: p, limit, totalPages: 1 } })
-  const CREDENTIALS = { username: 'noel.tan', email: 'noel.tan@silhoufit.dev', password: 'Xk9#mQ2!', mustChangePassword: true as const }
+  const JO = admin('a1', 'Jo', 'Lim')
 
-  beforeEach(() => {
-    vi.mocked(listAdminAccounts).mockReset().mockResolvedValue(page([IVY, person('a2', 'Ana', 'Cruz')]))
-    vi.mocked(createAdminAccountApi).mockReset()
-    vi.mocked(resetAdminPasswordApi).mockReset()
-    vi.mocked(archiveAdminAccountApi).mockReset()
-    vi.mocked(restoreAdminAccountApi).mockReset()
-  })
-  afterEach(() => act(() => clearSession()))
-
-  async function openAdmins() {
+  async function openAdmins(role: 'admin' | 'superadmin') {
+    signInAs(role)
+    vi.mocked(listAdminAccounts).mockResolvedValue(page([JO]))
     renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
-    await screen.findAllByText('Ivy Lim')
+    await screen.findAllByText('Jo Lim')
   }
 
-  it('lists admins with a running number, email, status and date, without row actions or a sample-data badge', async () => {
-    await openAdmins()
+  it('lists admins with a running number, and gives an admin viewer no row actions', async () => {
+    await openAdmins('admin')
+    expect(vi.mocked(listAdminAccounts).mock.calls[0][0]).toMatchObject({ status: 'active', sort: 'name', page: 1, limit: 10 })
     const table = screen.getAllByRole('table', { hidden: true })[0]
     expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Admin', 'Email', 'Status', 'Added'])
-    expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^1.*Ivy Lim/)
-    expect(within(table).getAllByRole('row', { hidden: true })[2]).toHaveTextContent(/^2.*Ana Cruz/)
-    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent('Active')
-    expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
-    expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Name or email')).toBeInTheDocument()
-    expect(vi.mocked(listAdminAccounts).mock.calls[0][0]).toMatchObject({ sort: 'name', page: 1, limit: 10, status: 'active' })
+    expect(screen.queryByRole('button', { name: /Deactivate|Activate|reset email/ })).not.toBeInTheDocument()
   })
 
-  describe('reset password (superadmin only)', () => {
-    const asRole = (role: 'admin' | 'superadmin') => act(() => setSession({ name: 'Dev', email: 'dev@silhoufit.dev', role }))
-    // jsdom loads no CSS, so the table and the card list both render: the first button is the table's.
-    const resetButton = (name: string) => screen.getAllByRole('button', { name: `Reset password for ${name}` })[0]
-    const confirmButton = async () => within(await screen.findByRole('dialog', { name: /Reset password for/ })).getByRole('button', { name: 'Reset Password' })
-    const headers = () => within(screen.getAllByRole('table', { hidden: true })[0]).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)
-
-    it('gives an admin viewer no row actions and no Actions column', async () => {
-      asRole('admin')
-      await openAdmins()
-      expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
-      expect(headers()).toEqual(['#', 'Admin', 'Email', 'Status', 'Added'])
-    })
-
-    it('gives a superadmin a Reset action on every row, named after the person, and an Actions column', async () => {
-      asRole('superadmin')
-      await openAdmins()
-      expect(resetButton('Ivy Lim')).toBeInTheDocument()
-      expect(resetButton('Ana Cruz')).toBeInTheDocument()
-      expect(headers()).toEqual(['#', 'Admin', 'Email', 'Status', 'Added', 'Actions'])
-    })
-
-    it('asks first, names the default password and the sign-out, and sends nothing on Cancel', async () => {
-      asRole('superadmin')
-      await openAdmins()
-      await userEvent.click(resetButton('Ivy Lim'))
-      const dialog = await screen.findByRole('dialog', { name: 'Reset password for Ivy Lim?' })
-      expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
-      expect(within(dialog).getByText(/default password 1234567a and they will be signed out everywhere/)).toBeInTheDocument()
-      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: /Reset password for/ })).not.toBeInTheDocument())
-      expect(resetAdminPasswordApi).not.toHaveBeenCalled()
-      expect(resetStaffPasswordApi).not.toHaveBeenCalled()
-    })
-
-    it('waits while the request is pending, then confirms with a toast, sending one request', async () => {
-      let finish: () => void = () => {}
-      vi.mocked(resetAdminPasswordApi).mockReturnValue(new Promise((resolve) => (finish = () => resolve({ id: 'a1' }))))
-      asRole('superadmin')
-      await openAdmins()
-      await userEvent.click(resetButton('Ivy Lim'))
-      const confirm = await confirmButton()
-      await userEvent.click(confirm)
-      expect(resetAdminPasswordApi).toHaveBeenCalledWith('a1')
-      expect(confirm).toBeDisabled()
-      expect(confirm).toHaveAttribute('aria-busy', 'true')
-      expect(resetButton('Ivy Lim')).toBeDisabled()
-      finish()
-      expect(await screen.findByText('Password reset for Ivy Lim. They are signed out and must sign in with the default password.')).toBeInTheDocument()
-      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-      expect(resetAdminPasswordApi).toHaveBeenCalledTimes(1)
-    })
-
-    const CLEAR = /nothing changed/
-    const UNSURE = /couldn't confirm the result.*may or may not have been reset.*Retry is safe/
-    const PARTIAL = /may already be reset to the default, but the account wasn't fully secured.*safe to repeat/
-    it.each([
-      // [error, copy, Retry offered, "Couldn't reset ..." head shown, list reloaded]
-      [new StaffApiError('forbidden', undefined, 403, 'not_an_admin_account'), /Ivy Lim is not an admin account, so it can't be reset here\. Refresh the list\./, false, false, true],
-      [new StaffApiError('forbidden', undefined, 403, 'forbidden'), /Only a superadmin can reset admin passwords.*Sign in with a superadmin account/, false, true, false],
-      [new StaffApiError('forbidden', undefined, 401), /Your session expired\. Sign in again, then retry\./, false, true, false],
-      [new StaffApiError('not-found', undefined, 404, 'admin_not_found'), /This admin account no longer exists.*Refresh the list/, false, true, true],
-      [new StaffApiError('server', undefined, 422, 'weak_password'), /rejected the default password.*project owner/, false, true, false],
-      [new StaffApiError('rate-limit', undefined, 429), /Wait a few minutes/, false, true, false],
-      [new StaffApiError('server', undefined, 503), CLEAR, true, true, false],
-      [new StaffApiError('server', undefined, 502, 'reset_not_applied'), CLEAR, true, true, false],
-      [new StaffApiError('server', undefined, 502, 'reset_incomplete'), PARTIAL, true, false, false],
-      [new StaffApiError('server', undefined, 500), UNSURE, true, false, false],
-      [new StaffApiError('network'), UNSURE, true, false, false],
-    ])('explains a failed reset (%#)', async (error, copy, retry, head, reloads) => {
-      vi.mocked(resetAdminPasswordApi).mockRejectedValue(error)
-      asRole('superadmin')
-      await openAdmins()
-      const loads = vi.mocked(listAdminAccounts).mock.calls.length
-      await userEvent.click(resetButton('Ivy Lim'))
-      await userEvent.click(await confirmButton())
-      expect(await screen.findByText(copy)).toBeInTheDocument()
-      expect(screen.queryByText(/Couldn't reset the password for Ivy Lim\./) !== null).toBe(head)
-      expect(screen.queryByText(/staff/)).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
-      if (reloads) await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.length).toBeGreaterThan(loads))
-      expect(resetButton('Ivy Lim')).toBeEnabled()
-    })
-
-    it('asks again from Retry', async () => {
-      vi.mocked(resetAdminPasswordApi).mockRejectedValueOnce(new StaffApiError('network'))
-      asRole('superadmin')
-      await openAdmins()
-      await userEvent.click(resetButton('Ivy Lim'))
-      await userEvent.click(await confirmButton())
-      await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
-      expect(await screen.findByRole('dialog', { name: 'Reset password for Ivy Lim?' })).toBeInTheDocument()
-    })
+  it('gives a superadmin Reset email and Deactivate on an active admin, and only Activate on an inactive one', async () => {
+    signInAs('superadmin')
+    vi.mocked(listAdminAccounts).mockResolvedValue(page([JO, admin('a2', 'Off', 'Admin', 'inactive')]))
+    renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
+    await screen.findAllByText('Jo Lim')
+    expect(row('Send password reset email to Jo Lim')).toBeInTheDocument()
+    expect(row('Deactivate Jo Lim')).toBeInTheDocument()
+    expect(row('Activate Off Admin')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Deactivate Off Admin' })).not.toBeInTheDocument()
   })
 
-  describe('archive and restore (superadmin only)', () => {
-    const OLD: AdminAccount = { ...person('a2', 'Ana', 'Cruz'), status: 'archived', archivedAt: '2026-04-01T08:00:00.000Z' }
-    const asRole = (role: 'admin' | 'superadmin') => act(() => setSession({ name: 'Dev', email: 'dev@silhoufit.dev', role }))
-    // jsdom loads no CSS, so the table and the card list both render: the first button is the table's.
-    const button = (name: string) => screen.getAllByRole('button', { name })[0]
-    const confirmButton = async () => within(await screen.findByRole('dialog', { name: /^Archive / })).getByRole('button', { name: 'Archive Admin' })
-
-    it('gives an admin viewer no archive or restore, even on an archived row', async () => {
-      asRole('admin')
-      vi.mocked(listAdminAccounts).mockResolvedValue(page([IVY, OLD]))
-      await openAdmins()
-      expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
-      expect(screen.getAllByText('Archived', { selector: 'span' }).length).toBeGreaterThan(0)
-    })
-
-    it('gives a superadmin Reset and Archive on an active row and only Restore on an archived one', async () => {
-      asRole('superadmin')
-      vi.mocked(listAdminAccounts).mockResolvedValue(page([IVY, OLD]))
-      await openAdmins()
-      expect(button('Reset password for Ivy Lim')).toBeInTheDocument()
-      expect(button('Archive Ivy Lim')).toBeInTheDocument()
-      expect(button('Restore Ana Cruz')).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Reset password for Ana Cruz' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Archive Ana Cruz' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Restore Ivy Lim' })).not.toBeInTheDocument()
-    })
-
-    it('asks first with the admin consequences, and sends nothing on Cancel', async () => {
-      asRole('superadmin')
-      await openAdmins()
-      await userEvent.click(button('Archive Ivy Lim'))
-      const dialog = await screen.findByRole('dialog', { name: 'Archive Ivy Lim?' })
-      expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
-      expect(
-        within(dialog).getByText("Ivy Lim will be signed out everywhere and can't sign in until restored. Their account is hidden from the admin list but kept, and you can restore it from the Archived filter."),
-      ).toBeInTheDocument()
-      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-      expect(archiveAdminAccountApi).not.toHaveBeenCalled()
-    })
-
-    it('waits while pending, sends one admin request, reloads, and Undo restores', async () => {
-      let finish: () => void = () => {}
-      vi.mocked(archiveAdminAccountApi).mockReturnValue(new Promise((resolve) => (finish = () => resolve({ id: 'a1' }))))
-      vi.mocked(restoreAdminAccountApi).mockResolvedValue({ id: 'a1' })
-      asRole('superadmin')
-      await openAdmins()
-      await userEvent.click(button('Archive Ivy Lim'))
-      const confirm = await confirmButton()
-      const loads = vi.mocked(listAdminAccounts).mock.calls.length
-      await userEvent.click(confirm)
-      expect(archiveAdminAccountApi).toHaveBeenCalledWith('a1')
-      expect(confirm).toBeDisabled()
-      expect(confirm).toHaveAttribute('aria-busy', 'true')
-      expect(button('Archive Ivy Lim')).toBeDisabled()
-      expect(button('Archive Ana Cruz')).toBeEnabled()
-      finish()
-      expect(await screen.findByText('Ivy Lim archived.')).toBeInTheDocument()
-      await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.length).toBeGreaterThan(loads))
-      await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
-      expect(restoreAdminAccountApi).toHaveBeenCalledWith('a1')
-      expect(await screen.findByText('Archive undone. Ivy Lim can sign in again.')).toBeInTheDocument()
-      expect(archiveAdminAccountApi).toHaveBeenCalledTimes(1)
-      expect(archiveStaffAccountApi).not.toHaveBeenCalled()
-    })
-
-    it('restores at once with no question, and toasts', async () => {
-      asRole('superadmin')
-      vi.mocked(listAdminAccounts).mockResolvedValue(page([IVY, OLD]))
-      vi.mocked(restoreAdminAccountApi).mockResolvedValue({ id: 'a2' })
-      await openAdmins()
-      await userEvent.click(button('Restore Ana Cruz'))
-      expect(restoreAdminAccountApi).toHaveBeenCalledWith('a2')
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(await screen.findByText('Ana Cruz restored. They can sign in with their current password.')).toBeInTheDocument()
-    })
-
-    it('has a status filter that asks the server for archived admins, with its own empty state', async () => {
-      asRole('superadmin')
-      await openAdmins()
-      vi.mocked(listAdminAccounts).mockResolvedValue(page([]))
-      await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
-      await userEvent.click(await screen.findByRole('option', { name: 'Archived' }))
-      await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.at(-1)![0].status).toBe('archived'))
-      expect(await screen.findByText('No archived admin accounts')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Show active admins' })).toBeInTheDocument()
-    })
-
-    const NOTHING = /Nothing changed\./
-    const UNSURE = /couldn't confirm the result\. Retry is safe, or check the list after a minute\./
-    it.each([
-      // [error, copy, Retry offered, list reloaded]
-      [new StaffApiError('forbidden', undefined, 401), /Your session expired\. Sign in again, then retry\./, false, false],
-      [new StaffApiError('forbidden', undefined, 403, 'not_an_admin_account'), /Ivy Lim is not an admin account, so it can't be archived here/, false, true],
-      [new StaffApiError('forbidden', undefined, 403, 'forbidden'), /Only a superadmin can archive admins.*Sign in with a superadmin account/, false, false],
-      [new StaffApiError('not-found', undefined, 404, 'admin_not_found'), /This admin account no longer exists/, false, true],
-      [new StaffApiError('conflict', undefined, 409, 'already_archived'), /Ivy Lim is already archived\. The list was out of date/, false, true],
-      [new StaffApiError('rate-limit', undefined, 429), /Wait a few minutes/, false, false],
-      [new StaffApiError('server', undefined, 502, 'archive_incomplete'), /blocked from signing in, but the archive did not finish\. Retry now to finish; it is safe to repeat\./, true, false],
-      [new StaffApiError('server', undefined, 502, 'archive_not_applied'), NOTHING, true, false],
-      [new StaffApiError('server', undefined, 503), NOTHING, true, false],
-      [new StaffApiError('network'), UNSURE, true, false],
-    ])('explains a failed archive in admin wording (%#)', async (error, copy, retry, reloads) => {
-      vi.mocked(archiveAdminAccountApi).mockRejectedValue(error)
-      asRole('superadmin')
-      await openAdmins()
-      const loads = vi.mocked(listAdminAccounts).mock.calls.length
-      await userEvent.click(button('Archive Ivy Lim'))
-      await userEvent.click(await confirmButton())
-      expect(await screen.findByText(copy)).toBeInTheDocument()
-      expect(screen.queryByText(/staff/)).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
-      if (reloads) await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.length).toBeGreaterThan(loads))
-      else expect(vi.mocked(listAdminAccounts).mock.calls.length).toBe(loads)
-      expect(button('Archive Ivy Lim')).toBeEnabled()
-    })
-
-    it.each([
-      [new StaffApiError('conflict', undefined, 409, 'not_archived'), /Ana Cruz is already active\. The list was out of date/, false, true],
-      [new StaffApiError('server', undefined, 502, 'restore_incomplete'), /restore for Ana Cruz was only partly applied.*safe to repeat/, true, false],
-      [new StaffApiError('server', undefined, 502, 'restore_not_applied'), NOTHING, true, false],
-      [new StaffApiError('network'), UNSURE, true, false],
-    ])('explains a failed restore (%#)', async (error, copy, retry, reloads) => {
-      vi.mocked(listAdminAccounts).mockResolvedValue(page([IVY, OLD]))
-      vi.mocked(restoreAdminAccountApi).mockRejectedValue(error)
-      asRole('superadmin')
-      await openAdmins()
-      const loads = vi.mocked(listAdminAccounts).mock.calls.length
-      await userEvent.click(button('Restore Ana Cruz'))
-      expect(await screen.findByText(copy)).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Retry' }) !== null).toBe(retry)
-      if (reloads) await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.length).toBeGreaterThan(loads))
-      expect(button('Restore Ana Cruz')).toBeEnabled()
-    })
+  it('deactivates an admin with the admin wording through the same /users/:id route', async () => {
+    vi.mocked(deactivateAccountApi).mockResolvedValue({ id: 'a1' })
+    await openAdmins('superadmin')
+    await userEvent.click(row('Deactivate Jo Lim'))
+    const dialog = await screen.findByRole('dialog', { name: 'Deactivate Jo Lim?' })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Deactivate Admin' }))
+    expect(await screen.findByText('Jo Lim deactivated.')).toBeInTheDocument()
+    expect(deactivateAccountApi).toHaveBeenCalledWith('a1')
   })
 
-  it('shows "No admin accounts yet" with Add when there are none', async () => {
-    vi.mocked(listAdminAccounts).mockResolvedValue(page([]))
+  it('sends the reset email to the admin address', async () => {
+    await openAdmins('superadmin')
+    await userEvent.click(row('Send password reset email to Jo Lim'))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Send Reset Email' }))
+    expect(await screen.findByText('Password reset email sent to jo.lim@example.com')).toBeInTheDocument()
+  })
+
+  it('invites an admin from the Admins tab', async () => {
+    vi.mocked(inviteAdminAccountApi).mockResolvedValue({ account: admin('a3', 'New', 'Admin'), message: 'ok' })
+    await openAdmins('admin')
+    await userEvent.click(screen.getAllByRole('button', { name: /Add admin account/ })[0])
+    const sheet = await screen.findByRole('dialog', { name: 'Add admin account' })
+    await userEvent.type(within(sheet).getByLabelText('First name'), 'New')
+    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Admin')
+    await userEvent.type(within(sheet).getByLabelText('Email'), 'new@example.com')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Send Invitation' }))
+    expect(await screen.findByRole('dialog', { name: 'Invitation sent' })).toBeInTheDocument()
+    expect(inviteAdminAccountApi).toHaveBeenCalledWith({ email: 'new@example.com', firstName: 'New', lastName: 'Admin' })
+  })
+
+  it('shows the empty state when there are none', async () => {
+    signInAs('admin')
     renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
     expect(await screen.findByText('No admin accounts yet')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /Add admin account/ }).length).toBeGreaterThan(1)
-  })
-
-  it('shows the error with a retry when the list fails to load', async () => {
-    vi.mocked(listAdminAccounts).mockRejectedValueOnce(new StaffApiError('network'))
-    renderAdmin(<UserManagementPage />, '/admin/users?tab=admins')
-    expect(await screen.findByText("We couldn't load the admin accounts.")).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect((await screen.findAllByText('Ivy Lim')).length).toBeGreaterThan(0)
-  })
-
-  it('numbers rows across pages', async () => {
-    vi.mocked(listAdminAccounts).mockResolvedValue({ data: [IVY], meta: { total: 11, page: 2, limit: 10, totalPages: 2 } })
-    await openAdmins()
-    expect(within(screen.getAllByRole('table', { hidden: true })[0]).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^11.*Ivy Lim/)
-  })
-
-  it('creates an account with a sign-in email preview, shows the credentials once and loads the list again', async () => {
-    vi.mocked(createAdminAccountApi).mockResolvedValue({ account: person('a3', 'Noel', 'Tan'), credentials: CREDENTIALS })
-    await openAdmins()
-    await userEvent.click(screen.getByRole('button', { name: /Add admin account/ }))
-    const sheet = await screen.findByRole('dialog', { name: 'Add admin account' })
-    expect(within(sheet).queryByLabelText(/Phone/)).not.toBeInTheDocument()
-
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
-    expect(within(sheet).getByText('First name is required.')).toBeInTheDocument()
-    expect(createAdminAccountApi).not.toHaveBeenCalled()
-
-    await userEvent.type(within(sheet).getByLabelText('First name'), 'Ivy')
-    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Lim')
-    // Ivy Lim is on the list, so the preview moves past her address.
-    expect(within(sheet).queryByText('ivy.lim@silhoufit.dev')).not.toBeInTheDocument()
-    await userEvent.clear(within(sheet).getByLabelText('First name'))
-    await userEvent.type(within(sheet).getByLabelText('First name'), 'Noel')
-    await userEvent.clear(within(sheet).getByLabelText('Last name'))
-    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Tan')
-    expect(within(sheet).getByText('noel.tan@silhoufit.dev')).toBeInTheDocument()
-    const loads = vi.mocked(listAdminAccounts).mock.calls.length
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
-
-    const created = await screen.findByRole('dialog', { name: 'Admin account created' })
-    expect(createAdminAccountApi).toHaveBeenCalledWith({ firstName: 'Noel', lastName: 'Tan' })
-    expect(within(created).queryByText('Username')).not.toBeInTheDocument()
-    expect(within(created).getByText('noel.tan@silhoufit.dev')).toBeInTheDocument()
-    expect(within(created).getByText('Xk9#mQ2!')).toBeInTheDocument()
-    expect(within(created).getByRole('button', { name: 'Download as PNG' })).toBeInTheDocument()
-    expect(within(created).queryByText(/Demo only/)).not.toBeInTheDocument()
-    await waitFor(() => expect(vi.mocked(listAdminAccounts).mock.calls.length).toBeGreaterThan(loads))
-  })
-
-  it.each([
-    [new StaffApiError('forbidden', undefined, 403), "You can't create admin accounts."],
-    [new StaffApiError('conflict', undefined, 409), "We couldn't reserve that email."],
-    [new StaffApiError('validation', 'firstName must contain letters only', 400), 'The server rejected the names.'],
-    [new StaffApiError('network'), 'Nothing was created.'],
-    [new StaffApiError('server', undefined, 503), 'No account was made.'],
-  ])('explains a failed create (%#) and keeps the form', async (error, title) => {
-    vi.mocked(createAdminAccountApi).mockRejectedValue(error)
-    await openAdmins()
-    await userEvent.click(screen.getByRole('button', { name: /Add admin account/ }))
-    const sheet = await screen.findByRole('dialog', { name: 'Add admin account' })
-    await userEvent.type(within(sheet).getByLabelText('First name'), 'Noel')
-    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Tan')
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
-    expect(await within(sheet).findByText(title)).toBeInTheDocument()
-    expect(within(sheet).getByLabelText('First name')).toHaveValue('Noel')
-    expect(within(sheet).getByRole('button', { name: 'Create Account' })).toBeEnabled()
   })
 })
 
 describe('Superadmins tab', () => {
-  const person = (id: string, firstName: string, lastName: string): SuperadminAccount => ({
-    id,
-    firstName,
-    lastName,
-    username: `${firstName}.${lastName}`.toLowerCase(),
-    email: `${firstName}.${lastName}@silhoufit.dev`.toLowerCase(),
-    role: 'superadmin',
-    phone: '',
-    status: 'active',
-    createdAt: '2026-03-01T08:00:00.000Z',
-    lastSignInAt: null,
-    mustChangePassword: false,
-  })
-  const IVY = person('s1', 'Ivy', 'Lim')
-  const page = (data: SuperadminAccount[]) => ({ data, meta: { total: data.length, page: 1, limit: 10, totalPages: 1 } })
-  const CREDENTIALS = { username: 'noel.tan', email: 'noel.tan@silhoufit.dev', password: 'Xk9#mQ2!', mustChangePassword: true as const }
-
-  beforeEach(() => {
-    vi.mocked(listSuperadminAccounts).mockReset().mockResolvedValue(page([IVY, person('s2', 'Ana', 'Cruz')]))
-    vi.mocked(createSuperadminAccountApi).mockReset()
-    act(() => setSession({ name: 'Dev', email: 'dev@silhoufit.dev', role: 'superadmin' }))
-  })
-  afterEach(() => act(() => clearSession()))
-
   async function openSuperadmins() {
+    signInAs('superadmin')
     renderAdmin(<UserManagementPage />, '/admin/users?tab=superadmins')
-    await screen.findAllByText('Ivy Lim')
+    await userEvent.click((await screen.findAllByRole('button', { name: /Add superadmin account/ }))[0])
+    const sheet = await screen.findByRole('dialog', { name: 'Add superadmin account' })
+    await userEvent.type(within(sheet).getByLabelText('First name'), 'Kim')
+    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Ng')
+    await userEvent.type(within(sheet).getByLabelText('Email'), 'kim@example.com')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Send Invitation' }))
+    return sheet
   }
 
-  it('lists superadmins with a running number, email and date, without a status, row actions or a sample-data badge', async () => {
-    await openSuperadmins()
+  it('lists superadmins without a status or row actions', async () => {
+    signInAs('superadmin')
+    vi.mocked(listSuperadminAccounts).mockResolvedValue(page([superadmin('p1', 'Pat', 'Go')]))
+    renderAdmin(<UserManagementPage />, '/admin/users?tab=superadmins')
+    await screen.findAllByText('Pat Go')
     const table = screen.getAllByRole('table', { hidden: true })[0]
     expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Superadmin', 'Email', 'Added'])
-    expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^1.*Ivy Lim/)
-    expect(within(table).getAllByRole('row', { hidden: true })[2]).toHaveTextContent(/^2.*Ana Cruz/)
-    expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
-    expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Name or email')).toBeInTheDocument()
-    expect(vi.mocked(listSuperadminAccounts).mock.calls[0][0]).toMatchObject({ sort: 'name', page: 1, limit: 10 })
+    expect(screen.queryByRole('button', { name: /Deactivate|Activate|reset email/ })).not.toBeInTheDocument()
   })
 
-  it('keeps the sample-data badge on Customers', async () => {
-    renderAdmin(<UserManagementPage />, '/admin/users')
-    expect(await screen.findByText('Sample data')).toBeInTheDocument()
-  })
-
-  it('shows "No superadmin accounts yet" with Add when there are none', async () => {
-    vi.mocked(listSuperadminAccounts).mockResolvedValue(page([]))
-    renderAdmin(<UserManagementPage />, '/admin/users?tab=superadmins')
-    expect(await screen.findByText('No superadmin accounts yet')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /Add superadmin account/ }).length).toBeGreaterThan(1)
-  })
-
-  it('shows the error with a retry when the list fails to load', async () => {
-    vi.mocked(listSuperadminAccounts).mockRejectedValueOnce(new StaffApiError('network'))
-    renderAdmin(<UserManagementPage />, '/admin/users?tab=superadmins')
-    expect(await screen.findByText("We couldn't load the superadmin accounts.")).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect((await screen.findAllByText('Ivy Lim')).length).toBeGreaterThan(0)
-  })
-
-  it('numbers rows across pages', async () => {
-    vi.mocked(listSuperadminAccounts).mockResolvedValue({ data: [IVY], meta: { total: 11, page: 2, limit: 10, totalPages: 2 } })
+  it('invites with the superadmin role', async () => {
+    vi.mocked(inviteSuperadminAccountApi).mockResolvedValue({ account: superadmin('p2', 'Kim', 'Ng'), message: 'ok' })
     await openSuperadmins()
-    expect(within(screen.getAllByRole('table', { hidden: true })[0]).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^11.*Ivy Lim/)
+    await screen.findByRole('dialog', { name: 'Invitation sent' })
+    expect(inviteSuperadminAccountApi).toHaveBeenCalledWith({ email: 'kim@example.com', firstName: 'Kim', lastName: 'Ng' })
   })
 
-  it('creates an account with a sign-in email preview, shows the credentials once and loads the list again', async () => {
-    vi.mocked(createSuperadminAccountApi).mockResolvedValue({ account: person('s3', 'Noel', 'Tan'), credentials: CREDENTIALS })
-    await openSuperadmins()
-    await userEvent.click(screen.getByRole('button', { name: /Add superadmin account/ }))
-    const sheet = await screen.findByRole('dialog', { name: 'Add superadmin account' })
-    expect(within(sheet).queryByLabelText(/Phone/)).not.toBeInTheDocument()
-    await userEvent.type(within(sheet).getByLabelText('First name'), 'Noel')
-    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Tan')
-    expect(within(sheet).getByText('noel.tan@silhoufit.dev')).toBeInTheDocument()
-    const loads = vi.mocked(listSuperadminAccounts).mock.calls.length
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
-
-    const created = await screen.findByRole('dialog', { name: 'Superadmin account created' })
-    expect(createSuperadminAccountApi).toHaveBeenCalledWith({ firstName: 'Noel', lastName: 'Tan' })
-    expect(within(created).getByText('noel.tan@silhoufit.dev')).toBeInTheDocument()
-    expect(within(created).getByText('Xk9#mQ2!')).toBeInTheDocument()
-    expect(within(created).getByRole('button', { name: 'Download as PNG' })).toBeInTheDocument()
-    expect(within(created).queryByText(/Demo only/)).not.toBeInTheDocument()
-    await waitFor(() => expect(vi.mocked(listSuperadminAccounts).mock.calls.length).toBeGreaterThan(loads))
-  })
-
-  it.each([
-    [new StaffApiError('forbidden', undefined, 403), "You can't create superadmin accounts.", /Only superadmins can/],
-    [new StaffApiError('conflict', undefined, 409), "We couldn't reserve that email.", /took the generated email/],
-    [new StaffApiError('network'), 'Nothing was created.', /connection dropped/],
-  ])('explains a failed create (%#) and keeps the form', async (error, title, body) => {
-    vi.mocked(createSuperadminAccountApi).mockRejectedValue(error)
-    await openSuperadmins()
-    await userEvent.click(screen.getByRole('button', { name: /Add superadmin account/ }))
-    const sheet = await screen.findByRole('dialog', { name: 'Add superadmin account' })
-    await userEvent.type(within(sheet).getByLabelText('First name'), 'Noel')
-    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Tan')
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
-    const alert = await within(sheet).findByRole('alert')
-    expect(alert).toHaveTextContent(title)
-    expect(alert).toHaveTextContent(body)
-    expect(within(sheet).getByRole('button', { name: 'Create Account' })).toBeEnabled()
+  it('explains the 403 the server gives when the role may not be assigned', async () => {
+    vi.mocked(inviteSuperadminAccountApi).mockRejectedValue(new StaffApiError('forbidden', 'insufficient authority', 403))
+    const sheet = await openSuperadmins()
+    expect(await within(sheet).findByRole('alert')).toHaveTextContent("You can't invite superadmin accounts.")
   })
 })

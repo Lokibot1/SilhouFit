@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { DownloadIcon, MessageIcon, SpinnerIcon } from '../../components/form/icons'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
+import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
@@ -167,6 +168,9 @@ export function OrderSuccessPage() {
         <h1 ref={heading} tabIndex={-1} className="display mt-4 text-4xl text-fg outline-none sm:text-5xl">
           Order placed
         </h1>
+        <div className="mt-3">
+          <SampleDataBadge reason="This order is a demo until the orders backend is connected. Nothing was charged or saved." />
+        </div>
         <p className="mt-3 text-lg leading-relaxed text-fg-muted">
           Reserved for you. We&apos;ll keep you posted until it&apos;s in your hands.
         </p>

@@ -16,7 +16,9 @@ import { nextQuery, safeNext } from '../../utils/safeNext'
 import { homeFor } from '../../utils/staffRole'
 
 const META_DESCRIPTION =
-  'Finishing your Google sign-in to KRAL. If something went wrong, you can head back to the login page and try again whenever you are ready to continue.'
+  'Finishing your Google sign-in to KRAL. If something went wrong, you can head back to the login page and try again whenever you are ready to continue now.'
+const EXPIRED_DESCRIPTION =
+  'This KRAL link has expired or was already used. Request a new reset email to set your password, or go back to the login page and sign in with what you have.'
 
 // Waiting on the Supabase code exchange plus /users/me; past this the connection is treated as dropped.
 const TIMEOUT_MS = 15_000
@@ -48,7 +50,7 @@ const ERROR_COPY: Record<FailKind, { title: string; body: string }> = {
 }
 const RETRYABLE: FailKind[] = ['network', 'rate-limit', 'server']
 
-type View = { status: 'loading' } | { status: 'cancelled' } | { status: 'failed'; kind: FailKind }
+type View = { status: 'loading' } | { status: 'cancelled' } | { status: 'expired' } | { status: 'failed'; kind: FailKind }
 
 // Supabase puts `code` (or an `error`) in the query, and tokens or an `error` in the hash for the implicit flow.
 function readParams() {
@@ -56,11 +58,16 @@ function readParams() {
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
   const get = (key: string) => search.get(key) ?? hash.get(key)
   const error = get('error') ?? get('error_code')
+  const errorCode = get('error_code')
   return {
     code: search.get('code'),
     accessToken: hash.get('access_token'),
     refreshToken: hash.get('refresh_token'),
+    // An emailed invitation or password recovery link carries its kind here; those sessions go on to choose a password.
+    setPassword: ['invite', 'recovery'].includes(hash.get('type') ?? search.get('type') ?? ''),
     error: error ? error.toLowerCase() : null,
+    // An expired or reused invitation or recovery link also arrives as `access_denied`; only its code tells it from a cancelled Google sign-in.
+    linkExpired: Boolean(errorCode && /otp|expired|flow_state|invalid|not_found|used/i.test(errorCode)),
   }
 }
 
@@ -104,7 +111,6 @@ export function AuthCallbackPage() {
 
 function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
   const { error } = params
-  useMetaDescription(META_DESCRIPTION)
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -112,9 +118,11 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
   const [next] = useState(readStashedNext)
   const [view, setView] = useState<View>(() =>
     error
-      ? error === 'access_denied'
-        ? { status: 'cancelled' }
-        : { status: 'failed', kind: 'session' }
+      ? params.linkExpired
+        ? { status: 'expired' }
+        : error === 'access_denied'
+          ? { status: 'cancelled' }
+          : { status: 'failed', kind: 'session' }
       : { status: 'loading' },
   )
   const [attempt, setAttempt] = useState(0)
@@ -125,12 +133,15 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
   const unfinished = useRef(false)
   const mounted = useRef(false)
 
+  useMetaDescription(view.status === 'expired' ? EXPIRED_DESCRIPTION : META_DESCRIPTION)
   useDocumentTitle(
-    view.status === 'cancelled'
-      ? 'Google sign-in cancelled — KRAL'
-      : view.status === 'failed'
-        ? "Couldn't sign you in — KRAL"
-        : 'Signing you in — KRAL',
+    view.status === 'expired'
+      ? 'Link expired — KRAL'
+      : view.status === 'cancelled'
+        ? 'Google sign-in cancelled — KRAL'
+        : view.status === 'failed'
+          ? "Couldn't sign you in — KRAL"
+          : 'Signing you in — KRAL',
   )
 
   useEffect(() => {
@@ -171,13 +182,18 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
       })
     }
     Promise.race([
-      (exchange.current ?? Promise.resolve()).then(() => fetchMe({ signal: controller.signal })),
+      (exchange.current ?? Promise.resolve()).then(() => (params.setPassword ? null : fetchMe({ signal: controller.signal }))),
       timeout,
     ]).then(
       (me) => {
         clearTimeout(timer)
         if (controller.signal.aborted) return
         unfinished.current = false
+        if (!me) {
+          // An invited or recovering person has a session but no password of their own yet.
+          navigate('/auth/set-password', { replace: true })
+          return
+        }
         setSession({
           name: me.fullName ?? `${me.firstName} ${me.lastName}`,
           email: me.email,
@@ -224,13 +240,19 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
   if (view.status === 'loading') return <CallbackSkeleton />
 
   const cancelled = view.status === 'cancelled'
-  const copy = cancelled
+  const expired = view.status === 'expired'
+  const copy = expired
     ? {
-        title: 'You cancelled Google sign-in',
-        body: 'Nothing was changed and no account was opened. Go back to login to try again whenever you are ready.',
+        title: 'This link has expired or was already used',
+        body: 'Invitation and reset links work once and stop working after a short time, so this one can no longer open your account. Send a new reset email to choose a password.',
       }
-    : ERROR_COPY[view.kind]
-  const retryable = !cancelled && RETRYABLE.includes(view.kind)
+    : cancelled
+      ? {
+          title: 'You cancelled Google sign-in',
+          body: 'Nothing was changed and no account was opened. Go back to login to try again whenever you are ready.',
+        }
+      : ERROR_COPY[view.kind]
+  const retryable = view.status === 'failed' && RETRYABLE.includes(view.kind)
 
   return (
     <AuthSplit photo={false}>
@@ -247,6 +269,11 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
           <p className="mt-2 text-base leading-relaxed text-fg-muted">{copy.body}</p>
         </div>
         <div className="mt-auto flex flex-col gap-3 pt-6">
+          {expired && (
+            <Link to="/forgot-password" className={PRIMARY_BUTTON}>
+              Send a new reset email
+            </Link>
+          )}
           {retryable && (
             <button
               type="button"
@@ -266,7 +293,7 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
               unfinished.current = false
               signOut()
             }}
-            className={retryable ? SECONDARY_BUTTON : PRIMARY_BUTTON}
+            className={retryable || expired ? SECONDARY_BUTTON : PRIMARY_BUTTON}
           >
             Back to login
           </Link>

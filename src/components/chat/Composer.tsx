@@ -75,7 +75,7 @@ export function Composer({ onSend, sending, onTyping, focusOnMount = false, publ
           aria-label="Message"
           aria-describedby="chat-composer-count"
           placeholder="Write a message"
-          className="font-ui field-sizing-content max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-line-strong bg-canvas px-3 py-2.5 text-base leading-6 text-fg placeholder:text-fg-muted"
+          className="font-ui field-sizing-content max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-line-strong bg-canvas px-3 py-2.5 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted"
         />
         <Tooltip label="Send message">
           <button

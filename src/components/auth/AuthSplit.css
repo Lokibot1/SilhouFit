@@ -21,22 +21,23 @@ body:has(.kral-login--bare) .auth-toggle-slot {
 }
 
 /* Desktop, where the photo panel shows: tighter fields and buttons so a long form like sign up fits one screen.
-   Phones and tablets keep 44px targets and 16px text (tap target, no iOS zoom). Unlayered, so it beats the
-   component-layer field rules; the floated label keeps its own 11px size. */
+   Phones and tablets keep 44px targets and 16px text (tap target, no iOS zoom), and so do the pages without the
+   photo (forgot and set password, which are short). Unlayered, so it beats the component-layer field rules; the
+   floated label keeps its own 11px size. */
 @media (min-width: 64rem) {
-  .kral-login .field {
+  .kral-login:not(.kral-login--bare) .field {
     --field-h: 40px;
   }
 
-  .kral-login .field__input {
+  .kral-login:not(.kral-login--bare) .field__input {
     font-size: 14px;
   }
 
-  .kral-login .field__input:not(:focus):placeholder-shown ~ .field__label {
+  .kral-login:not(.kral-login--bare) .field__input:not(:focus):placeholder-shown ~ .field__label {
     font-size: 14px;
   }
 
-  .kral-login .btn-lift {
+  .kral-login:not(.kral-login--bare) .btn-lift {
     min-height: 40px;
     font-size: 14px;
   }

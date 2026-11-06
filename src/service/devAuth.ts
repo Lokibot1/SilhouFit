@@ -1,5 +1,4 @@
 // Signs in the saved staff and admin accounts without Supabase (see SIMULATED_AUTH). Only reached through a dynamic import behind that flag.
-import { canSkipPasswordChange } from '../config/accountPolicy'
 import { getAccounts, updateAccounts } from './accountStore'
 import { MeError, type Me } from './fetchMe'
 import type { Session } from './session'
@@ -30,7 +29,6 @@ export function trySimulatedSignIn(email: string, password: string): SignInResul
       role: account.role,
       simulated: true,
       accountId: account.id,
-      mustChangePassword: account.mustChangePassword,
     },
   }
 }
@@ -55,7 +53,5 @@ export function simulatedMe(session: Pick<Session, 'accountId'>): Me {
     updatedAt: account.createdAt,
     status: account.status,
     phone: account.phone || undefined,
-    mustChangePassword: account.mustChangePassword,
-    passwordChangeSkippable: canSkipPasswordChange(account),
   }
 }

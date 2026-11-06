@@ -33,12 +33,12 @@ export const CATEGORIES: Record<ActivityCategory, { label: string; tint: string 
 }
 
 export const ACTIONS: Record<ActivityAction, { label: string; icon: Icon }> = {
-  'staff-created': { label: 'Staff account created', icon: PlusIcon },
-  'admin-created': { label: 'Admin account created', icon: SettingsIcon },
-  'superadmin-created': { label: 'Superadmin account created', icon: SettingsIcon },
-  'password-reset': { label: 'Password reset', icon: LockIcon },
-  archived: { label: 'Account archived', icon: ArchiveIcon },
-  restored: { label: 'Account restored', icon: RestoreIcon },
+  'staff-created': { label: 'Staff invited', icon: PlusIcon },
+  'admin-created': { label: 'Admin invited', icon: SettingsIcon },
+  'superadmin-created': { label: 'Superadmin invited', icon: SettingsIcon },
+  'password-reset': { label: 'Password reset email sent', icon: LockIcon },
+  archived: { label: 'Account deactivated', icon: ArchiveIcon },
+  restored: { label: 'Account activated', icon: RestoreIcon },
   'order-placed': { label: 'Order placed', icon: BagIcon },
   'order-confirmed': { label: 'Order confirmed', icon: CheckIcon },
   'order-shipped': { label: 'Order shipped', icon: BoxIcon },
