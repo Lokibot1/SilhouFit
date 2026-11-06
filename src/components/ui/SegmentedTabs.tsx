@@ -50,7 +50,7 @@ export function SegmentedTabs<T extends string>({ label, name, options, value, o
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
-            className={`relative cursor-pointer rounded-lg font-semibold transition-colors ${compact ? 'h-7 min-w-12 px-2 text-xs' : 'h-8 min-w-16 px-3 text-sm'} duration-150 pointer-coarse:h-11 max-md:h-11 ${selected ? 'text-canvas' : 'text-fg hover:bg-line/60 hover:text-chrome-strong'}`}
+            className={`relative cursor-pointer rounded-lg font-semibold transition-colors ${compact ? 'h-7 min-w-12 px-2 text-xs' : 'h-8 min-w-16 px-3 text-sm max-md:text-base'} duration-150 pointer-coarse:h-11 max-md:h-11 ${selected ? 'text-canvas' : 'text-fg hover:bg-line/60 hover:text-chrome-strong'}`}
           >
             {selected && (
               <motion.span
