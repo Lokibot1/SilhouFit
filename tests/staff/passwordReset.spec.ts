@@ -18,7 +18,7 @@ const jwt = () => `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: 'net-
 interface Session {
   /** Answers GET /users/me; change it mid-test. Default: 200 with the profile + `flags`. */
   me: 'ok' | 'revoked' | 'archived' | 'plain401' | 'expired'
-  flags: { role?: 'staff' | 'admin'; mustChangePassword?: boolean; passwordResetRequired?: boolean }
+  flags: { role?: 'staff' | 'admin' | 'superadmin'; mustChangePassword?: boolean; passwordResetRequired?: boolean }
   meCalls: number
   /** What GET /products (a request() call) answers. */
   products: 'ok' | 'revoked' | 'archived' | 'plain401'
@@ -466,4 +466,38 @@ test.describe('reset admin account', () => {
       await expect(notice(page)).toBeVisible()
     })
   }
+})
+
+// Nobody resets a superadmin's password, so a superadmin only ever gets the dismissible pop-up (first sign-in), never the blocking reset gate.
+test.describe('superadmin account', () => {
+  test('mustChangePassword with no reset gets the dismissible pop-up, and Change password opens /superadmin/profile with the drawer', async ({ page }) => {
+    await stubSession(page, { role: 'superadmin', mustChangePassword: true })
+    await signIn(page, NETWORK)
+    await expect(page).toHaveURL(/\/superadmin$/)
+    await expect(plainGate(page)).toBeVisible()
+    await expect(gate(page)).toHaveCount(0)
+    await expect(plainGate(page).getByRole('button', { name: 'Sign out' })).toHaveCount(0)
+    await plainGate(page).getByRole('button', { name: 'Change password' }).click()
+    await expect(page).toHaveURL(/\/superadmin\/profile$/)
+    await expect(plainGate(page)).toHaveCount(0)
+    await expect(drawer(page)).toBeVisible()
+  })
+
+  test('the pop-up can be put off with Remind me later and stays away for the session', async ({ page }) => {
+    await stubSession(page, { role: 'superadmin', mustChangePassword: true })
+    await signIn(page, NETWORK)
+    await plainGate(page).getByRole('button', { name: 'Remind me later' }).click()
+    await expect(plainGate(page)).toBeHidden()
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(plainGate(page)).toHaveCount(0)
+  })
+
+  test('a reset flag never gives a superadmin the blocking gate', async ({ page }) => {
+    await stubSession(page, { role: 'superadmin', mustChangePassword: true, passwordResetRequired: true })
+    await signIn(page, NETWORK)
+    await expect(page).toHaveURL(/\/superadmin$/)
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
 })

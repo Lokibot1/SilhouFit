@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { stubAdminApi } from './adminApiStub'
+import { stubSuperadminApi } from './superadminApiStub'
 import { archivedRow, json, SAMPLE_STAFF, stubStaffApi, type StaffStub } from './staffApiStub'
 
 // Staff "Archive" and "Restore": the question, the pending state, Undo, the Archived filter, every failure answer, 320px, dark mode,
@@ -354,6 +355,7 @@ test.describe('staff archive: layout and themes', () => {
 test.describe('staff archive: other tabs are unchanged', () => {
   test('Customers and Superadmins have no archive or restore action', async ({ page }) => {
     await stubStaffApi(page)
+    await stubSuperadminApi(page)
     await open(page, SUPERADMIN, '/superadmin/users?tab=superadmins', 'Superadmins')
     await expect(page.getByRole('tabpanel').getByRole('row').nth(1).or(page.getByRole('tabpanel').getByRole('listitem').first())).toBeVisible({ timeout: 20_000 })
     await expect(page.getByRole('button', { name: /Archive|Restore/ })).toHaveCount(0)

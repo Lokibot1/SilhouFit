@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { useAccounts } from '../../../hooks/useAccounts'
-import { getAccounts } from '../../../service/accountStore'
-import { createSuperadminAccount, listSuperadmins } from '../../../service/accountService'
+import { createSuperadminAccountApi, listSuperadminAccounts } from '../../../service/staffApi'
 import type { SuperadminAccount } from '../../../types/accounts'
-import { formatPlacedAt } from '../../../utils/format'
 import { PlusIcon } from '../../form/icons'
 import { AddedDate } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
@@ -12,37 +10,29 @@ import { AccountName } from './AccountName'
 import { AccountTable, type AccountColumn } from './AccountTable'
 import { AccountToolbar } from './AccountToolbar'
 import { CreateAccountSheet } from './CreateAccountSheet'
-import { PendingBadge, StatusBadge } from './StatusBadge'
 
-const COLUMNS: AccountColumn<SuperadminAccount>[] = [
-  { key: 'name', header: 'Superadmin', sort: 'name', cell: (a) => <AccountName account={a} sub={a.username} /> },
-  {
-    key: 'status',
-    header: 'Status',
-    sort: 'status',
-    width: 'w-[22%]',
-    cell: (a) => (
-      <span className="flex flex-wrap items-center gap-1.5">
-        <StatusBadge status={a.status} />
-        {a.mustChangePassword && <PendingBadge />}
-      </span>
-    ),
-  },
-  { key: 'signin', header: 'Last sign-in', cardLabel: 'Last sign-in:', sort: 'lastSignInAt', width: 'w-[18%]', cell: (a) => <span className="whitespace-nowrap">{a.lastSignInAt ? formatPlacedAt(a.lastSignInAt) : 'Never'}</span> },
-  { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[13%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
-]
+const create = async ({ firstName, lastName }: { firstName: string; lastName: string }) => ({ credentials: (await createSuperadminAccountApi({ firstName, lastName })).credentials })
 
-const STATUSES = [
-  { value: '' as const, label: 'All statuses' },
-  { value: 'active' as const, label: 'Active' },
-  { value: 'inactive' as const, label: 'Inactive' },
-]
-
-/** Superadmins can add each other, but nobody can reset or archive a superadmin, so there are no row actions here. */
+/** Superadmins can add each other and be listed and searched, from the server. Nobody can reset or archive a superadmin, so there are no row actions or status. */
 export function SuperadminsTab() {
-  const list = useAccounts(listSuperadmins, 'name', getAccounts().superadmins.length)
+  const list = useAccounts(listSuperadminAccounts, 'name')
   const [creating, setCreating] = useState(false)
   const [session, setSession] = useState(0)
+
+  // The number counts across pages, from the page the rows belong to (not the one just asked for).
+  const meta = list.result?.meta
+  const columns: AccountColumn<SuperadminAccount>[] = [
+    {
+      key: 'number',
+      header: '#',
+      cardLabel: '#',
+      width: 'w-12',
+      cell: (_, index) => <span className="tabular-nums">{((meta?.page ?? list.page) - 1) * (meta?.limit ?? list.per) + index + 1}</span>,
+    },
+    { key: 'name', header: 'Superadmin', sort: 'name', title: true, cell: (a) => <AccountName account={a} /> },
+    { key: 'email', header: 'Email', width: 'w-[30%]', cell: (a) => <span className="block truncate">{a.email}</span> },
+    { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
+  ]
 
   const add = (
     <button
@@ -63,12 +53,12 @@ export function SuperadminsTab() {
       <h2 id="superadmins-list" className="sr-only">
         Superadmins
       </h2>
-      <AccountToolbar noun="superadmins" text={list.text} onText={list.setText} status={list.status} onStatus={list.setStatus} statuses={STATUSES} per={list.per} onPer={list.setPer} action={add} />
+      <AccountToolbar noun="superadmins" searchBy="name or email" text={list.text} onText={list.setText} per={list.per} onPer={list.setPer} action={add} />
       <AccountTable
         list={list}
-        label="Superadmin accounts with status, last sign-in and date added"
+        label="Superadmin accounts with email and date added"
         noun="superadmin accounts"
-        columns={COLUMNS}
+        columns={columns}
         empty={
           <>
             <p className="text-base font-semibold text-fg">No superadmin accounts yet</p>
@@ -77,7 +67,7 @@ export function SuperadminsTab() {
           </>
         }
       />
-      <CreateAccountSheet key={session} open={creating} onClose={() => setCreating(false)} noun="superadmin" create={createSuperadminAccount} />
+      <CreateAccountSheet key={session} open={creating} onClose={() => setCreating(false)} noun="superadmin" create={create} server taken={list.result?.data.map((a) => a.username)} onCreated={list.retry} />
     </section>
   )
 }

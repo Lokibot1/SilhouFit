@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { stubAdminApi } from './adminApiStub'
+import { stubSuperadminApi } from './superadminApiStub'
 import { json, stubStaffApi, type StaffStub } from './staffApiStub'
 
 // Staff "Reset password" beyond the block in staffTab.spec.ts: focus handling, pending state per row, toasts, both roles, 320px, dark mode,
@@ -210,6 +211,7 @@ test.describe('other tabs are unchanged', () => {
 
   test('Superadmins has no row actions', async ({ page }) => {
     await stubStaffApi(page)
+    await stubSuperadminApi(page)
     await open(page, SUPERADMIN, '/superadmin/users?tab=superadmins', 'Superadmins')
     await expect(page.getByRole('tabpanel').getByRole('row').nth(1).or(page.getByRole('tabpanel').getByRole('listitem').first())).toBeVisible({ timeout: 20_000 })
     await expect(page.getByRole('button', { name: /Reset password|Archive|Restore/ })).toHaveCount(0)

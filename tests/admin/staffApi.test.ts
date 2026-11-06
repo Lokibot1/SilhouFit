@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { archiveAdminAccountApi, archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreAdminAccountApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
+import { archiveAdminAccountApi, archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, createSuperadminAccountApi, listAdminAccounts, listStaffAccounts, listSuperadminAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreAdminAccountApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
 import { errorKind } from '../../src/components/staff/StaffSection'
 
 vi.mock('../../src/service/supabase', () => ({
@@ -217,6 +217,82 @@ describe('createAdminAccountApi', () => {
   it('rejects a created answer without credentials', async () => {
     reply({ account: ITEM }, 201)
     expect((await failure(createAdminAccountApi({ firstName: 'Sam', lastName: 'Reyes' }))).kind).toBe('server')
+  })
+})
+
+describe('listSuperadminAccounts', () => {
+  const SUPER_ITEM = { ...ITEM, id: 's1', firstName: 'Ivy', lastName: 'Lim', fullName: 'Ivy Lim', email: 'ivy.lim@silhoufit.dev', role: 'superadmin' }
+
+  it('sends search, sort, direction and paging but no status, and maps the superadmins as active', async () => {
+    reply({ data: [SUPER_ITEM], meta: { total: 11, page: 2, limit: 10, totalPages: 2 } })
+    const result = await listSuperadminAccounts({ search: ' ivy ', status: 'active', sort: 'createdAt', dir: 'desc', page: 2, limit: 10 })
+    const url = requested()
+    expect(url.pathname).toBe('/users/superadmins')
+    expect(Object.fromEntries(url.searchParams)).toEqual({ search: 'ivy', sort: 'createdAt', dir: 'desc', page: '2', limit: '10' })
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ Authorization: 'Bearer tok' })
+    expect(result.meta).toEqual({ total: 11, page: 2, limit: 10, totalPages: 2 })
+    expect(result.data[0]).toMatchObject({ id: 's1', firstName: 'Ivy', email: 'ivy.lim@silhoufit.dev', role: 'superadmin', username: 'ivy.lim', status: 'active' })
+  })
+
+  it('falls back to name for a sort the server does not have', async () => {
+    reply({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })
+    await listSuperadminAccounts({ search: '  ', sort: 'status' })
+    expect(Object.fromEntries(requested().searchParams)).toEqual({ sort: 'name', dir: 'asc', page: '1', limit: '10' })
+  })
+
+  it('rejects a body that is not a list', async () => {
+    reply({ data: [{ id: 's1' }], meta: { total: 1 } })
+    expect((await failure(listSuperadminAccounts({}))).kind).toBe('server')
+  })
+
+  it.each([
+    [401, 'forbidden'],
+    [403, 'forbidden'],
+    [429, 'rate-limit'],
+    [500, 'server'],
+    [503, 'server'],
+  ])('maps a %i answer to %s, readable by errorKind', async (status, kind) => {
+    reply({ message: 'no' }, status)
+    const error = await failure(listSuperadminAccounts({}))
+    expect(error).toMatchObject({ kind, status })
+    expect(errorKind(error)).toBe(kind)
+  })
+
+  it('reports a dropped connection as network', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    expect((await failure(listSuperadminAccounts({}))).kind).toBe('network')
+  })
+})
+
+describe('createSuperadminAccountApi', () => {
+  it('posts the names to /users/superadmins and returns the superadmin with its credentials', async () => {
+    reply({ account: { ...ITEM, role: 'superadmin' }, credentials: CREDENTIALS }, 201)
+    const result = await createSuperadminAccountApi({ firstName: 'Sam', lastName: 'Reyes' })
+    expect(requested().pathname).toBe('/users/superadmins')
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: JSON.stringify({ firstName: 'Sam', lastName: 'Reyes' }) })
+    expect(result.account).toMatchObject({ id: 'u1', role: 'superadmin' })
+    expect(result.credentials).toMatchObject(CREDENTIALS)
+  })
+
+  it('carries the server message on a 400', async () => {
+    reply({ message: ['firstName must contain letters only'] }, 400)
+    expect(await failure(createSuperadminAccountApi({ firstName: 'x', lastName: 'y' }))).toMatchObject({ kind: 'validation', status: 400, detail: 'firstName must contain letters only' })
+  })
+
+  it.each([
+    [409, 'conflict'],
+    [403, 'forbidden'],
+    [429, 'rate-limit'],
+    [502, 'server'],
+    [503, 'server'],
+  ])('maps a %i answer to %s', async (status, kind) => {
+    reply({}, status)
+    expect(await failure(createSuperadminAccountApi({ firstName: 'Sam', lastName: 'Reyes' }))).toMatchObject({ kind, status })
+  })
+
+  it('rejects a created answer without credentials', async () => {
+    reply({ account: ITEM }, 201)
+    expect((await failure(createSuperadminAccountApi({ firstName: 'Sam', lastName: 'Reyes' }))).kind).toBe('server')
   })
 })
 

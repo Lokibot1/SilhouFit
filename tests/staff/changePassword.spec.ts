@@ -36,7 +36,7 @@ interface Network {
 /** Stands in for Supabase Auth and the API for one non-simulated user. */
 async function stubNetwork(
   page: Page,
-  { role = 'staff', mustChangePassword = true, canChangePassword }: { role?: Role; mustChangePassword?: boolean; canChangePassword?: boolean } = {},
+  { role = 'staff', mustChangePassword = true, canChangePassword, passwordResetRequired }: { role?: Role; mustChangePassword?: boolean; canChangePassword?: boolean; passwordResetRequired?: boolean } = {},
 ) {
   const net: Network = {
     password: NETWORK.password,
@@ -77,6 +77,7 @@ async function stubNetwork(
             gender: null,
             mustChangePassword,
             ...(canChangePassword === undefined ? {} : { canChangePassword }),
+            ...(passwordResetRequired === undefined ? {} : { passwordResetRequired }),
             createdAt: '2026-01-15T08:30:00.000Z',
             updatedAt: '2026-01-15T08:30:00.000Z',
           },
@@ -226,15 +227,64 @@ test.describe('first-login pop-up', () => {
     await expect(gate(page)).toHaveCount(0)
   })
 
-  for (const role of ['superadmin', 'customer'] as const) {
-    test(`is not shown to a ${role} even when the API flags mustChangePassword`, async ({ page }) => {
-      await stubNetwork(page, { role })
-      await signIn(page, NETWORK)
-      await expect(page).toHaveURL(role === 'customer' ? /\/profile$/ : new RegExp(`/${role}$`))
-      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
-      await expect(gate(page)).toHaveCount(0)
-    })
-  }
+  test('is not shown to a customer even when the API flags mustChangePassword', async ({ page }) => {
+    await stubNetwork(page, { role: 'customer' })
+    await signIn(page, NETWORK)
+    await expect(page).toHaveURL(/\/profile$/)
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(gate(page)).toHaveCount(0)
+  })
+
+  test('a superadmin flagged by the API gets the dismissible pop-up; Change password opens /superadmin/profile with the drawer and ends on /login', async ({ page }) => {
+    const net = await stubNetwork(page, { role: 'superadmin' })
+    await signIn(page, NETWORK)
+    await expect(page).toHaveURL(/\/superadmin$/)
+    await expect(gate(page)).toBeVisible()
+    await expect(gate(page).getByRole('button', { name: 'Remind me later' })).toBeVisible()
+    await expect(gate(page).getByRole('button', { name: 'Sign out' })).toHaveCount(0)
+    await gate(page).getByRole('button', { name: 'Change password' }).click()
+    await expect(page).toHaveURL(/\/superadmin\/profile$/)
+    await expect(gate(page)).toBeHidden()
+    await expect(drawer(page)).toBeVisible()
+    await fillForm(drawer(page))
+    await submit(drawer(page)).click()
+    await expect(page).toHaveURL(/\/login$/)
+    expect(net.posts).toHaveLength(1)
+    await expect(page.getByRole('status').filter({ has: page.getByText('Password changed.', { exact: true }) })).toContainText('Sign in with your new password.')
+  })
+
+  test('a flagged superadmin can put the pop-up off with Remind me later or Escape, and it returns after sign-out', async ({ page }) => {
+    await stubNetwork(page, { role: 'superadmin' })
+    await signIn(page, NETWORK)
+    await dismissGate(page)
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(gate(page)).toBeHidden()
+    await page.goto('/superadmin/profile')
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+    await expect(page).toHaveURL(/\/login/)
+    await signIn(page, NETWORK)
+    await expect(gate(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(gate(page)).toBeHidden()
+  })
+
+  test('an unflagged network superadmin is not asked, and a reset flag never gives a superadmin the blocking gate', async ({ page }) => {
+    await stubNetwork(page, { role: 'superadmin', mustChangePassword: false })
+    await signIn(page, NETWORK)
+    await expect(page).toHaveURL(/\/superadmin$/)
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(gate(page)).toHaveCount(0)
+    await page.goto('/superadmin/profile')
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+    await expect(page).toHaveURL(/\/login/)
+
+    await stubNetwork(page, { role: 'superadmin', passwordResetRequired: true })
+    await signIn(page, NETWORK)
+    await expect(page).toHaveURL(/\/superadmin$/)
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
 
   test('a flagged simulated admin gets the dismissible pop-up and Change password opens /admin/profile with the drawer', async ({ page }) => {
     await flagSimulatedAdmin(page)

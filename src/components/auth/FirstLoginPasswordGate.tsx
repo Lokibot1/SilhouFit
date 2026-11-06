@@ -17,14 +17,16 @@ function wasDismissed(id: string) {
 /**
  * Tells a staff member or admin still on the temporary password to choose their own, over whatever page they opened. The change itself is made in
  * the profile's Change password sheet. Dismissing hides this for the browser session only (sign-out clears it), so it returns at the next sign-in.
- * After an administrator reset the password it cannot be dismissed: the only ways out are changing the password or signing out.
+ * After an administrator reset the password it cannot be dismissed: the only ways out are changing the password or signing out. Superadmins
+ * (whose password nobody resets) only ever get the dismissible notice.
  */
 export function FirstLoginPasswordGate({ me, sheetOpen, onSignOut }: { me: Me; sheetOpen: boolean; onSignOut: () => void }) {
   const navigate = useNavigate()
   const [dismissed, setDismissed] = useState(() => wasDismissed(me.id))
   // The gate steps aside only while the Change password sheet is open (two stacked modals would fight over focus).
   const reset = Boolean(me.passwordResetRequired)
-  const eligible = me.role === 'staff' || me.role === 'admin'
+  // A superadmin only ever gets the dismissible reminder (nobody resets a superadmin's password); customers never see the gate.
+  const eligible = me.role === 'staff' || me.role === 'admin' || (me.role === 'superadmin' && !reset)
 
   function dismiss() {
     try {

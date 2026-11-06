@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAccounts } from '../../src/service/accountStore'
 import { clearSession, setSession } from '../../src/service/session'
-import { archiveAdminAccountApi, archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, listAdminAccounts, listStaffAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreAdminAccountApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
-import type { AdminAccount, StaffAccount } from '../../src/types/accounts'
+import { archiveAdminAccountApi, archiveStaffAccountApi, createAdminAccountApi, createStaffAccountApi, createSuperadminAccountApi, listAdminAccounts, listStaffAccounts, listSuperadminAccounts, resetAdminPasswordApi, resetStaffPasswordApi, restoreAdminAccountApi, restoreStaffAccountApi, StaffApiError } from '../../src/service/staffApi'
+import type { AdminAccount, StaffAccount, SuperadminAccount } from '../../src/types/accounts'
 import { UserManagementPage } from '../../src/views/admin/UserManagementPage'
 import { renderAdmin, resetAdminAccounts, setUpAdminDom } from '../shared/adminSession'
 
@@ -14,7 +14,9 @@ vi.mock('../../src/service/staffApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/staffApi')>()),
   listStaffAccounts: vi.fn(() => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })),
   listAdminAccounts: vi.fn(() => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })),
+  listSuperadminAccounts: vi.fn(() => Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } })),
   createAdminAccountApi: vi.fn(),
+  createSuperadminAccountApi: vi.fn(),
   createStaffAccountApi: vi.fn(),
   resetStaffPasswordApi: vi.fn(),
   resetAdminPasswordApi: vi.fn(),
@@ -789,6 +791,115 @@ describe('Admins tab', () => {
     await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
     expect(await within(sheet).findByText(title)).toBeInTheDocument()
     expect(within(sheet).getByLabelText('First name')).toHaveValue('Noel')
+    expect(within(sheet).getByRole('button', { name: 'Create Account' })).toBeEnabled()
+  })
+})
+
+describe('Superadmins tab', () => {
+  const person = (id: string, firstName: string, lastName: string): SuperadminAccount => ({
+    id,
+    firstName,
+    lastName,
+    username: `${firstName}.${lastName}`.toLowerCase(),
+    email: `${firstName}.${lastName}@silhoufit.dev`.toLowerCase(),
+    role: 'superadmin',
+    phone: '',
+    status: 'active',
+    createdAt: '2026-03-01T08:00:00.000Z',
+    lastSignInAt: null,
+    mustChangePassword: false,
+  })
+  const IVY = person('s1', 'Ivy', 'Lim')
+  const page = (data: SuperadminAccount[]) => ({ data, meta: { total: data.length, page: 1, limit: 10, totalPages: 1 } })
+  const CREDENTIALS = { username: 'noel.tan', email: 'noel.tan@silhoufit.dev', password: 'Xk9#mQ2!', mustChangePassword: true as const }
+
+  beforeEach(() => {
+    vi.mocked(listSuperadminAccounts).mockReset().mockResolvedValue(page([IVY, person('s2', 'Ana', 'Cruz')]))
+    vi.mocked(createSuperadminAccountApi).mockReset()
+    act(() => setSession({ name: 'Dev', email: 'dev@silhoufit.dev', role: 'superadmin' }))
+  })
+  afterEach(() => act(() => clearSession()))
+
+  async function openSuperadmins() {
+    renderAdmin(<UserManagementPage />, '/admin/users?tab=superadmins')
+    await screen.findAllByText('Ivy Lim')
+  }
+
+  it('lists superadmins with a running number, email and date, without a status, row actions or a sample-data badge', async () => {
+    await openSuperadmins()
+    const table = screen.getAllByRole('table', { hidden: true })[0]
+    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Superadmin', 'Email', 'Added'])
+    expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^1.*Ivy Lim/)
+    expect(within(table).getAllByRole('row', { hidden: true })[2]).toHaveTextContent(/^2.*Ana Cruz/)
+    expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Reset password|Archive|Restore/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Name or email')).toBeInTheDocument()
+    expect(vi.mocked(listSuperadminAccounts).mock.calls[0][0]).toMatchObject({ sort: 'name', page: 1, limit: 10 })
+  })
+
+  it('keeps the sample-data badge on Customers', async () => {
+    renderAdmin(<UserManagementPage />, '/admin/users')
+    expect(await screen.findByText('Sample data')).toBeInTheDocument()
+  })
+
+  it('shows "No superadmin accounts yet" with Add when there are none', async () => {
+    vi.mocked(listSuperadminAccounts).mockResolvedValue(page([]))
+    renderAdmin(<UserManagementPage />, '/admin/users?tab=superadmins')
+    expect(await screen.findByText('No superadmin accounts yet')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Add superadmin account/ }).length).toBeGreaterThan(1)
+  })
+
+  it('shows the error with a retry when the list fails to load', async () => {
+    vi.mocked(listSuperadminAccounts).mockRejectedValueOnce(new StaffApiError('network'))
+    renderAdmin(<UserManagementPage />, '/admin/users?tab=superadmins')
+    expect(await screen.findByText("We couldn't load the superadmin accounts.")).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect((await screen.findAllByText('Ivy Lim')).length).toBeGreaterThan(0)
+  })
+
+  it('numbers rows across pages', async () => {
+    vi.mocked(listSuperadminAccounts).mockResolvedValue({ data: [IVY], meta: { total: 11, page: 2, limit: 10, totalPages: 2 } })
+    await openSuperadmins()
+    expect(within(screen.getAllByRole('table', { hidden: true })[0]).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^11.*Ivy Lim/)
+  })
+
+  it('creates an account with a sign-in email preview, shows the credentials once and loads the list again', async () => {
+    vi.mocked(createSuperadminAccountApi).mockResolvedValue({ account: person('s3', 'Noel', 'Tan'), credentials: CREDENTIALS })
+    await openSuperadmins()
+    await userEvent.click(screen.getByRole('button', { name: /Add superadmin account/ }))
+    const sheet = await screen.findByRole('dialog', { name: 'Add superadmin account' })
+    expect(within(sheet).queryByLabelText(/Phone/)).not.toBeInTheDocument()
+    await userEvent.type(within(sheet).getByLabelText('First name'), 'Noel')
+    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Tan')
+    expect(within(sheet).getByText('noel.tan@silhoufit.dev')).toBeInTheDocument()
+    const loads = vi.mocked(listSuperadminAccounts).mock.calls.length
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
+
+    const created = await screen.findByRole('dialog', { name: 'Superadmin account created' })
+    expect(createSuperadminAccountApi).toHaveBeenCalledWith({ firstName: 'Noel', lastName: 'Tan' })
+    expect(within(created).getByText('noel.tan@silhoufit.dev')).toBeInTheDocument()
+    expect(within(created).getByText('Xk9#mQ2!')).toBeInTheDocument()
+    expect(within(created).getByRole('button', { name: 'Download as PNG' })).toBeInTheDocument()
+    expect(within(created).queryByText(/Demo only/)).not.toBeInTheDocument()
+    await waitFor(() => expect(vi.mocked(listSuperadminAccounts).mock.calls.length).toBeGreaterThan(loads))
+  })
+
+  it.each([
+    [new StaffApiError('forbidden', undefined, 403), "You can't create superadmin accounts.", /Only superadmins can/],
+    [new StaffApiError('conflict', undefined, 409), "We couldn't reserve that email.", /took the generated email/],
+    [new StaffApiError('network'), 'Nothing was created.', /connection dropped/],
+  ])('explains a failed create (%#) and keeps the form', async (error, title, body) => {
+    vi.mocked(createSuperadminAccountApi).mockRejectedValue(error)
+    await openSuperadmins()
+    await userEvent.click(screen.getByRole('button', { name: /Add superadmin account/ }))
+    const sheet = await screen.findByRole('dialog', { name: 'Add superadmin account' })
+    await userEvent.type(within(sheet).getByLabelText('First name'), 'Noel')
+    await userEvent.type(within(sheet).getByLabelText('Last name'), 'Tan')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Create Account' }))
+    const alert = await within(sheet).findByRole('alert')
+    expect(alert).toHaveTextContent(title)
+    expect(alert).toHaveTextContent(body)
     expect(within(sheet).getByRole('button', { name: 'Create Account' })).toBeEnabled()
   })
 })

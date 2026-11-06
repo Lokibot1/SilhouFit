@@ -283,9 +283,37 @@ describe('FirstLoginPasswordGate', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it.each(['superadmin', 'customer'] as const)('is never shown to a %s on the temporary password', (role) => {
-    gate({ ...pending, role })
+  it('is never shown to a customer on the temporary password', () => {
+    gate({ ...pending, role: 'customer' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  describe('a superadmin on the temporary password', () => {
+    const pendingSuper = { ...pending, id: 'sup-001', role: 'superadmin' as const }
+
+    it('sees the dismissible pop-up, with no Sign out', async () => {
+      gate(pendingSuper)
+      const dialog = await screen.findByRole('dialog', { name: TITLE })
+      expect(within(dialog).getByRole('button', { name: 'Remind me later' })).toBeInTheDocument()
+      expect(within(dialog).queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+    })
+
+    it('can put it off for the session, and Change password goes to the superadmin profile', async () => {
+      gate(pendingSuper)
+      await userEvent.click(await screen.findByRole('button', { name: 'Remind me later' }))
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).not.toBeInTheDocument())
+      expect(sessionStorage.getItem('silhoufit.password-gate.skipped.sup-001')).toBe('1')
+      cleanup()
+      sessionStorage.clear()
+      gate(pendingSuper)
+      await userEvent.click(await screen.findByRole('button', { name: 'Change password' }))
+      await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/superadmin/profile'))
+    })
+
+    it('is not shown when no change is due', () => {
+      gate({ ...pendingSuper, mustChangePassword: false })
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
   })
 
   it.each(['superadmin', 'customer'] as const)('is never shown to a %s, even with the reset flag', (role) => {

@@ -27,7 +27,15 @@ type Failure = { title: string; body: string }
 /** What happened, why, and what to do next, for each way the server can refuse a new staff or admin account. */
 function accountFailure({ kind, status, detail }: StaffApiError, noun: string): Failure {
   if (status === 401) return { title: 'Your session has expired.', body: "The server didn't recognise your sign-in, so no account was made. Sign in again, then create the account." }
-  if (status === 403) return { title: `You can't create ${noun} accounts.`, body: 'Only admins and superadmins can, and no account was made. Sign in with an admin account, or ask an admin to do it.' }
+  if (status === 403) {
+    return {
+      title: `You can't create ${noun} accounts.`,
+      body:
+        noun === 'superadmin'
+          ? 'Only superadmins can, and no account was made. Sign in with a superadmin account, or ask a superadmin to do it.'
+          : 'Only admins and superadmins can, and no account was made. Sign in with an admin account, or ask an admin to do it.',
+    }
+  }
   if (kind === 'conflict') return { title: "We couldn't reserve that email.", body: 'Another account took the generated email at the same moment, so no account was made. Try again.' }
   if (kind === 'validation') return { title: 'The server rejected the names.', body: `${detail ?? 'They are not in a form it accepts.'} No account was made. Fix the names, then try again.` }
   if (kind === 'rate-limit') return { title: 'Too many requests.', body: 'The server is limiting requests right now, so no account was made. Wait a minute, then try again.' }

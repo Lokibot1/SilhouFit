@@ -1,4 +1,4 @@
-import type { AdminAccount, Credentials, StaffAccount } from '../types/accounts'
+import type { AdminAccount, Credentials, StaffAccount, SuperadminAccount } from '../types/accounts'
 import type { AccountPage, AccountQuery } from '../utils/accountQuery'
 import { ProductListError, request, type ProductListErrorKind } from './fetchProductList'
 import type { RequestOptions } from './simulateRequest'
@@ -57,6 +57,8 @@ function toAccount(value: unknown): Omit<StaffAccount, 'role'> {
 
 const toStaffAccount = (value: unknown): StaffAccount => ({ ...toAccount(value), role: 'staff' })
 const toAdminAccount = (value: unknown): AdminAccount => ({ ...toAccount(value), role: 'admin' })
+// A superadmin is never archived, so the list has no status and every row is active.
+const toSuperadminAccount = (value: unknown): SuperadminAccount => ({ ...toAccount(value), status: 'active', role: 'superadmin' })
 
 async function list<T>(path: string, map: (value: unknown) => T, params: Record<string, string>, { search, sort, dir = 'asc', page = 1, limit = 10 }: AccountQuery, signal?: AbortSignal): Promise<AccountPage<T>> {
   const query = new URLSearchParams({ page: String(page), limit: String(limit), sort: sort === 'createdAt' ? 'createdAt' : 'name', dir, ...params })
@@ -76,6 +78,9 @@ export const listStaffAccounts = (query: AccountQuery, { signal }: RequestOption
 /** GET /users/admins. Same as staff: the server filters by status, and no status is "all". */
 export const listAdminAccounts = (query: AccountQuery, { signal }: RequestOptions = {}) => list('/users/admins', toAdminAccount, { status: query.status ?? 'all' }, query, signal)
 
+/** GET /users/superadmins (superadmin only). Search, sort (name or createdAt), direction and page are the server's; there is no status, so none is sent. */
+export const listSuperadminAccounts = (query: AccountQuery, { signal }: RequestOptions = {}) => list('/users/superadmins', toSuperadminAccount, {}, query, signal)
+
 /** What the server made for a new staff account. Shown once; the password is never listed again. */
 export interface CreatedStaff {
   account: StaffAccount
@@ -85,6 +90,12 @@ export interface CreatedStaff {
 /** What the server made for a new admin account. Shown once; the password is never listed again. */
 export interface CreatedAdmin {
   account: AdminAccount
+  credentials: Credentials
+}
+
+/** What the server made for a new superadmin account. Shown once; the password is never listed again. */
+export interface CreatedSuperadmin {
+  account: SuperadminAccount
   credentials: Credentials
 }
 
@@ -103,6 +114,9 @@ export const createStaffAccountApi = (input: { firstName: string; lastName: stri
 
 /** POST /users/admins. The server makes the email and temporary password. */
 export const createAdminAccountApi = (input: { firstName: string; lastName: string }): Promise<CreatedAdmin> => create('/users/admins', toAdminAccount, input)
+
+/** POST /users/superadmins (superadmin only). The server makes the email and temporary password. */
+export const createSuperadminAccountApi = (input: { firstName: string; lastName: string }): Promise<CreatedSuperadmin> => create('/users/superadmins', toSuperadminAccount, input)
 
 /** POST /users/staff/:id/reset-password (no body). The server sets the default password, signs the person out everywhere and makes them choose a new one; it never sends a password back. */
 export async function resetStaffPasswordApi(id: string): Promise<{ id: string }> {
