@@ -7,18 +7,22 @@ import { CartIcon } from '../form/icons'
 import { ShopHeader } from './ShopHeader'
 
 // A one-line bar sized by the text classes it is given (the non-breaking space gives it the line height).
-const Bar = ({ className = '' }: { className?: string }) => <div className={`rounded-xl bg-line ${className}`}>&nbsp;</div>
+const Bar = ({ className = '', kral = false }: { className?: string; kral?: boolean }) => (
+  <div className={`${kral ? 'bg-kral-porcelain dark:bg-kral-graphite' : 'rounded-xl bg-line'} ${className}`}>&nbsp;</div>
+)
+// KRAL blocks are flat and square: Porcelain on Paper, Graphite on Obsidian.
+const KRAL_BLOCK = 'bg-kral-porcelain dark:bg-kral-graphite'
 
 /** Stands in for the count / saved / sync line beside the heading. */
 export function SummarySkeleton() {
-  return <Bar className="font-ui w-72 max-w-full animate-pulse text-sm max-[347px]:h-10" />
+  return <Bar kral className="font-kral-mono w-72 max-w-full animate-pulse text-sm max-[347px]:h-10" />
 }
 
 export function ShopSkeleton() {
   const [params] = useSearchParams()
   return (
     <>
-      <ShopHeader title={shopTitle(params)} summary={<SummarySkeleton />} />
+      <ShopHeader tone="kral" title={shopTitle(params)} summary={<SummarySkeleton />} />
       <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
         <ProductGridSkeleton />
       </div>
@@ -26,7 +30,8 @@ export function ShopSkeleton() {
   )
 }
 
-export function CardSkeletons({ list = false, count }: { list?: boolean; count: number }) {
+export function CardSkeletons({ list = false, count, tone }: { list?: boolean; count: number; tone?: 'kral' }) {
+  const kral = tone === 'kral'
   return (
     <div
       className={`mt-6 grid gap-x-3 gap-y-8 sm:gap-x-4 sm:gap-y-10 ${
@@ -35,18 +40,29 @@ export function CardSkeletons({ list = false, count }: { list?: boolean; count: 
     >
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className={list ? 'flex gap-4' : ''}>
-          <div className={`aspect-3/4 shrink-0 rounded-xl bg-line-strong ${list ? 'w-28 sm:w-44' : ''}`} />
+          <div className={`aspect-3/4 shrink-0 ${kral ? KRAL_BLOCK : 'rounded-xl bg-line-strong'} ${list ? 'w-28 sm:w-44' : ''}`} />
           <div className={`min-w-0 flex-1 ${list ? '' : 'mt-3'}`}>
-            <div className={list ? 'min-[360px]:max-sm:min-h-[6.95rem] max-[359px]:min-h-[7.9rem]' : 'h-[6.6rem] min-[480px]:max-sm:h-[6.4rem] min-[360px]:max-[479px]:h-[7.7rem] max-[359px]:h-[9.2rem]'}>
-              <Bar className="w-5/6 text-base leading-snug" />
-              <Bar className="mt-1 w-1/3 text-sm" />
-              <Bar className="mt-2 ml-auto w-1/2 text-base" />
-              <Bar className="mt-2 w-full text-xs" />
-            </div>
+            {kral ? (
+              // Name (up to two lines), rating, price and stock line, at the card's own text sizes.
+              <div className="h-[8.5rem]">
+                <Bar kral className="w-5/6 text-sm leading-tight" />
+                <Bar kral className="mt-1 w-2/3 text-sm leading-tight" />
+                <Bar kral className="mt-1 w-1/3 text-xs" />
+                <Bar kral className="mt-3 ml-auto w-1/2 text-base" />
+                <Bar kral className="mt-1 w-full text-xs" />
+              </div>
+            ) : (
+              <div className={list ? 'min-[360px]:max-sm:min-h-[6.95rem] max-[359px]:min-h-[7.9rem]' : 'h-[6.6rem] min-[480px]:max-sm:h-[6.4rem] min-[360px]:max-[479px]:h-[7.7rem] max-[359px]:h-[9.2rem]'}>
+                <Bar className="w-5/6 text-base leading-snug" />
+                <Bar className="mt-1 w-1/3 text-sm" />
+                <Bar className="mt-2 ml-auto w-1/2 text-base" />
+                <Bar className="mt-2 w-full text-xs" />
+              </div>
+            )}
             {/* The two buttons, stacked until sm. */}
             <div className="flex flex-col gap-2 pt-3 sm:flex-row">
-              <div className="h-9 rounded-xl bg-line-strong pointer-coarse:h-11 sm:flex-1" />
-              <div className="h-9 rounded-xl bg-line-strong pointer-coarse:h-11 sm:flex-1" />
+              <div className={`${kral ? `h-11 ${KRAL_BLOCK}` : 'h-9 rounded-xl bg-line-strong pointer-coarse:h-11'} sm:flex-1`} />
+              <div className={`${kral ? `h-11 ${KRAL_BLOCK}` : 'h-9 rounded-xl bg-line-strong pointer-coarse:h-11'} sm:flex-1`} />
             </div>
           </div>
         </div>
@@ -126,30 +142,30 @@ export function ProductGridSkeleton({ view = 'grid', perPage = 12 }: ProductGrid
       <div className="-mx-6 hidden overflow-hidden px-6 py-1 sm:block">
         <div className="flex w-max gap-2">
           {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="h-9 w-24 shrink-0 rounded-xl bg-line pointer-coarse:h-11" />
+            <div key={i} className={`h-11 w-24 shrink-0 ${KRAL_BLOCK}`} />
           ))}
         </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 sm:gap-3">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-28 rounded-xl bg-line pointer-coarse:h-11" />
-          <div className="h-9 w-[4.75rem] rounded-xl bg-line pointer-coarse:h-11 pointer-coarse:w-[5.75rem]" />
+          <div className={`h-11 w-28 ${KRAL_BLOCK}`} />
+          <div className={`h-11 w-24 ${KRAL_BLOCK}`} />
         </div>
-        <div className="flex w-full gap-2 max-[359px]:flex-col sm:w-auto sm:gap-3">
-          <div className="h-9 min-w-0 flex-1 rounded-xl bg-line-strong pointer-coarse:h-11 sm:w-60 sm:flex-none" />
-          <div className="h-9 w-33 rounded-xl bg-line-strong pointer-coarse:h-11 max-[359px]:w-full sm:w-36" />
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
+          <div className={`h-11 min-w-0 sm:w-72 ${KRAL_BLOCK}`} />
+          <div className={`h-11 sm:w-44 ${KRAL_BLOCK}`} />
         </div>
       </div>
 
-      <CardSkeletons list={list} count={perPage} />
+      <CardSkeletons tone="kral" list={list} count={perPage} />
 
       <div className="mt-12 flex flex-col items-end gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-6">
-        <Bar className="font-ui w-40 text-sm" />
-        <div className="h-9 w-64 max-w-full rounded-xl bg-line pointer-coarse:h-11" />
+        <Bar kral className="font-kral-mono w-40 text-sm" />
+        <div className={`h-11 w-64 max-w-full ${KRAL_BLOCK}`} />
       </div>
 
-      <div className="mt-16 h-[22rem] rounded-xl bg-line max-[359px]:h-[25.5rem] sm:h-[17.5rem] lg:h-[20.5rem]" />
+      <div className={`mt-16 h-[22rem] max-[359px]:h-[25.5rem] sm:h-[17.5rem] lg:h-[20.5rem] ${KRAL_BLOCK}`} />
     </div>
   )
 }
