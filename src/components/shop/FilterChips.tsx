@@ -2,7 +2,7 @@ import { GENDER_OPTIONS, type ProductFilters } from '../../utils/productQuery'
 import { focusFiltersTrigger, focusNeighbourChip } from '../../utils/chipFocus'
 import { formatPeso, formatPesoWhole } from '../../utils/format'
 import { XIcon } from '../form/icons'
-import { SHOP_SECONDARY } from './shopControls'
+import { KRAL_SECONDARY } from './shopControls'
 
 /** The URL keys a chip clears (an undefined value removes the key). */
 type Clears = Record<string, string[] | undefined>
@@ -41,7 +41,7 @@ export function FilterChips({ filters, onClear, onClearAll }: { filters: Product
     <div className="mt-3 flex flex-wrap items-center gap-2">
       <ul aria-label="Active filters" className="contents">
         {chips.map((chip) => (
-          <li key={`${chip.kind}:${chip.text}`} className="font-ui flex min-h-9 max-w-full items-center gap-1 rounded-full border border-line-strong bg-canvas-sub pl-3 text-sm text-fg pointer-coarse:min-h-11">
+          <li key={`${chip.kind}:${chip.text}`} className="font-kral-mono flex min-h-11 max-w-full items-center gap-1 border border-kral-fg bg-kral-fg pl-3 text-base text-kral-bg uppercase md:text-xs md:tracking-[0.08em]">
             <span title={chip.text} className="min-w-0 truncate tabular-nums">
               {chip.text}
             </span>
@@ -52,14 +52,14 @@ export function FilterChips({ filters, onClear, onClearAll }: { filters: Product
                 onClear(chip.clears)
               }}
               aria-label={`Remove ${chip.kind} ${chip.text}`}
-              className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-fg-muted hover:text-fg pointer-coarse:size-11"
+              className="kral-focus flex size-11 shrink-0 cursor-pointer items-center justify-center text-kral-bg transition-colors duration-150 ease-out hover:bg-kral-bg/20 focus-visible:-outline-offset-2! focus-visible:outline-kral-bg! motion-reduce:transition-none"
             >
               <XIcon size={16} />
             </button>
           </li>
         ))}
       </ul>
-      <button type="button" onClick={onClearAll} className={`${SHOP_SECONDARY} text-sm`}>
+      <button type="button" onClick={onClearAll} className={KRAL_SECONDARY}>
         Clear all
       </button>
     </div>

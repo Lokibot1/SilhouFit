@@ -8,7 +8,7 @@ export function CategoryLabel({ name, count }: { name: string; count?: number })
           <span className="sr-only">
             , {count} {count === 1 ? 'piece' : 'pieces'}
           </span>
-          <span aria-hidden="true" className="tabular-nums opacity-85">
+          <span aria-hidden="true" className="tabular-nums before:content-['('] after:content-[')']">
             {count}
           </span>
         </>
