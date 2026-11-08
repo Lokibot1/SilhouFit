@@ -198,11 +198,11 @@ export function WishlistPage() {
 
         {idsReady && products.status === 'success' && saved.length > 0 && (
           <>
-            {/* Sticks just under the navbar (its 61px height) so the actions stay in reach while scrolling a long list. */}
+            {/* Sticks just under the navbar (its 64px height) so the actions stay in reach while scrolling a long list. */}
             <div
               role="toolbar"
               aria-label="Wishlist actions"
-              className="sticky top-[61px] z-10 -mx-6 flex flex-wrap items-center gap-2 border-b border-line bg-canvas/85 px-6 py-2 backdrop-blur-md sm:gap-3"
+              className="sticky top-[calc(4rem+var(--site-header-extra,0px))] z-10 -mx-6 flex flex-wrap items-center gap-2 border-b border-line bg-canvas/85 px-6 py-2 backdrop-blur-md sm:gap-3"
             >
               <button
                 type="button"
