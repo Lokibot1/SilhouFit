@@ -16,11 +16,13 @@ interface PopoverProps {
   anchor: HTMLElement
   onClose: () => void
   children: ReactNode
+  /** 'kral' draws the panel flat and square with a hairline, for the KRAL pages. */
+  tone?: 'kral'
 }
 
 // Fixed to the viewport (in a portal) like a tooltip, so the drawer around the field never clips it; it sits under the field, or above when
 // there is no room, and stays inside the screen edges.
-function Popover({ id, anchor, onClose, children }: PopoverProps) {
+export function Popover({ id, anchor, onClose, children, tone }: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [place, setPlace] = useState({ left: -9999, top: 0 })
 
@@ -64,7 +66,7 @@ function Popover({ id, anchor, onClose, children }: PopoverProps) {
       animate={{ opacity: 1, scale: 1, transition: FADE }}
       exit={{ opacity: 0, scale: 0.98, transition: FADE }}
       style={place}
-      className="fixed z-(--z-popover) w-max max-w-[calc(100vw-1rem)] rounded-xl border border-line-strong bg-canvas p-3 shadow-popover"
+      className={`fixed z-(--z-popover) w-max max-w-[calc(100vw-1rem)] border p-3 ${tone === 'kral' ? 'rounded-none border-kral-fg bg-kral-bg' : 'rounded-xl border-line-strong bg-canvas shadow-popover'}`}
     >
       {children}
     </motion.div>,

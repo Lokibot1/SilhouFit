@@ -36,6 +36,8 @@ interface RangeCalendarProps {
   onChange: (start: string, end: string) => void
   /** The range is complete, or the person tabbed away. */
   onClose: () => void
+  /** One date instead of a range, in the KRAL look: `start` is the value, a pick calls `onChange(day, '')` and closes, and the header has month and year selects plus Today and Clear. */
+  single?: boolean
 }
 
 /**
@@ -43,7 +45,7 @@ interface RangeCalendarProps {
  * first day and the second the last; a click on or before the first day, or after both are set, starts over. The arrows change month. Arrow
  * keys move by day and week, PageUp and PageDown by month.
  */
-export function RangeCalendar({ start, end, max, label = 'Choose dates', autoFocus, onChange, onClose }: RangeCalendarProps) {
+export function RangeCalendar({ start, end, max, label = 'Choose dates', autoFocus, onChange, onClose, single = false }: RangeCalendarProps) {
   const [focus, setFocus] = useState(start || opening(max))
   const [month, setMonth] = useState(firstOf(focus))
   const grid = useRef<HTMLDivElement>(null)
@@ -69,8 +71,20 @@ export function RangeCalendar({ start, end, max, label = 'Choose dates', autoFoc
     setFocus(max && next > max ? max : next)
   }
 
+  /** Jumps to a month and year (the month and year selects), keeping the day where it fits and never passing `max`. */
+  function jump(year: number, monthNumber: number) {
+    const last = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate()
+    const day = `${String(year).padStart(4, '0')}-${String(monthNumber).padStart(2, '0')}-${String(Math.min(Number(focus.slice(8)), last)).padStart(2, '0')}`
+    goTo(max && day > max ? max : day)
+  }
+
   function pick(day: string) {
     setFocus(day)
+    if (single) {
+      onChange(day, '')
+      onClose()
+      return
+    }
     if (!start || end || day < start) onChange(day, '')
     else {
       onChange(start, day)
@@ -79,7 +93,13 @@ export function RangeCalendar({ start, end, max, label = 'Choose dates', autoFoc
   }
 
   function onKey(event: KeyboardEvent) {
-    if (event.key === 'Tab') return onClose()
+    if (event.key === 'Tab') {
+      if (!single) return onClose()
+      // A single-date calendar has more stops (selects, Today, Clear): it closes only when Tab leaves either end.
+      const stops = [...(grid.current?.querySelectorAll<HTMLElement>('button:not([disabled]), select') ?? [])].filter((el) => el.tabIndex >= 0)
+      if (event.shiftKey ? event.target === stops[0] : event.target === stops[stops.length - 1]) onClose()
+      return
+    }
     if (!(event.target as HTMLElement).hasAttribute('aria-pressed')) return // the month arrows keep their own keys
     const step = STEPS[event.key]
     if (step === undefined && event.key !== 'PageUp' && event.key !== 'PageDown') return
@@ -91,17 +111,45 @@ export function RangeCalendar({ start, end, max, label = 'Choose dates', autoFoc
 
   const lead = utc(month).getUTCDay()
   const dayCount = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate()
-  const arrow = 'flex size-9 pointer-coarse:size-11 max-md:size-11 cursor-pointer items-center justify-center rounded-xl text-fg-muted hover:bg-fg/10 hover:text-fg'
+  const todayDay = opening(max)
+  const maxYear = Number((max ?? manilaToday().date).slice(0, 4))
+  const field = 'kral-focus font-kral-mono min-h-11 cursor-pointer rounded-none border border-kral-fg bg-kral-bg px-2 text-base text-kral-fg md:min-h-9 md:text-xs'
+  const textBtn = 'kral-focus font-kral-mono flex min-h-11 cursor-pointer items-center px-3 text-base font-medium text-kral-fg uppercase hover:bg-kral-fg/10 md:min-h-9 md:text-xs md:tracking-[0.08em]'
+  const arrow = single
+    ? 'kral-focus flex size-11 md:size-9 cursor-pointer items-center justify-center text-kral-fg hover:bg-kral-fg/10 disabled:cursor-not-allowed disabled:opacity-40'
+    : 'flex size-9 pointer-coarse:size-11 max-md:size-11 cursor-pointer items-center justify-center rounded-xl text-fg-muted hover:bg-fg/10 hover:text-fg'
 
   return (
-    <div ref={grid} role="group" aria-label={label} onKeyDown={onKey} className="font-ui w-[min(18rem,calc(100vw-3.5rem))]">
+    <div ref={grid} role="group" aria-label={label} onKeyDown={onKey} className={single ? 'font-kral-mono w-[min(19rem,calc(100vw-3.5rem))]' : 'font-ui w-[min(18rem,calc(100vw-3.5rem))]'}>
       <div className="mb-2 flex items-center justify-between">
         <button type="button" aria-label="Previous month" onClick={() => shift(-1)} className={arrow}>
           <ChevronLeftIcon />
         </button>
-        <p aria-live="polite" className="text-sm font-semibold text-fg">
-          {monthTitle(month)}
-        </p>
+        {single ? (
+          <div className="flex items-center gap-1">
+            <select aria-label="Month" value={Number(month.slice(5, 7))} onChange={(e) => jump(Number(month.slice(0, 4)), Number(e.target.value))} className={field}>
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i + 1} disabled={Boolean(max) && `${month.slice(0, 4)}-${String(i + 1).padStart(2, '0')}-01` > max!}>
+                  {new Date(Date.UTC(2000, i, 1)).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short' })}
+                </option>
+              ))}
+            </select>
+            <select aria-label="Year" value={Number(month.slice(0, 4))} onChange={(e) => jump(Number(e.target.value), Number(month.slice(5, 7)))} className={`${field} tabular-nums`}>
+              {Array.from({ length: 121 }, (_, i) => maxYear - i).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+            <span aria-live="polite" className="sr-only">
+              {monthTitle(month)}
+            </span>
+          </div>
+        ) : (
+          <p aria-live="polite" className="text-sm font-semibold text-fg">
+            {monthTitle(month)}
+          </p>
+        )}
         <button
           type="button"
           aria-label="Next month"
@@ -112,7 +160,7 @@ export function RangeCalendar({ start, end, max, label = 'Choose dates', autoFoc
           <ChevronRightIcon />
         </button>
       </div>
-      <div className="grid grid-cols-7 text-center text-xs text-fg-muted">
+      <div className={`grid grid-cols-7 text-center text-xs ${single ? 'text-kral-muted uppercase' : 'text-fg-muted'}`}>
         {WEEKDAYS.map((name) => (
           <span key={name} className="py-1">
             {name}
@@ -140,8 +188,10 @@ export function RangeCalendar({ start, end, max, label = 'Choose dates', autoFoc
                 aria-label={formatDayWithYear(day, 'long')}
                 aria-pressed={isStart || isEnd}
                 onClick={() => pick(day)}
-                className={`flex h-9 pointer-coarse:h-11 max-md:h-11 w-full cursor-pointer items-center justify-center rounded-xl text-sm tabular-nums disabled:cursor-not-allowed ${
-                  tooLate ? 'text-fg-muted opacity-40' : isStart || isEnd ? 'bg-fg font-semibold text-canvas' : 'text-fg hover:bg-fg/10'
+                className={`flex h-9 pointer-coarse:h-11 max-md:h-11 w-full cursor-pointer items-center justify-center text-sm tabular-nums disabled:cursor-not-allowed ${
+                  single
+                    ? `kral-focus rounded-none text-kral-fg ${tooLate ? 'opacity-40' : isStart ? 'bg-kral-fg font-medium text-kral-bg' : `hover:bg-kral-fg/10 ${day === todayDay ? 'outline outline-1 -outline-offset-1 outline-kral-muted' : ''}`}`
+                    : `rounded-xl ${tooLate ? 'text-fg-muted opacity-40' : isStart || isEnd ? 'bg-fg font-semibold text-canvas' : 'text-fg hover:bg-fg/10'}`
                 }`}
               >
                 {index + 1}
@@ -150,6 +200,23 @@ export function RangeCalendar({ start, end, max, label = 'Choose dates', autoFoc
           )
         })}
       </div>
+      {single && (
+        <div className="mt-2 flex items-center justify-between border-t border-kral-rule pt-2">
+          <button type="button" onClick={() => pick(todayDay)} className={textBtn}>
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onChange('', '')
+              onClose()
+            }}
+            className={textBtn}
+          >
+            Clear
+          </button>
+        </div>
+      )}
     </div>
   )
 }

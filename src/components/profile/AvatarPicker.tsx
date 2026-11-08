@@ -18,10 +18,11 @@ interface AvatarPickerProps {
   progress: number | null
   error?: string
   disabled: boolean
+  className?: string
 }
 
 /** The profile photo in the edit dialog: preview, choose, remove and upload progress. */
-export function AvatarPicker({ name, src, file, onPick, onRemove, removable, progress, error, disabled }: AvatarPickerProps) {
+export function AvatarPicker({ name, src, file, onPick, onRemove, removable, progress, error, disabled, className }: AvatarPickerProps) {
   const input = useRef<HTMLInputElement>(null)
 
   function change(event: ChangeEvent<HTMLInputElement>) {
@@ -31,7 +32,7 @@ export function AvatarPicker({ name, src, file, onPick, onRemove, removable, pro
   }
 
   return (
-    <div>
+    <div className={className}>
       <div className="flex items-center gap-4">
         <Avatar tone="kral" name={name} src={src} size="lg" />
         <div className="flex flex-wrap gap-3">

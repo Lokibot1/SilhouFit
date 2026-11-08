@@ -300,7 +300,7 @@ export function ProfilePage({ tone }: { tone?: 'kral' }) {
           )}
           {passwordLogin && <ChangePasswordSheet tone="kral" open={changingPassword} onClose={() => setChangingPassword(false)} />}
           {me.role === 'customer' && (
-            <Modal tone="kral" open={editing} onClose={closeEditor} title="Edit your profile">
+            <Modal tone="kral" compact open={editing} onClose={closeEditor} title="Edit your profile">
               <EditProfileForm me={me} onSaved={saved} onCancel={closeEditor} onUnauthorized={expire} onPendingChange={setSaving} />
             </Modal>
           )}

@@ -8,13 +8,12 @@ import { AlertIcon, SpinnerIcon } from '../form/icons'
 import { KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
 import { Select } from '../ui/Select'
 import { AvatarPicker } from './AvatarPicker'
+import { BirthdayField } from './BirthdayField'
 
 const NAME = /^[\p{L}][\p{L} '-]*$/u
 const WORD_MAX = 30
 const NAME_MAX = 100
 const SUFFIX_MAX = 20
-const DATE_INPUT =
-  'kral-focus font-kral-mono min-h-11 w-full rounded-none border border-kral-fg bg-transparent px-3 text-base text-kral-fg scheme-light dark:scheme-dark'
 const GENDER_OPTIONS: { value: '' | NonNullable<Me['gender']>; label: string }[] = [
   { value: '', label: 'Not specified' },
   { value: 'male', label: 'Male' },
@@ -48,6 +47,13 @@ function today() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
+/** A real calendar day in YYYY-MM-DD form (2023-02-31 is not one). */
+function isRealDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const date = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+
 const hasEmoji = (value: string) => stripEmoji(value) !== value
 
 function validateName(value: string, label: string, required: boolean): string | undefined {
@@ -68,7 +74,8 @@ function validate(values: Values): Partial<Record<Field, string>> {
   if (middle) errors.middleName = middle
   if (last) errors.lastName = last
   if (hasEmoji(values.suffix)) errors.suffix = EMOJI_ERROR
-  if (values.birthday > today()) errors.birthday = 'Birthday can’t be in the future. Pick today or an earlier date.'
+  if (values.birthday && !isRealDate(values.birthday)) errors.birthday = 'Enter your birthday as YYYY-MM-DD, like 1995-05-15, or pick it from the calendar.'
+  else if (values.birthday > today()) errors.birthday = 'Birthday can’t be in the future. Pick today or an earlier date.'
   return errors
 }
 
@@ -228,8 +235,8 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
   }
 
   return (
-    <form noValidate onSubmit={submit} aria-busy={pending} className="pb-5">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
+    <form noValidate onSubmit={submit} aria-busy={pending} className="pb-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 sm:gap-x-4">
         <AvatarPicker
           name={`${saved.firstName} ${saved.lastName}`}
           src={photo?.url ?? (removed ? undefined : (me.avatarUrl ?? undefined))}
@@ -240,6 +247,7 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
           progress={progress}
           error={photoError}
           disabled={pending}
+          className="sm:col-span-2"
         />
         <FloatingField
           tone="kral"
@@ -290,30 +298,16 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
           counter={{ current: values.suffix.length, max: SUFFIX_MAX }}
           readOnly={pending}
         />
-        <div>
-          <label htmlFor={fieldId('birthday')} className="font-kral-mono mb-1 block text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">
-            Birthday (optional)
-          </label>
-          <input
-            id={fieldId('birthday')}
-            type="date"
-            value={values.birthday}
-            max={today()}
-            onChange={(event) => set({ birthday: event.target.value })}
-            onBlur={touch('birthday')}
-            readOnly={pending}
-            autoComplete="bday"
-            aria-invalid={shown('birthday') ? true : undefined}
-            aria-describedby={shown('birthday') ? fieldId('birthday-error') : undefined}
-            className={DATE_INPUT}
-          />
-          {shown('birthday') && (
-            <p id={fieldId('birthday-error')} className="font-kral-mono flex items-start gap-1.5 px-1 pt-1 text-base leading-snug text-kral-red-ink md:text-sm">
-              <AlertIcon className="mt-px size-3.5" />
-              <span>{shown('birthday')}</span>
-            </p>
-          )}
-        </div>
+        <BirthdayField
+          id={fieldId('birthday')}
+          label="Birthday (optional)"
+          value={values.birthday}
+          max={today()}
+          error={shown('birthday')}
+          readOnly={pending}
+          onChange={(birthday) => set({ birthday })}
+          onBlur={touch('birthday')}
+        />
         <div className="grid gap-1">
           <p className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Gender (optional)</p>
           <Select tone="kral" label="Gender" value={values.gender} options={GENDER_OPTIONS} onChange={(gender) => set({ gender })} className="min-h-11!" />
@@ -334,7 +328,7 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
         </div>
       )}
 
-      <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button type="button" onClick={onCancel} disabled={pending} className={`${KRAL_SECONDARY} disabled:cursor-progress`}>
           Cancel
         </button>

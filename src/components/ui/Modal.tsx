@@ -26,6 +26,8 @@ interface ModalProps {
   variant?: 'center' | 'sheet' | 'sheet-left' | 'drawer-left'
   /** 'kral' restyles the panel flat and square for the KRAL pages; unset leaves the glass panel. */
   tone?: 'kral'
+  /** With tone 'kral': tighter padding, so a dialog with many fields fits a short screen without scrolling. */
+  compact?: boolean
   children: ReactNode
   footer?: ReactNode
   /** False hides the close button, for a modal that must be answered (its `onClose` should then do nothing). */
@@ -37,7 +39,7 @@ interface ModalProps {
   initialFocusRef?: RefObject<HTMLElement | null>
 }
 
-export function Modal({ open, onClose, title, icon, variant = 'center', tone, children, footer, closable = true, bodyRef, onBodyScroll, initialFocusRef }: ModalProps) {
+export function Modal({ open, onClose, title, icon, variant = 'center', tone, compact, children, footer, closable = true, bodyRef, onBodyScroll, initialFocusRef }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -113,6 +115,7 @@ export function Modal({ open, onClose, title, icon, variant = 'center', tone, ch
           icon={icon}
           variant={variant}
           tone={tone}
+          compact={compact}
           footer={footer}
           closable={closable}
           panelRef={panelRef}
@@ -128,15 +131,16 @@ export function Modal({ open, onClose, title, icon, variant = 'center', tone, ch
   )
 }
 
-interface ModalViewProps extends Pick<ModalProps, 'title' | 'icon' | 'variant' | 'tone' | 'footer' | 'closable' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children'> {
+interface ModalViewProps extends Pick<ModalProps, 'title' | 'icon' | 'variant' | 'tone' | 'compact' | 'footer' | 'closable' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children'> {
   panelRef: Ref<HTMLDivElement>
 }
 
-function ModalView({ title, icon, variant, tone, footer, closable, panelRef, bodyRef, onBodyScroll, onClose, children }: ModalViewProps) {
+function ModalView({ title, icon, variant, tone, compact, footer, closable, panelRef, bodyRef, onBodyScroll, onClose, children }: ModalViewProps) {
   const titleId = useId()
   const reduced = useReducedMotion()
   const isPresent = useIsPresent()
   const kral = tone === 'kral'
+  const tight = kral && compact
   const drawer = variant === 'drawer-left'
   const left = variant === 'sheet-left' || drawer
   const sheet = variant === 'sheet' || left
@@ -196,7 +200,7 @@ function ModalView({ title, icon, variant, tone, footer, closable, panelRef, bod
             : 'max-h-[85svh] max-w-2xl rounded-xl'
         }`}
       >
-        <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3 sm:px-8 sm:pt-6">
+        <div className={`flex items-center justify-between gap-3 px-5 ${tight ? 'pt-4 pb-1 sm:px-6' : 'pt-5 pb-3 sm:px-8 sm:pt-6'}`}>
           <h2
             id={titleId}
             className={`flex items-center gap-3 text-xl sm:text-2xl ${kral ? 'font-kral-display font-extrabold text-kral-fg uppercase' : 'display text-fg'}`}
@@ -221,7 +225,7 @@ function ModalView({ title, icon, variant, tone, footer, closable, panelRef, bod
           tabIndex={0}
           role="region"
           aria-label={`${title} text`}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-3 wrap-break-word sm:px-8"
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 wrap-break-word ${tight ? 'pt-2 sm:px-6' : 'pt-3 sm:px-8'}`}
         >
           {children}
         </div>
@@ -239,7 +243,7 @@ function ModalView({ title, icon, variant, tone, footer, closable, panelRef, bod
                 document.documentElement.style.removeProperty('--sheet-footer-h')
               }
             }}
-            className={`border-t px-5 py-4 sm:px-8 ${kral ? 'border-kral-rule' : 'border-line'}`}
+            className={`border-t px-5 py-4 ${tight ? 'sm:px-6' : 'sm:px-8'} ${kral ? 'border-kral-rule' : 'border-line'}`}
           >
             {footer}
           </div>
