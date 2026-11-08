@@ -13,7 +13,7 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { normalizePlace } from '../../utils/psgcMatch'
 import { stripEmoji } from '../../utils/signUpValidation'
-import { computePlace, LISTBOX_LIST, LISTBOX_PANEL, optionRow } from '../ui/listbox'
+import { computePlace, KRAL_LISTBOX_PANEL, kralOptionRow, LISTBOX_LIST, LISTBOX_PANEL, optionRow } from '../ui/listbox'
 import { AlertIcon, CheckIcon, ChevronDownIcon } from './icons'
 
 const SEARCH_MAX_LENGTH = 40
@@ -36,9 +36,10 @@ interface MenuProps {
   listboxId: string
   onSelect: (value: string) => void
   onClose: (refocus: boolean) => void
+  kral: boolean
 }
 
-function Menu({ anchor, options, value, noun, label, listboxId, onSelect, onClose }: MenuProps) {
+function Menu({ anchor, options, value, noun, label, listboxId, onSelect, onClose, kral }: MenuProps) {
   const reduced = useReducedMotion()
   const isPresent = useIsPresent()
   const panelRef = useRef<HTMLDivElement>(null)
@@ -147,7 +148,7 @@ function Menu({ anchor, options, value, noun, label, listboxId, onSelect, onClos
         top: placed.top,
         bottom: placed.bottom,
       }}
-      className={LISTBOX_PANEL}
+      className={kral ? KRAL_LISTBOX_PANEL : LISTBOX_PANEL}
     >
       <input
         type="text"
@@ -165,7 +166,7 @@ function Menu({ anchor, options, value, noun, label, listboxId, onSelect, onClos
         autoComplete="off"
         spellCheck={false}
         enterKeyHint="search"
-        className="h-11 shrink-0 border-b border-line bg-transparent px-3 text-base text-fg outline-none placeholder:text-fg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-chrome-strong"
+        className={`h-11 shrink-0 border-b bg-transparent px-3 text-base outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 ${kral ? 'font-kral-mono border-kral-rule text-kral-fg placeholder:text-kral-muted focus-visible:outline-kral-red-ink' : 'border-line text-fg placeholder:text-fg-muted focus-visible:outline-chrome-strong'}`}
       />
       <ul ref={listRef} id={listboxId} role="listbox" aria-label={label} hidden={empty} className={LISTBOX_LIST}>
         {results.map((option) => {
@@ -178,7 +179,7 @@ function Menu({ anchor, options, value, noun, label, listboxId, onSelect, onClos
               aria-selected={selected}
               onPointerMove={() => option.value !== active?.value && setActiveValue(option.value)}
               onClick={() => onSelect(option.value)}
-              className={optionRow(option.value === active?.value, selected)}
+              className={(kral ? kralOptionRow : optionRow)(option.value === active?.value, selected)}
             >
               <span className="min-w-0 flex-1">{option.label}</span>
               <span className="w-4 shrink-0">{selected && <CheckIcon />}</span>
@@ -187,7 +188,7 @@ function Menu({ anchor, options, value, noun, label, listboxId, onSelect, onClos
         })}
       </ul>
       {empty && (
-        <p role="status" className="px-3 py-4 text-base leading-snug text-fg-muted">
+        <p role="status" className={`px-3 py-4 text-base leading-snug ${kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted'}`}>
           {`No ${noun} match "${debounced.trim()}". Check the spelling or clear the search.`}
         </p>
       )}
@@ -211,6 +212,8 @@ interface SearchSelectProps {
   error?: string
   /** The list was closed, with or without a choice: the moment to start showing this field's error. */
   onDone?: () => void
+  /** 'kral' restyles the trigger and list flat and square for the KRAL pages. */
+  tone?: 'kral'
 }
 
 /** A labelled picker that opens a searchable listbox. Sits above dialogs and keeps Tab and Escape to itself. */
@@ -226,7 +229,9 @@ export function SearchSelect({
   disabled,
   error,
   onDone,
+  tone,
 }: SearchSelectProps) {
+  const kral = tone === 'kral'
   const listboxId = useId()
   const [button, setButton] = useState<HTMLButtonElement | null>(null)
   const [open, setOpen] = useState(false)
@@ -249,7 +254,7 @@ export function SearchSelect({
 
   return (
     <div>
-      <span id={`${id}-label`} className="font-ui mb-1 block text-sm text-fg-muted">
+      <span id={`${id}-label`} className={kral ? 'font-kral-mono mb-1 block text-base text-kral-muted md:text-xs md:tracking-[0.08em] md:uppercase' : 'font-ui mb-1 block text-sm text-fg-muted'}>
         {label}
       </span>
       <button
@@ -270,17 +275,17 @@ export function SearchSelect({
         aria-labelledby={`${id}-label ${id}-value`}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        className={`skeuo font-ui flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-3 text-left text-base disabled:cursor-not-allowed disabled:opacity-100! ${
-          error ? 'outline outline-2 outline-danger' : ''
+        className={`${kral ? 'kral-focus font-kral-mono rounded-none border border-kral-fg bg-transparent hover:bg-kral-fg/10 aria-expanded:bg-kral-fg/10 disabled:text-kral-muted' : 'skeuo font-ui rounded-xl'} flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 px-3 text-left text-base disabled:cursor-not-allowed disabled:opacity-100! ${
+          error ? (kral ? 'border-kral-red-ink!' : 'outline outline-2 outline-danger') : ''
         }`}
       >
-        <span id={`${id}-value`} className={`min-w-0 flex-1 truncate ${shown ? 'text-fg' : 'text-fg-muted'}`}>
+        <span id={`${id}-value`} className={`min-w-0 flex-1 truncate ${kral ? (shown ? 'text-kral-fg' : 'text-kral-muted') : shown ? 'text-fg' : 'text-fg-muted'}`}>
           {shown ?? placeholder}
         </span>
         <ChevronDownIcon className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {error && (
-        <p id={errorId} className="flex items-start gap-1.5 px-1 pt-1 text-xs leading-snug text-danger">
+        <p id={errorId} className={`flex items-start gap-1.5 px-1 pt-1 leading-snug text-danger ${kral ? 'font-kral-mono text-base md:text-sm' : 'text-xs'}`}>
           <AlertIcon className="mt-px size-3.5" />
           <span>{error}</span>
         </p>
@@ -299,6 +304,7 @@ export function SearchSelect({
               close(true)
             }}
             onClose={close}
+            kral={kral}
           />
         )}
       </AnimatePresence>

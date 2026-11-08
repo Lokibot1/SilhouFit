@@ -22,11 +22,14 @@ interface AvatarProps {
   /** Shown instead of the letters taken from `name`, for names that carry a suffix. */
   initials?: string
   size?: keyof typeof SIZES
+  /** 'kral' squares the avatar for the KRAL pages. */
+  tone?: 'kral'
 }
 
-export function Avatar({ name, src, initials: given, size = 'md' }: AvatarProps) {
+export function Avatar({ name, src, initials: given, size = 'md', tone }: AvatarProps) {
   const [failedSrc, setFailedSrc] = useState<string>()
   const letters = given || initials(name)
+  const shape = tone === 'kral' ? 'rounded-none' : 'rounded-full'
 
   if (src && failedSrc !== src) {
     return (
@@ -34,7 +37,7 @@ export function Avatar({ name, src, initials: given, size = 'md' }: AvatarProps)
         src={src}
         alt={name}
         onError={() => setFailedSrc(src)}
-        className={`${SIZES[size]} shrink-0 rounded-full object-cover`}
+        className={`${SIZES[size]} shrink-0 ${shape} object-cover`}
       />
     )
   }
@@ -43,7 +46,7 @@ export function Avatar({ name, src, initials: given, size = 'md' }: AvatarProps)
     <span
       role="img"
       aria-label={name || 'Account'}
-      className={`${SIZES[size]} font-ui flex shrink-0 items-center justify-center rounded-full font-semibold text-white`}
+      className={`${SIZES[size]} font-ui flex shrink-0 items-center justify-center ${shape} font-semibold text-white`}
       style={{ backgroundColor: `hsl(${hueFor(name)} 45% 32%)` }}
     >
       {letters || <UserIcon />}

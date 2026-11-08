@@ -32,6 +32,7 @@ import { normalizePhone } from '../../utils/signUpValidation'
 import { FloatingField } from '../form/FloatingField'
 import { AlertIcon, SpinnerIcon } from '../form/icons'
 import { SearchSelect } from '../form/SearchSelect'
+import { KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
 import { Checkbox } from '../ui/Checkbox'
 
@@ -40,10 +41,10 @@ import { Checkbox } from '../ui/Checkbox'
 const loadMap = () => import('./MapPicker')
 let MapPicker = lazy(loadMap)
 
-function MapFailed({ onBack }: { onBack: () => void }) {
+function MapFailed({ onBack, kral }: { onBack: () => void; kral: boolean }) {
   return (
     <div className="pb-5">
-      <p role="alert" className="flex items-start gap-2 text-base leading-snug text-fg-muted">
+      <p role="alert" className={`flex items-start gap-2 text-base leading-snug ${kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted'}`}>
         <AlertIcon className="mt-1 shrink-0 text-danger" />
         The map couldn&apos;t load. Check your connection, then try again, or fill in the form instead.
       </p>
@@ -53,7 +54,7 @@ function MapFailed({ onBack }: { onBack: () => void }) {
           MapPicker = lazy(loadMap)
           onBack()
         }}
-        className={`${SECONDARY_BUTTON} mt-4`}
+        className={`${kral ? KRAL_SECONDARY : SECONDARY_BUTTON} mt-4`}
       >
         Back to form
       </button>
@@ -61,13 +62,13 @@ function MapFailed({ onBack }: { onBack: () => void }) {
   )
 }
 
-class MapBoundary extends Component<{ onBack: () => void; children: ReactNode }, { failed: boolean }> {
+class MapBoundary extends Component<{ onBack: () => void; kral: boolean; children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
   static getDerivedStateFromError() {
     return { failed: true }
   }
   render() {
-    return this.state.failed ? <MapFailed onBack={this.props.onBack} /> : this.props.children
+    return this.state.failed ? <MapFailed onBack={this.props.onBack} kral={this.props.kral} /> : this.props.children
   }
 }
 
@@ -104,6 +105,7 @@ type Lookup =
   | { status: 'done'; notes: string[] }
 
 const SKELETON_LINE = 'h-11 animate-pulse rounded-xl bg-line'
+const KRAL_SKELETON_LINE = 'h-11 animate-pulse bg-kral-porcelain dark:bg-kral-graphite'
 
 interface ListFieldProps {
   id: string
@@ -120,23 +122,24 @@ interface ListFieldProps {
   onDone: () => void
   onType: () => void
   labelOf?: (item: { code: string; name: string }) => string
+  kral: boolean
 }
 
 /** One cascading select with its own loading, error and empty states. */
-function ListField({ id, label, noun, state, retry, placeholder, value, error, parent, onPick, onDone, onType, labelOf }: ListFieldProps) {
+function ListField({ id, label, noun, state, retry, placeholder, value, error, parent, onPick, onDone, onType, labelOf, kral }: ListFieldProps) {
   if (state.status === 'loading') {
     return (
       <div role="status" aria-label={`Loading ${noun}`}>
-        <span className="font-ui mb-1 block text-sm text-fg-muted">{label}</span>
-        <div className={SKELETON_LINE} />
+        <span className={kral ? 'font-kral-mono mb-1 block text-base text-kral-muted md:text-xs md:tracking-[0.08em] md:uppercase' : 'font-ui mb-1 block text-sm text-fg-muted'}>{label}</span>
+        <div className={kral ? KRAL_SKELETON_LINE : SKELETON_LINE} />
       </div>
     )
   }
   if (state.status === 'error' || (state.status === 'success' && state.data.length === 0)) {
     const failed = state.status === 'error'
     return (
-      <div role={failed ? 'alert' : 'status'} className="rounded-xl border border-line-strong p-3">
-        <p className="flex items-start gap-2 text-base leading-snug text-fg">
+      <div role={failed ? 'alert' : 'status'} className={kral ? 'border border-kral-rule p-3' : 'rounded-xl border border-line-strong p-3'}>
+        <p className={`flex items-start gap-2 text-base leading-snug ${kral ? 'font-kral-mono text-kral-fg' : 'text-fg'}`}>
           <AlertIcon className="mt-1 shrink-0 text-danger" />
           <span>
             {failed
@@ -146,14 +149,14 @@ function ListField({ id, label, noun, state, retry, placeholder, value, error, p
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           {failed && (
-            <button type="button" onClick={retry} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={retry} className={kral ? KRAL_SECONDARY : SECONDARY_BUTTON}>
               Try again
             </button>
           )}
           <button
             type="button"
             onClick={onType}
-            className="font-ui min-h-11 cursor-pointer rounded-xl text-base font-semibold text-fg underline underline-offset-4 hover:text-chrome-strong"
+            className={kral ? 'kral-focus font-kral-mono min-h-11 cursor-pointer text-base font-medium text-kral-fg uppercase underline underline-offset-4 hover:text-kral-red-ink md:text-xs md:tracking-[0.08em]' : 'font-ui min-h-11 cursor-pointer rounded-xl text-base font-semibold text-fg underline underline-offset-4 hover:text-chrome-strong'}
           >
             Type it instead
           </button>
@@ -175,6 +178,7 @@ function ListField({ id, label, noun, state, retry, placeholder, value, error, p
       placeholder={placeholder}
       disabled={state.status === 'idle'}
       error={error}
+      tone={kral ? 'kral' : undefined}
     />
   )
 }
@@ -201,11 +205,14 @@ interface AddressFormProps {
   onPendingChange?: (pending: boolean) => void
   /** Draws the row of buttons under the form; `submit` is the form's own Save button. */
   footer: (submit: ReactNode) => ReactNode
+  /** 'kral' restyles the form flat and square for the KRAL pages. */
+  tone?: 'kral'
 }
 
 /** Puts a saved address's places back on the lists first (the form is a skeleton meanwhile); a new address needs no lookup. */
 export function AddressForm(props: AddressFormProps) {
   const { initial, footer } = props
+  const kral = props.tone === 'kral'
   const [resolved, setResolved] = useState<ResolvedAddress | null>(null)
 
   useEffect(() => {
@@ -219,14 +226,14 @@ export function AddressForm(props: AddressFormProps) {
     return (
       <div className="pt-3 pb-5">
         <div role="status" aria-label="Loading your address" className="grid animate-pulse grid-cols-[minmax(0,1fr)] gap-4">
-          <div className={SKELETON_LINE} />
+          <div className={kral ? KRAL_SKELETON_LINE : SKELETON_LINE} />
           {Array.from({ length: 10 }, (_, i) => (
-            <div key={i} className={SKELETON_LINE} />
+            <div key={i} className={kral ? KRAL_SKELETON_LINE : SKELETON_LINE} />
           ))}
         </div>
         <div className="mt-5">
           {footer(
-            <button type="button" disabled className={`${PRIMARY_BUTTON} w-full sm:w-auto`}>
+            <button type="button" disabled className={`${kral ? KRAL_PRIMARY : PRIMARY_BUTTON} w-full sm:w-auto`}>
               Save address
             </button>,
           )}
@@ -247,7 +254,9 @@ function AddressFormBody({
   onGone,
   onPendingChange,
   footer,
+  tone,
 }: AddressFormProps & { resolved: ResolvedAddress | null }) {
+  const kral = tone === 'kral'
   const user = useCurrentUser()
   const base = useId()
   const fieldId = (name: string) => `${base}-${name}`
@@ -545,22 +554,22 @@ function AddressFormBody({
 
   if (mapOpen) {
     return (
-      <MapBoundary onBack={() => setMapOpen(false)}>
+      <MapBoundary onBack={() => setMapOpen(false)} kral={kral}>
         <Suspense
           fallback={
             <div role="status" aria-label="Loading the map" className="pb-5">
-              <div className="h-72 animate-pulse rounded-xl bg-line" />
+              <div className={`h-72 animate-pulse ${kral ? 'bg-kral-porcelain dark:bg-kral-graphite' : 'rounded-xl bg-line'}`} />
             </div>
           }
         >
-          <MapPicker onBack={() => setMapOpen(false)} onUse={fillFrom} />
+          <MapPicker onBack={() => setMapOpen(false)} onUse={fillFrom} tone={tone} />
         </Suspense>
       </MapBoundary>
     )
   }
 
   const submitButton = (
-    <button type="submit" disabled={pending} className={`${PRIMARY_BUTTON} w-full sm:w-auto`}>
+    <button type="submit" disabled={pending} className={`${kral ? KRAL_PRIMARY : PRIMARY_BUTTON} w-full sm:w-auto`}>
       {pending && <SpinnerIcon />}
       Save address
     </button>
@@ -570,6 +579,7 @@ function AddressFormBody({
     <form noValidate onSubmit={(event) => void submit(event)} aria-busy={pending} className="pt-3 pb-5">
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         <FloatingField
+          tone={tone}
           id={fieldId('label')}
           label="Label (optional)"
           value={label}
@@ -581,6 +591,7 @@ function AddressFormBody({
           readOnly={pending}
         />
         <FloatingField
+          tone={tone}
           id={fieldId('recipientName')}
           label="Recipient name"
           value={recipient}
@@ -593,10 +604,11 @@ function AddressFormBody({
           readOnly={pending}
         />
         <FloatingField
+          tone={tone}
           id={fieldId('phone')}
           label="Phone number"
           type="tel"
-          prefix={<span className="flex h-8 w-10 items-center justify-center text-base text-fg-muted">+63</span>}
+          prefix={<span className={`flex h-8 w-10 items-center justify-center text-base ${kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted'}`}>+63</span>}
           compactPrefix
           value={phone}
           onChange={(v) => setPhone(filterPhone(v, '+63', NATIONAL_PHONE_MAX))}
@@ -610,34 +622,34 @@ function AddressFormBody({
         />
       </div>
 
-      <button ref={pinButton} type="button" onClick={() => setMapOpen(true)} className={`${SECONDARY_BUTTON} mt-4 w-full`}>
+      <button ref={pinButton} type="button" onClick={() => setMapOpen(true)} className={`${kral ? KRAL_SECONDARY : SECONDARY_BUTTON} mt-4 w-full`}>
         Pin on a map
       </button>
-      <p className="mt-2 text-xs leading-snug text-fg-muted">Drop a pin and we will fill in the fields below.</p>
+      <p className={`mt-2 leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-xs text-fg-muted'}`}>Drop a pin and we will fill in the fields below.</p>
 
       <>
         {lookup.status === 'loading' && (
-          <p role="status" className="mt-3 flex items-center gap-2 text-base text-fg-muted">
+          <p role="status" className={`mt-3 flex items-center gap-2 text-base ${kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted'}`}>
             <SpinnerIcon className="shrink-0" />
             Looking up your pin…
           </p>
         )}
         {lookup.status === 'error' && (
-          <div role="alert" className="mt-3 rounded-xl border border-line-strong p-3">
-            <p className="flex items-start gap-2 text-base leading-snug text-fg">
+          <div role="alert" className={`mt-3 border p-3 ${kral ? 'border-kral-rule' : 'rounded-xl border-line-strong'}`}>
+            <p className={`flex items-start gap-2 text-base leading-snug ${kral ? 'font-kral-mono text-kral-fg' : 'text-fg'}`}>
               <AlertIcon className="mt-1 shrink-0 text-danger" />
               <span>{LOOKUP_ERRORS[lookup.kind]}</span>
             </p>
-            <button type="button" onClick={() => void fillFrom(lookup.lat, lookup.lon)} className={`${SECONDARY_BUTTON} mt-2`}>
+            <button type="button" onClick={() => void fillFrom(lookup.lat, lookup.lon)} className={`${kral ? KRAL_SECONDARY : SECONDARY_BUTTON} mt-2`}>
               Try again
             </button>
           </div>
         )}
         {lookup.status === 'done' && (
-          <div role="status" className="mt-3 text-base leading-snug text-fg-muted">
+          <div role="status" className={`mt-3 text-base leading-snug ${kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted'}`}>
             <p>Filled in from your pin. Check each field, then save.</p>
             {lookup.notes.map((note) => (
-              <p key={note} className="mt-1 text-fg">
+              <p key={note} className={`mt-1 ${kral ? 'text-kral-fg' : 'text-fg'}`}>
                 {note}
               </p>
             ))}
@@ -646,7 +658,7 @@ function AddressFormBody({
       </>
 
       {note && (
-        <p role="status" className="mt-3 text-base leading-snug text-fg">
+        <p role="status" className={`mt-3 text-base leading-snug ${kral ? 'font-kral-mono text-kral-fg' : 'text-fg'}`}>
           {note}
         </p>
       )}
@@ -655,6 +667,7 @@ function AddressFormBody({
         {typed ? (
           <>
             <FloatingField
+          tone={tone}
               id={fieldId('region')}
               label="Region"
               value={region.name}
@@ -665,6 +678,7 @@ function AddressFormBody({
               readOnly={pending}
             />
             <FloatingField
+          tone={tone}
               id={fieldId('city')}
               label="City or municipality"
               value={city.name}
@@ -676,6 +690,7 @@ function AddressFormBody({
               readOnly={pending}
             />
             <FloatingField
+          tone={tone}
               id={fieldId('barangay')}
               label="Barangay"
               value={barangay.name}
@@ -692,6 +707,7 @@ function AddressFormBody({
         ) : (
           <>
             <ListField
+              kral={kral}
               id={fieldId('region')}
               label="Region"
               noun="regions"
@@ -707,6 +723,7 @@ function AddressFormBody({
               labelOf={regionLabel}
             />
             <ListField
+              kral={kral}
               id={fieldId('city')}
               label="City or municipality"
               noun="cities and municipalities"
@@ -721,6 +738,7 @@ function AddressFormBody({
               onType={typeInstead}
             />
             <ListField
+              kral={kral}
               id={fieldId('barangay')}
               label="Barangay"
               noun="barangays"
@@ -734,10 +752,11 @@ function AddressFormBody({
               onDone={touch('barangay')}
               onType={typeInstead}
             />
-            <FloatingField id={fieldId('province')} label="Province" value={provinceText} onChange={() => {}} locked />
+            <FloatingField tone={tone} id={fieldId('province')} label="Province" value={provinceText} onChange={() => {}} locked />
           </>
         )}
         <FloatingField
+          tone={tone}
           id={fieldId('street')}
           label="Street address"
           value={street}
@@ -750,6 +769,7 @@ function AddressFormBody({
           readOnly={pending}
         />
         <FloatingField
+          tone={tone}
           id={fieldId('line2')}
           label="Unit, floor or landmark (optional)"
           value={line2}
@@ -762,6 +782,7 @@ function AddressFormBody({
           readOnly={pending}
         />
         <FloatingField
+          tone={tone}
           id={fieldId('postal')}
           label="Postal code"
           value={postal}
@@ -780,7 +801,7 @@ function AddressFormBody({
           readOnly={pending}
         />
         {postalState !== 'idle' && (
-          <p role="status" className="-mt-2 flex items-center gap-2 text-sm leading-snug text-fg-muted">
+          <p role="status" className={`-mt-2 flex items-center gap-2 leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-sm text-fg-muted'}`}>
             {postalState === 'loading' && <SpinnerIcon className="shrink-0" />}
             {postalState === 'loading' && 'Looking up your postal code…'}
             {postalState === 'filled' && 'Postal code filled in from your address. Check it before you save.'}
@@ -792,7 +813,7 @@ function AddressFormBody({
       <button
         type="button"
         onClick={typed ? useLists : typeInstead}
-        className="font-ui mt-2 min-h-11 cursor-pointer rounded-xl text-base font-semibold text-fg underline underline-offset-4 hover:text-chrome-strong"
+        className={kral ? 'kral-focus font-kral-mono mt-2 min-h-11 cursor-pointer text-base font-medium text-kral-fg uppercase underline underline-offset-4 hover:text-kral-red-ink md:text-xs md:tracking-[0.08em]' : 'font-ui mt-2 min-h-11 cursor-pointer rounded-xl text-base font-semibold text-fg underline underline-offset-4 hover:text-chrome-strong'}
       >
         {typed ? 'Pick from the lists instead' : 'Type it instead'}
       </button>
@@ -804,12 +825,13 @@ function AddressFormBody({
             onChange={setMakeDefault}
             disabled={pending || lockedDefault}
             label="Set as default address"
-            className="justify-start"
+            className={kral ? 'font-kral-mono justify-start text-base' : 'justify-start'}
+            tone={tone}
           >
             Set as default address
           </Checkbox>
           {lockedDefault && (
-            <p className="text-xs leading-snug text-fg-muted">
+            <p className={`leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-xs text-fg-muted'}`}>
               {existingCount === 0 ? 'Your first address is always your default.' : 'To change your default, set another address as default.'}
             </p>
           )}
@@ -817,7 +839,7 @@ function AddressFormBody({
       )}
 
       {failure && (
-        <p role="alert" className="mt-3 flex items-start gap-2 text-base leading-snug text-danger">
+        <p role="alert" className={`mt-3 flex items-start gap-2 text-base leading-snug text-danger ${kral ? 'font-kral-mono' : ''}`}>
           <AlertIcon className="mt-1 shrink-0" />
           <span>{failure}</span>
         </p>

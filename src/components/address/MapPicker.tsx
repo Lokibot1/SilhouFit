@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Map as LeafletMap, Marker } from 'leaflet'
 import { getCurrentPosition, LocationError, locationUnsupportedReason, type LocationErrorKind } from '../../service/geolocation'
 import { AlertIcon, SpinnerIcon } from '../form/icons'
+import { KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
 import { Tooltip } from '../ui/Tooltip'
 
@@ -37,10 +38,16 @@ interface MapPickerProps {
    * pin was refused, or null once it was taken and the map is closing.
    */
   onUse: (lat: number, lon: number) => Promise<string | null>
+  /** 'kral' restyles the chrome around the map flat and square for the KRAL pages. */
+  tone?: 'kral'
 }
 
 /** A Leaflet map the user taps, drags or Auto-pins. Nothing of Leaflet loads until this is on screen. */
-export default function MapPicker({ onBack, onUse }: MapPickerProps) {
+export default function MapPicker({ onBack, onUse, tone }: MapPickerProps) {
+  const kral = tone === 'kral'
+  const primary = kral ? KRAL_PRIMARY : PRIMARY_BUTTON
+  const secondary = kral ? KRAL_SECONDARY : SECONDARY_BUTTON
+  const muted = kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted'
   const reduced = useReducedMotion() ?? false
   const hostRef = useRef<HTMLDivElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -183,7 +190,7 @@ export default function MapPicker({ onBack, onUse }: MapPickerProps) {
       type="button"
       onClick={() => void autoPin()}
       disabled={locating || unsupported !== null}
-      className={`${SECONDARY_BUTTON} disabled:cursor-not-allowed disabled:opacity-60`}
+      className={`${secondary} disabled:cursor-not-allowed disabled:opacity-60`}
     >
       {locating ? (
         <>
@@ -200,7 +207,7 @@ export default function MapPicker({ onBack, onUse }: MapPickerProps) {
       type="button"
       disabled={!pin || using}
       onClick={() => pin && void confirmPin(pin.lat, pin.lon)}
-      className={`${PRIMARY_BUTTON} w-full disabled:cursor-not-allowed sm:w-auto`}
+      className={`${primary} w-full disabled:cursor-not-allowed sm:w-auto`}
     >
       {using && <SpinnerIcon />}
       Use this location
@@ -209,17 +216,17 @@ export default function MapPicker({ onBack, onUse }: MapPickerProps) {
 
   return (
     <div className="pb-5">
-      <h3 ref={headingRef} tabIndex={-1} className="display text-lg text-fg outline-none">
+      <h3 ref={headingRef} tabIndex={-1} className={`text-lg outline-none ${kral ? 'font-kral-display font-extrabold text-kral-fg uppercase' : 'display text-fg'}`}>
         Pin your location
       </h3>
-      <p className="mt-1 text-base leading-relaxed text-fg-muted">
+      <p className={`mt-1 text-base leading-relaxed ${muted}`}>
         Tap the map to drop a pin and drag it to adjust. Or let your device find you with Auto-pin.
       </p>
 
-      <div className="relative isolate mt-3 h-72 overflow-hidden rounded-xl border border-line bg-canvas-sub">
+      <div className={`relative isolate mt-3 h-72 overflow-hidden border ${kral ? 'border-kral-fg bg-kral-porcelain dark:bg-kral-graphite' : 'rounded-xl border-line bg-canvas-sub'}`}>
         <div ref={hostRef} className="address-map absolute inset-0" />
         {mapState === 'loading' && (
-          <div role="status" className="absolute inset-0 z-[1000] flex animate-pulse items-center justify-center gap-2 bg-line text-base text-fg-muted">
+          <div role="status" className={`absolute inset-0 z-[1000] flex animate-pulse items-center justify-center gap-2 text-base ${kral ? 'bg-kral-porcelain font-kral-mono text-kral-muted dark:bg-kral-graphite' : 'bg-line text-fg-muted'}`}>
             <SpinnerIcon />
             Loading the map…
           </div>
@@ -227,7 +234,7 @@ export default function MapPicker({ onBack, onUse }: MapPickerProps) {
       </div>
 
       {noMap && (
-        <p role="status" className="mt-3 flex items-start gap-2 text-base leading-snug text-fg-muted">
+        <p role="status" className={`mt-3 flex items-start gap-2 text-base leading-snug ${muted}`}>
           <AlertIcon className="mt-1 shrink-0 text-danger" />
           <span>
             {mapState === 'failed'
@@ -246,23 +253,23 @@ export default function MapPicker({ onBack, onUse }: MapPickerProps) {
           autoPinButton
         )}
         {mapState === 'ready' && !tilesFailed && (
-          <button type="button" onClick={pinCenter} className={SECONDARY_BUTTON}>
+          <button type="button" onClick={pinCenter} className={secondary}>
             Pin map center
           </button>
         )}
       </div>
-      {unsupported && <p className="mt-2 text-base leading-snug text-fg-muted">{unsupported}</p>}
-      <p className="mt-2 text-sm leading-snug text-fg-muted">
+      {unsupported && <p className={`mt-2 text-base leading-snug ${muted}`}>{unsupported}</p>}
+      <p className={`mt-2 leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-sm text-fg-muted'}`}>
         Your location is sent to OpenStreetMap only to fill these fields. We don&apos;t save it.
       </p>
 
       {locationError && (
-        <div role="alert" className="mt-3 flex items-start gap-2 text-base leading-snug text-danger">
+        <div role="alert" className={`mt-3 flex items-start gap-2 text-base leading-snug text-danger ${kral ? 'font-kral-mono' : ''}`}>
           <AlertIcon className="mt-1 shrink-0" />
           <div>
             <p>{LOCATION_ERRORS[locationError]}</p>
             {locationError === 'timeout' && (
-              <button type="button" onClick={() => void autoPin()} className={`${SECONDARY_BUTTON} mt-2`}>
+              <button type="button" onClick={() => void autoPin()} className={`${secondary} mt-2`}>
                 Try again
               </button>
             )}
@@ -271,23 +278,23 @@ export default function MapPicker({ onBack, onUse }: MapPickerProps) {
       )}
 
       {refused && (
-        <div role="alert" className="mt-3 flex items-start gap-2 text-base leading-snug text-danger">
+        <div role="alert" className={`mt-3 flex items-start gap-2 text-base leading-snug text-danger ${kral ? 'font-kral-mono' : ''}`}>
           <AlertIcon className="mt-1 shrink-0" />
           <p>{refused}</p>
         </div>
       )}
 
       {accuracy !== null && (
-        <p role="status" className="mt-3 text-base leading-snug text-fg-muted">
+        <p role="status" className={`mt-3 text-base leading-snug ${muted}`}>
           <span className="tabular-nums">Accurate to about {Math.round(accuracy)} m.</span>
           {accuracy > WIDE_ACCURACY_M && (
-            <span className="text-fg"> That is a wide area, so drag the pin onto your exact spot before you use it.</span>
+            <span className={kral ? 'text-kral-fg' : 'text-fg'}> That is a wide area, so drag the pin onto your exact spot before you use it.</span>
           )}
         </p>
       )}
 
       <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button type="button" onClick={onBack} className={SECONDARY_BUTTON}>
+        <button type="button" onClick={onBack} className={secondary}>
           Back to form
         </button>
         {pin ? (
