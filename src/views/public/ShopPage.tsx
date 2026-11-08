@@ -12,8 +12,7 @@ import { ProductGridSkeleton, SummarySkeleton } from '../../components/shop/Shop
 import { ShopSummary, ShopToolbar } from '../../components/shop/ShopToolbar'
 import { TryOnPromo } from '../../components/shop/TryOnPromo'
 import { useToast } from '../../components/toast/useToast'
-import { SHOP_SECONDARY } from '../../components/shop/shopControls'
-import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
+import { KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { CATEGORIES, choiceOf, type Product } from '../../data/products'
 import { DURATION } from '../../motion/tokens'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
@@ -240,6 +239,7 @@ export function ShopPage() {
   return (
     <MotionConfig reducedMotion="user">
       <ShopHeader
+        tone="kral"
         ref={headingRef}
         title={shopTitle(params)}
         summary={
@@ -255,25 +255,25 @@ export function ShopPage() {
         {products.status === 'loading' && <ProductGridSkeleton view={view} perPage={perPage} />}
 
         {products.status === 'error' && (
-          <div role="alert" className="glass-card rounded-xl p-6 sm:p-8">
-            <h2 className="display text-2xl text-fg">The catalogue did not load</h2>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+          <div role="alert" className="border border-kral-rule p-6 sm:p-8">
+            <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">The catalogue did not load</h2>
+            <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
               The request for stock and prices failed, most likely because the connection dropped or the service is
               briefly unavailable. Your filters are kept. Check your connection, then try again.
             </p>
-            <button type="button" onClick={products.retry} className={`${PRIMARY_BUTTON} mt-6`}>
+            <button type="button" onClick={products.retry} className={`${KRAL_PRIMARY} mt-6 w-fit`}>
               Try again
             </button>
           </div>
         )}
 
         {products.status === 'success' && noPiecesYet && (
-          <div className="glass-card rounded-xl p-6 sm:p-8">
-            <h2 className="display text-2xl text-fg">No pieces yet</h2>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+          <div className="border border-kral-rule p-6 sm:p-8">
+            <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">No pieces yet</h2>
+            <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
               The shop has nothing on sale right now. New pieces appear here as soon as they are added, so check back soon.
             </p>
-            <Link to="/" className={`${PRIMARY_BUTTON} mt-6 w-fit`}>
+            <Link to="/" className={`${KRAL_PRIMARY} mt-6 w-fit`}>
               Back to home
             </Link>
           </div>
@@ -303,7 +303,7 @@ export function ShopPage() {
             />
             <FilterChips filters={filters} onClear={(clears) => update(clears)} onClearAll={clearAll} />
             {badRange && (
-              <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-danger p-3 text-sm text-danger">
+              <div role="alert" className="font-kral-mono mt-3 flex flex-wrap items-center gap-3 border border-danger p-3 text-sm text-danger">
                 <p className="min-w-0">
                   The minimum price ({formatPeso(filters.minPrice!)}) is higher than the maximum ({formatPeso(filters.maxPrice!)}), so nothing can match.
                   Lower the minimum or raise the maximum.
@@ -314,7 +314,7 @@ export function ShopPage() {
                     focusFiltersTrigger()
                     update({ min: undefined, max: undefined })
                   }}
-                  className={`${SHOP_SECONDARY} text-sm`}
+                  className={KRAL_SECONDARY}
                 >
                   Clear price range
                 </button>
@@ -322,6 +322,7 @@ export function ShopPage() {
             )}
             {sheet && (
               <SpecSheet
+                tone="kral"
                 open={sheetOpen}
                 onClose={() => setSheetOpen(false)}
                 product={sheet.product}
@@ -352,18 +353,18 @@ export function ShopPage() {
             />
 
             {badRange ? null : result.total === 0 ? (
-              <div className="glass-card mt-6 rounded-xl p-6 sm:p-8">
-                <h3 className="display text-xl text-fg">
+              <div className="mt-6 border border-kral-rule p-6 sm:p-8">
+                <h3 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase">
                   {!q
                     ? 'No pieces match your filters'
                     : activeFilters > 0 || category !== 'all'
                       ? `No pieces match "${q}" with your filters`
                       : `No pieces match "${q}"`}
                 </h3>
-                <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+                <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
                   Check the spelling or try a shorter word, a colour or a category. Clearing the search and filters brings back the full catalogue.
                 </p>
-                <button type="button" onClick={clearAll} className={`${PRIMARY_BUTTON} mt-6`}>
+                <button type="button" onClick={clearAll} className={`${KRAL_PRIMARY} mt-6 w-fit whitespace-normal! text-center`}>
                   Clear search and filters
                 </button>
               </div>
@@ -378,6 +379,7 @@ export function ShopPage() {
                   {result.items.map((product, index) => (
                     <li key={product.id} data-tour={index === 0 ? 'product-card' : undefined} className="scroll-settle min-w-0">
                       <ProductCard
+                        tone="kral"
                         product={product}
                         index={index}
                         list={view === 'list'}
@@ -396,6 +398,7 @@ export function ShopPage() {
                   to={to}
                   total={result.total}
                   onPage={goToPage}
+                  tone="kral"
                 />
                 <TryOnPromo />
               </>
