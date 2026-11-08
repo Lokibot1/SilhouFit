@@ -240,6 +240,69 @@
 .sv2-header[data-stuck] {
   border-bottom-color: var(--sv2-graphite);
 }
+/* Every other page: a fixed bar (pages keep their top padding) with the hairline always showing. It follows the app theme
+   through the storefront kral-* tokens: Paper with Obsidian text in light, Obsidian with Paper text in dark. No colour
+   transition on the bar itself: the theme swap is a circular view-transition reveal, and a fade on top of it would fight the clip.
+   Grows past the bar height only when the shop controls wrap at 320px. */
+.sv2-header--fixed,
+.sv2-header--fixed[data-stuck] {
+  --sv2-focus: var(--color-kral-red-ink); /* red ring: >=3:1 on both Paper and Obsidian */
+  --sv2-hover: var(--sv2-porcelain);
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 50;
+  height: auto;
+  min-height: calc(var(--sv2-bar-h) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  background: var(--color-kral-bg);
+  color: var(--color-kral-fg);
+  border-bottom-color: var(--color-kral-rule);
+}
+.dark .sv2-header--fixed {
+  --sv2-hover: var(--sv2-raise);
+}
+/* Night track is #141414 on the #161113 bar: ring its edge (muted mixed 50% into the bar, ~3:1; the rule colour is only ~1.3:1). */
+.dark .sv2-header--fixed .sky-toggle__container {
+  outline: 1px solid color-mix(in srgb, var(--color-kral-muted) 50%, var(--color-kral-bg));
+}
+.sv2-header--fixed .sv2-logo {
+  color: var(--color-kral-fg);
+}
+.sv2-header--fixed a.sv2-logo:hover,
+.sv2-header--fixed .sv2-links a:hover {
+  color: var(--color-kral-red-ink);
+}
+.sv2-header--fixed .sv2-menu-btn {
+  border-color: var(--color-kral-rule);
+}
+.sv2-header--fixed .sv2-menu-btn[aria-expanded="true"] {
+  background: var(--color-kral-fg);
+  color: var(--color-kral-bg);
+}
+.sv2-header--fixed .sv2-links[data-open] {
+  background: var(--color-kral-bg);
+  border-color: var(--color-kral-rule);
+}
+.sv2-header--fixed .sv2-btn--line {
+  border-color: var(--color-kral-fg);
+  color: var(--color-kral-fg);
+}
+.sv2-header--fixed .sv2-btn--line:hover {
+  background: var(--color-kral-fg);
+  color: var(--color-kral-bg);
+}
+.sv2-header--fixed .sv2-bar {
+  min-height: var(--sv2-bar-h);
+  height: auto;
+  flex-wrap: wrap;
+  padding-block: 0.5rem;
+}
+.sv2-controls {
+  margin-left: auto;
+}
+.sv2-links-signup {
+  display: none;
+}
 .sv2-bar {
   position: relative;
   display: flex;
@@ -255,7 +318,7 @@
   color: var(--sv2-porcelain);
   transition: color 0.25s ease-out;
 }
-.sv2-logo:hover {
+a.sv2-logo:hover {
   color: var(--sv2-red);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -286,6 +349,8 @@
 .sv2-links a {
   display: flex;
   align-items: center;
+  justify-content: center;
+  min-width: 44px;
   min-height: 44px;
   font-size: max(12px, calc(12 * var(--u)));
   font-weight: 290;
@@ -295,6 +360,10 @@
 }
 .sv2-links a:hover {
   color: var(--sv2-red-tint);
+}
+.sv2-links a[aria-current="page"] {
+  text-decoration: underline 2px var(--sv2-red);
+  text-underline-offset: 0.5rem;
 }
 .sv2-tag {
   /* Centred on the bar itself, not on the gap between the links and the CTA. */
@@ -410,6 +479,7 @@
     border: 1px solid var(--sv2-graphite);
   }
   .sv2-links a {
+    justify-content: flex-start;
     padding: 0 1rem;
     font-size: 0.75rem;
     font-weight: 400;
@@ -417,6 +487,10 @@
   .sv2-links a:hover,
   .sv2-links a:focus-visible {
     background: var(--sv2-raise);
+  }
+  .sv2-header--fixed .sv2-links a:hover,
+  .sv2-header--fixed .sv2-links a:focus-visible {
+    background: var(--sv2-hover);
   }
   .sv2-tag {
     font-size: 0.75rem;
@@ -444,6 +518,12 @@
   .sv2-cta span {
     display: none;
   }
+  .sv2-signup {
+    display: none;
+  }
+  .sv2-links-signup {
+    display: block;
+  }
   .sv2-links[data-open] {
     grid-template-columns: 1fr;
     width: calc(100vw - 2rem);
@@ -453,6 +533,19 @@
   }
   .sv2-hero-sub {
     display: none;
+  }
+}
+
+/* Phones and small tablets: header text is body/link text, so 16px minimum (the bar wraps rather than clips if it must). */
+@media (max-width: 767.98px) {
+  .sv2-header .sv2-btn,
+  .sv2-menu-btn,
+  .sv2-links a {
+    font-size: 1rem;
+  }
+  .sv2-header .sv2-btn {
+    padding-inline: 0.75rem;
+    letter-spacing: 0.04em;
   }
 }
 
@@ -969,7 +1062,8 @@
   display: flex;
   align-items: center;
   min-height: 44px;
-  font-size: 0.75rem;
+  min-width: 44px;
+  font-size: 1rem; /* 16px on phones; the 768px rule below returns it to the desktop size */
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sv2-stone);
@@ -993,6 +1087,9 @@
   padding-top: 1rem;
   border-top: 1px solid var(--sv2-graphite);
 }
+.sv2-footer .sv2-label {
+  font-size: 1rem; /* phones only; see the 768px rule */
+}
 .sv2-foot-right {
   display: flex;
   flex-wrap: wrap;
@@ -1005,11 +1102,49 @@
   letter-spacing: 0.02em;
 }
 .sv2-credit a {
+  /* 44px hit box: padding grows the target, the matching negative margin keeps the line height. */
+  display: inline-block;
+  padding-block: 0.875rem;
+  margin-block: -0.875rem;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 .sv2-credit a:hover {
   color: var(--sv2-paper);
+}
+
+/* Layout pages: Layout puts .sv2--themed on the wrappers around the header and footer, so they follow the app theme
+   (Paper/Obsidian through the kral-* tokens). The landing page has no such wrapper and stays always Obsidian. */
+.sv2--themed {
+  --sv2-focus: var(--color-kral-red-ink);
+  background: transparent;
+  color: var(--color-kral-fg);
+}
+.sv2--themed .sv2-footer,
+.sv2--themed .sv2-cols,
+.sv2--themed .sv2-foot-meta {
+  border-color: var(--color-kral-rule);
+}
+.sv2--themed .sv2-footer {
+  background: var(--color-kral-bg);
+}
+.sv2--themed .sv2-muted,
+.sv2--themed .sv2-cols a {
+  color: var(--color-kral-muted);
+}
+.sv2--themed .sv2-label--tint {
+  color: var(--color-kral-red-ink);
+}
+.sv2--themed .sv2-cols a:hover,
+.sv2--themed .sv2-credit a:hover {
+  color: var(--color-kral-fg);
+}
+/* The cropped wordmark: Obsidian on Paper, Porcelain on Obsidian. */
+.sv2--themed .sv2-foot-mark {
+  fill: var(--color-kral-fg);
+}
+.dark .sv2--themed .sv2-foot-mark {
+  fill: var(--sv2-porcelain);
 }
 
 /* ---------- Breakpoints: 560, 768, 1024 ---------- */
@@ -1042,6 +1177,7 @@
 }
 @media (min-width: 768px) {
   .sv2-label,
+  .sv2-footer .sv2-label,
   .sv2-cols a {
     font-size: 0.6875rem;
   }

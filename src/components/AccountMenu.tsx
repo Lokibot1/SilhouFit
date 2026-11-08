@@ -10,28 +10,40 @@ import { LogOutIcon, MoonIcon, SettingsIcon, UserIcon } from './form/icons'
 import { Avatar } from './ui/Avatar'
 import { ThemeToggle } from './ThemeToggle'
 import { computePlace, LISTBOX_PANEL } from './ui/listbox'
+import { KRAL_ICON_BUTTON } from './ui/kralIconButton'
 import { Tooltip } from './ui/Tooltip'
 
 const PANEL_WIDTH = 256
 const ITEM = 'flex min-h-9 pointer-coarse:min-h-11 w-full items-center gap-2 px-3 text-base'
 const ITEM_LIVE = `${ITEM} cursor-pointer hover:bg-fg/10`
+const ITEM_KRAL = `${ITEM} cursor-pointer font-kral-mono tracking-[0.08em] uppercase transition-colors duration-150 ease-out motion-reduce:transition-none`
+const ITEM_KRAL_LIVE = `${ITEM_KRAL} text-kral-fg hover:bg-kral-fg hover:text-kral-bg focus-visible:bg-kral-fg focus-visible:text-kral-bg`
+const ITEM_KRAL_SOON = `${ITEM_KRAL} text-kral-muted`
+const PANEL_KRAL = 'fixed z-[85] flex flex-col overflow-hidden border border-kral-rule bg-kral-bg text-kral-fg'
 
 /**
  * The signed-in avatar as a button that opens a small panel with who is signed in and Sign out.
  * `profileTo` is where Profile goes; null shows it as coming soon, for an area with no profile page yet.
  * `onSignOut` runs just before the session ends. `themeSwitch` adds a Dark mode row with the theme switch.
+ * `tone="kral"` restyles the button and panel flat and square for the storefront pages (no theme row there).
  */
 export function AccountMenu({
   user,
   profileTo = '/profile',
   onSignOut,
   themeSwitch = false,
+  tone,
 }: {
   user: CurrentUser
   profileTo?: string | null
   onSignOut?: () => void
   themeSwitch?: boolean
+  tone?: 'kral'
 }) {
+  const kral = tone === 'kral'
+  const live = kral ? ITEM_KRAL_LIVE : ITEM_LIVE
+  const soon = kral ? ITEM_KRAL_SOON : `${ITEM_LIVE} text-fg-muted`
+  const separator = `my-1 h-px ${kral ? 'bg-kral-rule' : 'bg-line-strong'}`
   const toast = useToast()
   const navigate = useNavigate()
   const panelId = useId()
@@ -110,7 +122,7 @@ export function AccountMenu({
           aria-controls={open ? panelId : undefined}
           aria-label={`Account, ${user.name}`}
           onClick={() => setOpen((isOpen) => !isOpen)}
-          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl hover:bg-fg/10"
+          className={kral ? KRAL_ICON_BUTTON : 'flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl hover:bg-fg/10'}
         >
           <Avatar name={user.name} src={user.avatarUrl} initials={user.initials} size="sm" />
         </button>
@@ -128,27 +140,27 @@ export function AccountMenu({
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: DURATION.state, ease: EASE_OUT }}
               style={{ left: place.left, width: place.width, top: place.top, bottom: place.bottom }}
-              className={`${LISTBOX_PANEL} py-1`}
+              className={`${kral ? PANEL_KRAL : LISTBOX_PANEL} py-1`}
             >
               <div className="min-w-0 px-3 py-2">
-                <p className="truncate text-base font-semibold text-fg">{user.name}</p>
-                {user.email && <p className="truncate text-sm text-fg-muted">{user.email}</p>}
+                <p className={`truncate text-base font-semibold ${kral ? 'font-kral-mono text-kral-fg' : 'text-fg'}`}>{user.name}</p>
+                {user.email && <p className={`truncate text-sm ${kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted'}`}>{user.email}</p>}
               </div>
-              <div className="my-1 h-px bg-line-strong" role="separator" />
+              <div className={separator} role="separator" />
               {profileTo ? (
-                <Link to={profileTo} onClick={() => close(false)} className={ITEM_LIVE}>
+                <Link to={profileTo} onClick={() => close(false)} className={live}>
                   <UserIcon />
                   Profile
                 </Link>
               ) : (
-                <button type="button" aria-disabled="true" className={`${ITEM_LIVE} text-fg-muted`}>
+                <button type="button" aria-disabled="true" className={soon}>
                   <UserIcon />
                   Profile
                   <span className="ml-auto text-sm">Soon</span>
                 </button>
               )}
               {/* The settings page is still to do, so the row shows but does nothing yet. */}
-              <button type="button" aria-disabled="true" className={`${ITEM_LIVE} text-fg-muted`}>
+              <button type="button" aria-disabled="true" className={soon}>
                 <SettingsIcon />
                 Settings
                 <span className="ml-auto text-sm">Soon</span>
@@ -173,8 +185,8 @@ export function AccountMenu({
                   </span>
                 </div>
               )}
-              <div className="my-1 h-px bg-line-strong" role="separator" />
-              <button type="button" onClick={signOut} className={ITEM_LIVE}>
+              <div className={separator} role="separator" />
+              <button type="button" onClick={signOut} className={live}>
                 <LogOutIcon />
                 Sign out
               </button>

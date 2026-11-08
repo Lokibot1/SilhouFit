@@ -1,6 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
-import { Link } from 'react-router-dom'
-import { Logo } from './Logo'
+import { useEffect, useLayoutEffect, useRef, type MouseEvent } from 'react'
+import { SiteHeader } from './SiteHeader'
 import { WORDMARK } from './wordmark'
 
 const PAD = 60
@@ -8,20 +7,11 @@ const { width: W, height: H, letters } = WORDMARK
 // Far enough up that a retracted lid sits entirely above the letters.
 const LID_TRAVEL = H + 2 * PAD + 10
 
-const LINKS = [
-  { label: 'Shop', to: '/shop' },
-  { label: 'About', to: '/about' },
-  { label: 'Contact us', to: '/contact' },
-]
-
 /** Full-viewport hero: an Obsidian band whose KRAL(R) letters are cut out, so the photo stage behind shows through. */
 export function Hero() {
   const heroRef = useRef<HTMLElement>(null)
   const headerRef = useRef<HTMLElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
-  const navRef = useRef<HTMLElement>(null)
-  const menuRef = useRef<HTMLButtonElement>(null)
-  const [open, setOpen] = useState(false)
 
   // Entrance: each letter's lid retracts upward left to right, then the copy rises in. At "/" the page sits inert under the
   // intro loader, so the entrance waits until that wrapper is released; the copy stays hidden and the lids keep the band solid.
@@ -95,58 +85,9 @@ export function Hero() {
     titleRef.current?.focus({ preventScroll: true })
   }
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      setOpen(false)
-      menuRef.current?.focus()
-    }
-    const onDown = (e: PointerEvent) => {
-      if (!navRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onDown)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onDown)
-    }
-  }, [open])
-
   return (
     <>
-      <header ref={headerRef} className="sv2-header">
-        <div className="sv2-bar">
-          <Link to="/" className="sv2-logo" aria-label="KRAL home" onClick={toTop} data-rise="0">
-            <Logo className="sv2-logo-mark" />
-          </Link>
-          <nav ref={navRef} className="sv2-nav" aria-label="Page sections" data-rise="0">
-            <button
-              ref={menuRef}
-              type="button"
-              className="sv2-menu-btn"
-              aria-expanded={open}
-              aria-controls="sv2-links"
-              onClick={() => setOpen((o) => !o)}
-            >
-              Menu
-            </button>
-            <ul id="sv2-links" className="sv2-links" data-open={open || undefined} onClick={() => setOpen(false)}>
-              {LINKS.map(({ label, to }) => (
-                <li key={label}>
-                  <Link to={to}>{label}</Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-          <p className="sv2-tag" data-rise="1">
-            Because fit is what matters
-          </p>
-          <Link to="/shop" className="sv2-btn sv2-btn--red sv2-cta" data-rise="3">
-            <span aria-hidden="true">//</span> Try it on
-          </Link>
-        </div>
-      </header>
+      <SiteHeader ref={headerRef} landing onLogoClick={toTop} />
 
       <section ref={heroRef} className="sv2-hero" aria-label="KRAL introduction">
         <div className="sv2-stage">

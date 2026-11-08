@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ShopNavbar } from '../../src/components/ShopNavbar'
+import { SiteHeader } from '../../src/components/landing-v2/SiteHeader'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { clearCartCache } from '../../src/hooks/useCart'
@@ -40,7 +40,7 @@ function renderBar() {
       <ThemeProvider>
         <ToastProvider>
           <Where />
-          <ShopNavbar />
+          <SiteHeader />
         </ToastProvider>
       </ThemeProvider>
     </MemoryRouter>,

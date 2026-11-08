@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ShopNavbar } from '../../src/components/ShopNavbar'
+import { SiteHeader } from '../../src/components/landing-v2/SiteHeader'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import type { Product } from '../../src/data/products'
@@ -96,7 +96,7 @@ function renderPage(url = '/shop') {
     <MemoryRouter initialEntries={[url]}>
       <ThemeProvider>
         <ToastProvider>
-          <ShopNavbar />
+          <SiteHeader />
           <Where />
           <Routes>
             <Route path="/shop" element={<ShopPage />} />

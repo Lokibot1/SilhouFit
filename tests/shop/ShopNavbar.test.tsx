@@ -1,10 +1,10 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Layout } from '../../src/components/Layout'
-import { ShopNavbar } from '../../src/components/ShopNavbar'
+import { SiteHeader } from '../../src/components/landing-v2/SiteHeader'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { CookieConsentProvider } from '../../src/contexts/CookieConsentContext'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
@@ -88,7 +88,7 @@ function renderNavbar(url = '/shop') {
     <MemoryRouter initialEntries={[url]}>
       <ThemeProvider>
         <ToastProvider>
-          <ShopNavbar />
+          <SiteHeader />
           <Where />
           <input aria-label="Other field" />
           <div role="dialog" aria-label="Stub dialog">
@@ -132,8 +132,9 @@ describe('route selects the navbar', () => {
 
   it.each(['/cart', '/checkout', '/checkout/success'])('uses the shop bar on %s, without the search', (url) => {
     renderLayout(url)
-    expect(screen.getByRole('link', { name: /^Cart/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', `/login?next=${encodeURIComponent(url)}`)
+    const bar = within(screen.getByRole('banner')) // the footer has its own Cart and Sign in links
+    expect(bar.getByRole('link', { name: /^Cart/ })).toBeInTheDocument()
+    expect(bar.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', `/login?next=${encodeURIComponent(url)}`)
     expect(screen.getByRole('checkbox', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument()
     expect(screen.queryByRole('searchbox')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Open search' })).toBeNull()
@@ -148,10 +149,10 @@ describe('route selects the navbar', () => {
   })
 })
 
-describe('ShopNavbar', () => {
+describe('SiteHeader shop bar', () => {
   it('shows the brand and the theme toggle, with no About Us or Shop links', () => {
     renderNavbar()
-    expect(screen.getByRole('link', { name: /SilhouFit/ })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: /KRAL/ })).toHaveAttribute('href', '/')
     expect(screen.queryByRole('link', { name: 'About Us' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Shop' })).toBeNull()
     expect(screen.queryByRole('navigation', { name: 'Primary' })).toBeNull()
@@ -179,15 +180,15 @@ describe('ShopNavbar', () => {
     expect(screen.getByRole('button', { name: 'Account, Ana Reyes' })).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('links the logo to the landing page only when signed out', () => {
+  it('links the logo to the landing page whether signed in or out', () => {
     const { unmount } = renderNavbar()
-    expect(screen.getByRole('link', { name: /SilhouFit/ })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: /KRAL/ })).toHaveAttribute('href', '/')
     expect(screen.queryByRole('link', { name: 'Visit website' })).toBeNull()
     unmount()
 
     currentUser.mockReturnValue({ name: 'Ana Reyes' })
     renderNavbar()
-    expect(screen.queryByRole('link', { name: /SilhouFit/ })).toBeNull()
+    expect(screen.getByRole('link', { name: /KRAL/ })).toHaveAttribute('href', '/')
     expect(screen.getByRole('link', { name: 'Visit website' })).toHaveAttribute('href', '/')
   })
 
@@ -352,7 +353,7 @@ describe('ShopNavbar', () => {
     const empty = screen.getByRole('link', { name: 'Cart, 0 items' })
     expect(empty).toHaveAttribute('href', '/cart')
     expect(empty).not.toHaveAttribute('aria-current')
-    expect(empty.querySelector('span')).toBeNull() // no badge at zero
+    expect(empty).not.toHaveTextContent(/\d/) // no badge at zero
     unmount()
 
     syncCart([{ variantId: 'p01-m-navy', productId: 'p01', qty: 1 }])
