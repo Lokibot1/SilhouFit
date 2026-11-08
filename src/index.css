@@ -8,6 +8,23 @@
   --font-display: "League Spartan", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --font-ui: "Kumbh Sans", ui-sans-serif, system-ui, sans-serif;
+  /* KRAL (legal pages): extended heavy sans for headings, mono for labels and body. */
+  --font-kral-display: "Unbounded", ui-sans-serif, system-ui, sans-serif;
+  --font-kral-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+
+  /* KRAL palette. Raw swatches are fixed; the role colours flip with the theme. */
+  --color-kral-red: #cb1c2b;
+  --color-kral-red-press: #a81624;
+  --color-kral-obsidian: #161113;
+  --color-kral-graphite: #322d2f;
+  --color-kral-stonewash: #85807c;
+  --color-kral-porcelain: #eeeced;
+  --color-kral-paper: #fffbfd;
+  --color-kral-bg: var(--kral-bg);
+  --color-kral-fg: var(--kral-fg);
+  --color-kral-muted: var(--kral-muted);
+  --color-kral-rule: var(--kral-rule);
+  --color-kral-red-ink: var(--kral-red-ink);
 
   /* Elevation: floating panels (select, date range, listbox) and the sticky staff top bar. */
   --shadow-popover: 0 18px 36px -12px rgb(var(--shadow-key) / var(--shadow-b));
@@ -52,6 +69,11 @@
 }
 
 :root {
+  --kral-bg: #fffbfd;
+  --kral-fg: #161113;
+  --kral-muted: #5e5859; /* Stonewash fails 4.5:1 at small sizes on Paper, so text uses a darker tone */
+  --kral-rule: #85807c;
+  --kral-red-ink: #cb1c2b;
   --canvas: #f3f4f6;
   --canvas-sub: #e9ebef;
   --canvas-raised: var(--canvas);
@@ -161,6 +183,11 @@
 }
 
 .dark {
+  --kral-bg: #161113;
+  --kral-fg: #fffbfd;
+  --kral-muted: #b5b0ad;
+  --kral-rule: #322d2f;
+  --kral-red-ink: #ff6b76; /* red lightened so small red text clears 4.5:1 on Obsidian */
   --canvas: #0b0b0b;
   --canvas-sub: #141414;
   --fg: #ececec;
@@ -344,6 +371,30 @@
 }
 
 @layer utilities {
+  /* KRAL section index "(01)": counted by CSS so the copy stays untouched. */
+  .kral-counter {
+    counter-reset: kral-section;
+  }
+  .kral-index {
+    counter-increment: kral-section;
+  }
+  .kral-index::before {
+    content: "(" counter(kral-section, decimal-leading-zero) ")";
+  }
+
+  /* KRAL focus ring: square, red on Paper and the lightened red on Obsidian (>=3:1 on both). Set on the element itself
+     because the legal modal is portaled out of any page wrapper. */
+  .kral-focus:focus-visible {
+    outline: 2px solid var(--kral-red-ink);
+    outline-offset: 2px;
+    border-radius: 0;
+  }
+
+  /* KRAL grain of DESIGN.md: inline SVG noise (no image asset), dark specks on Paper, light specks on Obsidian. */
+  .kral-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
   .glass {
     background-color: rgb(var(--glass-tint) / var(--glass-fill));
     border: 1px solid rgb(var(--glass-edge) / var(--glass-edge-a));
