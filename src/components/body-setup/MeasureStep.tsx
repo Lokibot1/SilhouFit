@@ -1,8 +1,8 @@
 import { useState, type Ref } from 'react'
 import type { BodyModelId } from '../../service/bodyProfile'
-import { AlertIcon, CheckIcon, ChevronDownIcon } from '../form/icons'
+import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from '../form/icons'
 import { FloatingField } from '../form/FloatingField'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
+import { KRAL_CHIP, KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
 import { STEP_BODY, STEP_BODY_PINNED, STEP_FOOTER } from './stepLayout'
 import {
   formatValue,
@@ -22,10 +22,10 @@ export function Warnings({ items }: { items: string[] }) {
   return (
     <ul role="status" className="mt-4 space-y-2">
       {items.map((item) => (
-        <li key={item} className="flex items-start gap-2 text-base leading-snug text-fg">
-          <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
+        <li key={item} className="font-kral-mono flex items-start gap-2 text-base leading-snug text-kral-fg">
+          <AlertIcon size={20} className="mt-0.5 shrink-0 text-kral-red-ink" />
           <span>
-            <span className="font-semibold">Worth a second look. </span>
+            <span className="font-medium uppercase">Worth a second look. </span>
             {item}
           </span>
         </li>
@@ -75,6 +75,7 @@ function MeasureInput({ field, unit, value, onValue, onSubmit }: {
       }}
     >
       <FloatingField
+        tone="kral"
         id="measure-input"
         label={`${SPECS[field].label} (${label})`}
         value={text}
@@ -88,7 +89,7 @@ function MeasureInput({ field, unit, value, onValue, onSubmit }: {
           onValue(parsed?.ok ? parsed.value : undefined)
         }}
       />
-      <p className="mt-2 px-1 text-xs text-fg-muted tabular-nums">
+      <p className="font-kral-mono mt-2 px-1 text-base text-kral-muted tabular-nums md:text-sm">
         Typical range {formatValue(field, min, unit)} to {formatValue(field, max, unit)} {label}.
       </p>
     </form>
@@ -126,28 +127,28 @@ export function MeasureStep({
   return (
     <>
       <div className={`${STEP_BODY} ${STEP_BODY_PINNED}`}>
-        <p className="font-ui text-base text-fg-muted">{spec.required ? 'Required for AR try-on' : 'Optional'}</p>
-        <h2 ref={headingRef} tabIndex={-1} className="display mt-1 text-2xl text-fg outline-none">
+        <p className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">({spec.required ? 'Required for AR try-on' : 'Optional'})</p>
+        <h2 ref={headingRef} tabIndex={-1} className="font-kral-display mt-1 text-xl leading-[1.05] font-extrabold text-kral-fg uppercase outline-none sm:text-2xl">
           {spec.label}
         </h2>
-        <p className="mt-2 text-base leading-relaxed text-fg-muted">{spec.what}</p>
+        <p className="font-kral-mono mt-3 text-base leading-relaxed text-kral-muted">{spec.what}</p>
 
         {/* A phone keeps this folded so the field stays in view; from lg up it is always open. */}
-        <div className="mt-4 rounded-xl bg-fg/5 px-4">
-          <p className="font-ui pt-4 text-base font-semibold text-fg max-lg:hidden">How to measure</p>
+        <div className="mt-4 border border-kral-rule px-4">
+          <p className="font-kral-mono pt-4 text-base font-medium text-kral-fg uppercase max-lg:hidden">How to measure</p>
           <button
             type="button"
             aria-expanded={howOpen}
             aria-controls="measure-how-to"
             onClick={() => setHowOpenFor(howOpen ? null : field)}
-            className="font-ui flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 text-left text-base font-semibold text-fg lg:hidden"
+            className="kral-focus font-kral-mono flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 text-left text-base font-medium text-kral-fg uppercase lg:hidden"
           >
             How to measure
             <ChevronDownIcon className={howOpen ? 'rotate-180' : ''} />
           </button>
           <div id="measure-how-to" className={`pb-4 ${howOpen ? '' : 'max-lg:hidden'}`}>
-            <p className="mt-1 text-base leading-relaxed text-fg-muted">{howTo(field, model)}</p>
-            <p className="mt-2 text-base leading-relaxed text-fg-muted">
+            <p className="font-kral-mono mt-1 text-base leading-relaxed text-kral-muted">{howTo(field, model)}</p>
+            <p className="font-kral-mono mt-2 text-base leading-relaxed text-kral-muted">
               Use a soft, flexible tape and keep it snug, not tight.
               {spec.kind === 'length' || field === 'height' ? ' Ask someone to help hold the tape if you can.' : ''}
             </p>
@@ -155,7 +156,7 @@ export function MeasureStep({
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p id="unit-label" className="font-ui text-base text-fg-muted">
+          <p id="unit-label" className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">
             Units
           </p>
           <div role="group" aria-labelledby="unit-label" className="flex gap-2">
@@ -165,9 +166,7 @@ export function MeasureStep({
                 type="button"
                 aria-pressed={unit === option}
                 onClick={() => onUnit(option)}
-                className={`font-ui min-h-11 cursor-pointer rounded-xl px-4 text-base font-semibold tabular-nums ${
-                  unit === option ? 'bg-fg text-canvas' : 'glass-btn bg-fg/5 text-fg hover:bg-fg/10'
-                }`}
+                className={`${KRAL_CHIP} tabular-nums`}
               >
                 {option === 'metric' ? 'cm, kg' : 'in, lb'}
               </button>
@@ -182,7 +181,7 @@ export function MeasureStep({
             aria-expanded={listOpen}
             aria-controls="measure-list"
             onClick={() => setListOpen((open) => !open)}
-            className="font-ui flex min-h-11 cursor-pointer items-center gap-2 text-base font-semibold text-fg"
+            className="kral-focus font-kral-mono flex min-h-11 cursor-pointer items-center gap-2 text-base font-medium text-kral-fg uppercase md:text-xs md:tracking-[0.08em]"
           >
             <ChevronDownIcon className={listOpen ? 'rotate-180' : ''} />
             {done} of {fields.length} measurements entered
@@ -194,14 +193,12 @@ export function MeasureStep({
                   type="button"
                   aria-current={f === field ? 'step' : undefined}
                   onClick={() => onGo(i)}
-                  className={`font-ui flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-base text-fg ${
-                    f === field ? 'border-2 border-fg' : 'glass-btn bg-fg/5'
-                  }`}
+                  className={`${KRAL_CHIP} ${f === field ? 'border-kral-fg bg-kral-fg text-kral-bg hover:bg-kral-fg' : ''}`}
                 >
                   {entered[f] !== undefined ? (
-                    <CheckIcon size={16} className="text-success" />
+                    <CheckIcon size={16} />
                   ) : (
-                    <span aria-hidden="true" className="size-4 rounded-full border-2 border-fg-muted" />
+                    <span aria-hidden="true" className="size-4 border border-current" />
                   )}
                   {SPECS[f].label}
                   <span className="sr-only">
@@ -218,11 +215,13 @@ export function MeasureStep({
       <div className={STEP_FOOTER}>
         <MeasureInput key={`${field}-${unit}`} field={field} unit={unit} value={entered[field]} onValue={onValue} onSubmit={advance} />
         <div className="mt-3 flex flex-wrap justify-between gap-3 lg:mt-6">
-          <button type="button" onClick={onPrev} className={SECONDARY_BUTTON}>
+          <button type="button" onClick={onPrev} className={KRAL_SECONDARY}>
+            <ChevronLeftIcon size={16} />
             Back
           </button>
-          <button type="submit" form="measure-form" className={PRIMARY_BUTTON}>
+          <button type="submit" form="measure-form" className={KRAL_PRIMARY}>
             {fromReview ? 'Review answers' : index === fields.length - 1 ? 'Review' : 'Next'}
+            <ChevronRightIcon size={16} />
           </button>
         </div>
       </div>

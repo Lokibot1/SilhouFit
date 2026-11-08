@@ -39,7 +39,7 @@ function Figure({ model, build }: { model: BodyModelId; build: BodyBuildId }) {
   const right = [...left].reverse().map(([x, y]) => [2 * c - x, y])
   const points = [...left, ...right].map(([x, y]) => `${x.toFixed(1)},${y}`).join(' ')
   return (
-    <svg viewBox="0 0 80 160" aria-hidden="true" focusable="false" className="h-28 w-auto text-fg">
+    <svg viewBox="0 0 80 160" aria-hidden="true" focusable="false" className="h-28 w-auto text-kral-fg">
       <circle cx={c} cy="16" r="10" fill="currentColor" opacity="0.8" />
       <polygon points={points} fill="currentColor" opacity="0.8" strokeLinejoin="round" stroke="currentColor" strokeWidth="3" />
     </svg>
@@ -66,8 +66,8 @@ function OptionCards<T extends string>({ name, labelledBy, options, value, onCha
         return (
           <label
             key={option}
-            className={`glass-card relative flex min-h-11 cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-4 text-center has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-chrome-strong ${
-              selected ? 'border-fg' : 'border-transparent'
+            className={`relative flex min-h-11 cursor-pointer flex-col items-center gap-2 border p-4 text-center transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-kral-red-ink motion-reduce:transition-none ${
+              selected ? 'border-kral-fg bg-kral-fg/5 outline-1 -outline-offset-2 outline-kral-fg' : 'border-kral-rule hover:border-kral-fg hover:bg-kral-fg/5'
             }`}
           >
             <input
@@ -79,14 +79,14 @@ function OptionCards<T extends string>({ name, labelledBy, options, value, onCha
               className="sr-only"
             />
             {selected && (
-              <span className="font-ui absolute top-2 right-2 flex items-center gap-1 rounded-full bg-fg px-2 py-0.5 text-sm text-canvas">
+              <span className="font-kral-mono absolute top-2 right-2 flex items-center gap-1 bg-kral-fg px-2 py-0.5 text-sm text-kral-bg uppercase">
                 <CheckIcon size={16} />
                 Selected
               </span>
             )}
             {figure(option)}
-            <span className="font-ui text-base font-semibold text-fg">{label(option)}</span>
-            <span className="text-base leading-snug text-fg-muted">{text(option)}</span>
+            <span className="font-kral-mono text-base font-medium text-kral-fg uppercase">{label(option)}</span>
+            <span className="font-kral-mono text-base leading-snug text-kral-muted md:text-sm">{text(option)}</span>
           </label>
         )
       })}
@@ -104,10 +104,10 @@ interface StepProps<T> {
 export function ModelStep({ headingRef, headingId, value, onChange }: StepProps<BodyModelId>) {
   return (
     <>
-      <h2 id={headingId} ref={headingRef} tabIndex={-1} className="display text-2xl text-fg outline-none">
+      <h2 id={headingId} ref={headingRef} tabIndex={-1} className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase outline-none sm:text-2xl">
         Which body model would you like to use for your AR Fitting avatar?
       </h2>
-      <p className="mt-2 text-base leading-relaxed text-fg-muted">
+      <p className="font-kral-mono mt-3 text-base leading-relaxed text-kral-muted">
         This only picks the avatar you will see. It does not limit the clothing you can browse, try on or buy.
       </p>
       <div className="mt-6">
@@ -130,10 +130,10 @@ export function ModelStep({ headingRef, headingId, value, onChange }: StepProps<
 export function BuildStep({ headingRef, headingId, value, onChange, model }: StepProps<BodyBuildId> & { model: BodyModelId }) {
   return (
     <>
-      <h2 id={headingId} ref={headingRef} tabIndex={-1} className="display text-2xl text-fg outline-none">
+      <h2 id={headingId} ref={headingRef} tabIndex={-1} className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase outline-none sm:text-2xl">
         Which body build best describes you?
       </h2>
-      <p className="mt-2 text-base leading-relaxed text-fg-muted">
+      <p className="font-kral-mono mt-3 text-base leading-relaxed text-kral-muted">
         Your build only gives the preview a starting shape. Your tape measurements always decide the sizes, and the avatar
         never measures you.
       </p>

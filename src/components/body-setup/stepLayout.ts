@@ -4,4 +4,4 @@ export const STEP_BODY = 'max-lg:-mx-1 max-lg:min-h-0 max-lg:flex-1 max-lg:overf
 // The build and measurement steps are also pinned on desktop: the card matches the sticky avatar's height and only its options scroll.
 export const STEP_BODY_PINNED = 'lg:min-h-0 lg:flex-1 lg:overflow-y-auto'
 export const STEP_CARD_PINNED = 'lg:h-[calc(100svh-9rem)]'
-export const STEP_FOOTER = 'max-lg:shrink-0 max-lg:border-t max-lg:border-line max-lg:pt-3 lg:mt-6'
+export const STEP_FOOTER = 'max-lg:shrink-0 max-lg:border-t max-lg:border-kral-rule max-lg:pt-3 lg:mt-6'

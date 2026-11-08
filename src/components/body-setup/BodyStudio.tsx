@@ -20,7 +20,7 @@ const ROTATE_STEP = Math.PI / 8
 const SPIN_RAD_PER_S = (Math.PI * 2) / 14
 // A solid canvas backing and a muted-text outline keep the arrows 3:1 against both the chrome body and the page in either theme.
 const ROTATE_BUTTON =
-  'font-ui flex size-11 cursor-pointer items-center justify-center rounded-xl border-2 border-fg-muted bg-canvas/85 text-fg backdrop-blur-sm hover:border-fg hover:bg-canvas'
+  'kral-focus flex size-11 cursor-pointer items-center justify-center border border-kral-fg bg-kral-bg/85 text-kral-fg backdrop-blur-sm transition-colors duration-150 hover:bg-kral-bg motion-reduce:transition-none'
 
 interface BodyStudioProps {
   model: BodyModelId
@@ -417,12 +417,12 @@ export function BodyStudio({ model, build, cm, focus, reduced, autoRotate = fals
       <div ref={hostRef} className={`absolute inset-0 ${flat ? 'invisible' : ''}`} />
       {load === 'loading' && !flat && (
         <div role="status" aria-label="Loading the 3D body" className="absolute inset-0 flex animate-pulse items-center justify-center">
-          <SpinnerIcon size={20} className="text-fg-muted" />
+          <SpinnerIcon size={20} className="text-kral-muted" />
         </div>
       )}
       {flat && <StudioFlat focus={focus} unavailable={unavailable} onRetry={() => setAttempt((n) => n + 1)} />}
       {focus && (
-        <p className="font-ui absolute top-3 left-3 flex items-center gap-2 rounded-xl bg-canvas/80 px-3 py-1.5 text-base text-fg backdrop-blur-sm">
+        <p className="font-kral-mono absolute top-3 left-3 flex items-center gap-2 bg-kral-bg/85 px-3 py-1.5 text-base text-kral-fg backdrop-blur-sm">
           <RulerIcon size={16} />
           Measuring {SPECS[focus].label.toLowerCase()}
         </p>
@@ -430,7 +430,7 @@ export function BodyStudio({ model, build, cm, focus, reduced, autoRotate = fals
       {!flat && controls && (
         <div className="absolute inset-x-0 bottom-3 flex justify-center gap-3">
           {([-1, 1] as const).map((dir) => (
-            <Tooltip key={dir} label={dir < 0 ? 'Turn left' : 'Turn right'}>
+            <Tooltip key={dir} tone="kral" label={dir < 0 ? 'Turn left' : 'Turn right'}>
               <button
                 type="button"
                 aria-label={dir < 0 ? 'Rotate the body left' : 'Rotate the body right'}

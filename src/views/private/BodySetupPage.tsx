@@ -17,10 +17,11 @@ import { ReviewStep } from '../../components/body-setup/ReviewStep'
 import { SectionBoundary } from '../../components/body-setup/SectionBoundary'
 import { STEP_BODY, STEP_BODY_PINNED, STEP_CARD_PINNED, STEP_FOOTER } from '../../components/body-setup/stepLayout'
 import { StudioFlat, StudioFrame } from '../../components/body-setup/StudioFallback'
-import { AlertIcon, XIcon } from '../../components/form/icons'
-import { PROFILE_CARD, PROFILE_SHELL } from '../../components/profile/ProfileSkeleton'
+import { AlertIcon, ChevronLeftIcon, ChevronRightIcon, XIcon } from '../../components/form/icons'
+import { KRAL_BLOCK, KRAL_BODY, KRAL_PANEL } from '../../components/profile/profileKral'
+import { KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { useToast } from '../../components/toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
+import { KRAL_ICON_BUTTON } from '../../components/ui/kralIconButton'
 import { Tooltip } from '../../components/ui/Tooltip'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
@@ -40,11 +41,10 @@ const META_DESCRIPTION =
 const SKIP_TOAST = 'You can add your measurements any time from your profile.'
 // On a phone the studio takes about a quarter of what is visible (the keyboard shrinks it), so the field stays in view.
 const STUDIO_SIZE = 'h-[clamp(7rem,calc(var(--vvh,100dvh)*0.26),20rem)] lg:sticky lg:top-4 lg:h-[calc(100svh-9rem)]'
-const CARD = 'glass-card rounded-xl p-4 lg:p-8'
-const DISABLED_PRIMARY =
-  'disabled:cursor-not-allowed disabled:border-line-strong disabled:bg-fg/10 disabled:text-fg-muted disabled:opacity-100! disabled:hover:border-line-strong disabled:hover:bg-fg/10'
+const CARD = 'border border-kral-rule p-4 lg:p-8'
+const SHELL = 'mx-auto max-w-6xl px-6 pt-8 pb-24'
 const SKIP_LINK =
-  'font-ui flex min-h-11 shrink-0 cursor-pointer items-center rounded-xl px-3 text-base font-semibold whitespace-nowrap text-fg underline underline-offset-4 hover:text-chrome-strong'
+  'kral-focus font-kral-mono flex min-h-11 shrink-0 cursor-pointer items-center px-3 text-base font-medium whitespace-nowrap text-kral-fg uppercase underline underline-offset-4 hover:text-kral-red-ink md:text-xs md:tracking-[0.08em]'
 // A text field being typed in, where Escape belongs to the user: not a radio, checkbox or button.
 const TEXT_ENTRY = 'textarea, input:not([type="radio"], [type="checkbox"], [type="button"], [type="submit"], [type="reset"], [type="range"])'
 
@@ -60,16 +60,16 @@ type Load = { status: 'loading' } | { status: 'error'; kind: BodyProfileErrorKin
 
 function Skeleton({ onSkip }: { onSkip: () => void }) {
   return (
-    <div className={PROFILE_SHELL}>
-      <div className={PROFILE_CARD}>
+    <div className={SHELL}>
+      <div className={KRAL_PANEL}>
         <div role="status" aria-label="Loading your measurements" className="animate-pulse">
-          <div className="h-8 w-2/3 rounded-xl bg-line" />
-          <div className="mt-4 h-6 w-full rounded-xl bg-line" />
-          <div className="mt-2 h-6 w-1/2 rounded-xl bg-line" />
+          <div className={`h-8 w-2/3 ${KRAL_BLOCK}`} />
+          <div className={`mt-4 h-6 w-full ${KRAL_BLOCK}`} />
+          <div className={`mt-2 h-6 w-1/2 ${KRAL_BLOCK}`} />
         </div>
         <div className="mt-6 flex flex-wrap gap-3">
-          <div aria-hidden="true" className="h-11 w-36 animate-pulse rounded-xl bg-line-strong" />
-          <button type="button" onClick={onSkip} className={SECONDARY_BUTTON}>
+          <div aria-hidden="true" className={`h-11 w-36 animate-pulse ${KRAL_BLOCK}`} />
+          <button type="button" onClick={onSkip} className={KRAL_SECONDARY}>
             Skip for now
           </button>
         </div>
@@ -147,12 +147,12 @@ export function BodySetupPage() {
 
   if (load.status === 'error') {
     return (
-      <div className={PROFILE_SHELL}>
-        <div role="alert" className={`${PROFILE_CARD} flex items-start gap-3`}>
-          <AlertIcon size={20} className="mt-1 shrink-0 text-danger" />
+      <div className={SHELL}>
+        <div role="alert" className={`${KRAL_PANEL} flex items-start gap-3`}>
+          <AlertIcon size={20} className="mt-1 shrink-0 text-kral-red-ink" />
           <div className="min-w-0">
-            <h1 className="display text-2xl text-fg">We couldn&apos;t load your saved measurements.</h1>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+            <h1 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">We couldn&apos;t load your saved measurements.</h1>
+            <p className={`${KRAL_BODY} mt-3 max-w-xl`}>
               {load.kind === 'network'
                 ? 'The connection dropped before we got a response. Check your connection and try again.'
                 : load.kind === 'rate-limit'
@@ -166,11 +166,11 @@ export function BodySetupPage() {
                   setLoad({ status: 'loading' })
                   setAttempt((n) => n + 1)
                 }}
-                className={PRIMARY_BUTTON}
+                className={KRAL_PRIMARY}
               >
                 Try again
               </button>
-              <button type="button" onClick={skip} className={SECONDARY_BUTTON}>
+              <button type="button" onClick={skip} className={KRAL_SECONDARY}>
                 Skip for now
               </button>
             </div>
@@ -289,13 +289,15 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
 
   const nav = (next: () => void, canNext: boolean, hint?: string) => (
     <div className={STEP_FOOTER}>
-      {hint && !canNext && <p className="mb-3 text-sm text-fg-muted">{hint}</p>}
+      {hint && !canNext && <p className="font-kral-mono mb-3 text-base text-kral-muted md:text-sm">{hint}</p>}
       <div className="flex flex-wrap justify-between gap-3">
-        <button type="button" onClick={() => (fromReview ? backToReview() : go(step - 1))} disabled={step === 0 && !fromReview} className={`${SECONDARY_BUTTON} disabled:cursor-not-allowed disabled:opacity-50`}>
+        <button type="button" onClick={() => (fromReview ? backToReview() : go(step - 1))} disabled={step === 0 && !fromReview} className={KRAL_SECONDARY}>
+          <ChevronLeftIcon size={16} />
           Back
         </button>
-        <button type="button" onClick={fromReview ? backToReview : next} disabled={!canNext} className={`${PRIMARY_BUTTON} ${DISABLED_PRIMARY}`}>
+        <button type="button" onClick={fromReview ? backToReview : next} disabled={!canNext} className={KRAL_PRIMARY}>
           {fromReview ? 'Review answers' : 'Next'}
+          <ChevronRightIcon size={16} />
         </button>
       </div>
     </div>
@@ -351,19 +353,19 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
     <SectionBoundary
       fallback={(retry) => (
         <div role="alert" className="flex min-h-0 flex-1 flex-col justify-center">
-          <h2 className="display flex items-start gap-3 text-xl text-fg">
-            <AlertIcon size={20} className="mt-1 shrink-0 text-danger" />
+          <h2 className="font-kral-display flex items-start gap-3 text-xl leading-[1.05] font-extrabold text-kral-fg uppercase">
+            <AlertIcon size={20} className="mt-1 shrink-0 text-kral-red-ink" />
             This step could not be shown.
           </h2>
-          <p className="mt-3 text-base leading-relaxed text-fg-muted">
+          <p className={`${KRAL_BODY} mt-3`}>
             Something went wrong on this screen, not with your answers: they are kept in this tab. Try again, or skip for now and
             add your measurements later from your profile.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <button type="button" onClick={retry} className={PRIMARY_BUTTON}>
+            <button type="button" onClick={retry} className={KRAL_PRIMARY}>
               Try again
             </button>
-            <button type="button" onClick={onSkip} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={onSkip} className={KRAL_SECONDARY}>
               Skip for now
             </button>
           </div>
@@ -380,19 +382,19 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
       className="mx-auto flex max-w-6xl flex-col px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 max-lg:fixed max-lg:inset-x-0 max-lg:top-[var(--vvtop,0px)] max-lg:h-[var(--vvh,100dvh)] max-lg:overflow-y-auto lg:min-h-svh lg:pt-4 lg:pb-8"
     >
       <header className="flex flex-wrap items-center gap-x-3">
-        <h1 className="display text-xl text-fg max-sm:sr-only sm:flex-1">Avatar and measurements</h1>
-        <p role="status" aria-live="polite" className="font-ui text-base text-fg-muted tabular-nums max-sm:flex-1 sm:order-last sm:mt-3 sm:w-full">
+        <h1 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase max-sm:sr-only sm:flex-1">Avatar and measurements</h1>
+        <p role="status" aria-live="polite" className="font-kral-mono text-base text-kral-muted uppercase tabular-nums max-sm:flex-1 md:text-xs md:tracking-[0.08em] sm:order-last sm:mt-3 sm:w-full">
           Step {current} of {total}
         </p>
         <button type="button" onClick={onSkip} className={SKIP_LINK}>
           Skip for now
         </button>
-        <Tooltip label="Close and skip">
+        <Tooltip tone="kral" label="Close and skip">
           <button
             type="button"
             onClick={onSkip}
             aria-label="Close avatar setup and skip for now"
-            className="-mr-2 flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg-muted hover:text-fg"
+            className={`${KRAL_ICON_BUTTON} -mr-2`}
           >
             <XIcon />
           </button>
@@ -400,7 +402,7 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
       </header>
       <div aria-hidden="true" className="mt-1 flex shrink-0 gap-1 sm:mt-2">
         {Array.from({ length: total }, (_, i) => (
-          <span key={i} className={`h-1 flex-1 rounded-full ${i < current ? 'bg-fg' : 'bg-fg/15'}`} />
+          <span key={i} className={`h-1 flex-1 ${i < current ? 'bg-kral-fg' : 'bg-kral-fg/20'}`} />
         ))}
       </div>
 
@@ -426,11 +428,11 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
                 </StudioFrame>
               )}
             >
-              <Suspense fallback={<div className={`animate-pulse rounded-xl bg-line ${STUDIO_SIZE}`} />}>
+              <Suspense fallback={<div className={`animate-pulse ${KRAL_BLOCK} ${STUDIO_SIZE}`} />}>
                 <BodyStudio model={model ?? 'male'} build={build} cm={entered} focus={field} reduced={reduced} className={STUDIO_SIZE} />
               </Suspense>
             </SectionBoundary>
-            <p className="mt-1.5 text-sm leading-snug text-fg-muted lg:mt-2">
+            <p className="font-kral-mono mt-1.5 text-base leading-snug text-kral-muted md:text-sm lg:mt-2">
               Approximate preview. Enter your own tape measurements: the avatar does not measure you.
             </p>
           </div>
