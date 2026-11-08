@@ -1871,11 +1871,13 @@ a {
 
 /* The order receipt: a paper slip in both themes (light paper, dark ink), with a torn bottom edge of paper-coloured teeth. */
 .receipt {
-  --color-canvas-raised: #f6f4ef;
-  --color-fg: #1b1b1d;
-  --color-fg-muted: #57575c;
-  --color-line-strong: rgb(0 0 0 / 0.3);
-  filter: drop-shadow(0 12px 24px rgb(0 0 0 / 0.3));
+  --color-canvas-raised: var(--color-kral-porcelain);
+  --color-fg: var(--color-kral-obsidian);
+  --color-fg-muted: #5e5859;
+  --color-line-strong: rgb(22 17 19 / 0.4);
+}
+.dark .receipt {
+  --color-canvas-raised: var(--color-kral-paper);
 }
 .receipt-edge {
   height: 10px;

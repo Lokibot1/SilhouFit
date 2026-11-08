@@ -51,7 +51,7 @@ function draw(doc: jsPDF, order: PlacedOrder): number {
   }
 
   font(15, 'bold')
-  center('SilhouFit')
+  center('KRAL')
   font(8.5)
   center('Order receipt')
   y += 1
@@ -87,7 +87,7 @@ function draw(doc: jsPDF, order: PlacedOrder): number {
   if (order.note && plain(order.note)) detail('Your note', plain(order.note))
   rule()
   font(8.5)
-  center('Thank you for shopping at SilhouFit.')
+  center('Thank you for shopping at KRAL.')
   return y + MARGIN
 }
 
