@@ -3,7 +3,7 @@
 // ShopSkeleton is the route fallback (header included); ShopPage shows ProductGridSkeleton under its own header.
 import { useSearchParams } from 'react-router-dom'
 import { shopTitle } from '../../utils/productQuery'
-import { CartIcon } from '../form/icons'
+import { CartIcon, HeartIcon } from '../form/icons'
 import { ShopHeader } from './ShopHeader'
 
 // A one-line bar sized by the text classes it is given (the non-breaking space gives it the line height).
@@ -75,8 +75,10 @@ export function CardSkeletons({ list = false, count, tone }: { list?: boolean; c
 export function WishlistGridSkeleton() {
   return (
     <div role="status" aria-label="Loading your wishlist" className="animate-pulse">
-      <div className="h-9 w-full rounded-xl bg-line pointer-coarse:h-11" />
-      <CardSkeletons count={4} />
+      <div className="-mx-6 h-[165px] border-b border-kral-rule px-6 py-2 sm:h-[113px] md:h-[61px]">
+        <div className={`h-11 w-56 max-w-full ${KRAL_BLOCK}`} />
+      </div>
+      <CardSkeletons tone="kral" count={4} />
     </div>
   )
 }
@@ -85,7 +87,7 @@ export function WishlistGridSkeleton() {
 export function WishlistSkeleton() {
   return (
     <>
-      <ShopHeader title="Your wishlist" crumb="Wishlist" backToShop />
+      <ShopHeader tone="kral" title="Your wishlist" icon={<HeartIcon className="size-[1.1em]" />} crumb="Wishlist" backToShop />
       <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
         <WishlistGridSkeleton />
       </div>
