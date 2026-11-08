@@ -25,6 +25,8 @@ interface FloatingFieldProps {
   locked?: boolean
   /** Names the field in the password toggle's label ("Show <toggleLabel>"); defaults to "password". */
   toggleLabel?: string
+  /** 'kral' sets the field square and mono for the KRAL pages. */
+  tone?: 'kral'
 }
 
 export function FloatingField({
@@ -45,6 +47,7 @@ export function FloatingField({
   readOnly,
   locked,
   toggleLabel = 'password',
+  tone,
 }: FloatingFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [revealed, setRevealed] = useState(false)
@@ -53,7 +56,7 @@ export function FloatingField({
 
   return (
     <div
-      className={`field scroll-mt-28 ${prefix ? (compactPrefix ? 'field--prefix-compact' : 'field--prefix') : icon ? '' : 'field--plain'}`}
+      className={`field scroll-mt-28 ${tone === 'kral' ? 'field--kral' : ''} ${prefix ? (compactPrefix ? 'field--prefix-compact' : 'field--prefix') : icon ? '' : 'field--plain'}`}
       data-invalid={error ? '' : undefined}
       data-locked={locked ? '' : undefined}
     >
@@ -123,7 +126,7 @@ export function FloatingField({
       </div>
 
       {error && (
-        <p id={errorId} className="flex items-start gap-1.5 px-1 pt-1 text-xs leading-snug text-danger">
+        <p id={errorId} className={`flex items-start gap-1.5 px-1 pt-1 leading-snug text-danger ${tone === 'kral' ? 'font-kral-mono text-base md:text-sm' : 'text-xs'}`}>
           <AlertIcon className="mt-px size-3.5" />
           <span>{error}</span>
         </p>

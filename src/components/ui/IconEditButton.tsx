@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { PencilIcon } from '../form/icons'
 import { Tooltip } from './Tooltip'
 
+const KRAL_EDIT =
+  'kral-focus flex size-11 shrink-0 cursor-pointer items-center justify-center text-kral-fg transition-colors duration-150 ease-out hover:bg-kral-fg/10 disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60 motion-reduce:transition-none'
 const EDIT = 'flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg hover:text-chrome-strong disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60'
 
 interface IconEditButtonProps {
@@ -19,13 +21,15 @@ interface IconEditButtonProps {
   /** Reaches the button only; a link has nothing to refocus. */
   ref?: Ref<HTMLButtonElement>
   className?: string
+  /** 'kral' sets the button borderless and square for the KRAL pages. */
+  tone?: 'kral'
 }
 
 /** A pencil for any edit or change action: 44px target, named for assistive tech, hinted on hover and focus. */
-export function IconEditButton({ label, hint, to, onClick, disabled, ariaDisabled, ref, className = '' }: IconEditButtonProps) {
-  const classes = `${EDIT} ${className}`
+export function IconEditButton({ label, hint, to, onClick, disabled, ariaDisabled, ref, className = '', tone }: IconEditButtonProps) {
+  const classes = `${tone === 'kral' ? KRAL_EDIT : EDIT} ${className}`
   return (
-    <Tooltip label={hint ?? label}>
+    <Tooltip label={hint ?? label} tone={tone}>
       {to ? (
         <Link to={to} aria-label={label} className={classes}>
           <PencilIcon />

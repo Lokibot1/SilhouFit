@@ -10,12 +10,15 @@ interface CheckboxProps {
   /** Visible text beside the box; clicking it toggles too. */
   children?: ReactNode
   className?: string
+  /** 'kral' draws the square KRAL box. */
+  tone?: 'kral'
 }
 
 /** A 44px touch target around a 24px box that follows the theme. */
-export function Checkbox({ checked, onChange, label, disabled, children, className = '' }: CheckboxProps) {
+export function Checkbox({ checked, onChange, label, disabled, children, className = '', tone }: CheckboxProps) {
+  const kral = tone === 'kral'
   return (
-    <label className={`flex min-h-11 min-w-11 ${disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} items-center justify-center gap-2 text-fg ${className}`}>
+    <label className={`flex min-h-11 min-w-11 ${disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} items-center justify-center gap-2 ${kral ? 'text-kral-fg' : 'text-fg'} ${className}`}>
       <input
         type="checkbox"
         checked={checked}
@@ -24,7 +27,11 @@ export function Checkbox({ checked, onChange, label, disabled, children, classNa
         disabled={disabled}
         className="peer sr-only"
       />
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-md border-2 border-fg bg-canvas peer-checked:bg-fg peer-checked:text-canvas peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong">
+      <span className={`flex size-6 shrink-0 items-center justify-center border-2 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 ${
+          kral
+            ? 'border-kral-fg bg-kral-bg peer-checked:bg-kral-fg peer-checked:text-kral-bg peer-focus-visible:outline-kral-red-ink'
+            : 'rounded-md border-fg bg-canvas peer-checked:bg-fg peer-checked:text-canvas peer-focus-visible:outline-chrome-strong'
+        }`}>
         {checked && <CheckIcon size={16} />}
       </span>
       {children}

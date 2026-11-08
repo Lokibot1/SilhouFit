@@ -1224,6 +1224,80 @@
   }
 }
 
+/* KRAL variant of the outlined floating field (checkout): square outline in the foreground, mono type, red focus. */
+@layer components {
+  .field--kral .field__input {
+    border-radius: 0;
+    background-color: transparent;
+    color: var(--kral-fg);
+    font-family: var(--font-kral-mono);
+  }
+
+  .field--kral .field__input:-webkit-autofill {
+    -webkit-text-fill-color: var(--kral-fg);
+    caret-color: var(--kral-fg);
+    box-shadow: 0 0 0 100px var(--kral-bg) inset;
+  }
+
+  .field--kral .field__outline {
+    border-radius: 0;
+    border-color: var(--kral-fg);
+  }
+
+  .field--kral .field__outline legend {
+    font-family: var(--font-kral-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+
+  .field--kral .field__label {
+    color: var(--kral-muted);
+    font-family: var(--font-kral-mono);
+  }
+
+  .field--kral .field__input:is(:focus, :not(:placeholder-shown), :-webkit-autofill) ~ .field__label {
+    font-family: var(--font-kral-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+
+  .field--kral .field__box:hover .field__outline {
+    border-color: var(--kral-fg);
+  }
+
+  .field--kral .field__input:focus ~ .field__outline {
+    border-color: var(--kral-red-ink);
+  }
+
+  .field--kral .field__input:focus ~ .field__label {
+    color: var(--kral-red-ink);
+  }
+
+  .field--kral[data-invalid] .field__input ~ .field__outline {
+    border-color: var(--danger);
+  }
+
+  .field--kral[data-invalid] .field__input ~ .field__label {
+    color: var(--danger);
+  }
+
+  .field--kral .field__counter {
+    color: var(--kral-muted);
+    font-family: var(--font-kral-mono);
+    font-size: 12px;
+    opacity: 1;
+  }
+
+  .field--kral .field__action {
+    border-radius: 0;
+    color: var(--kral-muted);
+  }
+
+  .field--kral .field__action:hover {
+    color: var(--kral-fg);
+  }
+}
+
 /* Compact variant of the outlined floating field, for the staff and admin sheets and drawers. 44px and 16px on touch screens and phones
    (tap target, no iOS zoom), 36px and 14px on desktop. */
 @layer components {

@@ -17,6 +17,8 @@ const KRAL_BASE =
 export const KRAL_PRIMARY = `${KRAL_BASE} border border-kral-red bg-kral-red text-kral-paper not-disabled:not-aria-disabled:hover:border-kral-red-press not-disabled:not-aria-disabled:hover:bg-kral-red-press`
 /** 1px outline, transparent; hover fills with the foreground. */
 export const KRAL_SECONDARY = `${KRAL_BASE} border border-kral-fg bg-transparent text-kral-fg not-disabled:not-aria-disabled:hover:bg-kral-fg not-disabled:not-aria-disabled:hover:text-kral-bg`
+/** Destructive confirm: 1px outline in the red ink; hover fills with KRAL red. */
+export const KRAL_DANGER = `${KRAL_BASE} border border-kral-red-ink bg-transparent text-kral-red-ink not-disabled:not-aria-disabled:hover:border-kral-red not-disabled:not-aria-disabled:hover:bg-kral-red not-disabled:not-aria-disabled:hover:text-kral-paper`
 /** Filter and view chips: a softer outline; pressed is filled with the foreground. */
 export const KRAL_CHIP = `${KRAL_BASE} border border-kral-muted bg-transparent text-kral-fg hover:border-kral-fg hover:bg-kral-fg/10 aria-pressed:border-kral-fg aria-pressed:bg-kral-fg aria-pressed:text-kral-bg aria-pressed:hover:bg-kral-fg aria-[current=page]:border-kral-fg aria-[current=page]:bg-kral-fg aria-[current=page]:text-kral-bg aria-[current=page]:hover:bg-kral-fg`
 /** Text and price inputs in the filter panel. */

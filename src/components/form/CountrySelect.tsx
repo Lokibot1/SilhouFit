@@ -14,7 +14,7 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { searchCountries } from '../../utils/countrySearch'
 import { stripEmoji } from '../../utils/signUpValidation'
-import { computePlace, LISTBOX_LIST, LISTBOX_PANEL, optionRow } from '../ui/listbox'
+import { computePlace, KRAL_LISTBOX_PANEL, kralOptionRow, LISTBOX_LIST, LISTBOX_PANEL, optionRow } from '../ui/listbox'
 import { CheckIcon, ChevronDownIcon } from './icons'
 
 const SEARCH_MAX_LENGTH = 40
@@ -28,9 +28,10 @@ interface MenuProps {
   listboxId: string
   onSelect: (code: string) => void
   onClose: (refocus: boolean) => void
+  kral: boolean
 }
 
-function CountryMenu({ anchor, value, listboxId, onSelect, onClose }: MenuProps) {
+function CountryMenu({ anchor, value, listboxId, onSelect, onClose, kral }: MenuProps) {
   const reduced = useReducedMotion()
   const isPresent = useIsPresent()
   const panelRef = useRef<HTMLDivElement>(null)
@@ -126,7 +127,7 @@ function CountryMenu({ anchor, value, listboxId, onSelect, onClose }: MenuProps)
         top: place.top,
         bottom: place.bottom,
       }}
-      className={LISTBOX_PANEL}
+      className={kral ? KRAL_LISTBOX_PANEL : LISTBOX_PANEL}
     >
       <input
         type="text"
@@ -144,7 +145,11 @@ function CountryMenu({ anchor, value, listboxId, onSelect, onClose }: MenuProps)
         autoComplete="off"
         spellCheck={false}
         enterKeyHint="search"
-        className="h-11 shrink-0 border-b border-line bg-transparent px-3 text-base text-fg outline-none placeholder:text-fg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-chrome-strong"
+        className={`h-11 shrink-0 border-b bg-transparent px-3 text-base outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 ${
+          kral
+            ? 'font-kral-mono border-kral-rule text-kral-fg placeholder:text-kral-muted focus-visible:outline-kral-red-ink'
+            : 'border-line text-fg placeholder:text-fg-muted focus-visible:outline-chrome-strong'
+        }`}
       />
       <ul
         ref={listRef}
@@ -164,10 +169,10 @@ function CountryMenu({ anchor, value, listboxId, onSelect, onClose }: MenuProps)
               aria-selected={selected}
               onPointerMove={() => country.code !== active?.code && setActiveCode(country.code)}
               onClick={() => onSelect(country.code)}
-              className={optionRow(country.code === active?.code, selected)}
+              className={(kral ? kralOptionRow : optionRow)(country.code === active?.code, selected)}
             >
               <span className="min-w-0 flex-1 truncate">{country.name}</span>
-              <span className="font-ui shrink-0 text-sm text-fg-muted tabular-nums">
+              <span className={`shrink-0 text-sm tabular-nums ${kral ? 'font-kral-mono text-kral-muted' : 'font-ui text-fg-muted'}`}>
                 {country.code} {country.dial}
               </span>
               <span className="w-4 shrink-0">{selected && <CheckIcon />}</span>
@@ -176,7 +181,7 @@ function CountryMenu({ anchor, value, listboxId, onSelect, onClose }: MenuProps)
         })}
       </ul>
       {empty && (
-        <p role="status" className="px-3 py-4 text-base leading-snug text-fg-muted">
+        <p role="status" className={`px-3 py-4 text-base leading-snug ${kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted'}`}>
           {`No countries match "${debounced.trim()}". Try a different name or code, or clear the search.`}
         </p>
       )}
@@ -191,10 +196,13 @@ interface CountrySelectProps {
   value: string
   onChange: (code: string) => void
   disabled?: boolean
+  /** 'kral' sets the picker and its list flat and square for the KRAL pages. */
+  tone?: 'kral'
 }
 
 /** Calling-code picker: a button that opens a searchable listbox of every country. */
-export function CountrySelect({ id, value, onChange, disabled }: CountrySelectProps) {
+export function CountrySelect({ id, value, onChange, disabled, tone }: CountrySelectProps) {
+  const kral = tone === 'kral'
   const listboxId = useId()
   const [button, setButton] = useState<HTMLButtonElement | null>(null)
   const [open, setOpen] = useState(false)
@@ -224,7 +232,11 @@ export function CountrySelect({ id, value, onChange, disabled }: CountrySelectPr
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
         aria-label={`Country calling code: ${country.name} ${country.dial}`}
-        className="skeuo font-ui relative flex h-8 w-22 cursor-pointer items-center justify-center gap-1 rounded-md px-2 text-sm after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] disabled:cursor-progress"
+        className={`relative flex h-8 w-22 cursor-pointer items-center justify-center gap-1 px-2 text-sm after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] disabled:cursor-progress ${
+          kral
+            ? 'kral-focus font-kral-mono bg-kral-fg/10 text-kral-fg transition-colors duration-150 ease-out hover:bg-kral-fg/20 motion-reduce:transition-none'
+            : 'skeuo font-ui rounded-md'
+        }`}
       >
         <span>{country.code}</span>
         <span className="tabular-nums">{country.dial}</span>
@@ -241,6 +253,7 @@ export function CountrySelect({ id, value, onChange, disabled }: CountrySelectPr
               close(true)
             }}
             onClose={close}
+            kral={kral}
           />
         )}
       </AnimatePresence>

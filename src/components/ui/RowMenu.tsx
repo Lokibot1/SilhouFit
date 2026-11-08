@@ -3,13 +3,14 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { KebabIcon, TrashIcon } from '../form/icons'
-import { computePlace, LISTBOX_PANEL } from './listbox'
+import { computePlace, KRAL_LISTBOX_PANEL, LISTBOX_PANEL } from './listbox'
 import { Tooltip } from './Tooltip'
 
 const PANEL_WIDTH = 160
 
 /** A kebab button that opens a small menu holding a single destructive action (Remove). */
-export function RowMenu({ label, actionLabel, onAction }: { label: string; actionLabel: string; onAction: () => void }) {
+export function RowMenu({ label, actionLabel, onAction, tone }: { label: string; actionLabel: string; onAction: () => void; tone?: 'kral' }) {
+  const kral = tone === 'kral'
   const panelId = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -59,7 +60,7 @@ export function RowMenu({ label, actionLabel, onAction }: { label: string; actio
 
   return (
     <>
-      <Tooltip label="More actions">
+      <Tooltip label="More actions" tone={tone}>
         <button
           ref={buttonRef}
           type="button"
@@ -68,7 +69,9 @@ export function RowMenu({ label, actionLabel, onAction }: { label: string; actio
           aria-controls={open ? panelId : undefined}
           aria-label={label}
           onClick={() => setOpen((isOpen) => !isOpen)}
-          className="-mt-2 -mr-2 flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg-muted hover:bg-fg/10 hover:text-fg"
+          className={`-mt-2 -mr-2 flex size-11 shrink-0 cursor-pointer items-center justify-center ${
+            kral ? 'kral-focus text-kral-muted transition-colors duration-150 ease-out hover:bg-kral-fg/10 hover:text-kral-fg motion-reduce:transition-none' : 'rounded-xl text-fg-muted hover:bg-fg/10 hover:text-fg'
+          }`}
         >
           <KebabIcon />
         </button>
@@ -86,7 +89,7 @@ export function RowMenu({ label, actionLabel, onAction }: { label: string; actio
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: DURATION.state, ease: EASE_OUT }}
               style={{ left: place.left, width: place.width, top: place.top, bottom: place.bottom }}
-              className={`${LISTBOX_PANEL} p-1`}
+              className={`${kral ? KRAL_LISTBOX_PANEL : LISTBOX_PANEL} p-1`}
             >
               <button
                 type="button"
@@ -95,7 +98,11 @@ export function RowMenu({ label, actionLabel, onAction }: { label: string; actio
                   close(false)
                   onAction()
                 }}
-                className="flex min-h-9 pointer-coarse:min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-3 text-left text-base text-danger hover:bg-fg/10"
+                className={
+                  kral
+                    ? 'kral-focus font-kral-mono flex min-h-11 w-full cursor-pointer items-center gap-2 px-3 text-left text-base text-kral-red-ink uppercase hover:bg-kral-fg/10 md:text-xs md:tracking-[0.08em]'
+                    : 'flex min-h-9 pointer-coarse:min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-3 text-left text-base text-danger hover:bg-fg/10'
+                }
               >
                 <TrashIcon />
                 {actionLabel}
