@@ -28,31 +28,31 @@ export function CookieConsentBanner() {
       <div
         role="region"
         aria-label="Cookie notice"
-        className="glass-card glass-floating [--g-fill:1.2]! mx-auto flex max-w-3xl flex-col gap-4 rounded-xl px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+        className="mx-auto flex max-w-3xl flex-col gap-4 border border-kral-rule bg-kral-bg px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5"
       >
-        <p className="max-w-xl text-sm leading-relaxed text-fg-muted">
+        <p className="font-kral-mono max-w-xl text-base leading-relaxed text-kral-muted md:text-sm">
           We store your theme and cookie choice in your browser. No
           analytics or advertising cookies are set. See the{' '}
           <Link
             to="/cookie-policy"
-            className="underline decoration-chrome-strong decoration-2 underline-offset-2 hover:text-chrome-strong"
+            className="kral-focus text-kral-fg underline decoration-kral-red-ink decoration-2 underline-offset-2 hover:decoration-kral-fg"
           >
             cookie policy
           </Link>{' '}
           for details.
         </p>
-        <div className="flex shrink-0 gap-3">
+        <div className="flex shrink-0 gap-3 max-sm:*:flex-1">
           <button
             type="button"
             onClick={reject}
-            className="tap btn-lift justify-center bg-fg/5 hover:bg-fg/10 glass-btn font-ui rounded-full px-4 py-2 text-sm font-semibold text-fg hover:text-chrome-strong"
+            className="tap kral-focus font-kral-mono min-h-11 justify-center border border-kral-fg px-4 py-2 text-base font-medium tracking-[0.08em] text-kral-fg uppercase transition-colors duration-150 ease-out hover:bg-kral-fg hover:text-kral-bg motion-reduce:transition-none md:text-sm"
           >
             Reject
           </button>
           <button
             type="button"
             onClick={accept}
-            className="tap btn-lift justify-center font-ui rounded-full border-2 border-fg bg-fg px-4 py-2 text-sm font-semibold text-canvas hover:border-chrome-strong hover:bg-chrome-strong"
+            className="tap kral-focus font-kral-mono min-h-11 justify-center border border-kral-red bg-kral-red px-4 py-2 text-base font-medium tracking-[0.08em] text-kral-paper uppercase transition-colors duration-150 ease-out hover:border-kral-red-press hover:bg-kral-red-press motion-reduce:transition-none md:text-sm"
           >
             Accept
           </button>
