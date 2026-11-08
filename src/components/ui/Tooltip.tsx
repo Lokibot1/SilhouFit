@@ -14,10 +14,11 @@ interface BubbleProps {
   label: string
   anchor: HTMLElement
   wrap?: boolean
+  kral?: boolean
 }
 
 // Fixed to the viewport (rendered in a portal) so no ancestor clips it, and clamped inside the edges.
-function Bubble({ id, label, anchor, wrap }: BubbleProps) {
+function Bubble({ id, label, anchor, wrap, kral }: BubbleProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [place, setPlace] = useState({ left: -9999, top: 0 })
 
@@ -39,7 +40,11 @@ function Bubble({ id, label, anchor, wrap }: BubbleProps) {
       animate={{ opacity: 1, scale: 1, transition: FADE }}
       exit={{ opacity: 0, scale: 0.96, transition: FADE }}
       style={place}
-      className={`font-ui pointer-events-none fixed z-(--z-popover) ${wrap ? 'w-max max-w-[min(18rem,calc(100vw-1rem))]' : 'max-w-[calc(100vw-1rem)]'} rounded-xl bg-fg px-3 py-1.5 text-sm text-canvas shadow-[0_8px_20px_-8px_rgb(var(--shadow-key)/var(--shadow-b))]`}
+      className={`pointer-events-none fixed z-(--z-popover) ${wrap ? 'w-max max-w-[min(18rem,calc(100vw-1rem))]' : 'max-w-[calc(100vw-1rem)]'} ${
+        kral
+          ? 'font-kral-mono rounded-none bg-kral-fg px-3 py-1.5 text-xs tracking-[0.08em] text-kral-bg uppercase'
+          : 'font-ui rounded-xl bg-fg px-3 py-1.5 text-sm text-canvas shadow-[0_8px_20px_-8px_rgb(var(--shadow-key)/var(--shadow-b))]'
+      }`}
     >
       {label}
     </motion.div>,
@@ -55,6 +60,8 @@ interface TooltipProps {
   open?: boolean
   /** For a long explanation: the tip wraps at about 18rem instead of running in one line. */
   wrap?: boolean
+  /** Flat, square, mono tip for the KRAL pages. */
+  tone?: 'kral'
   children: ReactNode
 }
 
@@ -62,7 +69,7 @@ interface TooltipProps {
  * A hint for a control. Shows on mouse hover after a short delay and at once on keyboard focus; a touch tap never
  * shows it. Hides on leave, press, blur or Escape.
  */
-export function Tooltip({ label, describe = false, open: controlled, wrap, children }: TooltipProps) {
+export function Tooltip({ label, describe = false, open: controlled, wrap, tone, children }: TooltipProps) {
   const id = useId()
   const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null)
   const timer = useRef<number>(undefined)
@@ -103,7 +110,7 @@ export function Tooltip({ label, describe = false, open: controlled, wrap, child
       onBlur={hide}
     >
       {children}
-      <AnimatePresence>{open && anchor && <Bubble id={id} label={label} anchor={anchor} wrap={wrap} />}</AnimatePresence>
+      <AnimatePresence>{open && anchor && <Bubble id={id} label={label} anchor={anchor} wrap={wrap} kral={tone === 'kral'} />}</AnimatePresence>
     </span>
   )
 }

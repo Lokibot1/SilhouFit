@@ -42,3 +42,12 @@ export const optionRow = (active: boolean, selected: boolean) =>
   `flex min-h-9 pointer-coarse:min-h-11 cursor-pointer items-center gap-2 px-3 text-base ${active ? 'bg-fg/10' : ''} ${
     selected ? 'font-semibold' : ''
   }`
+
+// KRAL tone: square, flat, hairline in the foreground colour.
+export const KRAL_LISTBOX_PANEL =
+  'fixed z-[85] flex flex-col overflow-hidden rounded-none border border-kral-fg bg-kral-bg text-kral-fg'
+
+export const kralOptionRow = (active: boolean, selected: boolean) =>
+  `font-kral-mono flex min-h-11 cursor-pointer items-center gap-2 px-3 text-base uppercase md:min-h-9 md:text-xs md:tracking-[0.08em] ${active ? 'bg-kral-fg/10' : ''} ${
+    selected ? 'font-medium' : ''
+  }`

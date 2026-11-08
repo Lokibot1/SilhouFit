@@ -3,11 +3,13 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import { createPortal } from 'react-dom'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { CheckIcon, ChevronDownIcon, ChevronRightIcon } from '../form/icons'
-import { computePlace, LISTBOX_LIST, LISTBOX_PANEL, optionRow } from './listbox'
+import { computePlace, KRAL_LISTBOX_PANEL, kralOptionRow, LISTBOX_LIST, LISTBOX_PANEL, optionRow } from './listbox'
 
 const MIN_WIDTH = 176
 // Rough width of one label character plus the row's padding and check mark, so no option is ever truncated.
 const CHAR_PX = 8.6
+// Mono caps are wider (16px on phones).
+const KRAL_CHAR_PX = 10
 const ROW_EXTRA_PX = 64
 const TYPEAHEAD_MS = 500
 
@@ -93,15 +95,16 @@ interface MenuProps<T> {
   flyout?: ReactNode
   flyoutRow?: string
   onFlyoutEscape: () => void
+  kral: boolean
 }
 
-function Menu<T>({ anchor, options, value, active, listboxId, labelId, onHover, onSelect, onOutside, flyout, flyoutRow, onFlyoutEscape }: MenuProps<T>) {
+function Menu<T>({ anchor, options, value, active, listboxId, labelId, onHover, onSelect, onOutside, flyout, flyoutRow, onFlyoutEscape, kral }: MenuProps<T>) {
   const reduced = useReducedMotion()
   const isPresent = useIsPresent()
   const panelRef = useRef<HTMLDivElement>(null)
   const longest = Math.max(...options.map((option) => option.label.length))
   const place = (): ReturnType<typeof computePlace> =>
-    computePlace(anchor, Math.max(anchor.offsetWidth, MIN_WIDTH, longest * CHAR_PX + ROW_EXTRA_PX))
+    computePlace(anchor, Math.max(anchor.offsetWidth, MIN_WIDTH, longest * (kral ? KRAL_CHAR_PX : CHAR_PX) + ROW_EXTRA_PX))
   const [placed, setPlaced] = useState(place)
 
   useEffect(() => {
@@ -148,7 +151,7 @@ function Menu<T>({ anchor, options, value, active, listboxId, labelId, onHover, 
             top: placed.top,
             bottom: placed.bottom,
           }}
-          className={LISTBOX_PANEL}
+          className={kral ? KRAL_LISTBOX_PANEL : LISTBOX_PANEL}
         >
           <ul id={listboxId} role="listbox" aria-labelledby={labelId} className={LISTBOX_LIST}>
             {options.map((option, index) => {
@@ -161,7 +164,7 @@ function Menu<T>({ anchor, options, value, active, listboxId, labelId, onHover, 
                   aria-selected={selected}
                   onPointerMove={() => index !== active && onHover(index)}
                   onClick={() => onSelect(index)}
-                  className={optionRow(index === active, selected)}
+                  className={(kral ? kralOptionRow : optionRow)(index === active, selected)}
                 >
                   <span className="min-w-0 flex-1 whitespace-nowrap">{option.label}</span>
                   <span className="w-4 shrink-0">{selected && <CheckIcon />}</span>
@@ -191,10 +194,13 @@ interface SelectProps<T> {
   /** Shown before the value on the trigger only, e.g. "Sort: ". */
   triggerPrefix?: string
   className?: string
+  /** 'kral' restyles the trigger and list flat and square for the KRAL pages; unset leaves the skeuomorphic control. */
+  tone?: 'kral'
 }
 
 /** A select-only combobox: a button that opens a listbox. Focus stays on the button throughout. */
-export function Select<T extends string | number>({ label, value, options, onChange, triggerPrefix = '', className = '' }: SelectProps<T>) {
+export function Select<T extends string | number>({ label, value, options, onChange, triggerPrefix = '', className = '', tone }: SelectProps<T>) {
+  const kral = tone === 'kral'
   const listboxId = useId()
   const labelId = useId()
   const [button, setButton] = useState<HTMLButtonElement | null>(null)
@@ -314,7 +320,11 @@ export function Select<T extends string | number>({ label, value, options, onCha
         aria-activedescendant={open ? `${listboxId}-${active}` : undefined}
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={onKeyDown}
-        className={`skeuo font-ui flex min-h-9 pointer-coarse:min-h-11 max-md:min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-3 text-sm font-semibold ${className}`}
+        className={`${
+          kral
+            ? 'kral-focus font-kral-mono flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-none border border-kral-fg bg-transparent px-3 text-base font-medium text-kral-fg uppercase transition-colors duration-150 ease-out hover:bg-kral-fg/10 aria-expanded:bg-kral-fg/10 motion-reduce:transition-none md:text-xs md:tracking-[0.08em]'
+            : 'skeuo font-ui flex min-h-9 pointer-coarse:min-h-11 max-md:min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-3 text-sm font-semibold'
+        } ${className}`}
       >
         <span className="truncate">
           {/* Dropped on narrow phones so the value fits beside its neighbour; it names itself ("Price: low to high"). */}
@@ -338,6 +348,7 @@ export function Select<T extends string | number>({ label, value, options, onCha
             flyout={sub !== null ? options[sub].submenu?.(done) : undefined}
             flyoutRow={sub !== null ? `${listboxId}-${sub}` : undefined}
             onFlyoutEscape={done}
+            kral={kral}
           />
         )}
       </AnimatePresence>
