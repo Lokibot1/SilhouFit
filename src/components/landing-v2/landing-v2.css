@@ -1144,15 +1144,31 @@ a.sv2-logo:hover {
   padding: clamp(2.5rem, 6vw, 4rem) 0 1.5rem;
   border-top: 1px solid var(--sv2-line);
 }
+/* Footer top block: the link cluster on the left, the tagline on the right from 1024px. Its one hairline frames the wordmark. */
+.sv2-top {
+  padding-bottom: var(--sv2-gap-lg);
+  border-bottom: 1px solid var(--sv2-line);
+}
 .sv2-cols {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--sv2-gap-lg) var(--sv2-gap);
-  padding-bottom: var(--sv2-gap-lg);
-  border-bottom: 1px solid var(--sv2-line);
 }
 .sv2-cols h2 {
   margin-bottom: 0.5rem;
+}
+.sv2-social {
+  grid-column: 1 / -1; /* the logos and names wrap across the full row on phones */
+}
+.sv2-social ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.5rem;
+}
+.sv2-tagline {
+  display: none;
+  text-align: right;
+  line-height: 1.6;
 }
 .sv2-cols a {
   display: flex;
@@ -1167,6 +1183,43 @@ a.sv2-logo:hover {
 }
 .sv2-cols a:hover {
   color: var(--sv2-page-fg);
+}
+.sv2-cols .sv2-social a {
+  gap: 0.75rem;
+}
+.sv2-social-logo {
+  display: block;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+  transition: transform 0.18s ease-out;
+}
+.sv2-social-ink {
+  color: var(--sv2-page-fg);
+}
+.sv2-link-text {
+  padding-bottom: 2px;
+  background: linear-gradient(var(--color-kral-red-ink), var(--color-kral-red-ink)) left bottom / 0 1px no-repeat;
+  transition: background-size 0.18s ease-out;
+}
+.sv2-social a:hover .sv2-social-logo,
+.sv2-social a:focus-visible .sv2-social-logo {
+  transform: scale(1.12);
+}
+.sv2-social a:hover .sv2-link-text,
+.sv2-social a:focus-visible .sv2-link-text {
+  background-size: 100% 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv2-social-logo,
+  .sv2-link-text {
+    transition: none;
+  }
+  .sv2-social a:hover .sv2-social-logo,
+  .sv2-social a:focus-visible .sv2-social-logo {
+    transform: none;
+  }
 }
 .sv2-foot-mark {
   display: block;
@@ -1217,7 +1270,7 @@ a.sv2-logo:hover {
   color: var(--color-kral-fg);
 }
 .sv2--themed .sv2-footer,
-.sv2--themed .sv2-cols,
+.sv2--themed .sv2-top,
 .sv2--themed .sv2-foot-meta {
   border-color: var(--color-kral-rule);
 }
@@ -1235,6 +1288,9 @@ a.sv2-logo:hover {
 .sv2--themed .sv2-credit a:hover {
   color: var(--color-kral-fg);
 }
+.sv2--themed .sv2-social-ink {
+  color: var(--color-kral-fg);
+}
 /* The cropped wordmark: Obsidian on Paper, Porcelain on Obsidian. */
 .sv2--themed .sv2-foot-mark {
   fill: var(--color-kral-fg);
@@ -1249,9 +1305,6 @@ a.sv2-logo:hover {
   .sv2-cards,
   .sv2-quotes {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .sv2-cols {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .sv2-plate--lg figcaption {
     padding-right: 8rem; /* keeps text clear of the plate tag */
@@ -1272,6 +1325,16 @@ a.sv2-logo:hover {
   }
 }
 @media (min-width: 768px) {
+  .sv2-cols {
+    grid-template-columns: repeat(3, minmax(0, 13rem));
+    column-gap: 3.5rem;
+  }
+  .sv2-social {
+    grid-column: auto;
+  }
+  .sv2-social ul {
+    display: block;
+  }
   .sv2-label,
   .sv2-footer .sv2-label,
   .sv2-cols a {
@@ -1332,8 +1395,20 @@ a.sv2-logo:hover {
   .sv2-cards {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-  .sv2-cols {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+  .sv2-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--sv2-gap-lg);
+  }
+  .sv2-tagline {
+    display: block;
+  }
+}
+/* Mouse and trackpad: a tighter 34px row pitch. Touch keeps the 44px targets. */
+@media (min-width: 768px) and (pointer: fine) {
+  .sv2-cols a {
+    min-height: 34px;
   }
 }
 

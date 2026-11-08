@@ -1,7 +1,20 @@
 import { Link, type To } from 'react-router-dom'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
+import { SocialIcon, type SocialName } from './SocialIcons'
 import { WORDMARK } from './wordmark'
 
-type FooterLink = { label: string; to: To } | { label: string; href: string }
+type FooterLink = { label: string; to: To }
+
+const SIGNED_OUT_ONLY: FooterLink[] = [
+  { label: 'Login', to: '/login' },
+  { label: 'Sign up', to: '/signup' },
+]
+
+const PAGES: FooterLink[] = [
+  { label: 'Shop', to: '/shop' },
+  { label: 'About', to: '/about' },
+  { label: 'Contact us', to: '/contact' },
+]
 
 const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
@@ -13,55 +26,54 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
       { label: 'Cookie policy', to: '/cookie-policy' },
     ],
   },
-  {
-    title: 'Shop',
-    links: [
-      { label: 'Catalogue', to: '/shop' },
-      { label: 'Wishlist', to: '/wishlist' },
-      { label: 'Cart', to: '/cart' },
-    ],
-  },
-  {
-    title: 'Account',
-    links: [
-      { label: 'Sign in', to: '/login' },
-      { label: 'Create account', to: '/signup' },
-      { label: 'Body measurements', to: '/profile/measurements' },
-    ],
-  },
-  {
-    title: 'Studio',
-    links: [
-      { label: 'About', to: '/about' },
-      { label: 'Study in fit', to: { pathname: '/', hash: '#detail' } },
-      { label: 'Lookbook', to: { pathname: '/', hash: '#lookbook' } },
-    ],
-  },
-  {
-    title: 'Help',
-    links: [
-      { label: 'FAQ', to: { pathname: '/', hash: '#faq' } },
-      { label: 'Email the team', href: 'mailto:team@silhoufit.dev' },
-    ],
-  },
+]
+
+const SOCIALS: { name: SocialName; href: string }[] = [
+  { name: 'Facebook', href: 'https://www.facebook.com/share/1E2aLE2NCR/' },
+  { name: 'Shopee', href: 'https://ph.shp.ee/v9ZZMB9C' },
+  { name: 'TikTok', href: 'https://www.tiktok.com/@kralzurcstuff?_r=1&_t=ZS-9BEh1UUUEXE' },
+  { name: 'Instagram', href: 'https://www.instagram.com/kralzurcstuff?mdxt=MWNrdTFkbGF2N3JjNw==' },
+  { name: 'Lazada', href: 'https://s.lazada.com.ph/s.ZqNO6c' },
 ]
 
 export function SiteFooter() {
+  const signedIn = useCurrentUser() !== null
+  const columns = [...COLUMNS, { title: 'Pages', links: signedIn ? PAGES : [...PAGES, ...SIGNED_OUT_ONLY] }]
   return (
     <footer className="sv2-footer">
       <div className="sv2-wrap">
-        <nav aria-label="Footer" className="sv2-cols">
-          {COLUMNS.map((col) => (
-            <div key={col.title}>
-              <h2 className="sv2-label sv2-label--tint">({col.title})</h2>
+        <div className="sv2-top">
+          <nav aria-label="Footer" className="sv2-cols">
+            {columns.map((col) => (
+              <div key={col.title}>
+                <h2 className="sv2-label sv2-label--tint">({col.title})</h2>
+                <ul>
+                  {col.links.map((l) => (
+                    <li key={l.label}><Link to={l.to}><span className="sv2-link-text">{l.label}</span></Link></li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            <div className="sv2-social">
+              <h2 className="sv2-label sv2-label--tint">(Social)</h2>
               <ul>
-                {col.links.map((l) => (
-                  <li key={l.label}>{'href' in l ? <a href={l.href}>{l.label}</a> : <Link to={l.to}>{l.label}</Link>}</li>
+                {SOCIALS.map((s) => (
+                  <li key={s.name}>
+                    <a href={s.href} target="_blank" rel="noopener noreferrer" aria-label={`KRAL on ${s.name} (opens in a new tab)`}>
+                      <SocialIcon name={s.name} />
+                      <span className="sv2-link-text">{s.name}</span>
+                    </a>
+                  </li>
                 ))}
               </ul>
             </div>
-          ))}
-        </nav>
+          </nav>
+          <p className="sv2-label sv2-muted sv2-tagline">
+            Made to Represent //
+            <br />
+            Mark of Identity®
+          </p>
+        </div>
 
         <svg
           className="sv2-foot-mark"
