@@ -382,6 +382,14 @@ a.sv2-logo:hover {
 .sv2-cta {
   margin-left: auto;
 }
+.sv2-meta .sv2-name {
+  font-size: 1.35em;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--sv2-red-tint);
+  text-decoration: underline 2px var(--sv2-red);
+  text-underline-offset: 0.35em;
+}
 .sv2-mark {
   display: block;
   width: 100%;

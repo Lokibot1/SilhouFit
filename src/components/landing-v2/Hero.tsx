@@ -138,7 +138,7 @@ export function Hero() {
             Preview how a garment sits on your own body, right in the browser. No headset, no kiosk.
           </p>
           <p className="sv2-meta" data-rise="4">
-            <span>(Prototype // BSIT capstone)</span>
+            <span className="sv2-name">SilhouFit</span>
             <span>AR fit in your browser</span>
           </p>
         </div>
