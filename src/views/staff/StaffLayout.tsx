@@ -134,7 +134,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
     const copy = ERROR_COPY[state.kind]
     const missing = state.kind === 'not-found'
     return (
-      <main id="main-content" className="staff-shell grid min-h-svh place-items-center bg-canvas px-4 text-fg">
+      <main id="main-content" tabIndex={-1} className="outline-none staff-shell grid min-h-svh place-items-center bg-canvas px-4 text-fg">
         <SkipLink />
         <div role="alert" className="flex w-full max-w-xl items-start gap-3 rounded-xl border border-line bg-canvas-sub p-6 sm:p-8">
           <AlertIcon size={20} className="mt-1 shrink-0 text-danger" />
@@ -167,7 +167,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
       <div className="lg:flex">
         <StaffSidebar area={shellArea} collapsed={collapsed} />
         <div className="min-w-0 flex-1">
-          <main id="main-content" className={STAFF_MAIN}>
+          <main id="main-content" tabIndex={-1} className={`outline-none ${STAFF_MAIN}`}>
             <Suspense fallback={null}>
               <Outlet context={{ me, onSignOut: () => setLeaving(true) }} />
             </Suspense>
