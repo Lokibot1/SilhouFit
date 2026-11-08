@@ -1,14 +1,13 @@
 import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useTransform } from 'motion/react'
 import { useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BagIcon, CartIcon, ChevronDownIcon, FilterIcon, PaletteIcon, RulerIcon, StoreIcon, TrashIcon, UserIcon } from '../../components/form/icons'
+import { BagIcon, CartIcon, CheckIcon, ChevronDownIcon, FilterIcon, MinusIcon, PaletteIcon, PlusIcon, RulerIcon, StoreIcon, TrashIcon, UserIcon } from '../../components/form/icons'
 import { ConfirmDialog } from '../../components/admin/users/ConfirmDialog'
 import { ShopHeader } from '../../components/shop/ShopHeader'
 import { CartListSkeleton } from '../../components/shop/ShopSkeleton'
-import { SHOP_PRIMARY, SHOP_SECONDARY } from '../../components/shop/shopControls'
-import { OPTION_BASE } from '../../components/shop/SpecSheet'
+import { KRAL_CHIP, KRAL_DANGER, KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
+import { KRAL_LEGEND, KRAL_OPTION } from '../../components/shop/SpecSheet'
 import { useToast } from '../../components/toast/useToast'
-import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
 import { Checkbox } from '../../components/ui/Checkbox'
 import { Modal } from '../../components/ui/Modal'
 import { PhotoImg } from '../../components/ui/PhotoImg'
@@ -83,9 +82,9 @@ function SwipeRow({ onRemove, children }: { onRemove: () => void; children: Reac
         <motion.div
           aria-hidden="true"
           style={{ width: reveal }}
-          className="absolute inset-y-0 right-0 flex items-center justify-end overflow-hidden rounded-xl bg-danger text-white"
+          className="absolute inset-y-0 right-0 flex items-center justify-end overflow-hidden bg-kral-red text-kral-paper"
         >
-          <span className="font-ui flex items-center gap-2 px-4 text-sm font-semibold whitespace-nowrap">
+          <span className="font-kral-mono flex items-center gap-2 px-4 text-base font-medium whitespace-nowrap uppercase">
             <TrashIcon />
             Remove
           </span>
@@ -258,7 +257,7 @@ export function CartPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <ShopHeader ref={headingRef} title="Your cart" icon={<CartIcon className="size-[1.1em]" />} crumb="Cart" backToShop />
+      <ShopHeader tone="kral" ref={headingRef} title="Your cart" icon={<CartIcon className="size-[1.1em]" />} crumb="Cart" backToShop />
 
       <div className="mx-auto max-w-6xl px-6 pb-24 max-sm:pb-36 2xl:max-w-[88rem]">
         {ready && cart.lines.length === 0 && <EmptyCart signedIn={!!user} />}
@@ -266,13 +265,13 @@ export function CartPage() {
         {cart.status === 'loading' && <CartListSkeleton count={Math.min(cart.count || 1, 4)} />}
 
         {cart.status === 'error' && (
-          <div role="alert" className="glass-card rounded-xl p-6 sm:p-8">
-            <h2 className="display text-2xl text-fg">Your cart did not load</h2>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+          <div role="alert" className="border border-kral-rule p-6 sm:p-8">
+            <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">Your cart did not load</h2>
+            <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
               The request for stock and prices failed, most likely because the connection dropped or the service is briefly unavailable. The
               pieces in your cart are kept. Check your connection, then try again.
             </p>
-            <button type="button" onClick={cart.retry} className={`${PRIMARY_BUTTON} mt-6`}>
+            <button type="button" onClick={cart.retry} className={`${KRAL_PRIMARY} mt-6 w-fit`}>
               Try again
             </button>
           </div>
@@ -281,43 +280,44 @@ export function CartPage() {
         {ready && (
           <>
             {unbuyable > 0 && (
-              <p className="mt-2 text-sm text-fg-muted">
+              <p className="font-kral-mono mt-2 text-base text-kral-muted md:text-sm">
                 {unbuyable} selected {unbuyable === 1 ? 'piece cannot' : 'pieces cannot'} be bought: {unbuyable === 1 ? 'it' : 'they'} can
                 be removed and {unbuyable === 1 ? 'is' : 'are'} left out of the total.
               </p>
             )}
 
             {cart.lines.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line pb-3">
+              <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-kral-rule pb-3">
                 <Checkbox
+                  tone="kral"
                   checked={allSelected}
                   onChange={(on) => setSelected(on ? rows.map((row) => lineKey(row.line)) : [])}
                   label="Select all items"
-                  className="justify-start font-ui text-sm font-medium"
+                  className="font-kral-mono justify-start text-base font-medium uppercase md:text-xs md:tracking-[0.08em]"
                 >
                   Select all items
                 </Checkbox>
-                <p aria-live="polite" className="font-ui text-sm text-fg-muted tabular-nums">
+                <p aria-live="polite" className="font-kral-mono text-base text-kral-muted tabular-nums md:text-xs md:tracking-[0.08em]">
                   {chosen.length} selected
                 </p>
                 <button
                   type="button"
                   disabled={chosen.length === 0}
                   onClick={() => setConfirming(true)}
-                  className={`${SHOP_SECONDARY} ml-auto`}
+                  className={`${KRAL_SECONDARY} ml-auto`}
                 >
                   <TrashIcon />
                   Remove selected
                 </button>
                 {user && (
-                  <button type="button" onClick={() => setClearing(true)} className={SHOP_SECONDARY}>
+                  <button type="button" onClick={() => setClearing(true)} className={KRAL_SECONDARY}>
                     Clear cart
                   </button>
                 )}
               </div>
             )}
 
-            <ul className="divide-y divide-line">
+            <ul className="divide-y divide-kral-rule">
               <AnimatePresence initial={false} custom={leaving}>
                 {rows.map((row) => {
                   const { line, problem } = row
@@ -325,6 +325,7 @@ export function CartPage() {
                   const name = line.name
                   const picker = (
                     <Checkbox
+                      tone="kral"
                       checked={selected.includes(key)}
                       onChange={(on) => toggle(key, on)}
                       label={`Select ${name}`}
@@ -333,20 +334,20 @@ export function CartPage() {
                   )
                   if (problem) {
                     return (
-                      <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className={`-mx-3 rounded-xl px-3 py-5 ${selected.includes(key) ? 'bg-fg/10' : ''}`}>
+                      <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className={`-mx-3 px-3 py-5 ${selected.includes(key) ? 'bg-kral-fg/10' : ''}`}>
                         <SwipeRow onRemove={() => removeOne(row, 'collapse')}>
                         {picker}
-                        <div className="min-w-0 flex-1 rounded-xl border border-line-strong p-3">
+                        <div className="min-w-0 flex-1 border border-kral-rule p-3">
                           <div className="flex items-start justify-between gap-3">
-                            <p className="min-w-0 text-base font-semibold break-words text-fg">{line.name}</p>
+                            <p className="font-kral-display min-w-0 text-sm leading-tight font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase sm:text-base">{line.name}</p>
                             <div className="max-sm:sr-only max-sm:focus-within:not-sr-only">
-                              <RowMenu label={`More actions for ${name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
+                              <RowMenu tone="kral" label={`More actions for ${name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
                             </div>
                           </div>
-                          <p className="mt-1 text-sm text-danger">{problem}</p>
-                          <p className="mt-1 text-sm text-fg-muted">It is left out of the total and the count.</p>
+                          <p className="font-kral-mono mt-1 text-base font-medium text-danger md:text-sm">{problem}</p>
+                          <p className="font-kral-mono mt-1 text-base text-kral-muted md:text-sm">It is left out of the total and the count.</p>
                           {line.active && (
-                            <button type="button" onClick={() => openEditor(row)} className={`${SHOP_SECONDARY} mt-2`}>
+                            <button type="button" onClick={() => openEditor(row)} className={`${KRAL_SECONDARY} mt-2 max-w-full whitespace-normal! text-center`}>
                               Choose size and colour
                             </button>
                           )}
@@ -358,33 +359,34 @@ export function CartPage() {
                   const unit = line.unitPrice
                   const qty = buyableQty(line)
                   return (
-                    <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className={`-mx-3 rounded-xl px-3 py-5 ${selected.includes(key) ? 'bg-fg/10' : ''}`}>
+                    <motion.li key={key} variants={ROW_VARIANTS} exit="exit" className={`-mx-3 px-3 py-5 ${selected.includes(key) ? 'bg-kral-fg/10' : ''}`}>
                       <SwipeRow onRemove={() => removeOne(row, 'collapse')}>
                       {picker}
                       <PhotoImg
+                        tone="kral"
                         src={line.image}
                         alt={line.name}
-                        className="photo-mono h-20 w-16 shrink-0 sm:h-24 sm:w-18 rounded-md border border-line object-cover"
+                        className="photo-mono h-20 w-16 shrink-0 object-cover sm:h-24 sm:w-18"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
-                          <h2 className="min-w-0 text-base leading-snug font-semibold break-words text-fg">{line.name}</h2>
+                          <h2 className="font-kral-display min-w-0 text-sm leading-snug font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase sm:text-base">{line.name}</h2>
                           <div className="max-sm:sr-only max-sm:focus-within:not-sr-only">
-                            <RowMenu label={`More actions for ${line.name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
+                            <RowMenu tone="kral" label={`More actions for ${line.name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
                           </div>
                         </div>
                         <button
                           type="button"
                           aria-label={`Change variation of ${line.name}, currently ${variantLabel(line.size, line.color)}`}
                           onClick={() => openEditor(row)}
-                          className="font-ui mt-1 inline-flex min-h-8 max-w-full cursor-pointer items-center gap-1.5 rounded-md border border-line px-2 text-sm text-fg-muted hover:text-fg pointer-coarse:min-h-11"
+                          className={`${KRAL_CHIP} mt-1 h-auto w-fit max-w-full py-2 text-left whitespace-normal!`}
                         >
-                          <span className="truncate">
+                          <span className="min-w-0 [overflow-wrap:anywhere]">
                             {variantLabel(line.size, line.color)}
                           </span>
                           <ChevronDownIcon size={16} className="shrink-0" />
                         </button>
-                        <p className="mt-0.5 text-sm text-fg-muted tabular-nums">{formatPeso(unit)} each</p>
+                        <p className="font-kral-mono mt-0.5 text-base text-kral-muted tabular-nums md:text-sm">{formatPeso(unit)} each</p>
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                           <div role="group" aria-label={`Quantity of ${line.name}`} className="flex items-center gap-2">
                             <button
@@ -392,11 +394,11 @@ export function CartPage() {
                               aria-label={`Decrease quantity of ${line.name}`}
                               disabled={qty <= 1}
                               onClick={() => cart.setQty(key, qty - 1)}
-                              className={`${SHOP_SECONDARY} size-9 pointer-coarse:size-11 px-0`}
+                              className={`${KRAL_SECONDARY} size-11 px-0`}
                             >
-                              −
+                              <MinusIcon />
                             </button>
-                            <output aria-live="polite" className="font-ui min-w-6 text-center text-base font-semibold text-fg tabular-nums">
+                            <output aria-live="polite" className="font-kral-mono min-w-6 text-center text-base font-medium text-kral-fg tabular-nums">
                               {qty}
                             </output>
                             <button
@@ -404,12 +406,12 @@ export function CartPage() {
                               aria-label={`Increase quantity of ${line.name}`}
                               disabled={qty >= line.stock}
                               onClick={() => cart.setQty(key, qty + 1)}
-                              className={`${SHOP_SECONDARY} size-9 pointer-coarse:size-11 px-0`}
+                              className={`${KRAL_SECONDARY} size-11 px-0`}
                             >
-                              +
+                              <PlusIcon />
                             </button>
                           </div>
-                          <p className="text-right text-base font-semibold text-fg tabular-nums">
+                          <p className="font-kral-mono text-right text-base font-medium text-kral-fg tabular-nums">
                             <span className="sr-only">Line total </span>
                             {formatPeso(unit * qty)}
                           </p>
@@ -425,14 +427,14 @@ export function CartPage() {
             {cart.lines.length > 0 && (
               <>
                 {/* Fixed to the bottom of the screen on phones; sticky from sm up. Either way the total and Checkout stay in reach. */}
-                <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-canvas/85 px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:inset-x-auto sm:z-10 sm:-mx-6 sm:mt-4 sm:pb-2">
+                <div className="fixed inset-x-0 bottom-0 z-30 border-t border-kral-rule bg-kral-bg/90 px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:inset-x-auto sm:z-10 sm:-mx-6 sm:mt-4 sm:pb-2">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
                     <div className="flex w-full items-center justify-between gap-3 sm:ml-auto sm:w-auto">
-                      <p className="font-ui text-right tabular-nums">
-                        <span className="text-sm text-fg-muted">Total ({plural(count)}) </span>
-                        <span className="text-xl font-semibold text-fg">{formatPeso(total)}</span>
+                      <p className="font-kral-mono text-right tabular-nums">
+                        <span className="text-base text-kral-muted md:text-sm">Total ({plural(count)}) </span>
+                        <span className="text-xl font-medium text-kral-fg">{formatPeso(total)}</span>
                       </p>
-                      <button type="button" onClick={checkout} disabled={count === 0} className={`${SHOP_PRIMARY} shrink-0`}>
+                      <button type="button" onClick={checkout} disabled={count === 0} className={`${KRAL_PRIMARY} shrink-0`}>
                         <CartIcon />
                         Checkout
                       </button>
@@ -455,21 +457,22 @@ export function CartPage() {
           />
         )}
 
-        <ConfirmDialog open={clearing} title="Clear your cart?" confirmLabel="Clear cart" pending={clearPending} onConfirm={() => void clearAll()} onClose={() => setClearing(false)}>
+        <ConfirmDialog tone="kral" open={clearing} title="Clear your cart?" confirmLabel="Clear cart" pending={clearPending} onConfirm={() => void clearAll()} onClose={() => setClearing(false)}>
           Every piece in your cart is removed, including any that are sold out or no longer in the shop. You can undo this right after.
         </ConfirmDialog>
 
-        <Modal open={confirming} onClose={() => setConfirming(false)} title="Are you sure?">
-          <p className="pb-5 text-base leading-relaxed text-fg-muted">
+        <Modal open={confirming} onClose={() => setConfirming(false)} title="Are you sure?" tone="kral">
+          <p className="font-kral-mono pb-5 text-base leading-relaxed text-kral-muted">
             {chosen.length === 1
               ? 'This removes the selected piece from your cart.'
               : `This removes the ${chosen.length} selected pieces from your cart.`}
           </p>
           <div className="flex flex-col-reverse gap-2 pb-5 sm:flex-row sm:justify-end">
-            <button type="button" onClick={() => setConfirming(false)} className={SHOP_PRIMARY}>
+            <button type="button" onClick={() => setConfirming(false)} className={KRAL_PRIMARY}>
               Cancel
             </button>
-            <button type="button" onClick={removeChosen} className={SHOP_SECONDARY}>
+            <button type="button" onClick={removeChosen} className={KRAL_DANGER}>
+              <TrashIcon />
               Remove {plural(chosen.length)}
             </button>
           </div>
@@ -513,46 +516,48 @@ function VariationModal({
       title="Change variation"
       icon={<FilterIcon />}
       variant="sheet-left"
+      tone="kral"
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className={SHOP_SECONDARY}>
+          <button type="button" onClick={onClose} className={KRAL_SECONDARY}>
             Cancel
           </button>
-          <button type="button" disabled={!size || !color || !changed || unavailable} onClick={() => onSave(size, color)} className={SHOP_PRIMARY}>
+          <button type="button" disabled={!size || !color || !changed || unavailable} onClick={() => onSave(size, color)} className={KRAL_PRIMARY}>
+            <CheckIcon />
             Update variation
           </button>
         </div>
       }
     >
-      <div className="mb-5 flex gap-4 rounded-xl border border-line bg-fg/5 p-3">
-        <PhotoImg src={product.image} alt={product.alt} className="photo-mono h-32 w-24 shrink-0 rounded-md border border-line object-cover" />
+      <div className="mb-5 flex gap-4 border border-kral-rule p-3">
+        <PhotoImg tone="kral" src={product.image} alt={product.alt} className="photo-mono h-32 w-24 shrink-0 object-cover" />
         <div className="min-w-0 flex-1">
-          <p className="font-ui truncate text-xs tracking-[0.16em] text-fg-muted uppercase">
+          <p className="font-kral-mono truncate text-xs tracking-[0.08em] text-kral-muted uppercase">
             {product.category} · {product.boutique}
           </p>
-          <h3 className="mt-1 text-lg leading-tight font-semibold break-words text-fg">{product.name}</h3>
-          <p className="mt-2 flex flex-wrap gap-x-2 text-base font-semibold text-fg tabular-nums">
+          <h3 className="font-kral-display mt-1 text-lg leading-tight font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase">{product.name}</h3>
+          <p className="font-kral-mono mt-2 flex flex-wrap gap-x-2 text-base font-medium text-kral-fg tabular-nums">
             {product.salePrice !== undefined && (
               <>
                 <span className="sr-only">Original price </span>
-                <s className="font-normal text-fg-muted">{formatPeso(product.price)}</s>
+                <s className="font-normal text-kral-muted">{formatPeso(product.price)}</s>
                 <span className="sr-only">Sale price </span>
               </>
             )}
             <span>{formatPeso(product.salePrice ?? product.price)}</span>
           </p>
-          <p className="mt-1 text-sm text-fg-muted tabular-nums">
+          <p className="font-kral-mono mt-1 text-base text-kral-muted tabular-nums md:text-sm">
             Quantity {line.qty}
             {(line.size || line.color) && <> · Now {variantLabel(line.size, line.color)}</>}
           </p>
         </div>
       </div>
-      {unavailable && <p className="pb-5 text-sm text-danger">That size and colour is not available. Choose another.</p>}
+      {unavailable && <p className="font-kral-mono pb-5 text-base text-danger md:text-sm">That size and colour is not available. Choose another.</p>}
       <fieldset className="pb-5">
-        <legend className="font-ui text-xs font-semibold tracking-[0.12em] text-fg uppercase">
+        <legend className={KRAL_LEGEND}>
           <PaletteIcon size={16} className="mr-2 -mt-0.5 inline align-middle" />
           Colour
-          <span className="font-normal text-fg-muted">{color ? `: ${color}` : ' (required)'}</span>
+          <span className="font-normal text-kral-muted">{color ? `: ${color}` : ' (required)'}</span>
         </legend>
         <div className="mt-3 flex flex-wrap gap-2">
           {product.colors.map((c) => (
@@ -565,8 +570,8 @@ function VariationModal({
                 onChange={() => setColor(c.name)}
                 className="peer sr-only"
               />
-              <span data-checked={color === c.name} className={OPTION_BASE}>
-                <span aria-hidden="true" className="size-3 rounded-full border border-fg-muted" style={{ backgroundColor: c.hex }} />
+              <span data-checked={color === c.name} className={KRAL_OPTION}>
+                <span aria-hidden="true" className="size-3 border border-kral-muted" style={{ backgroundColor: c.hex }} />
                 {c.name}
               </span>
             </label>
@@ -574,10 +579,10 @@ function VariationModal({
         </div>
       </fieldset>
       <fieldset className="pb-5">
-        <legend className="font-ui text-xs font-semibold tracking-[0.12em] text-fg uppercase">
+        <legend className={KRAL_LEGEND}>
           <RulerIcon size={16} className="mr-2 -mt-0.5 inline align-middle" />
           Size
-          <span className="font-normal text-fg-muted">{size ? `: ${size}` : ' (required)'}</span>
+          <span className="font-normal text-kral-muted">{size ? `: ${size}` : ' (required)'}</span>
         </legend>
         <div className="mt-3 flex flex-wrap gap-2">
           {sizesFor(product).map((s) => (
@@ -590,7 +595,7 @@ function VariationModal({
                 onChange={() => setSize(s)}
                 className="peer sr-only"
               />
-              <span data-checked={size === s} className={`${OPTION_BASE} min-w-8 pointer-coarse:min-w-11 tabular-nums`}>
+              <span data-checked={size === s} className={`${KRAL_OPTION} min-w-11 tabular-nums`}>
                 {s}
               </span>
             </label>
@@ -610,19 +615,19 @@ function EmptyCart({ signedIn }: { signedIn: boolean }) {
       transition={{ duration: DURATION.state, ease: EASE_OUT, delay: 0.15 }}
       className="mx-auto flex max-w-xl flex-col items-center px-2 py-12 text-center sm:py-16"
     >
-      <span aria-hidden="true" className="text-fg-muted">
+      <span aria-hidden="true" className="text-kral-muted">
         <BagIcon className="size-14" />
       </span>
-      <h2 className="display mt-4 text-2xl text-fg">Your cart is currently empty</h2>
-      <p className="mt-3 text-base leading-relaxed text-fg-muted">
+      <h2 className="font-kral-display mt-4 text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">Your cart is currently empty</h2>
+      <p className="font-kral-mono mt-3 text-base leading-relaxed text-kral-muted">
         {signedIn ? 'Add items to place an order.' : 'Log in to add items and place an order.'}
       </p>
-      <Link to="/shop" className={`${SHOP_PRIMARY} mt-6 w-full max-w-xs`}>
+      <Link to="/shop" className={`${KRAL_PRIMARY} mt-6 w-full max-w-xs`}>
         <StoreIcon />
         Shop now
       </Link>
       {!signedIn && (
-        <Link to="/login?next=%2Fcart" className={`${SHOP_SECONDARY} mt-2 w-full max-w-xs`}>
+        <Link to="/login?next=%2Fcart" className={`${KRAL_SECONDARY} mt-2 w-full max-w-xs`}>
           <UserIcon />
           Log in
         </Link>

@@ -93,27 +93,33 @@ export function WishlistSkeleton() {
   )
 }
 
-/** The cart page's rows and its bottom bar, under its own header. */
+/** The cart page's select-all bar, rows and bottom bar, under its own header. Same text classes and 44px controls as the loaded rows. */
 export function CartListSkeleton({ count = 2 }: { count?: number }) {
   return (
     <div role="status" aria-label="Loading your cart" className="animate-pulse">
-      <ul className="mt-4 divide-y divide-line">
+      <div className="mt-4 h-[57px] border-b border-kral-rule">
+        <div className={`h-11 w-56 max-w-full ${KRAL_BLOCK}`} />
+      </div>
+      <ul className="divide-y divide-kral-rule">
         {Array.from({ length: count }, (_, i) => (
-          <li key={i} className="flex items-center gap-2 py-5 sm:gap-3">
-            <div className="-ml-2.5 flex size-11 shrink-0 items-center justify-center sm:ml-0">
-              <div className="size-6 rounded-md bg-line-strong" />
+          <li key={i} className="-mx-3 flex gap-2 px-3 py-5 sm:gap-3">
+            <div className="-ml-2.5 flex size-11 shrink-0 items-center justify-center self-center sm:ml-0">
+              <div className={`size-6 ${KRAL_BLOCK}`} />
             </div>
-            <div className="h-20 w-16 shrink-0 rounded-xl bg-line-strong sm:h-24 sm:w-18" />
+            <div className={`h-20 w-16 shrink-0 sm:h-24 sm:w-18 ${KRAL_BLOCK}`} />
             <div className="min-w-0 flex-1">
-              <Bar className="w-1/2 text-base leading-snug" />
-              <Bar className="mt-0.5 w-1/3 text-sm" />
-              <Bar className="mt-0.5 w-1/4 text-sm" />
-              <div className="mt-2 h-9 w-32 rounded-xl bg-line-strong pointer-coarse:h-11" />
+              <Bar kral className="font-kral-display w-1/2 text-sm leading-snug font-extrabold sm:text-base" />
+              <div className={`mt-1 h-11 w-32 ${KRAL_BLOCK}`} />
+              <Bar kral className="font-kral-mono mt-0.5 w-1/4 text-base md:text-sm" />
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <div className={`h-11 w-32 ${KRAL_BLOCK}`} />
+                <Bar kral className="font-kral-mono w-20 text-base" />
+              </div>
             </div>
           </li>
         ))}
       </ul>
-      <div className="mt-6 h-14 rounded-xl bg-line" />
+      <div className={`mt-4 h-[61px] ${KRAL_BLOCK}`} />
     </div>
   )
 }
@@ -122,7 +128,7 @@ export function CartListSkeleton({ count = 2 }: { count?: number }) {
 export function CartSkeleton() {
   return (
     <>
-      <ShopHeader title="Your cart" icon={<CartIcon className="size-[1.1em]" />} crumb="Cart" backToShop />
+      <ShopHeader tone="kral" title="Your cart" icon={<CartIcon className="size-[1.1em]" />} crumb="Cart" backToShop />
       <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
         <CartListSkeleton />
       </div>
