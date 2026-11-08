@@ -1,13 +1,19 @@
 // Mirrors the loaded product page: same grid, same photo ratio, same text classes in the panel.
 import { ShopHeader } from './ShopHeader'
 
+// KRAL blocks are flat and square: Porcelain on Paper, Graphite on Obsidian.
+const BLOCK = 'bg-kral-porcelain dark:bg-kral-graphite'
+
 // A one-line bar sized by the text classes it is given (the non-breaking space gives it the line height).
-const Bar = ({ className = '' }: { className?: string }) => <div className={`rounded-xl bg-line ${className}`}>&nbsp;</div>
+const Bar = ({ className = '' }: { className?: string }) => <div className={`${BLOCK} ${className}`}>&nbsp;</div>
+
+// Same label size as the loaded legends: 16px on phones, 12px from md.
+const LEGEND = 'font-kral-mono w-28 text-base md:text-xs'
 
 const OptionRow = ({ count, width }: { count: number; width: string }) => (
   <div className="mt-2 flex flex-wrap gap-2">
     {Array.from({ length: count }, (_, i) => (
-      <div key={i} className={`h-8 rounded-xl bg-line-strong pointer-coarse:h-11 max-lg:h-11 ${width}`} />
+      <div key={i} className={`h-11 ${BLOCK} ${width}`} />
     ))}
   </div>
 )
@@ -20,8 +26,10 @@ export const PRODUCT_GRID =
 // Below lg the details scroll inside the screen (the photo takes what is left) and the actions stay pinned under them.
 export const PRODUCT_PANEL =
   'contents lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-3 lg:[@media(min-height:800px)]:gap-4 lg:[@media(min-height:900px)]:gap-6'
+// The details read as hairline rows, like a hang tag: a rule between groups, the first one flush with the top.
+export const PRODUCT_DETAILS = 'divide-y divide-kral-rule [&>*]:py-3 [&>:first-child]:pt-0 lg:[&>*]:py-4'
 export const PRODUCT_ACTIONS =
-  '-mx-6 flex shrink-0 flex-col gap-2 border-t border-line bg-canvas px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-lg:grid max-lg:grid-cols-2 lg:m-0 lg:gap-3 lg:border-0 lg:bg-transparent lg:p-0'
+  '-mx-6 flex shrink-0 flex-col gap-2 border-t border-kral-rule bg-kral-bg px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-lg:grid max-lg:grid-cols-2 lg:m-0 lg:gap-3 lg:border-0 lg:bg-transparent lg:p-0'
 
 export function ProductSkeleton() {
   return (
@@ -32,48 +40,47 @@ export function ProductSkeleton() {
     >
       <div className="mx-auto flex min-h-0 w-full flex-1 items-center gap-2 max-lg:min-h-28 max-lg:justify-center lg:h-full lg:flex-none lg:flex-col lg:gap-0">
         <div className="flex w-full justify-center max-lg:contents lg:min-h-0 lg:flex-1">
-          <div className="aspect-4/5 h-full w-auto max-w-full rounded-xl bg-line-strong" />
+          <div className={`aspect-4/5 h-full w-auto max-w-full ${BLOCK}`} />
         </div>
         <div className="flex shrink-0 gap-2 p-1 max-lg:order-first max-lg:flex-col lg:mt-3 lg:p-0">
           {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="aspect-4/5 w-11 rounded-xl bg-line-strong lg:w-20" />
+            <div key={i} className={`aspect-4/5 w-11 ${BLOCK} lg:w-20`} />
           ))}
         </div>
       </div>
 
       <div className={PRODUCT_PANEL}>
-        <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:[@media(min-height:800px)]:gap-4 lg:[@media(min-height:900px)]:gap-6">
+        <div className={`flex flex-col lg:min-h-0 lg:flex-1 ${PRODUCT_DETAILS}`}>
         <div className="flex flex-col gap-2 max-lg:flex-row max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1">
-          <Bar className="font-ui w-1/2 text-xs max-lg:hidden" />
+          <Bar className="font-kral-mono w-1/2 text-xs max-lg:hidden" />
           <div className="flex items-start justify-between gap-6 max-lg:basis-full">
-            <Bar className="w-2/3 text-2xl leading-tight" />
-            <Bar className="w-28 text-2xl" />
+            <Bar className="w-2/3 text-lg leading-[1.05] lg:text-xl" />
+            <Bar className="w-28 text-lg lg:text-xl" />
           </div>
-          <Bar className="w-32 text-sm" />
-          <Bar className="font-ui w-32 text-sm" />
+          <Bar className="font-kral-mono w-32 text-sm" />
         </div>
         <div>
-          <Bar className="font-ui w-28 text-xs" />
+          <Bar className={LEGEND} />
           <OptionRow count={2} width="w-24" />
         </div>
         <div>
-          <Bar className="font-ui w-28 text-xs" />
-          <OptionRow count={5} width="w-10" />
+          <Bar className={LEGEND} />
+          <OptionRow count={5} width="w-11" />
         </div>
         <div>
-          <Bar className="font-ui w-24 text-xs" />
+          <Bar className={`${LEGEND} w-24`} />
           <div className="mt-3 flex items-center gap-2 max-lg:mt-0">
-            <div className="size-8 rounded-xl bg-line-strong pointer-coarse:size-11 max-lg:size-11" />
-            <div className="h-5 w-6 rounded-xl bg-line" />
-            <div className="size-8 rounded-xl bg-line-strong pointer-coarse:size-11 max-lg:size-11" />
+            <div className={`size-11 ${BLOCK}`} />
+            <div className={`h-5 w-6 ${BLOCK}`} />
+            <div className={`size-11 ${BLOCK}`} />
           </div>
         </div>
         </div>
         <div className={PRODUCT_ACTIONS}>
-          <div className="h-12 rounded-xl bg-line-strong max-lg:order-2 max-lg:h-11" />
+          <div className={`h-11 ${BLOCK} max-lg:order-2`} />
           <div className="flex flex-col gap-2 max-lg:contents sm:flex-row sm:gap-3">
-            <div className="h-12 flex-1 rounded-xl bg-line-strong max-lg:order-1 max-lg:col-span-2 max-lg:h-11" />
-            <div className="h-12 flex-1 rounded-xl bg-line-strong max-lg:order-3 max-lg:h-11" />
+            <div className={`h-11 flex-1 ${BLOCK} max-lg:order-1 max-lg:col-span-2`} />
+            <div className={`h-11 flex-1 ${BLOCK} max-lg:order-3`} />
           </div>
         </div>
       </div>
@@ -86,7 +93,7 @@ export function ProductRouteSkeleton() {
   return (
     <>
       <div className={PRODUCT_SCREEN}>
-        <ShopHeader title="Loading the piece" crumb="Product" backToShop compact />
+        <ShopHeader tone="kral" title="Loading the piece" crumb="Product" backToShop compact />
         <div className={PRODUCT_BODY}>
           <ProductSkeleton />
         </div>
