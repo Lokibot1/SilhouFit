@@ -1,15 +1,14 @@
 import { MotionConfig } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BagIcon, CartIcon, HeartIcon, SparkleIcon, StoreIcon, XIcon } from '../../components/form/icons'
+import { BagIcon, CartIcon, HeartIcon, SparkleIcon, StoreIcon, TrashIcon, XIcon } from '../../components/form/icons'
 import { ProductCard } from '../../components/shop/ProductCard'
 import { ShopHeader } from '../../components/shop/ShopHeader'
 import { WishlistGridSkeleton } from '../../components/shop/ShopSkeleton'
-import { SHOP_PRIMARY, SHOP_SECONDARY } from '../../components/shop/shopControls'
+import { KRAL_DANGER, KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { SpecSheet, type Choice } from '../../components/shop/SpecSheet'
 import { useToast } from '../../components/toast/useToast'
 import { ConfirmDialog } from '../../components/admin/users/ConfirmDialog'
-import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
 import type { Product } from '../../data/products'
 import { useCart } from '../../hooks/useCart'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
@@ -167,13 +166,15 @@ export function WishlistPage() {
   return (
     <MotionConfig reducedMotion="user">
       <ShopHeader
+        tone="kral"
         ref={headingRef}
         title="Your wishlist"
+        icon={<HeartIcon className="size-[1.1em]" />}
         crumb="Wishlist"
         backToShop
         summary={
           idsReady && products.status === 'success' ? (
-            <p className="font-ui text-sm text-fg-muted tabular-nums">{plural(saved.length)} saved</p>
+            <p className="font-kral-mono text-sm text-kral-muted tabular-nums">{plural(saved.length)} saved</p>
           ) : undefined
         }
       />
@@ -182,13 +183,13 @@ export function WishlistPage() {
         {(wishlist.status === 'loading' || (idsReady && products.status === 'loading')) && <WishlistGridSkeleton />}
 
         {(wishlist.status === 'error' || (idsReady && products.status === 'error')) && (
-          <div role="alert" className="glass-card rounded-xl p-6 sm:p-8">
-            <h2 className="display text-2xl text-fg">Your wishlist did not load</h2>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+          <div role="alert" className="border border-kral-rule p-6 sm:p-8">
+            <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">Your wishlist did not load</h2>
+            <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
               {wishlist.status === 'error' ? 'The request for your saved pieces' : 'The request for stock and prices'} failed, most likely because the connection dropped or the service is
               briefly unavailable. Your saved pieces are kept. Check your connection, then try again.
             </p>
-            <button type="button" onClick={wishlist.status === 'error' ? wishlist.retry : products.retry} className={`${PRIMARY_BUTTON} mt-6`}>
+            <button type="button" onClick={wishlist.status === 'error' ? wishlist.retry : products.retry} className={`${KRAL_PRIMARY} mt-6 w-fit`}>
               Try again
             </button>
           </div>
@@ -198,30 +199,30 @@ export function WishlistPage() {
 
         {idsReady && products.status === 'success' && saved.length > 0 && (
           <>
-            {/* Sticks just under the navbar (its 64px height) so the actions stay in reach while scrolling a long list. */}
+            {/* Sticks just under the navbar (its 64px height) from sm up, so the actions stay in reach while scrolling a long list. */}
             <div
               role="toolbar"
               aria-label="Wishlist actions"
-              className="sticky top-[calc(4rem+var(--site-header-extra,0px))] z-10 -mx-6 flex flex-wrap items-center gap-2 border-b border-line bg-canvas/85 px-6 py-2 backdrop-blur-md sm:gap-3"
+              className="z-10 -mx-6 flex flex-wrap items-center gap-2 border-b border-kral-rule bg-kral-bg/90 px-6 py-2 backdrop-blur-md sm:sticky sm:top-[calc(4rem+var(--site-header-extra,0px))] sm:gap-3"
             >
               <button
                 type="button"
                 onClick={() => setSelected(allSelected ? [] : saved.map((p) => p.id))}
-                className={SHOP_SECONDARY}
+                className={KRAL_SECONDARY}
               >
                 {allSelected ? 'Clear selection' : 'Select all'}
               </button>
-              <p aria-live="polite" className="font-ui text-sm text-fg-muted tabular-nums">
+              <p aria-live="polite" className="font-kral-mono text-base text-kral-muted tabular-nums md:text-xs md:tracking-[0.08em]">
                 {chosen.length} selected
               </p>
-              {/* A row of three on phones (a shorter label, the full name kept for screen readers); inline from sm. */}
-              <div className="grid w-full grid-cols-3 gap-2 sm:ml-auto sm:flex sm:w-auto sm:gap-3">
+              {/* A 2x2 grid on phones (a shorter label on Add to cart, the full name kept for screen readers); one row from sm. */}
+              <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:gap-3">
                 <button
                   type="button"
                   disabled={buyable.length === 0}
                   aria-label="Add to cart"
                   onClick={() => start('cart', chosen)}
-                  className={`${SHOP_SECONDARY} min-w-0 gap-1.5 whitespace-nowrap max-sm:px-2 max-sm:text-xs`}
+                  className={`${KRAL_SECONDARY} min-w-0 px-2 max-md:tracking-normal sm:px-4`}
                 >
                   <CartIcon size={16} />
                   <span className="max-sm:hidden">Add to cart</span>
@@ -233,7 +234,7 @@ export function WishlistPage() {
                   type="button"
                   disabled={buyable.length === 0}
                   onClick={() => start('buy', chosen)}
-                  className={`${SHOP_PRIMARY} min-w-0 gap-1.5 whitespace-nowrap max-sm:px-2 max-sm:text-xs`}
+                  className={`${KRAL_PRIMARY} min-w-0 px-2 max-md:tracking-normal sm:px-4`}
                 >
                   <BagIcon size={16} />
                   Buy
@@ -242,18 +243,19 @@ export function WishlistPage() {
                   type="button"
                   disabled={chosen.length === 0}
                   onClick={() => remove(chosen)}
-                  className={`${SHOP_SECONDARY} min-w-0 gap-1.5 whitespace-nowrap max-sm:px-2 max-sm:text-xs`}
+                  className={`${KRAL_SECONDARY} min-w-0 px-2 max-md:tracking-normal sm:px-4`}
                 >
                   <XIcon size={16} />
                   Remove
                 </button>
+                <button type="button" onClick={() => setClearing(true)} className={`${KRAL_DANGER} min-w-0 px-2 max-md:tracking-normal sm:px-4`}>
+                  <TrashIcon size={16} />
+                  Clear all
+                </button>
               </div>
-              <button type="button" onClick={() => setClearing(true)} className={`${SHOP_SECONDARY} max-sm:w-full`}>
-                Clear all
-              </button>
             </div>
             {chosen.length > buyable.length && (
-              <p className="mt-2 text-sm text-fg-muted">
+              <p className="font-kral-mono mt-2 text-base text-kral-muted md:text-sm">
                 {plural(chosen.length - buyable.length)} selected {chosen.length - buyable.length === 1 ? 'is' : 'are'} sold out: they can be removed but not added or bought.
               </p>
             )}
@@ -262,6 +264,7 @@ export function WishlistPage() {
               {saved.map((product, index) => (
                 <li key={product.id} className="min-w-0">
                   <ProductCard
+                    tone="kral"
                     product={product}
                     index={index}
                     saved
@@ -277,12 +280,13 @@ export function WishlistPage() {
           </>
         )}
 
-        <ConfirmDialog open={clearing} title="Clear your wishlist?" confirmLabel="Clear wishlist" pending={false} onConfirm={clearAll} onClose={() => setClearing(false)}>
+        <ConfirmDialog tone="kral" open={clearing} title="Clear your wishlist?" confirmLabel="Clear wishlist" pending={false} onConfirm={clearAll} onClose={() => setClearing(false)}>
           Every piece you saved is removed from your wishlist, including any that are sold out or no longer in the shop. You can undo this right after.
         </ConfirmDialog>
 
         {flow && sheetProduct && (
           <SpecSheet
+            tone="kral"
             open={sheetOpen}
             onClose={() => setSheetOpen(false)}
             product={sheetProduct}
@@ -306,21 +310,21 @@ function EmptyWishlist({ name }: { name?: string }) {
   const target = inCart ? `/shop?${new URLSearchParams({ category: inCart })}` : '/shop?sort=newest'
   return (
     <div className="mx-auto flex max-w-xl flex-col items-center px-2 py-12 text-center sm:py-16">
-      <span aria-hidden="true" className="text-fg-muted">
+      <span aria-hidden="true" className="text-kral-muted">
         <HeartIcon className="size-14" />
       </span>
-      <h2 className="display mt-4 text-2xl text-fg">{first ? `Nothing saved yet, ${first}` : 'Nothing saved yet'}</h2>
-      <p className="mt-3 text-base leading-relaxed text-fg-muted">
+      <h2 className="font-kral-display mt-4 text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">{first ? `Nothing saved yet, ${first}` : 'Nothing saved yet'}</h2>
+      <p className="font-kral-mono mt-3 text-base leading-relaxed text-kral-muted">
         {inCart
           ? `You have ${inCart} in your cart. See more like it, and tap the heart on anything you love to keep it here.`
           : 'Tap the heart on any piece you love to keep it here, then add it to your cart or buy it when you are ready.'}
       </p>
-      <Link to={target} className={`${SHOP_PRIMARY} mt-6 w-full max-w-xs`}>
+      <Link to={target} className={`${KRAL_PRIMARY} mt-6 w-full max-w-xs`}>
         {inCart ? <StoreIcon /> : <SparkleIcon />}
         {inCart ? `Browse ${inCart}` : 'Shop new arrivals'}
       </Link>
       {inCart && (
-        <Link to="/shop" className={`${SHOP_SECONDARY} mt-2 w-full max-w-xs`}>
+        <Link to="/shop" className={`${KRAL_SECONDARY} mt-2 w-full max-w-xs`}>
           Browse all pieces
         </Link>
       )}
