@@ -24,6 +24,8 @@ interface ModalProps {
   icon?: ReactNode
   /** 'sheet' is a right-side panel from sm up and a bottom sheet below it; 'sheet-left' is a left panel from lg up (a bottom sheet below it); 'drawer-left' is a left panel at every width. */
   variant?: 'center' | 'sheet' | 'sheet-left' | 'drawer-left'
+  /** 'kral' restyles the panel flat and square for the KRAL pages; unset leaves the glass panel. */
+  tone?: 'kral'
   children: ReactNode
   footer?: ReactNode
   /** False hides the close button, for a modal that must be answered (its `onClose` should then do nothing). */
@@ -35,7 +37,7 @@ interface ModalProps {
   initialFocusRef?: RefObject<HTMLElement | null>
 }
 
-export function Modal({ open, onClose, title, icon, variant = 'center', children, footer, closable = true, bodyRef, onBodyScroll, initialFocusRef }: ModalProps) {
+export function Modal({ open, onClose, title, icon, variant = 'center', tone, children, footer, closable = true, bodyRef, onBodyScroll, initialFocusRef }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -110,6 +112,7 @@ export function Modal({ open, onClose, title, icon, variant = 'center', children
           title={title}
           icon={icon}
           variant={variant}
+          tone={tone}
           footer={footer}
           closable={closable}
           panelRef={panelRef}
@@ -125,14 +128,15 @@ export function Modal({ open, onClose, title, icon, variant = 'center', children
   )
 }
 
-interface ModalViewProps extends Pick<ModalProps, 'title' | 'icon' | 'variant' | 'footer' | 'closable' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children'> {
+interface ModalViewProps extends Pick<ModalProps, 'title' | 'icon' | 'variant' | 'tone' | 'footer' | 'closable' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children'> {
   panelRef: Ref<HTMLDivElement>
 }
 
-function ModalView({ title, icon, variant, footer, closable, panelRef, bodyRef, onBodyScroll, onClose, children }: ModalViewProps) {
+function ModalView({ title, icon, variant, tone, footer, closable, panelRef, bodyRef, onBodyScroll, onClose, children }: ModalViewProps) {
   const titleId = useId()
   const reduced = useReducedMotion()
   const isPresent = useIsPresent()
+  const kral = tone === 'kral'
   const drawer = variant === 'drawer-left'
   const left = variant === 'sheet-left' || drawer
   const sheet = variant === 'sheet' || left
@@ -182,7 +186,7 @@ function ModalView({ title, icon, variant, footer, closable, panelRef, bodyRef, 
         animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
         exit={hidden}
         transition={transition}
-        className={`glass-card glass-elevated glass-dense relative flex w-full flex-col outline-none ${
+        className={`${kral ? 'rounded-none! border border-kral-rule bg-kral-bg' : 'glass-card glass-elevated glass-dense'} relative flex w-full flex-col outline-none ${
           sheet
             ? drawer
               ? 'h-full max-w-[min(28rem,85vw)] rounded-r-xl'
@@ -193,7 +197,10 @@ function ModalView({ title, icon, variant, footer, closable, panelRef, bodyRef, 
         }`}
       >
         <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3 sm:px-8 sm:pt-6">
-          <h2 id={titleId} className="display flex items-center gap-3 text-xl text-fg sm:text-2xl">
+          <h2
+            id={titleId}
+            className={`flex items-center gap-3 text-xl sm:text-2xl ${kral ? 'font-kral-display font-extrabold text-kral-fg uppercase' : 'display text-fg'}`}
+          >
             {icon}
             {title}
           </h2>
@@ -202,7 +209,7 @@ function ModalView({ title, icon, variant, footer, closable, panelRef, bodyRef, 
               type="button"
               onClick={onClose}
               aria-label={`Close ${title}`}
-              className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-xl text-fg-muted hover:text-fg"
+              className={`-mr-2 flex size-11 shrink-0 items-center justify-center ${kral ? 'kral-focus rounded-none text-kral-muted hover:text-kral-fg' : 'rounded-xl text-fg-muted hover:text-fg'}`}
             >
               <XIcon />
             </button>
@@ -232,7 +239,7 @@ function ModalView({ title, icon, variant, footer, closable, panelRef, bodyRef, 
                 document.documentElement.style.removeProperty('--sheet-footer-h')
               }
             }}
-            className="border-t border-line px-5 py-4 sm:px-8"
+            className={`border-t px-5 py-4 sm:px-8 ${kral ? 'border-kral-rule' : 'border-line'}`}
           >
             {footer}
           </div>

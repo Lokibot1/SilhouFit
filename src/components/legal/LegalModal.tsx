@@ -1,7 +1,9 @@
 import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
 import { Modal } from '../ui/Modal'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
 import { PRIVACY, TERMS, type LegalDoc } from './legalContent'
+
+const KRAL_BUTTON =
+  'flex min-h-11 items-center justify-center border px-5 font-kral-mono text-sm font-medium tracking-[0.08em] uppercase transition-colors duration-200 ease-out kral-focus motion-reduce:transition-none'
 
 const DOCS = {
   terms: { title: 'Terms of Service', content: TERMS },
@@ -44,15 +46,16 @@ export function LegalModal({ doc, open, onAcknowledge, onClose }: LegalModalProp
       open={open}
       onClose={onClose}
       title={title}
+      tone="kral"
       bodyRef={bodyRef}
       onBodyScroll={check}
       footer={
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <p id={hintId} role="status" className="text-xs leading-snug text-fg-muted sm:flex-1">
+          <p id={hintId} role="status" className="font-kral-mono text-sm leading-snug text-kral-muted sm:flex-1">
             {atEnd ? 'You have reached the end. You can continue.' : 'Scroll to the end to continue'}
           </p>
           <div className="flex flex-col-reverse gap-3 sm:flex-row">
-            <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={onClose} className={`${KRAL_BUTTON} border-kral-fg text-kral-fg hover:bg-kral-fg hover:text-kral-bg`}>
               Cancel
             </button>
             <button
@@ -60,7 +63,7 @@ export function LegalModal({ doc, open, onAcknowledge, onClose }: LegalModalProp
               aria-disabled={!atEnd}
               aria-describedby={hintId}
               onClick={() => atEnd && onAcknowledge()}
-              className={`${PRIMARY_BUTTON} aria-disabled:pointer-events-none aria-disabled:opacity-60`}
+              className={`${KRAL_BUTTON} border-kral-red bg-kral-red text-kral-paper hover:border-kral-red-press hover:bg-kral-red-press aria-disabled:pointer-events-none aria-disabled:opacity-60`}
             >
               I understand
             </button>
@@ -68,14 +71,17 @@ export function LegalModal({ doc, open, onAcknowledge, onClose }: LegalModalProp
         </div>
       }
     >
-      <p className="font-ui text-sm text-fg-muted">Last updated {content.lastUpdated}</p>
-      <div className="mt-4 border-l-2 border-chrome/40 pl-4 text-sm leading-relaxed text-fg-muted">
+      <p className="font-kral-mono text-sm font-medium tracking-[0.08em] text-kral-muted uppercase">
+        Last updated // {content.lastUpdated}
+      </p>
+      <div className="mt-4 border-l-2 border-kral-red pl-4 font-kral-mono text-sm leading-relaxed text-kral-muted">
         {content.scopeNote}
       </div>
-      <div className="mt-6 space-y-6 pb-4 text-base leading-relaxed text-fg-muted">
+      <div className="kral-counter mt-6 space-y-6 pb-4 font-kral-mono text-base leading-relaxed text-kral-muted tabular-nums">
         {content.sections.map(({ heading, body }) => (
-          <section key={heading}>
-            <h3 className="display text-lg text-fg">{heading}</h3>
+          <section key={heading} className="border-t border-kral-rule pt-3">
+            <span aria-hidden="true" className="kral-index block text-sm font-medium tracking-[0.08em] text-kral-red-ink" />
+            <h3 className="mt-2 font-kral-display text-lg leading-tight font-extrabold text-kral-fg uppercase">{heading}</h3>
             <div className="mt-2 space-y-3">{body}</div>
           </section>
         ))}
