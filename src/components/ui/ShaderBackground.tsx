@@ -313,8 +313,8 @@ const pendingContextReleases = new WeakMap<HTMLCanvasElement, number>()
 export type ShaderColors = [number, number, number][]
 
 /** colors: optional palette (2 to 8 RGB triples, 0..1), swapped live without remounting. interactive: swirl under the pointer (off by default).
- *  speed, intensity, swirl, swirlRadius: optional overrides of the login page's gentle defaults (animation rate, stripe warp, pointer swirl strength and radius). */
-export function ShaderBackground({ className, colors, interactive = UNIFORMS.cursorEnabled, speed, intensity, swirl, swirlRadius }: { className?: string; colors?: ShaderColors; interactive?: boolean; speed?: number; intensity?: number; swirl?: number; swirlRadius?: number }) {
+ *  speed, calmSpeed, intensity, swirl, swirlRadius: optional overrides of the login page's gentle defaults (animation rate, calmSpeed: when set the rate drifts between it and speed on a slow irregular cycle of fast and chill spells, stripe warp, pointer swirl strength and radius). */
+export function ShaderBackground({ className, colors, interactive = UNIFORMS.cursorEnabled, speed, calmSpeed, intensity, swirl, swirlRadius }: { className?: string; colors?: ShaderColors; interactive?: boolean; speed?: number; calmSpeed?: number; intensity?: number; swirl?: number; swirlRadius?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const colorsRef = useRef(colors)
   const redrawRef = useRef<() => void>(() => {})
@@ -425,6 +425,7 @@ export function ShaderBackground({ className, colors, interactive = UNIFORMS.cur
     let visible = document.visibilityState === "visible"
     let inView = true
     let disposed = false
+    let clock = 0
     let shaderTime = 0
     // Reduced motion: draw one still frame, and no pointer swirl.
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -534,7 +535,11 @@ export function ShaderBackground({ className, colors, interactive = UNIFORMS.cur
       if (disposed || !visible || !inView) return
       const dt = lastNow === null ? 0 : Math.min((now - lastNow) / 1000, 0.1)
       lastNow = now
-      shaderTime += dt * timeScale
+      clock += dt
+      // Fast and chill spells: a slow wave with a wobble in its phase, eased so it lingers at both ends.
+      const spell = calmSpeed === undefined ? 1 : (() => { const w = 0.5 + 0.5 * Math.sin(clock * 0.5 + 1.3 * Math.sin(clock * 0.21)); return w * w * (3 - 2 * w) })()
+      const rate = calmSpeed === undefined ? timeScale : reducedMotion ? 0 : calmSpeed + (U.timeScale - calmSpeed) * spell
+      shaderTime += dt * rate
       const follow = 1 - Math.exp(-12 * dt)
       mouseX += (targetX - mouseX) * follow
       mouseY += (targetY - mouseY) * follow
@@ -605,7 +610,7 @@ export function ShaderBackground({ className, colors, interactive = UNIFORMS.cur
       }, 0)
       pendingContextReleases.set(canvas, releaseTimer)
     }
-  }, [interactive, speed, intensity, swirl, swirlRadius])
+  }, [interactive, speed, calmSpeed, intensity, swirl, swirlRadius])
 
   return (
     <canvas ref={canvasRef} className={className} style={{ display: "block", width: "100%", height: "100%" }} />
