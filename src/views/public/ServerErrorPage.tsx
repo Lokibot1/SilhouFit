@@ -1,14 +1,18 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { BagIcon, RestoreIcon } from '../../components/form/icons'
+import { KralErrorScreen } from '../../components/KralErrorScreen'
+import { KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { checkHealth } from '../../service/checkHealth'
 
 const META_DESCRIPTION =
-  'Something went wrong on our side while loading this SilhouFit page. Try again in a moment, or head back to the main floor to keep shopping with us today.'
+  'Something went wrong on our side while loading this SilhouFit page. Try again in a moment, or go back to the home page to keep shopping with us today.'
 
+// Self-contained on purpose: this also renders when the app has crashed, so it uses plain anchors and
+// the shared screen's own background and logo instead of the router, the site header or the Layout.
 export function ServerErrorPage({ onRetry = () => window.location.reload() }: { onRetry?: () => void }) {
-  useDocumentTitle('500: Torn at the seams — SilhouFit')
+  useDocumentTitle('Something broke — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
   const [status, setStatus] = useState<'idle' | 'checking' | 'up' | 'down'>('idle')
 
@@ -19,53 +23,35 @@ export function ServerErrorPage({ onRetry = () => window.location.reload() }: { 
 
   return (
     <>
-      <section className="relative flex min-h-svh flex-col">
-        <div className="relative z-10 flex flex-1 items-center px-6 py-8">
-          <div className="mx-auto w-full max-w-6xl">
-            <div className="max-w-3xl">
-              <p className="font-mono text-xs tracking-[0.2em] text-chrome-strong uppercase sm:text-sm">
-                Error <span className="tabular-nums">500</span> · Seam split
-              </p>
-              <h1 className="display mt-[min(1rem,2svh)] text-[clamp(2rem,min(7vw,9svh),5.5rem)] text-fg">
-                500: Torn at the&nbsp;seams.
-              </h1>
-              <p className="mt-[min(1.5rem,3svh)] max-w-md text-sm leading-relaxed text-fg-muted sm:text-base">
-                Something broke on our side while pinning this page together. It
-                wasn&apos;t you. Try again, or head back to the main floor.
-              </p>
-              <div className="mt-[min(2.5rem,4svh)] flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  className="btn-lift font-ui inline-block min-h-11 cursor-pointer rounded-full border-2 border-fg bg-fg px-8 py-3 text-sm font-semibold text-canvas hover:border-chrome-strong hover:bg-chrome-strong"
-                >
-                  Try again
-                </button>
-                <Link
-                  to="/"
-                  className="btn-lift font-ui inline-block min-h-11 rounded-full border-2 border-fg px-8 py-3 text-sm font-semibold text-fg hover:border-chrome-strong hover:text-chrome-strong"
-                >
-                  Back to the main floor
-                </Link>
-              </div>
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => void check()}
-                  disabled={status === 'checking'}
-                  className="font-ui min-h-11 cursor-pointer rounded-full border-2 border-fg-muted px-6 py-2 text-sm font-semibold text-fg-muted hover:border-fg hover:text-fg disabled:cursor-wait disabled:opacity-60"
-                >
-                  {status === 'checking' ? 'Checking…' : status === 'down' ? 'Check again' : 'Check service status'}
-                </button>
-                <p role="status" className="text-sm text-fg-muted">
-                  {status === 'up' && 'The service is reachable. Try the page again.'}
-                  {status === 'down' && "The service can't be reached right now. Wait a moment, then check again."}
-                </p>
-              </div>
-            </div>
-          </div>
+      <KralErrorScreen code="500" status="Something broke" heading="Our side. Not yours." alert>
+        <p className="mt-3 max-w-md text-base leading-relaxed text-kral-muted">
+          This page failed to load. Try again in a moment, or go back to the home page.
+        </p>
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <button type="button" onClick={onRetry} className={KRAL_PRIMARY}>
+            <RestoreIcon size={16} />
+            Try again
+          </button>
+          <a href="/" className={KRAL_SECONDARY}>
+            <BagIcon size={16} />
+            Go home
+          </a>
         </div>
-      </section>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void check()}
+            disabled={status === 'checking'}
+            className="kral-focus min-h-11 cursor-pointer text-base text-kral-muted underline decoration-kral-rule decoration-2 underline-offset-4 hover:text-kral-fg disabled:cursor-wait disabled:opacity-60 md:text-sm"
+          >
+            {status === 'checking' ? 'Checking…' : status === 'down' ? 'Check again' : 'Check service status'}
+          </button>
+          <p role="status" className="text-base text-kral-muted md:text-sm">
+            {status === 'up' && 'The service is reachable. Try the page again.'}
+            {status === 'down' && "The service can't be reached right now. Wait a moment, then check again."}
+          </p>
+        </div>
+      </KralErrorScreen>
     </>
   )
 }

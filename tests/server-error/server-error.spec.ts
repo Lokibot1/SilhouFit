@@ -8,27 +8,27 @@ for (const theme of ['light', 'dark'] as const) {
 
     test('/500 shows the custom server error page', async ({ page }) => {
       await page.goto('/500')
-      await expect(page.getByRole('heading', { name: /torn at the\s+seams/i })).toBeVisible()
-      await expect(page).toHaveTitle(/^500: Torn at the seams/)
+      await expect(page.getByRole('heading', { name: /our side\. not yours/i })).toBeVisible()
+      await expect(page).toHaveTitle(/^Something broke/)
     })
 
     test('has no horizontal scroll and 44px touch targets', async ({ page }) => {
       await page.goto('/500')
-      await expect(page.getByRole('heading', { name: /torn at the\s+seams/i })).toBeVisible()
+      await expect(page.getByRole('heading', { name: /our side\. not yours/i })).toBeVisible()
       const overflows = await page.evaluate(
         () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
       )
       expect(overflows, '/500 overflows horizontally').toBe(false)
-      for (const target of [page.getByRole('button', { name: 'Try again' }), page.getByRole('link', { name: 'Back to the main floor' })]) {
+      for (const target of [page.getByRole('button', { name: 'Try again' }), page.getByRole('link', { name: 'Go home' })]) {
         const box = await target.boundingBox()
         expect(box!.height).toBeGreaterThanOrEqual(44)
         expect(box!.width).toBeGreaterThanOrEqual(44)
       }
     })
 
-    test('Back to the main floor goes home', async ({ page }) => {
+    test('Go home goes to the home page', async ({ page }) => {
       await page.goto('/500')
-      await page.getByRole('link', { name: 'Back to the main floor' }).click()
+      await page.getByRole('link', { name: 'Go home' }).click()
       await expect(page).toHaveURL(/\/$/)
     })
   })
