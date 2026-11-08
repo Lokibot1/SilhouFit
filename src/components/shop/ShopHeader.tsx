@@ -23,7 +23,7 @@ export function ShopHeader({ title, icon, summary, crumb = 'Shop', backToShop = 
   return (
     <header className={`mx-auto max-w-6xl px-6 2xl:max-w-[88rem] ${compact ? 'w-full pt-[4.5rem] pb-2 max-lg:pt-16 max-lg:pb-0' : 'pt-20 pb-4'}`}>
       {backToShop && (
-        <Link to="/shop" className={`tap font-ui mb-2 -ml-1 flex w-fit items-center gap-1 text-sm font-medium text-fg-muted hover:text-fg pointer-coarse:min-h-11 ${compact ? 'max-lg:mb-0 max-lg:min-h-11' : ''}`}>
+        <Link to="/shop" className={`tap relative after:absolute after:-inset-x-1.5 after:-inset-y-3.5 after:content-[''] font-ui mb-2 -ml-1 flex w-fit items-center gap-1 text-sm font-medium text-fg-muted hover:text-fg pointer-coarse:min-h-11 ${compact ? 'max-lg:mb-0 max-lg:min-h-11' : ''}`}>
           <ChevronLeftIcon />
           Back to shop
         </Link>
@@ -31,7 +31,7 @@ export function ShopHeader({ title, icon, summary, crumb = 'Shop', backToShop = 
       <nav aria-label="Breadcrumb" className={compact ? 'max-lg:hidden' : undefined}>
         <ol className="font-ui flex items-center gap-2 text-sm text-fg-muted">
           <li>
-            <Link to="/" className={`tap hover:text-fg ${compact ? 'max-lg:flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center' : ''}`}>
+            <Link to="/" className={`tap relative after:absolute after:-inset-x-1.5 after:-inset-y-3.5 after:content-[''] hover:text-fg ${compact ? 'max-lg:flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center' : ''}`}>
               Home
             </Link>
           </li>

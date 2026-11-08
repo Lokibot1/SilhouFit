@@ -22,7 +22,7 @@ interface ShopToolbarProps {
   onOpenFilters: () => void
 }
 
-// The search box lives in the navbar (ShopNavbar), so this row is controls only.
+// The search box lives in the navbar (SiteHeader), so this row is controls only.
 export function ShopToolbar(props: ShopToolbarProps) {
   const { view, onView } = props
   const viewButton = (value: 'grid' | 'list', label: string, icon: ReactNode) => (
