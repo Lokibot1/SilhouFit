@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckoutSkeleton } from '../../components/checkout/CheckoutSkeleton'
-import { OptionCards } from '../../components/checkout/OptionCards'
+import { PaymentMethods } from '../../components/checkout/PaymentMethods'
 import { PriceSummary } from '../../components/checkout/PriceSummary'
 import { CountrySelect } from '../../components/form/CountrySelect'
 import { FloatingField } from '../../components/form/FloatingField'
-import { AlertIcon, BagIcon, MapPinIcon, NoteIcon, ReceiptIcon, SpinnerIcon, WalletIcon } from '../../components/form/icons'
-import { SHOP_PRIMARY } from '../../components/shop/shopControls'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
+import { AlertIcon, BagIcon, CheckIcon, MapPinIcon, NoteIcon, ReceiptIcon, SpinnerIcon, StoreIcon } from '../../components/form/icons'
+import { KRAL_INPUT, KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { IconEditButton } from '../../components/ui/IconEditButton'
 import { Modal } from '../../components/ui/Modal'
 import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
@@ -29,7 +28,6 @@ import {
   paymentLabel,
   parseCheckoutItems,
   resolveCartItems,
-  PROVIDERS,
   saveLastOrder,
   type CheckoutItem,
   type Payment,
@@ -61,7 +59,10 @@ import { LIMITS, normalizePhone, sanitizePhoneDigits, validatePhone } from '../.
 const META_DESCRIPTION =
   'Review your SilhouFit order, add your delivery address, pay with GCash, Maya or cash on delivery, and add a note for the seller before you place the order.'
 
-const SECTION = 'glass-card rounded-xl p-5'
+const SECTION = 'border border-kral-rule p-5'
+const HEADING = 'font-kral-display flex items-center gap-2 text-lg leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-xl'
+const MUTED = 'font-kral-mono text-base text-kral-muted'
+const KRAL_LINK = 'kral-focus font-kral-mono min-h-11 cursor-pointer text-base font-medium text-kral-fg uppercase underline underline-offset-4 hover:text-kral-red-ink'
 const fieldId = (name: AddressField) => `checkout-${name}`
 
 const FILTERS: Record<AddressField, (value: string) => string> = {
@@ -82,56 +83,59 @@ const VALIDATORS: Record<AddressField, (value: string) => string | null> = {
 function Breadcrumb() {
   return (
     <nav aria-label="Breadcrumb">
-      <ol className="font-ui flex items-center gap-2 text-sm text-fg-muted">
+      <ol className="font-kral-mono flex items-center gap-2 text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">
         <li>
-          <Link to="/" className="tap hover:text-fg">
+          <Link to="/" className="tap kral-focus relative hover:text-kral-fg after:absolute after:-inset-x-1.5 after:-inset-y-3.5 after:content-['']">
             Home
           </Link>
         </li>
-        <li aria-hidden="true">/</li>
+        <li aria-hidden="true">//</li>
         <li>
-          <Link to="/shop" className="tap hover:text-fg">
+          <Link to="/shop" className="tap kral-focus relative hover:text-kral-fg after:absolute after:-inset-x-1.5 after:-inset-y-3.5 after:content-['']">
             Shop
           </Link>
         </li>
-        <li aria-hidden="true">/</li>
-        <li aria-current="page">Checkout</li>
+        <li aria-hidden="true">//</li>
+        <li aria-current="page" className="text-kral-fg">
+          Checkout
+        </li>
       </ol>
     </nav>
   )
 }
 
-function ItemRow({ item, change }: { item: CheckoutItem; change: boolean }) {
+function ItemRow({ item, change, compact }: { item: CheckoutItem; change: boolean; compact: boolean }) {
   const { product, size, color, qty, unit } = item
   return (
-    <li className="flex min-w-0 gap-4">
+    <li className={`flex min-w-0 gap-4 ${compact ? 'lg:gap-3' : ''}`}>
       <PhotoImg
+        tone="kral"
         src={product.image}
         alt={product.alt}
-        className="photo-mono h-24 w-18 shrink-0 rounded-xl border border-line object-cover"
+        className={`photo-mono h-24 w-18 shrink-0 object-cover transition-[width,height] duration-200 ease-out motion-reduce:transition-none ${compact ? 'lg:h-16 lg:w-12' : ''}`}
       />
       <div className="min-w-0 flex-1">
-        <p className="font-ui truncate text-xs tracking-[0.16em] text-fg-muted uppercase">
+        <p className="font-kral-mono truncate text-xs tracking-[0.08em] text-kral-muted uppercase">
           {product.category} · {product.boutique}
         </p>
-        <h3 className="mt-1 text-base leading-snug font-semibold break-words text-fg">{product.name}</h3>
-        <p className="mt-1 text-sm text-fg-muted">{variantLabel(size, color)}</p>
+        <h3 className={`font-kral-display mt-1 text-sm leading-tight font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase sm:text-base ${compact ? 'lg:text-sm' : ''}`}>{product.name}</h3>
+        <p className={`${MUTED} mt-1 md:text-sm`}>{variantLabel(size, color)}</p>
         {/* Wraps instead of overflowing: a sale piece shows two prices, and quantities make them long. */}
-        <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <div className={`mt-2 ${compact ? 'lg:mt-1' : ''} flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1`}>
           {change ? (
-            <IconEditButton to={`/shop?item=${product.id}&action=buy`} label={`Change options for ${product.name}`} hint="Change options" />
+            <IconEditButton tone="kral" to={`/shop?item=${product.id}&action=buy`} label={`Change options for ${product.name}`} hint="Change options" />
           ) : (
             <span />
           )}
-          <div className="ml-auto min-w-0 text-right tabular-nums">
-            <p className="text-sm text-fg-muted">
+          <div className="font-kral-mono ml-auto min-w-0 text-right tabular-nums">
+            <p className="text-base text-kral-muted md:text-sm">
               {formatPeso(unit)} × {qty}
             </p>
-            <p className="flex flex-wrap justify-end gap-x-2 text-base font-semibold text-fg">
+            <p className="flex flex-wrap justify-end gap-x-2 text-base font-medium text-kral-fg">
               {product.salePrice !== undefined && (
                 <>
                   <span className="sr-only">Original price </span>
-                  <s className="font-normal text-fg-muted">{formatPeso(product.price * qty)}</s>
+                  <s className="font-normal text-kral-muted">{formatPeso(product.price * qty)}</s>
                 </>
               )}
               <span>{formatPeso(unit * qty)}</span>
@@ -173,6 +177,9 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const focusField = useRef<AddressField | null>(null)
   const [failed, setFailed] = useState(false)
   const inFlight = useRef(false)
+  // The order card is compact only while it is pinned under the bar. Read from its own top, which compacting does not move.
+  const itemsCard = useRef<HTMLElement>(null)
+  const [stuck, setStuck] = useState(false)
   const controller = useRef<AbortController | null>(null)
   // The saved address fills only what the shopper has not touched, and never what they typed.
   const edited = useRef<Partial<Record<AddressField, boolean>>>({})
@@ -187,6 +194,28 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const reload = useRef<() => void>(() => {})
 
   useEffect(() => () => controller.current?.abort(), [])
+
+  useEffect(() => {
+    const card = itemsCard.current
+    if (!card) return
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const style = getComputedStyle(card)
+      setStuck(style.position === 'sticky' && card.getBoundingClientRect().top <= (parseFloat(style.top) || 0) + 0.5)
+    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update)
+    }
+    update()
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+    }
+  }, [])
 
   useEffect(() => {
     if (!editing || !focusField.current) return
@@ -263,14 +292,10 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
 
   const failedNote = (
     <div className="flex flex-wrap items-center gap-x-3">
-      <p role="status" className="text-base text-fg-muted">
+      <p role="status" className={MUTED}>
         We couldn&apos;t load your saved addresses, so type your delivery address below.
       </p>
-      <button
-        type="button"
-        onClick={() => reload.current()}
-        className="font-ui min-h-11 cursor-pointer rounded-xl text-base font-semibold text-fg underline underline-offset-4 hover:text-chrome-strong"
-      >
+      <button type="button" onClick={() => reload.current()} className={KRAL_LINK}>
         Try again
       </button>
     </div>
@@ -279,7 +304,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const loadNote = (
     <div className="mt-1 min-h-6">
       {saved === 'loading' && slow && (
-        <p role="status" className="text-base text-fg-muted">
+        <p role="status" className={MUTED}>
           Filling in your saved address…
         </p>
       )}
@@ -404,35 +429,35 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     <form noValidate onSubmit={onSubmit} aria-busy={pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
       <div className="min-w-0 space-y-6">
         {notices.length > 0 && (
-          <div role="status" className="glass-card rounded-xl p-5">
-            <h2 className="text-base font-semibold text-fg">We changed your order</h2>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-snug text-fg-muted">
+          <div role="status" className={SECTION}>
+            <h2 className="font-kral-mono text-base font-medium text-kral-fg uppercase">We changed your order</h2>
+            <ul className="font-kral-mono mt-2 list-disc space-y-1 pl-5 text-base leading-snug text-kral-muted md:text-sm">
               {notices.map((notice) => (
                 <li key={notice}>{notice}</li>
               ))}
             </ul>
-            <p className="mt-2 text-sm text-fg-muted">Your cart is unchanged until the order is placed.</p>
+            <p className="font-kral-mono mt-2 text-base text-kral-muted md:text-sm">Your cart is unchanged until the order is placed.</p>
           </div>
         )}
-        <section aria-labelledby="checkout-items" data-tour="checkout-items" className={`${SECTION} lg:sticky! lg:top-38 lg:z-30 lg:bg-none! lg:bg-canvas!`}>
+        <section ref={itemsCard} aria-labelledby="checkout-items" data-tour="checkout-items" data-stuck={stuck || undefined} className={`${SECTION} transition-[padding] duration-200 ease-out motion-reduce:transition-none lg:sticky lg:top-[calc(4rem+var(--site-header-extra,0px))] lg:z-30 lg:bg-kral-bg ${stuck ? 'lg:p-3' : ''}`}>
           <div className="flex items-center justify-between gap-3">
-            <h2 id="checkout-items" className="display flex items-center gap-2 text-xl text-fg">
+            <h2 id="checkout-items" className={HEADING}>
               <BagIcon />
               Your order
             </h2>
-            {fromCart && <IconEditButton to="/cart" label="Edit cart" className="-mr-2" />}
+            {fromCart && <IconEditButton tone="kral" to="/cart" label="Edit cart" className="-mr-2" />}
           </div>
           {/* Capped so a long order scrolls inside the pinned card instead of running off the screen. */}
-          <ul className="mt-4 space-y-4 lg:max-h-[calc(100svh-17rem)] lg:overflow-y-auto">
+          <ul className={`mt-4 space-y-4 transition-[max-height] duration-200 ease-out motion-reduce:transition-none lg:overflow-y-auto ${stuck ? 'lg:mt-2 lg:max-h-[min(16rem,calc(100svh-11rem))] lg:space-y-3' : 'lg:max-h-[calc(100svh-14rem)]'}`}>
             {items.map((item) => (
-              <ItemRow key={item.variantId} item={item} change={!fromCart && items.length === 1} />
+              <ItemRow key={item.variantId} item={item} change={!fromCart && items.length === 1} compact={stuck} />
             ))}
           </ul>
         </section>
 
         <section aria-labelledby="checkout-address" className={SECTION}>
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="checkout-address" className="display flex items-center gap-2 text-xl text-fg">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="checkout-address" className={HEADING}>
               <MapPinIcon />
               Delivery address
             </h2>
@@ -440,20 +465,20 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
               type="button"
               onClick={() => setEditing(true)}
               aria-label={usable ? 'Change delivery address' : undefined}
-              className={`${SECONDARY_BUTTON} shrink-0`}
+              className={`${KRAL_SECONDARY} shrink-0`}
             >
               {usable ? 'Change' : 'Add address'}
             </button>
           </div>
           {saved === 'loading' ? (
             <div aria-hidden="true" className="mt-3 animate-pulse">
-              <div className="my-[3px] h-4 w-1/3 rounded-xl bg-line" />
-              <div className="my-[3px] h-4 w-1/2 rounded-xl bg-line" />
-              <div className="my-[3px] h-4 w-4/5 rounded-xl bg-line" />
+              <div className="my-[3px] h-4 w-1/3 bg-kral-porcelain dark:bg-kral-graphite" />
+              <div className="my-[3px] h-4 w-1/2 bg-kral-porcelain dark:bg-kral-graphite" />
+              <div className="my-[3px] h-4 w-4/5 bg-kral-porcelain dark:bg-kral-graphite" />
             </div>
           ) : usable ? (
-            <div className="mt-3 text-base leading-snug break-words text-fg-muted">
-              <p className="font-semibold text-fg">{cleanText(values.fullName)}</p>
+            <div className={`${MUTED} mt-3 leading-snug break-words`}>
+              <p className="font-medium text-kral-fg">{cleanText(values.fullName)}</p>
               <p className="tabular-nums">
                 {dial} {values.phone}
               </p>
@@ -462,7 +487,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
               </p>
             </div>
           ) : (
-            <p className="mt-3 text-base text-fg-muted">Add where we should deliver your order.</p>
+            <p className={`${MUTED} mt-3`}>Add where we should deliver your order.</p>
           )}
           {saved === 'failed' && !editing && <div className="mt-1">{failedNote}</div>}
         </section>
@@ -473,12 +498,14 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           variant="sheet"
           title="Delivery address"
           icon={<MapPinIcon />}
+          tone="kral"
           footer={
             <div className="flex flex-wrap justify-end gap-3">
-              <button type="button" onClick={() => setEditing(false)} className={SECONDARY_BUTTON}>
+              <button type="button" onClick={() => setEditing(false)} className={KRAL_SECONDARY}>
                 Cancel
               </button>
-              <button type="button" onClick={saveAddress} className={PRIMARY_BUTTON}>
+              <button type="button" onClick={saveAddress} className={KRAL_PRIMARY}>
+                <CheckIcon />
                 Save address
               </button>
             </div>
@@ -492,11 +519,12 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
               <div className={`min-h-0 ${picking ? '' : 'overflow-hidden'}`}>
                 {picking && (
                   <div className="pt-3">
-                    <p aria-hidden="true" className="font-ui mb-1 text-sm text-fg-muted">
+                    <p aria-hidden="true" className="font-kral-mono mb-1 text-base text-kral-muted md:text-xs md:tracking-[0.08em] md:uppercase">
                       Deliver to
                     </p>
                     {addresses.length > 1 ? (
                       <Select
+                        tone="kral"
                         label="Deliver to"
                         value={deliverTo}
                         options={addresses.map((a) => ({ value: a.id, label: `${a.label || a.streetAddress}${a.isDefault ? ' (Default)' : ''}` }))}
@@ -506,7 +534,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                         }}
                       />
                     ) : (
-                      <div aria-hidden="true" className="h-9 animate-pulse rounded-xl bg-line pointer-coarse:h-11" />
+                      <div aria-hidden="true" className="h-11 animate-pulse bg-kral-porcelain dark:bg-kral-graphite" />
                     )}
                   </div>
                 )}
@@ -515,6 +543,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <FloatingField
+                  tone="kral"
                   {...field('fullName')}
                   label="Full name"
                   autoComplete="name"
@@ -524,11 +553,13 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
               </div>
               <div className="sm:col-span-2">
                 <FloatingField
+                  tone="kral"
                   {...phoneField}
                   label="Phone number"
                   type="tel"
                   prefix={
                     <CountrySelect
+                      tone="kral"
                       id="checkout-phoneCountry"
                       value={phoneCountry}
                       onChange={setPhoneCountry}
@@ -543,6 +574,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
               </div>
               <div className="sm:col-span-2">
                 <FloatingField
+                  tone="kral"
                   {...field('street')}
                   label="Street address"
                   autoComplete="street-address"
@@ -550,8 +582,9 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                   counter={{ current: values.street.length, max: ADDRESS_LIMITS.street }}
                 />
               </div>
-              <FloatingField {...field('city')} label="City" autoComplete="address-level2" enterKeyHint="next" />
+              <FloatingField tone="kral" {...field('city')} label="City" autoComplete="address-level2" enterKeyHint="next" />
               <FloatingField
+                tone="kral"
                 {...field('postal')}
                 label="Postal code"
                 autoComplete="postal-code"
@@ -564,50 +597,19 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
         </Modal>
 
         <section data-tour="checkout-payment" className={SECTION}>
-          <OptionCards
-            legend="How do you want to pay?"
-            icon={<WalletIcon />}
-            name="payment"
-            value={payment}
-            onChange={setPayment}
-            options={[
-              {
-                value: 'ewallet',
-                title: 'E-Wallet',
-                description: 'Pay with GCash or Maya.',
-                extra: (
-                  <fieldset className="mt-2 px-1">
-                    <legend className="font-ui text-sm text-fg-muted">E-wallet provider</legend>
-                    <div className="mt-1 flex gap-4">
-                      {PROVIDERS.map((p) => (
-                        <label key={p.value} className="flex min-h-9 pointer-coarse:min-h-11 cursor-pointer items-center gap-2 text-base text-fg">
-                          <input
-                            type="radio"
-                            name="provider"
-                            value={p.value}
-                            checked={provider === p.value}
-                            onChange={() => setProvider(p.value)}
-                            className="size-5 accent-fg"
-                          />
-                          {p.label}
-                        </label>
-                      ))}
-                    </div>
-                    <p className="mt-1 text-sm text-fg-muted">This is a prototype: no payment is taken.</p>
-                  </fieldset>
-                ),
-              },
-              {
-                value: 'cash',
-                title: 'Cash on delivery',
-                description: 'Pay the rider when it arrives.',
-              },
-            ]}
+          <PaymentMethods
+            payment={payment}
+            provider={provider}
+            onChange={(nextPayment, nextProvider) => {
+              setPayment(nextPayment)
+              setProvider(nextProvider)
+            }}
           />
+          {payment === 'ewallet' && <p className="font-kral-mono mt-1 text-base text-kral-muted md:text-sm">This is a prototype: no payment is taken.</p>}
         </section>
 
         <section aria-labelledby="checkout-note-label" className={SECTION}>
-          <label id="checkout-note-label" htmlFor="checkout-note" className="display flex items-center gap-2 text-xl text-fg">
+          <label id="checkout-note-label" htmlFor="checkout-note" className={`${HEADING} mb-2`}>
             <NoteIcon />
             Note to seller
           </label>
@@ -618,42 +620,42 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
             onChange={(event) => setNote(filterNote(event.target.value))}
             placeholder="Anything the seller should know? (optional)"
             rows={3}
-            className="mt-3 min-h-24 w-full rounded-xl border border-line-strong bg-canvas p-3 text-base text-fg placeholder:text-fg-muted"
+            className={`${KRAL_INPUT} h-24 resize-none py-3`}
           />
-          <p className="font-ui mt-1 text-right text-xs text-fg-muted tabular-nums" aria-hidden="true">
+          <p className="font-kral-mono mt-1 text-right text-xs text-kral-muted tabular-nums" aria-hidden="true">
             {note.length}/{ADDRESS_LIMITS.note}
           </p>
         </section>
       </div>
 
-      <aside aria-labelledby="checkout-summary" className={`${SECTION} space-y-4 lg:sticky! lg:top-38`}>
+      <aside aria-labelledby="checkout-summary" className={`${SECTION} space-y-4 lg:sticky lg:top-[calc(4rem+var(--site-header-extra,0px))]`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="checkout-summary" className="display flex items-center gap-2 text-xl text-fg">
+          <h2 id="checkout-summary" className={HEADING}>
             <ReceiptIcon />
             Order summary
           </h2>
-          <SampleDataBadge reason="Placing an order is a demo until the orders backend is connected. Nothing is charged or saved." />
+          <SampleDataBadge tone="kral" reason="Placing an order is a demo until the orders backend is connected. Nothing is charged or saved." />
         </div>
-        <p className="text-sm leading-snug text-fg-muted">
-          <span className="font-semibold text-fg">Delivery</span>
+        <p className="font-kral-mono text-base leading-snug text-kral-muted md:text-sm">
+          <span className="font-medium text-kral-fg">Delivery</span>
           <br />
           {eta}
         </p>
-        <PriceSummary totals={totals} itemCount={itemCount} />
+        <PriceSummary tone="kral" totals={totals} itemCount={itemCount} />
 
         {failed && (
-          <div role="alert" className="flex items-start gap-3 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm leading-snug">
+          <div role="alert" className="font-kral-mono flex items-start gap-3 border border-danger px-4 py-3 text-base leading-snug md:text-sm">
             <AlertIcon size={20} className="mt-px shrink-0 text-danger" />
             <div className="min-w-0">
-              <strong className="block font-semibold text-fg">We couldn&apos;t place your order.</strong>
-              <span className="text-fg-muted">
+              <strong className="block font-medium text-kral-fg">We couldn&apos;t place your order.</strong>
+              <span className="text-kral-muted">
                 The connection to our order service dropped before it replied, so no order was made. Your details are
                 kept: check your connection, then try again.
               </span>
               <button
                 type="button"
                 onClick={() => void submit()}
-                className={`${SHOP_PRIMARY} mt-3`}
+                className={`${KRAL_PRIMARY} mt-3`}
               >
                 Try again
               </button>
@@ -661,23 +663,26 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           </div>
         )}
 
-        <button type="submit" data-tour="checkout-place" disabled={pending} className={`${PRIMARY_BUTTON} w-full`}>
+        <button type="submit" data-tour="checkout-place" disabled={pending} className={`${KRAL_PRIMARY} w-full`}>
           {pending ? (
             <>
               <SpinnerIcon />
               Placing order…
             </>
           ) : (
-            'Place order'
+            <>
+              <BagIcon />
+              Place order
+            </>
           )}
         </button>
-        <p className="text-left text-sm leading-snug text-fg-muted">
+        <p className="font-kral-mono text-left text-base leading-snug text-kral-muted md:text-sm">
           By placing an order, you agree to the SilhouFit{' '}
-          <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+          <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="kral-focus underline underline-offset-2 hover:text-kral-fg">
             Terms of Service
           </a>{' '}
           and sale, and acknowledge that you have read the{' '}
-          <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+          <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="kral-focus underline underline-offset-2 hover:text-kral-fg">
             Privacy Policy
           </a>
           .
@@ -724,23 +729,23 @@ export function CheckoutPage() {
   const items = snapshot?.search === search ? snapshot.items : []
 
   return (
-    <div className="mx-auto max-w-6xl px-6 pt-18 pb-24">
+    <div className="mx-auto max-w-6xl px-6 pt-18 pb-24 2xl:max-w-[88rem]">
       {/* Stays under the top bar (61px) while the order scrolls; the summary sticks below it. */}
-      <div className="lg:sticky lg:top-[61px] lg:z-40 lg:-mx-6 lg:bg-canvas lg:px-6 lg:pt-2 lg:pb-[25px]">
+      <div className="lg:pt-2 lg:pb-[25px]">
         <Breadcrumb />
-        <h1 className="display mt-1 text-3xl text-fg sm:text-4xl">Checkout</h1>
+        <h1 className="font-kral-display mt-1 text-2xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-4xl lg:text-5xl">Checkout</h1>
       </div>
 
       {status === 'loading' && <CheckoutSkeleton />}
 
       {status === 'error' && (
-        <div role="alert" className="glass-card mt-6 rounded-xl p-6 sm:p-8">
-          <h2 className="display text-2xl text-fg">We couldn&apos;t load your order</h2>
-          <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+        <div role="alert" className="mt-6 border border-kral-rule p-6 sm:p-8">
+          <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">We couldn&apos;t load your order</h2>
+          <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
             The request for the catalogue failed, most likely because the connection dropped. Your choices are kept in
             the address. Check your connection, then try again.
           </p>
-          <button type="button" onClick={retry} className={`${PRIMARY_BUTTON} mt-6`}>
+          <button type="button" onClick={retry} className={`${KRAL_PRIMARY} mt-6 w-fit`}>
             Try again
           </button>
         </div>
@@ -749,22 +754,23 @@ export function CheckoutPage() {
       {status === 'success' && items.length === 0 && (
         <>
           {snapshot && snapshot.notices.length > 0 && (
-            <div role="status" className="glass-card mt-6 rounded-xl p-5">
-              <ul className="list-disc space-y-1 pl-5 text-sm leading-snug text-fg-muted">
+            <div role="status" className={`${SECTION} mt-6`}>
+              <ul className="font-kral-mono list-disc space-y-1 pl-5 text-base leading-snug text-kral-muted md:text-sm">
                 {snapshot.notices.map((notice) => (
                   <li key={notice}>{notice}</li>
                 ))}
               </ul>
             </div>
           )}
-          <div className="glass-card mt-6 rounded-xl p-6 sm:p-8">
-            <h2 className="display text-2xl text-fg">Nothing to check out</h2>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+          <div className="mt-6 border border-kral-rule p-6 sm:p-8">
+            <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">Nothing to check out</h2>
+            <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
               {fromCart
                 ? 'Your cart has nothing that can be bought right now. Add pieces from the shop, then open your cart and choose Checkout.'
                 : 'This link does not point to a piece in the catalogue, or its size, colour or quantity is not available. Pick a piece in the shop and choose Buy now.'}
             </p>
-            <Link to="/shop" className={`${PRIMARY_BUTTON} mt-6 inline-flex`}>
+            <Link to="/shop" className={`${KRAL_PRIMARY} mt-6 w-fit`}>
+              <StoreIcon />
               Back to shop
             </Link>
           </div>
