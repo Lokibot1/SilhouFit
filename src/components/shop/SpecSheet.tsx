@@ -36,7 +36,7 @@ const COLOR_ERROR = 'Choose a colour to continue.'
 const LEGEND = 'font-ui text-xs font-semibold tracking-[0.12em] text-fg uppercase'
 const LEGEND_ICON = 'mr-2 -mt-0.5 inline align-middle'
 const KRAL_LEGEND = 'font-kral-mono text-xs font-medium tracking-[0.08em] text-kral-fg uppercase'
-const KRAL_OPTION =
+export const KRAL_OPTION =
   'kral-focus font-kral-mono flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-none border border-kral-muted px-3 text-base font-medium text-kral-fg uppercase transition-colors duration-150 ease-out hover:border-kral-fg hover:bg-kral-fg/10 data-[checked=true]:border-kral-fg data-[checked=true]:bg-kral-fg data-[checked=true]:text-kral-bg peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-kral-red-ink motion-reduce:transition-none md:text-xs md:tracking-[0.08em]'
 export const OPTION_BASE =
   'skeuo font-ui flex min-h-8 pointer-coarse:min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong'
