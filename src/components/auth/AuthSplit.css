@@ -1,18 +1,52 @@
-/* KRAL palette for the login and sign up pages. The form sits on the Obsidian and red shader in both themes, so the
-   tokens are always the dark set. Utilities read --color-*, other rules read the plain tokens, so both are set. */
+/* KRAL palette for the login and sign up pages, following the app theme (DESIGN.md): Paper and Obsidian ink in light,
+   Obsidian and Paper ink in dark. Utilities read --color-*, other rules read the plain tokens, so both are set. */
 .kral-login {
-  --canvas: #161113;
-  --fg: #fffbfd;
-  --fg-muted: #eeeced;
-  --line: #322d2f;
+  --canvas: #fffbfd;
+  --fg: #161113;
+  --fg-muted: #322d2f;
+  --line: #eeeced;
   --line-strong: #85807c;
-  --chrome-strong: #eeeced;
+  --chrome-strong: #cb1c2b;
   --color-canvas: var(--canvas);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-chrome-strong: var(--chrome-strong);
+}
+
+/* The pages without the photo have no theme toggle and stay on the dark set. */
+.dark .kral-login,
+.kral-login.kral-login--bare {
+  --canvas: #161113;
+  --fg: #fffbfd;
+  --fg-muted: #eeeced;
+  --line: #322d2f;
+  --chrome-strong: #eeeced;
+}
+
+/* Light theme: the shader strokes are dark, so a soft Paper fade (no edge) sits behind the form and a short one behind the
+   logo, keeping the text at 4.5:1 while the ribbon stays strong toward the page edges. */
+.kral-scrim {
+  display: none;
+}
+
+html:not(.dark) .kral-login:not(.kral-login--bare) .kral-scrim {
+  display: block;
+  background:
+    radial-gradient(ellipse 130% 95% at 50% 50%, rgb(255 251 253 / 0.9) 0%, rgb(255 251 253 / 0.85) 60%, rgb(255 251 253 / 0) 100%);
+}
+
+@media (min-width: 40rem) {
+  html:not(.dark) .kral-login:not(.kral-login--bare) .kral-scrim {
+    background:
+        radial-gradient(ellipse 66% 54% at 50% 50%, rgb(255 251 253 / 0.9) 0%, rgb(255 251 253 / 0.85) 50%, rgb(255 251 253 / 0) 100%);
+  }
+}
+
+/* The logo sits over whatever stroke passes behind it, so in light it carries a soft Paper halo hugging the letters (no box). */
+html:not(.dark) .kral-login:not(.kral-login--bare) .kral-logo {
+  filter: drop-shadow(0 0 3px #fffbfd) drop-shadow(0 0 8px #fffbfd);
 }
 
 /* Without the photo the page is always dark, so there is no theme to switch. */

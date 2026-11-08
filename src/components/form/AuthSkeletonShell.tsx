@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import '../auth/AuthSplit.css'
 import '../auth/KralType.css'
 
-/** Mirrors AuthSplit: the photo panel as a block, the form side flat Obsidian, the logo as a bar top right. */
+/** Mirrors AuthSplit: the photo panel as a block, the form side flat in the theme canvas, the logo as a bar top right. */
 export function AuthSkeletonShell({
   label,
   children,
@@ -18,7 +18,7 @@ export function AuthSkeletonShell({
     <div
       role="status"
       aria-label={label}
-      className={`kral-login kral-type relative grid min-h-svh bg-canvas ${photo ? 'lg:grid-cols-2' : ''}`}
+      className={`kral-login kral-type relative grid min-h-svh bg-canvas ${photo ? 'lg:grid-cols-2' : 'kral-login--bare'}`}
     >
       {photo && <div aria-hidden="true" className="hidden animate-pulse bg-line lg:block" />}
       <div className="relative flex items-center justify-center overflow-hidden px-4 py-14 max-[359px]:px-3 sm:px-6 lg:py-16">

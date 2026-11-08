@@ -1,11 +1,24 @@
 import "./AuthSplit.css";
 import "./KralType.css";
 import { motion } from "motion/react";
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { DURATION, EASE_OUT } from "../../motion/tokens";
 import { Logo } from "../landing-v2/Logo";
-import { ShaderBackground } from "../ui/ShaderBackground";
+import { ShaderBackground, type ShaderColors } from "../ui/ShaderBackground";
+
+const rgb = (hex: number): ShaderColors[number] => [(hex >> 16) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255];
+
+// Light: the hero's light strokes (Stonewash, Red, Graphite, Obsidian) over a Paper ground. Dark uses the shader's own Obsidian and red default.
+const LIGHT = [0xfffbfd, 0x85807c, 0xcb1c2b, 0x161113, 0x322d2f].map(rgb);
+
+// The `dark` class on <html> is the one source of truth for the theme (ThemeProvider writes it), so the shader follows it live.
+const isLight = () => !document.documentElement.classList.contains("dark");
+const watchTheme = (notify: () => void) => {
+  const observer = new MutationObserver(notify);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
+};
 
 /** Shared by login and sign up: a photo panel on the left, the form over the KRAL shader on the right. */
 export function AuthSplit({
@@ -16,6 +29,7 @@ export function AuthSplit({
   /** false: no photo panel, the form sits in the middle of the shader and the theme toggle is hidden (forgot password, sign up success). */
   photo?: boolean;
 }) {
+  const light = useSyncExternalStore(watchTheme, isLight);
   return (
     <div
       className={`kral-login kral-type relative grid min-h-svh bg-canvas ${photo ? "lg:grid-cols-2" : "kral-login--bare"}`}
@@ -44,12 +58,13 @@ export function AuthSplit({
       )}
       <div className="relative flex items-center justify-center overflow-hidden px-4 py-14 max-[359px]:px-3 sm:px-6 lg:py-16">
         <div aria-hidden="true" className="absolute inset-0 z-0">
-          <ShaderBackground />
+          <ShaderBackground colors={photo && light ? LIGHT : undefined} />
+          <div className="kral-scrim absolute inset-0" />
         </div>
         <Link
           to="/"
           aria-label="KRAL home"
-          className="tap absolute top-5 right-4 z-10 -m-3 p-3 text-fg transition-colors duration-250 ease-out hover:text-[#CB1C2B] focus-visible:text-[#CB1C2B] motion-reduce:transition-none sm:right-6"
+          className="kral-logo tap absolute top-5 right-4 z-10 -m-3 p-3 text-fg transition-colors duration-250 ease-out hover:text-[#CB1C2B] focus-visible:text-[#CB1C2B] motion-reduce:transition-none sm:right-6"
         >
           <Logo className="h-5 w-auto fill-current sm:h-6" />
         </Link>
