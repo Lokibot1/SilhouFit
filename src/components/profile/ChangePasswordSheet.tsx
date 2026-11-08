@@ -7,6 +7,7 @@ import { FloatingField } from '../form/FloatingField'
 import { PasswordChecklist } from '../form/PasswordChecklist'
 import { AlertIcon, LockIcon, SpinnerIcon } from '../form/icons'
 import { useToast } from '../toast/useToast'
+import { KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
 import { Modal } from '../ui/Modal'
 
@@ -39,10 +40,13 @@ const BANNER_COPY: Record<Exclude<Failure, 'wrong-password' | 'same' | 'weak'>, 
 interface ChangePasswordSheetProps {
   open: boolean
   onClose: () => void
+  /** 'kral' restyles the sheet for the customer profile; staff leave it unset. */
+  tone?: 'kral'
 }
 
 /** The right-hand sheet on the profile where any signed-in user picks their own password, straight through Supabase Auth. A success ends the session. */
-export function ChangePasswordSheet({ open, onClose }: ChangePasswordSheetProps) {
+export function ChangePasswordSheet({ open, onClose, tone }: ChangePasswordSheetProps) {
+  const kral = tone === 'kral'
   const toast = useToast()
   const [current, setCurrent] = useState('')
   const [password, setPassword] = useState('')
@@ -115,9 +119,10 @@ export function ChangePasswordSheet({ open, onClose }: ChangePasswordSheetProps)
       onClose={close}
       title="Change password"
       variant="sheet"
+      tone={tone}
       footer={
         <div className="flex flex-col gap-3">
-          <button type="submit" form="change-password-form" disabled={pending} aria-busy={pending} className={`${PRIMARY_BUTTON} w-full`}>
+          <button type="submit" form="change-password-form" disabled={pending} aria-busy={pending} className={`${kral ? KRAL_PRIMARY : PRIMARY_BUTTON} w-full`}>
             {pending ? <SpinnerIcon /> : <LockIcon size={16} />}
             Change password
           </button>
@@ -125,8 +130,9 @@ export function ChangePasswordSheet({ open, onClose }: ChangePasswordSheetProps)
       }
     >
       <form id="change-password-form" noValidate onSubmit={(event) => void submit(event)} className="grid gap-4 pb-5">
-        <p className="text-base text-fg-muted sm:text-sm">You will be signed out once it is changed, and sign in again with the new password.</p>
+        <p className={kral ? 'font-kral-mono text-base text-kral-muted' : 'text-base text-fg-muted sm:text-sm'}>You will be signed out once it is changed, and sign in again with the new password.</p>
         <FloatingField
+          tone={tone}
           id="cp-current"
           label="Current password"
           type="password"
@@ -143,6 +149,7 @@ export function ChangePasswordSheet({ open, onClose }: ChangePasswordSheetProps)
           readOnly={pending}
         />
         <FloatingField
+          tone={tone}
           id="cp-password"
           label="New password"
           type="password"
@@ -158,8 +165,9 @@ export function ChangePasswordSheet({ open, onClose }: ChangePasswordSheetProps)
           autoComplete="new-password"
           readOnly={pending}
         />
-        <PasswordChecklist password={password} email="" firstName="" visible />
+        <PasswordChecklist password={password} email="" firstName="" visible tone={tone} />
         <FloatingField
+          tone={tone}
           id="cp-confirm"
           label="Confirm password"
           type="password"
@@ -173,13 +181,13 @@ export function ChangePasswordSheet({ open, onClose }: ChangePasswordSheetProps)
           readOnly={pending}
         />
         {banner && (
-          <div role="alert" className="flex items-start gap-3 rounded-xl border border-danger p-3">
+          <div role="alert" className={`flex items-start gap-3 border p-3 ${kral ? 'border-kral-red-ink' : 'rounded-xl border-danger'}`}>
             <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
             <div className="min-w-0">
-              <p className="text-base font-semibold text-fg sm:text-sm">{banner.title}</p>
-              <p className="mt-1 text-base text-fg-muted sm:text-sm">{banner.body}</p>
+              <p className={kral ? 'font-kral-mono text-base font-medium text-kral-fg' : 'text-base font-semibold text-fg sm:text-sm'}>{banner.title}</p>
+              <p className={`mt-1 text-base ${kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted sm:text-sm'}`}>{banner.body}</p>
               {failure === 'unauthorized' && (
-                <button type="button" onClick={signOut} className={`${SECONDARY_BUTTON_SM} mt-3`}>
+                <button type="button" onClick={signOut} className={`${kral ? KRAL_SECONDARY : SECONDARY_BUTTON_SM} mt-3`}>
                   Sign in again
                 </button>
               )}

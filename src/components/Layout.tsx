@@ -18,8 +18,8 @@ import { isAuthPath } from '../utils/authRoutes'
 // Sections moved to /about; old anchors still land on them.
 const MOVED_TO_ABOUT = ['#capabilities', '#how-it-works', '#boutiques']
 
-// The cart, wishlist and checkout are working pages, so they end without the site footer.
-const NO_FOOTER = ['/wishlist', '/cart', '/checkout', '/messages']
+// The cart, wishlist, checkout and profile are working pages, so they end without the site footer.
+const NO_FOOTER = ['/wishlist', '/cart', '/checkout', '/messages', '/profile']
 
 // Full-screen flows: no top bar or footer. Kept inside the main Layout so toasts and the tour carry across the exit.
 const BARE_PATHS = ['/profile/measurements']

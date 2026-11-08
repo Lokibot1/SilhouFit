@@ -14,10 +14,10 @@ import {
 } from '../body-setup/measurements'
 import { SectionBoundary } from '../body-setup/SectionBoundary'
 import { StudioFlat, StudioFrame } from '../body-setup/StudioFallback'
-import { AlertIcon, RulerIcon } from '../form/icons'
-import { PRIMARY_BUTTON } from '../ui/buttonStyles'
+import { AlertIcon, PlusIcon, RulerIcon } from '../form/icons'
+import { KRAL_PRIMARY } from '../shop/shopControls'
 import { IconEditButton } from '../ui/IconEditButton'
-import { PROFILE_CARD } from './ProfileSkeleton'
+import { KRAL_BLOCK, KRAL_BODY, KRAL_H2, KRAL_PANEL } from './profileKral'
 
 // Three.js stays out of the profile's own chunk. A chunk that failed to load stays failed inside its lazy component, so Try again swaps in a fresh one.
 const loadStudio = () => import('../body-setup/BodyStudio').then((m) => ({ default: m.BodyStudio }))
@@ -65,27 +65,27 @@ export function BodyMeasurements() {
   const saved = profile ? fromProfile(profile) : null
 
   return (
-    <section aria-labelledby={headingId} className={PROFILE_CARD}>
+    <section aria-labelledby={headingId} className={KRAL_PANEL}>
       <div className="flex items-start justify-between gap-3">
-        <h2 id={headingId} className="display flex items-center gap-3 text-xl text-fg">
+        <h2 id={headingId} className={KRAL_H2}>
           <RulerIcon />
           Body measurements
         </h2>
-        {saved && <IconEditButton to="/profile/measurements" label="Edit measurements" className="-mt-2 -mr-2" />}
+        {saved && <IconEditButton tone="kral" to="/profile/measurements" label="Edit measurements" className="-mt-2 -mr-2" />}
       </div>
 
       {state.status === 'loading' && (
         <div role="status" aria-label="Loading your body measurements" className="mt-4 animate-pulse">
-          <div className="h-6 w-2/3 rounded-xl bg-line" />
-          <div className="mt-2 h-6 w-1/2 rounded-xl bg-line" />
-          <div className="mt-4 h-11 w-48 rounded-xl bg-line-strong" />
+          <div className={`h-6 w-2/3 ${KRAL_BLOCK}`} />
+          <div className={`mt-2 h-6 w-1/2 ${KRAL_BLOCK}`} />
+          <div className={`mt-4 h-11 w-48 ${KRAL_BLOCK}`} />
         </div>
       )}
 
       {state.status === 'error' && (
         <div role="alert" className="mt-4">
-          <p className="flex items-start gap-2 text-base leading-relaxed text-fg">
-            <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
+          <p className="font-kral-mono flex items-start gap-2 text-base leading-relaxed text-kral-fg">
+            <AlertIcon size={20} className="mt-0.5 shrink-0 text-kral-red-ink" />
             <span>We couldn&apos;t load your body measurements. {ERROR_COPY[state.kind]}</span>
           </p>
           <button
@@ -94,7 +94,7 @@ export function BodyMeasurements() {
               setState({ status: 'loading' })
               setAttempt((n) => n + 1)
             }}
-            className={`${PRIMARY_BUTTON} mt-4`}
+            className={`${KRAL_PRIMARY} mt-4 w-fit`}
           >
             Try again
           </button>
@@ -103,11 +103,12 @@ export function BodyMeasurements() {
 
       {state.status === 'ready' && !saved && (
         <>
-          <p className="mt-2 max-w-xl text-base leading-relaxed text-fg-muted">
+          <p className={`${KRAL_BODY} mt-3 max-w-xl`}>
             You have not saved any measurements yet. Add them to pick your AR fitting avatar and get size
             recommendations.
           </p>
-          <Link to="/profile/measurements" className={`${PRIMARY_BUTTON} mt-4 w-fit`}>
+          <Link to="/profile/measurements" className={`${KRAL_PRIMARY} mt-4 w-fit`}>
+            <PlusIcon size={16} />
             Add your measurements
           </Link>
         </>
@@ -129,7 +130,7 @@ export function BodyMeasurements() {
               </StudioFrame>
             )}
           >
-            <Suspense fallback={<div className={`animate-pulse rounded-xl bg-line ${AVATAR_SIZE}`} />}>
+            <Suspense fallback={<div className={`animate-pulse ${KRAL_BLOCK} ${AVATAR_SIZE}`} />}>
               <BodyStudio
                 model={saved.model ?? 'male'}
                 build={saved.build}
@@ -147,7 +148,7 @@ export function BodyMeasurements() {
             role="region"
             aria-label="Saved measurements"
             tabIndex={0}
-            className="md:h-80 md:overflow-y-auto md:pr-2 md:overscroll-contain"
+            className="kral-focus md:h-80 md:overflow-y-auto md:pr-2 md:overscroll-contain"
           >
             <dl className="grid gap-x-6 sm:grid-cols-2 md:grid-cols-1">
               {[
@@ -169,9 +170,9 @@ export function BodyMeasurements() {
                   }),
                 ),
               ].map((row) => (
-                <div key={row.key} className="flex items-baseline justify-between gap-3 border-b border-line py-2">
-                  <dt className="text-base text-fg-muted">{row.label}</dt>
-                  <dd className="text-right text-base text-fg tabular-nums">{row.value}</dd>
+                <div key={row.key} className="flex items-baseline justify-between gap-3 border-b border-kral-rule py-2">
+                  <dt className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">{row.label}</dt>
+                  <dd className="font-kral-mono text-right text-base text-kral-fg tabular-nums">{row.value}</dd>
                 </div>
               ))}
             </dl>

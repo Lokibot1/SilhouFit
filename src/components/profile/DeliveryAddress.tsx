@@ -9,13 +9,14 @@ import {
   type AddressErrorKind,
 } from '../../service/addresses'
 import { AddressForm } from '../address/AddressForm'
-import { AlertIcon, MapPinIcon, SpinnerIcon, TrashIcon } from '../form/icons'
+import { AlertIcon, MapPinIcon, PlusIcon, SpinnerIcon, TrashIcon } from '../form/icons'
 import { useToast } from '../toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
+import { KRAL_DANGER, KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
 import { IconEditButton } from '../ui/IconEditButton'
 import { Modal } from '../ui/Modal'
+import { KRAL_ICON_BUTTON } from '../ui/kralIconButton'
 import { Tooltip } from '../ui/Tooltip'
-import { PROFILE_CARD } from './ProfileSkeleton'
+import { KRAL_BLOCK, KRAL_BODY, KRAL_H2, KRAL_PANEL } from './profileKral'
 
 type State =
   | { status: 'loading' }
@@ -51,14 +52,14 @@ const nameOf = (a: Address) => a.label || a.streetAddress
 // A bar centred in a row of the height the real line takes, so the card is as tall as the loaded one.
 const Row = ({ row, bar }: { row: string; bar: string }) => (
   <div className={`flex items-center ${row}`}>
-    <div className={`h-4 rounded-xl bg-line ${bar}`} />
+    <div className={`h-4 ${KRAL_BLOCK} ${bar}`} />
   </div>
 )
 
 // Mirrors the default saved-address card (name row, recipient and phone, three address lines) so the swap does not shift the list.
 function CardSkeleton() {
   return (
-    <div className="rounded-xl border border-line p-4">
+    <div className="border border-kral-rule p-4">
       <Row row="h-8" bar="w-1/3" />
       <div className="mt-1">
         <Row row="h-6" bar="w-1/2" />
@@ -218,24 +219,27 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
   const promoted = deleting?.address.isDefault && (addresses?.length ?? 0) > 1
 
   return (
-    <section aria-labelledby={headingId} className={`${PROFILE_CARD} w-full max-w-sm min-w-0 lg:absolute! lg:inset-0 lg:flex lg:max-w-none lg:flex-col`}>
+    <section aria-labelledby={headingId} className={`${KRAL_PANEL} w-full min-w-0 lg:absolute! lg:inset-0 lg:flex lg:flex-col`}>
       <div className="flex items-start justify-between gap-3">
-        <h2 id={headingId} className="display flex items-center gap-3 text-xl text-fg">
+        <h2 id={headingId} className={`${KRAL_H2} min-w-0`}>
           <MapPinIcon />
           Delivery address
         </h2>
         {!!addresses?.length && (
-          <button
-            ref={addButton}
-            type="button"
-            disabled={busy}
-            onClick={() => setEditor({ address: null })}
-            className={`${SECONDARY_BUTTON_SM} -mt-1`}
-          >
-            Add address
-          </button>
+          <Tooltip tone="kral" label="Add address">
+            <button
+              ref={addButton}
+              type="button"
+              aria-label="Add address"
+              disabled={busy}
+              onClick={() => setEditor({ address: null })}
+              className={`${KRAL_ICON_BUTTON} -mt-2 -mr-2 ml-auto disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              <PlusIcon />
+            </button>
+          </Tooltip>
         )}
-        {state.status === 'loading' && <div aria-hidden="true" className="-mt-1 h-9 w-32 animate-pulse rounded-xl bg-line-strong pointer-coarse:h-11" />}
+        {state.status === 'loading' && <div aria-hidden="true" className={`-mt-2 -mr-2 size-11 shrink-0 animate-pulse ${KRAL_BLOCK}`} />}
       </div>
 
       {state.status === 'loading' && (
@@ -246,8 +250,8 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
 
       {state.status === 'error' && (
         <div role="alert" className="mt-4">
-          <p className="flex items-start gap-2 text-base leading-relaxed text-fg">
-            <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
+          <p className="font-kral-mono flex items-start gap-2 text-base leading-relaxed text-kral-fg">
+            <AlertIcon size={20} className="mt-0.5 shrink-0 text-kral-red-ink" />
             <span>We couldn&apos;t load your delivery addresses. {LOAD_ERROR[state.kind]}</span>
           </p>
           <button
@@ -256,7 +260,7 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
               setState({ status: 'loading' })
               refetch()
             }}
-            className={`${PRIMARY_BUTTON} mt-4`}
+            className={`${KRAL_PRIMARY} mt-4 w-fit`}
           >
             Try again
           </button>
@@ -265,10 +269,11 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
 
       {addresses?.length === 0 && (
         <>
-          <p className="mt-2 max-w-xl text-base leading-relaxed text-fg-muted">
+          <p className={`${KRAL_BODY} mt-3 max-w-xl`}>
             You have not saved a delivery address yet. Add one and checkout fills it in for you.
           </p>
-          <button ref={addButton} type="button" onClick={() => setEditor({ address: null })} className={`${PRIMARY_BUTTON} mt-4`}>
+          <button ref={addButton} type="button" onClick={() => setEditor({ address: null })} className={`${KRAL_PRIMARY} mt-4 w-fit`}>
+            <PlusIcon size={16} />
             Add address
           </button>
         </>
@@ -282,38 +287,39 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
           className="mt-4 max-h-112 space-y-3 overflow-y-auto overscroll-contain lg:max-h-none lg:min-h-0 lg:flex-1"
         >
           {addresses.map((a) => (
-            <li key={a.id} className="rounded-xl border border-line p-4">
+            <li key={a.id} className="border border-kral-rule p-4">
               <div className="flex items-start justify-between gap-2">
-                <p className="flex min-w-0 flex-wrap items-center gap-2 text-base font-semibold wrap-anywhere text-fg">
+                <p className="font-kral-mono flex min-w-0 flex-wrap items-center gap-2 text-base font-medium wrap-anywhere text-kral-fg uppercase">
                   {a.label || 'Address'}
-                  {a.isDefault && <span className="font-ui rounded-md bg-fg/10 px-2 text-sm font-semibold text-fg">Default</span>}
+                  {a.isDefault && <span className="border border-kral-fg px-2 text-sm text-kral-fg">Default</span>}
                 </p>
                 <div className="-mt-3 -mr-3 flex shrink-0">
                   <IconEditButton
+                    tone="kral"
                     label={`Edit address ${nameOf(a)}`}
                     hint="Edit address"
                     ref={(button) => void (button ? editButtons.current.set(a.id, button) : editButtons.current.delete(a.id))}
                     ariaDisabled={busy}
                     onClick={() => void openEditor(a)}
                   />
-                  <Tooltip label="Delete address">
+                  <Tooltip tone="kral" label="Delete address">
                     <button
                       type="button"
                       aria-label={`Delete address ${nameOf(a)}`}
                       disabled={busy}
                       onClick={() => setDeleting({ address: a, pending: false, error: null })}
-                      className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg hover:text-danger disabled:cursor-not-allowed disabled:opacity-60"
+                      className="kral-focus flex size-11 shrink-0 cursor-pointer items-center justify-center text-kral-fg transition-colors duration-150 ease-out hover:bg-kral-fg/10 hover:text-kral-red-ink disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
                     >
                       <TrashIcon />
                     </button>
                   </Tooltip>
                 </div>
               </div>
-              <p className="mt-1 text-base wrap-anywhere text-fg">
+              <p className="font-kral-mono mt-1 text-base wrap-anywhere text-kral-fg">
                 {a.recipientName}
-                <span className="block text-fg-muted tabular-nums">{a.phone}</span>
+                <span className="block text-kral-muted tabular-nums">{a.phone}</span>
               </p>
-              <address className="mt-1 text-base leading-relaxed wrap-anywhere text-fg not-italic">
+              <address className="font-kral-mono mt-1 text-base leading-relaxed wrap-anywhere text-kral-fg not-italic">
                 {lines(a).map((line) => (
                   <span key={line} className="block">
                     {line}
@@ -321,7 +327,7 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
                 ))}
               </address>
               {!a.isDefault && (
-                <button type="button" aria-disabled={busy || undefined} onClick={() => void makeDefault(a)} className={`${SECONDARY_BUTTON_SM} mt-3`}>
+                <button type="button" aria-disabled={busy || undefined} onClick={() => void makeDefault(a)} className={`${KRAL_SECONDARY} mt-3`}>
                   {defaulting === a.id && <SpinnerIcon />}
                   Set as default
                 </button>
@@ -331,9 +337,10 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
         </ul>
       )}
 
-      <Modal open={editor !== null} onClose={closeEditor} title={editor?.address ? 'Edit your delivery address' : 'Add a delivery address'}>
+      <Modal tone="kral" open={editor !== null} onClose={closeEditor} title={editor?.address ? 'Edit your delivery address' : 'Add a delivery address'}>
         {editor && (
           <AddressForm
+            tone="kral"
             initial={editor.address}
             existingCount={addresses?.length ?? 0}
             onSaved={saved}
@@ -347,7 +354,7 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
             onPendingChange={setSaving}
             footer={(submit) => (
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <button type="button" onClick={closeEditor} disabled={saving} className={`${SECONDARY_BUTTON} disabled:cursor-not-allowed disabled:opacity-60`}>
+                <button type="button" onClick={closeEditor} disabled={saving} className={KRAL_SECONDARY}>
                   Cancel
                 </button>
                 {submit}
@@ -357,24 +364,24 @@ export function DeliveryAddress({ onUnauthorized }: { onUnauthorized: () => void
         )}
       </Modal>
 
-      <Modal open={deleting !== null} onClose={closeDelete} title="Delete this address?">
+      <Modal tone="kral" open={deleting !== null} onClose={closeDelete} title="Delete this address?">
         {deleting && (
           <>
-            <p className="pb-3 text-base leading-relaxed wrap-anywhere text-fg-muted">
+            <p className="font-kral-mono pb-3 text-base leading-relaxed wrap-anywhere text-kral-muted">
               Are you sure? {nameOf(deleting.address)} will be removed from your saved addresses.
               {promoted && ' Your most recently added address becomes the default.'}
             </p>
             {deleting.error && (
-              <p role="alert" className="flex items-start gap-2 pb-3 text-base leading-snug text-danger">
+              <p role="alert" className="font-kral-mono flex items-start gap-2 pb-3 text-base leading-snug text-kral-red-ink">
                 <AlertIcon className="mt-1 shrink-0" />
                 <span>{deleting.error}</span>
               </p>
             )}
             <div className="flex flex-col-reverse gap-3 pb-5 sm:flex-row sm:justify-end">
-              <button type="button" onClick={closeDelete} disabled={deleting.pending} className={PRIMARY_BUTTON}>
+              <button type="button" onClick={closeDelete} disabled={deleting.pending} className={KRAL_SECONDARY}>
                 Cancel
               </button>
-              <button type="button" onClick={() => void confirmDelete()} disabled={deleting.pending} className={`${SECONDARY_BUTTON} disabled:cursor-progress disabled:opacity-70`}>
+              <button type="button" onClick={() => void confirmDelete()} disabled={deleting.pending} className={`${KRAL_DANGER} disabled:cursor-progress`}>
                 {deleting.pending && <SpinnerIcon />}
                 Delete Address
               </button>

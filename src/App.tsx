@@ -348,15 +348,15 @@ function App() {
               <Route
                 path="profile"
                 element={
-                  <Suspense fallback={<ProfileSkeleton />}>
-                    <ProfilePage />
+                  <Suspense fallback={<ProfileSkeleton tone="kral" />}>
+                    <ProfilePage tone="kral" />
                   </Suspense>
                 }
               />
               <Route
                 path="profile/measurements"
                 element={
-                  <Suspense fallback={<ProfileSkeleton />}>
+                  <Suspense fallback={<ProfileSkeleton tone="kral" />}>
                     <BodySetupPage />
                   </Suspense>
                 }

@@ -5,7 +5,7 @@ import { AVATAR_MAX_BYTES, AVATAR_TYPES, AvatarUploadError, deleteAvatar, upload
 import { normalizeName, stripEmoji } from '../../utils/signUpValidation'
 import { FloatingField } from '../form/FloatingField'
 import { AlertIcon, SpinnerIcon } from '../form/icons'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
+import { KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
 import { Select } from '../ui/Select'
 import { AvatarPicker } from './AvatarPicker'
 
@@ -14,7 +14,7 @@ const WORD_MAX = 30
 const NAME_MAX = 100
 const SUFFIX_MAX = 20
 const DATE_INPUT =
-  'font-ui min-h-11 w-full rounded-xl border border-line-strong bg-canvas px-3 text-base text-fg scheme-light dark:scheme-dark'
+  'kral-focus font-kral-mono min-h-11 w-full rounded-none border border-kral-fg bg-transparent px-3 text-base text-kral-fg scheme-light dark:scheme-dark'
 const GENDER_OPTIONS: { value: '' | NonNullable<Me['gender']>; label: string }[] = [
   { value: '', label: 'Not specified' },
   { value: 'male', label: 'Male' },
@@ -242,6 +242,7 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
           disabled={pending}
         />
         <FloatingField
+          tone="kral"
           id={fieldId('firstName')}
           label="First name"
           value={values.firstName}
@@ -253,6 +254,7 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
           readOnly={pending}
         />
         <FloatingField
+          tone="kral"
           id={fieldId('middleName')}
           label="Middle name (optional)"
           value={values.middleName}
@@ -264,6 +266,7 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
           readOnly={pending}
         />
         <FloatingField
+          tone="kral"
           id={fieldId('lastName')}
           label="Last name"
           value={values.lastName}
@@ -275,6 +278,7 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
           readOnly={pending}
         />
         <FloatingField
+          tone="kral"
           id={fieldId('suffix')}
           label="Suffix (optional)"
           value={values.suffix}
@@ -287,7 +291,7 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
           readOnly={pending}
         />
         <div>
-          <label htmlFor={fieldId('birthday')} className="font-ui mb-1 block text-sm text-fg-muted">
+          <label htmlFor={fieldId('birthday')} className="font-kral-mono mb-1 block text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">
             Birthday (optional)
           </label>
           <input
@@ -304,26 +308,26 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
             className={DATE_INPUT}
           />
           {shown('birthday') && (
-            <p id={fieldId('birthday-error')} className="flex items-start gap-1.5 px-1 pt-1 text-xs leading-snug text-danger">
+            <p id={fieldId('birthday-error')} className="font-kral-mono flex items-start gap-1.5 px-1 pt-1 text-base leading-snug text-kral-red-ink md:text-sm">
               <AlertIcon className="mt-px size-3.5" />
               <span>{shown('birthday')}</span>
             </p>
           )}
         </div>
         <div className="grid gap-1">
-          <p className="font-ui text-sm text-fg-muted">Gender (optional)</p>
-          <Select label="Gender" value={values.gender} options={GENDER_OPTIONS} onChange={(gender) => set({ gender })} className="min-h-11!" />
+          <p className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Gender (optional)</p>
+          <Select tone="kral" label="Gender" value={values.gender} options={GENDER_OPTIONS} onChange={(gender) => set({ gender })} className="min-h-11!" />
         </div>
       </div>
 
       {failure && (
         <div role="alert" className="mt-3 grid justify-items-start gap-3">
-          <p className="flex items-start gap-2 text-base leading-snug text-danger">
+          <p className="font-kral-mono flex items-start gap-2 text-base leading-snug text-kral-red-ink">
             <AlertIcon className="mt-1 shrink-0" />
             <span>{failure.message}</span>
           </p>
           {failure.retry && (
-            <button type="button" onClick={() => void save()} disabled={pending} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={() => void save()} disabled={pending} className={KRAL_SECONDARY}>
               Try again
             </button>
           )}
@@ -331,10 +335,10 @@ export function EditProfileForm({ me, onSaved, onCancel, onUnauthorized, onPendi
       )}
 
       <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button type="button" onClick={onCancel} disabled={pending} className={`${SECONDARY_BUTTON} disabled:cursor-progress disabled:opacity-70`}>
+        <button type="button" onClick={onCancel} disabled={pending} className={`${KRAL_SECONDARY} disabled:cursor-progress`}>
           Cancel
         </button>
-        <button type="submit" disabled={pending || !changed} className={`${PRIMARY_BUTTON} w-full sm:w-auto`}>
+        <button type="submit" disabled={pending || !changed} className={`${KRAL_PRIMARY} w-full sm:w-auto`}>
           {pending && <SpinnerIcon />}
           Save changes
         </button>

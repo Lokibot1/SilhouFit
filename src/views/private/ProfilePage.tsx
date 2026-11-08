@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useLocation, useOutletContext } from 'react-router-dom'
-import { AlertIcon, LockIcon, LogOutIcon } from '../../components/form/icons'
+import { AlertIcon, LockIcon, LogOutIcon, SparkleIcon, UserIcon } from '../../components/form/icons'
 import { BodyMeasurements } from '../../components/profile/BodyMeasurements'
 import { ChangePasswordSheet } from '../../components/profile/ChangePasswordSheet'
 import { DeliveryAddress } from '../../components/profile/DeliveryAddress'
 import { EditProfileForm } from '../../components/profile/EditProfileForm'
+import { KRAL_PANEL, KRAL_WRAP } from '../../components/profile/profileKral'
 import { PROFILE_CARD, PROFILE_SHELL, ProfileSkeleton } from '../../components/profile/ProfileSkeleton'
+import { ShopHeader } from '../../components/shop/ShopHeader'
+import { KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { useToast } from '../../components/toast/useToast'
 import { Avatar } from '../../components/ui/Avatar'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
@@ -65,7 +68,9 @@ function formatDate(iso: string) {
     : date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-export function ProfilePage() {
+/** `tone="kral"` is the customer profile; staff, admin and owner profiles render it unset and keep the glass look. */
+export function ProfilePage({ tone }: { tone?: 'kral' }) {
+  const kral = tone === 'kral'
   useDocumentTitle('Your profile — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
 
@@ -170,11 +175,31 @@ export function ProfilePage() {
     toast.show({ kind: 'success', message: 'Signed out' })
   }
 
-  if (state.status === 'loading') return <ProfileSkeleton />
+  if (state.status === 'loading') return <ProfileSkeleton tone={tone} />
 
   if (state.status === 'error') {
     const copy = ERROR_COPY[state.kind]
     const missing = state.kind === 'not-found'
+    if (kral) {
+      return (
+        <>
+          <ShopHeader tone="kral" ref={headingRef} title="Your profile" crumb="Profile" icon={<UserIcon className="size-[1.1em]" />} />
+          <div className={KRAL_WRAP}>
+            <div role="alert" className={`${KRAL_PANEL} flex items-start gap-3`}>
+              <AlertIcon size={20} className="mt-1 shrink-0 text-kral-red-ink" />
+              <div className="min-w-0">
+                <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">{copy.title}</h2>
+                <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">{copy.body}</p>
+                <button type="button" onClick={missing ? leave : retry} className={`${missing ? KRAL_SECONDARY : KRAL_PRIMARY} mt-6 w-fit`}>
+                  {missing ? <LogOutIcon size={16} /> : null}
+                  {missing ? 'Sign out' : 'Try again'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )
+    }
     return (
       <div className={PROFILE_SHELL}>
         <div role="alert" className={`${PROFILE_CARD} flex items-start gap-3`}>
@@ -201,6 +226,86 @@ export function ProfilePage() {
   const name = me.fullName ?? `${me.firstName} ${me.lastName}`
   const since = formatDate(me.createdAt)
   const simulated = Boolean(getSession()?.simulated)
+
+  if (kral) {
+    const row = 'flex items-baseline justify-between gap-3 border-b border-kral-rule py-2 sm:max-w-md'
+    return (
+      <>
+        <ShopHeader tone="kral" ref={headingRef} title={name} crumb="Profile" />
+        <div className={KRAL_WRAP}>
+          <section aria-label="Your profile" className={KRAL_PANEL}>
+            <div className="flex items-center gap-4">
+              <Avatar tone="kral" name={name} src={me.avatarUrl ?? undefined} initials={initialsOf(me)} size="lg" />
+              <p className="font-kral-mono min-w-0 flex-1 text-base wrap-break-word text-kral-fg">{me.email}</p>
+              {me.role === 'customer' && (
+                <IconEditButton tone="kral" label="Edit profile" onClick={() => setEditing(true)} className="-mt-2 -mr-2 self-start" />
+              )}
+            </div>
+            {(since || simulated) && (
+              <dl className="mt-6">
+                {simulated && (
+                  <div className={row}>
+                    <dt className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Role</dt>
+                    <dd className="font-kral-mono text-base text-kral-fg capitalize">{me.role}</dd>
+                  </div>
+                )}
+                {simulated && me.phone && (
+                  <div className={row}>
+                    <dt className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Phone</dt>
+                    <dd className="font-kral-mono text-base text-kral-fg tabular-nums">{me.phone}</dd>
+                  </div>
+                )}
+                {since && (
+                  <div className={row}>
+                    <dt className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Member since</dt>
+                    <dd className="font-kral-mono text-base text-kral-fg">{since}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
+            {simulated && (
+              <p role="note" className="font-kral-mono mt-4 text-base text-kral-muted md:text-sm">
+                This is a demo account saved in this browser. Photo upload, body measurements and delivery addresses need the shop account, so they are not available here.
+              </p>
+            )}
+            <div className="mt-6 flex flex-wrap gap-3">
+              {me.role === 'customer' && (
+                <button type="button" onClick={() => startTour({ skipWelcome: true })} className={KRAL_SECONDARY}>
+                  <SparkleIcon size={16} />
+                  Replay the tour
+                </button>
+              )}
+              {passwordLogin && (
+                <button type="button" onClick={() => setChangingPassword(true)} className={KRAL_SECONDARY}>
+                  <LockIcon size={16} />
+                  Change password
+                </button>
+              )}
+              <button type="button" onClick={leave} className={KRAL_SECONDARY}>
+                <LogOutIcon size={16} />
+                Sign out
+              </button>
+            </div>
+          </section>
+          {me.role === 'customer' && (
+            <div className="mt-6 grid gap-6 lg:grid-cols-[24rem_minmax(0,1fr)]">
+              {/* From lg the addresses fill the row at the height of Body measurements and scroll inside it. */}
+              <div className="lg:relative lg:min-h-112">
+                <DeliveryAddress onUnauthorized={expire} />
+              </div>
+              <BodyMeasurements />
+            </div>
+          )}
+          {passwordLogin && <ChangePasswordSheet tone="kral" open={changingPassword} onClose={() => setChangingPassword(false)} />}
+          {me.role === 'customer' && (
+            <Modal tone="kral" open={editing} onClose={closeEditor} title="Edit your profile">
+              <EditProfileForm me={me} onSaved={saved} onCancel={closeEditor} onUnauthorized={expire} onPendingChange={setSaving} />
+            </Modal>
+          )}
+        </div>
+      </>
+    )
+  }
 
   return (
     <div className={PROFILE_SHELL}>

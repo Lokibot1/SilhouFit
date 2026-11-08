@@ -2,7 +2,7 @@ import { useRef, type ChangeEvent } from 'react'
 import { formatFileSize } from '../../utils/fileSize'
 import { AlertIcon } from '../form/icons'
 import { Avatar } from '../ui/Avatar'
-import { SECONDARY_BUTTON } from '../ui/buttonStyles'
+import { KRAL_SECONDARY } from '../shop/shopControls'
 
 interface AvatarPickerProps {
   name: string
@@ -33,13 +33,13 @@ export function AvatarPicker({ name, src, file, onPick, onRemove, removable, pro
   return (
     <div>
       <div className="flex items-center gap-4">
-        <Avatar name={name} src={src} size="lg" />
+        <Avatar tone="kral" name={name} src={src} size="lg" />
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={() => input.current?.click()} disabled={disabled} className={SECONDARY_BUTTON}>
+          <button type="button" onClick={() => input.current?.click()} disabled={disabled} className={KRAL_SECONDARY}>
             {src ? 'Change photo' : 'Add photo'}
           </button>
           {removable && (
-            <button type="button" onClick={onRemove} disabled={disabled} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={onRemove} disabled={disabled} className={KRAL_SECONDARY}>
               Remove photo
             </button>
           )}
@@ -48,22 +48,22 @@ export function AvatarPicker({ name, src, file, onPick, onRemove, removable, pro
       </div>
 
       {file && (
-        <p className="mt-3 truncate text-sm text-fg-muted">
+        <p className="font-kral-mono mt-3 truncate text-base text-kral-muted md:text-sm">
           {file.name} · <span className="tabular-nums">{formatFileSize(file.size)}</span>
         </p>
       )}
 
       {progress !== null && (
         <div className="mt-3 flex items-center gap-3">
-          <div role="progressbar" aria-label="Uploading photo" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-2 flex-1 overflow-hidden rounded-full bg-line">
-            <div className="h-full bg-fg" style={{ width: `${progress}%` }} />
+          <div role="progressbar" aria-label="Uploading photo" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-2 flex-1 overflow-hidden bg-kral-porcelain dark:bg-kral-graphite">
+            <div className="h-full bg-kral-red" style={{ width: `${progress}%` }} />
           </div>
-          <span className="w-10 text-right text-sm text-fg-muted tabular-nums">{progress}%</span>
+          <span className="font-kral-mono w-10 text-right text-base text-kral-muted tabular-nums md:text-sm">{progress}%</span>
         </div>
       )}
 
       {error && (
-        <p role="alert" className="mt-2 flex items-start gap-1.5 px-1 text-xs leading-snug text-danger">
+        <p role="alert" className="font-kral-mono mt-2 flex items-start gap-1.5 px-1 text-base leading-snug text-kral-red-ink md:text-sm">
           <AlertIcon className="mt-px size-3.5" />
           <span>{error}</span>
         </p>
