@@ -3,13 +3,11 @@ import { productImages, type Product } from '../../data/products'
 import { ChevronLeftIcon, ChevronRightIcon, HeartIcon } from '../form/icons'
 import { SilhouetteMark } from '../landing/SilhouetteMark'
 
-// Same hover reveal as the shop cards: controls fade in on hover or keyboard focus, and stay visible on touch.
+// Same hover reveal as the KRAL shop cards: controls fade in on hover or keyboard focus, and stay visible on touch.
 const REVEAL =
-  'opacity-0 transition-[opacity,translate] duration-500 ease-in-out group-hover/img:opacity-100 group-has-focus-visible/img:opacity-100 pointer-coarse:opacity-100'
+  'opacity-0 transition-opacity duration-200 ease-out group-hover/img:opacity-100 group-has-focus-visible/img:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none'
 // Below lg the chevrons give way to swiping: hidden and untappable, but still there for keyboard focus.
 const SWIPED = 'max-lg:pointer-events-none max-lg:opacity-0! max-lg:focus-visible:pointer-events-auto max-lg:focus-visible:opacity-100!'
-const DRIFT =
-  'transition-transform duration-500 ease-in-out group-hover/img:translate-x-0 group-has-focus-visible/img:translate-x-0 pointer-coarse:translate-x-0'
 
 interface ProductGalleryProps {
   product: Product
@@ -71,7 +69,7 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
         onPointerMove={swipeMove}
         onPointerUp={swipeEnd}
         onPointerCancel={swipeEnd}
-        className="group/img relative aspect-4/5 h-full w-auto max-w-full touch-pan-y overflow-hidden rounded-xl border border-line bg-canvas-sub select-none"
+        className="group/img relative aspect-4/5 h-full w-auto max-w-full touch-pan-y overflow-hidden bg-kral-porcelain select-none dark:bg-kral-graphite"
       >
         {/* Same sliding track as the shop cards. */}
         <div
@@ -84,10 +82,10 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
                 key={image}
                 role="img"
                 aria-label={`${name} (photo unavailable)`}
-                className="flex size-full shrink-0 flex-col items-center justify-center gap-2 p-3 text-center text-fg-muted"
+                className="flex size-full shrink-0 flex-col items-center justify-center gap-2 p-3 text-center text-kral-muted"
               >
-                <SilhouetteMark className="w-10 text-fg-muted [&>path]:[stroke-width:2px] [&>path]:[vector-effect:non-scaling-stroke] [&>path:last-of-type]:hidden" />
-                <span className="font-ui text-xs">{name}</span>
+                <SilhouetteMark className="w-10 text-kral-muted [&>path]:[stroke-width:2px] [&>path]:[vector-effect:non-scaling-stroke] [&>path:last-of-type]:hidden" />
+                <span className="font-kral-mono text-xs uppercase">{name}</span>
               </div>
             ) : (
               <img
@@ -108,9 +106,9 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
           onClick={() => onToggleSaved(product)}
           aria-pressed={saved}
           aria-label={`Save ${name} to wishlist`}
-          className="absolute top-0 right-0 flex size-11 items-center justify-center text-fg"
+          className="kral-focus group/heart absolute top-0 right-0 flex size-11 items-center justify-center text-kral-fg"
         >
-          <span className="flex size-8 items-center justify-center rounded-full bg-canvas">
+          <span className="flex size-8 items-center justify-center transition-colors duration-150 ease-out group-hover/heart:bg-kral-fg/10 motion-reduce:transition-none">
             <HeartIcon filled={saved} />
           </span>
         </button>
@@ -121,9 +119,9 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
               type="button"
               onClick={step(-1)}
               aria-label="Previous image"
-              className={`absolute top-1/2 left-0 flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL} ${SWIPED}`}
+              className={`kral-focus absolute top-1/2 left-0 flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center text-kral-fg ${REVEAL} ${SWIPED}`}
             >
-              <span className={`flex size-8 -translate-x-2 items-center justify-center rounded-full bg-canvas ${DRIFT}`}>
+              <span className="flex size-8 items-center justify-center bg-kral-bg">
                 <ChevronLeftIcon />
               </span>
             </button>
@@ -131,20 +129,20 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
               type="button"
               onClick={step(1)}
               aria-label="Next image"
-              className={`absolute top-1/2 right-0 flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center text-fg ${REVEAL} ${SWIPED}`}
+              className={`kral-focus absolute top-1/2 right-0 flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center text-kral-fg ${REVEAL} ${SWIPED}`}
             >
-              <span className={`flex size-8 translate-x-2 items-center justify-center rounded-full bg-canvas ${DRIFT}`}>
+              <span className="flex size-8 items-center justify-center bg-kral-bg">
                 <ChevronRightIcon />
               </span>
             </button>
             <ol
               aria-hidden="true"
-              className={`pointer-events-none absolute inset-x-0 bottom-4 flex translate-y-1.5 justify-center gap-1.5 group-hover/img:translate-y-0 group-has-focus-visible/img:translate-y-0 pointer-coarse:translate-y-0 max-lg:translate-y-0 max-lg:opacity-100 ${REVEAL}`}
+              className={`pointer-events-none absolute inset-x-0 bottom-4 flex justify-center gap-1.5 max-lg:opacity-100 ${REVEAL}`}
             >
               {images.map((image, i) => (
                 <li
                   key={image}
-                  className={`size-1.5 rounded-full bg-canvas transition-opacity duration-200 ${i === current ? 'opacity-100' : 'opacity-50'}`}
+                  className={`size-1.5 bg-kral-bg transition-opacity duration-200 motion-reduce:transition-none ${i === current ? 'opacity-100' : 'opacity-50'}`}
                 />
               ))}
             </ol>
@@ -152,7 +150,7 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
         )}
 
         {multi && (
-          <p className="font-ui absolute right-3 bottom-3 rounded-full bg-canvas px-2 py-0.5 text-xs text-fg tabular-nums">
+          <p className="font-kral-mono absolute right-3 bottom-3 bg-kral-bg px-2 py-0.5 text-xs tracking-[0.08em] text-kral-fg tabular-nums">
             <span className="sr-only" aria-live="polite">
               Image {current + 1} of {images.length}
             </span>
@@ -173,8 +171,8 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
                 onClick={() => setCurrent(i)}
                 aria-label={`Show view ${i + 1} of ${images.length}`}
                 aria-current={i === current}
-                className={`block aspect-4/5 w-11 cursor-pointer lg:w-20 overflow-hidden rounded-xl border-2 bg-canvas-sub focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-chrome-strong ${
-                  i === current ? 'border-fg' : 'border-line'
+                className={`kral-focus block aspect-4/5 w-11 cursor-pointer overflow-hidden border-2 bg-kral-porcelain transition-colors duration-150 ease-out motion-reduce:transition-none lg:w-20 dark:bg-kral-graphite ${
+                  i === current ? 'border-kral-fg' : 'border-transparent hover:border-kral-muted'
                 }`}
               >
                 {!failed.includes(image) && (
