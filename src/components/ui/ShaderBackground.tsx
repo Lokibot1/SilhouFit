@@ -312,8 +312,9 @@ const pendingContextReleases = new WeakMap<HTMLCanvasElement, number>()
 
 export type ShaderColors = [number, number, number][]
 
-/** colors: optional palette (2 to 8 RGB triples, 0..1), swapped live without remounting. interactive: swirl under the pointer (off by default). */
-export function ShaderBackground({ className, colors, interactive = UNIFORMS.cursorEnabled }: { className?: string; colors?: ShaderColors; interactive?: boolean }) {
+/** colors: optional palette (2 to 8 RGB triples, 0..1), swapped live without remounting. interactive: swirl under the pointer (off by default).
+ *  speed, intensity, swirl, swirlRadius: optional overrides of the login page's gentle defaults (animation rate, stripe warp, pointer swirl strength and radius). */
+export function ShaderBackground({ className, colors, interactive = UNIFORMS.cursorEnabled, speed, intensity, swirl, swirlRadius }: { className?: string; colors?: ShaderColors; interactive?: boolean; speed?: number; intensity?: number; swirl?: number; swirlRadius?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const colorsRef = useRef(colors)
   const redrawRef = useRef<() => void>(() => {})
@@ -324,6 +325,7 @@ export function ShaderBackground({ className, colors, interactive = UNIFORMS.cur
   }, [colors])
 
   useEffect(() => {
+    const U = { ...UNIFORMS, timeScale: speed ?? UNIFORMS.timeScale, intensity: intensity ?? UNIFORMS.intensity, cursorStrength: swirl ?? UNIFORMS.cursorStrength, cursorRadius: swirlRadius ?? UNIFORMS.cursorRadius }
     const element = canvasRef.current
     if (!element) return
     const canvas: HTMLCanvasElement = element
@@ -374,38 +376,38 @@ export function ShaderBackground({ className, colors, interactive = UNIFORMS.cur
     // Palette is uploaded per frame (render) so a theme swap only needs a redraw.
     gl.uniform4f(
       uni.shape,
-      UNIFORMS.scale,
-      UNIFORMS.intensity,
-      UNIFORMS.paramA,
-      UNIFORMS.warp,
+      U.scale,
+      U.intensity,
+      U.paramA,
+      U.warp,
     )
     gl.uniform4f(
       uni.surface,
-      UNIFORMS.detail,
-      UNIFORMS.contrast,
-      UNIFORMS.brightness,
-      UNIFORMS.saturation,
+      U.detail,
+      U.contrast,
+      U.brightness,
+      U.saturation,
     )
     gl.uniform4f(
       uni.finish,
-      UNIFORMS.hue,
-      UNIFORMS.vignette,
-      UNIFORMS.blur,
-      UNIFORMS.grain,
+      U.hue,
+      U.vignette,
+      U.blur,
+      U.grain,
     )
     gl.uniform4f(
       uni.transform,
-      UNIFORMS.seed,
-      UNIFORMS.rotate,
-      UNIFORMS.drift,
-      UNIFORMS.oklab,
+      U.seed,
+      U.rotate,
+      U.drift,
+      U.oklab,
     )
     gl.uniform4f(
       uni.cursor,
       0,
-      UNIFORMS.cursorEffect,
-      UNIFORMS.cursorStrength,
-      UNIFORMS.cursorRadius,
+      U.cursorEffect,
+      U.cursorStrength,
+      U.cursorRadius,
     )
 
     let targetX = 0
@@ -427,7 +429,7 @@ export function ShaderBackground({ className, colors, interactive = UNIFORMS.cur
     // Reduced motion: draw one still frame, and no pointer swirl.
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const cursorEnabled = interactive && !reducedMotion
-    const timeScale = reducedMotion ? 0 : UNIFORMS.timeScale
+    const timeScale = reducedMotion ? 0 : U.timeScale
     const timeAnimated = Math.abs(timeScale) > 0.0001
 
     const resizeCanvas = () => {
@@ -540,7 +542,7 @@ export function ShaderBackground({ className, colors, interactive = UNIFORMS.cur
       resizeCanvas()
       const width = canvas.width
       const height = canvas.height
-      const palette = colorsRef.current ?? UNIFORMS.colors
+      const palette = colorsRef.current ?? U.colors
       const padded = Array.from({ length: 8 }, (_, i) => palette[Math.min(i, palette.length - 1)])
       gl.uniform3fv(uni.colors, new Float32Array(padded.flat()))
       gl.uniform4f(
@@ -548,21 +550,21 @@ export function ShaderBackground({ className, colors, interactive = UNIFORMS.cur
         width,
         height,
         shaderTime,
-        colorsRef.current ? palette.length : UNIFORMS.colorCount,
+        colorsRef.current ? palette.length : U.colorCount,
       )
       gl.uniform4f(
         uni.space,
-        UNIFORMS.offsetX,
-        UNIFORMS.offsetY,
+        U.offsetX,
+        U.offsetY,
         mouseX,
         mouseY,
       )
       gl.uniform4f(
         uni.cursor,
         cursorEnabled ? cursorPresence : 0,
-        UNIFORMS.cursorEffect,
-        UNIFORMS.cursorStrength,
-        UNIFORMS.cursorRadius,
+        U.cursorEffect,
+        U.cursorStrength,
+        U.cursorRadius,
       )
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       const pointerSettling =
@@ -603,7 +605,7 @@ export function ShaderBackground({ className, colors, interactive = UNIFORMS.cur
       }, 0)
       pendingContextReleases.set(canvas, releaseTimer)
     }
-  }, [interactive])
+  }, [interactive, speed, intensity, swirl, swirlRadius])
 
   return (
     <canvas ref={canvasRef} className={className} style={{ display: "block", width: "100%", height: "100%" }} />
