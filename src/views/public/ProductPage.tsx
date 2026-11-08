@@ -4,9 +4,9 @@ import { ProductGallery } from '../../components/shop/ProductGallery'
 import { ProductPurchasePanel } from '../../components/shop/ProductPurchasePanel'
 import { PRODUCT_BODY, PRODUCT_GRID, PRODUCT_SCREEN, ProductSkeleton } from '../../components/shop/ProductSkeleton'
 import { ShopHeader } from '../../components/shop/ShopHeader'
+import { KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import type { Choice } from '../../components/shop/SpecSheet'
 import { useToast } from '../../components/toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { choiceOf, type Product } from '../../data/products'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
@@ -81,6 +81,7 @@ export function ProductPage() {
     <MotionConfig reducedMotion="user">
       <div className={PRODUCT_SCREEN}>
       <ShopHeader
+        tone="kral"
         title={product ? product.name : missing ? 'Piece not found' : 'Loading the piece'}
         crumb={product ? product.name : 'Product'}
         backToShop
@@ -91,17 +92,17 @@ export function ProductPage() {
         {products.status === 'loading' && <ProductSkeleton />}
 
         {products.status === 'error' && (
-          <div role="alert" className="glass-card rounded-xl p-6 sm:p-8">
-            <h2 className="display text-2xl text-fg">This piece did not load</h2>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+          <div role="alert" className="border border-kral-rule p-6 sm:p-8">
+            <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">This piece did not load</h2>
+            <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
               The request for stock and prices failed, most likely because the connection dropped or the service is
               briefly unavailable. Check your connection, then try again.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <button type="button" onClick={products.retry} className={PRIMARY_BUTTON}>
+              <button type="button" onClick={products.retry} className={KRAL_PRIMARY}>
                 Try again
               </button>
-              <Link to="/shop" className={SECONDARY_BUTTON}>
+              <Link to="/shop" className={KRAL_SECONDARY}>
                 Back to shop
               </Link>
             </div>
@@ -109,12 +110,12 @@ export function ProductPage() {
         )}
 
         {missing && (
-          <div className="glass-card rounded-xl p-6 sm:p-8">
-            <h2 className="display text-2xl text-fg">This piece is no longer in the catalogue</h2>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-fg-muted">
+          <div className="border border-kral-rule p-6 sm:p-8">
+            <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">This piece is no longer in the catalogue</h2>
+            <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
               It may have sold out for good or the link may be out of date. The shop has the current pieces.
             </p>
-            <Link to="/shop" className={`${PRIMARY_BUTTON} mt-6 w-fit`}>
+            <Link to="/shop" className={`${KRAL_PRIMARY} mt-6 w-fit`}>
               Browse the shop
             </Link>
           </div>
