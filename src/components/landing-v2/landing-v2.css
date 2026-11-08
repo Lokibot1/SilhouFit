@@ -24,7 +24,18 @@
   --sv2-stone: #85807c;
   --sv2-porcelain: #eeeced;
   --sv2-paper: #fffbfd;
-  --sv2-focus: var(--sv2-paper);
+  /* Roles. The dark values are the original look; the light values are set in the light-scheme block below. */
+  --sv2-page-bg: var(--sv2-obsidian);
+  --sv2-page-fg: var(--sv2-paper);
+  --sv2-line: var(--sv2-graphite); /* hairlines and borders */
+  --sv2-surface: var(--sv2-raise); /* card, quote and state tiles */
+  --sv2-text-muted: var(--sv2-stone);
+  --sv2-text-soft: var(--sv2-porcelain); /* logo, profile icon, FAQ answers */
+  --sv2-text-dim: #b3adaa; /* AR paragraph */
+  --sv2-red-text: var(--sv2-red-tint); /* small red text and link hovers */
+  --sv2-skel: var(--sv2-graphite);
+  --sv2-watermark: rgb(255 251 253 / 0.06);
+  --sv2-focus: var(--sv2-page-fg);
 
   --sv2-bar-h: 4rem;
   --sv2-z-bar: 20; /* above the page, below the cookie banner and toasts (z-50) */
@@ -34,9 +45,24 @@
 
   font-family: "SV2 Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-variant-numeric: tabular-nums;
-  background: var(--sv2-obsidian);
-  color: var(--sv2-paper);
+  background: var(--sv2-page-bg);
+  color: var(--sv2-page-fg);
   overflow-x: clip;
+}
+
+/* Light scheme (landing only: .sv2--themed pages and footers keep their kral-* token rules). Paper page, Obsidian text, Porcelain
+   tiles, Stonewash hairlines, darker muted for small text. Photo scrims, the red tape and red buttons stay fixed colours. */
+:root:not(.dark) .sv2:not(.sv2--themed) {
+  --sv2-page-bg: var(--sv2-paper);
+  --sv2-page-fg: var(--sv2-obsidian);
+  --sv2-line: var(--sv2-stone);
+  --sv2-surface: var(--sv2-porcelain);
+  --sv2-text-muted: #5e5859; /* Stonewash is ~3.7:1 on Paper, so small text uses this */
+  --sv2-text-soft: var(--sv2-obsidian);
+  --sv2-text-dim: #5e5859;
+  --sv2-red-text: var(--sv2-red);
+  --sv2-skel: color-mix(in srgb, var(--sv2-stone) 35%, var(--sv2-porcelain));
+  --sv2-watermark: rgb(22 17 19 / 0.06);
 }
 
 .sv2 *:focus-visible {
@@ -98,10 +124,10 @@
 }
 .sv2 .sv2-dark .sv2-label--red,
 .sv2-label--tint {
-  color: var(--sv2-red-tint);
+  color: var(--sv2-red-text);
 }
 .sv2-muted {
-  color: var(--sv2-stone);
+  color: var(--sv2-text-muted);
 }
 .sv2-num {
   text-align: right;
@@ -113,7 +139,7 @@
   padding: clamp(3rem, 8vw, 5rem) 0;
 }
 .sv2-section--tight {
-  border-top: 1px solid var(--sv2-graphite);
+  border-top: 1px solid var(--sv2-line);
 }
 .sv2-wrap {
   max-width: 80rem;
@@ -133,10 +159,10 @@
 }
 .sv2-head--rule {
   padding-bottom: var(--sv2-gap-lg);
-  border-bottom: 1px solid var(--sv2-graphite);
+  border-bottom: 1px solid var(--sv2-line);
 }
 .sv2-meta-note {
-  color: var(--sv2-stone);
+  color: var(--sv2-text-muted);
   max-width: 20rem;
 }
 
@@ -169,13 +195,13 @@
   background: var(--sv2-red-press);
 }
 .sv2-btn--line {
-  border-color: var(--sv2-paper);
-  color: var(--sv2-paper);
+  border-color: var(--sv2-page-fg);
+  color: var(--sv2-page-fg);
   background: transparent;
 }
 .sv2-btn--line:hover {
-  background: var(--sv2-paper);
-  color: var(--sv2-obsidian);
+  background: var(--sv2-page-fg);
+  color: var(--sv2-page-bg);
 }
 .sv2-btn--ink {
   background: var(--sv2-obsidian);
@@ -201,7 +227,7 @@
   min-height: 30rem;
   overflow: hidden;
   isolation: isolate;
-  background: var(--sv2-obsidian);
+  background: var(--sv2-page-bg);
 }
 .sv2-stage {
   position: absolute;
@@ -233,12 +259,12 @@
   top: 0;
   z-index: var(--sv2-z-bar);
   height: var(--sv2-bar-h);
-  background: var(--sv2-obsidian);
+  background: var(--sv2-page-bg);
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s ease-out;
 }
 .sv2-header[data-stuck] {
-  border-bottom-color: var(--sv2-graphite);
+  border-bottom-color: var(--sv2-line);
 }
 /* Every other page: a fixed bar (pages keep their top padding) with the hairline always showing. It follows the app theme
    through the storefront kral-* tokens: Paper with Obsidian text in light, Obsidian with Paper text in dark. No colour
@@ -316,7 +342,7 @@
   display: flex;
   align-items: center;
   min-height: 44px;
-  color: var(--sv2-porcelain);
+  color: var(--sv2-text-soft);
   transition: color 0.25s ease-out;
 }
 a.sv2-logo:hover {
@@ -360,7 +386,7 @@ a.sv2-logo:hover {
   transition: color 0.18s ease-out;
 }
 .sv2-links a:hover {
-  color: var(--sv2-red-tint);
+  color: var(--sv2-red-text);
 }
 .sv2-links a[aria-current="page"] {
   text-decoration: underline 2px var(--sv2-red);
@@ -396,11 +422,11 @@ a.sv2-logo:hover {
   justify-content: center;
   width: 44px;
   height: 44px;
-  color: var(--sv2-porcelain);
+  color: var(--sv2-text-soft);
   transition: background-color 0.18s ease-out;
 }
 .sv2-profile-btn:hover {
-  background: var(--sv2-raise);
+  background: var(--sv2-surface);
 }
 .sv2-meta .sv2-name {
   font-size: 1.35em;
@@ -416,7 +442,7 @@ a.sv2-logo:hover {
   height: auto;
 }
 .sv2-mark-band {
-  fill: var(--sv2-obsidian);
+  fill: var(--sv2-page-bg);
 }
 
 .sv2-foot {
@@ -429,6 +455,7 @@ a.sv2-logo:hover {
   gap: calc(14 * var(--u));
   padding: 0 1rem calc(20 * var(--u));
   text-align: center;
+  color: var(--sv2-paper); /* on the photo and its dark scrim in both themes */
 }
 .sv2-hero-title {
   font-size: max(1.05rem, calc(34 * var(--u)));
@@ -479,7 +506,7 @@ a.sv2-logo:hover {
     align-items: center;
     min-height: 44px;
     padding: 0 1rem;
-    border: 1px solid var(--sv2-graphite);
+    border: 1px solid var(--sv2-line);
     border-radius: 0;
     background: transparent;
     color: inherit;
@@ -489,8 +516,8 @@ a.sv2-logo:hover {
     cursor: pointer;
   }
   .sv2-menu-btn[aria-expanded="true"] {
-    background: var(--sv2-paper);
-    color: var(--sv2-obsidian);
+    background: var(--sv2-page-fg);
+    color: var(--sv2-page-bg);
   }
   .sv2-links {
     display: none;
@@ -503,8 +530,8 @@ a.sv2-logo:hover {
     top: 100%;
     left: 1rem;
     width: min(24rem, calc(100vw - 2rem));
-    background: var(--sv2-obsidian);
-    border: 1px solid var(--sv2-graphite);
+    background: var(--sv2-page-bg);
+    border: 1px solid var(--sv2-line);
   }
   .sv2-links a {
     justify-content: flex-start;
@@ -514,7 +541,7 @@ a.sv2-logo:hover {
   }
   .sv2-links a:hover,
   .sv2-links a:focus-visible {
-    background: var(--sv2-raise);
+    background: var(--sv2-surface);
   }
   .sv2-header--fixed .sv2-links a:hover,
   .sv2-header--fixed .sv2-links a:focus-visible {
@@ -738,13 +765,13 @@ a.sv2-logo:hover {
   position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--sv2-raise);
-  border: 1px solid var(--sv2-graphite);
+  background: var(--sv2-surface);
+  border: 1px solid var(--sv2-line);
   transition: border-color 0.18s ease-out;
 }
 .sv2-card:hover,
 .sv2-card:focus-within {
-  border-color: var(--sv2-stone);
+  border-color: var(--sv2-text-muted);
 }
 .sv2-card-top {
   display: flex;
@@ -776,7 +803,7 @@ a.sv2-logo:hover {
 }
 .sv2-card-mark {
   width: 3rem;
-  color: var(--sv2-stone);
+  color: var(--sv2-text-muted);
 }
 .sv2-card-body {
   display: flex;
@@ -802,7 +829,7 @@ a.sv2-logo:hover {
   gap: 0.5rem;
   margin-top: auto;
   padding: 0.75rem;
-  border-top: 1px solid var(--sv2-graphite);
+  border-top: 1px solid var(--sv2-line);
 }
 .sv2-card-view {
   display: inline-flex;
@@ -821,18 +848,18 @@ a.sv2-logo:hover {
   gap: 0.5rem 1rem;
   margin-top: var(--sv2-gap-lg);
   padding: 0.5rem 1rem;
-  border: 1px solid var(--sv2-graphite);
-  background: var(--sv2-raise);
+  border: 1px solid var(--sv2-line);
+  background: var(--sv2-surface);
 }
 .sv2-bar-link {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
   font-weight: 700;
-  color: var(--sv2-paper);
+  color: var(--sv2-page-fg);
 }
 .sv2-bar-link:hover {
-  color: var(--sv2-red-tint);
+  color: var(--sv2-red-text);
 }
 .sv2-state {
   display: flex;
@@ -840,8 +867,8 @@ a.sv2-logo:hover {
   align-items: flex-start;
   gap: 0.75rem;
   padding: var(--sv2-gap-lg);
-  border: 1px solid var(--sv2-graphite);
-  background: var(--sv2-raise);
+  border: 1px solid var(--sv2-line);
+  background: var(--sv2-surface);
 }
 .sv2-state .sv2-body {
   max-width: 40rem;
@@ -852,7 +879,7 @@ a.sv2-logo:hover {
 .sv2-skel-block {
   display: block;
   height: 0.75rem;
-  background: var(--sv2-graphite);
+  background: var(--sv2-skel);
   animation: sv2-pulse 1.4s ease-in-out infinite;
 }
 .sv2-skel-bar--lg {
@@ -886,8 +913,8 @@ a.sv2-logo:hover {
   position: relative;
   overflow: hidden;
   aspect-ratio: 1 / 1;
-  border: 1px solid var(--sv2-graphite);
-  background: var(--sv2-raise);
+  border: 1px solid var(--sv2-line);
+  background: var(--sv2-surface);
 }
 .sv2-plate img {
   position: absolute;
@@ -905,7 +932,7 @@ a.sv2-logo:hover {
   padding: 1rem;
   text-align: center;
   font-size: 0.875rem;
-  color: var(--sv2-stone);
+  color: var(--sv2-text-muted);
 }
 .sv2-plate figcaption {
   position: absolute;
@@ -916,7 +943,11 @@ a.sv2-logo:hover {
   gap: 0.25rem;
   padding: 4rem 1rem 1rem;
   background: linear-gradient(to top, rgb(22 17 19 / 0.95) 25%, rgb(22 17 19 / 0));
+  color: var(--sv2-paper); /* on the photo's dark scrim in both themes */
   overflow-wrap: anywhere;
+}
+.sv2-plate .sv2-label--tint {
+  color: var(--sv2-red-tint);
 }
 .sv2-plate-title {
   font-size: clamp(0.9375rem, 1.6vw, 1.5rem);
@@ -959,19 +990,19 @@ a.sv2-logo:hover {
   flex-direction: column;
   gap: 1.5rem;
   padding: 1.25rem;
-  background: var(--sv2-raise);
-  border: 1px solid var(--sv2-graphite);
+  background: var(--sv2-surface);
+  border: 1px solid var(--sv2-line);
 }
 .sv2-quote-card blockquote {
   flex: 1;
 }
 .sv2-quote-who {
   padding-top: 1rem;
-  border-top: 1px solid var(--sv2-graphite);
-  color: var(--sv2-stone);
+  border-top: 1px solid var(--sv2-line);
+  color: var(--sv2-text-muted);
 }
 .sv2-quote-who strong {
-  color: var(--sv2-paper);
+  color: var(--sv2-page-fg);
   font-weight: 700;
 }
 
@@ -979,10 +1010,10 @@ a.sv2-logo:hover {
 
 .sv2-faq {
   margin-top: var(--sv2-gap-lg);
-  border-bottom: 1px solid var(--sv2-graphite);
+  border-bottom: 1px solid var(--sv2-line);
 }
 .sv2-faq-item {
-  border-top: 1px solid var(--sv2-graphite);
+  border-top: 1px solid var(--sv2-line);
 }
 .sv2-faq-q {
   display: flex;
@@ -1004,13 +1035,13 @@ a.sv2-logo:hover {
   text-transform: uppercase;
 }
 .sv2-faq-q:hover {
-  color: var(--sv2-red-tint);
+  color: var(--sv2-red-text);
 }
 .sv2-faq-icon {
   flex: none;
   font-family: "SV2 Mono", monospace;
   font-size: 0.75rem;
-  color: var(--sv2-stone);
+  color: var(--sv2-text-muted);
 }
 .sv2-faq-a {
   display: grid;
@@ -1026,7 +1057,7 @@ a.sv2-logo:hover {
 .sv2-faq-a .sv2-body {
   max-width: 44rem;
   padding-bottom: 1.25rem;
-  color: var(--sv2-porcelain);
+  color: var(--sv2-text-soft);
 }
 .sv2-faq-a:not([data-open]) {
   visibility: hidden;
@@ -1037,7 +1068,7 @@ a.sv2-logo:hover {
 .sv2-faq-a a {
   text-decoration: underline;
   text-underline-offset: 3px;
-  color: var(--sv2-paper);
+  color: var(--sv2-page-fg);
   white-space: nowrap;
 }
 
@@ -1049,6 +1080,13 @@ a.sv2-logo:hover {
 }
 .sv2 .sv2-btn--paper:hover {
   background: var(--sv2-porcelain);
+}
+:root:not(.dark) .sv2:not(.sv2--themed) .sv2-btn--paper {
+  background: var(--sv2-obsidian);
+  color: var(--sv2-paper);
+}
+:root:not(.dark) .sv2:not(.sv2--themed) .sv2-btn--paper:hover {
+  background: var(--sv2-graphite);
 }
 /* No card: the content sits straight on the section. The section clips the watermark. */
 .sv2-ar-section {
@@ -1067,7 +1105,7 @@ a.sv2-logo:hover {
   font-size: clamp(8rem, 34vw, 20rem);
   font-weight: 900;
   line-height: 0.8;
-  color: rgb(255 251 253 / 0.06);
+  color: var(--sv2-watermark);
   pointer-events: none;
   user-select: none;
 }
@@ -1084,7 +1122,7 @@ a.sv2-logo:hover {
   margin-top: 0;
 }
 .sv2-ar-copy .sv2-body {
-  color: #b3adaa;
+  color: var(--sv2-text-dim);
 }
 .sv2-ar-actions {
   display: flex;
@@ -1097,14 +1135,14 @@ a.sv2-logo:hover {
 
 .sv2-footer {
   padding: clamp(2.5rem, 6vw, 4rem) 0 1.5rem;
-  border-top: 1px solid var(--sv2-graphite);
+  border-top: 1px solid var(--sv2-line);
 }
 .sv2-cols {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--sv2-gap-lg) var(--sv2-gap);
   padding-bottom: var(--sv2-gap-lg);
-  border-bottom: 1px solid var(--sv2-graphite);
+  border-bottom: 1px solid var(--sv2-line);
 }
 .sv2-cols h2 {
   margin-bottom: 0.5rem;
@@ -1117,18 +1155,18 @@ a.sv2-logo:hover {
   font-size: 1rem; /* 16px on phones; the 768px rule below returns it to the desktop size */
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--sv2-stone);
+  color: var(--sv2-text-muted);
   transition: color 0.18s ease-out;
 }
 .sv2-cols a:hover {
-  color: var(--sv2-paper);
+  color: var(--sv2-page-fg);
 }
 .sv2-foot-mark {
   display: block;
   width: 100%;
   height: auto;
   margin-block: clamp(2rem, 6vw, 4rem);
-  fill: var(--sv2-porcelain);
+  fill: var(--sv2-text-soft);
 }
 .sv2-foot-meta {
   display: flex;
@@ -1136,7 +1174,7 @@ a.sv2-logo:hover {
   justify-content: space-between;
   gap: 0.5rem 1rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--sv2-graphite);
+  border-top: 1px solid var(--sv2-line);
 }
 .sv2-footer .sv2-label {
   font-size: 1rem; /* phones only; see the 768px rule */
@@ -1161,7 +1199,7 @@ a.sv2-logo:hover {
   text-underline-offset: 3px;
 }
 .sv2-credit a:hover {
-  color: var(--sv2-paper);
+  color: var(--sv2-page-fg);
 }
 
 /* Layout pages: Layout puts .sv2--themed on the wrappers around the header and footer, so they follow the app theme
