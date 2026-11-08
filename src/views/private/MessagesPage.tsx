@@ -26,7 +26,7 @@ function CustomerThread() {
   const section = useSection(fetchMyConversation)
 
   return (
-    <div className="mx-auto flex h-svh max-w-3xl flex-col px-3 pt-[calc(5rem+env(safe-area-inset-top))] pb-3 sm:px-6 sm:pb-6">
+    <div className="mx-auto flex h-[calc(100svh-var(--site-header-extra,0px))] max-w-3xl flex-col px-3 pt-[calc(5rem+env(safe-area-inset-top))] pb-3 sm:px-6 sm:pb-6">
       <h1 className="sr-only">Messages</h1>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-canvas-sub">
         <SectionBody section={section} what="your messages" skeleton={<ChatSkeleton />} errorClassName="p-4">
