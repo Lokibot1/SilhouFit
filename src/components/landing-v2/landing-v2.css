@@ -253,6 +253,12 @@
   position: absolute;
   inset: 0 0 auto 0;
   z-index: 3;
+  touch-action: pan-y; /* horizontal drags reach the shader as pointer moves; vertical drags still scroll the page */
+}
+.sv2-glyph {
+  position: absolute;
+  inset: 0;
+  background: var(--sv2-page-fg); /* Paper letters on Obsidian, Obsidian on Paper: the no-WebGL and loading state */
 }
 .sv2-header {
   position: sticky;
@@ -437,6 +443,7 @@ a.sv2-logo:hover {
   text-underline-offset: 0.35em;
 }
 .sv2-mark {
+  position: relative; /* above .sv2-glyph */
   display: block;
   width: 100%;
   height: auto;

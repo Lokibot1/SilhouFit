@@ -310,8 +310,18 @@ const UNIFORMS = {
 
 const pendingContextReleases = new WeakMap<HTMLCanvasElement, number>()
 
-export function ShaderBackground({ className }: { className?: string }) {
+export type ShaderColors = [number, number, number][]
+
+/** colors: optional palette (2 to 8 RGB triples, 0..1), swapped live without remounting. interactive: swirl under the pointer (off by default). */
+export function ShaderBackground({ className, colors, interactive = UNIFORMS.cursorEnabled }: { className?: string; colors?: ShaderColors; interactive?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const colorsRef = useRef(colors)
+  const redrawRef = useRef<() => void>(() => {})
+
+  useEffect(() => {
+    colorsRef.current = colors
+    redrawRef.current()
+  }, [colors])
 
   useEffect(() => {
     const element = canvasRef.current
@@ -361,7 +371,7 @@ export function ShaderBackground({ className }: { className?: string }) {
       space: gl.getUniformLocation(program, "u_space"),
       cursor: gl.getUniformLocation(program, "u_cursor"),
     }
-    gl.uniform3fv(uni.colors, new Float32Array(UNIFORMS.colors.flat()))
+    // Palette is uploaded per frame (render) so a theme swap only needs a redraw.
     gl.uniform4f(
       uni.shape,
       UNIFORMS.scale,
@@ -413,11 +423,11 @@ export function ShaderBackground({ className }: { className?: string }) {
     let visible = document.visibilityState === "visible"
     let inView = true
     let disposed = false
-    const start = performance.now()
-    // Reduced motion: draw one still frame.
-    const timeScale = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      ? 0
-      : UNIFORMS.timeScale
+    let shaderTime = 0
+    // Reduced motion: draw one still frame, and no pointer swirl.
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const cursorEnabled = interactive && !reducedMotion
+    const timeScale = reducedMotion ? 0 : UNIFORMS.timeScale
     const timeAnimated = Math.abs(timeScale) > 0.0001
 
     const resizeCanvas = () => {
@@ -486,7 +496,7 @@ export function ShaderBackground({ className }: { className?: string }) {
       requestRender()
     }
     window.addEventListener("resize", updateLayout)
-    if (UNIFORMS.cursorEnabled) {
+    if (cursorEnabled) {
       window.addEventListener("pointermove", onPointerMove, { passive: true })
       window.addEventListener("pointercancel", onPointerLeave)
       window.addEventListener("scroll", updateLayout, true)
@@ -522,6 +532,7 @@ export function ShaderBackground({ className }: { className?: string }) {
       if (disposed || !visible || !inView) return
       const dt = lastNow === null ? 0 : Math.min((now - lastNow) / 1000, 0.1)
       lastNow = now
+      shaderTime += dt * timeScale
       const follow = 1 - Math.exp(-12 * dt)
       mouseX += (targetX - mouseX) * follow
       mouseY += (targetY - mouseY) * follow
@@ -529,12 +540,15 @@ export function ShaderBackground({ className }: { className?: string }) {
       resizeCanvas()
       const width = canvas.width
       const height = canvas.height
+      const palette = colorsRef.current ?? UNIFORMS.colors
+      const padded = Array.from({ length: 8 }, (_, i) => palette[Math.min(i, palette.length - 1)])
+      gl.uniform3fv(uni.colors, new Float32Array(padded.flat()))
       gl.uniform4f(
         uni.scene,
         width,
         height,
-        ((now - start) / 1000) * timeScale,
-        UNIFORMS.colorCount,
+        shaderTime,
+        colorsRef.current ? palette.length : UNIFORMS.colorCount,
       )
       gl.uniform4f(
         uni.space,
@@ -545,7 +559,7 @@ export function ShaderBackground({ className }: { className?: string }) {
       )
       gl.uniform4f(
         uni.cursor,
-        UNIFORMS.cursorEnabled ? cursorPresence : 0,
+        cursorEnabled ? cursorPresence : 0,
         UNIFORMS.cursorEffect,
         UNIFORMS.cursorStrength,
         UNIFORMS.cursorRadius,
@@ -558,15 +572,17 @@ export function ShaderBackground({ className }: { className?: string }) {
       if (timeAnimated || pointerSettling) requestRender()
       else lastNow = null
     }
+    redrawRef.current = requestRender
     requestRender()
     return () => {
       disposed = true
+      redrawRef.current = () => {}
       cancelAnimationFrame(raf)
       resizeObserver.disconnect()
       intersectionObserver.disconnect()
       document.removeEventListener("visibilitychange", onVisibilityChange)
       window.removeEventListener("resize", updateLayout)
-      if (UNIFORMS.cursorEnabled) {
+      if (cursorEnabled) {
         window.removeEventListener("pointermove", onPointerMove)
         window.removeEventListener("pointercancel", onPointerLeave)
         window.removeEventListener("scroll", updateLayout, true)
@@ -587,7 +603,7 @@ export function ShaderBackground({ className }: { className?: string }) {
       }, 0)
       pendingContextReleases.set(canvas, releaseTimer)
     }
-  }, [])
+  }, [interactive])
 
   return (
     <canvas ref={canvasRef} className={className} style={{ display: "block", width: "100%", height: "100%" }} />

@@ -1,13 +1,15 @@
-import { useEffect, useLayoutEffect, useRef, type MouseEvent } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, type MouseEvent } from 'react'
 import { SiteHeader } from './SiteHeader'
 import { WORDMARK } from './wordmark'
+
+const HeroShader = lazy(() => import('./HeroShader'))
 
 const PAD = 60
 const { width: W, height: H, letters } = WORDMARK
 // Far enough up that a retracted lid sits entirely above the letters.
 const LID_TRAVEL = H + 2 * PAD + 10
 
-/** Full-viewport hero: an Obsidian band whose KRAL(R) letters are cut out, so the photo stage behind shows through. */
+/** Full-viewport hero: a band whose KRAL(R) letters are cut out, so the shader behind them shows through; the photo stage fills the lower part. */
 export function Hero() {
   const heroRef = useRef<HTMLElement>(null)
   const headerRef = useRef<HTMLElement>(null)
@@ -100,6 +102,12 @@ export function Hero() {
         </div>
 
         <div className="sv2-band">
+          {/* Behind the cut-out letters: a solid fill (the legible wordmark while the shader loads or if WebGL is missing), then the shader. */}
+          <div className="sv2-glyph" aria-hidden="true">
+            <Suspense fallback={null}>
+              <HeroShader />
+            </Suspense>
+          </div>
           <svg className="sv2-mark" viewBox={`${-PAD} ${-PAD} ${W + 2 * PAD} ${H + 2 * PAD}`} role="img" aria-label="KRAL">
             <defs>
               <clipPath id="sv2-letters">
