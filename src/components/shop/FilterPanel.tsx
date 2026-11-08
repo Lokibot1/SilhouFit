@@ -6,7 +6,7 @@ import { COMMON_SIZES, GENDER_OPTIONS, orderSizes, type ProductFilters } from '.
 import { categoryCount } from '../../utils/categoryCount'
 import { CategoryLabel } from './CategoryLabel'
 import { Modal } from '../ui/Modal'
-import { SHOP_PRIMARY, SHOP_SECONDARY } from './shopControls'
+import { KRAL_CHIP, KRAL_INPUT, KRAL_PRIMARY, KRAL_SECONDARY } from './shopControls'
 
 interface FilterPanelProps {
   open: boolean
@@ -42,13 +42,12 @@ const toDraft = (f: ProductFilters, category: Category | 'all'): Draft => ({
   arReady: f.arReady ?? false,
 })
 
-const LEGEND = 'font-ui text-sm font-semibold text-fg max-sm:text-xs'
-const CHECK_ROW = 'flex min-h-11 cursor-pointer items-center gap-3 max-sm:gap-2 text-base max-sm:text-sm text-fg'
-const PRICE_INPUT =
-  'skeuo-well font-ui mt-1 min-h-11 w-full rounded-xl border border-line-strong bg-canvas px-3 text-base max-sm:text-sm text-fg tabular-nums'
-
-const TEXT_INPUT = PRICE_INPUT.replace(' tabular-nums', '')
-const PRICE_FIELD = `${PRICE_INPUT} text-right placeholder:text-fg-muted`
+const LEGEND = 'font-kral-mono text-xs font-medium tracking-[0.08em] text-kral-fg uppercase'
+const CHECK_ROW = 'font-kral-mono flex min-h-11 cursor-pointer items-center gap-3 text-base text-kral-fg'
+// Square box; the tick is an ::after drawn in the page colour on the filled box.
+const CHECK_BOX =
+  "kral-focus relative size-6 shrink-0 cursor-pointer appearance-none rounded-none border border-kral-fg bg-transparent checked:bg-kral-fg after:absolute after:top-1/2 after:left-1/2 after:h-3 after:w-1.5 after:-translate-x-1/2 after:-translate-y-[60%] after:rotate-45 after:border-r-2 after:border-b-2 after:border-kral-bg after:opacity-0 after:content-[''] checked:after:opacity-100"
+const PRICE_FIELD = `${KRAL_INPUT} text-right tabular-nums`
 
 export function FilterPanel({ open, onClose, filters, category, categories, onApply }: FilterPanelProps) {
   const [draft, setDraft] = useState(() => toDraft(filters, category))
@@ -88,12 +87,13 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
       open={open}
       onClose={onClose}
       title="Filters"
+      tone="kral"
       footer={
         <div className="flex gap-3">
-          <button type="button" onClick={() => setDraft(EMPTY)} className={`${SHOP_SECONDARY} flex-1`}>
+          <button type="button" onClick={() => setDraft(EMPTY)} className={`${KRAL_SECONDARY} flex-1`}>
             Reset
           </button>
-          <button type="button" onClick={apply} disabled={invalidRange} className={`${SHOP_PRIMARY} flex-1`}>
+          <button type="button" onClick={apply} disabled={invalidRange} className={`${KRAL_PRIMARY} flex-1`}>
             Apply filters
           </button>
         </div>
@@ -110,29 +110,13 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
                 type="button"
                 aria-pressed={draft.category === c}
                 onClick={() => setDraft({ ...draft, category: c })}
-                className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! min-w-11 gap-1.5 px-3 text-xs`}
+                className={`${KRAL_CHIP} min-w-11 gap-1.5 px-3`}
               >
                 <CategoryLabel name={c === 'all' ? 'All' : c} count={categoryCount(facets?.categories ?? null, c)} />
               </button>
             ))}
           </div>
         </fieldset>
-
-        <label className="block font-ui text-sm font-semibold text-fg max-sm:text-xs">
-          Brand
-          <input
-            value={draft.brand}
-            onChange={(e) => setDraft({ ...draft, brand: e.target.value.trimStart().slice(0, 50) })}
-            autoComplete="off"
-            list="shop-brand-options"
-            className={TEXT_INPUT}
-          />
-          <datalist id="shop-brand-options">
-            {facets?.brands.map((brand) => (
-              <option key={brand} value={brand} />
-            ))}
-          </datalist>
-        </label>
 
         <fieldset>
           <legend className={LEGEND}>Gender</legend>
@@ -143,7 +127,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
                 type="button"
                 aria-pressed={draft.gender === g.value}
                 onClick={() => setDraft({ ...draft, gender: draft.gender === g.value ? '' : g.value })}
-                className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! px-3 text-xs`}
+                className={`${KRAL_CHIP} px-3`}
               >
                 {g.label}
               </button>
@@ -160,7 +144,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
                 type="button"
                 aria-pressed={draft.sizes.includes(s)}
                 onClick={() => setDraft({ ...draft, sizes: draft.sizes.includes(s) ? draft.sizes.filter((x) => x !== s) : [...draft.sizes, s] })}
-                className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! min-w-11 px-3 text-xs`}
+                className={`${KRAL_CHIP} min-w-11 px-3`}
               >
                 {s}
               </button>
@@ -171,7 +155,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
         <fieldset>
           <legend className={LEGEND}>Price (PHP)</legend>
           <div className="mt-1 grid grid-cols-2 gap-3">
-            <label className="font-ui text-xs text-fg-muted">
+            <label className="font-kral-mono text-xs tracking-[0.08em] text-kral-muted uppercase">
               Minimum
               <input
                 inputMode="decimal"
@@ -183,7 +167,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
                 className={PRICE_FIELD}
               />
             </label>
-            <label className="font-ui text-xs text-fg-muted">
+            <label className="font-kral-mono text-xs tracking-[0.08em] text-kral-muted uppercase">
               Maximum
               <input
                 inputMode="decimal"
@@ -197,7 +181,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
             </label>
           </div>
           {invalidRange && (
-            <p id="price-range-error" role="alert" className="mt-2 text-sm text-danger">
+            <p id="price-range-error" role="alert" className="font-kral-mono mt-2 text-sm text-danger">
               The minimum is higher than the maximum. Lower the minimum or raise the maximum.
             </p>
           )}
@@ -205,10 +189,10 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
 
         {colours.status === 'loading' && (
           <div aria-hidden="true" data-testid="colour-skeleton">
-            <div className="h-5 w-16 animate-pulse rounded-xl bg-line" />
+            <div className="h-5 w-16 animate-pulse bg-kral-porcelain dark:bg-kral-graphite" />
             <div className="mt-2 flex flex-wrap gap-2">
               {[24, 20, 28].map((width) => (
-                <div key={width} className="h-9 animate-pulse rounded-full bg-line pointer-coarse:h-11" style={{ width: `${width * 4}px` }} />
+                <div key={width} className="h-11 animate-pulse bg-kral-porcelain dark:bg-kral-graphite" style={{ width: `${width * 4}px` }} />
               ))}
             </div>
           </div>
@@ -226,9 +210,9 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
                     type="button"
                     aria-pressed={selected}
                     onClick={() => setDraft({ ...draft, colors: selected ? draft.colors.filter((x) => !sameColour(x, c.name)) : [...draft.colors, c.name] })}
-                    className={`${SHOP_SECONDARY} skeuo-gloss rounded-full! gap-2 px-3 text-xs`}
+                    className={`${KRAL_CHIP} gap-2 px-3`}
                   >
-                    <span aria-hidden="true" className="size-4 rounded-full border border-fg-muted" style={c.hex ? { backgroundColor: c.hex } : undefined} />
+                    <span aria-hidden="true" className="size-4 shrink-0 border border-kral-muted" style={c.hex ? { backgroundColor: c.hex } : undefined} />
                     {c.name}
                   </button>
                 )
@@ -244,7 +228,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
               type="checkbox"
               checked={draft.arReady}
               onChange={() => setDraft({ ...draft, arReady: !draft.arReady })}
-              className="skeuo-check size-5"
+              className={CHECK_BOX}
             />
             AR-ready pieces only
           </label>
