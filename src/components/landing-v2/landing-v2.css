@@ -261,8 +261,9 @@
 .dark .sv2-header--fixed {
   --sv2-hover: var(--sv2-raise);
 }
-/* Night track is #141414 on the #161113 bar: ring its edge (muted mixed 50% into the bar, ~3:1; the rule colour is only ~1.3:1). */
-.dark .sv2-header--fixed .sky-toggle__container {
+/* Night track is #141414 on the #161113 bar: ring its edge (muted mixed 50% into the bar, ~3:1; the rule colour is only ~1.3:1).
+   Any header, so the landing bar's toggle gets it too. */
+.dark .sv2-header .sky-toggle__container {
   outline: 1px solid color-mix(in srgb, var(--color-kral-muted) 50%, var(--color-kral-bg));
 }
 .sv2-header--fixed .sv2-logo {
@@ -381,6 +382,25 @@ a.sv2-logo:hover {
 }
 .sv2-cta {
   margin-left: auto;
+}
+.sv2-actions {
+  display: contents; /* CTA, toggle and profile flow in the bar; they only become a group on the narrowest phones */
+}
+.sv2-theme,
+.sv2-profile {
+  margin-left: -0.5rem; /* sits right beside the CTA, which now ends just short of the bar's edge */
+}
+.sv2-profile-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--sv2-porcelain);
+  transition: background-color 0.18s ease-out;
+}
+.sv2-profile-btn:hover {
+  background: var(--sv2-raise);
 }
 .sv2-meta .sv2-name {
   font-size: 1.35em;
@@ -523,9 +543,6 @@ a.sv2-logo:hover {
   .sv2-cta {
     padding-inline: 0.625rem;
   }
-  .sv2-cta span {
-    display: none;
-  }
   .sv2-signup {
     display: none;
   }
@@ -541,6 +558,32 @@ a.sv2-logo:hover {
   }
   .sv2-hero-sub {
     display: none;
+  }
+}
+
+/* Narrowest phones: the 16px CTA, toggle and profile cannot share a 320px row with the logo and MENU, so they drop to a second
+   row (CTA fills it) and the bar is two rows tall. --sv2-bar-h grows with it, so the hero and anchors still clear the bar. */
+@media (max-width: 499.98px) {
+  .sv2:not(.sv2--themed) {
+    --sv2-bar-h: 6.5rem;
+  }
+  .sv2-header .sv2-bar {
+    flex-wrap: wrap;
+    align-content: center;
+    row-gap: 0;
+    padding-block: 0.5rem;
+  }
+  .sv2-nav {
+    margin-left: auto;
+  }
+  .sv2-actions {
+    display: flex;
+    flex: 1 1 100%;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .sv2-cta {
+    flex: 1 1 auto;
   }
 }
 

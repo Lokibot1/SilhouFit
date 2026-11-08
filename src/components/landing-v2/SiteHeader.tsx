@@ -187,7 +187,7 @@ function ShopControls({ user, logo }: { user: CurrentUser | null; logo: ReactNod
 }
 
 /**
- * The one site header. On the landing page (`landing`) it is the sticky bar over the hero: tagline and the "Try it on" CTA.
+ * The one site header. On the landing page (`landing`) it is the sticky bar over the hero: tagline, the "Find your fit" CTA, the theme toggle and a profile icon to sign in.
  * Everywhere else it is a fixed bar that follows the app theme (Paper in light, Obsidian in dark) whose content follows the route and the session: the page links with the
  * current one marked, Login and Sign up or the account for the public pages, the shop controls in the shopping flow.
  * Login and sign up carry their own logo beside the form, so there it is only the theme toggle.
@@ -283,9 +283,25 @@ export function SiteHeader({
                 <p className="sv2-tag" data-rise="1">
                   Because fit is what matters
                 </p>
-                <Link to="/shop" className="sv2-btn sv2-btn--red sv2-cta" data-rise="3">
-                  <span aria-hidden="true">//</span> Try it on
-                </Link>
+                <div className="sv2-actions">
+                  <Link to="/shop" className="sv2-btn sv2-btn--red sv2-cta" data-rise="3">
+                    Find your fit
+                  </Link>
+                  <div className="sv2-theme" data-rise="3">
+                    <ThemeButton />
+                  </div>
+                  <div className="sv2-profile" data-rise="3">
+                    {user ? (
+                      <AccountLink user={user} />
+                    ) : (
+                      <Tooltip label="Sign in">
+                        <Link to="/login" aria-label="Sign in" className="sv2-profile-btn kral-focus">
+                          <UserIcon />
+                        </Link>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
               </>
             ) : (
               <div className="sv2-controls flex items-center gap-2">
