@@ -228,47 +228,49 @@ export function ProfilePage({ tone }: { tone?: 'kral' }) {
   const simulated = Boolean(getSession()?.simulated)
 
   if (kral) {
-    const row = 'flex items-baseline justify-between gap-3 border-b border-kral-rule py-2 sm:max-w-md'
     return (
       <>
         <ShopHeader tone="kral" ref={headingRef} title={name} crumb="Profile" />
         <div className={KRAL_WRAP}>
-          <section aria-label="Your profile" className={KRAL_PANEL}>
-            <div className="flex items-center gap-4">
-              <Avatar tone="kral" name={name} src={me.avatarUrl ?? undefined} initials={initialsOf(me)} size="lg" />
-              <p className="font-kral-mono min-w-0 flex-1 text-base wrap-break-word text-kral-fg">{me.email}</p>
-              {me.role === 'customer' && (
-                <IconEditButton tone="kral" label="Edit profile" onClick={() => setEditing(true)} className="-mt-2 -mr-2 self-start" />
-              )}
-            </div>
-            {(since || simulated) && (
-              <dl className="mt-6">
+          <section aria-label="Your profile" className={`${KRAL_PANEL} flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-8`}>
+            <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:gap-6 lg:flex-1">
+              <Avatar tone="kral" name={name} src={me.avatarUrl ?? undefined} initials={initialsOf(me)} size="xl" />
+              <div className="min-w-0 flex-1">
+                <p className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">(Email)</p>
+                <div className="flex items-center gap-1">
+                  <p className="font-kral-mono min-w-0 text-base font-medium wrap-anywhere text-kral-fg sm:text-lg">{me.email}</p>
+                  {me.role === 'customer' && <IconEditButton tone="kral" label="Edit profile" onClick={() => setEditing(true)} className="shrink-0" />}
+                </div>
+                {(since || simulated) && (
+                  <dl className="mt-2 grid gap-1">
+                    {simulated && (
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <dt className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Role</dt>
+                        <dd className="font-kral-mono text-base text-kral-fg capitalize before:mr-2 before:text-kral-muted before:content-['//']">{me.role}</dd>
+                      </div>
+                    )}
+                    {simulated && me.phone && (
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <dt className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Phone</dt>
+                        <dd className="font-kral-mono text-base text-kral-fg tabular-nums before:mr-2 before:text-kral-muted before:content-['//']">{me.phone}</dd>
+                      </div>
+                    )}
+                    {since && (
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <dt className="font-kral-mono text-base text-kral-muted uppercase before:content-['('] after:content-[')'] md:text-xs md:tracking-[0.08em]">Member since</dt>
+                        <dd className="font-kral-mono text-base text-kral-fg before:mr-2 before:text-kral-muted before:content-['//']">{since}</dd>
+                      </div>
+                    )}
+                  </dl>
+                )}
                 {simulated && (
-                  <div className={row}>
-                    <dt className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Role</dt>
-                    <dd className="font-kral-mono text-base text-kral-fg capitalize">{me.role}</dd>
-                  </div>
+                  <p role="note" className="font-kral-mono mt-3 text-base text-kral-muted md:text-sm">
+                    This is a demo account saved in this browser. Photo upload, body measurements and delivery addresses need the shop account, so they are not available here.
+                  </p>
                 )}
-                {simulated && me.phone && (
-                  <div className={row}>
-                    <dt className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Phone</dt>
-                    <dd className="font-kral-mono text-base text-kral-fg tabular-nums">{me.phone}</dd>
-                  </div>
-                )}
-                {since && (
-                  <div className={row}>
-                    <dt className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Member since</dt>
-                    <dd className="font-kral-mono text-base text-kral-fg">{since}</dd>
-                  </div>
-                )}
-              </dl>
-            )}
-            {simulated && (
-              <p role="note" className="font-kral-mono mt-4 text-base text-kral-muted md:text-sm">
-                This is a demo account saved in this browser. Photo upload, body measurements and delivery addresses need the shop account, so they are not available here.
-              </p>
-            )}
-            <div className="mt-6 flex flex-wrap gap-3">
+              </div>
+            </div>
+            <div className="grid gap-3 border-t border-kral-rule pt-6 sm:flex sm:flex-wrap lg:shrink-0 lg:justify-end lg:border-t-0 lg:pt-0">
               {me.role === 'customer' && (
                 <button type="button" onClick={() => startTour({ skipWelcome: true })} className={KRAL_SECONDARY}>
                   <SparkleIcon size={16} />
@@ -281,7 +283,7 @@ export function ProfilePage({ tone }: { tone?: 'kral' }) {
                   Change password
                 </button>
               )}
-              <button type="button" onClick={leave} className={KRAL_SECONDARY}>
+              <button type="button" onClick={leave} className={`${KRAL_SECONDARY} border-transparent!`}>
                 <LogOutIcon size={16} />
                 Sign out
               </button>
@@ -290,7 +292,7 @@ export function ProfilePage({ tone }: { tone?: 'kral' }) {
           {me.role === 'customer' && (
             <div className="mt-6 grid gap-6 lg:grid-cols-[24rem_minmax(0,1fr)]">
               {/* From lg the addresses fill the row at the height of Body measurements and scroll inside it. */}
-              <div className="lg:relative lg:min-h-112">
+              <div className="min-w-0 lg:relative lg:min-h-112">
                 <DeliveryAddress onUnauthorized={expire} />
               </div>
               <BodyMeasurements />

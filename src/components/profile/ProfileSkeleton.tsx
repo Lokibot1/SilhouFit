@@ -22,22 +22,19 @@ function KralProfileSkeleton() {
       <ShopHeader tone="kral" title="Your profile" crumb="Profile" />
       <div className={KRAL_WRAP}>
         <div role="status" aria-label="Loading your profile" className="animate-pulse">
-          <div className={KRAL_PANEL}>
-            <div className="flex items-center gap-4">
-              <div className={`size-14 shrink-0 ${KRAL_BLOCK}`} />
+          <div className={`${KRAL_PANEL} flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-8`}>
+            <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:gap-6 lg:flex-1">
+              <div className={`size-20 shrink-0 sm:size-28 ${KRAL_BLOCK}`} />
               <div className="min-w-0 flex-1">
-                <KralBar className="font-kral-mono w-1/2 text-base max-[359px]:h-[2lh]" />
+                <KralBar className="font-kral-mono w-16 text-base md:text-xs" />
+                <KralBar className="font-kral-mono mt-1 w-56 max-w-full text-base sm:text-lg" />
+                <KralBar className="font-kral-mono mt-2 w-48 max-w-full text-base" />
               </div>
-              <div className={`-mt-2 -mr-2 size-11 shrink-0 self-start ${KRAL_BLOCK}`} />
             </div>
-            <div className="mt-6">
-              <KralBar className="font-kral-mono w-24 text-base md:text-xs" />
-              <KralBar className="font-kral-mono mt-1 w-40 text-base" />
-            </div>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <div className={`h-11 w-40 ${KRAL_BLOCK}`} />
-              <div className={`h-11 w-44 ${KRAL_BLOCK}`} />
-              <div className={`h-11 w-32 ${KRAL_BLOCK}`} />
+            <div className="grid gap-3 border-t border-kral-rule pt-6 sm:flex sm:flex-wrap lg:shrink-0 lg:border-t-0 lg:pt-0">
+              <div className={`h-11 sm:w-40 ${KRAL_BLOCK}`} />
+              <div className={`h-11 sm:w-44 ${KRAL_BLOCK}`} />
+              <div className={`h-11 sm:w-32 ${KRAL_BLOCK}`} />
             </div>
           </div>
           <div className="mt-6 grid gap-6 lg:grid-cols-[24rem_minmax(0,1fr)]">

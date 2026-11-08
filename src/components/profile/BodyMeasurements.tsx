@@ -65,7 +65,7 @@ export function BodyMeasurements() {
   const saved = profile ? fromProfile(profile) : null
 
   return (
-    <section aria-labelledby={headingId} className={KRAL_PANEL}>
+    <section aria-labelledby={headingId} className={`${KRAL_PANEL} min-w-0`}>
       <div className="flex items-start justify-between gap-3">
         <h2 id={headingId} className={KRAL_H2}>
           <RulerIcon />

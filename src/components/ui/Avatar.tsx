@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { UserIcon } from '../form/icons'
 
-const SIZES = { sm: 'size-8 text-xs', md: 'size-10 text-sm', lg: 'size-14 text-base' } as const
+const SIZES = { sm: 'size-8 text-xs', md: 'size-10 text-sm', lg: 'size-14 text-base', xl: 'size-20 text-2xl sm:size-28 sm:text-4xl' } as const
 
 function initials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean)
@@ -29,7 +29,7 @@ interface AvatarProps {
 export function Avatar({ name, src, initials: given, size = 'md', tone }: AvatarProps) {
   const [failedSrc, setFailedSrc] = useState<string>()
   const letters = given || initials(name)
-  const shape = tone === 'kral' ? 'rounded-none' : 'rounded-full'
+  const shape = tone === 'kral' ? 'rounded-none border border-kral-rule' : 'rounded-full'
 
   if (src && failedSrc !== src) {
     return (
@@ -46,7 +46,7 @@ export function Avatar({ name, src, initials: given, size = 'md', tone }: Avatar
     <span
       role="img"
       aria-label={name || 'Account'}
-      className={`${SIZES[size]} font-ui flex shrink-0 items-center justify-center ${shape} font-semibold text-white`}
+      className={`${SIZES[size]} font-ui flex shrink-0 items-center justify-center ${shape} font-semibold text-white ${tone === 'kral' ? 'font-kral-display' : ''}`}
       style={{ backgroundColor: `hsl(${hueFor(name)} 45% 32%)` }}
     >
       {letters || <UserIcon />}
