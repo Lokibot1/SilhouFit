@@ -55,4 +55,37 @@ describe('Composer', () => {
     expect(send).toBeDisabled()
     expect(onSend).not.toHaveBeenCalled()
   })
+
+  it('sends the masked text, reports it, and shows a gentle note', async () => {
+    const user = userEvent.setup()
+    const onSend = vi.fn()
+    const onMasked = vi.fn()
+    render(<Composer onSend={onSend} onMasked={onMasked} sending={false} />)
+    const field = screen.getByRole('textbox', { name: 'Message' })
+    await user.type(field, 'you are a bitch{Enter}')
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('you are a *****')
+    expect(onMasked).toHaveBeenCalledExactlyOnceWith('you are a *****')
+    expect(field).toHaveValue('')
+    expect(screen.getByRole('status')).toHaveTextContent('Some words were hidden')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('does not report or note a clean message', async () => {
+    const user = userEvent.setup()
+    const onMasked = vi.fn()
+    const onSend = vi.fn()
+    render(<Composer onSend={onSend} onMasked={onMasked} sending={false} />)
+    await user.type(screen.getByRole('textbox', { name: 'Message' }), 'Is the black dress in medium?{Enter}')
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('Is the black dress in medium?')
+    expect(onMasked).not.toHaveBeenCalled()
+    expect(screen.queryByText(/hidden/)).not.toBeInTheDocument()
+  })
+
+  it('is disabled with the reason when messaging is blocked', () => {
+    render(<Composer onSend={vi.fn()} sending={false} disabledReason="Your messaging has been blocked by staff. Contact support to appeal." />)
+    const field = screen.getByRole('textbox', { name: 'Message' })
+    expect(field).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
+    expect(field).toHaveAccessibleDescription(/blocked by staff/)
+  })
 })

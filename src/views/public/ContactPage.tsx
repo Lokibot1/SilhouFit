@@ -9,6 +9,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { sanitizeAccountEmail, sanitizeAccountName } from '../../utils/accountValidation'
+import { hasProfanity, PROFANITY_ERROR } from '../../utils/profanity'
 import { normalizeName, normalizeEmail, validateEmail, validateName } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
@@ -34,6 +35,7 @@ function validateMessage(value: string): string | null {
   const length = value.trim().length
   if (!length) return 'Message is required.'
   if (length < MESSAGE_MIN) return `Message needs at least ${MESSAGE_MIN} characters so the team can help.`
+  if (hasProfanity(value)) return PROFANITY_ERROR
   return null
 }
 

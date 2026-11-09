@@ -1,17 +1,24 @@
+import { useState } from 'react'
 import { useAccounts } from '../../../hooks/useAccounts'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useDeactivateCustomer } from '../../../hooks/useDeactivateAccount'
+import { useModeration } from '../../../hooks/useModeration'
 import { listCustomerAccounts } from '../../../service/staffApi'
 import type { CustomerAccount } from '../../../types/accounts'
 import { fullName } from '../../../utils/accountQuery'
-import { ArchiveIcon, RestoreIcon } from '../../form/icons'
+import { ArchiveIcon, EyeIcon, RestoreIcon } from '../../form/icons'
 import { AddedDate, RowAction } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { AccountName } from './AccountName'
 import { AccountTable, type AccountColumn } from './AccountTable'
 import { AccountToolbar } from './AccountToolbar'
+import { CustomerDetailsSheet } from './CustomerDetailsSheet'
 import { StatusBadge } from './StatusBadge'
+
+function OffenseCount({ id }: { id: string }) {
+  return <>{useModeration(id).offenses.length}</>
+}
 
 const STATUSES = [
   { value: 'active' as const, label: 'Active' },
@@ -25,6 +32,7 @@ export function CustomersTab() {
   const deactivate = useDeactivateCustomer(list.retry)
   const role = useCurrentUser()?.role
   const manage = role === 'admin' || role === 'superadmin'
+  const [viewing, setViewing] = useState<CustomerAccount | null>(null)
 
   // The number counts across pages, from the page the rows belong to (not the one just asked for).
   const meta = list.result?.meta
@@ -39,6 +47,7 @@ export function CustomersTab() {
     { key: 'name', header: 'Customer', sort: 'name', title: true, cell: (a) => <AccountName account={a} /> },
     { key: 'email', header: 'Email', width: 'w-[30%]', cell: (a) => <span className="block truncate">{a.email}</span> },
     { key: 'status', header: 'Status', cardLabel: 'Status:', width: 'w-[14%]', cell: (a) => <StatusBadge status={a.status} /> },
+    { key: 'offenses', header: 'Offenses', cardLabel: 'Offenses:', right: true, width: 'w-[10%]', cell: (a) => <OffenseCount id={a.id} /> },
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
   ]
 
@@ -53,16 +62,17 @@ export function CustomersTab() {
         label="Customers with email, status and date added"
         noun="customers"
         columns={columns}
-        actions={
-          manage
-            ? (account) =>
-                account.status === 'inactive' ? (
-                  <RowAction label={`Activate ${fullName(account)}`} icon={<RestoreIcon size={16} />} disabled={deactivate.pendingId === account.id} onClick={() => deactivate.activate(account)} />
-                ) : (
-                  <RowAction label={`Deactivate ${fullName(account)}`} icon={<ArchiveIcon size={16} />} disabled={deactivate.pendingId === account.id} onClick={() => deactivate.ask(account)} />
-                )
-            : undefined
-        }
+        actions={(account) => (
+          <>
+            <RowAction label={`View details of ${fullName(account)}`} icon={<EyeIcon size={16} />} onClick={() => setViewing(account)} />
+            {manage &&
+              (account.status === 'inactive' ? (
+                <RowAction label={`Activate ${fullName(account)}`} icon={<RestoreIcon size={16} />} disabled={deactivate.pendingId === account.id} onClick={() => deactivate.activate(account)} />
+              ) : (
+                <RowAction label={`Deactivate ${fullName(account)}`} icon={<ArchiveIcon size={16} />} disabled={deactivate.pendingId === account.id} onClick={() => deactivate.ask(account)} />
+              ))}
+          </>
+        )}
         emptyFiltered={
           list.status === 'inactive' && !list.text.trim() ? (
             <>
@@ -81,6 +91,7 @@ export function CustomersTab() {
           </>
         }
       />
+      <CustomerDetailsSheet account={viewing} onClose={() => setViewing(null)} />
       {deactivate.element}
     </section>
   )

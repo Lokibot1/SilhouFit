@@ -56,6 +56,7 @@ import {
 } from '../../utils/checkoutValidation'
 import { formatPeso, variantLabel } from '../../utils/format'
 import { adaptOrderToReceipt } from '../../utils/orders'
+import { hasProfanity, PROFANITY_ERROR } from '../../utils/profanity'
 import { LIMITS, sanitizePhoneDigits, validatePhone } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
@@ -307,6 +308,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const [editing, setEditing] = useState(false)
   const focusField = useRef<AddressField | null>(null)
   const [failure, setFailure] = useState<OrdersError | null>(null)
+  const noteError = note.trim() && hasProfanity(note) ? PROFANITY_ERROR : null
   // The sheet shows the saved-address form (with its map pin) instead of the fields; `pinNeeded` says why it opened.
   const [adding, setAdding] = useState(false)
   const [pinNeeded, setPinNeeded] = useState(false)
@@ -491,6 +493,10 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
 
   async function submit() {
     if (inFlight.current) return
+    if (noteError) {
+      document.getElementById('checkout-note')?.focus()
+      return
+    }
     // The order API takes a saved address with a map pin, so what is on screen must be one of the saved ones as it is.
     const picked = addresses.find((a) => a.id === deliverTo)
     const filled = picked && valuesOf(picked)
@@ -790,8 +796,15 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
             onChange={(event) => setNote(filterNote(event.target.value))}
             placeholder="Anything the seller should know? (optional)"
             rows={3}
-            className={`${KRAL_INPUT} h-24 resize-none py-3`}
+            aria-invalid={noteError ? true : undefined}
+            aria-describedby={noteError ? 'checkout-note-error' : undefined}
+            className={`${KRAL_INPUT} h-24 resize-none py-3 ${noteError ? 'border-danger!' : ''}`}
           />
+          {noteError && (
+            <p id="checkout-note-error" role="alert" className="font-kral-mono mt-1 text-base leading-snug text-danger md:text-sm">
+              {noteError}
+            </p>
+          )}
           <p className="font-kral-mono mt-1 text-right text-xs text-kral-muted tabular-nums" aria-hidden="true">
             {note.length}/{ADDRESS_LIMITS.note}
           </p>

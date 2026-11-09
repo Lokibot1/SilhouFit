@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { MAX_MESSAGE_LENGTH } from '../../service/chatApi'
+import { maskProfanity } from '../../utils/profanity'
 import { SendIcon } from '../form/icons'
 import { Tooltip } from '../ui/Tooltip'
 
@@ -11,16 +12,21 @@ interface ComposerProps {
   onTyping?: () => void
   /** Puts the cursor in the box when it appears. */
   focusOnMount?: boolean
+  /** Called with the masked text after a message that had flagged words was sent, so the offense can be counted. */
+  onMasked?: (maskedBody: string) => void
+  /** Why the customer cannot write (for example, messaging blocked by staff). The box and Send are disabled and the reason is shown. */
+  disabledReason?: string
   /** Publishes its height as --bottom-bar-h so a toast sits above it. The dock turns this off: it reads that variable itself. */
   publishOffset?: boolean
 }
 
 /** Enter sends, Shift+Enter starts a new line. The text clears at once; a message that fails stays in the thread with Retry. */
-export function Composer({ onSend, sending, onTyping, focusOnMount = false, publishOffset = true }: ComposerProps) {
+export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, focusOnMount = false, publishOffset = true }: ComposerProps) {
   const [text, setText] = useState('')
   const field = useRef<HTMLTextAreaElement>(null)
+  const [masked, setMasked] = useState(false)
   const body = text.trim()
-  const blocked = sending || !body
+  const blocked = sending || !body || !!disabledReason
 
   useEffect(() => {
     if (focusOnMount) field.current?.focus()
@@ -28,7 +34,11 @@ export function Composer({ onSend, sending, onTyping, focusOnMount = false, publ
 
   function submit() {
     if (blocked) return
-    onSend(body)
+    // Flagged words are hidden before the message leaves, so the other side never receives them.
+    const { text: safe, offended } = maskProfanity(body)
+    onSend(safe)
+    setMasked(offended)
+    if (offended) onMasked?.(safe)
     setText('')
     field.current?.focus()
   }
@@ -73,7 +83,8 @@ export function Composer({ onSend, sending, onTyping, focusOnMount = false, publ
           maxLength={MAX_MESSAGE_LENGTH}
           rows={1}
           aria-label="Message"
-          aria-describedby="chat-composer-count"
+          disabled={!!disabledReason}
+          aria-describedby={disabledReason || masked ? 'chat-composer-count chat-composer-note' : 'chat-composer-count'}
           placeholder="Write a message"
           className="font-ui field-sizing-content max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-line-strong bg-canvas px-3 py-2.5 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted"
         />
@@ -88,6 +99,11 @@ export function Composer({ onSend, sending, onTyping, focusOnMount = false, publ
           </button>
         </Tooltip>
       </div>
+      {(disabledReason || masked) && (
+        <p id="chat-composer-note" role={disabledReason ? undefined : 'status'} className="font-ui mt-1 text-xs text-fg-muted">
+          {disabledReason ?? 'Some words were hidden. Repeated use of this language can lead to your messaging being blocked or your account banned.'}
+        </p>
+      )}
       <p id="chat-composer-count" className="font-ui mt-1 text-right text-xs text-fg-muted tabular-nums">
         {text.length} / {MAX_MESSAGE_LENGTH}
       </p>

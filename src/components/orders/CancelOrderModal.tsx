@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import { cleanText, stripControl } from '../../utils/checkoutValidation'
+import { hasProfanity, PROFANITY_ERROR } from '../../utils/profanity'
 import { AlertIcon, SpinnerIcon } from '../form/icons'
 import { KRAL_DANGER, KRAL_INPUT, KRAL_SECONDARY } from '../shop/shopControls'
 import { Modal } from '../ui/Modal'
@@ -23,6 +24,7 @@ export function CancelOrderModal({ open, orderNumber, pending, error, onClose, o
   const [reason, setReason] = useState('')
   const keep = useRef<HTMLButtonElement>(null)
   const reasonId = useId()
+  const flagged = hasProfanity(reason)
   // A fresh question each time the dialog opens.
   const [wasOpen, setWasOpen] = useState(open)
   if (open !== wasOpen) {
@@ -43,7 +45,7 @@ export function CancelOrderModal({ open, orderNumber, pending, error, onClose, o
           <button ref={keep} type="button" onClick={onClose} disabled={pending} className={KRAL_SECONDARY}>
             Keep order
           </button>
-          <button type="button" onClick={() => onConfirm(cleanText(reason))} disabled={pending} aria-busy={pending} className={`${KRAL_DANGER} disabled:cursor-progress`}>
+          <button type="button" onClick={() => onConfirm(cleanText(reason))} disabled={pending || flagged} aria-busy={pending} className={`${KRAL_DANGER} disabled:cursor-progress`}>
             {pending && <SpinnerIcon className="mr-2" />}
             Cancel order
           </button>
@@ -65,8 +67,15 @@ export function CancelOrderModal({ open, orderNumber, pending, error, onClose, o
           maxLength={CANCEL_REASON_MAX}
           rows={3}
           onChange={(event) => setReason(stripControl(event.target.value))}
+          aria-invalid={flagged || undefined}
+          aria-describedby={flagged ? `${reasonId}-flag` : undefined}
           className={`${KRAL_INPUT} h-24 resize-none py-3`}
         />
+        {flagged && (
+          <p id={`${reasonId}-flag`} role="alert" className="mt-1 text-base leading-snug text-danger">
+            {PROFANITY_ERROR}
+          </p>
+        )}
         <p className="mt-1 text-right text-xs text-kral-muted tabular-nums" aria-hidden="true">
           {reason.length}/{CANCEL_REASON_MAX}
         </p>

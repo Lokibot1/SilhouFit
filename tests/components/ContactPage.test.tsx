@@ -38,4 +38,11 @@ describe('ContactPage', () => {
     await userEvent.type(phone, '+63 (917) 123-4567 89abc')
     expect(phone).toHaveValue('+639171234567')
   })
+
+  it('flags language that is not allowed in the message', async () => {
+    renderPage()
+    await userEvent.type(screen.getByLabelText('Message'), 'this is fucking slow')
+    await userEvent.click(screen.getByRole('button', { name: 'Send message' }))
+    expect(screen.getByText(/isn't allowed/)).toBeInTheDocument()
+  })
 })

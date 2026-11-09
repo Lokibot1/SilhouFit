@@ -114,7 +114,7 @@ describe('Customers tab', () => {
     await openCustomers()
     expect(vi.mocked(listCustomerAccounts).mock.calls[0][0]).toMatchObject({ status: 'active', sort: 'name', page: 1, limit: 10 })
     const table = screen.getAllByRole('table', { hidden: true })[0]
-    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Customer', 'Email', 'Status', 'Added', 'Actions'])
+    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)).toEqual(['#', 'Customer', 'Email', 'Status', 'Offenses', 'Added', 'Actions'])
     expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/^1.*Kim Tan.*kim\.tan@example\.com/)
     expect(within(table).getAllByRole('row', { hidden: true })[2]).toHaveTextContent(/^2.*Leo Uy/)
     expect(screen.queryByRole('button', { name: /Add .* account/ })).not.toBeInTheDocument()

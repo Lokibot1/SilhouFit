@@ -1,6 +1,8 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useConversation } from '../../hooks/useConversation'
+import { useModeration } from '../../hooks/useModeration'
 import { CHAT_BRAND_NAME, displayName } from '../../service/chatApi'
+import { recordOffense } from '../../service/moderation'
 import { SectionBody } from '../staff/StaffSection'
 import { ChatSkeleton } from './ChatSkeleton'
 import { Composer } from './Composer'
@@ -47,6 +49,9 @@ function TypingLine({ name }: { name?: string }) {
 export function ChatThread({ conversationId, staff = false, leading, compact = false, publishOffset = true }: ChatThreadProps) {
   const chat = useConversation(conversationId)
   const { detail } = chat
+  // Only a customer's own messages count as offenses, and only a customer can be blocked from writing.
+  const selfId = staff ? '' : (chat.selfId ?? '')
+  const messagingBlocked = useModeration(selfId).status === 'messaging_blocked'
 
   return (
     <SectionBody section={chat.section} what="this conversation" skeleton={<ChatSkeleton compact={compact} />} errorClassName="p-4">
@@ -74,7 +79,15 @@ export function ChatThread({ conversationId, staff = false, leading, compact = f
               onRemove={chat.removeFailed}
             />
             <TypingLine name={chat.typingName} />
-            <Composer onSend={(body) => void chat.send(body)} sending={chat.sending} onTyping={chat.notifyTyping} focusOnMount={compact} publishOffset={publishOffset} />
+            <Composer
+              onSend={(body) => void chat.send(body)}
+              onMasked={staff || !selfId ? undefined : (excerpt) => recordOffense({ userId: selfId, conversationId, excerpt })}
+              disabledReason={messagingBlocked ? 'Your messaging has been blocked by staff. Contact support to appeal.' : undefined}
+              sending={chat.sending}
+              onTyping={chat.notifyTyping}
+              focusOnMount={compact}
+              publishOffset={publishOffset}
+            />
           </div>
         )
       }
