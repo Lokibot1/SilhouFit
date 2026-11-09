@@ -27,6 +27,9 @@ function Card({ product }: { product: Product }) {
         ) : (
           <img src={product.image} alt={product.alt} loading="lazy" decoding="async" onError={() => setFailed(true)} />
         )}
+        <span className="sv2-num sv2-card-chip" aria-hidden="true">
+          {price}
+        </span>
       </div>
       <div className="sv2-card-body">
         <p className="sv2-label sv2-muted">
@@ -36,11 +39,16 @@ function Card({ product }: { product: Product }) {
         <h3 className="sv2-card-name">
           <Link to={`/shop/${product.slug ?? product.id}`}>{product.name}</Link>
         </h3>
-        {colors && <p className="sv2-label sv2-muted">Colorway: {colors}</p>}
+        {colors && (
+          <p className="sv2-label sv2-muted sv2-card-colors">
+            <span className="sv2-card-colors-lead">Colorway: </span>
+            {colors}
+          </p>
+        )}
       </div>
       <p className="sv2-card-foot">
-        <span className="sv2-label sv2-card-view" aria-hidden="true">
-          [ View ]
+        <span className={`sv2-label sv2-card-view${soldOut ? ' sv2-muted' : ''}`} aria-hidden="true">
+          {soldOut ? '[ Sold_out ]' : '[ View // Fit ]'}
         </span>
         <span className="sv2-num sv2-price">
           {product.priceMax ? 'From ' : ''}
@@ -84,8 +92,9 @@ export function Featured() {
           <div>
             <p className="sv2-label sv2-label--red">[ Catalogue // Live ]</p>
             <h2 id="sv2-collection-title" className="sv2-h2">
-              Featured collection
+              Featured products
             </h2>
+            <p className="sv2-label sv2-muted sv2-feat-sub">Realtime atelier inventory // store read active</p>
           </div>
           <p className="sv2-label sv2-meta-note">
             SORT: (NEWEST // 01-04)

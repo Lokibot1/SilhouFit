@@ -50,8 +50,8 @@ export function LandingV2Page() {
     <div className="sv2" ref={rootRef}>
       <Hero />
       <Tape />
-      <Study />
       <Featured />
+      <Study />
       <Lookbook />
       <Reception />
       <Faq />

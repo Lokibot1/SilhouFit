@@ -9,8 +9,9 @@ import { isAuthPath } from '../../utils/authRoutes'
 import { AccountLink } from '../AccountLink'
 import { AccountMenu } from '../AccountMenu'
 import { CustomerMessagesButton } from '../chat/dock/CustomerMessagesButton'
-import { CartIcon, HeartIcon, SearchIcon, UserIcon, XIcon } from '../form/icons'
+import { CartIcon, HeartIcon, MenuIcon, SearchIcon, UserIcon, XIcon } from '../form/icons'
 import { ThemeToggle } from '../ThemeToggle'
+import { homeFor, isStaffRole } from '../../utils/staffRole'
 import { KRAL_ICON_BUTTON, KRAL_ICON_COUNT } from '../ui/kralIconButton'
 import { Tooltip } from '../ui/Tooltip'
 import { VisitWebsiteLink } from '../VisitWebsiteLink'
@@ -203,6 +204,7 @@ export function SiteHeader({
 }) {
   const { pathname } = useLocation()
   const user = useCurrentUser()
+  const cartCount = useCartCount()
   const [open, setOpen] = useState(false)
   const navRef = useRef<HTMLElement>(null)
   const menuRef = useRef<HTMLButtonElement>(null)
@@ -253,16 +255,20 @@ export function SiteHeader({
           <>
             {logo}
             <nav ref={navRef} className="sv2-nav" aria-label="Primary" {...rise(0)}>
-              <button
-                ref={menuRef}
-                type="button"
-                className="sv2-menu-btn"
-                aria-expanded={open}
-                aria-controls="sv2-links"
-                onClick={() => setOpen((o) => !o)}
-              >
-                Menu
-              </button>
+              <Tooltip label="Menu">
+                <button
+                  ref={menuRef}
+                  type="button"
+                  className="sv2-menu-btn"
+                  aria-label={cartCount ? `Menu, ${cartCount} ${cartCount === 1 ? 'item' : 'items'} in cart` : 'Menu'}
+                  aria-expanded={open}
+                  aria-controls="sv2-links"
+                  onClick={() => setOpen((o) => !o)}
+                >
+                  {open ? <XIcon size={20} /> : <MenuIcon />}
+                  {cartCount > 0 && !open && <span aria-hidden="true" className="sv2-menu-dot" />}
+                </button>
+              </Tooltip>
               <ul id="sv2-links" className="sv2-links" data-open={open || undefined} onClick={() => setOpen(false)}>
                 {LINKS.map(({ label, to }) => (
                   <li key={label}>
@@ -276,6 +282,23 @@ export function SiteHeader({
                     <Link to="/signup">Sign Up now!</Link>
                   </li>
                 )}
+                {/* Below 1075px the bar keeps only the logo and this menu; the cart, account and theme live here. */}
+                <li className="sv2-links-tool">
+                  <Link to="/cart" aria-current={pathname === '/cart' ? 'page' : undefined}>
+                    Cart{cartCount > 0 && <span className="sv2-links-count">{cartCount > 99 ? '99+' : cartCount}</span>}
+                  </Link>
+                </li>
+                <li className="sv2-links-tool">
+                  {user ? (
+                    <Link to={homeFor(user.role)}>{isStaffRole(user.role) ? 'Dashboard' : 'Profile'}</Link>
+                  ) : (
+                    <Link to="/login">Login</Link>
+                  )}
+                </li>
+                <li className="sv2-links-tool sv2-links-theme" onClick={(e) => e.stopPropagation()}>
+                  <span>Theme</span>
+                  <ThemeToggle />
+                </li>
               </ul>
             </nav>
             {landing ? (
@@ -304,7 +327,7 @@ export function SiteHeader({
                 </div>
               </>
             ) : (
-              <div className="sv2-controls flex items-center gap-2">
+              <div className="sv2-controls sv2-bar-tools flex items-center gap-2">
                 {!user && (
                   <>
                     <Link to="/login" className="sv2-btn sv2-btn--red">

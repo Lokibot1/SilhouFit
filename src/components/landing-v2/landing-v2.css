@@ -260,6 +260,18 @@
   inset: 0;
   background: var(--sv2-page-fg); /* Paper letters on Obsidian, Obsidian on Paper: the no-WebGL and loading state */
 }
+/* Phones: the intro loader's KRAL, plain red at its natural ratio, no shader. */
+@media (max-width: 559.98px) {
+  .sv2-band .sv2-mark {
+    height: 18vw; /* natural ratio is about 11vw; the letters already span the full width, so only height can grow */
+  }
+  .sv2-glyph {
+    background: var(--sv2-red);
+  }
+  .sv2-glyph > * {
+    display: none;
+  }
+}
 .sv2-header {
   position: sticky;
   top: 0;
@@ -333,7 +345,8 @@
 .sv2-controls {
   margin-left: auto;
 }
-.sv2-links-signup {
+.sv2-links-signup,
+.sv2-links-tool {
   display: none;
 }
 .sv2-bar {
@@ -370,6 +383,8 @@ a.sv2-logo:hover {
 }
 .sv2-nav {
   position: relative;
+  display: flex; /* the Menu button's tooltip wrapper is an empty inline box on desktop; as a block, it pushed the links down */
+  align-items: center;
 }
 .sv2-menu-btn {
   display: none;
@@ -508,19 +523,57 @@ a.sv2-logo:hover {
   .sv2-nav {
     position: static;
   }
+  .sv2-nav {
+    margin-left: auto;
+  }
+  .sv2-actions,
+  .sv2-bar-tools {
+    display: none;
+  }
   .sv2-menu-btn {
+    position: relative;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    width: 44px;
     min-height: 44px;
-    padding: 0 1rem;
+    padding: 0;
     border: 1px solid var(--sv2-line);
     border-radius: 0;
     background: transparent;
     color: inherit;
-    font: 400 0.75rem/1 "SV2 Mono", monospace;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
     cursor: pointer;
+  }
+  .sv2-menu-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--sv2-red);
+  }
+  .sv2-links-signup,
+  .sv2-links-tool {
+    display: block;
+  }
+  .sv2-links-count {
+    margin-left: 0.5rem;
+    padding: 0 0.375rem;
+    border-radius: 999px;
+    background: var(--sv2-red);
+    color: var(--sv2-paper);
+    font-variant-numeric: tabular-nums;
+  }
+  .sv2-links-theme {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    padding: 0 1rem;
+    font: 400 1rem/1 "SV2 Mono", monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
   .sv2-menu-btn[aria-expanded="true"] {
     background: var(--sv2-page-fg);
@@ -531,20 +584,30 @@ a.sv2-logo:hover {
   }
   .sv2-links[data-open] {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     position: absolute;
     z-index: 6;
-    top: 100%;
+    top: calc(100% + 0.25rem);
     left: 1rem;
-    width: min(24rem, calc(100vw - 2rem));
+    width: min(20rem, calc(100vw - 2rem));
     background: var(--sv2-page-bg);
     border: 1px solid var(--sv2-line);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  }
+  .sv2-links li + li {
+    border-top: 1px solid var(--sv2-line);
   }
   .sv2-links a {
     justify-content: flex-start;
     padding: 0 1rem;
     font-size: 0.75rem;
     font-weight: 400;
+  }
+  /* In the dropdown the current page is a tinted row with a red edge, not an underline. */
+  .sv2-links a[aria-current="page"] {
+    text-decoration: none;
+    box-shadow: inset 3px 0 var(--sv2-red);
+    background: var(--sv2-surface);
   }
   .sv2-links a:hover,
   .sv2-links a:focus-visible {
@@ -556,6 +619,51 @@ a.sv2-logo:hover {
   }
   .sv2-tag {
     font-size: 0.75rem;
+  }
+
+  /* Landing bar only: borderless hamburger; the dropdown fades and slides in and out, and the icon spins when it swaps. */
+  .sv2-header:not(.sv2-header--fixed) .sv2-menu-btn {
+    border: 0;
+  }
+  .sv2-header:not(.sv2-header--fixed) .sv2-menu-btn svg {
+    animation: sv2-menu-icon 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .sv2-header:not(.sv2-header--fixed) .sv2-links {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    position: absolute;
+    z-index: 6;
+    top: calc(100% + 0.25rem);
+    left: 1rem;
+    width: min(20rem, calc(100vw - 2rem));
+    background: var(--sv2-page-bg);
+    border: 1px solid var(--sv2-line);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+    visibility: hidden; /* also keeps the closed links out of the tab order */
+    opacity: 0;
+    transform: translateY(-0.5rem);
+    pointer-events: none;
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out, visibility 0s linear 0.2s;
+  }
+  .sv2-header:not(.sv2-header--fixed) .sv2-links[data-open] {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+}
+@keyframes sv2-menu-icon {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.6);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv2-header .sv2-links,
+  .sv2-header .sv2-menu-btn svg {
+    transition: none;
+    animation: none;
   }
 }
 
@@ -571,20 +679,8 @@ a.sv2-logo:hover {
   .sv2-logo-mark {
     height: 0.75rem;
   }
-  .sv2-menu-btn {
-    padding: 0 0.75rem;
-  }
-  .sv2-cta {
-    padding-inline: 0.625rem;
-  }
-  .sv2-signup {
-    display: none;
-  }
-  .sv2-links-signup {
-    display: block;
-  }
-  .sv2-links[data-open] {
-    grid-template-columns: 1fr;
+  .sv2-links[data-open],
+  .sv2-header:not(.sv2-header--fixed) .sv2-links {
     width: calc(100vw - 2rem);
   }
   .sv2-hero-title {
@@ -595,34 +691,12 @@ a.sv2-logo:hover {
   }
 }
 
-/* Narrowest phones: the 16px CTA, toggle and profile cannot share a 320px row with the logo and MENU, so they drop to a second
-   row (CTA fills it) and the bar is two rows tall. --sv2-bar-h grows with it, so the hero and anchors still clear the bar. */
-@media (max-width: 499.98px) {
-  .sv2:not(.sv2--themed) {
-    --sv2-bar-h: 6.5rem;
-  }
-  .sv2-header .sv2-bar {
-    flex-wrap: wrap;
-    align-content: center;
-    row-gap: 0;
-    padding-block: 0.5rem;
-  }
-  .sv2-nav {
-    margin-left: auto;
-  }
-  .sv2-actions {
-    display: flex;
-    flex: 1 1 100%;
-    align-items: center;
-    gap: 0.75rem;
-  }
-  .sv2-cta {
-    flex: 1 1 auto;
-  }
-}
-
 /* Phones and small tablets: header text is body/link text, so 16px minimum (the bar wraps rather than clips if it must). */
 @media (max-width: 767.98px) {
+  /* The wordmark is taller than its natural ratio (stretched vertically) so KRAL reads big while still fitting 320px. */
+  .sv2-mark {
+    height: 34vw;
+  }
   .sv2-header .sv2-btn,
   .sv2-menu-btn,
   .sv2-links a {
@@ -846,6 +920,86 @@ a.sv2-logo:hover {
 .sv2-price {
   font-size: 0.875rem;
   font-weight: 700;
+}
+.sv2-card-chip,
+.sv2-feat-sub {
+  display: none;
+}
+
+/* Phones and small tablets: a two-up grid with hairline joints, price on the photo, full-width button. */
+@media (max-width: 767.98px) {
+  #collection .sv2-wrap {
+    padding-inline: 0;
+  }
+  #collection .sv2-head {
+    padding-inline: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  #collection .sv2-head .sv2-label--red,
+  #collection .sv2-meta-note {
+    display: none;
+  }
+  #collection .sv2-h2 {
+    margin-top: 0;
+    font-size: clamp(2rem, 9.5vw, 3rem);
+  }
+  .sv2-feat-sub {
+    display: block;
+    margin-top: 0.75rem;
+  }
+  .sv2-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--sv2-line);
+    border-block: 1px solid var(--sv2-line);
+  }
+  .sv2-card {
+    min-width: 0;
+    border: 0;
+  }
+  .sv2-card-top {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.6875rem;
+  }
+  .sv2-card-img {
+    position: relative;
+    aspect-ratio: 1;
+  }
+  .sv2-card-chip {
+    display: block;
+    position: absolute;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--sv2-page-bg);
+    border: 1px solid var(--sv2-line);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .sv2-card-body {
+    min-width: 0;
+  }
+  .sv2-card-body > * {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .sv2-card-name {
+    font-size: 0.9375rem;
+  }
+  .sv2-card-colors-lead,
+  .sv2-price {
+    display: none;
+  }
+  .sv2-card-foot {
+    padding: 0 0.75rem 0.75rem;
+    border-top: 0;
+  }
+  .sv2-card-view {
+    flex: 1;
+    justify-content: center;
+    background: color-mix(in srgb, var(--sv2-page-fg) 8%, var(--sv2-surface));
+  }
 }
 .sv2-bar-foot {
   display: flex;
