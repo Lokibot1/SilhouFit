@@ -1450,6 +1450,47 @@ a.sv2-logo:hover {
     aspect-ratio: 3 / 4;
   }
 }
+/* Phones and small tablets: a compact footer. Smaller type and tighter rows than the 16px body floor, by request. */
+@media (max-width: 767.98px) {
+  .sv2-footer {
+    padding: 2rem 0 1.25rem;
+  }
+  .sv2-top {
+    padding-bottom: 1.25rem;
+  }
+  .sv2-cols {
+    gap: 1.25rem 1rem;
+  }
+  .sv2-cols h2 {
+    margin-bottom: 0.25rem;
+  }
+  .sv2-cols a {
+    min-height: 36px;
+    font-size: 0.75rem;
+  }
+  .sv2-social-logo {
+    width: 1rem;
+    height: 1rem;
+  }
+  .sv2-social ul {
+    gap: 0 1.25rem;
+  }
+  .sv2-footer .sv2-label {
+    font-size: 0.6875rem;
+  }
+  .sv2-foot-mark {
+    margin-block: 1.5rem;
+  }
+  .sv2-foot-meta {
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-top: 0.75rem;
+  }
+  .sv2-credit {
+    margin-top: 0.75rem;
+    line-height: 1.5;
+  }
+}
 @media (min-width: 768px) {
   .sv2-cols {
     grid-template-columns: repeat(3, minmax(0, 13rem));
