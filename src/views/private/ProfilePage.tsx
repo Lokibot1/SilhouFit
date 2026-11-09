@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, useLocation, useOutletContext } from 'react-router-dom'
-import { AlertIcon, LockIcon, LogOutIcon, SparkleIcon, UserIcon } from '../../components/form/icons'
+import { Link, Navigate, useLocation, useOutletContext } from 'react-router-dom'
+import { AlertIcon, LockIcon, LogOutIcon, ReceiptIcon, SparkleIcon, UserIcon } from '../../components/form/icons'
 import { BodyMeasurements } from '../../components/profile/BodyMeasurements'
 import { ChangePasswordSheet } from '../../components/profile/ChangePasswordSheet'
 import { DeliveryAddress } from '../../components/profile/DeliveryAddress'
@@ -271,6 +271,12 @@ export function ProfilePage({ tone }: { tone?: 'kral' }) {
               </div>
             </div>
             <div className="grid gap-3 border-t border-kral-rule pt-6 sm:flex sm:flex-wrap lg:shrink-0 lg:justify-end lg:border-t-0 lg:pt-0">
+              {me.role === 'customer' && (
+                <Link to="/orders" className={KRAL_SECONDARY}>
+                  <ReceiptIcon size={16} />
+                  My orders
+                </Link>
+              )}
               {me.role === 'customer' && (
                 <button type="button" onClick={() => startTour({ skipWelcome: true })} className={KRAL_SECONDARY}>
                   <SparkleIcon size={16} />

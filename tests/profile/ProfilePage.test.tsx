@@ -279,6 +279,28 @@ describe('ProfilePage', () => {
     expect(onSignOut).toHaveBeenCalledTimes(1)
   })
 
+  it('links customers to My orders on the KRAL profile, and leaves it off for staff', async () => {
+    const renderKral = () =>
+      render(
+        <MemoryRouter initialEntries={['/profile']}>
+          <ToastProvider>
+            <Routes>
+              <Route path="/profile" element={<ProfilePage tone="kral" />} />
+            </Routes>
+          </ToastProvider>
+        </MemoryRouter>,
+      )
+    load.mockResolvedValue({ ...ME, role: 'customer' })
+    const { unmount } = renderKral()
+    expect(await screen.findByRole('link', { name: 'My orders' })).toHaveAttribute('href', '/orders')
+    unmount()
+
+    load.mockResolvedValue({ ...ME, role: undefined })
+    renderKral()
+    await screen.findByRole('heading', { level: 1, name: 'Anne Santos' })
+    expect(screen.queryByRole('link', { name: 'My orders' })).not.toBeInTheDocument()
+  })
+
   describe('editing the profile', () => {
     it('is offered to customers only', async () => {
       load.mockResolvedValue({ ...ME, role: 'customer' })

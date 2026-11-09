@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
@@ -60,6 +60,16 @@ describe('account menu focus', () => {
     await waitFor(() => expect(screen.queryByRole('group', { name: 'Account' })).toBeNull())
     expect(avatar).toHaveFocus()
     expect(document.body).not.toHaveFocus()
+  })
+
+  it('lists Orders after Profile, and goes to My orders', async () => {
+    const user = userEvent.setup()
+    renderBar()
+    await user.click(screen.getByRole('button', { name: 'Account, Ana Reyes' }))
+    const links = within(screen.getByRole('group', { name: 'Account' })).getAllByRole('link').map((l) => l.textContent)
+    expect(links).toEqual(['Profile', 'Orders'])
+    await user.click(screen.getByRole('link', { name: 'Orders' }))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/orders'))
   })
 
   it('also closes on Shift+Tab', async () => {

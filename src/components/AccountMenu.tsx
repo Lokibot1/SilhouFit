@@ -6,7 +6,7 @@ import type { CurrentUser } from '../hooks/useCurrentUser'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { signOut as endSession } from '../service/signOut'
 import { useToast } from './toast/useToast'
-import { LogOutIcon, MoonIcon, SettingsIcon, UserIcon } from './form/icons'
+import { LogOutIcon, MoonIcon, ReceiptIcon, SettingsIcon, UserIcon } from './form/icons'
 import { Avatar } from './ui/Avatar'
 import { ThemeToggle } from './ThemeToggle'
 import { computePlace, LISTBOX_PANEL } from './ui/listbox'
@@ -24,18 +24,21 @@ const PANEL_KRAL = 'fixed z-[85] flex flex-col overflow-hidden border border-kra
 /**
  * The signed-in avatar as a button that opens a small panel with who is signed in and Sign out.
  * `profileTo` is where Profile goes; null shows it as coming soon, for an area with no profile page yet.
+ * `ordersTo` is where My orders goes; null leaves the row out, for the staff areas, which have no customer orders.
  * `onSignOut` runs just before the session ends. `themeSwitch` adds a Dark mode row with the theme switch.
  * `tone="kral"` restyles the button and panel flat and square for the storefront pages (no theme row there).
  */
 export function AccountMenu({
   user,
   profileTo = '/profile',
+  ordersTo = '/orders',
   onSignOut,
   themeSwitch = false,
   tone,
 }: {
   user: CurrentUser
   profileTo?: string | null
+  ordersTo?: string | null
   onSignOut?: () => void
   themeSwitch?: boolean
   tone?: 'kral'
@@ -158,6 +161,12 @@ export function AccountMenu({
                   Profile
                   <span className="ml-auto text-sm">Soon</span>
                 </button>
+              )}
+              {ordersTo && (
+                <Link to={ordersTo} onClick={() => close(false)} className={live}>
+                  <ReceiptIcon />
+                  Orders
+                </Link>
               )}
               {/* The settings page is still to do, so the row shows but does nothing yet. */}
               <button type="button" aria-disabled="true" className={soon}>

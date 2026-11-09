@@ -46,7 +46,7 @@ export function StaffTopbar({ area, user, wide, collapsed, onToggleSidebar, onMe
         <VisitWebsiteLink />
         <NotificationMenu />
         <MessagesButton area={area} />
-        <AccountMenu user={user} profileTo={`/${area}/profile`} onSignOut={onSignOut} themeSwitch />
+        <AccountMenu user={user} profileTo={`/${area}/profile`} ordersTo={null} onSignOut={onSignOut} themeSwitch />
       </div>
     </header>
   )
