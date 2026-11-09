@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { buyNow, DRESS, JACKET, JEAN, NAVY_M, POLO, setupShop, TROUSERS } from '../shared/checkoutShop'
+import { setupOrderShop, signInViaForm, type OrderShop } from '../shared/checkoutOrders'
+import { buyNow, DRESS, JACKET, JEAN, NAVY_M, POLO, TROUSERS } from '../shared/checkoutShop'
 import type { CartMock, ProductsMock } from '../shared/products'
 import { DEMO, signedIn } from '../shared/session'
 
@@ -8,8 +9,11 @@ const COMPACT_TARGET = 32
 
 let api: ProductsMock
 let cart: CartMock
+let shop: OrderShop
+const ORDER_URL = /\/checkout\/success\?order=[0-9a-f-]{36}$/
 test.beforeEach(async ({ page }) => {
-  ;({ api, cart } = await setupShop(page))
+  shop = await setupOrderShop(page) // the cart, one saved pinned address and the orders API
+  ;({ api, cart } = shop)
 })
 
 // A piece's only variant, for seeding the server cart.
@@ -37,17 +41,8 @@ async function addFromSheet(page: Page, name: string, size: string, color: strin
   await expect(sheet).toBeHidden()
 }
 
-// The address lives in a sheet: open it (unless it is already open), fill it in and save.
-async function fillAddress(page: Page) {
-  const sheet = page.getByRole('dialog', { name: 'Delivery address' })
-  if (!(await sheet.isVisible())) await page.getByRole('button', { name: /^(Add address|Change delivery address)$/ }).click()
-  await page.getByLabel('Phone number').fill('9171234567')
-  await page.getByLabel('Street address').fill('12 Mabini Street, Brgy. San Roque')
-  await page.getByLabel('City').fill('Marikina City')
-  await page.getByLabel('Postal code').fill('1800')
-  await sheet.getByRole('button', { name: 'Save address' }).click()
-  await expect(sheet).toBeHidden()
-}
+// The saved address (pinned) fills the delivery card once the signed-in checkout has read it.
+const savedAddress = (page: Page) => expect(page.getByRole('heading', { name: 'Delivery address' }).locator('xpath=ancestor::section')).toContainText('12 Rizal Avenue', { timeout: 15000 })
 
 async function tabTo(page: Page, target: Locator) {
   for (let i = 0; i < 80; i++) {
@@ -96,16 +91,19 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
   await expect(page.getByRole('complementary')).toContainText('Subtotal (2 items)')
   await expect(page.getByRole('link', { name: 'Edit cart' })).toBeVisible()
 
-  await fillAddress(page)
+  await savedAddress(page)
   await page.getByRole('textbox', { name: 'Note to seller' }).fill('Gift wrap, please.')
   await placeOrderButton(page).click()
-  await expect(page).toHaveURL(/\/checkout\/success$/, { timeout: 15000 })
+  await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
+  expect(shop.orders.posts).toHaveLength(1)
+  expect(shop.orders.posts[0]).toMatchObject({ addressId: shop.addresses.rows[0].id, shippingFee: 99, customerNotes: 'Gift wrap, please.' })
 
   await expect(page.getByRole('heading', { level: 1, name: 'Order placed' })).toBeFocused()
   await expect(page.getByText('Heritage Polo')).toBeVisible()
   await expect(page.getByText('Rail Tank Set')).toBeVisible()
-  await expect(page.getByText('12 Mabini Street, Brgy. San Roque, Marikina City 1800')).toBeVisible()
+  await expect(page.getByText('12 Rizal Avenue, Barangay 176, City of Manila 1000')).toBeVisible()
   await expect(page.getByText('+639171234567')).toBeVisible()
+  await expect(page.getByText('Awaiting payment', { exact: true })).toBeVisible()
   await expect(page.getByText('Gift wrap, please.')).toBeVisible()
   await expect(cartButton(page, '0 items')).toBeVisible() // the ordered lines left the cart
   expect(cart.items).toHaveLength(0)
@@ -149,7 +147,7 @@ test('the shopping bar on checkout has the cart and the account menu, and signin
 })
 
 test('can be done with the keyboard alone: cart page to the success page', async ({ page }) => {
-  await signedIn(page)
+  await signInViaForm(page)
   cart.seed(NAVY_M.id, 1)
   await page.goto('/shop')
   await expect(page.getByRole('article').first()).toBeVisible({ timeout: 15000 })
@@ -162,13 +160,15 @@ test('can be done with the keyboard alone: cart page to the success page', async
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/checkout\?source=cart&line=/)
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
-  await tabTo(page, page.getByRole('radio', { name: /E-Wallet/ }))
-  await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('radio', { name: /Cash on delivery/ })).toBeChecked()
-  await fillAddress(page)
+  await savedAddress(page)
+  await tabTo(page, page.getByRole('radio', { name: 'GCash' }))
+  await page.keyboard.press('ArrowRight') // cash on delivery is disabled, so the arrows stay on the e-wallet
+  await expect(page.getByRole('radio', { name: 'GCash' })).toBeChecked()
+  await expect(page.getByRole('radio', { name: 'Cash on delivery' })).toBeDisabled()
   await tabTo(page, placeOrderButton(page))
   await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/checkout\/success$/, { timeout: 15000 })
+  await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
+  expect(shop.orders.posts).toHaveLength(1)
 })
 
 test.describe('narrow screens', () => {
@@ -240,13 +240,13 @@ test.describe('narrow screens', () => {
 
   test('the success page fits 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 })
-    await signedIn(page)
+    await signInViaForm(page)
     cart.seed(only(DRESS), 5)
     await page.goto('/checkout?source=cart')
     await expect(page.getByRole('heading', { name: 'Garden Print Dress' })).toBeVisible({ timeout: 15000 })
-    await fillAddress(page)
+    await savedAddress(page)
     await placeOrderButton(page).click()
-    await expect(page).toHaveURL(/\/checkout\/success$/, { timeout: 15000 })
+    await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
     await expect(page.getByRole('heading', { level: 1, name: 'Order placed' })).toBeVisible()
     expect(await overflows(page)).toBe(false)
   })
@@ -258,14 +258,14 @@ test.describe('dark mode', () => {
   })
 
   test('renders the cart page, cart checkout and success page readably', async ({ page }) => {
-    await signedIn(page)
+    await signInViaForm(page)
     cart.seed(NAVY_M.id, 1)
     await page.goto('/cart')
     await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
     await page.goto('/checkout?source=cart')
     await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
     await expect(page.locator('html')).toHaveClass(/dark/)
-    await fillAddress(page)
+    await savedAddress(page)
     await placeOrderButton(page).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Order placed' })).toBeVisible({ timeout: 15000 })
   })

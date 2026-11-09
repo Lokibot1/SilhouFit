@@ -1,7 +1,7 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { ArIcon, DownloadIcon, MessageIcon, SpinnerIcon, StoreIcon } from '../../components/form/icons'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ArIcon, BagIcon, DownloadIcon, MessageIcon, ReceiptIcon, SpinnerIcon, StoreIcon } from '../../components/form/icons'
 import { KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { useToast } from '../../components/toast/useToast'
 import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
@@ -9,11 +9,13 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
+import { UUID } from '../../service/fetchProductList'
+import { usesSampleOrders } from '../../service/ordersApi'
 import { clearLastOrder, loadLastOrder } from '../../utils/checkout'
-import { formatPeso, formatPlacedAt } from '../../utils/format'
+import { formatPeso, formatPlacedAt, variantLabel } from '../../utils/format'
 
 const META_DESCRIPTION =
-  'Your SilhouFit order is placed and reserved for you. See your order reference, what you bought, how it reaches you and when, then head back to the shop.'
+  'Your SilhouFit order is placed and waiting for payment. See your order number, what you bought and where it goes, then follow it any time under My orders.'
 
 /** A check that draws itself once; with reduced motion it is simply there. */
 function DrawnCheck() {
@@ -56,6 +58,9 @@ export function OrderSuccessPage() {
   const signedIn = useCurrentUser() !== null
   const order = signedIn ? saved : null
   const toast = useToast()
+  // The id in the address is only ever used as a link target, and only when it is an order id.
+  const orderParam = useSearchParams()[0].get('order')
+  const orderId = orderParam && UUID.test(orderParam) ? orderParam : null
   const heading = useRef<HTMLHeadingElement>(null)
   const [downloading, setDownloading] = useState(false)
   const [downloadFailed, setDownloadFailed] = useState(false)
@@ -124,7 +129,9 @@ export function OrderSuccessPage() {
                 <span className="min-w-0 break-words">
                   {item.name}
                   <span className="block text-xs text-fg-muted">
-                    Size {item.size} · {item.color} · {formatPeso(item.price)} × <span className="tabular-nums">{item.qty}</span>
+                    {variantLabel(item.size, item.color)}
+                    {(item.size || item.color) && ' · '}
+                    {formatPeso(item.price)} × <span className="tabular-nums">{item.qty}</span>
                   </span>
                 </span>
                 <span className="shrink-0 text-right font-semibold tabular-nums">{formatPeso(item.price * item.qty)}</span>
@@ -145,7 +152,7 @@ export function OrderSuccessPage() {
           </dl>
 
           <h2 className={`mt-4 pt-4 text-xs font-semibold tracking-wider text-fg-muted uppercase ${RULE}`}>
-            On its way to
+            Delivering to
           </h2>
           <dl className="mt-2 space-y-1">
             <Row label="Name">{order.recipient}</Row>
@@ -153,7 +160,7 @@ export function OrderSuccessPage() {
             <Row label="Phone">
               <span className="tabular-nums">{order.phone}</span>
             </Row>
-            <Row label="When">{order.eta}</Row>
+            {order.eta && <Row label="When">{order.eta}</Row>}
             <Row label="Payment">{order.payment}</Row>
             {order.note && <Row label="Your note">{order.note}</Row>}
           </dl>
@@ -169,15 +176,32 @@ export function OrderSuccessPage() {
         <h1 ref={heading} tabIndex={-1} className="font-kral-display mt-4 text-3xl leading-[1.05] font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase outline-none sm:text-4xl xl:text-5xl">
           Order placed
         </h1>
-        <div className="mt-3">
-          <SampleDataBadge tone="kral" reason="This order is a demo until the orders backend is connected. Nothing was charged or saved." />
-        </div>
+        {usesSampleOrders() && (
+          <div className="mt-3">
+            <SampleDataBadge tone="kral" reason="This order is a demo for this test account. Nothing was charged or sent to the shop." />
+          </div>
+        )}
         <p className="font-kral-mono mt-3 text-base leading-relaxed text-kral-muted lg:text-lg">
-          Reserved for you. We&apos;ll keep you posted until it&apos;s in your hands.
+          We&apos;ve got your order, and it&apos;s waiting for payment. Online payment opens soon: we&apos;ll hold the order until then, and you can follow it under My orders.
         </p>
+        {order.quotedTotal !== undefined && order.quotedTotal !== order.total && (
+          <p role="status" className="font-kral-mono mt-3 text-base leading-relaxed text-kral-fg">
+            The total changed from <span className="tabular-nums">{formatPeso(order.quotedTotal)}</span> to <span className="tabular-nums">{formatPeso(order.total)}</span>, because the shop works out the final amount when it takes the order.
+          </p>
+        )}
 
         <div className="mt-8 flex flex-col gap-3 sm:max-w-sm">
-          <Link to="/shop" className={KRAL_PRIMARY}>
+          {orderId && (
+            <Link to={`/orders/${orderId}`} className={KRAL_PRIMARY}>
+              <ReceiptIcon />
+              View order
+            </Link>
+          )}
+          <Link to="/orders" className={orderId ? KRAL_SECONDARY : KRAL_PRIMARY}>
+            <BagIcon />
+            My orders
+          </Link>
+          <Link to="/shop" className={KRAL_SECONDARY}>
             <StoreIcon />
             Back to shop
           </Link>

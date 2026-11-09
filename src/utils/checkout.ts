@@ -10,16 +10,14 @@ export interface CheckoutItem {
   qty: number
   /** The variant's price. */
   unit: number
+  /** The server cart's item id, which the order API takes. Missing for a Buy now piece until it is put in the cart. */
+  itemId?: string
 }
 
 export type Payment = 'ewallet' | 'cash'
 export type Provider = 'gcash' | 'maya'
 
 export const SHIPPING_FEE = 99
-export const PROVIDERS: { value: Provider; label: string }[] = [
-  { value: 'gcash', label: 'GCash' },
-  { value: 'maya', label: 'Maya' },
-]
 
 /**
  * The items to check out, from the URL: one piece, or several as repeated item/variant/qty params in the same order.
@@ -60,7 +58,7 @@ export function resolveCartItems(lines: Line[], products: Product[]): { items: C
     }
     const qty = Math.min(line.qty, line.stock)
     if (qty < line.qty) notices.push(`${line.name}: Quantity lowered to ${qty}.`)
-    items.push({ product, variantId: line.variantId, size: line.size ?? '', color: line.color ?? '', qty, unit: line.unitPrice })
+    items.push({ product, variantId: line.variantId, size: line.size ?? '', color: line.color ?? '', qty, unit: line.unitPrice, itemId: line.itemId })
   }
   return { items, notices }
 }
@@ -89,11 +87,6 @@ export function deliveryEta(today = new Date()) {
   return `Arrives ${on(3)} – ${on(5)}`
 }
 
-export function paymentLabel(payment: Payment, provider: Provider) {
-  if (payment === 'ewallet') return `E-Wallet (${PROVIDERS.find((p) => p.value === provider)!.label})`
-  return 'Cash on delivery'
-}
-
 // The last placed order, for the success page. Session storage: gone when the tab closes.
 const ORDER_KEY = 'silhoufit-last-order'
 
@@ -107,6 +100,8 @@ export interface PlacedOrder {
   placedAt?: string
   items: { name: string; size: string; color: string; qty: number; price: number; arReady: boolean }[]
   total: number
+  /** The total the checkout page showed; the success page says so when the server's total differs. */
+  quotedTotal?: number
   shipping: number
   payment: string
   fulfilment: string

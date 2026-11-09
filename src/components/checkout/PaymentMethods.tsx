@@ -17,6 +17,8 @@ interface Method {
   /** A short hint on hover, beside the name. */
   info?: string
   tile: ReactNode
+  /** Shown but not selectable: the backend does not take this method yet. */
+  disabled?: boolean
   /** The tile's background: the brand logos each need their own ground in both themes. */
   tileBg: string
 }
@@ -30,7 +32,7 @@ const COD_TILE = <span className="font-kral-mono text-xs font-medium">COD</span>
 const METHODS: Method[] = [
   { id: 'gcash', payment: 'ewallet', provider: 'gcash', name: 'GCash', description: 'E-wallet', tile: gcashTile('GCash'), tileBg: 'bg-white' },
   { id: 'maya', payment: 'ewallet', provider: 'maya', name: 'Maya', description: 'E-wallet', tile: mayaTile('Maya'), tileBg: 'bg-kral-obsidian' },
-  { id: 'cash', payment: 'cash', provider: 'gcash', name: 'Cash on delivery', description: 'Pay the rider when it arrives.', info: 'Pay the rider when it arrives.', tile: COD_TILE, tileBg: 'bg-kral-porcelain dark:bg-kral-graphite' },
+  { id: 'cash', payment: 'cash', provider: 'gcash', name: 'Cash on delivery', description: "Cash on delivery isn't available yet.", info: "Cash on delivery isn't available yet", disabled: true, tile: COD_TILE, tileBg: 'bg-kral-porcelain dark:bg-kral-graphite' },
 ]
 /** Shown inline; whichever other method is chosen takes the last inline slot. */
 const TOP: Method['id'][] = ['gcash', 'cash']
@@ -45,12 +47,13 @@ const LINK =
 function Row({ method, name, checked, onSelect, detail }: { method: Method; name: string; checked: boolean; onSelect: () => void; detail?: boolean }) {
   const noteId = useId()
   return (
-    <label className="relative flex min-h-16 cursor-pointer items-center gap-3 py-2 has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-kral-red-ink">
+    <label className={`relative flex min-h-16 items-center gap-3 py-2 has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-kral-red-ink ${method.disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
       <input
         type="radio"
         name={name}
         value={method.id}
         checked={checked}
+        disabled={method.disabled}
         onChange={onSelect}
         aria-label={method.name}
         aria-describedby={noteId}
@@ -64,9 +67,14 @@ function Row({ method, name, checked, onSelect, detail }: { method: Method; name
           <span className="min-w-0 [overflow-wrap:anywhere]">{method.name}</span>
           {method.info && (
             <Tooltip tone="kral" label={method.info}>
-              <span aria-hidden="true" className="flex size-6 items-center justify-center text-kral-muted">
+              <button
+                type="button"
+                aria-label={`About ${method.name}`}
+                aria-describedby={noteId}
+                className="kral-focus relative flex size-6 items-center justify-center text-kral-muted after:absolute after:-inset-2.5 after:content-['']"
+              >
                 <InfoIcon />
-              </span>
+              </button>
             </Tooltip>
           )}
         </span>

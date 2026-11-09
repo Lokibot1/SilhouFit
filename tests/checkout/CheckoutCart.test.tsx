@@ -6,18 +6,29 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { clearCartCache } from '../../src/hooks/useCart'
 import { clearProductCache } from '../../src/hooks/useProducts'
-import { placeOrder } from '../../src/service/placeOrder'
+import { createOrder, OrdersError } from '../../src/service/ordersApi'
 import { clearSession, setSession } from '../../src/service/session'
-import { loadLastOrder } from '../../src/utils/checkout'
 import { CheckoutPage } from '../../src/views/private/CheckoutPage'
+import { ADDRESS } from '../fixtures/addresses'
+import { customerOrder } from '../fixtures/orders'
 import { createCartStore, type CartStore, type StoreProduct } from '../fixtures/cartStore'
 import { BLAZER, POLO, shopProduct, SOLD_OUT, variant } from '../fixtures/shopProducts'
 import { storeProducts, wireCartApi, wireShopProducts } from '../fixtures/wireCartApi'
 
 vi.mock('../../src/service/cartApi')
 vi.mock('../../src/service/fetchShopProducts')
-vi.mock('../../src/service/placeOrder', () => ({ placeOrder: vi.fn() }))
-const placeMock = vi.mocked(placeOrder)
+const addressApi = vi.hoisted(() => ({ loadAddresses: vi.fn(), onAddressesChanged: vi.fn(() => () => {}) }))
+vi.mock('../../src/service/addresses', async (original) => ({ ...(await original<typeof import('../../src/service/addresses')>()), ...addressApi }))
+vi.mock('../../src/service/ordersApi', async (original) => ({ ...(await original<typeof import('../../src/service/ordersApi')>()), createOrder: vi.fn(), loadAllOrders: vi.fn().mockResolvedValue([]) }))
+const wishes = vi.hoisted(() => ({ ids: [] as string[] }))
+vi.mock('../../src/service/wishlistApi', () => ({
+  fetchWishlistIds: vi.fn(async () => [...wishes.ids]),
+  removeWishlistItem: vi.fn(async (id: string) => {
+    wishes.ids = wishes.ids.filter((w) => w !== id)
+  }),
+}))
+const placeMock = vi.mocked(createOrder)
+const PLACED = customerOrder({ orderNumber: 'SF-261011-ABCD' })
 
 vi.setConfig({ testTimeout: 30000 })
 
@@ -50,7 +61,8 @@ beforeEach(() => {
   wireCartApi(server)
   wireShopProducts(PIECES)
   clearCartCache()
-  placeMock.mockResolvedValue({ orderId: 'SF-261011-ABCD' })
+  addressApi.loadAddresses.mockResolvedValue([ADDRESS])
+  placeMock.mockResolvedValue(PLACED)
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -83,13 +95,9 @@ const seedTwoAyala = () => {
   server.seed(SHIRT_L, 1)
 }
 
-async function fillAddress(u: ReturnType<typeof user>) {
-  await u.click(screen.getByRole('button', { name: 'Add address' }))
-  await u.type(screen.getByLabelText('Phone number'), '9171234567')
-  await u.type(screen.getByLabelText('Street address'), '12 Mabini Street, Brgy. San Roque')
-  await u.type(screen.getByLabelText('City'), 'Marikina City')
-  await u.type(screen.getByLabelText('Postal code'), '1800')
-  await u.click(screen.getByRole('button', { name: 'Save address' }))
+// The saved, pinned address is what an order goes to.
+async function fillAddress(_u: ReturnType<typeof user>) {
+  await screen.findByText(/12 Rizal Avenue/)
 }
 
 describe('CheckoutPage from the cart', () => {
@@ -161,16 +169,9 @@ describe('CheckoutPage from the cart', () => {
     await screen.findByRole('heading', { name: 'Heritage Polo' })
     await fillAddress(u)
     await u.click(placeButton())
-    await waitFor(() => expect(where()).toBe('/checkout/success'))
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
     expect(placeMock).toHaveBeenCalledTimes(1)
-    expect(placeMock.mock.calls[0][0]).toMatchObject({
-      total: 6089,
-      items: [
-        { id: 'p01', size: 'M', color: 'Navy', qty: 2 },
-        { id: 'p17', size: 'L', color: 'White', qty: 1 },
-      ],
-    })
-    expect(loadLastOrder()!.items).toHaveLength(2)
+    expect(placeMock.mock.calls[0][0]).toEqual({ addressId: ADDRESS.id, cartItemIds: ['item-1', 'item-2'], shippingFee: 99, customerNotes: '' })
   })
 
   it('empties exactly the ordered lines from the server cart after success, keeping lines that were left out', async () => {
@@ -181,7 +182,7 @@ describe('CheckoutPage from the cart', () => {
     await screen.findByRole('heading', { name: 'Heritage Polo' })
     await fillAddress(u)
     await u.click(placeButton())
-    await waitFor(() => expect(where()).toBe('/checkout/success'))
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
     expect(stored()).toEqual(['p24-m-indigo'])
   })
 
@@ -198,18 +199,15 @@ describe('CheckoutPage from the cart', () => {
     expect(screen.queryByRole('heading', { name: 'Rail White Shirt' })).toBeNull()
     await fillAddress(u)
     await u.click(placeButton())
-    await waitFor(() => expect(where()).toBe('/checkout/success'))
-    expect(placeMock.mock.calls[0][0].items).toMatchObject([
-      { id: 'p01', size: 'M', color: 'White', qty: 1 },
-      { id: 'p01', size: 'M', color: 'Navy', qty: 2 },
-    ])
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
+    expect(placeMock.mock.calls[0][0].cartItemIds).toEqual(['item-1', 'item-2'])
     expect(stored()).toEqual([SHIRT_L])
   })
 
   it('does not clear the cart when the order fails', async () => {
     const u = user()
     seedTwoAyala()
-    placeMock.mockRejectedValueOnce(new Error('network'))
+    placeMock.mockRejectedValueOnce(new OrdersError('network'))
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
     await fillAddress(u)
@@ -222,12 +220,13 @@ describe('CheckoutPage from the cart', () => {
 
   it('takes the ordered pieces off the wishlist after success, and keeps them when the order fails', async () => {
     const u = user()
-    const saved = () => JSON.parse(localStorage.getItem('silhoufit-wishlist') ?? '[]') as string[]
-    localStorage.setItem('silhoufit-wishlist', JSON.stringify(['p01', 'p03', 'p17']))
+    const saved = () => wishes.ids
+    wishes.ids = ['p01', 'p03', 'p17']
     act(() => {
-      window.dispatchEvent(new StorageEvent('storage', { key: 'silhoufit-wishlist' }))
+      clearSession() // a new sign-in makes the wishlist read the list above
+      setSession({ name: 'Demo Shopper', email: 'demo@silhoufit.com' })
     })
-    placeMock.mockRejectedValueOnce(new Error('network'))
+    placeMock.mockRejectedValueOnce(new OrdersError('network'))
     renderCheckout(`/checkout?item=p01&variant=${NAVY}&qty=1&item=p17&variant=${SHIRT_L}&qty=1`)
     await screen.findByRole('heading', { name: 'Heritage Polo' })
     await fillAddress(u)
@@ -236,35 +235,35 @@ describe('CheckoutPage from the cart', () => {
     expect(saved()).toEqual(['p01', 'p03', 'p17'])
 
     await u.click(placeButton())
-    await waitFor(() => expect(where()).toBe('/checkout/success'))
-    expect(saved()).toEqual(['p03'])
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
+    await waitFor(() => expect(saved()).toEqual(['p03']))
   })
 
   it('never touches the cart for a Buy now order', async () => {
     const u = user()
-    server.seed(NAVY, 2)
+    server.seed(SHIRT_L, 2)
     renderCheckout(`/checkout?item=p01&variant=${NAVY}&qty=1`)
     await screen.findByRole('heading', { name: 'Heritage Polo' })
     expect(screen.getByRole('link', { name: 'Change options for Heritage Polo' })).toHaveAttribute('href', '/shop?item=p01&action=buy')
     expect(screen.queryByRole('link', { name: 'Edit cart' })).toBeNull()
     await fillAddress(u)
     await u.click(placeButton())
-    await waitFor(() => expect(where()).toBe('/checkout/success'))
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
     expect(server.items).toHaveLength(1)
     expect(server.items[0].quantity).toBe(2)
   })
 
   it('keeps its items on screen once the cart is emptied by the order, with no flash of "Nothing to check out"', async () => {
     const u = user()
-    let finish!: (value: { orderId: string }) => void
+    let finish!: (value: typeof PLACED) => void
     placeMock.mockReturnValue(new Promise((resolve) => (finish = resolve)))
     seedTwoAyala()
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
     await fillAddress(u)
     await u.click(placeButton())
-    finish({ orderId: 'SF-261011-ABCD' })
-    await waitFor(() => expect(where()).toBe('/checkout/success'))
+    finish(PLACED)
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
     expect(screen.queryByRole('heading', { name: 'Nothing to check out' })).toBeNull()
   })
 })

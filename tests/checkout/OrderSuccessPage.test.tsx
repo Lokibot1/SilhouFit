@@ -50,11 +50,10 @@ describe('OrderSuccessPage', () => {
     saveLastOrder(DELIVERY)
     renderPage()
     expect(screen.getByRole('heading', { level: 1, name: 'Order placed' })).toHaveFocus()
-    expect(screen.getByText("Reserved for you. We'll keep you posted until it's in your hands.")).toBeInTheDocument()
+    expect(screen.getByText(/waiting for payment/)).toBeInTheDocument()
     expect(screen.getByText('SF-261011-ABCD')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to shop' })).toHaveAttribute('href', '/shop')
-    // The order came from the stubbed order call.
-    expect(screen.getByText('Sample data')).toBeInTheDocument()
+    expect(screen.queryByText('Sample data')).toBeNull() // a real account's order is real
   })
 
   it('lists every item with its price, then shipping and the total', () => {
@@ -72,7 +71,7 @@ describe('OrderSuccessPage', () => {
   it('shows where a delivery goes: name, address, phone, payment, ETA and the note as plain text', () => {
     saveLastOrder({ ...DELIVERY, note: '<img src=x onerror=alert(1)> Leave at the gate' })
     renderPage()
-    expect(screen.getByRole('heading', { name: 'On its way to' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Delivering to' })).toBeInTheDocument()
     expect(screen.getByText('Demo Shopper')).toBeInTheDocument()
     expect(screen.getByText('12 Mabini Street, Brgy. San Roque, Marikina City 1800')).toBeInTheDocument()
     expect(screen.getByText('+639171234567')).toBeInTheDocument()
@@ -90,6 +89,29 @@ describe('OrderSuccessPage', () => {
     const description = document.querySelector<HTMLMetaElement>('meta[name="description"]')!.content
     expect(description.length).toBeGreaterThanOrEqual(150)
     expect(description.length).toBeLessThanOrEqual(160)
+  })
+
+  it('links to the order and to My orders when the order id is in the address', () => {
+    saveLastOrder(DELIVERY)
+    const id = '00000000-0000-4000-8000-000000000301'
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={[`/checkout/success?order=${id}`]}>
+          <Routes>
+            <Route path="/checkout/success" element={<OrderSuccessPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>,
+    )
+    expect(screen.getByRole('link', { name: 'View order' })).toHaveAttribute('href', `/orders/${id}`)
+    expect(screen.getByRole('link', { name: 'My orders' })).toHaveAttribute('href', '/orders')
+  })
+
+  it('offers only My orders when the order id is missing or malformed', () => {
+    saveLastOrder(DELIVERY)
+    renderPage()
+    expect(screen.queryByRole('link', { name: 'View order' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'My orders' })).toBeInTheDocument()
   })
 
   it('offers the AR try-on link only when an item is AR-ready', () => {

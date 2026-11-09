@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { ADDRESS, address } from '../fixtures/addresses'
 import { mockAddresses } from '../shared/addresses'
 import { buyNow, NAVY_M, POLO as POLO_PIECE, setupShop } from '../shared/checkoutShop'
+import { mockOrders } from '../shared/ordersApi'
 import { DEMO } from '../shared/session'
 
 // Checkout reads the saved addresses with a real Supabase token, so these specs sign in through the login form
@@ -69,13 +70,15 @@ test('with several addresses a Deliver to picker lists them, defaults first, and
   await expect(page.getByRole('textbox', { name: 'Postal code', exact: true })).toHaveValue('1226')
 })
 
-test('a prefilled address goes through to the success page', async ({ page }) => {
+test('a prefilled address goes through to the success page as the order address', async ({ page }) => {
   await mockAddresses(page, [ADDRESS])
+  const orders = await mockOrders(page)
   await openCheckout(page)
   await expect(card(page)).toContainText('Manila')
-  await page.getByRole('radio', { name: /Cash on delivery/ }).locator('xpath=ancestor::label').click()
   await page.getByRole('button', { name: /Place order/ }).click()
-  await expect(page).toHaveURL(/\/checkout\/success$/, { timeout: 15000 })
+  await expect(page).toHaveURL(/\/checkout\/success\?order=/, { timeout: 15000 })
+  expect(orders.posts).toHaveLength(1)
+  expect(orders.posts[0].addressId).toBe(ADDRESS.id)
 })
 
 test('with nothing saved the form starts empty except the account name', async ({ page }) => {

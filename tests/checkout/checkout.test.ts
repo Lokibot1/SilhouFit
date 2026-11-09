@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   computeTotals,
   deliveryEta,
-  paymentLabel,
   parseCheckoutItems,
   SHIPPING_FEE,
   type CheckoutItem,
@@ -78,12 +77,5 @@ describe('ETA', () => {
 
   it('rolls over month ends', () => {
     expect(deliveryEta(new Date(2026, 9, 29))).toBe('Arrives Sun, Nov 1 – Tue, Nov 3')
-  })
-})
-
-describe('paymentLabel', () => {
-  it('names the e-wallet provider and the cash option', () => {
-    expect(paymentLabel('ewallet', 'maya')).toBe('E-Wallet (Maya)')
-    expect(paymentLabel('cash', 'gcash')).toBe('Cash on delivery')
   })
 })

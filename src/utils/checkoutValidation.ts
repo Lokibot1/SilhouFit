@@ -19,6 +19,9 @@ export const ADDRESS_FIELD_ORDER: AddressField[] = ['fullName', 'phone', 'street
 // oxlint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001F\u007F]/g
 
+/** Typed or pasted text without its control characters. */
+export const stripControl = (input: string) => input.replace(CONTROL, '')
+
 /** Trim, turn control characters into spaces and collapse runs of whitespace (newlines included). */
 export function cleanText(input: string) {
   return input.replace(CONTROL, ' ').replace(/\s+/g, ' ').trim()

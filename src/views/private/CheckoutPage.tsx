@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { AddressForm } from '../../components/address/AddressForm'
 import { CheckoutSkeleton } from '../../components/checkout/CheckoutSkeleton'
 import { PaymentMethods } from '../../components/checkout/PaymentMethods'
 import { PriceSummary } from '../../components/checkout/PriceSummary'
@@ -21,11 +22,11 @@ import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProductsByIds } from '../../hooks/useProducts'
 import { useWishlist } from '../../hooks/useWishlist'
 import { getDefaultAddress, loadAddresses, onAddressesChanged, type Address } from '../../service/addresses'
-import { placeOrder } from '../../service/placeOrder'
+import { addCartItem, removeCartItem } from '../../service/cartApi'
+import { createOrder, loadAllOrders, OrdersError, usesSampleOrders, type CustomerOrder } from '../../service/ordersApi'
 import {
   computeTotals,
   deliveryEta,
-  paymentLabel,
   parseCheckoutItems,
   resolveCartItems,
   saveLastOrder,
@@ -54,10 +55,11 @@ import {
   type AddressValues,
 } from '../../utils/checkoutValidation'
 import { formatPeso, variantLabel } from '../../utils/format'
-import { LIMITS, normalizePhone, sanitizePhoneDigits, validatePhone } from '../../utils/signUpValidation'
+import { adaptOrderToReceipt } from '../../utils/orders'
+import { LIMITS, sanitizePhoneDigits, validatePhone } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
-  'Review your SilhouFit order, add your delivery address, pay with GCash, Maya or cash on delivery, and add a note for the seller before you place the order.'
+  'Review your SilhouFit order, pick a saved delivery address and add a note for the seller. Online payment opens soon, so your order is held as awaiting payment.'
 
 const SECTION = 'border border-kral-rule p-5'
 const HEADING = 'font-kral-display flex items-center gap-2 text-lg leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-xl'
@@ -85,13 +87,13 @@ function Breadcrumb() {
     <nav aria-label="Breadcrumb">
       <ol className="font-kral-mono flex items-center gap-2 text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">
         <li>
-          <Link to="/" className="tap kral-focus relative hover:text-kral-fg after:absolute after:-inset-x-1.5 after:-inset-y-3.5 after:content-['']">
+          <Link to="/" className="tap kral-focus relative hover:text-kral-fg after:absolute after:-inset-x-1.5 after:-inset-y-4 after:content-['']">
             Home
           </Link>
         </li>
         <li aria-hidden="true">//</li>
         <li>
-          <Link to="/shop" className="tap kral-focus relative hover:text-kral-fg after:absolute after:-inset-x-1.5 after:-inset-y-3.5 after:content-['']">
+          <Link to="/shop" className="tap kral-focus relative hover:text-kral-fg after:absolute after:-inset-x-1.5 after:-inset-y-4 after:content-['']">
             Shop
           </Link>
         </li>
@@ -147,6 +149,134 @@ function ItemRow({ item, change, compact }: { item: CheckoutItem; change: boolea
   )
 }
 
+/** The five checkout fields a saved address fills. */
+function valuesOf(address: Address): AddressValues {
+  const barangay = cleanPlaceName(address.barangay)
+  const area = /^(barangay|brgy)\b/i.test(barangay) ? barangay : `Barangay ${barangay}`
+  const street = [address.streetAddress, address.addressLine2, barangay && area].filter(Boolean).join(', ')
+  return {
+    fullName: FILTERS.fullName(address.recipientName),
+    phone: FILTERS.phone(toNationalPhone(address.phone)),
+    street: FILTERS.street(street),
+    city: FILTERS.city(cleanPlaceName(address.cityMunicipality)),
+    postal: FILTERS.postal(address.postalCode),
+  }
+}
+
+/** What went wrong with the order, as the panel says it: what happened, why, and the next step. */
+function describeFailure(error: OrdersError): { title: string; body: string; again: boolean } {
+  const title = "We couldn't place your order"
+  switch (error.kind) {
+    case 'no-coordinates':
+      return { title: 'This address has no map pin', body: `${error.detail ?? 'Pin this address on the map so we can deliver to it.'} Your order was not placed.`, again: false }
+    case 'validation':
+      return { title, body: error.detail ?? 'Your cart changed. Reload your cart, then check out again.', again: false }
+    case 'not-found':
+      return { title, body: error.detail ?? 'That address is gone. Pick another delivery address.', again: false }
+    case 'forbidden':
+      return { title, body: 'Your session ended, so no order was made. Sign in again, then check out.', again: false }
+    case 'rate-limit':
+      return { title, body: 'Our servers are limiting requests right now, so no order was made. Wait a minute, then try again.', again: true }
+    case 'network':
+      return { title, body: 'The connection dropped before we got a reply, and no new order shows on your account. Your details are kept: check your connection, then try again.', again: true }
+    default:
+      return { title, body: 'Something went wrong on our side, so no order was made. Your details are kept: try again in a moment.', again: true }
+  }
+}
+
+const TWO_MINUTES = 120_000
+
+/**
+ * After a dropped connection the order may still have been created. Looks for an unpaid order made in the last two
+ * minutes with the same total, so a retry never places a second one.
+ */
+async function findJustPlaced(total: number): Promise<CustomerOrder | null> {
+  try {
+    const orders = await loadAllOrders({ force: true })
+    return orders.find((o) => o.status === 'PENDING_PAYMENT' && o.total === total && Date.now() - new Date(o.createdAt).getTime() < TWO_MINUTES) ?? null
+  } catch {
+    return null
+  }
+}
+
+/** Takes the Buy now lines out of the cart again; a line that is already gone is fine. */
+async function dropLines(itemIds: string[]) {
+  await Promise.allSettled(itemIds.map((id) => removeCartItem(id)))
+}
+
+/**
+ * The order API names cart lines, and Buy now has none, so each piece is put in the cart for the moment of the order.
+ * A piece already in the cart would be ordered in the wrong amount, so that stops here. Resolves to the new lines' ids.
+ */
+async function addBuyNowLines(items: CheckoutItem[], inCart: (variantId: string) => number, signal: AbortSignal) {
+  const added: string[] = []
+  const blocked = () =>
+    new OrdersError('validation', "That piece is already in your cart, so we can't order just this one without mixing up the quantities. Open your cart and check out from there.")
+  try {
+    for (const item of items) {
+      if (inCart(item.variantId) > 0) throw blocked()
+      const line = (await addCartItem(item.variantId, item.qty, { signal })).items.find((l) => l.variantId === item.variantId)
+      if (!line) throw new OrdersError('server')
+      added.push(line.id)
+      if (line.quantity !== item.qty) throw blocked()
+    }
+  } catch (failure) {
+    await dropLines(added)
+    throw failure
+  }
+  return added
+}
+
+interface FailurePanelProps {
+  error: OrdersError
+  fromCart: boolean
+  /** The checkout address, for signing in again and coming back. */
+  next: string
+  onRetry: () => void
+  onPin: () => void
+  onPick: () => void
+}
+
+function FailurePanel({ error, fromCart, next, onRetry, onPin, onPick }: FailurePanelProps) {
+  const { title, body, again } = describeFailure(error)
+  return (
+    <div role="alert" className="font-kral-mono flex items-start gap-3 border border-danger px-4 py-3 text-base leading-snug md:text-sm">
+      <AlertIcon size={20} className="mt-px shrink-0 text-danger" />
+      <div className="min-w-0">
+        <strong className="block font-medium text-kral-fg">{title}</strong>
+        <span className="text-kral-muted">{body}</span>
+        <div className="mt-3 flex flex-wrap gap-3">
+          {again && (
+            <button type="button" onClick={onRetry} className={KRAL_PRIMARY}>
+              Try again
+            </button>
+          )}
+          {error.kind === 'no-coordinates' && (
+            <button type="button" onClick={onPin} className={KRAL_PRIMARY}>
+              Pin this address
+            </button>
+          )}
+          {error.kind === 'not-found' && (
+            <button type="button" onClick={onPick} className={KRAL_PRIMARY}>
+              Pick an address
+            </button>
+          )}
+          {error.kind === 'forbidden' && (
+            <Link to={`/login?next=${encodeURIComponent(next)}`} className={KRAL_PRIMARY}>
+              Sign in
+            </Link>
+          )}
+          {error.kind === 'validation' && fromCart && (
+            <Link to="/cart" className={KRAL_PRIMARY}>
+              Back to cart
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface CheckoutFormProps {
   items: CheckoutItem[]
   user: CurrentUser
@@ -156,6 +286,7 @@ interface CheckoutFormProps {
 
 function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const navigate = useNavigate()
+  const { pathname, search } = useLocation()
   const cart = useCart()
   const wishlist = useWishlist()
   const toast = useToast()
@@ -175,7 +306,10 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   // The address editor is a sheet; `focusField` is the invalid field to focus once the sheet has rendered it.
   const [editing, setEditing] = useState(false)
   const focusField = useRef<AddressField | null>(null)
-  const [failed, setFailed] = useState(false)
+  const [failure, setFailure] = useState<OrdersError | null>(null)
+  // The sheet shows the saved-address form (with its map pin) instead of the fields; `pinNeeded` says why it opened.
+  const [adding, setAdding] = useState(false)
+  const [pinNeeded, setPinNeeded] = useState(false)
   const inFlight = useRef(false)
   // The order card is compact only while it is pinned under the bar. Read from its own top, which compacting does not move.
   const itemsCard = useRef<HTMLElement>(null)
@@ -229,18 +363,10 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     const controller = new AbortController()
     const timer = setTimeout(() => setSlow(true), 150)
     const apply = (address: Address) => {
-      const barangay = cleanPlaceName(address.barangay)
-      const area = /^(barangay|brgy)\b/i.test(barangay) ? barangay : `Barangay ${barangay}`
-      const street = [address.streetAddress, address.addressLine2, barangay && area].filter(Boolean).join(', ')
-      const fill = (name: AddressField, value: string) => {
-        if (edited.current[name]) return
-        setValues((current) => ({ ...current, [name]: FILTERS[name](value) }))
+      const filled = valuesOf(address)
+      for (const name of ADDRESS_FIELD_ORDER) {
+        if (!edited.current[name]) setValues((current) => ({ ...current, [name]: filled[name] }))
       }
-      fill('fullName', address.recipientName)
-      fill('phone', toNationalPhone(address.phone))
-      fill('street', street)
-      fill('city', cleanPlaceName(address.cityMunicipality))
-      fill('postal', address.postalCode)
       if (!edited.current.phone) setPhoneCountry(DEFAULT_COUNTRY_CODE)
       deliverToRef.current = address.id
       setDeliverTo(address.id)
@@ -276,6 +402,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     }
   }, [user.email])
 
+  const simulated = usesSampleOrders()
   const itemCount = items.reduce((sum, i) => sum + i.qty, 0)
   const totals = computeTotals(items)
   const eta = deliveryEta()
@@ -350,70 +477,70 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     toast.show({ kind: 'success', message: 'Delivery address saved.' })
   }
 
+  function openPinSheet() {
+    setPinNeeded(true)
+    setAdding(true)
+    setEditing(true)
+  }
+
+  function closeSheet() {
+    setEditing(false)
+    setAdding(false)
+    setPinNeeded(false)
+  }
+
   async function submit() {
     if (inFlight.current) return
-    const first = checkAddress()
-    if (first) {
-      // The fields only exist while the sheet is open: focus moves once it has rendered.
-      focusField.current = first
-      setEditing(true)
+    // The order API takes a saved address with a map pin, so what is on screen must be one of the saved ones as it is.
+    const picked = addresses.find((a) => a.id === deliverTo)
+    const filled = picked && valuesOf(picked)
+    if (!picked || !filled || phoneCountry !== DEFAULT_COUNTRY_CODE || ADDRESS_FIELD_ORDER.some((name) => values[name] !== filled[name])) {
+      if (saved === 'failed') setEditing(true)
+      else openPinSheet()
       return
     }
 
     inFlight.current = true
     const abort = new AbortController()
     controller.current = abort
-    setFailed(false)
+    setFailure(null)
     setPending(true)
-    const label = paymentLabel(payment, provider)
+    let temporary: string[] = []
     try {
-      const { orderId } = await placeOrder(
-        {
-          items: items.map((i) => ({ id: i.product.id, size: i.size, color: i.color, qty: i.qty })),
-          fulfilment: 'delivery',
-          payment: label,
-          address: {
-            fullName: cleanText(values.fullName),
-            phone: normalizePhone(values.phone, dial),
-            street: cleanText(values.street),
-            city: cleanText(values.city),
-            postal: values.postal,
-          },
-          note: cleanText(note),
-          total: totals.total,
-        },
-        { signal: abort.signal },
-      )
+      let cartItemIds: string[]
+      if (fromCart) {
+        cartItemIds = items.flatMap((i) => (i.itemId ? [i.itemId] : []))
+        if (cartItemIds.length !== items.length) throw new OrdersError('validation')
+      } else {
+        temporary = await addBuyNowLines(items, cart.qtyOfVariant, abort.signal)
+        cartItemIds = temporary
+      }
+      let order: CustomerOrder
+      try {
+        order = await createOrder({ addressId: picked.id, cartItemIds, shippingFee: totals.shipping, customerNotes: cleanText(note) }, { signal: abort.signal })
+      } catch (problem) {
+        // A dropped connection may have come after the order was made: never place a second one blindly.
+        const found = problem instanceof OrdersError && problem.kind === 'network' ? await findJustPlaced(totals.total) : null
+        if (!found) throw problem
+        order = found
+      }
+      await dropLines(temporary)
+      const receipt = adaptOrderToReceipt(order)
       saveLastOrder({
-        orderId,
-        placedAt: new Date().toISOString(),
-        items: items.map((i) => ({
-          name: i.product.name,
-          size: i.size,
-          color: i.color,
-          qty: i.qty,
-          price: i.unit,
-          arReady: i.product.arReady,
-        })),
-        total: totals.total,
-        shipping: totals.shipping,
-        payment: label,
-        fulfilment: 'Delivery',
-        eta,
-        recipient: cleanText(values.fullName),
-        address: `${cleanText(values.street)}, ${cleanText(values.city)} ${values.postal}`,
-        phone: normalizePhone(values.phone, dial),
-        note: cleanText(note) || undefined,
+        ...receipt,
+        items: receipt.items.map((line) => ({ ...line, arReady: items.some((i) => i.product.name === line.name && i.product.arReady) })),
+        quotedTotal: totals.total,
       })
       // Only what was ordered leaves the cart: a line added in another tab meanwhile stays. Buy now never touches it.
       if (fromCart) await cart.removeLines(items.map((i) => i.variantId))
       // Bought pieces are no longer wanted on the wishlist.
       wishlist.remove(items.map((i) => i.product.id))
       // Replace, so Back from the success page does not return to a filled form.
-      navigate('/checkout/success', { replace: true })
-    } catch {
+      navigate(`/checkout/success?order=${encodeURIComponent(order.id)}`, { replace: true })
+    } catch (problem) {
+      await dropLines(temporary)
       if (abort.signal.aborted) return
-      setFailed(true)
+      setFailure(problem instanceof OrdersError ? problem : new OrdersError('server'))
       setPending(false)
     } finally {
       inFlight.current = false
@@ -494,23 +621,55 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
 
         <Modal
           open={editing}
-          onClose={() => setEditing(false)}
+          onClose={closeSheet}
           variant="sheet"
           title="Delivery address"
           icon={<MapPinIcon />}
           tone="kral"
           footer={
-            <div className="flex flex-wrap justify-end gap-3">
-              <button type="button" onClick={() => setEditing(false)} className={KRAL_SECONDARY}>
-                Cancel
-              </button>
-              <button type="button" onClick={saveAddress} className={KRAL_PRIMARY}>
-                <CheckIcon />
-                Save address
-              </button>
-            </div>
+            adding ? undefined : (
+              <div className="flex flex-wrap justify-end gap-3">
+                <button type="button" onClick={closeSheet} className={KRAL_SECONDARY}>
+                  Cancel
+                </button>
+                <button type="button" onClick={saveAddress} className={KRAL_PRIMARY}>
+                  <CheckIcon />
+                  Save address
+                </button>
+              </div>
+            )
           }
         >
+          {adding ? (
+            <div className="pt-1">
+              {pinNeeded && (
+                <p role="alert" className="font-kral-mono flex items-start gap-2 text-base leading-snug text-danger">
+                  <AlertIcon className="mt-1 shrink-0" />
+                  <span>Pin your address on the map so we can deliver. Save it here, then place your order.</span>
+                </p>
+              )}
+              <AddressForm
+                tone="kral"
+                initial={null}
+                existingCount={addresses.length}
+                onSaved={(address) => {
+                  // A new address replaces whatever was typed: the order goes to a saved, pinned address.
+                  edited.current = {}
+                  applyAddress.current(address)
+                  closeSheet()
+                  toast.show({ kind: 'success', message: 'Delivery address saved.' })
+                }}
+                footer={(save) => (
+                  <div className="flex flex-wrap justify-end gap-3">
+                    <button type="button" onClick={() => (pinNeeded ? closeSheet() : setAdding(false))} className={KRAL_SECONDARY}>
+                      {pinNeeded ? 'Cancel' : 'Back'}
+                    </button>
+                    {save}
+                  </div>
+                )}
+              />
+            </div>
+          ) : (
           <div className="pb-5">
             {loadNote}
             {/* Held open while the list loads, so a picker arriving does not push the fields down; it folds away
@@ -530,7 +689,10 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                         options={addresses.map((a) => ({ value: a.id, label: `${a.label || a.streetAddress}${a.isDefault ? ' (Default)' : ''}` }))}
                         onChange={(id) => {
                           const picked = addresses.find((a) => a.id === id)
-                          if (picked) applyAddress.current(picked)
+                          if (!picked) return
+                          // An explicit pick replaces what was typed.
+                          edited.current = {}
+                          applyAddress.current(picked)
                         }}
                       />
                     ) : (
@@ -593,7 +755,11 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                 counter={{ current: values.postal.length, max: ADDRESS_LIMITS.postal }}
               />
             </div>
+            <button type="button" onClick={() => setAdding(true)} className={`${KRAL_LINK} mt-2`}>
+              Add a new address with a map pin
+            </button>
           </div>
+          )}
         </Modal>
 
         <section data-tour="checkout-payment" className={SECTION}>
@@ -605,7 +771,11 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
               setProvider(nextProvider)
             }}
           />
-          {payment === 'ewallet' && <p className="font-kral-mono mt-1 text-base text-kral-muted md:text-sm">This is a prototype: no payment is taken.</p>}
+          <p className="font-kral-mono mt-1 text-base text-kral-muted md:text-sm">
+            {simulated
+              ? 'This is a prototype: no payment is taken.'
+              : "You'll pay online after placing your order. Online payment opens soon, so your order is held as Awaiting payment."}
+          </p>
         </section>
 
         <section aria-labelledby="checkout-note-label" className={SECTION}>
@@ -634,7 +804,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
             <ReceiptIcon />
             Order summary
           </h2>
-          <SampleDataBadge tone="kral" reason="Placing an order is a demo until the orders backend is connected. Nothing is charged or saved." />
+          {simulated && <SampleDataBadge tone="kral" reason="Placing an order here is a demo for this test account. Nothing is charged or sent to the shop." />}
         </div>
         <p className="font-kral-mono text-base leading-snug text-kral-muted md:text-sm">
           <span className="font-medium text-kral-fg">Delivery</span>
@@ -643,25 +813,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
         </p>
         <PriceSummary tone="kral" totals={totals} itemCount={itemCount} />
 
-        {failed && (
-          <div role="alert" className="font-kral-mono flex items-start gap-3 border border-danger px-4 py-3 text-base leading-snug md:text-sm">
-            <AlertIcon size={20} className="mt-px shrink-0 text-danger" />
-            <div className="min-w-0">
-              <strong className="block font-medium text-kral-fg">We couldn&apos;t place your order.</strong>
-              <span className="text-kral-muted">
-                The connection to our order service dropped before it replied, so no order was made. Your details are
-                kept: check your connection, then try again.
-              </span>
-              <button
-                type="button"
-                onClick={() => void submit()}
-                className={`${KRAL_PRIMARY} mt-3`}
-              >
-                Try again
-              </button>
-            </div>
-          </div>
-        )}
+        {failure && <FailurePanel error={failure} fromCart={fromCart} next={pathname + search} onRetry={() => void submit()} onPin={openPinSheet} onPick={() => setEditing(true)} />}
 
         <button type="submit" data-tour="checkout-place" disabled={pending} className={`${KRAL_PRIMARY} w-full`}>
           {pending ? (
@@ -678,11 +830,11 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
         </button>
         <p className="font-kral-mono text-left text-base leading-snug text-kral-muted md:text-sm">
           By placing an order, you agree to the SilhouFit{' '}
-          <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="kral-focus underline underline-offset-2 hover:text-kral-fg">
+          <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="tap kral-focus relative underline underline-offset-2 after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:text-kral-fg">
             Terms of Service
           </a>{' '}
           and sale, and acknowledge that you have read the{' '}
-          <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="kral-focus underline underline-offset-2 hover:text-kral-fg">
+          <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="tap kral-focus relative underline underline-offset-2 after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:text-kral-fg">
             Privacy Policy
           </a>
           .

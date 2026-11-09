@@ -17,7 +17,6 @@ vi.mock('../../src/service/addresses', async (original) => ({
   ...api,
 }))
 vi.mock('../../src/service/fetchShopProducts')
-vi.mock('../../src/service/placeOrder', () => ({ placeOrder: vi.fn() }))
 
 const OFFICE = address({
   id: '22222222-2222-4222-8222-222222222222',
@@ -244,7 +243,7 @@ describe('Checkout fills in the saved address', () => {
       expect(screen.getByLabelText('Postal code')).toHaveValue('1110')
     })
 
-    it('keeps what the shopper edited when another address is picked', async () => {
+    it('replaces what the shopper edited when another address is picked, since an order goes to a saved address as it is', async () => {
       const user = userEvent.setup({ delay: null })
       renderCheckout()
       await openSheet(user)
@@ -254,7 +253,7 @@ describe('Checkout fills in the saved address', () => {
       await user.click(await screen.findByRole('combobox', { name: 'Deliver to' }))
       await user.click(screen.getByRole('option', { name: '9 Ayala Avenue' }))
       await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue('Quezon City'))
-      expect(screen.getByLabelText('Postal code')).toHaveValue('1234')
+      expect(screen.getByLabelText('Postal code')).toHaveValue('1110')
     })
   })
 })

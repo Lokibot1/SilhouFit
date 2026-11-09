@@ -8,17 +8,24 @@ import { clearCartCache } from '../../src/hooks/useCart'
 import { clearProductCache } from '../../src/hooks/useProducts'
 import { ProductListError } from '../../src/service/fetchProductList'
 import { fetchShopProduct } from '../../src/service/fetchShopProducts'
-import { placeOrder } from '../../src/service/placeOrder'
+import { createOrder, OrdersError } from '../../src/service/ordersApi'
 import { clearSession, setSession } from '../../src/service/session'
 import { loadLastOrder } from '../../src/utils/checkout'
 import { CheckoutPage } from '../../src/views/private/CheckoutPage'
 import { POLO as POLO_PIECE, shopProduct, variant } from '../fixtures/shopProducts'
-import { wireShopProducts } from '../fixtures/wireCartApi'
+import { createCartStore } from '../fixtures/cartStore'
+import { storeProducts, wireCartApi, wireShopProducts } from '../fixtures/wireCartApi'
+import { ADDRESS } from '../fixtures/addresses'
+import { customerOrder } from '../fixtures/orders'
 
+vi.mock('../../src/service/cartApi')
 vi.mock('../../src/service/fetchShopProducts')
-vi.mock('../../src/service/placeOrder', () => ({ placeOrder: vi.fn() }))
+const addressApi = vi.hoisted(() => ({ loadAddresses: vi.fn(), onAddressesChanged: vi.fn(() => () => {}) }))
+vi.mock('../../src/service/addresses', async (original) => ({ ...(await original<typeof import('../../src/service/addresses')>()), ...addressApi }))
+vi.mock('../../src/service/ordersApi', async (original) => ({ ...(await original<typeof import('../../src/service/ordersApi')>()), createOrder: vi.fn(), loadAllOrders: vi.fn().mockResolvedValue([]) }))
 const fetchMock = vi.mocked(fetchShopProduct)
-const placeMock = vi.mocked(placeOrder)
+const placeMock = vi.mocked(createOrder)
+const PLACED = customerOrder({ orderNumber: 'SF-261011-ABCD', subtotal: 4200, total: 4299, items: [{ ...customerOrder().items[0], name: 'Heritage Polo', qty: 2, unitPrice: 2100, total: 4200 }] })
 
 const PULLOVER_PIECE = shopProduct('p05', 'Cable Knit Pullover', [variant('p05-m-sand', 'M', 'Sand', { price: 1500 })])
 const PIECES = [POLO_PIECE, PULLOVER_PIECE]
@@ -41,8 +48,10 @@ beforeEach(() => {
   clearProductCache()
   act(() => setSession({ name: 'Demo Shopper', email: 'demo@silhoufit.com' }))
   clearCartCache()
+  wireCartApi(createCartStore(() => storeProducts(PIECES)))
   wireShopProducts(PIECES)
-  placeMock.mockResolvedValue({ orderId: 'SF-261011-ABCD' })
+  addressApi.loadAddresses.mockResolvedValue([])
+  placeMock.mockResolvedValue(PLACED)
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -68,6 +77,13 @@ function renderCheckout(url = POLO) {
 const where = () => screen.getByTestId('where').textContent
 const placeButton = () => screen.getByRole('button', { name: /Place order|Placing order/ })
 const form = () => document.querySelector('form')!
+
+async function useSavedAddress() {
+  addressApi.loadAddresses.mockResolvedValue([ADDRESS])
+  renderCheckout()
+  await screen.findByRole('heading', { name: 'Heritage Polo' })
+  await screen.findByText(/12 Rizal Avenue/)
+}
 
 const openAddress = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Add address' }))
 const saveAddress = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Save address' }))
@@ -97,8 +113,8 @@ describe('CheckoutPage gate and states', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Checkout' })).toBeInTheDocument()
     resolve(POLO_PIECE)
     expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
-    // Placing the order is a stub, so the summary that holds the button says so.
-    expect(within(screen.getByRole('complementary', { name: 'Order summary' })).getByText('Sample data')).toBeInTheDocument()
+    // A real account places a real order, so nothing is labelled as sample data.
+    expect(screen.queryByText('Sample data')).toBeNull()
     expect(screen.queryByRole('status')).toBeNull()
   })
 
@@ -167,7 +183,7 @@ describe('CheckoutPage options and totals', () => {
     expect(screen.getByRole('complementary')).not.toHaveTextContent('Sale discount')
   })
 
-  it('offers GCash and Maya under E-Wallet', async () => {
+  it('offers GCash and Maya under E-Wallet, with cash on delivery switched off', async () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
@@ -178,9 +194,7 @@ describe('CheckoutPage options and totals', () => {
     await user.click(sheet.getByRole('button', { name: 'Continue' }))
     expect(screen.getByRole('radio', { name: 'Maya' })).toBeChecked()
     await user.click(screen.getByRole('button', { name: /View all options/ }))
-    await user.click(within(screen.getByRole('dialog')).getByRole('radio', { name: /Cash on delivery/ }))
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Continue' }))
-    expect(screen.getByRole('radio', { name: /Cash on delivery/ })).toBeChecked()
+    expect(within(screen.getByRole('dialog')).getByRole('radio', { name: /Cash on delivery/ })).toBeDisabled()
   })
 })
 
@@ -279,91 +293,86 @@ describe('CheckoutPage address and note', () => {
 
   it('allows emoji in the note, strips control characters, and sends the cleaned note', async () => {
     const user = userEvent.setup({ delay: null })
-    renderCheckout()
-    await screen.findByRole('heading', { name: 'Heritage Polo' })
-    await fillAddress(user)
+    await useSavedAddress()
     const note = screen.getByRole('textbox', { name: 'Note to seller' })
     await user.click(note)
     await user.paste('  Gift wrap please 🎁 \u0007  thanks ')
     expect(note).toHaveValue('  Gift wrap please 🎁   thanks ')
     await user.click(placeButton())
     await waitFor(() => expect(placeMock).toHaveBeenCalled())
-    expect(placeMock.mock.calls[0][0].note).toBe('Gift wrap please 🎁 thanks')
+    expect(placeMock.mock.calls[0][0].customerNotes).toBe('Gift wrap please 🎁 thanks')
   })
 
-  it('opens the address sheet and focuses the first invalid field when placing the order with a bad address', async () => {
+  it('opens the address sheet instead of placing the order when there is no saved, pinned address', async () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
-    expect(screen.queryByLabelText('Phone number')).toBeNull()
     await user.click(placeButton())
     expect(placeMock).not.toHaveBeenCalled()
     expect(await screen.findByRole('dialog', { name: 'Delivery address' })).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByLabelText('Phone number')).toHaveFocus())
-    expect(screen.getByText('Phone number is required.')).toBeInTheDocument()
-    expect(screen.getByText('Street address is required.')).toBeInTheDocument()
   })
 })
 
 describe('CheckoutPage placing the order', () => {
-  it('places a delivery order with a normalised phone and goes to the success page, replacing the form', async () => {
+  it('places the order for the saved address with only the whitelisted fields and goes to the success page', async () => {
     const user = userEvent.setup({ delay: null })
-    renderCheckout()
-    await screen.findByRole('heading', { name: 'Heritage Polo' })
-    await fillAddress(user)
+    await useSavedAddress()
     await user.click(placeButton())
 
-    await waitFor(() => expect(where()).toBe('/checkout/success'))
-    const order = placeMock.mock.calls[0][0]
-    expect(order).toMatchObject({
-      fulfilment: 'delivery',
-      payment: 'E-Wallet (GCash)',
-      total: 4299,
-      items: [{ id: 'p01', size: 'M', color: 'Navy', qty: 2 }],
-      address: { fullName: 'Demo Shopper', phone: '+639171234567', city: 'Marikina City', postal: '1800' },
-    })
-    expect(loadLastOrder()).toMatchObject({ orderId: 'SF-261011-ABCD', total: 4299, payment: 'E-Wallet (GCash)', fulfilment: 'Delivery' })
-    expect(loadLastOrder()).toMatchObject({ recipient: 'Demo Shopper', address: '12 Mabini Street, Brgy. San Roque, Marikina City 1800', phone: '+639171234567', shipping: 99 })
+    await waitFor(() => expect(where()).toBe(`/checkout/success?order=${PLACED.id}`))
+    expect(placeMock.mock.calls[0][0]).toEqual({ addressId: ADDRESS.id, cartItemIds: ['item-1'], shippingFee: 99, customerNotes: '' })
+    expect(loadLastOrder()).toMatchObject({ orderId: 'SF-261011-ABCD', total: 4299, fulfilment: 'Delivery' })
   })
 
   it('sends one request on a double click, disabling the button and marking the form busy', async () => {
     const user = userEvent.setup({ delay: null })
-    let finish!: (value: { orderId: string }) => void
+    let finish!: (value: typeof PLACED) => void
     placeMock.mockReturnValue(new Promise((resolve) => (finish = resolve)))
-    renderCheckout()
-    await screen.findByRole('heading', { name: 'Heritage Polo' })
-    await fillAddress(user)
+    await useSavedAddress()
     await user.dblClick(placeButton())
     expect(placeMock).toHaveBeenCalledTimes(1)
     expect(placeButton()).toBeDisabled()
     expect(placeButton()).toHaveTextContent('Placing order…')
     expect(form()).toHaveAttribute('aria-busy', 'true')
 
-    finish({ orderId: 'SF-261011-WXYZ' })
-    await waitFor(() => expect(where()).toBe('/checkout/success'))
+    finish(PLACED)
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
   })
 
-  it('says what happened, why and what to do on failure, keeps the details and retries', async () => {
+  it('says what happened, why and what to do on failure, keeps the note and retries', async () => {
     const user = userEvent.setup({ delay: null })
-    placeMock.mockRejectedValueOnce(new Error('network'))
-    renderCheckout()
-    await screen.findByRole('heading', { name: 'Heritage Polo' })
-    await fillAddress(user)
+    placeMock.mockRejectedValueOnce(new OrdersError('validation', 'Insufficient stock for "Heritage Polo". Go back to your cart and adjust the quantity.'))
+    await useSavedAddress()
     await user.type(screen.getByRole('textbox', { name: 'Note to seller' }), 'Leave with the guard')
     await user.click(placeButton())
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent("We couldn't place your order.")
-    expect(alert).toHaveTextContent(/connection/i)
-    expect(alert).toHaveTextContent(/try again/i)
+    expect(alert).toHaveTextContent(/Insufficient stock/)
+    expect(alert).toHaveTextContent(/couldn't place your order/i)
     expect(placeButton()).toBeEnabled()
-    expect(screen.getByText('12 Mabini Street, Brgy. San Roque, Marikina City 1800')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Note to seller' })).toHaveValue('Leave with the guard')
     expect(where()).toMatch(/^\/checkout\?/)
+  })
 
+  it('offers a retry after a dropped connection, and places the order on retry', async () => {
+    const user = userEvent.setup({ delay: null })
+    placeMock.mockRejectedValueOnce(new OrdersError('network'))
+    await useSavedAddress()
+    await user.click(placeButton())
+    const alert = await screen.findByRole('alert')
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))
-    await waitFor(() => expect(where()).toBe('/checkout/success'))
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
     expect(placeMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('points at the map pin when the address has none', async () => {
+    placeMock.mockRejectedValueOnce(new OrdersError('no-coordinates', 'Pin this address on the map so we can deliver to it.'))
+    const user = userEvent.setup({ delay: null })
+    await useSavedAddress()
+    await user.click(placeButton())
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/no map pin/i)
+    expect(within(alert).getByRole('button', { name: 'Pin this address' })).toBeInTheDocument()
   })
 })
 

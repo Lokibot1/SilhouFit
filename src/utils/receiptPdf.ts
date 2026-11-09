@@ -67,7 +67,7 @@ function draw(doc: jsPDF, order: PlacedOrder): number {
     // The line total sits on the first line of the name.
     doc.text(formatPeso(item.price * item.qty), RIGHT, top, { baseline: 'top', align: 'right' })
     font(8)
-    write(`${[item.size && `Size ${item.size}`, item.color].filter(Boolean).join(' · ')} · ${formatPeso(item.price)} × ${item.qty}`, MARGIN, RIGHT - MARGIN)
+    write([[item.size && `Size ${item.size}`, item.color].filter(Boolean).join(' · '), `${formatPeso(item.price)} × ${item.qty}`].filter(Boolean).join(' · '), MARGIN, RIGHT - MARGIN)
     y += 1
   }
   rule()
@@ -82,7 +82,7 @@ function draw(doc: jsPDF, order: PlacedOrder): number {
   if (order.recipient) detail('Name', order.recipient)
   if (order.address) detail('Address', order.address)
   if (order.phone) detail('Phone', order.phone)
-  detail('When', order.eta)
+  if (order.eta) detail('When', order.eta)
   detail('Payment', order.payment)
   if (order.note && plain(order.note)) detail('Your note', plain(order.note))
   rule()
