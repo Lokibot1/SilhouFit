@@ -9,8 +9,8 @@ import { ShaderBackground, type ShaderColors } from "../ui/ShaderBackground";
 
 const rgb = (hex: number): ShaderColors[number] => [(hex >> 16) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255];
 
-// Light: the hero's light strokes (Stonewash, Red, Graphite, Obsidian) over a Paper ground. Dark uses the shader's own Obsidian and red default.
-const LIGHT = [0xfffbfd, 0x85807c, 0xcb1c2b, 0x161113, 0x322d2f].map(rgb);
+// Light: the hero's grey, white and red swirl (HeroShader's 0.55 intensity), with more greys and red and white as an accent. The login default intensity (0.09) is too calm to reach the greys. Dark uses the shader's own Obsidian and red default.
+const LIGHT = [0x85807c, 0xb3adaa, 0xcb1c2b, 0x5e5859, 0x85807c, 0xeeeced, 0xcb1c2b, 0x85807c].map(rgb);
 
 // The `dark` class on <html> is the one source of truth for the theme (ThemeProvider writes it), so the shader follows it live.
 const isLight = () => !document.documentElement.classList.contains("dark");
@@ -58,7 +58,7 @@ export function AuthSplit({
       )}
       <div className="relative flex items-center justify-center overflow-hidden px-4 py-14 max-[359px]:px-3 sm:px-6 lg:py-16">
         <div aria-hidden="true" className="absolute inset-0 z-0">
-          <ShaderBackground colors={photo && light ? LIGHT : undefined} />
+          <ShaderBackground colors={photo && light ? LIGHT : undefined} intensity={photo && light ? 0.55 : undefined} />
           <div className="kral-scrim absolute inset-0" />
         </div>
         <Link
