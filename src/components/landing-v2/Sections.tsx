@@ -86,18 +86,6 @@ export function Study() {
             </li>
           ))}
         </ul>
-
-        <div className="sv2-strip">
-          <div>
-            <p className="sv2-strip-title">Boutique analytics embedded</p>
-            <p className="sv2-label">AR sessions and size agreement feed the store&apos;s retail dashboard</p>
-          </div>
-          <ul className="sv2-chips">
-            <li>(VIEW: STAFF + ADMIN)</li>
-            <li>(SOURCE: AR SESSIONS)</li>
-            <li>(STATUS: PROTOTYPE)</li>
-          </ul>
-        </div>
       </div>
     </section>
   )

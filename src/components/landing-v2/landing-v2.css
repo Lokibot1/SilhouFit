@@ -806,34 +806,6 @@ a.sv2-logo:hover {
   padding-top: 1rem;
   border-top: 1px solid var(--sv2-hair);
 }
-.sv2-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: var(--sv2-gap-lg);
-  padding: 1rem;
-  background: var(--sv2-fill);
-  border: 1px solid var(--sv2-hair);
-}
-.sv2-strip-title {
-  font-size: 0.875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-.sv2-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-.sv2-chips li {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--sv2-hair);
-  background: var(--sv2-bg);
-}
 
 /* ---------- Featured collection ---------- */
 
