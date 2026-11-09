@@ -78,6 +78,7 @@ export function SiteFooter() {
         <svg
           className="sv2-foot-mark"
           viewBox={`0 0 ${WORDMARK.width} ${WORDMARK.height}`}
+          preserveAspectRatio="none"
           role="img"
           aria-label="KRAL"
         >
