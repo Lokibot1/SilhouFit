@@ -22,6 +22,10 @@ Status: **Connected** (a UI calls it), **Connected this round**, **Service only*
 | Cart – Change quantity | `PATCH /cart/items/:itemId` | `src/service/cartApi.ts` (`setCartItemQuantity`) | Cart page, quantity stepper | Connected |
 | Cart – Remove item | `DELETE /cart/items/:itemId` | `src/service/cartApi.ts` (`removeCartItem`) | Cart page, Remove | Connected |
 | Cart – Clear cart | `DELETE /cart` | `src/service/cartApi.ts` (`clearCart`) | Cart page (signed in), Clear cart > confirm, with Undo in the toast | Connected this round |
+| Orders – Place order | `POST /orders` | `src/service/ordersApi.ts` (`createOrder`) | Checkout, Place order: sends only `addressId`, `cartItemIds`, `shippingFee`, `customerNotes`; the order is created as `PENDING_PAYMENT` (online payment is not live) | Connected this round |
+| Orders – List orders | `GET /orders?page&limit&status` | `src/service/ordersApi.ts` (`fetchOrdersPage`, `loadAllOrders`) | My orders: reads every page (100 per page, five at most), then tabs, search and paging run on the client | Connected this round |
+| Orders – View order | `GET /orders/:id` | `src/service/ordersApi.ts` (`fetchOrder`) | Order page; Checkout success links to it. A 404 means the order is not yours | Connected this round |
+| Orders – Cancel order | `POST /orders/:id/cancel` | `src/service/ordersApi.ts` (`cancelOrder`) | My orders and Order page, Cancel order > confirm, with an optional reason (255 characters). Only `PENDING_PAYMENT` and unpaid | Connected this round |
 | Products – List | `GET /products` | `src/service/fetchProductList.ts` (`fetchProductList`) | Shop; Staff > Inventory | Connected |
 | Products – Filters | `GET /products/filters` | `src/service/fetchProductFilters.ts` (`fetchProductFilters`) | Shop category pills and colour filter | Connected |
 | Products – Get by slug | `GET /products/slug/:slug` | `src/service/fetchProductList.ts` (`fetchProductFull`) | Product page | Connected |
