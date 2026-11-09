@@ -8,6 +8,7 @@ vi.mock('../../src/service/supabase', () => ({
 const { signOut } = await import('../../src/service/signOut')
 const { readStashedNext } = await import('../../src/service/googleAuth')
 const { getSession, setSession } = await import('../../src/service/session')
+const { getCachedOrders, loadAllOrders } = await import('../../src/service/ordersApi')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -22,5 +23,13 @@ describe('signOut', () => {
     await vi.waitFor(() => expect(signOutSupabase).toHaveBeenCalledTimes(1))
     expect(getSession()).toBeNull()
     expect(readStashedNext()).toBeNull()
+  })
+
+  it('forgets the orders read for the account, so the next one never sees them', async () => {
+    setSession({ name: 'Staff', email: 'staff@example.com', role: 'admin', simulated: true })
+    await loadAllOrders({ delayMs: 0 } as never)
+    expect(getCachedOrders()).not.toBeNull()
+    signOut()
+    expect(getCachedOrders()).toBeNull()
   })
 })

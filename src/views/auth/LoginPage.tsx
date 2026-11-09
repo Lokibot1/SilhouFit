@@ -56,6 +56,7 @@ export function LoginPage() {
   // Kept for this visit; the one-shot notice is cleared so a reload or a later sign-out does not repeat it.
   const [notice] = useState(peekLoginNotice);
   const passwordChanged = notice === "password-changed";
+  const sessionEnded = notice === "session-ended";
   useEffect(() => {
     takeLoginNotice();
   }, []);
@@ -146,6 +147,21 @@ export function LoginPage() {
                 {banner.title}
               </strong>
               <span className="text-fg-muted">{banner.body}</span>
+            </p>
+          </div>
+        )}
+
+        {sessionEnded && !banner && (
+          <div
+            role="status"
+            className="flex items-start gap-3 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-base leading-snug sm:text-sm"
+          >
+            <AlertIcon size={20} className="mt-px shrink-0 text-danger" />
+            <p>
+              <strong className="block font-semibold text-fg">
+                Your session ended.
+              </strong>
+              <span className="text-fg-muted">Sign in again to carry on where you were.</span>
             </p>
           </div>
         )}

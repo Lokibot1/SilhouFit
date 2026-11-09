@@ -661,3 +661,15 @@ describe('LoginPage after a password change', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
+
+describe('LoginPage after the session ended', () => {
+  it('says so once, and clears the notice', () => {
+    setLoginNotice('session-ended')
+    const { unmount } = renderPage()
+    expect(screen.getByRole('status')).toHaveTextContent('Your session ended.')
+    expect(peekLoginNotice()).toBeNull()
+    unmount()
+    renderPage()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+})
