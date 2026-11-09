@@ -23,14 +23,14 @@ const LINKS = [
 ]
 
 // Pages in the shopping flow share one bar (cart, account, theme; search on /shop only).
-const SHOP_BAR = ['/shop', '/wishlist', '/cart', '/checkout', '/checkout/success', '/profile', '/messages']
+const SHOP_BAR = ['/shop', '/wishlist', '/cart', '/checkout', '/checkout/success', '/profile', '/messages', '/orders']
 
 const trim = (pathname: string) => pathname.replace(/\/$/, '')
 
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform)
 
 function isShopBar(pathname: string) {
-  return SHOP_BAR.includes(trim(pathname)) || pathname.startsWith('/shop/') || pathname.startsWith('/messages/')
+  return SHOP_BAR.includes(trim(pathname)) || pathname.startsWith('/shop/') || pathname.startsWith('/messages/') || pathname.startsWith('/orders/')
 }
 
 // A corner badge, shown only when there is something to count (cart, wishlist and messages alike).

@@ -6,6 +6,7 @@ import { CallbackSkeleton } from './components/form/CallbackSkeleton'
 import { LoginSkeleton } from './components/form/LoginSkeleton'
 import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
+import { OrderDetailSkeleton, OrdersSkeleton } from './components/orders/OrdersSkeleton'
 import { Layout } from './components/Layout'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { MessagesPageSkeleton, StaffMessagesPageSkeleton } from './components/chat/ChatSkeleton'
@@ -72,6 +73,13 @@ const CheckoutPage = lazy(() =>
 )
 const OrderSuccessPage = lazy(() =>
   import('./views/private/OrderSuccessPage').then((m) => ({ default: m.OrderSuccessPage })),
+)
+
+const OrdersPage = lazy(() =>
+  import('./views/private/OrdersPage').then((m) => ({ default: m.OrdersPage })),
+)
+const OrderDetailPage = lazy(() =>
+  import('./views/private/OrderDetailPage').then((m) => ({ default: m.OrderDetailPage })),
 )
 
 const ProfilePage = lazy(() =>
@@ -342,6 +350,22 @@ function App() {
                 element={
                   <Suspense fallback={<CheckoutRouteFallback />}>
                     <OrderSuccessPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="orders"
+                element={
+                  <Suspense fallback={<OrdersSkeleton />}>
+                    <OrdersPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="orders/:id"
+                element={
+                  <Suspense fallback={<OrderDetailSkeleton />}>
+                    <OrderDetailPage />
                   </Suspense>
                 }
               />
