@@ -43,6 +43,21 @@ vi.mock('../../src/service/psgc', async (original) => ({
   getBarangays: async () => manilaBarangays,
 }))
 
+// The real map is covered in MapPicker.test.tsx; here it only hands a position back.
+vi.mock('../../src/components/address/MapPicker', () => ({
+  default: function Picker({ onUse }: { onUse: (lat: number, lon: number) => Promise<string | null> }) {
+    return (
+      <button type="button" onClick={() => void onUse(14.5995, 120.9842)}>
+        Use this location
+      </button>
+    )
+  },
+}))
+vi.mock('../../src/service/reverseGeocode', async (original) => ({
+  ...(await original<typeof import('../../src/service/reverseGeocode')>()),
+  reverseGeocode: async () => ({ street: '', postal: '', region: '', city: '', barangays: [] }),
+}))
+
 const ME: Me = {
   id: 'user-1',
   email: 'anne@example.com',
@@ -212,6 +227,9 @@ describe('Profile delivery addresses: the four states', () => {
 
 describe('adding', () => {
   async function fillTyped(dialog: ReturnType<typeof within>, u: ReturnType<typeof user>) {
+    await u.click(dialog.getByRole('button', { name: 'Pin on a map' }))
+    await u.click(await dialog.findByRole('button', { name: 'Use this location' }))
+    await dialog.findByText(/Pin placed/)
     await u.click(dialog.getByRole('button', { name: 'Type it instead' }))
     await u.type(dialog.getByLabelText('Phone number'), '9171234567')
     await u.type(dialog.getByLabelText('Region'), 'NCR')
@@ -239,6 +257,8 @@ describe('adding', () => {
       barangay: 'Barangay 176',
       streetAddress: '12 Rizal Avenue',
       postalCode: '1000',
+      latitude: 14.5995,
+      longitude: 120.9842,
       isDefault: true,
     })
     expect(await screen.findByText('Address saved.')).toBeInTheDocument()

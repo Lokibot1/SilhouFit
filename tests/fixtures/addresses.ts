@@ -14,6 +14,8 @@ export const ADDRESS: Address = {
   addressLine2: null,
   postalCode: '1000',
   country: 'PH',
+  latitude: 14.5995,
+  longitude: 120.9842,
   isDefault: true,
   createdAt: '2026-03-01T08:00:00.000Z',
   updatedAt: '2026-03-01T08:00:00.000Z',

@@ -73,6 +73,8 @@ describe('the requests', () => {
       barangay: 'Barangay 176',
       streetAddress: '12 Rizal Avenue',
       postalCode: '1000',
+      latitude: 14.5995,
+      longitude: 120.9842,
     }
     expect(await createAddress(input)).toEqual(ADDRESS)
     const [url, init] = fetchMock.mock.calls[0]
@@ -89,6 +91,19 @@ describe('the requests', () => {
     expect(url).toMatch(new RegExp(`/users/me/addresses/${ID}$`))
     expect(init.method).toBe('PATCH')
     expect(JSON.parse(init.body)).toEqual({ label: null, isDefault: true })
+  })
+
+  it('reads the pin, and a missing one as null', async () => {
+    fetchMock.mockResolvedValue(json({ ...ADDRESS, latitude: null, longitude: undefined }))
+    expect(await getAddressById(ID)).toMatchObject({ latitude: null, longitude: null })
+    fetchMock.mockResolvedValue(json(ADDRESS))
+    expect(await getAddressById(ID)).toMatchObject({ latitude: 14.5995, longitude: 120.9842 })
+  })
+
+  it('patches a moved pin', async () => {
+    fetchMock.mockResolvedValue(json(ADDRESS))
+    await updateAddress(ID, { latitude: 14.6, longitude: 121 })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ latitude: 14.6, longitude: 121 })
   })
 
   it('deletes with DELETE and checks the success flag', async () => {
@@ -138,7 +153,7 @@ describe('failures', () => {
     fetchMock.mockResolvedValueOnce(json({ message: 'Validation failed (uuid is expected)' }, 400))
     await expect(getAddressById('nope')).rejects.toMatchObject({ kind: 'invalid', detail: 'Validation failed (uuid is expected)' })
     fetchMock.mockResolvedValueOnce(json({ message: ['phone must be valid', 'postalCode must be 4 digits'] }, 400))
-    await expect(createAddress({ recipientName: 'A', phone: 'x', region: 'NCR', cityMunicipality: 'Manila', barangay: 'B', streetAddress: 'S', postalCode: '1000' })).rejects.toMatchObject({
+    await expect(createAddress({ recipientName: 'A', phone: 'x', region: 'NCR', cityMunicipality: 'Manila', barangay: 'B', streetAddress: 'S', postalCode: '1000', latitude: 14.6, longitude: 121 })).rejects.toMatchObject({
       kind: 'invalid',
       detail: 'phone must be valid; postalCode must be 4 digits',
     })
@@ -243,7 +258,7 @@ describe('loadAddresses', () => {
   })
 
   it.each([
-    ['create', () => createAddress({ recipientName: 'A', phone: '+639171234567', region: 'NCR', cityMunicipality: 'Manila', barangay: 'B', streetAddress: 'S', postalCode: '1000' }), json(ADDRESS, 201)],
+    ['create', () => createAddress({ recipientName: 'A', phone: '+639171234567', region: 'NCR', cityMunicipality: 'Manila', barangay: 'B', streetAddress: 'S', postalCode: '1000', latitude: 14.6, longitude: 121 }), json(ADDRESS, 201)],
     ['update', () => updateAddress(ID, { label: 'x' }), json(ADDRESS)],
     ['delete', () => deleteAddress(ID), json({ success: true })],
   ])('a successful %s clears the cache and tells the listeners', async (_name, mutate, response) => {

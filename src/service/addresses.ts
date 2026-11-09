@@ -31,6 +31,9 @@ export interface Address {
   addressLine2: string | null
   postalCode: string
   country: string
+  /** The pin on the map; null on an address saved before the API asked for it (an order cannot be delivered to it). */
+  latitude: number | null
+  longitude: number | null
   isDefault: boolean
   createdAt: string
   updatedAt: string
@@ -48,6 +51,9 @@ export interface AddressInput {
   streetAddress: string
   addressLine2?: string
   postalCode: string
+  /** The API requires a pin to create an address. */
+  latitude: number
+  longitude: number
   isDefault?: boolean
 }
 
@@ -62,6 +68,8 @@ const STATUS_KIND: Record<number, AddressErrorKind> = { 400: 'invalid', 401: 'un
 
 const REQUIRED = ['id', 'recipientName', 'phone', 'region', 'cityMunicipality', 'barangay', 'streetAddress', 'postalCode', 'country', 'createdAt', 'updatedAt'] as const
 const OPTIONAL = ['label', 'province', 'addressLine2'] as const
+
+const coordinate = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : null)
 
 /** The API row as an Address, or null when a required field is missing or not text. */
 function toAddress(body: unknown): Address | null {
@@ -82,6 +90,8 @@ function toAddress(body: unknown): Address | null {
     addressLine2: optional('addressLine2'),
     postalCode: row.postalCode as string,
     country: row.country as string,
+    latitude: coordinate(row.latitude),
+    longitude: coordinate(row.longitude),
     isDefault: row.isDefault === true,
     createdAt: row.createdAt as string,
     updatedAt: row.updatedAt as string,

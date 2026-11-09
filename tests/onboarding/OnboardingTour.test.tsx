@@ -41,6 +41,23 @@ vi.mock('../../src/service/psgc', () => ({
   getCities: () => new Promise(() => {}),
   getBarangays: () => new Promise(() => {}),
 }))
+// The map hands a position back, and the place lookup is down: the pin still counts and the fields are typed by hand.
+vi.mock('../../src/components/address/MapPicker', () => ({
+  default: function Picker({ onUse }: { onUse: (lat: number, lon: number) => Promise<string | null> }) {
+    return (
+      <button type="button" onClick={() => void onUse(14.5995, 120.9842)}>
+        Use this location
+      </button>
+    )
+  },
+}))
+vi.mock('../../src/service/reverseGeocode', async (original) => ({
+  ...(await original<typeof import('../../src/service/reverseGeocode')>()),
+  reverseGeocode: async () => {
+    const { ReverseGeocodeError } = await import('../../src/service/reverseGeocode')
+    throw new ReverseGeocodeError('network')
+  },
+}))
 const save = vi.mocked(saveOnboardingStatus)
 
 beforeAll(() => {
@@ -247,6 +264,9 @@ describe('OnboardingTour', () => {
       vi.mocked(createAddress).mockReturnValue(new Promise((resolve) => (finish = resolve)))
       const user = await finishTour()
       const dialog = within(await screen.findByRole('dialog', { name: 'Save your delivery address' }))
+      await user.click(dialog.getByRole('button', { name: 'Pin on a map' }))
+      await user.click(await dialog.findByRole('button', { name: 'Use this location' }))
+      await dialog.findByText(/Pin placed/)
       await user.click(dialog.getByRole('button', { name: 'Type it instead' }))
       await user.type(dialog.getByLabelText('Phone number'), '9171234567')
       await user.type(dialog.getByLabelText('Region'), 'NCR')

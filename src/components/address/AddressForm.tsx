@@ -277,6 +277,11 @@ function AddressFormBody({
   // A failed save, shown inside the dialog so it stays in view while the dialog traps focus.
   const [failure, setFailure] = useState<string | null>(null)
   const [mapOpen, setMapOpen] = useState(false)
+  // The confirmed pin; the API needs it to deliver. Kept from the saved address until a new pin replaces it.
+  const [pin, setPin] = useState<{ lat: number; lon: number } | null>(
+    initial?.latitude != null && initial.longitude != null ? { lat: initial.latitude, lon: initial.longitude } : null,
+  )
+  const [pinMissing, setPinMissing] = useState(false)
   const [lookup, setLookup] = useState<Lookup>({ status: 'idle' })
   const [postalState, setPostalState] = useState<'idle' | 'loading' | 'filled' | 'none'>('idle')
   // True while the postal code in the field came from a lookup, so a later lookup may replace it but never the user's own.
@@ -455,6 +460,8 @@ function AddressFormBody({
         setPostalState('idle')
         if (nextCity.code) void autofillPostal(nextBarangay.name, nextCity.name, nextRegion.name)
       }
+      setPin({ lat, lon })
+      setPinMissing(false)
       setLookup({ status: 'done', notes })
       setMapOpen(false)
     } catch (error) {
@@ -464,6 +471,9 @@ function AddressFormBody({
         setLookup({ status: 'idle' })
         return LOOKUP_ERRORS.outside
       }
+      // The spot is still a good pin when only the lookup failed: the fields can be filled by hand.
+      setPin({ lat, lon })
+      setPinMissing(false)
       setLookup({ status: 'error', kind, lat, lon })
       setMapOpen(false)
     }
@@ -475,6 +485,13 @@ function AddressFormBody({
     if (inFlight.current) return
     setTouched(Object.fromEntries(FIELD_ORDER.map((name) => [name, true])))
     const first = FIELD_ORDER.find((name) => errors[name])
+    // A new address needs its pin; an old one saved without it can still be edited.
+    const needsPin = !initial && !pin
+    setPinMissing(needsPin)
+    if (needsPin && (!first || FIELD_ORDER.indexOf(first) > 2)) {
+      pinButton.current?.focus()
+      return
+    }
     if (first) {
       document.getElementById(fieldId(first))?.focus()
       return
@@ -502,6 +519,8 @@ function AddressFormBody({
       let saved: Address
       if (!initial) {
         const input: AddressInput = {
+          latitude: pin!.lat,
+          longitude: pin!.lon,
           recipientName: next.recipientName,
           phone: next.phone,
           region: next.region,
@@ -524,6 +543,10 @@ function AddressFormBody({
         }
         for (const key of ['label', 'province', 'addressLine2'] as const) {
           if (next[key] !== (initial[key] ?? '')) patch[key] = next[key] || null
+        }
+        if (pin && (pin.lat !== initial.latitude || pin.lon !== initial.longitude)) {
+          patch.latitude = pin.lat
+          patch.longitude = pin.lon
         }
         if (makeDefault && !initial.isDefault) patch.isDefault = true
         saved = Object.keys(patch).length ? await updateAddress(initial.id, patch) : initial
@@ -625,7 +648,15 @@ function AddressFormBody({
       <button ref={pinButton} type="button" onClick={() => setMapOpen(true)} className={`${kral ? KRAL_SECONDARY : SECONDARY_BUTTON} mt-4 w-full`}>
         Pin on a map
       </button>
-      <p className={`mt-2 leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-xs text-fg-muted'}`}>Drop a pin and we will fill in the fields below.</p>
+      <p className={`mt-2 leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-xs text-fg-muted'}`}>
+        {pin ? 'Pin placed. Pin on a map again to move it.' : 'Drop a pin and we will fill in the fields below. We need it to deliver.'}
+      </p>
+      {pinMissing && (
+        <p role="alert" className={`mt-2 flex items-start gap-2 text-base leading-snug text-danger ${kral ? 'font-kral-mono' : ''}`}>
+          <AlertIcon className="mt-1 shrink-0" />
+          <span>Pin your address on the map so we can deliver.</span>
+        </p>
+      )}
 
       <>
         {lookup.status === 'loading' && (

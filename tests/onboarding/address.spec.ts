@@ -89,7 +89,17 @@ async function pick(page: Page, field: RegExp, option: string | RegExp) {
   await page.getByRole('option', { name: option }).click()
 }
 
+/** A new address needs a map pin, so the map's centre is pinned first; the lists then set the fields as they were. */
+async function pinMapCenter(page: Page) {
+  await addressDialog(page).getByRole('button', { name: 'Pin on a map' }).click()
+  await expect(page.locator('.leaflet-container')).toBeVisible()
+  await addressDialog(page).getByRole('button', { name: 'Pin map center' }).click()
+  await addressDialog(page).getByRole('button', { name: 'Use this location' }).click()
+  await expect(addressDialog(page).getByText(/Pin placed/)).toBeVisible()
+}
+
 async function fillFromLists(page: Page) {
+  await pinMapCenter(page)
   await pick(page, /^Region/, /NCR/)
   await pick(page, /^City or municipality/, 'City of Manila')
   await pick(page, /^Barangay/, 'Barangay 176')
@@ -135,7 +145,7 @@ test.describe('address step', () => {
       return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
     })
     expect(reachable).toBe(true)
-    // Exactly the API's keys: no PSGC codes, no coordinates. The first address is the default.
+    // Exactly the API's keys: no PSGC codes, and the map pin's coordinates. The first address is the default.
     expect(api.bodies).toEqual([
       {
         recipientName: 'Demo Shopper',
@@ -145,6 +155,8 @@ test.describe('address step', () => {
         barangay: 'Barangay 176',
         streetAddress: '12 Rizal Avenue',
         postalCode: '1000',
+        latitude: expect.any(Number),
+        longitude: expect.any(Number),
         isDefault: true,
       },
     ])
@@ -229,6 +241,7 @@ test.describe('address step', () => {
     await expect(alert.getByRole('button', { name: 'Try again' })).toBeVisible()
     await alert.getByRole('button', { name: 'Type it instead' }).click()
 
+    await pinMapCenter(page)
     const dialog = addressDialog(page)
     await dialog.getByLabel('Phone number', { exact: true }).fill('9171234567')
     await dialog.getByLabel('Region', { exact: true }).fill('Central Visayas')

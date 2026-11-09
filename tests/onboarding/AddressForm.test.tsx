@@ -77,6 +77,7 @@ beforeEach(() => {
   api.createAddress.mockImplementation(async (input: object) => ({ ...ADDRESS, ...input }))
   api.updateAddress.mockImplementation(async (_id: string, patch: object) => ({ ...ADDRESS, ...patch }))
   api.lookupPostal.mockResolvedValue('')
+  api.reverseGeocode.mockResolvedValue({ street: '', postal: '', region: '', city: '', barangays: [] })
   api.getRegions.mockResolvedValue(regions)
   api.getProvinces.mockImplementation(async (code: string) => (code === NCR ? [] : calabarzonProvinces))
   api.getCities.mockImplementation(async (code: string) => sorted(code === NCR ? ncrCities : calabarzonCities))
@@ -125,8 +126,15 @@ async function pickManila(user: User) {
   await pick(user, /^City or municipality/, 'City of Manila')
   await pick(user, /^Barangay/, 'Barangay 176')
 }
+/** Drops the pin through the stand-in map. It names no place, so the fields stay for the user to fill. */
+async function pin(user: User) {
+  await user.click(screen.getByRole('button', { name: 'Pin on a map' }))
+  await user.click(await screen.findByRole('button', { name: 'Use this location' }))
+  await screen.findByText(/Pin placed/)
+}
 /** Everything a new address needs, in NCR. The recipient name is prefilled from the session. */
 async function fillNew(user: User) {
+  await pin(user)
   await user.type(screen.getByLabelText('Phone number'), '917 123 4567')
   await pickManila(user)
   await user.type(screen.getByLabelText('Street address'), '12 Rizal Avenue')
@@ -141,6 +149,8 @@ const NEW_BODY = {
   barangay: 'Barangay 176',
   streetAddress: '12 Rizal Avenue',
   postalCode: '1000',
+  latitude: 14.5995,
+  longitude: 120.9842,
 }
 
 describe('AddressForm', () => {
@@ -283,7 +293,23 @@ describe('AddressForm', () => {
 
     await user.type(screen.getByLabelText('Phone number'), '9171234567')
     await user.click(save())
+    // The pin comes before the places it fills, so a missing pin is asked for first.
+    expect(screen.getByRole('button', { name: 'Pin on a map' })).toHaveFocus()
+    await pin(user)
+    await user.click(save())
     expect(screen.getByRole('button', { name: /^Region/ })).toHaveFocus()
+  })
+
+  it('will not save a new address without a pin, and says why', async () => {
+    const { user } = setup()
+    await user.type(screen.getByLabelText('Phone number'), '917 123 4567')
+    await pickManila(user)
+    await user.type(screen.getByLabelText('Street address'), '12 Rizal Avenue')
+    await user.type(screen.getByLabelText('Postal code'), '1000')
+    await user.click(save())
+    expect(await screen.findByText('Pin your address on the map so we can deliver.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pin on a map' })).toHaveFocus()
+    expect(api.createAddress).not.toHaveBeenCalled()
   })
 
   it('creates the address with exactly the API keys, a +63 phone and no PSGC codes', async () => {
@@ -302,6 +328,7 @@ describe('AddressForm', () => {
 
   it('sends the optional label, line 2, province and default only when they have a value', async () => {
     const { user } = setup({ existingCount: 1 })
+    await pin(user)
     await user.type(screen.getByLabelText('Label (optional)'), 'Office')
     await user.type(screen.getByLabelText('Phone number'), '09171234567')
     await pick(user, /^Region/, /CALABARZON/)
@@ -330,6 +357,7 @@ describe('AddressForm', () => {
 
   it('lets the user type the place instead, saving it without codes', async () => {
     const { user } = setup()
+    await pin(user)
     await user.click(await screen.findByRole('button', { name: 'Type it instead' }))
     expect(screen.queryByRole('button', { name: /^Region/ })).not.toBeInTheDocument()
 
