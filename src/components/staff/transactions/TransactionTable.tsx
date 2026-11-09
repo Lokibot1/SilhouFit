@@ -39,7 +39,7 @@ export function TransactionTable({ sorted, onSort, rows, skeletonRows, stale, on
             Status
           </th>
           <SortHeader label="Date and time" column="date" active={sorted} onSort={onSort} />
-          <th scope="col" className={TH}>
+          <th scope="col" className={`${TH} text-center!`}>
             Items
           </th>
           <SortHeader label="Total" column="total" active={sorted} onSort={onSort} />
@@ -76,7 +76,7 @@ export function TransactionTable({ sorted, onSort, rows, skeletonRows, stale, on
               <td className={`${TD} text-sm text-fg-muted`}>
                 <PlacedAt iso={transaction.placedAt} />
               </td>
-              <td className={`${TD} text-sm text-fg tabular-nums`}>{transaction.itemCount}</td>
+              <td className={`${TD} text-center text-sm text-fg tabular-nums`}>{transaction.itemCount}</td>
               <td className={`${TD} text-sm whitespace-nowrap text-fg tabular-nums`}>{formatPeso(transaction.total)}</td>
             </tr>
           ))

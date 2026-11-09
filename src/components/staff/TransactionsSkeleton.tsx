@@ -24,7 +24,7 @@ export function TransactionTableSkeletonRows({ count }: { count: number }) {
         <Bar className="h-4 w-36" />
       </td>
       <td className={TD}>
-        <Bar className="h-4 w-8" />
+        <Bar className="mx-auto h-4 w-8" />
       </td>
       <td className={TD}>
         <Bar className="h-4 w-20" />
