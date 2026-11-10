@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
-import { BagIcon, SearchIcon, StoreIcon, XIcon } from '../../components/form/icons'
+import { BagIcon, BoxIcon, CheckIcon, MapPinIcon, SearchIcon, StoreIcon, WalletIcon, XIcon } from '../../components/form/icons'
 import { CancelOrderModal } from '../../components/orders/CancelOrderModal'
 import { OrderCard } from '../../components/orders/OrderCard'
 import { OrdersBreadcrumb } from '../../components/orders/OrdersBreadcrumb'
@@ -25,12 +25,13 @@ const DESCRIPTION = 'Your SilhouFit orders in one place: filter them by status, 
 const PER_PAGE = 10
 const SEARCH_MAX = 60
 
-const MIDDLE_TAB_NOTE: Partial<Record<OrderTab, string>> = {
-  'to-pay': 'Orders waiting for payment show here.',
-  'to-ship': "Online payment isn't live yet, so no order has reached this step.",
-  'to-receive': "Shipping isn't live yet, so no order is on its way.",
-  completed: 'Delivered orders show here.',
-  cancelled: 'Orders you cancel show here.',
+/** What an empty tab says: what would be here, and what puts an order here. */
+const EMPTY_TAB: Partial<Record<OrderTab, { icon: ReactNode; title: string; note: string }>> = {
+  'to-pay': { icon: <WalletIcon className="size-14" />, title: 'Nothing to pay', note: 'An order waiting for payment shows here with a Pay now button, so you can finish checking out.' },
+  'to-ship': { icon: <BoxIcon className="size-14" />, title: 'Nothing being prepared', note: 'Once you have paid, your order shows here while we pack it for delivery.' },
+  'to-receive': { icon: <MapPinIcon className="size-14" />, title: 'Nothing on its way', note: "When a rider picks up your order, it shows here with a live map and the rider's details." },
+  completed: { icon: <CheckIcon className="size-14" />, title: 'No delivered orders yet', note: 'Orders you have received show here, and you can buy any of them again.' },
+  cancelled: { icon: <XIcon className="size-14" />, title: 'No cancelled orders', note: 'An order you cancel shows here, with the reason you gave.' },
 }
 
 const parsePage = (value: string | null) => (/^\d{1,4}$/.test(value ?? '') ? Math.max(1, Number(value)) : 1)
@@ -162,13 +163,16 @@ export function OrdersPage() {
 
               {found.length === 0 ? (
                 <div className="mx-auto flex max-w-xl flex-col items-center px-2 py-12 text-center sm:py-16">
-                  <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">
-                    {searching ? 'No orders match your search' : `No orders in ${tabLabel(tab)}`}
+                  <span aria-hidden="true" className="text-kral-muted">
+                    {searching ? <SearchIcon className="size-14" /> : (EMPTY_TAB[tab]?.icon ?? <BagIcon className="size-14" />)}
+                  </span>
+                  <h2 className="font-kral-display mt-4 text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">
+                    {searching ? 'No orders match your search' : (EMPTY_TAB[tab]?.title ?? `No orders in ${tabLabel(tab)}`)}
                   </h2>
                   <p className="font-kral-mono mt-3 text-base leading-relaxed text-kral-muted">
                     {searching
                       ? `Nothing${tab === 'all' ? '' : ` in ${tabLabel(tab)}`} has “${typed.trim()}” in its order number or product names. Check the spelling, or clear the search and try again.`
-                      : (MIDDLE_TAB_NOTE[tab] ?? 'Nothing here yet.')}
+                      : (EMPTY_TAB[tab]?.note ?? 'Nothing here yet.')}
                   </p>
                   {searching ? (
                     <button type="button" onClick={() => setQuery('')} className={`${KRAL_SECONDARY} mt-6 w-full max-w-xs`}>
@@ -176,9 +180,15 @@ export function OrdersPage() {
                       Clear search
                     </button>
                   ) : (
-                    <button type="button" onClick={() => go({ tab: 'all' })} className={`${KRAL_SECONDARY} mt-6 w-full max-w-xs`}>
-                      View all orders
-                    </button>
+                    <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
+                      <button type="button" onClick={() => go({ tab: 'all' })} className={`${KRAL_SECONDARY} w-full`}>
+                        View all orders
+                      </button>
+                      <Link to="/shop" className={`${KRAL_PRIMARY} w-full`}>
+                        <StoreIcon />
+                        Continue shopping
+                      </Link>
+                    </div>
                   )}
                 </div>
               ) : (

@@ -137,11 +137,12 @@ describe('OrdersPage tabs and search', () => {
     expect(screen.queryByText('SHF-1')).toBeNull()
   })
 
-  it('is honest about a tab no order can reach yet, and offers all orders', async () => {
+  it('says what an empty tab is for, and offers all orders or the shop', async () => {
     const user = userEvent.setup({ delay: null })
     renderPage('/orders?tab=to-ship')
-    expect(await screen.findByRole('heading', { name: 'No orders in To ship' })).toBeInTheDocument()
-    expect(screen.getByText(/Online payment isn't live yet/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Nothing being prepared' })).toBeInTheDocument()
+    expect(screen.getByText(/Once you have paid, your order shows here/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Continue shopping' })).toHaveAttribute('href', '/shop')
     await user.click(screen.getByRole('button', { name: 'View all orders' }))
     expect(await screen.findByText('SHF-1')).toBeInTheDocument()
   })
