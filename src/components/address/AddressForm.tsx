@@ -195,6 +195,8 @@ interface AddressFormProps {
   existingCount?: number
   /** Leaves out the default checkbox (the tour's step only ever adds the first address). */
   hideDefault?: boolean
+  /** An edit of an address saved without a pin cannot be saved until it has one (checkout needs it to deliver). */
+  requirePin?: boolean
   /** The saved address. An edit with nothing changed sends no request and returns `initial` itself. */
   onSaved: (address: Address) => void
   /** The token was rejected: the caller ends the session. */
@@ -248,6 +250,7 @@ function AddressFormBody({
   initial,
   existingCount,
   hideDefault,
+  requirePin,
   resolved,
   onSaved,
   onUnauthorized,
@@ -485,8 +488,8 @@ function AddressFormBody({
     if (inFlight.current) return
     setTouched(Object.fromEntries(FIELD_ORDER.map((name) => [name, true])))
     const first = FIELD_ORDER.find((name) => errors[name])
-    // A new address needs its pin; an old one saved without it can still be edited.
-    const needsPin = !initial && !pin
+    // A new address needs its pin; an old one saved without it can still be edited, unless the caller needs the pin.
+    const needsPin = !pin && (!initial || !!requirePin)
     setPinMissing(needsPin)
     if (needsPin && (!first || FIELD_ORDER.indexOf(first) > 2)) {
       pinButton.current?.focus()

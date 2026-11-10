@@ -314,6 +314,8 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   // The sheet shows the saved-address form (with its map pin) instead of the fields; `pinNeeded` says why it opened.
   const [adding, setAdding] = useState(false)
   const [pinNeeded, setPinNeeded] = useState(false)
+  // A saved address that has no pin: the sheet edits it (keeping its details) instead of starting a blank new one.
+  const [pinTarget, setPinTarget] = useState<Address | null>(null)
   const inFlight = useRef(false)
   // The order card is compact only while it is pinned under the bar. Read from its own top, which compacting does not move.
   const itemsCard = useRef<HTMLElement>(null)
@@ -482,6 +484,8 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   }
 
   function openPinSheet() {
+    const current = addresses.find((a) => a.id === deliverTo)
+    setPinTarget(current && current.latitude == null ? current : null)
     setPinNeeded(true)
     setAdding(true)
     setEditing(true)
@@ -491,6 +495,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     setEditing(false)
     setAdding(false)
     setPinNeeded(false)
+    setPinTarget(null)
   }
 
   async function submit() {
@@ -667,10 +672,13 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
               )}
               <AddressForm
                 tone="kral"
-                initial={null}
+                initial={pinTarget}
+                requirePin={pinTarget !== null}
                 existingCount={addresses.length}
                 onSaved={(address) => {
-                  // A new address replaces whatever was typed: the order goes to a saved, pinned address.
+                  // The list reloads in the background; until it does, Place order must already know this address.
+                  setAddresses((list) => (list.some((a) => a.id === address.id) ? list.map((a) => (a.id === address.id ? address : a)) : [...list, address]))
+                  // A saved address replaces whatever was typed: the order goes to a saved, pinned address.
                   edited.current = {}
                   applyAddress.current(address)
                   closeSheet()
