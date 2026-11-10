@@ -156,13 +156,13 @@ export function ProductGridSkeleton({ view = 'grid', perPage = 12 }: ProductGrid
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 sm:gap-3">
-        <div className="flex items-center gap-3">
-          <div className={`h-11 w-28 ${KRAL_BLOCK}`} />
+        <div className="flex items-center gap-2 max-sm:w-full sm:gap-3">
+          <div className={`h-11 w-28 max-sm:flex-1 ${KRAL_BLOCK}`} />
           <div className={`h-11 w-24 ${KRAL_BLOCK}`} />
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
           <div className={`h-11 min-w-0 sm:w-72 ${KRAL_BLOCK}`} />
-          <div className={`h-11 sm:w-44 ${KRAL_BLOCK}`} />
+          <div className={`h-11 sm:w-44 max-sm:hidden ${KRAL_BLOCK}`} />
         </div>
       </div>
 

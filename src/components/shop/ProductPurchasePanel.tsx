@@ -113,7 +113,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
         role="region"
         aria-label="Product details"
         tabIndex={0}
-        className={`kral-focus flex flex-col max-lg:min-h-0 max-lg:overflow-y-auto lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 ${PRODUCT_DETAILS} [&>*]:shrink-0`}
+        className={`kral-focus flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 ${PRODUCT_DETAILS} [&>*]:shrink-0`}
       >
       <div className="flex flex-col gap-2 max-lg:flex-row max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1">
         <p className="font-kral-mono text-xs tracking-[0.08em] text-kral-muted uppercase max-lg:sr-only">

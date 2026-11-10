@@ -39,8 +39,8 @@ export function ShopToolbar(props: ShopToolbarProps) {
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 sm:gap-3">
-      <div className="flex items-center gap-3">
-        <button type="button" data-tour="shop-filters" data-filters-trigger onClick={props.onOpenFilters} className={KRAL_SECONDARY}>
+      <div className="flex items-center gap-2 max-sm:w-full sm:gap-3">
+        <button type="button" data-tour="shop-filters" data-filters-trigger onClick={props.onOpenFilters} className={`${KRAL_SECONDARY} max-sm:flex-1`}>
           <FilterIcon />
           Filters
           {props.activeFilters + Number(props.categoryActive) > 0 && (
@@ -62,9 +62,10 @@ export function ShopToolbar(props: ShopToolbarProps) {
           {viewButton('list', 'List view', <ListIcon />)}
         </div>
       </div>
-      {/* Mono caps at 16px are wide: each gets a fixed compact width and they wrap onto their own rows only when the screen is too narrow for both. */}
-      <div className="flex flex-wrap gap-2 sm:gap-3">
-        <div className="w-56 max-w-full">
+      {/* Mono caps at 16px are wide: each gets a fixed compact width and they wrap onto their own rows only when the screen is too narrow for both.
+          Phones keep two rows (Filters + layout, then Sort): the page size stays at its default there. */}
+      <div className="flex flex-wrap gap-2 max-sm:w-full sm:gap-3">
+        <div className="w-56 max-w-full max-sm:w-full">
           <Select
             label="Sort by"
             value={props.sort}
@@ -74,7 +75,7 @@ export function ShopToolbar(props: ShopToolbarProps) {
             tone="kral"
           />
         </div>
-        <div className="w-44 max-w-full">
+        <div className="w-44 max-w-full max-sm:hidden">
           <Select
             label="Pieces per page"
             value={props.perPage}

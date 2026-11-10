@@ -691,6 +691,26 @@ a.sv2-logo:hover {
   }
 }
 
+/* Shop bar on small phones: logo and the four icons share one row down to 320px (it wraps only when signed in, with more icons).
+   Under 360px the icons are 40px wide (still 44px tall) and the wordmark a touch smaller. */
+@media (max-width: 399.98px) {
+  .sv2-header--shop .sv2-bar {
+    gap: 0.25rem;
+    padding-inline: 0.5rem;
+  }
+}
+@media (max-width: 359.98px) {
+  .sv2-header--shop .sv2-logo-mark {
+    height: 0.6rem;
+  }
+  .sv2-header--shop .sv2-controls {
+    margin-right: -0.25rem;
+  }
+  .sv2-header--shop .sv2-controls .size-11 {
+    width: 2.5rem;
+  }
+}
+
 /* Phones and small tablets: header text is body/link text, so 16px minimum (the bar wraps rather than clips if it must). */
 @media (max-width: 767.98px) {
   /* The wordmark is taller than its natural ratio (stretched vertically) so KRAL reads big while still fitting 320px. */

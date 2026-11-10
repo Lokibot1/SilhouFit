@@ -19,17 +19,17 @@ const OptionRow = ({ count, width }: { count: number; width: string }) => (
 )
 
 // Shared with the loaded page: the screen is exactly one viewport tall and never scrolls.
-export const PRODUCT_SCREEN = 'flex h-svh flex-col overflow-hidden'
-export const PRODUCT_BODY = 'mx-auto w-full max-w-6xl min-h-0 flex-1 px-6 pb-6 max-lg:pb-0 2xl:max-w-[88rem]'
+export const PRODUCT_SCREEN = 'flex min-h-svh flex-col lg:h-svh lg:overflow-hidden'
+export const PRODUCT_BODY = 'mx-auto w-full max-w-6xl min-h-0 flex-1 px-6 pb-6 max-lg:flex max-lg:flex-col max-lg:pb-0 2xl:max-w-[88rem]'
 export const PRODUCT_GRID =
-  'flex h-full min-h-0 flex-col gap-2 lg:grid lg:grid-cols-[1.1fr_1fr] lg:grid-rows-[minmax(0,1fr)] lg:gap-12'
-// Below lg the details scroll inside the screen (the photo takes what is left) and the actions stay pinned under them.
+  'flex h-full min-h-0 flex-col gap-2 max-lg:h-auto max-lg:flex-1 lg:grid lg:grid-cols-[1.1fr_1fr] lg:grid-rows-[minmax(0,1fr)] lg:gap-12'
+// Below lg the page scrolls: the photo, then the details, with the actions sticky at the bottom of the screen.
 export const PRODUCT_PANEL =
   'contents lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-3 lg:[@media(min-height:800px)]:gap-4 lg:[@media(min-height:900px)]:gap-6'
 // The details read as hairline rows, like a hang tag: a rule between groups, the first one flush with the top.
 export const PRODUCT_DETAILS = 'divide-y divide-kral-rule [&>*]:py-3 [&>:first-child]:pt-0 lg:[&>*]:py-4'
 export const PRODUCT_ACTIONS =
-  '-mx-6 flex shrink-0 flex-col gap-2 border-t border-kral-rule bg-kral-bg px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-lg:grid max-lg:grid-cols-2 lg:m-0 lg:gap-3 lg:border-0 lg:bg-transparent lg:p-0'
+  '-mx-6 flex shrink-0 flex-col gap-2 border-t border-kral-rule bg-kral-bg px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:mt-auto max-lg:grid max-lg:grid-cols-2 lg:m-0 lg:gap-3 lg:border-0 lg:bg-transparent lg:p-0'
 
 export function ProductSkeleton() {
   return (
@@ -38,13 +38,13 @@ export function ProductSkeleton() {
       aria-label="Loading the product"
       className={`${PRODUCT_GRID} animate-pulse`}
     >
-      <div className="mx-auto flex min-h-0 w-full flex-1 items-center gap-2 max-lg:min-h-28 max-lg:justify-center lg:h-full lg:flex-none lg:flex-col lg:gap-0">
-        <div className="flex w-full justify-center max-lg:contents lg:min-h-0 lg:flex-1">
-          <div className={`aspect-4/5 h-full w-auto max-w-full ${BLOCK}`} />
+      <div className="mx-auto flex min-h-0 w-full flex-1 items-center gap-2 max-lg:flex-none max-lg:flex-col lg:h-full lg:flex-none lg:flex-col lg:gap-0">
+        <div className="flex w-full justify-center max-lg:max-w-md lg:min-h-0 lg:flex-1">
+          <div className={`aspect-4/5 h-full w-auto max-w-full max-lg:h-auto max-lg:w-full ${BLOCK}`} />
         </div>
-        <div className="flex shrink-0 gap-2 p-1 max-lg:order-first max-lg:flex-col lg:mt-3 lg:p-0">
+        <div className="flex shrink-0 flex-wrap gap-2 p-1 lg:mt-3 lg:p-0">
           {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className={`aspect-4/5 w-11 ${BLOCK} lg:w-20`} />
+            <div key={i} className={`aspect-4/5 w-14 ${BLOCK} lg:w-20`} />
           ))}
         </div>
       </div>

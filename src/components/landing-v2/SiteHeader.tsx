@@ -247,7 +247,7 @@ export function SiteHeader({
   )
 
   return (
-    <header ref={ref} className={`sv2-header${landing ? '' : ' sv2-header--fixed'}`}>
+    <header ref={ref} className={`sv2-header${landing ? '' : ' sv2-header--fixed'}${shop ? ' sv2-header--shop' : ''}`}>
       <div className="sv2-bar">
         {shop ? (
           <ShopControls user={user} logo={logo} />

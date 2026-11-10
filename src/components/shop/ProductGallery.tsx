@@ -61,15 +61,15 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
 
   return (
     // The photo takes the height left over by the thumbnails; its width follows from the 4:5 ratio.
-    // Below lg the thumbnails sit in a column beside the photo so the photo can use the whole height left over.
-    <div className="mx-auto flex min-h-0 w-full flex-1 items-center gap-2 max-lg:min-h-28 max-lg:justify-center lg:h-full lg:flex-none lg:flex-col lg:gap-0">
-      <div className="flex w-full justify-center max-lg:contents lg:min-h-0 lg:flex-1">
+    // Below lg the photo is full width (capped on tablets) at 4:5, with the thumbnails wrapped beneath it.
+    <div className="mx-auto flex min-h-0 w-full flex-1 items-center gap-2 max-lg:flex-none max-lg:flex-col lg:h-full lg:flex-none lg:flex-col lg:gap-0">
+      <div className="flex w-full justify-center max-lg:max-w-md lg:min-h-0 lg:flex-1">
       <div
         onPointerDown={swipeStart}
         onPointerMove={swipeMove}
         onPointerUp={swipeEnd}
         onPointerCancel={swipeEnd}
-        className="group/img relative aspect-4/5 h-full w-auto max-w-full touch-pan-y overflow-hidden bg-kral-porcelain select-none dark:bg-kral-graphite"
+        className="group/img relative aspect-4/5 h-full w-auto max-w-full touch-pan-y max-lg:h-auto max-lg:w-full overflow-hidden bg-kral-porcelain select-none dark:bg-kral-graphite"
       >
         {/* Same sliding track as the shop cards. */}
         <div
@@ -163,7 +163,7 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
       </div>
 
       {multi && (
-        <ul className="flex max-w-full shrink-0 gap-2 overflow-x-auto p-1 max-lg:order-first max-lg:max-h-full max-lg:flex-col max-lg:overflow-x-hidden max-lg:overflow-y-auto lg:mt-3 lg:overflow-visible lg:p-0">
+        <ul className="flex max-w-full shrink-0 flex-wrap gap-2 p-1 lg:mt-3 lg:p-0">
           {images.map((image, i) => (
             <li key={image} className="shrink-0">
               <button
@@ -171,7 +171,7 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
                 onClick={() => setCurrent(i)}
                 aria-label={`Show view ${i + 1} of ${images.length}`}
                 aria-current={i === current}
-                className={`kral-focus block aspect-4/5 w-11 cursor-pointer overflow-hidden border-2 bg-kral-porcelain transition-colors duration-150 ease-out motion-reduce:transition-none lg:w-20 dark:bg-kral-graphite ${
+                className={`kral-focus block aspect-4/5 w-14 cursor-pointer overflow-hidden border-2 bg-kral-porcelain transition-colors duration-150 ease-out motion-reduce:transition-none lg:w-20 dark:bg-kral-graphite ${
                   i === current ? 'border-kral-fg' : 'border-transparent hover:border-kral-muted'
                 }`}
               >
