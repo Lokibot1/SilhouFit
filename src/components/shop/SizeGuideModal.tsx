@@ -117,7 +117,14 @@ export function SizeGuideModal({ open, onClose, category, variants, selected, pr
 
   return (
     <Modal open={open} onClose={onClose} title="Size guide" tone="kral">
-      <div className="pb-5">
+      <div className="relative isolate overflow-hidden pb-5">
+        {/* A large brand mark behind the table, faint enough that the numbers stay the focus. */}
+        <span
+          aria-hidden="true"
+          className="font-kral-display pointer-events-none absolute inset-0 -z-10 flex -rotate-12 items-center justify-center text-[clamp(7rem,32vw,15rem)] leading-none font-extrabold text-kral-fg/[0.06] uppercase select-none"
+        >
+          KRAL
+        </span>
         {loading ? (
           <SizeGuideSkeleton rows={new Set(variants.flatMap((v) => (v.size ? [norm(v.size)] : []))).size} columns={COLUMNS_BY_CATEGORY[category]?.length ?? 4} />
         ) : failed && !available ? (
