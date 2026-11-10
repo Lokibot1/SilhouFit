@@ -427,15 +427,14 @@ a.sv2-logo:hover {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.sv2-cta {
-  margin-left: auto;
-}
 .sv2-actions {
-  display: contents; /* CTA, toggle and profile flow in the bar; they only become a group on the narrowest phones */
+  display: contents; /* toggle and profile flow in the bar; they only become a group on the narrowest phones */
 }
-.sv2-theme,
+.sv2-theme {
+  margin-left: auto; /* the toggle takes the free space, so it and the profile sit at the bar's right edge */
+}
 .sv2-profile {
-  margin-left: -0.5rem; /* sits right beside the CTA, which now ends just short of the bar's edge */
+  margin-left: -0.5rem; /* sits right beside the toggle */
 }
 .sv2-profile-btn {
   display: flex;

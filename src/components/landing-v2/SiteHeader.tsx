@@ -188,7 +188,7 @@ function ShopControls({ user, logo }: { user: CurrentUser | null; logo: ReactNod
 }
 
 /**
- * The one site header. On the landing page (`landing`) it is the sticky bar over the hero: tagline, the "Find your fit" CTA, the theme toggle and a profile icon to sign in.
+ * The one site header. On the landing page (`landing`) it is the sticky bar over the hero: tagline, the theme toggle and a profile icon to sign in.
  * Everywhere else it is a fixed bar that follows the app theme (Paper in light, Obsidian in dark) whose content follows the route and the session: the page links with the
  * current one marked, Login and Sign up or the account for the public pages, the shop controls in the shopping flow.
  * Login and sign up carry their own logo beside the form, so there it is only the theme toggle.
@@ -307,9 +307,6 @@ export function SiteHeader({
                   Because fit is what matters
                 </p>
                 <div className="sv2-actions">
-                  <Link to="/shop" className="sv2-btn sv2-btn--red sv2-cta" data-rise="3">
-                    Find your fit
-                  </Link>
                   <div className="sv2-theme" data-rise="3">
                     <ThemeButton />
                   </div>
