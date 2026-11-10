@@ -17,10 +17,10 @@ export const ORDER_STATUSES = [
 ] as const
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 
-const PAYMENT_STATUSES = ['UNPAID', 'PENDING', 'PAID', 'FAILED', 'REFUNDED'] as const
+export const PAYMENT_STATUSES = ['UNPAID', 'PENDING', 'PAID', 'FAILED', 'REFUNDED'] as const
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
 
-const SHIPMENT_STATUSES = ['QUOTED', 'PENDING_DISPATCH', 'DISPATCHING', 'ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP', 'COMPLETED', 'CANCELLED', 'FAILED'] as const
+export const SHIPMENT_STATUSES = ['QUOTED', 'PENDING_DISPATCH', 'DISPATCHING', 'ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP', 'COMPLETED', 'CANCELLED', 'FAILED'] as const
 export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number]
 
 export interface CustomerOrderItem {
@@ -94,10 +94,10 @@ export class OrdersError extends Error {
   }
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
-const isMoney = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
-const text = (value: unknown) => (typeof value === 'string' && value ? value : null)
-const oneOf = <T extends string>(list: readonly T[], value: unknown): value is T => typeof value === 'string' && (list as readonly string[]).includes(value)
+export const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+export const isMoney = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
+export const text = (value: unknown) => (typeof value === 'string' && value ? value : null)
+export const oneOf = <T extends string>(list: readonly T[], value: unknown): value is T => typeof value === 'string' && (list as readonly string[]).includes(value)
 
 function toItem(value: unknown): CustomerOrderItem {
   if (!isRecord(value)) throw new OrdersError('server')
@@ -134,7 +134,7 @@ function toShipment(value: unknown): CustomerShipment | null {
   }
 }
 
-function toOrder(value: unknown): CustomerOrder {
+export function toOrder(value: unknown): CustomerOrder {
   if (!isRecord(value) || !isRecord(value.shippingAddressSnapshot) || !Array.isArray(value.items)) throw new OrdersError('server')
   const { id, orderNumber, status, paymentStatus, subtotalAmount, shippingAmount, totalAmount, createdAt } = value
   if (typeof id !== 'string' || typeof orderNumber !== 'string' || typeof createdAt !== 'string') throw new OrdersError('server')

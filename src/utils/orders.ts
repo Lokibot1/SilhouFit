@@ -1,4 +1,4 @@
-import type { CustomerOrder, OrderStatus, PaymentStatus } from '../service/ordersApi'
+import type { CustomerOrder, OrderStatus, PaymentStatus, ShipmentStatus } from '../service/ordersApi'
 import type { PlacedOrder } from './checkout'
 
 export type OrderTab = 'all' | 'to-pay' | 'to-ship' | 'to-receive' | 'completed' | 'cancelled'
@@ -42,6 +42,73 @@ export const canCancel = (order: Pick<CustomerOrder, 'status' | 'paymentStatus'>
 
 /** The API opens a payment page for an unpaid order, or one whose last payment failed. */
 export const canPay = (order: Pick<CustomerOrder, 'status' | 'paymentStatus'>) => (order.status === 'PENDING_PAYMENT' || order.status === 'PAYMENT_FAILED') && order.paymentStatus !== 'PAID'
+
+// What staff can do to an order. The API refuses a move for an unpaid order and out of a closed one; these rules only offer what it will take.
+type Actionable = Pick<CustomerOrder, 'status' | 'paymentStatus'> & { shipment: { status: ShipmentStatus; externalOrderId: string | null } | null }
+
+const CLOSED: OrderStatus[] = ['DELIVERED', 'CANCELLED', 'REFUNDED']
+/** Delivered, cancelled and refunded orders cannot change status. */
+export const isClosed = (order: Pick<CustomerOrder, 'status'>) => CLOSED.includes(order.status)
+
+export interface AdvanceAction {
+  label: string
+  status: OrderStatus
+  /** The success message. */
+  done: string
+}
+
+const PREPARING: AdvanceAction = { label: 'Mark as preparing', status: 'PROCESSING', done: 'Order marked as preparing' }
+const OUT: AdvanceAction = { label: 'Mark out for delivery', status: 'OUT_FOR_DELIVERY', done: 'Order marked out for delivery' }
+const DELIVERED: AdvanceAction = { label: 'Mark delivered', status: 'DELIVERED', done: 'Order marked delivered' }
+
+/** The status moves staff can make by hand, paid orders only. A rider is booked with Book rider, never by setting Shipped. */
+export function advanceActions(order: Pick<CustomerOrder, 'status' | 'paymentStatus'>): AdvanceAction[] {
+  if (order.paymentStatus !== 'PAID') return []
+  if (order.status === 'PAID') return [PREPARING]
+  if (order.status === 'DISPATCHED') return [OUT, DELIVERED]
+  if (order.status === 'OUT_FOR_DELIVERY') return [DELIVERED]
+  return []
+}
+
+const SHIPMENT_LABEL: Record<ShipmentStatus, string> = {
+  QUOTED: 'Not booked yet',
+  PENDING_DISPATCH: 'Ready to book',
+  DISPATCHING: 'Booking a rider',
+  ASSIGNING_DRIVER: 'Finding a driver',
+  ON_GOING: 'Driver on the way',
+  PICKED_UP: 'Picked up',
+  COMPLETED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  FAILED: 'Failed',
+}
+export const shipmentStatusLabel = (status: ShipmentStatus) => SHIPMENT_LABEL[status]
+
+const BOOKABLE: ShipmentStatus[] = ['QUOTED', 'PENDING_DISPATCH', 'CANCELLED', 'FAILED']
+
+/** Why Book rider is off, or null when a rider can be booked. */
+export function dispatchBlock(order: Actionable): string | null {
+  if (isClosed(order)) return 'This order is closed.'
+  if (order.paymentStatus !== 'PAID') return 'Book a rider once the payment is confirmed.'
+  if (order.status === 'DISPATCHED' || order.status === 'OUT_FOR_DELIVERY') return 'A rider is already booked for this order.'
+  if (order.status !== 'PAID' && order.status !== 'PROCESSING') return 'This order is not ready for a rider.'
+  if (!order.shipment) return 'This order has no delivery to book.'
+  if (order.shipment.status === 'DISPATCHING') return 'A rider is being booked for this order.'
+  return BOOKABLE.includes(order.shipment.status) ? null : 'A rider is already booked for this order.'
+}
+
+// A booking with the courier that has not finished or been cancelled.
+const hasActiveBooking = (order: Pick<Actionable, 'shipment'>) =>
+  !!order.shipment?.externalOrderId && order.shipment.status !== 'COMPLETED' && order.shipment.status !== 'CANCELLED'
+
+/** Why Cancel order is off, or null when it can be cancelled. Cancelling does not cancel a rider, so the delivery goes first. */
+export function cancelOrderBlock(order: Actionable): string | null {
+  if (isClosed(order)) return 'This order is closed.'
+  if (order.shipment?.status === 'DISPATCHING') return 'A rider is being booked. Wait for it to finish.'
+  return hasActiveBooking(order) ? 'Cancel the delivery first.' : null
+}
+
+/** A rider is booked and the order is not delivered yet. */
+export const canCancelDelivery = (order: Actionable) => hasActiveBooking(order) && order.status !== 'DELIVERED'
 
 export type ChipTone = 'alert' | 'outline' | 'filled' | 'muted'
 

@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
+import { manyAdminOrders, mockAdminOrders } from '../shared/adminOrders'
 import { stubUsersApi, SAMPLE_USERS } from './usersApiStub'
 
 // Every page that still reads placeholder data says "Sample data" next to its title; the pages that are connected to the backend (the User
-// Management tabs, the Messages dropdown) must not. Sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
+// Management tabs, the Messages dropdown, Online orders) must not. Sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
 
 const STAFF = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -26,7 +27,6 @@ const badge = (page: Page) => page.getByText('Sample data', { exact: true })
 const BADGED = [
   [STAFF, /\/staff$/, '/staff', 'Hello'],
   [STAFF, /\/staff$/, '/staff/transactions', 'Transactions'],
-  [STAFF, /\/staff$/, '/staff/online-orders', 'Online orders'],
   [ADMIN, /\/admin$/, '/admin', 'Hello'],
   [ADMIN, /\/admin$/, '/admin/activity-logs', 'Activity logs'],
   [ADMIN, /\/admin$/, '/admin/ar-insights', 'AR Fitting Insights'],
@@ -74,6 +74,15 @@ test.describe('connected pages have no badge', () => {
       await expect(page.getByRole('tab', { name: new RegExp('^' + tab + '$', 'i') })).toHaveAttribute('aria-selected', 'true', { timeout: 20_000 })
       await expect(badge(page)).toHaveCount(0)
     }
+  })
+
+  test('Online orders', async ({ page }) => {
+    await mockAdminOrders(page, manyAdminOrders(2))
+    await signIn(page, STAFF, /\/staff$/)
+    await page.goto('/staff/online-orders')
+    await expect(page.getByRole('heading', { level: 1, name: 'Online orders' })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('button', { name: manyAdminOrders(2)[1].orderNumber })).toBeVisible()
+    await expect(badge(page)).toHaveCount(0)
   })
 
   test('the Messages dropdown', async ({ page }) => {

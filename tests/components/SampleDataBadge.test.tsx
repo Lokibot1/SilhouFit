@@ -6,7 +6,6 @@ import { ActivityLogsPage } from '../../src/views/admin/ActivityLogsPage'
 import { ArInsightsPage } from '../../src/views/admin/ArInsightsPage'
 import { PromotionsPage } from '../../src/views/admin/PromotionsPage'
 import { RefundsPage } from '../../src/views/admin/RefundsPage'
-import { StaffOnlineOrdersPage } from '../../src/views/staff/StaffOnlineOrdersPage'
 import { renderAdmin, setUpAdminDom } from '../shared/adminSession'
 
 vi.mock('../../src/service/simulateRequest', () => ({ simulateRequest: () => Promise.resolve({ ok: true }) }))
@@ -28,7 +27,6 @@ describe.each([
   ['/admin/ar-insights', 'AR Fitting Insights', ArInsightsPage],
   ['/admin/refunds', 'Returns & Refunds', RefundsPage],
   ['/admin/promotions', 'Pricing & Promotions', PromotionsPage],
-  ['/staff/online-orders', 'Online orders', StaffOnlineOrdersPage],
 ] as const)('%s', (path, title, Page) => {
   it(`badges ${title} as sample data, once`, () => {
     renderAdmin(<Page />, path)
