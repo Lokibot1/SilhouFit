@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { AgeConfirm } from '../../components/auth/AgeConfirm'
 import { AuthSplit } from '../../components/auth/AuthSplit'
 import { AlertIcon } from '../../components/form/icons'
 import { CALLBACK_BLOCK, CallbackSkeleton } from '../../components/form/CallbackSkeleton'
@@ -7,11 +8,14 @@ import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
-import { fetchMe, MeError, type MeErrorKind } from '../../service/fetchMe'
+import { fetchMe, MeError, type Me, type MeErrorKind } from '../../service/fetchMe'
+import { fetchGoogleBirthday } from '../../service/googleBirthday'
 import { clearStashedNext, readStashedNext } from '../../service/googleAuth'
 import { getSession, setSession } from '../../service/session'
 import { signOut } from '../../service/signOut'
 import { getSupabase } from '../../service/supabase'
+import { updateMe } from '../../service/updateMe'
+import { ageFrom, MIN_AGE, UNDERAGE_MESSAGE } from '../../utils/age'
 import { nextQuery, safeNext } from '../../utils/safeNext'
 import { homeFor } from '../../utils/staffRole'
 
@@ -50,7 +54,7 @@ const ERROR_COPY: Record<FailKind, { title: string; body: string }> = {
 }
 const RETRYABLE: FailKind[] = ['network', 'rate-limit', 'server']
 
-type View = { status: 'loading' } | { status: 'cancelled' } | { status: 'expired' } | { status: 'failed'; kind: FailKind }
+type View = { status: 'loading' } | { status: 'age'; me: Me } | { status: 'underage' } | { status: 'cancelled' } | { status: 'expired' } | { status: 'failed'; kind: FailKind }
 
 // Supabase puts `code` (or an `error`) in the query, and tokens or an `error` in the hash for the implicit flow.
 function readParams() {
@@ -100,6 +104,13 @@ async function establishSession({ code, accessToken, refreshToken }: Params) {
   cleanUrl()
 }
 
+// The birthday on file, else Google's own. `save` is true when it still has to be written to the profile.
+async function findBirthday(me: Me) {
+  if (me.birthday) return { birthday: me.birthday, save: false }
+  const birthday = await fetchGoogleBirthday()
+  return { birthday, save: birthday !== null }
+}
+
 export function AuthCallbackPage() {
   // Read once: cleaning the URL later must not change the answer on a re-render or a StrictMode re-run.
   const [params] = useState(readParams)
@@ -133,13 +144,41 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
   const unfinished = useRef(false)
   const mounted = useRef(false)
 
+  const finish = useCallback(
+    (me: Me) => {
+      unfinished.current = false
+      setSession({
+        name: me.fullName ?? `${me.firstName} ${me.lastName}`,
+        email: me.email,
+        avatarUrl: me.avatarUrl ?? undefined,
+        role: me.role,
+      })
+      clearStashedNext()
+      toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
+      // Replacing the entry also leaves the code out of history.
+      navigate(safeNext(next, homeFor(me.role)), { replace: true })
+    },
+    [navigate, next, toast],
+  )
+
+  // Under 18: signing out drops the Supabase session; the account itself is removed server-side.
+  const underage = useCallback(() => {
+    unfinished.current = false
+    signOut()
+    clearStashedNext()
+    cleanUrl()
+    setView({ status: 'underage' })
+  }, [])
+
   useMetaDescription(view.status === 'expired' ? EXPIRED_DESCRIPTION : META_DESCRIPTION)
   useDocumentTitle(
     view.status === 'expired'
       ? 'Link expired — KRAL'
       : view.status === 'cancelled'
         ? 'Google sign-in cancelled — KRAL'
-        : view.status === 'failed'
+        : view.status === 'underage'
+          ? 'Must be 18 or older — KRAL'
+          : view.status === 'failed'
           ? "Couldn't sign you in — KRAL"
           : 'Signing you in — KRAL',
   )
@@ -182,28 +221,26 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
       })
     }
     Promise.race([
-      (exchange.current ?? Promise.resolve()).then(() => (params.setPassword ? null : fetchMe({ signal: controller.signal }))),
+      (exchange.current ?? Promise.resolve())
+        .then(() => (params.setPassword ? null : fetchMe({ signal: controller.signal })))
+        .then(async (me) => (me ? { me, ...(await findBirthday(me)) } : null)),
       timeout,
     ]).then(
-      (me) => {
+      async (found) => {
         clearTimeout(timer)
         if (controller.signal.aborted) return
-        unfinished.current = false
-        if (!me) {
+        if (!found) {
           // An invited or recovering person has a session but no password of their own yet.
+          unfinished.current = false
           navigate('/auth/set-password', { replace: true })
           return
         }
-        setSession({
-          name: me.fullName ?? `${me.firstName} ${me.lastName}`,
-          email: me.email,
-          avatarUrl: me.avatarUrl ?? undefined,
-          role: me.role,
-        })
-        clearStashedNext()
-        toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
-        // Replacing the entry also leaves the code out of history.
-        navigate(safeNext(next, homeFor(me.role)), { replace: true })
+        const { me, birthday, save } = found
+        if (!birthday) return setView({ status: 'age', me })
+        if (ageFrom(birthday) < MIN_AGE) return underage()
+        // A failed save is not fatal: the birthday is looked up again at the next sign-in.
+        if (save) await updateMe({ birthday }).catch(() => undefined)
+        finish(me)
       },
       (failure: unknown) => {
         clearTimeout(timer)
@@ -231,13 +268,33 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
       controller.abort()
       clearTimeout(timer)
     }
-  }, [attempt, error, navigate, next, params, resume, toast])
+  }, [attempt, error, finish, navigate, next, params, resume, underage])
 
   useEffect(() => {
     if (view.status !== 'loading') headingRef.current?.focus()
   }, [view.status])
 
   if (view.status === 'loading') return <CallbackSkeleton />
+
+  if (view.status === 'age') {
+    const { me } = view
+    return (
+      <AuthSplit photo={false}>
+        <AgeConfirm
+          onConfirm={async (birthday) => {
+            await updateMe({ birthday })
+            finish(me)
+          }}
+          onUnderage={underage}
+          loginHref={`/login${nextQuery(next)}`}
+          onLeave={() => {
+            unfinished.current = false
+            signOut()
+          }}
+        />
+      </AuthSplit>
+    )
+  }
 
   const cancelled = view.status === 'cancelled'
   const expired = view.status === 'expired'
@@ -246,7 +303,9 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
         title: 'This link has expired or was already used',
         body: 'Invitation and reset links work once and stop working after a short time, so this one can no longer open your account. Send a new reset email to choose a password.',
       }
-    : cancelled
+    : view.status === 'underage'
+      ? { title: 'You must be 18 or older', body: UNDERAGE_MESSAGE }
+      : cancelled
       ? {
           title: 'You cancelled Google sign-in',
           body: 'Nothing was changed and no account was opened. Go back to login to try again whenever you are ready.',

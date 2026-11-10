@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core'
+import { BIRTHDAY_SCOPE } from './googleBirthday'
 import { getSupabase } from './supabase'
 import { safeNext } from '../utils/safeNext'
 
@@ -69,8 +70,8 @@ export async function startGoogleAuth({ next }: { next: string | null }): Promis
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: native
-        ? { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true }
-        : { redirectTo: `${window.location.origin}${CALLBACK_PATH}` },
+        ? { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true, scopes: BIRTHDAY_SCOPE }
+        : { redirectTo: `${window.location.origin}${CALLBACK_PATH}`, scopes: BIRTHDAY_SCOPE },
     })
     // Status 0 is supabase-js's fetch failure.
     if (error) throw new GoogleAuthError(error.status === 0 ? 'network' : 'server')

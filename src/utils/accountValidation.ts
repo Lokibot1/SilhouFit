@@ -31,7 +31,7 @@ export function latestBirthday(now = new Date()): string {
   return `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`
 }
 
-function validateBirthday(value: string): string | null {
+export function validateBirthday(value: string): string | null {
   if (!value) return null
   if (value > latestBirthday()) return 'Birthday must be a past date. Pick a day before today.'
   const [year, month, day] = value.split('-').map(Number)

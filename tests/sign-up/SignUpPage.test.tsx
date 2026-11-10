@@ -63,6 +63,7 @@ async function fillDetails(user: User) {
   await user.type(field(/^first name$/i), 'Anne')
   await user.type(field(/^last name$/i), 'Santos')
   await user.type(field(/^email$/i), 'anne@example.com')
+  await user.type(field(/^birthday/i), '1998-04-23')
   await user.type(field(/^password$/i), 'Str0ng!Pass')
   await user.type(field(/^confirm password$/i), 'Str0ng!Pass')
 }

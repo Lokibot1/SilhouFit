@@ -21,7 +21,10 @@ describe('startGoogleAuth', () => {
     expect(signInWithOAuth).toHaveBeenCalledTimes(1)
     expect(signInWithOAuth).toHaveBeenCalledWith({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: 'https://www.googleapis.com/auth/user.birthday.read',
+      },
     })
   })
 

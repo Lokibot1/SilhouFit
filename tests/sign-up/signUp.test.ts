@@ -13,6 +13,7 @@ const PAYLOAD = {
   lastName: 'Santos',
   suffix: 'Jr.',
   email: 'anne@example.com',
+  birthday: '1998-04-23',
   password: 'Str0ng!Pass-9',
   consent: true as const,
 }
@@ -44,6 +45,7 @@ describe('submitSignUp', () => {
           middle_name: 'Dela Cruz',
           last_name: 'Santos',
           suffix: 'Jr.',
+          birthday: '1998-04-23',
           full_name: 'Anne Dela Cruz Santos Jr.',
         },
         emailRedirectTo: `${window.location.origin}/login`,
