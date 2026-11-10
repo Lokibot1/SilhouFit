@@ -8,7 +8,7 @@ import { PhotoImg } from '../../ui/PhotoImg'
 import { Tooltip } from '../../ui/Tooltip'
 
 const LEVELS = {
-  out: { label: 'Out of stock', dot: 'bg-danger', border: 'dark:border-danger' },
+  out: { label: 'Out of stock', dot: 'bg-danger', border: 'border-danger! bg-danger/15 font-semibold' },
   low: { label: 'Low stock', dot: 'border-2 border-danger dark:border-warning', border: 'dark:border-warning' },
   in: { label: 'In stock', dot: 'bg-success', border: '' },
 } as const

@@ -92,7 +92,7 @@
   --row-low: #eab308;
   --row-low-a: 26%;
   --row-out: var(--danger);
-  --row-out-a: 13%;
+  --row-out-a: 30%;
 
   /* Staff charts: steel hues, each at least 3:1 against --canvas-sub. Lightness differs between neighbours, so
      the legend's text and numbers carry the meaning and colour never does alone. */
@@ -203,7 +203,7 @@
   --row-low: #f59e0b;
   --row-low-a: 32%;
   --row-out: #ef4444;
-  --row-out-a: 38%;
+  --row-out-a: 52%;
 
   --chart-1: #e6e6e6;
   --chart-2: #8fb4dc;
@@ -280,7 +280,7 @@
   --row-low: var(--warning);
   --row-low-a: 26%;
   --row-out: var(--danger);
-  --row-out-a: 24%;
+  --row-out-a: 40%;
 
   --chart-1: #cfcfcf;
   --chart-2: #7fa6cf;
@@ -1746,7 +1746,7 @@ a {
   background-image: linear-gradient(90deg, color-mix(in srgb, var(--row-low) var(--row-low-a), transparent) 0%, transparent 38%, transparent 62%, color-mix(in srgb, var(--row-low) var(--row-low-a), transparent) 100%);
 }
 .row-out {
-  background-image: linear-gradient(90deg, color-mix(in srgb, var(--row-out) var(--row-out-a), transparent) 0%, transparent 38%, transparent 62%, color-mix(in srgb, var(--row-out) var(--row-out-a), transparent) 100%);
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--row-out) var(--row-out-a), transparent) 0%, transparent 46%, transparent 54%, color-mix(in srgb, var(--row-out) var(--row-out-a), transparent) 100%);
 }
 /* Rows fade in when they arrive (same curve as EASE_OUT in motion/tokens); --i staggers them, capped at 120ms in all. */
 @media (prefers-reduced-motion: no-preference) {
