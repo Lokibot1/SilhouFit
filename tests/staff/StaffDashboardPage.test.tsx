@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as adminOrders from '../../src/service/adminOrdersApi'
 import type { Me } from '../../src/service/fetchMe'
 import * as analytics from '../../src/service/fetchStaffAnalytics'
 import { defaultFilter, describe as describePeriod } from '../../src/utils/period'
@@ -14,17 +15,25 @@ vi.mock('../../src/service/fetchStaffAnalytics', async (importOriginal) => ({
   fetchSalesSeries: vi.fn(),
   fetchProductMix: vi.fn(),
   fetchTrendingItems: vi.fn(),
-  fetchOrderLog: vi.fn(),
 }))
+
+// The Recent orders tile reads the real orders endpoint; everything else on the dashboard is still sample data.
+vi.mock('../../src/service/adminOrdersApi', () => ({ fetchAdminOrders: vi.fn() }))
 
 const ME = { firstName: 'Sam' } as Me
 const ORDERS = Array.from({ length: 20 }, (_, n) => ({
-  orderId: `SF-${10020 - n}`,
+  id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
+  orderNumber: `SHF-20261022-${String(10020 - n).padStart(6, '0')}`,
   customerName: `Customer ${20 - n}`,
+  customerEmail: `customer${20 - n}@example.com`,
+  status: 'PAID' as const,
+  paymentStatus: 'PAID' as const,
   placedAt: new Date(Date.UTC(2026, 9, 22, 7, 45 - n)).toISOString(),
   itemCount: 2,
   total: 1990,
+  shipmentStatus: null,
 }))
+const answer = (rows: typeof ORDERS) => ({ data: rows, meta: { total: rows.length, page: 1, limit: rows.length, totalPages: 1, hasNextPage: false } })
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
@@ -56,7 +65,7 @@ beforeEach(() => {
     { productId: 'p2', name: 'Weekend Tapered Jean', category: 'Pants', orders: 12, stock: 3, arConversion: 0 },
     { productId: 'p3', name: 'Atelier Gown', category: 'Shorts', orders: 1, stock: 0, arConversion: null },
   ])
-  vi.mocked(analytics.fetchOrderLog).mockResolvedValue(ORDERS)
+  vi.mocked(adminOrders.fetchAdminOrders).mockImplementation(async ({ limit = 10 }) => answer(ORDERS.slice(0, limit)))
 })
 
 function renderPage() {
@@ -107,7 +116,18 @@ describe('StaffDashboardPage', () => {
     const log = await screen.findByRole('list', { description: 'Newest first' })
     expect(within(log).getAllByRole('listitem')).toHaveLength(14)
     expect(within(log).getAllByRole('listitem')[0]).toHaveTextContent('Customer 20')
+    expect(within(log).getAllByRole('listitem')[0]).toHaveTextContent('SHF-20261022-010020')
+    expect(adminOrders.fetchAdminOrders).toHaveBeenCalledWith({ limit: 14 }, expect.anything())
     expect(screen.queryByRole('button', { name: 'View more' })).not.toBeInTheDocument()
+  })
+
+  it('fails and retries the Recent orders tile on its own', async () => {
+    vi.mocked(adminOrders.fetchAdminOrders).mockRejectedValueOnce(Object.assign(new Error('x'), { kind: 'server' }))
+    renderPage()
+    expect(await screen.findByText("We couldn't load the recent orders.")).toBeInTheDocument()
+    expect(await screen.findByText('Washed Black Tee')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('Customer 20')).toBeInTheDocument()
   })
 
   it('puts a one-line description under each tile title', async () => {
@@ -165,7 +185,7 @@ describe('StaffDashboardPage', () => {
     vi.mocked(analytics.fetchSalesSeries).mockResolvedValue([{ date: '2026-10-01', total: 0 }])
     vi.mocked(analytics.fetchProductMix).mockResolvedValue([])
     vi.mocked(analytics.fetchTrendingItems).mockResolvedValue([])
-    vi.mocked(analytics.fetchOrderLog).mockResolvedValue([])
+    vi.mocked(adminOrders.fetchAdminOrders).mockResolvedValue(answer([]))
     renderPage()
     expect(await screen.findByText('No orders this year. Sales show here once the first order is placed.')).toBeInTheDocument()
     expect(await screen.findByText(/No orders yet\. Customers who order show here/)).toBeInTheDocument()

@@ -696,6 +696,65 @@ test.describe('actions', () => {
   })
 })
 
+test.describe('dashboard Recent orders tile', () => {
+  const tile = (page: Page) => page.getByRole('region', { name: 'Recent orders' })
+
+  test('makes one request for the latest 14 and shows full order numbers on a desktop screen', async ({ page }) => {
+    const api = await setup(page, manyAdminOrders(20))
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await signInTo(page, '/staff')
+
+    await expect(tile(page).getByText(num(20), { exact: true })).toBeVisible({ timeout: 20_000 })
+    expect(api.lists.filter((q) => q.get('limit') === '14').map((q) => q.toString())).toEqual(['page=1&limit=14'])
+    await expect(tile(page).getByRole('listitem')).toHaveCount(14)
+    for (const n of [20, 19, 7]) {
+      const number = tile(page).getByText(num(n), { exact: true })
+      await expect(number).toBeVisible()
+      expect(await number.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    }
+    expect(await overflow(page)).toBe(0)
+  })
+
+  test('shows full order numbers at 320px with no horizontal scroll', async ({ page }) => {
+    await setup(page, manyAdminOrders(20))
+    await page.setViewportSize({ width: 320, height: 700 })
+    await signInTo(page, '/staff')
+
+    // Below the xl breakpoint the tile shows the latest 8 of the 14.
+    await expect(tile(page).getByRole('listitem')).toHaveCount(8, { timeout: 20_000 })
+    for (const n of [20, 19, 13]) {
+      const number = tile(page).getByText(num(n), { exact: true })
+      await number.scrollIntoViewIfNeeded()
+      await expect(number).toBeVisible()
+      expect(await number.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    }
+    expect(await overflow(page)).toBe(0)
+  })
+
+  test('shows an error with Retry, and an empty state', async ({ page }) => {
+    const api = await setup(page, [])
+    api.on.list = () => fail(500)
+    await signInTo(page, '/staff')
+
+    const problem = alertAbout(tile(page), 'the recent orders')
+    await expect(problem).toBeVisible({ timeout: 20_000 })
+    api.on.list = undefined
+    await problem.getByRole('button', { name: 'Retry' }).click()
+    await expect(tile(page).getByText('No orders yet. Customers who order show here as soon as they check out.')).toBeVisible()
+  })
+
+  test('View all goes to the Online orders page', async ({ page }) => {
+    await setup(page, manyAdminOrders(2))
+    await signInTo(page, '/staff')
+
+    const viewAll = tile(page).getByRole('link', { name: 'View all online orders' })
+    await expect(viewAll).toBeVisible({ timeout: 20_000 })
+    await viewAll.click()
+    await expect(page).toHaveURL(/\/staff\/online-orders$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'Online orders' })).toBeVisible()
+  })
+})
+
 test.describe('a saved dev account has no session with the server', () => {
   test('the server turns the admin calls down and the page shows the error with Retry, not a crash', async ({ page }) => {
     const api = await setup(page, manyAdminOrders(3))

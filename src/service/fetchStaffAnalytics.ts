@@ -11,7 +11,7 @@ import { simulateRequest, type RequestOptions } from './simulateRequest'
 //     (the server returns the buckets inside the year; interval=year returns that year and the two before it)
 //   fetchProductMix    -> GET /analytics/product-mix?period=&year=&from=&to=
 //   fetchTrendingItems -> GET /analytics/trending?period=&year=&from=&to=&limit=5 (per item: category, orders, stock, arConversion)
-//   fetchOrderLog      -> GET /orders?limit=&sort=-placedAt
+//   fetchOrderLog      -> no longer read by the dashboard: its Recent orders tile reads GET /admin/orders (service/adminOrdersApi)
 // The three charts take a per-card filter. On Products sold and Trendy items, from and to are inclusive dates in Asia/Manila, resolved from period and
 // year by the shared client helper (utils/period).
 // Until then the figures are generated from the month, so a given month always shows the same numbers. The orders are drawn from a
