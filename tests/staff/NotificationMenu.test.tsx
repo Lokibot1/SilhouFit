@@ -14,9 +14,9 @@ const load = vi.mocked(fetchStaffNotifications)
 
 const at = (minutes: number) => new Date(Date.UTC(2026, 9, 22, 8, 0) - minutes * 60_000).toISOString()
 const LIST: StaffNotification[] = [
-  { id: 'n1', message: 'Fence-Line Blazer is low on stock: 4 left', createdAt: at(12), read: false },
-  { id: 'n2', message: 'Washed Black Tee is sold out', createdAt: at(47), read: false },
-  { id: 'n3', message: 'Heritage Polo is low on stock: 6 left', createdAt: at(1560), read: true },
+  { id: 'n1', kind: 'low', message: 'Fence-Line Blazer is low on stock: 4 left', createdAt: at(12), read: false },
+  { id: 'n2', kind: 'out', message: 'Washed Black Tee is sold out', createdAt: at(47), read: false },
+  { id: 'n3', kind: 'low', message: 'Heritage Polo is low on stock: 6 left', createdAt: at(1560), read: true },
 ]
 
 beforeAll(() => {

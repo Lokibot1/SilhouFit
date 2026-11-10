@@ -3,9 +3,9 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSection } from '../../hooks/useSection'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
-import { fetchStaffNotifications, NOTIFICATIONS_SAMPLE_DATA, type StaffNotification } from '../../service/fetchStaffNotifications'
+import { fetchStaffNotifications, NOTIFICATIONS_SAMPLE_DATA, type NotificationKind, type StaffNotification } from '../../service/fetchStaffNotifications'
 import { formatOrderTime } from '../../utils/format'
-import { BellIcon } from '../form/icons'
+import { AlertIcon, BagIcon, BellIcon } from '../form/icons'
 import { useToast } from '../toast/useToast'
 import { computePlace, LISTBOX_LIST, LISTBOX_PANEL } from '../ui/listbox'
 import { Tooltip } from '../ui/Tooltip'
@@ -16,12 +16,32 @@ const PANEL_WIDTH = 320
 const ROW = 'flex h-[4.5rem] items-center gap-3 px-3'
 const SKELETON_ROWS = 5
 
+// Same colours as the inventory table's stock badge: sold out is a filled red mark, low stock an amber ring and tint.
+const ICON_CHIP: Record<NotificationKind, string> = {
+  out: 'bg-(--row-out) text-white',
+  low: 'border-2 border-warning bg-warning/15 text-warning',
+  order: 'bg-fg/10 text-fg',
+}
+
+/** The icon's corner carries the unread dot, so the icons line up with the header's left edge. */
+function NotificationIcon({ kind, unread }: { kind: NotificationKind; unread: boolean }) {
+  const Icon = kind === 'order' ? BagIcon : AlertIcon
+  return (
+    <span aria-hidden="true" className="relative shrink-0">
+      <span className={`flex size-9 items-center justify-center rounded-full ${ICON_CHIP[kind]}`}>
+        <Icon size={20} />
+      </span>
+      {unread && <span className="absolute -top-0.5 -right-0.5 size-3 rounded-full bg-(--row-out) ring-2 ring-canvas-raised" />}
+    </span>
+  )
+}
+
 function NotificationsSkeleton() {
   return (
     <ul role="status" aria-label="Loading notifications" className="animate-pulse divide-y divide-line">
       {Array.from({ length: SKELETON_ROWS }, (_, n) => (
         <li key={n} className={ROW}>
-          <span className="size-2 shrink-0" />
+          <span className="size-9 shrink-0 rounded-full bg-line" />
           <div className="min-w-0 flex-1">
             <div className="h-5 w-4/5 rounded-xl bg-line" />
             <div className="mt-1 h-4 w-1/3 rounded-xl bg-line" />
@@ -167,7 +187,7 @@ export function NotificationMenu() {
                       <ul className="divide-y divide-line">
                         {list.map((item) => (
                           <li key={item.id} className={ROW}>
-                            <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${isUnread(item) ? 'bg-fg' : ''}`} />
+                            <NotificationIcon kind={item.kind} unread={isUnread(item)} />
                             <div className="min-w-0 flex-1">
                               <p className={`line-clamp-2 text-sm leading-5 ${isUnread(item) ? 'font-semibold text-fg' : 'text-fg-muted'}`}>{item.message}</p>
                               <p className="mt-1 text-xs leading-4 text-fg-muted">

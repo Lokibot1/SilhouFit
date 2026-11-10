@@ -9,8 +9,12 @@ import { simulateRequest, type RequestOptions } from './simulateRequest'
 /** True while the notifications are placeholders; the panel says so. Set to false when the real endpoint is wired. */
 export const NOTIFICATIONS_SAMPLE_DATA = true
 
+/** What the notification is about: a product that is low (`low`) or sold out (`out`), or an order. */
+export type NotificationKind = 'low' | 'out' | 'order'
+
 export interface StaffNotification {
   id: string
+  kind: NotificationKind
   message: string
   /** ISO time. */
   createdAt: string
@@ -20,12 +24,12 @@ export interface StaffNotification {
 // Dev-only hooks: /staff?fail=notifications for the error state, /staff?fail=empty for the empty one.
 const failParam = () => (import.meta.env.DEV ? new URLSearchParams(location.search).get('fail') : null)
 
-const SAMPLE: { message: string; minutesAgo: number; read: boolean }[] = [
-  { message: 'Fence-Line Blazer is low on stock: 4 left', minutesAgo: 12, read: false },
-  { message: 'Washed Black Tee is sold out', minutesAgo: 47, read: false },
-  { message: 'New order SF-10187 from Maria Santos', minutesAgo: 95, read: false },
-  { message: 'Heritage Polo is low on stock: 6 left', minutesAgo: 26 * 60, read: true },
-  { message: 'Online order SF-10184 is ready to pack', minutesAgo: 30 * 60, read: true },
+const SAMPLE: { kind: NotificationKind; message: string; minutesAgo: number; read: boolean }[] = [
+  { kind: 'low', message: 'Fence-Line Blazer is low on stock: 4 left', minutesAgo: 12, read: false },
+  { kind: 'out', message: 'Washed Black Tee is sold out', minutesAgo: 47, read: false },
+  { kind: 'order', message: 'New order SF-10187 from Maria Santos', minutesAgo: 95, read: false },
+  { kind: 'low', message: 'Heritage Polo is low on stock: 6 left', minutesAgo: 26 * 60, read: true },
+  { kind: 'order', message: 'Online order SF-10184 is ready to pack', minutesAgo: 30 * 60, read: true },
 ]
 
 /** The latest notifications, newest first. */
@@ -35,8 +39,9 @@ export async function fetchStaffNotifications({ signal, delayMs = 600 }: Request
   })
   if (failParam() === 'empty') return []
   const now = Date.now()
-  return SAMPLE.map(({ message, minutesAgo, read }, n) => ({
+  return SAMPLE.map(({ kind, message, minutesAgo, read }, n) => ({
     id: `n${n + 1}`,
+    kind,
     message,
     createdAt: new Date(now - minutesAgo * 60_000).toISOString(),
     read,
