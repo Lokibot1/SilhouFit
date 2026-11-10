@@ -303,6 +303,8 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
                 const problem = error(`m:${key}`)
                 return (
                   <Field key={key} id={id} label={name} error={problem}>
+                    {/* The unit sits inside the field, outside the label, so the field's name stays the same. */}
+                    <div className="relative">
                     <input
                       id={id}
                       type="text"
@@ -314,8 +316,12 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
                       aria-describedby={describedBy(id, problem)}
                       onChange={(event) => set({ measurements: { ...values.measurements, [key]: filterMeasurement(event.target.value) } })}
                       onBlur={() => touch(`m:${key}`)}
-                      className={`${FIELD_INPUT} text-right tabular-nums`}
+                      className={`${FIELD_INPUT} pr-10 text-right tabular-nums`}
                     />
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-fg-muted">
+                      cm
+                    </span>
+                    </div>
                   </Field>
                 )
               })}

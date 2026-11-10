@@ -18,8 +18,8 @@ export function MeasurementsRowsSkeleton({ columns, count = 5 }: { columns: numb
               <Bar className="h-5 w-12" />
             </th>
             {Array.from({ length: columns }, (_, n) => (
-              <th key={n} className={MEASURE_TH}>
-                <Bar className="ml-auto h-5 w-20" />
+              <th key={n} className={`${MEASURE_TH} pr-8`}>
+                <Bar className="mx-auto h-5 w-20" />
               </th>
             ))}
             <th className={MEASURE_TH} />
@@ -32,8 +32,8 @@ export function MeasurementsRowsSkeleton({ columns, count = 5 }: { columns: numb
                 <Bar className="h-5 w-12" />
               </td>
               {Array.from({ length: columns }, (_, m) => (
-                <td key={m} className={MEASURE_TD}>
-                  <Bar className="ml-auto h-5 w-10" />
+                <td key={m} className={`${MEASURE_TD} pr-8`}>
+                  <Bar className="mx-auto h-5 w-10" />
                 </td>
               ))}
               <td className={MEASURE_TD}>

@@ -84,7 +84,7 @@ describe('StaffMeasurementsPage list', () => {
     await waitFor(() => expect(sizesInTable()).toEqual(['S', 'M', 'XL']))
     expect(lastQuery()).toEqual({ category: 'Hoodie', status: 'active' })
     const headers = within(table()).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent)
-    expect(headers).toEqual(['Size', 'Chest width', 'Total length', 'Shoulder width', 'Sleeve length', 'Neck', 'Actions'])
+    expect(headers).toEqual(['Size', 'Chest width (cm)', 'Total length (cm)', 'Shoulder width (cm)', 'Sleeve length (cm)', 'Neck (cm)', 'Actions'])
     expect(screen.getByRole('heading', { level: 1, name: 'Base measurements' })).toBeInTheDocument()
     expect(document.title).toBe('Base measurements — SilhouFit')
   })

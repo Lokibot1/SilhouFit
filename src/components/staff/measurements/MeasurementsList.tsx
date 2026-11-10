@@ -6,6 +6,9 @@ import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../form/icons'
 import { MEASURE_CARD, MEASURE_TD, MEASURE_TH, MeasurementsRowsSkeleton } from '../MeasurementsSkeleton'
 import { RowIconButton } from './RowIconButton'
 
+// Centred, nudged left of centre by the extra right padding.
+const LEAN = 'pr-8 text-center'
+
 const LABEL = Object.fromEntries(MEASUREMENT_FIELDS.map(({ key, label }) => [key, label]))
 
 interface MeasurementsListProps {
@@ -54,8 +57,8 @@ export function MeasurementsList({ category, rows, skeletonRows, busyId, onEdit,
               Size
             </th>
             {keys.map((key) => (
-              <th key={key} scope="col" className={`${MEASURE_TH} text-right`}>
-                {LABEL[key]}
+              <th key={key} scope="col" className={`${MEASURE_TH} ${LEAN}`}>
+                {LABEL[key]} <span aria-hidden="true">(cm)</span>
               </th>
             ))}
             <th scope="col" className={MEASURE_TH}>
@@ -70,7 +73,7 @@ export function MeasurementsList({ category, rows, skeletonRows, busyId, onEdit,
                 {row.size}
               </th>
               {keys.map((key) => (
-                <td key={key} className={`${MEASURE_TD} text-right text-base tabular-nums text-fg`}>
+                <td key={key} className={`${MEASURE_TD} ${LEAN} text-base tabular-nums text-fg`}>
                   {value(row, key)}
                 </td>
               ))}
