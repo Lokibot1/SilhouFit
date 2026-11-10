@@ -23,7 +23,7 @@ import { useProductsByIds } from '../../hooks/useProducts'
 import { useWishlist } from '../../hooks/useWishlist'
 import { getDefaultAddress, loadAddresses, onAddressesChanged, type Address } from '../../service/addresses'
 import { addCartItem, removeCartItem } from '../../service/cartApi'
-import { createOrder, loadAllOrders, OrdersError, usesSampleOrders, type CustomerOrder } from '../../service/ordersApi'
+import { createCheckoutSession, createOrder, loadAllOrders, OrdersError, usesSampleOrders, type CustomerOrder } from '../../service/ordersApi'
 import {
   computeTotals,
   deliveryEta,
@@ -543,6 +543,15 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
       if (fromCart) await cart.removeLines(items.map((i) => i.variantId))
       // Bought pieces are no longer wanted on the wishlist.
       wishlist.remove(items.map((i) => i.product.id))
+      // A real order is paid on the provider's hosted page. If that page can't open, the order stays unpaid and the success page still shows it.
+      if (!usesSampleOrders()) {
+        try {
+          window.location.assign(await createCheckoutSession(order.id, { signal: abort.signal }))
+          return
+        } catch {
+          if (abort.signal.aborted) return
+        }
+      }
       // Replace, so Back from the success page does not return to a filled form.
       navigate(`/checkout/success?order=${encodeURIComponent(order.id)}`, { replace: true })
     } catch (problem) {

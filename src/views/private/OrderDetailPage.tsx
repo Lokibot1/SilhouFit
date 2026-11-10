@@ -16,9 +16,9 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOrder } from '../../hooks/useOrders'
-import { usesSampleOrders, type CustomerOrder } from '../../service/ordersApi'
+import { createCheckoutSession, usesSampleOrders, type CustomerOrder } from '../../service/ordersApi'
 import { formatOrderTime, formatPeso, variantLabel } from '../../utils/format'
-import { adaptOrderToReceipt, buildTimeline, canBuyAgain, canCancel, hasShipped, paymentStatusLabel, trackingLink } from '../../utils/orders'
+import { adaptOrderToReceipt, buildTimeline, canBuyAgain, canCancel, canPay, hasShipped, paymentStatusLabel, trackingLink } from '../../utils/orders'
 
 const DESCRIPTION = 'Follow one SilhouFit order: where it is now, what is in it, what you paid, where it is going, and what you can do next, such as cancelling or buying again.'
 
@@ -40,8 +40,23 @@ function OrderBody({ order, onCancel }: { order: CustomerOrder; onCancel: (order
   const { busy, buyAgain } = useBuyAgain()
   const [downloading, setDownloading] = useState(false)
   const [receiptFailed, setReceiptFailed] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [payFailed, setPayFailed] = useState(false)
   const { shipment } = order
   const track = trackingLink(order)
+  const payable = canPay(order) && !usesSampleOrders()
+
+  async function payNow() {
+    if (paying) return
+    setPaying(true)
+    setPayFailed(false)
+    try {
+      window.location.assign(await createCheckoutSession(order.id))
+    } catch {
+      setPayFailed(true)
+      setPaying(false)
+    }
+  }
 
   async function downloadReceipt() {
     if (downloading) return
@@ -170,9 +185,21 @@ function OrderBody({ order, onCancel }: { order: CustomerOrder; onCancel: (order
           </address>
         </div>
 
-        {order.status === 'PENDING_PAYMENT' && <p className={`${MUTED} border-t border-kral-rule pt-4`}>Online payment is coming soon. Your order is held until then.</p>}
+        {order.status === 'PENDING_PAYMENT' && <p className={`${MUTED} border-t border-kral-rule pt-4`}>This order is waiting for payment. It is held for a while, so pay now or cancel it below.</p>}
+        {order.status === 'PAYMENT_FAILED' && <p className={`${MUTED} border-t border-kral-rule pt-4`}>Your last payment did not go through. You can try again.</p>}
 
         <div className="flex flex-col gap-3 border-t border-kral-rule pt-4">
+          {payable && (
+            <button type="button" onClick={() => void payNow()} disabled={paying} aria-busy={paying} className={KRAL_PRIMARY}>
+              {paying && <SpinnerIcon />}
+              Pay now
+            </button>
+          )}
+          {payFailed && (
+            <p role="alert" className="font-kral-mono text-base leading-snug text-danger md:text-sm">
+              We couldn&apos;t open the payment page. The payment service did not answer, so nothing was charged. Press Pay now to try again.
+            </p>
+          )}
           {canBuyAgain(order) && (
             <button type="button" onClick={() => void buyAgain(order)} disabled={busy === order.id} aria-busy={busy === order.id} className={KRAL_SECONDARY}>
               {busy === order.id ? <SpinnerIcon /> : <CartArrowIcon size={16} />}

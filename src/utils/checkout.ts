@@ -17,7 +17,9 @@ export interface CheckoutItem {
 export type Payment = 'ewallet' | 'cash'
 export type Provider = 'gcash' | 'maya'
 
-export const SHIPPING_FEE = 99
+/** The API's shipping rule: a flat fee, free once the subtotal reaches the threshold. */
+export const SHIPPING_FEE = 150
+export const FREE_SHIPPING_THRESHOLD = 2500
 
 /**
  * The items to check out, from the URL: one piece, or several as repeated item/variant/qty params in the same order.
@@ -75,7 +77,7 @@ export interface Totals {
 export function computeTotals(items: CheckoutItem[]): Totals {
   const subtotal = items.reduce((sum, i) => sum + i.unit * i.qty, 0)
   const discount = 0 // The API has no sale price; `unit` is already what the variant costs.
-  const shipping = SHIPPING_FEE
+  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE
   return { subtotal, discount, shipping, total: subtotal - discount + shipping }
 }
 

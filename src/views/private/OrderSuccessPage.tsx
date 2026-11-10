@@ -182,7 +182,7 @@ export function OrderSuccessPage() {
           </div>
         )}
         <p className="font-kral-mono mt-3 text-base leading-relaxed text-kral-muted lg:text-lg">
-          We&apos;ve got your order, and it&apos;s waiting for payment. Online payment opens soon: we&apos;ll hold the order until then, and you can follow it under My orders.
+          We&apos;ve got your order, and we&apos;re confirming your payment. If you didn&apos;t finish paying, we&apos;ll hold the order for a while, and you can follow it under My orders.
         </p>
         {order.quotedTotal !== undefined && order.quotedTotal !== order.total && (
           <p role="status" className="font-kral-mono mt-3 text-base leading-relaxed text-kral-fg">

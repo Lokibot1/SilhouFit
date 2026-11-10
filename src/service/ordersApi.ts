@@ -169,7 +169,7 @@ function toOrder(value: unknown): CustomerOrder {
   }
 }
 
-type Operation = 'create' | 'read' | 'cancel'
+type Operation = 'create' | 'read' | 'cancel' | 'pay'
 
 const STOCK_WORDS = /stock|unavailable|no longer available|invalid quantity/i
 
@@ -213,17 +213,36 @@ export interface CreateOrderInput {
 }
 
 /** Feature: Orders – Place order */
-/** POST /orders. The API recomputes every amount, so no total, payment method or label is sent (it rejects unknown keys). */
+/** POST /orders. The API works out every amount, shipping included, so no total, shipping fee, payment method or label is sent (it rejects unknown keys). `shippingFee` only feeds the sample orders. */
 export async function createOrder(input: CreateOrderInput, { signal, delayMs }: RequestOptions = {}): Promise<CustomerOrder> {
   const body = {
     addressId: input.addressId,
     ...(input.cartItemIds && { cartItemIds: input.cartItemIds }),
-    ...(input.shippingFee !== undefined && { shippingFee: input.shippingFee }),
     ...(input.customerNotes && { customerNotes: input.customerNotes }),
   }
-  const order = usesSampleOrders() ? await sample(() => addSampleOrder(body), { signal, delayMs }) : toOrder(await call('POST', '/orders', body, signal, 'create'))
+  const order = usesSampleOrders()
+    ? await sample(() => addSampleOrder({ shippingFee: input.shippingFee, customerNotes: body.customerNotes }), { signal, delayMs })
+    : toOrder(await call('POST', '/orders', body, signal, 'create'))
   invalidate()
   return order
+}
+
+/** Feature: Orders – Pay for order */
+/**
+ * POST /orders/:id/checkout-session. Resolves to the payment provider's hosted page; send the browser there.
+ * The provider returns the customer to the success page, or to the order if they back out. The API only accepts
+ * redirect URLs on an origin in its ALLOWED_ORIGINS.
+ */
+export async function createCheckoutSession(orderId: string, { signal }: RequestOptions = {}): Promise<string> {
+  const body = {
+    successUrl: `${window.location.origin}/checkout/success?order=${encodeURIComponent(orderId)}`,
+    cancelUrl: `${window.location.origin}/orders/${encodeURIComponent(orderId)}`,
+  }
+  const result = await call('POST', `/orders/${encodeURIComponent(orderId)}/checkout-session`, body, signal, 'pay')
+  const url = isRecord(result) && typeof result.checkoutUrl === 'string' ? result.checkoutUrl : ''
+  // Only ever send the browser to a secure page.
+  if (!URL.canParse(url) || new URL(url).protocol !== 'https:') throw new OrdersError('server')
+  return url
 }
 
 /** Feature: Orders – List orders */

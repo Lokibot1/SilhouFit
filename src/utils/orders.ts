@@ -40,6 +40,9 @@ export function filterOrders(orders: CustomerOrder[], tab: OrderTab, query: stri
 /** Only an unpaid order waiting for payment can still be cancelled. */
 export const canCancel = (order: Pick<CustomerOrder, 'status' | 'paymentStatus'>) => order.status === 'PENDING_PAYMENT' && order.paymentStatus !== 'PAID'
 
+/** The API opens a payment page for an unpaid order, or one whose last payment failed. */
+export const canPay = (order: Pick<CustomerOrder, 'status' | 'paymentStatus'>) => (order.status === 'PENDING_PAYMENT' || order.status === 'PAYMENT_FAILED') && order.paymentStatus !== 'PAID'
+
 export type ChipTone = 'alert' | 'outline' | 'filled' | 'muted'
 
 /** How each status reads on a chip: the words, and which of the four looks it gets. */
