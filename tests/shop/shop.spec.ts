@@ -384,7 +384,7 @@ test.describe('filters', () => {
   test('the sort menu sends the price sorts as sortBy=price, and name sorts reach the API', async ({ page }) => {
     await openShop(page)
     await page.getByRole('combobox', { name: 'Sort by' }).click()
-    await expect(page.getByRole('option')).toHaveText(['Featured', 'Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A', 'Low stock first'])
+    await expect(page.getByRole('option')).toHaveText(['Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A', 'Low stock first'])
     await page.getByRole('option', { name: 'Price: high to low' }).click()
     await expect(page).toHaveURL(/sort=price-desc/)
     await expect(cards(page).first()).toContainText('Linen Shirt')

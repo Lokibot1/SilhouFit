@@ -44,8 +44,8 @@ describe('toApiParams', () => {
     expect(api({ sort: 'name-desc' })).toMatchObject({ sortBy: 'name', sortOrder: 'desc' })
     expect(api({ sort: 'price-asc' })).toMatchObject({ sortBy: 'price', sortOrder: 'asc' })
     expect(api({ sort: 'price-desc' })).toMatchObject({ sortBy: 'price', sortOrder: 'desc' })
-    expect(api({ sort: 'featured' })).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
-    expect(SORT_OPTIONS.map((o) => o.label)).toEqual(['Featured', 'Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A', 'Low stock first'])
+    expect(api({ sort: 'low-stock' })).toMatchObject({ sortBy: 'createdAt', sortOrder: 'desc' })
+    expect(SORT_OPTIONS.map((o) => o.label)).toEqual(['Newest', 'Price: low to high', 'Price: high to low', 'Name: A to Z', 'Name: Z to A', 'Low stock first'])
   })
 })
 

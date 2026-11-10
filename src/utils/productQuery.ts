@@ -1,7 +1,7 @@
 import { type Category, type Product, type ProductGender } from '../data/products'
 import type { ProductListParams } from '../service/fetchProductList'
 
-export type SortKey = 'featured' | 'newest' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc' | 'low-stock'
+export type SortKey = 'newest' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc' | 'low-stock'
 
 /** Sizes offered as one-tap choices in filters; any other size can be typed where the screen allows. */
 export const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
@@ -53,9 +53,8 @@ export interface ProductPage {
   pageCount: number
 }
 
-// The API sorts by date, name or price. Featured and low stock first have no backend equivalent, so they ask for newest first.
+// The API sorts by date, name or price. Low stock first has no backend equivalent, so it asks for newest first.
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: 'featured', label: 'Featured' },
   { value: 'newest', label: 'Newest' },
   { value: 'price-asc', label: 'Price: low to high' },
   { value: 'price-desc', label: 'Price: high to low' },
@@ -79,7 +78,6 @@ export function shopTitle(params: URLSearchParams) {
 
 const NEWEST = { sortBy: 'createdAt', sortOrder: 'desc' } as const
 const API_SORT: Record<SortKey, Pick<ProductListParams, 'sortBy' | 'sortOrder'>> = {
-  featured: NEWEST,
   'price-asc': { sortBy: 'price', sortOrder: 'asc' },
   'price-desc': { sortBy: 'price', sortOrder: 'desc' },
   'low-stock': NEWEST,

@@ -249,13 +249,12 @@ describe('ShopPage requests', () => {
     expect(screen.queryByRole('button', { name: /^Remove availability/ })).not.toBeInTheDocument()
   })
 
-  it('sends the price sorts as sortBy=price with their direction, newest first for Featured, and name sorts reach the API', async () => {
+  it('sends the price sorts as sortBy=price with their direction, newest first for Low stock, and name sorts reach the API', async () => {
     const user = userEvent.setup()
     renderPage()
     await loaded()
     await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
     expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
-      'Featured',
       'Newest',
       'Price: low to high',
       'Price: high to low',
