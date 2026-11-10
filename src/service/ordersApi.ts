@@ -20,7 +20,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number]
 const PAYMENT_STATUSES = ['UNPAID', 'PENDING', 'PAID', 'FAILED', 'REFUNDED'] as const
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
 
-const SHIPMENT_STATUSES = ['QUOTED', 'PENDING_DISPATCH', 'ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP', 'COMPLETED', 'CANCELLED', 'FAILED'] as const
+const SHIPMENT_STATUSES = ['QUOTED', 'PENDING_DISPATCH', 'DISPATCHING', 'ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP', 'COMPLETED', 'CANCELLED', 'FAILED'] as const
 export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number]
 
 export interface CustomerOrderItem {

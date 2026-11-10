@@ -62,6 +62,11 @@ describe('reading an order', () => {
     expect((await fetchOrder(ORDER_ID)).items[0].variantId).toBeNull()
   })
 
+  it('reads a shipment that is being dispatched', async () => {
+    send.mockResolvedValue(apiOrder({ shipment: { courier: 'Lalamove', serviceType: 'Motorcycle', status: 'DISPATCHING', trackingUrl: null, deliveryFee: 99 } }))
+    expect((await fetchOrder(ORDER_ID)).shipment).toMatchObject({ status: 'DISPATCHING' })
+  })
+
   it('lists one page with the query and its meta', async () => {
     send.mockResolvedValue(page([apiOrder()]))
     const result = await fetchOrdersPage({ page: 2, limit: 5, status: 'CANCELLED' })
