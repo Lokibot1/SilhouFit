@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { useToast } from '../components/toast/useToast'
 import type { LegalDoc } from '../components/legal/legalContent'
 import { googleErrorMessage, startGoogleAuth } from '../service/googleAuth'
@@ -87,9 +86,10 @@ function withConsent(errors: SignUpErrors, read: Acknowledged): SignUpErrors {
   return nextUnread(read) ? { ...errors, consent: CONSENT_ERROR } : errors
 }
 
-export function useSignUpForm() {
+export type SignUpForm = ReturnType<typeof useSignUpForm>
+
+export function useSignUpForm({ next }: { next: string | null }) {
   const toast = useToast()
-  const next = useSearchParams()[0].get('next')
   const [values, setValues] = useState<SignUpValues>(EMPTY)
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({})
   const [status, setStatus] = useState<SignUpStatus>('editing')
@@ -142,10 +142,11 @@ export function useSignUpForm() {
     const found = withConsent(validateSignUp(values), acknowledged)
     setTouched(Object.fromEntries(FIELD_ORDER.map((name) => [name, true])))
     if (Object.keys(found).length) {
-      // An unread document opens first, whatever else is wrong; the field errors stay visible behind it.
+      // Fields come first: the unread document opens only once everything else is filled in correctly.
+      const { consent: _consent, ...fieldErrors } = found
       const unread = nextUnread(acknowledged)
-      if (unread) setLegalOpen(unread)
-      else focusField(found)
+      if (Object.keys(fieldErrors).length || !unread) focusField(found)
+      else setLegalOpen(unread)
       return
     }
 

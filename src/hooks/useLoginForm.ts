@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useToast } from '../components/toast/useToast'
 import { clearStashedNext, googleErrorMessage, startGoogleAuth } from '../service/googleAuth'
 import type { Me } from '../service/fetchMe'
@@ -54,10 +54,16 @@ export function fieldId(name: LoginField) {
   return `login-${name}`
 }
 
-export function useLoginForm() {
+interface LoginFormOptions {
+  /** The page to return to after signing in. */
+  next: string | null
+  /** Signing in finished in place (the sign-in modal): called instead of navigating. */
+  onSignedIn?: () => void
+}
+
+export function useLoginForm({ next, onSignedIn }: LoginFormOptions) {
   const toast = useToast()
   const navigate = useNavigate()
-  const next = useSearchParams()[0].get('next')
   const [values, setValues] = useState<LoginValues>(EMPTY)
   const [remember, setRemember] = useState(false)
   const [touched, setTouched] = useState<Partial<Record<LoginField, boolean>>>({})
@@ -141,7 +147,8 @@ export function useLoginForm() {
     setSession(user)
     clearStashedNext()
     toast.show({ kind: 'success', message: 'Signed in. Welcome back.' })
-    navigate(safeNext(next, homeFor(user.role)), { replace: true })
+    if (onSignedIn) onSignedIn()
+    else navigate(safeNext(next, homeFor(user.role)), { replace: true })
   }
 
   async function submit() {

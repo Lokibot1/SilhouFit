@@ -1,6 +1,7 @@
 import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useTransform } from 'motion/react'
 import { useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useOpenLoginModal } from '../../components/auth/LoginModal'
 import { BagIcon, CartIcon, CheckIcon, ChevronDownIcon, FilterIcon, MinusIcon, PaletteIcon, PlusIcon, RulerIcon, StoreIcon, TrashIcon, UserIcon } from '../../components/form/icons'
 import { ConfirmDialog } from '../../components/admin/users/ConfirmDialog'
 import { ShopHeader } from '../../components/shop/ShopHeader'
@@ -608,6 +609,7 @@ function VariationModal({
 
 /** No lines in the cart. */
 function EmptyCart({ signedIn }: { signedIn: boolean }) {
+  const openLogin = useOpenLoginModal()
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -627,7 +629,15 @@ function EmptyCart({ signedIn }: { signedIn: boolean }) {
         Shop now
       </Link>
       {!signedIn && (
-        <Link to="/login?next=%2Fcart" className={`${KRAL_SECONDARY} mt-2 w-full max-w-xs`}>
+        <Link
+          to="/login?next=%2Fcart"
+          onClick={(event) => {
+            if (!openLogin) return
+            event.preventDefault()
+            openLogin()
+          }}
+          className={`${KRAL_SECONDARY} mt-2 w-full max-w-xs`}
+        >
           <UserIcon />
           Log in
         </Link>

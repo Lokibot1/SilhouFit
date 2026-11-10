@@ -18,6 +18,7 @@ import { ArInsightsPageSkeleton } from './components/admin/ar/ArInsightsSkeleton
 import { PromotionsPageSkeleton } from './components/admin/promotions/PromotionsSkeleton'
 import { RefundsPageSkeleton } from './components/admin/refunds/RefundsSkeleton'
 import { AccountsPageSkeleton } from './components/admin/users/AccountSkeleton'
+import { LoginModalProvider } from './components/auth/LoginModal'
 import { ToastProvider } from './components/toast/ToastProvider'
 import { ProfileSkeleton } from './components/profile/ProfileSkeleton'
 import { ProductRouteSkeleton } from './components/shop/ProductSkeleton'
@@ -261,6 +262,7 @@ function App() {
 
       <div inert={!introDone} aria-hidden={!introDone}>
         <ToastProvider>
+          <LoginModalProvider>
           <RouteErrorBoundary resetKey={pathname}>
           <Routes>
             <Route element={<Layout />}>
@@ -460,6 +462,7 @@ function App() {
             </Route>
           </Routes>
           </RouteErrorBoundary>
+          </LoginModalProvider>
         </ToastProvider>
       </div>
     </>

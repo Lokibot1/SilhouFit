@@ -173,8 +173,9 @@ describe('SignUpPage single form', () => {
     expect(screen.queryByText(/middle name can/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/suffix can/i)).not.toBeInTheDocument()
     expect(field(/^first name$/i)).toHaveAttribute('aria-invalid', 'true')
-    // The unread Terms open first, even though other fields are still empty.
-    expect(await dialog('Terms of Service')).toBeInTheDocument()
+    // The fields come first: the unread Terms stay closed while other fields are empty, and focus goes to the first one.
+    expect(screen.queryByRole('dialog', { name: 'Terms of Service' })).not.toBeInTheDocument()
+    expect(field(/^first name$/i)).toHaveFocus()
   })
 
   it('opens the dialog for a legal link instead of leaving the page', async () => {

@@ -14,6 +14,8 @@ const SHEET_EASE: [number, number, number, number] = [0.32, 0.72, 0, 1]
 /** How many modals hold the page's scroll lock, and the body styles to put back when the last lets go. */
 let locks = 0
 let restore: { overflow: string; paddingRight: string } | null = null
+/** Open modals, newest last. Only the top one answers Escape and Tab, so a dialog opened over another does not close or trap it. */
+const openStack: object[] = []
 
 interface ModalProps {
   open: boolean
@@ -37,9 +39,11 @@ interface ModalProps {
   onBodyScroll?: UIEventHandler<HTMLDivElement>
   /** The control that takes focus when the modal opens (the panel itself when left out). */
   initialFocusRef?: RefObject<HTMLElement | null>
+  /** 'sm' narrows a centred dialog to a slim 24rem, for a short form. */
+  size?: 'sm'
 }
 
-export function Modal({ open, onClose, title, icon, variant = 'center', tone, compact, children, footer, closable = true, bodyRef, onBodyScroll, initialFocusRef }: ModalProps) {
+export function Modal({ open, onClose, title, icon, variant = 'center', tone, compact, children, footer, closable = true, bodyRef, onBodyScroll, initialFocusRef, size }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -75,8 +79,11 @@ export function Modal({ open, onClose, title, icon, variant = 'center', tone, co
       }
     }
     ;(initialFocusRef?.current ?? panelRef.current)?.focus()
+    const token = {}
+    openStack.push(token)
 
     function onKeyDown(event: KeyboardEvent) {
+      if (openStack[openStack.length - 1] !== token) return
       if (event.key === 'Escape') {
         event.preventDefault()
         onCloseRef.current()
@@ -103,6 +110,7 @@ export function Modal({ open, onClose, title, icon, variant = 'center', tone, co
 
     return () => {
       document.removeEventListener('keydown', onKeyDown)
+      openStack.splice(openStack.indexOf(token), 1)
       if (returnTo?.isConnected) returnTo.focus()
     }
   }, [open, initialFocusRef])
@@ -122,6 +130,7 @@ export function Modal({ open, onClose, title, icon, variant = 'center', tone, co
           bodyRef={bodyRef}
           onBodyScroll={onBodyScroll}
           onClose={onClose}
+          size={size}
         >
           {children}
         </ModalView>
@@ -131,11 +140,11 @@ export function Modal({ open, onClose, title, icon, variant = 'center', tone, co
   )
 }
 
-interface ModalViewProps extends Pick<ModalProps, 'title' | 'icon' | 'variant' | 'tone' | 'compact' | 'footer' | 'closable' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children'> {
+interface ModalViewProps extends Pick<ModalProps, 'title' | 'icon' | 'variant' | 'tone' | 'compact' | 'footer' | 'closable' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children' | 'size'> {
   panelRef: Ref<HTMLDivElement>
 }
 
-function ModalView({ title, icon, variant, tone, compact, footer, closable, panelRef, bodyRef, onBodyScroll, onClose, children }: ModalViewProps) {
+function ModalView({ title, icon, variant, tone, compact, footer, closable, panelRef, bodyRef, onBodyScroll, onClose, children, size }: ModalViewProps) {
   const titleId = useId()
   const reduced = useReducedMotion()
   const isPresent = useIsPresent()
@@ -197,7 +206,7 @@ function ModalView({ title, icon, variant, tone, compact, footer, closable, pane
               : left
               ? 'max-h-[90svh] rounded-t-xl lg:h-full lg:max-h-none lg:max-w-md lg:rounded-none lg:rounded-r-xl'
               : 'max-h-[90svh] rounded-t-xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-xl'
-            : 'max-h-[85svh] max-w-2xl rounded-xl'
+            : `max-h-[85svh] ${size === 'sm' ? 'max-w-sm' : 'max-w-2xl'} rounded-xl`
         }`}
       >
         <div className={`flex items-center justify-between gap-3 px-5 ${tight ? 'pt-4 pb-1 sm:px-6' : 'pt-5 pb-3 sm:px-8 sm:pt-6'}`}>
