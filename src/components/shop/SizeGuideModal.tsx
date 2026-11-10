@@ -146,7 +146,7 @@ export function SizeGuideModal({ open, onClose, category, variants, selected, pr
                   </th>
                   {columns.map((key) => (
                     <th key={key} scope="col" className={`${TH} text-right`}>
-                      {LABEL[key]}
+                      {LABEL[key]} <span aria-hidden="true">(cm)</span>
                     </th>
                   ))}
                 </tr>
@@ -182,7 +182,9 @@ export function SizeGuideModal({ open, onClose, category, variants, selected, pr
                     <dl className="font-kral-mono mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-base">
                       {columns.map((key) => (
                         <Fragment key={key}>
-                          <dt className="text-kral-muted">{LABEL[key]}</dt>
+                          <dt className="text-kral-muted">
+                            {LABEL[key]} <span aria-hidden="true">(cm)</span>
+                          </dt>
                           <dd className="text-right tabular-nums text-kral-fg">{cell(row, key)}</dd>
                         </Fragment>
                       ))}
