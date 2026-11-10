@@ -91,13 +91,6 @@ function OrderBody({ order, onCancel }: { order: CustomerOrder; onCancel: (order
           </div>
         )}
 
-        <section aria-labelledby="order-progress" className={SECTION}>
-          <h2 id="order-progress" className={`${HEADING} mb-4`}>
-            Order progress
-          </h2>
-          <OrderTimeline steps={buildTimeline(order)} />
-        </section>
-
         {hasShipped(order) && shipment && (
           <section aria-labelledby="order-delivery" className={SECTION}>
             <h2 id="order-delivery" className={`${HEADING} flex items-center gap-2`}>
@@ -118,13 +111,34 @@ function OrderBody({ order, onCancel }: { order: CustomerOrder; onCancel: (order
               )}
             </dl>
             {track && (
-              <a href={track} target="_blank" rel="noopener noreferrer" className={`${KRAL_SECONDARY} mt-4 w-full sm:w-fit`}>
-                Track delivery
-                <span className="sr-only"> (opens in a new tab)</span>
-              </a>
+              <>
+                {/* The courier's own tracking page, shown in place. The block behind it holds the space while it loads. */}
+                <div className="mt-4 h-72 border border-kral-rule bg-kral-porcelain sm:h-96 dark:bg-kral-graphite">
+                  <iframe
+                    src={track}
+                    title="Live delivery map"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                    className="size-full"
+                  />
+                </div>
+                {/* The courier may refuse to be shown inside another page, and that cannot be detected, so the page is always one click away. */}
+                <a href={track} target="_blank" rel="noopener noreferrer" className="kral-focus font-kral-mono mt-2 inline-flex min-h-11 items-center text-base font-medium text-kral-fg uppercase underline underline-offset-4 hover:text-kral-red-ink md:text-sm">
+                  Map not showing? Open it in a new tab
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </a>
+              </>
             )}
           </section>
         )}
+
+        <section aria-labelledby="order-progress" className={SECTION}>
+          <h2 id="order-progress" className={`${HEADING} mb-4`}>
+            Order progress
+          </h2>
+          <OrderTimeline steps={buildTimeline(order)} />
+        </section>
 
         <section aria-labelledby="order-items" className={SECTION}>
           <h2 id="order-items" className={HEADING}>

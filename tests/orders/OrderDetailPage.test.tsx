@@ -126,8 +126,19 @@ describe('OrderDetailPage', () => {
     renderPage()
     await screen.findByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })
     expect(screen.queryByRole('button', { name: 'Cancel order' })).toBeNull()
-    expect(screen.getByRole('link', { name: /Track delivery/ })).toHaveAttribute('href', 'https://example.com/track/123')
+    expect(screen.queryByRole('link', { name: /Track delivery/ })).toBeNull()
+    expect(screen.getByTitle('Live delivery map')).toHaveAttribute('src', 'https://example.com/track/123')
+    expect(screen.getByRole('link', { name: /Open it in a new tab/ })).toHaveAttribute('href', 'https://example.com/track/123')
     expect(screen.getByRole('link', { name: '+639171112222' })).toHaveAttribute('href', 'tel:+639171112222')
+  })
+
+  it('puts the delivery section above the order progress', async () => {
+    api.fetchOrder.mockResolvedValue(customerOrder({ status: 'DISPATCHED', paymentStatus: 'PAID', shipment: shipment() }))
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })
+    const delivery = screen.getByRole('heading', { level: 2, name: 'Delivery' })
+    const progress = screen.getByRole('heading', { level: 2, name: 'Order progress' })
+    expect(delivery.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('hides the driver phone before the last leg', async () => {

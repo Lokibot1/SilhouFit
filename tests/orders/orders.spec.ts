@@ -365,13 +365,16 @@ test.describe('one order', () => {
     for (const n of [1, 4, 5, 6, 7]) {
       await page.goto(`/orders/${orderId(n)}`)
       await expect(page.getByRole('heading', { level: 1, name: num(n) })).toBeVisible({ timeout: 15000 })
-      const track = page.getByRole('link', { name: /Track delivery/ })
+      const track = page.getByRole('link', { name: /Open it in a new tab/ })
+      const map = page.getByTitle('Live delivery map')
       if (n === 5 || n === 6) {
-        await expect(track.first(), `order ${n}`).toHaveAttribute('href', 'https://track.example.com/abc')
+        await expect(map, `order ${n}`).toHaveAttribute('src', 'https://track.example.com/abc')
+        await expect(track.first()).toHaveAttribute('href', 'https://track.example.com/abc')
         await expect(track.first()).toHaveAttribute('rel', 'noopener noreferrer')
         await expect(track.first()).toHaveAttribute('target', '_blank')
       } else {
         await expect(track, `order ${n}`).toHaveCount(0)
+        await expect(map, `order ${n}`).toHaveCount(0)
       }
     }
   })
@@ -391,13 +394,14 @@ test.describe('one order', () => {
     await page.goto(`/orders/${orderId(7)}`) // DELIVERED
     await expect(page.getByRole('heading', { level: 2, name: 'Delivery' })).toBeVisible()
     await expect(page.getByRole('link', { name: '+639171112222' })).toHaveCount(0)
-    await expect(page.getByRole('link', { name: /Track delivery/ })).toHaveCount(0)
+    await expect(page.getByTitle('Live delivery map')).toHaveCount(0)
   })
 
   test('a tracking address that is not http(s) is never linked', async ({ page }) => {
     const bad = named(5, 'Shipped Shirt', { status: 'DISPATCHED', paymentStatus: 'PAID', shipment: apiShipment({ trackingUrl: 'javascript:alert(1)' }) })
     await openOrder(page, [bad], 5)
-    await expect(page.getByRole('link', { name: /Track delivery/ })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: /Open it in a new tab/ })).toHaveCount(0)
+    await expect(page.getByTitle('Live delivery map')).toHaveCount(0)
   })
 
   test.describe('cancelling', () => {
