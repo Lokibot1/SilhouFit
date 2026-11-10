@@ -77,8 +77,8 @@ export interface OrdersPage {
   meta: { total: number; page: number; limit: number; totalPages: number; hasNextPage: boolean }
 }
 
-/** 'no-coordinates': the saved address has no map pin. 'not-cancellable': the order moved on. 'simulated' is kept for callers that gate on it. */
-export type OrdersErrorKind = ProductListErrorKind | 'simulated' | 'no-coordinates' | 'not-cancellable'
+/** 'no-coordinates': the saved address has no map pin. 'not-cancellable': the order moved on. 'quote-expired': the delivery fee quote ran out or no longer fits. 'simulated' is kept for callers that gate on it. */
+export type OrdersErrorKind = ProductListErrorKind | 'simulated' | 'no-coordinates' | 'not-cancellable' | 'quote-expired'
 
 export class OrdersError extends Error {
   kind: OrdersErrorKind
@@ -169,7 +169,7 @@ function toOrder(value: unknown): CustomerOrder {
   }
 }
 
-type Operation = 'create' | 'read' | 'cancel' | 'pay'
+type Operation = 'create' | 'quote' | 'read' | 'cancel' | 'pay'
 
 const STOCK_WORDS = /stock|unavailable|no longer available|invalid quantity/i
 
@@ -180,13 +180,15 @@ function toOrdersError(failure: unknown, operation: Operation): unknown {
   const told = detail ?? ''
   if (kind === 'validation') {
     if (operation === 'cancel') return new OrdersError('not-cancellable', undefined, status)
+    if (operation === 'quote' && /coordinates/i.test(told)) return new OrdersError('no-coordinates', 'Pin this address on the map so we can deliver to it.', status)
     if (operation === 'create') {
       if (/coordinates/i.test(told)) return new OrdersError('no-coordinates', 'Pin this address on the map so we can deliver to it.', status)
+      if (/quotation/i.test(told)) return new OrdersError('quote-expired', 'The delivery fee ran out before your order went through. Check the new fee, then place your order again.', status)
       if (STOCK_WORDS.test(told)) return new OrdersError('validation', `${told}. Go back to your cart and adjust the quantity.`, status)
       return new OrdersError('validation', 'Your cart changed. Reload your cart, then check out again.', status)
     }
   }
-  if (kind === 'not-found' && operation === 'create') return new OrdersError('not-found', 'That address is gone. Pick another delivery address.', status)
+  if (kind === 'not-found' && (operation === 'create' || operation === 'quote')) return new OrdersError('not-found', 'That address is gone. Pick another delivery address.', status)
   if (kind === 'forbidden') return new OrdersError('forbidden', 'Your session ended. Sign in again.', status)
   return new OrdersError(kind, told || undefined, status)
 }
@@ -209,15 +211,32 @@ export interface CreateOrderInput {
   addressId: string
   cartItemIds?: string[]
   shippingFee?: number
+  quotationId?: string
   customerNotes?: string
 }
 
+export interface ShippingQuote {
+  quotationId: string
+  shippingFee: number
+  /** When the quote stops being accepted, as an ISO time. */
+  expiresAt: string
+}
+
+/** Feature: Orders – Quote shipping */
+/** POST /orders/quote-shipping. The delivery fee for a saved, pinned address; the API limits it to 20 a minute. */
+export async function quoteShipping(addressId: string, { signal }: RequestOptions = {}): Promise<ShippingQuote> {
+  const body = await call('POST', '/orders/quote-shipping', { addressId }, signal, 'quote')
+  if (!isRecord(body) || typeof body.quotationId !== 'string' || !isMoney(body.shippingFee) || typeof body.expiresAt !== 'string' || Number.isNaN(Date.parse(body.expiresAt))) throw new OrdersError('server')
+  return { quotationId: body.quotationId, shippingFee: body.shippingFee, expiresAt: body.expiresAt }
+}
+
 /** Feature: Orders – Place order */
-/** POST /orders. The API works out every amount, shipping included, so no total, shipping fee, payment method or label is sent (it rejects unknown keys). `shippingFee` only feeds the sample orders. */
+/** POST /orders. The API works out every amount, shipping included, so no total, shipping fee, payment method or label is sent (it rejects unknown keys). It takes the `quotationId` of a fee shown to the shopper. `shippingFee` only feeds the sample orders. */
 export async function createOrder(input: CreateOrderInput, { signal, delayMs }: RequestOptions = {}): Promise<CustomerOrder> {
   const body = {
     addressId: input.addressId,
     ...(input.cartItemIds && { cartItemIds: input.cartItemIds }),
+    ...(input.quotationId && { quotationId: input.quotationId }),
     ...(input.customerNotes && { customerNotes: input.customerNotes }),
   }
   const order = usesSampleOrders()

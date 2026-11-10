@@ -8,23 +8,25 @@ import { clearCartCache } from '../../src/hooks/useCart'
 import { clearProductCache } from '../../src/hooks/useProducts'
 import { ProductListError } from '../../src/service/fetchProductList'
 import { fetchShopProduct } from '../../src/service/fetchShopProducts'
-import { createOrder, OrdersError } from '../../src/service/ordersApi'
+import { createOrder, OrdersError, quoteShipping } from '../../src/service/ordersApi'
 import { clearSession, setSession } from '../../src/service/session'
 import { loadLastOrder } from '../../src/utils/checkout'
 import { CheckoutPage } from '../../src/views/private/CheckoutPage'
 import { POLO as POLO_PIECE, shopProduct, variant } from '../fixtures/shopProducts'
 import { createCartStore } from '../fixtures/cartStore'
 import { storeProducts, wireCartApi, wireShopProducts } from '../fixtures/wireCartApi'
-import { ADDRESS } from '../fixtures/addresses'
+import { ADDRESS, address } from '../fixtures/addresses'
 import { customerOrder } from '../fixtures/orders'
 
 vi.mock('../../src/service/cartApi')
 vi.mock('../../src/service/fetchShopProducts')
 const addressApi = vi.hoisted(() => ({ loadAddresses: vi.fn(), onAddressesChanged: vi.fn(() => () => {}) }))
 vi.mock('../../src/service/addresses', async (original) => ({ ...(await original<typeof import('../../src/service/addresses')>()), ...addressApi }))
-vi.mock('../../src/service/ordersApi', async (original) => ({ ...(await original<typeof import('../../src/service/ordersApi')>()), createOrder: vi.fn(), loadAllOrders: vi.fn().mockResolvedValue([]) }))
+vi.mock('../../src/service/ordersApi', async (original) => ({ ...(await original<typeof import('../../src/service/ordersApi')>()), createOrder: vi.fn(), quoteShipping: vi.fn(), loadAllOrders: vi.fn().mockResolvedValue([]) }))
 const fetchMock = vi.mocked(fetchShopProduct)
 const placeMock = vi.mocked(createOrder)
+const quoteMock = vi.mocked(quoteShipping)
+const quoted = (shippingFee = 99, quotationId = 'q1', inMs = 5 * 60_000) => ({ quotationId, shippingFee, expiresAt: new Date(Date.now() + inMs).toISOString() })
 const PLACED = customerOrder({ orderNumber: 'SF-261011-ABCD', subtotal: 4200, total: 4299, items: [{ ...customerOrder().items[0], name: 'Heritage Polo', qty: 2, unitPrice: 2100, total: 4200 }] })
 
 const PULLOVER_PIECE = shopProduct('p05', 'Cable Knit Pullover', [variant('p05-m-sand', 'M', 'Sand', { price: 1500 })])
@@ -52,6 +54,7 @@ beforeEach(() => {
   wireShopProducts(PIECES)
   addressApi.loadAddresses.mockResolvedValue([])
   placeMock.mockResolvedValue(PLACED)
+  quoteMock.mockImplementation(async () => quoted())
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -83,6 +86,8 @@ async function useSavedAddress() {
   renderCheckout()
   await screen.findByRole('heading', { name: 'Heritage Polo' })
   await screen.findByText(/12 Rizal Avenue/)
+  // Place order waits for the delivery fee.
+  await waitFor(() => expect(placeButton()).toBeEnabled())
 }
 
 const openAddress = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Add address' }))
@@ -159,14 +164,83 @@ describe('CheckoutPage gate and states', () => {
 })
 
 describe('CheckoutPage options and totals', () => {
-  it('starts on delivery with the order, shipping, ETA and total', async () => {
-    renderCheckout()
-    await screen.findByRole('heading', { name: 'Heritage Polo' })
+  it('starts on delivery with the order, the quoted shipping, ETA and total', async () => {
+    await useSavedAddress()
     expect(screen.getByText(/Arrives \w{3}, \w{3} \d+ – \w{3}, \w{3} \d+/, { selector: 'p' })).toBeInTheDocument()
     const summary = screen.getByRole('complementary')
     expect(summary).toHaveTextContent('₱4,200.00') // subtotal, 2 × 2,100
     expect(summary).toHaveTextContent('₱99.00')
     expect(summary).toHaveTextContent('₱4,299.00')
+    expect(quoteMock).toHaveBeenCalledWith(ADDRESS.id, expect.anything())
+  })
+
+  it('holds the shipping and total back with a skeleton while the fee loads, and keeps Place order off', async () => {
+    let finish!: (value: ReturnType<typeof quoted>) => void
+    quoteMock.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    addressApi.loadAddresses.mockResolvedValue([ADDRESS])
+    renderCheckout()
+    await screen.findByText(/12 Rizal Avenue/)
+    const summary = screen.getByRole('complementary')
+    expect(summary).toHaveTextContent('Getting delivery fee')
+    expect(summary).not.toHaveTextContent('₱4,299.00')
+    expect(placeButton()).toBeDisabled()
+
+    finish(quoted())
+    await waitFor(() => expect(summary).toHaveTextContent('₱4,299.00'))
+    expect(placeButton()).toBeEnabled()
+  })
+
+  it('says why the fee is missing, offers Try again, and recovers', async () => {
+    const user = userEvent.setup({ delay: null })
+    quoteMock.mockRejectedValueOnce(new OrdersError('rate-limit'))
+    addressApi.loadAddresses.mockResolvedValue([ADDRESS])
+    renderCheckout()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Too many fee checks in a minute. Wait a minute, then try again.')
+    expect(screen.getByRole('complementary')).toHaveTextContent('Unavailable')
+    expect(placeButton()).toBeDisabled()
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(screen.getByRole('complementary')).toHaveTextContent('₱4,299.00'))
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(quoteMock).toHaveBeenCalledTimes(2)
+    expect(placeButton()).toBeEnabled()
+  })
+
+  it('explains a missing pin on a locally pinned address and offers to pin it', async () => {
+    quoteMock.mockRejectedValueOnce(new OrdersError('no-coordinates'))
+    addressApi.loadAddresses.mockResolvedValue([ADDRESS])
+    renderCheckout()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/no map pin on our side/)
+    expect(within(alert).getByRole('button', { name: 'Pin your address' })).toBeInTheDocument()
+    expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(placeButton()).toBeDisabled()
+  })
+
+  it('asks for an address instead of a fee when none is saved', async () => {
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await waitFor(() => expect(screen.getByRole('complementary')).toHaveTextContent('Add an address'))
+    expect(quoteMock).not.toHaveBeenCalled()
+  })
+
+  it('opens the form for the picked address, not a blank one, from the no-pin line on a pinned address', async () => {
+    const user = userEvent.setup({ delay: null })
+    quoteMock.mockRejectedValueOnce(new OrdersError('no-coordinates'))
+    addressApi.loadAddresses.mockResolvedValue([ADDRESS])
+    renderCheckout()
+    const alert = await screen.findByRole('alert')
+    await user.click(within(alert).getByRole('button', { name: 'Pin your address' }))
+    const sheet = within(await screen.findByRole('dialog', { name: 'Delivery address' }))
+    expect(await sheet.findByDisplayValue('12 Rizal Avenue')).toBeInTheDocument()
+  })
+
+  it('does not ask for a fee for an address without a pin, and offers to pin it', async () => {
+    addressApi.loadAddresses.mockResolvedValue([address({ latitude: null, longitude: null })])
+    renderCheckout()
+    await screen.findByText(/12 Rizal Avenue/)
+    expect(await screen.findByRole('button', { name: 'Pin your address' })).toBeInTheDocument()
+    expect(quoteMock).not.toHaveBeenCalled()
   })
 
   it('offers delivery only: no fulfilment choice, the delivery address and cash on delivery', async () => {
@@ -326,8 +400,37 @@ describe('CheckoutPage placing the order', () => {
     await user.click(placeButton())
 
     await waitFor(() => expect(where()).toBe(`/checkout/success?order=${PLACED.id}`))
-    expect(placeMock.mock.calls[0][0]).toEqual({ addressId: ADDRESS.id, cartItemIds: ['item-1'], shippingFee: 99, customerNotes: '' })
-    expect(loadLastOrder()).toMatchObject({ orderId: 'SF-261011-ABCD', total: 4299, fulfilment: 'Delivery' })
+    expect(placeMock.mock.calls[0][0]).toEqual({ addressId: ADDRESS.id, cartItemIds: ['item-1'], shippingFee: 99, quotationId: 'q1', customerNotes: '' })
+    expect(loadLastOrder()).toMatchObject({ orderId: 'SF-261011-ABCD', total: 4299, quotedTotal: 4299, fulfilment: 'Delivery' })
+  })
+
+  it('asks for a new fee when the shown one is about to run out, and stops when it changed', async () => {
+    const user = userEvent.setup({ delay: null })
+    quoteMock.mockResolvedValueOnce(quoted(99, 'q1', 10_000)).mockResolvedValue(quoted(120, 'q2'))
+    await useSavedAddress()
+    await user.click(placeButton())
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('The delivery fee changed')
+    expect(alert).toHaveTextContent('Delivery is now ₱120.00')
+    expect(placeMock).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByRole('complementary')).toHaveTextContent('₱4,320.00'))
+
+    await waitFor(() => expect(placeButton()).toBeEnabled())
+    await user.click(placeButton())
+    await waitFor(() => expect(placeMock).toHaveBeenCalledTimes(1))
+    expect(placeMock.mock.calls[0][0]).toMatchObject({ quotationId: 'q2' })
+    expect(quoteMock).toHaveBeenCalledTimes(2) // the first quote and the one at submit; none more after the change
+  })
+
+  it('refreshes the fee after the API says the quote ran out', async () => {
+    const user = userEvent.setup({ delay: null })
+    placeMock.mockRejectedValueOnce(new OrdersError('quote-expired'))
+    await useSavedAddress()
+    quoteMock.mockResolvedValue(quoted(120, 'q2'))
+    await user.click(placeButton())
+    expect(await screen.findByText('The delivery fee changed')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('complementary')).toHaveTextContent('₱4,320.00'))
   })
 
   it('sends one request on a double click, disabling the button and marking the form busy', async () => {

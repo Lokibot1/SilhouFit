@@ -111,7 +111,7 @@ test('Buy now to success: delivery total and ETA, the order is Awaiting payment,
   await expect(page).toHaveURL(/\/shop$/)
 })
 
-test('placing an order from the cart sends only the address, the line ids and the fee, then shows the order', async ({ page }) => {
+test('placing an order from the cart sends only the address, the line ids and the quote, then shows the order', async ({ page }) => {
   shop.cart.seed(NAVY_M.id, 1)
   shop.cart.seed(TANK_VARIANT, 2)
   const lineIds = shop.cart.items.map((line) => line.id)
@@ -121,9 +121,9 @@ test('placing an order from the cart sends only the address, the line ids and th
   await placeOrderButton(page).click()
 
   await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
-  expect(shop.orders.posts).toEqual([{ addressId: ADDRESS.id, cartItemIds: lineIds, shippingFee: 99, customerNotes: 'Please gift wrap.' }])
-  // The server works out the totals and takes no payment method: neither is ever sent.
-  expect(Object.keys(shop.orders.posts[0]).sort()).toEqual(['addressId', 'cartItemIds', 'customerNotes', 'shippingFee'])
+  expect(shop.orders.posts).toEqual([{ addressId: ADDRESS.id, cartItemIds: lineIds, quotationId: 'q1', customerNotes: 'Please gift wrap.' }])
+  // The server works out the totals and takes no payment method or shipping fee: none is ever sent.
+  expect(Object.keys(shop.orders.posts[0]).sort()).toEqual(['addressId', 'cartItemIds', 'customerNotes', 'quotationId'])
 
   const placed = shop.orders.orders[0]
   await expect(page).toHaveURL(`/checkout/success?order=${placed.id}`)
@@ -150,7 +150,7 @@ test('without a note the order carries no customerNotes key, and My orders opens
   await openCheckout(page, CART)
   await placeOrderButton(page).click()
   await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
-  expect(Object.keys(shop.orders.posts[0]).sort()).toEqual(['addressId', 'cartItemIds', 'shippingFee'])
+  expect(Object.keys(shop.orders.posts[0]).sort()).toEqual(['addressId', 'cartItemIds', 'quotationId'])
 
   await page.getByRole('link', { name: 'My orders' }).click()
   await expect(page).toHaveURL(/\/orders$/)
@@ -215,10 +215,9 @@ test('an address edited after it was picked is no longer a saved one: the sheet 
   expect(shop.addresses.bodies).toHaveLength(0)
 })
 
-test('a saved address that has no map pin gets the server\'s 400 turned into "Pin this address on the map"', async ({ page }) => {
+test('a saved address that has no map pin asks for a pin before any request: no fee quote, no order', async ({ page }) => {
   shop.addresses.rows[0].latitude = null
   shop.addresses.rows[0].longitude = null
-  shop.orders.on.create = () => ({ status: 400, json: { statusCode: 400, message: 'Address coordinates (latitude and longitude) are required', error: 'Bad Request' } })
   shop.cart.seed(NAVY_M.id, 1)
   await openCheckout(page, CART)
   await placeOrderButton(page).click()
@@ -226,6 +225,8 @@ test('a saved address that has no map pin gets the server\'s 400 turned into "Pi
   await expect(alert).toContainText('This address has no map pin')
   await expect(alert).toContainText('Pin this address on the map so we can deliver to it. Your order was not placed.')
   await expect(alert.getByRole('button', { name: 'Try again' })).toHaveCount(0)
+  expect(shop.orders.posts).toHaveLength(0)
+  expect(shop.orders.quotes).toHaveLength(0)
   await alert.getByRole('button', { name: 'Pin this address' }).click()
   await expect(addressSheet(page).getByRole('alert')).toHaveText(PIN_MESSAGE)
 })

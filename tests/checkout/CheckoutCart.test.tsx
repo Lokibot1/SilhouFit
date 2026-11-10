@@ -6,7 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { clearCartCache } from '../../src/hooks/useCart'
 import { clearProductCache } from '../../src/hooks/useProducts'
-import { createOrder, OrdersError } from '../../src/service/ordersApi'
+import { createOrder, OrdersError, quoteShipping } from '../../src/service/ordersApi'
 import { clearSession, setSession } from '../../src/service/session'
 import { CheckoutPage } from '../../src/views/private/CheckoutPage'
 import { ADDRESS } from '../fixtures/addresses'
@@ -19,7 +19,7 @@ vi.mock('../../src/service/cartApi')
 vi.mock('../../src/service/fetchShopProducts')
 const addressApi = vi.hoisted(() => ({ loadAddresses: vi.fn(), onAddressesChanged: vi.fn(() => () => {}) }))
 vi.mock('../../src/service/addresses', async (original) => ({ ...(await original<typeof import('../../src/service/addresses')>()), ...addressApi }))
-vi.mock('../../src/service/ordersApi', async (original) => ({ ...(await original<typeof import('../../src/service/ordersApi')>()), createOrder: vi.fn(), loadAllOrders: vi.fn().mockResolvedValue([]) }))
+vi.mock('../../src/service/ordersApi', async (original) => ({ ...(await original<typeof import('../../src/service/ordersApi')>()), createOrder: vi.fn(), quoteShipping: vi.fn(), loadAllOrders: vi.fn().mockResolvedValue([]) }))
 const wishes = vi.hoisted(() => ({ ids: [] as string[] }))
 vi.mock('../../src/service/wishlistApi', () => ({
   fetchWishlistIds: vi.fn(async () => [...wishes.ids]),
@@ -28,6 +28,7 @@ vi.mock('../../src/service/wishlistApi', () => ({
   }),
 }))
 const placeMock = vi.mocked(createOrder)
+const quoteMock = vi.mocked(quoteShipping)
 const PLACED = customerOrder({ orderNumber: 'SF-261011-ABCD' })
 
 vi.setConfig({ testTimeout: 30000 })
@@ -63,6 +64,7 @@ beforeEach(() => {
   clearCartCache()
   addressApi.loadAddresses.mockResolvedValue([ADDRESS])
   placeMock.mockResolvedValue(PLACED)
+  quoteMock.mockImplementation(async () => ({ quotationId: 'q1', shippingFee: 99, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() }))
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -98,6 +100,8 @@ const seedTwoAyala = () => {
 // The saved, pinned address is what an order goes to.
 async function fillAddress(_u: ReturnType<typeof user>) {
   await screen.findByText(/12 Rizal Avenue/)
+  // Place order waits for the delivery fee.
+  await waitFor(() => expect(placeButton()).toBeEnabled())
 }
 
 describe('CheckoutPage from the cart', () => {
@@ -113,7 +117,7 @@ describe('CheckoutPage from the cart', () => {
     const summary = screen.getByRole('complementary')
     expect(summary).toHaveTextContent('Subtotal (3 items)')
     expect(summary).toHaveTextContent('₱5,990.00') // 4,200 + 1,790
-    expect(summary).toHaveTextContent('₱6,089.00') // plus one flat 99 shipping
+    await waitFor(() => expect(summary).toHaveTextContent('₱6,089.00')) // plus the quoted 99 shipping
   })
 
   it('shows what was left out or lowered in one status panel, and leaves the cart alone', async () => {
@@ -159,7 +163,7 @@ describe('CheckoutPage from the cart', () => {
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
     expect(screen.queryByRole('alert')).toBeNull()
-    expect(placeButton()).toBeEnabled()
+    await waitFor(() => expect(placeButton()).toBeEnabled())
   })
 
   it('sends one order for all lines with one shipping fee', async () => {
@@ -171,7 +175,7 @@ describe('CheckoutPage from the cart', () => {
     await u.click(placeButton())
     await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
     expect(placeMock).toHaveBeenCalledTimes(1)
-    expect(placeMock.mock.calls[0][0]).toEqual({ addressId: ADDRESS.id, cartItemIds: ['item-1', 'item-2'], shippingFee: 99, customerNotes: '' })
+    expect(placeMock.mock.calls[0][0]).toEqual({ addressId: ADDRESS.id, cartItemIds: ['item-1', 'item-2'], shippingFee: 99, quotationId: 'q1', customerNotes: '' })
   })
 
   it('empties exactly the ordered lines from the server cart after success, keeping lines that were left out', async () => {

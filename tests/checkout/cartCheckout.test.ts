@@ -63,7 +63,7 @@ describe('resolveCartItems', () => {
 
 describe('several items together', () => {
   it('charges one flat shipping fee per order, not per item', () => {
-    expect(computeTotals([item(POLO), item(TROUSERS)]).shipping).toBe(SHIPPING_FEE)
+    expect(computeTotals([item(POLO), { ...item(TROUSERS), unit: 100 }]).shipping).toBe(SHIPPING_FEE)
   })
 })
 

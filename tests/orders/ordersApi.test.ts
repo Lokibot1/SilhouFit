@@ -9,7 +9,7 @@ vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
 }))
 const send = vi.mocked(request)
 
-const { cancelOrder, clearOrdersCache, createOrder, fetchOrder, fetchOrdersPage, getCachedOrder, loadAllOrders, onOrdersChanged, OrdersError } = await import('../../src/service/ordersApi')
+const { cancelOrder, clearOrdersCache, createOrder, fetchOrder, fetchOrdersPage, getCachedOrder, loadAllOrders, onOrdersChanged, OrdersError, quoteShipping } =await import('../../src/service/ordersApi')
 const { resetSampleOrders } = await import('../../src/service/sampleOrders')
 
 const page = (data: unknown[], more = false) => ({ data, meta: { total: data.length, page: 1, limit: 100, totalPages: more ? 2 : 1, hasNextPage: more, hasPreviousPage: false } })
@@ -78,12 +78,18 @@ describe('reading an order', () => {
 })
 
 describe('placing an order', () => {
-  it('sends exactly the whitelisted keys: no total, payment method or label', async () => {
+  it('sends exactly the whitelisted keys: no total, shipping fee, payment method or label', async () => {
     send.mockResolvedValue(apiOrder())
-    const order = await createOrder({ addressId: 'a1', cartItemIds: ['c1'], shippingFee: 99, customerNotes: 'Leave at the gate' })
-    expect(send).toHaveBeenCalledWith('POST', '/orders', { addressId: 'a1', cartItemIds: ['c1'], shippingFee: 99, customerNotes: 'Leave at the gate' }, undefined)
-    expect(Object.keys(send.mock.calls[0][2] as object).sort()).toEqual(['addressId', 'cartItemIds', 'customerNotes', 'shippingFee'])
+    const order = await createOrder({ addressId: 'a1', cartItemIds: ['c1'], shippingFee: 99, quotationId: 'q1', customerNotes: 'Leave at the gate' })
+    expect(send).toHaveBeenCalledWith('POST', '/orders', { addressId: 'a1', cartItemIds: ['c1'], quotationId: 'q1', customerNotes: 'Leave at the gate' }, undefined)
+    expect(Object.keys(send.mock.calls[0][2] as object).sort()).toEqual(['addressId', 'cartItemIds', 'customerNotes', 'quotationId'])
     expect(order.orderNumber).toBe('SHF-20261026-ABC123')
+  })
+
+  it('leaves out the quotation id when there is none', async () => {
+    send.mockResolvedValue(apiOrder())
+    await createOrder({ addressId: 'a1' })
+    expect(send.mock.calls[0][2]).not.toHaveProperty('quotationId')
   })
 
   it('leaves out an empty note', async () => {
@@ -94,6 +100,7 @@ describe('placing an order', () => {
 
   it.each([
     ['a missing pin', 'Address coordinates (latitude, longitude) are required for delivery quotation and checkout', 'no-coordinates', /Pin this address/],
+    ['an expired quote', 'Quotation has expired, request a new shipping quote', 'quote-expired', /delivery fee ran out/],
     ['too little stock', 'Insufficient stock for "Polo (SKU)". Requested: 3, Available: 1', 'validation', /Insufficient stock.*Go back to your cart/],
     ['a gone variant', 'Product variant with ID "x" is no longer available', 'validation', /Go back to your cart/],
     ['an empty cart', 'Your cart is empty', 'validation', /Your cart changed/],
@@ -116,6 +123,33 @@ describe('placing an order', () => {
   it.each(['rate-limit', 'network', 'server'] as const)('keeps %s as it is', async (kind) => {
     send.mockRejectedValue(new ProductListError(kind))
     await expect(createOrder({ addressId: 'a1' })).rejects.toMatchObject({ kind })
+  })
+})
+
+describe('quoting shipping', () => {
+  const quote = { quotationId: 'q1', courier: 'Lalamove', serviceType: 'MOTORCYCLE', shippingFee: 99, currency: 'PHP', expiresAt: '2026-11-10T08:05:00.000Z' }
+
+  it('posts exactly the address id and keeps the id, fee and expiry', async () => {
+    send.mockResolvedValue(quote)
+    await expect(quoteShipping('a1')).resolves.toEqual({ quotationId: 'q1', shippingFee: 99, expiresAt: '2026-11-10T08:05:00.000Z' })
+    expect(send).toHaveBeenCalledWith('POST', '/orders/quote-shipping', { addressId: 'a1' }, undefined)
+  })
+
+  it.each([
+    ['no body', null],
+    ['no id', { ...quote, quotationId: undefined }],
+    ['a fee that is not a number', { ...quote, shippingFee: '99' }],
+    ['an expiry that is not a date', { ...quote, expiresAt: 'soon' }],
+  ])('treats %s as a server error', async (_name, bad) => {
+    send.mockResolvedValue(bad)
+    await expect(quoteShipping('a1')).rejects.toMatchObject({ kind: 'server' })
+  })
+
+  it('maps a missing pin to no-coordinates and too many requests to rate-limit', async () => {
+    send.mockRejectedValueOnce(new ProductListError('validation', 'Address coordinates (latitude, longitude) are required for delivery quotation', 400))
+    await expect(quoteShipping('a1')).rejects.toMatchObject({ kind: 'no-coordinates' })
+    send.mockRejectedValueOnce(new ProductListError('rate-limit', undefined, 429))
+    await expect(quoteShipping('a1')).rejects.toMatchObject({ kind: 'rate-limit' })
   })
 })
 

@@ -59,6 +59,8 @@ export interface OrdersMock {
   orders: ApiOrder[]
   /** The bodies of POST /orders, in order. */
   posts: Record<string, unknown>[]
+  /** The bodies of POST /orders/quote-shipping, in order. */
+  quotes: Record<string, unknown>[]
   /** The query strings of GET /orders, in order. */
   lists: URLSearchParams[]
   /** Every GET /orders/:id (the id), in order. */
@@ -68,6 +70,7 @@ export interface OrdersMock {
   /** Overrides for the next requests of a kind: return a reply, 'abort' for a dropped connection, or undefined to answer normally. */
   on: {
     create?: (body: Record<string, unknown>) => OrderReply | 'abort' | undefined
+    quote?: (body: Record<string, unknown>) => OrderReply | 'abort' | undefined
     list?: (query: URLSearchParams) => OrderReply | 'abort' | undefined
     cancel?: (id: string) => OrderReply | 'abort' | undefined
     /** Held until the returned promise resolves, to test double clicks and pending states. */
@@ -83,13 +86,23 @@ interface Deps {
 /**
  * Stands in for the orders API (POST /orders, GET /orders, GET /orders/:id, POST /orders/:id/cancel) with an in-memory list that
  * follows the API's rules: 201 on create (a new PENDING_PAYMENT/UNPAID order with the cart lines named in `cartItemIds`, priced by the
- * products mock, plus the sent `shippingFee`), a list with `{ data, meta }` and an optional `status`, 404 for an unknown id, and a cancel
+ * products mock, plus the shipping fee of the quote named by `quotationId`), a list with `{ data, meta }` and an optional `status`, 404 for an unknown id, and a cancel
  * only for an unpaid PENDING_PAYMENT order (else 400). Unknown body keys are a 400 like the real ValidationPipe's forbidNonWhitelisted.
  * Register it after mockAuth. Only requests to another origin than the page are answered (the dev server also serves /src/.../orders/*).
  */
 export async function mockOrders(page: Page, initial: ApiOrder[] = [], { cart, products }: Deps = {}): Promise<OrdersMock> {
-  const mock: OrdersMock = { orders: [...initial], posts: [], lists: [], details: [], cancels: [], on: {} }
+  const mock: OrdersMock = { orders: [...initial], posts: [], quotes: [], lists: [], details: [], cancels: [], on: {} }
   let created = 0
+  // The fee of every quote handed out, by quotationId: a created order is priced with the one it names.
+  const fees = new Map<string, number>()
+  let lastFee = 0
+  const remember = (json: unknown) => {
+    const quote = json as { quotationId?: unknown; shippingFee?: unknown }
+    if (typeof quote?.quotationId === 'string' && typeof quote.shippingFee === 'number') {
+      fees.set(quote.quotationId, quote.shippingFee)
+      lastFee = quote.shippingFee
+    }
+  }
 
   const handle = async (route: Route) => {
     const request = route.request()
@@ -127,12 +140,24 @@ export async function mockOrders(page: Page, initial: ApiOrder[] = [], { cart, p
       })
     }
 
+    if (id === 'quote-shipping' && method === 'POST') {
+      const body = (request.postDataJSON() ?? {}) as Record<string, unknown>
+      mock.quotes.push(body)
+      const override = mock.on.quote?.(body)
+      if (override && override !== 'abort') remember(override.json)
+      if (await apply(override)) return
+      const expiresAt = new Date(Date.now() + 5 * 60_000).toISOString()
+      const json = { quotationId: 'q1', courier: 'Lalamove', serviceType: 'MOTORCYCLE', shippingFee: 99, currency: 'PHP', expiresAt }
+      remember(json)
+      return reply({ status: 201, json })
+    }
+
     if (!id && method === 'POST') {
       const body = (request.postDataJSON() ?? {}) as Record<string, unknown>
       mock.posts.push(body)
       if (mock.on.gate) await mock.on.gate
       if (await apply(mock.on.create?.(body))) return
-      const extra = Object.keys(body).filter((key) => !['addressId', 'cartItemIds', 'shippingFee', 'customerNotes', 'quotationId'].includes(key))
+      const extra = Object.keys(body).filter((key) => !['addressId', 'cartItemIds', 'customerNotes', 'quotationId'].includes(key))
       if (extra.length) return reply({ status: 400, json: { statusCode: 400, message: extra.map((key) => `property ${key} should not exist`), error: 'Bad Request' } })
       const ids = (body.cartItemIds as string[] | undefined) ?? []
       const lines = ids.flatMap((itemId) => {
@@ -143,7 +168,7 @@ export async function mockOrders(page: Page, initial: ApiOrder[] = [], { cart, p
       })
       const stamp = new Date(Date.UTC(2026, 10, 1, 2, 30) + created * 60_000).toISOString()
       const number = 800 + ++created
-      const shipping = typeof body.shippingFee === 'number' ? body.shippingFee : 0
+      const shipping = fees.get(body.quotationId as string) ?? (typeof body.shippingFee === 'number' ? body.shippingFee : lastFee)
       const subtotal = lines.reduce((sum, l) => sum + l.v.price * l.quantity, 0)
       const placed = order(number, {
         id: orderId(number),

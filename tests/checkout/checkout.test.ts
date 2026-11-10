@@ -61,12 +61,19 @@ describe('parseCheckoutItems', () => {
 })
 
 describe('computeTotals', () => {
-  it('adds delivery shipping to the variants at their own price', () => {
-    expect(computeTotals([item(POLO, 2)])).toEqual({ subtotal: 3780, discount: 0, shipping: SHIPPING_FEE, total: 3879 })
+  it('adds the flat shipping fee to the variants at their own price, until the subtotal reaches the free threshold', () => {
+    expect(computeTotals([item(POLO)])).toEqual({ subtotal: 1890, discount: 0, shipping: SHIPPING_FEE, total: 1890 + SHIPPING_FEE })
+    expect(computeTotals([item(POLO, 2)])).toEqual({ subtotal: 3780, discount: 0, shipping: 0, total: 3780 })
   })
 
   it('sums several items', () => {
-    expect(computeTotals([item(POLO), item(TROUSERS, 3)]).total).toBe(1890 + 2600 * 3 + SHIPPING_FEE)
+    expect(computeTotals([item(POLO), item(TROUSERS, 3)]).total).toBe(1890 + 2600 * 3)
+  })
+
+  it('uses a quoted fee over the flat rule, and 0 is a real fee', () => {
+    expect(computeTotals([item(POLO)], 99)).toMatchObject({ shipping: 99, total: 1989 })
+    expect(computeTotals([item(POLO, 2)], 99)).toMatchObject({ shipping: 99, total: 3879 })
+    expect(computeTotals([item(POLO)], 0)).toMatchObject({ shipping: 0, total: 1890 })
   })
 })
 

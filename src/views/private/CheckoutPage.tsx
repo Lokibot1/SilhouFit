@@ -23,7 +23,7 @@ import { useProductsByIds } from '../../hooks/useProducts'
 import { useWishlist } from '../../hooks/useWishlist'
 import { getDefaultAddress, loadAddresses, onAddressesChanged, type Address } from '../../service/addresses'
 import { addCartItem, removeCartItem } from '../../service/cartApi'
-import { createCheckoutSession, createOrder, loadAllOrders, OrdersError, usesSampleOrders, type CustomerOrder } from '../../service/ordersApi'
+import { createCheckoutSession, createOrder, loadAllOrders, OrdersError, quoteShipping, usesSampleOrders, type CustomerOrder, type ShippingQuote } from '../../service/ordersApi'
 import {
   computeTotals,
   deliveryEta,
@@ -170,6 +170,8 @@ function describeFailure(error: OrdersError): { title: string; body: string; aga
   switch (error.kind) {
     case 'no-coordinates':
       return { title: 'This address has no map pin', body: `${error.detail ?? 'Pin this address on the map so we can deliver to it.'} Your order was not placed.`, again: false }
+    case 'quote-expired':
+      return { title: 'The delivery fee changed', body: error.detail ?? 'The delivery fee ran out before your order went through. Check the new fee, then place your order again.', again: true }
     case 'validation':
       return { title, body: error.detail ?? 'Your cart changed. Reload your cart, then check out again.', again: false }
     case 'not-found':
@@ -409,8 +411,54 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   }, [user.email])
 
   const simulated = usesSampleOrders()
+  const picked = addresses.find((a) => a.id === deliverTo)
+  const pickedId = picked?.id
+  // A real order's delivery fee is quoted for the picked address and its pin; bumping the nonce asks again. A sample order has none.
+  const [quoteNonce, setQuoteNonce] = useState(0)
+  const [quote, setQuote] = useState<{ key: string; data?: ShippingQuote; error?: OrdersError } | null>(null)
+  const quoteKey = !simulated && picked && picked.latitude != null ? `${picked.id}:${picked.latitude}:${picked.longitude}:${quoteNonce}` : ''
+  // Only an answer for the current key counts: a pick or a pin made meanwhile makes the older one stale.
+  const current = quoteKey && quote?.key === quoteKey ? quote : null
+  const quoteLoading = quoteKey !== '' && !current
+
+  useEffect(() => {
+    if (!quoteKey || !pickedId) return
+    const abort = new AbortController()
+    quoteShipping(pickedId, { signal: abort.signal }).then(
+      (data) => setQuote({ key: quoteKey, data }),
+      (problem) => {
+        if (!abort.signal.aborted) setQuote({ key: quoteKey, error: problem instanceof OrdersError ? problem : new OrdersError('server') })
+      },
+    )
+    return () => abort.abort()
+  }, [quoteKey, pickedId])
+
   const itemCount = items.reduce((sum, i) => sum + i.qty, 0)
-  const totals = computeTotals(items)
+  const totals = computeTotals(items, simulated ? undefined : (current?.data?.shippingFee ?? 0))
+  const quoteError = current?.error
+  const quoteErrorCopy =
+    quoteError?.kind === 'rate-limit'
+      ? 'Too many fee checks in a minute. Wait a minute, then try again.'
+      : quoteError?.kind === 'network'
+        ? "We couldn't get the delivery fee because the connection dropped. Check your connection, then try again."
+        : quoteError?.kind === 'no-coordinates'
+          ? "This address has no map pin on our side, so we can't work out delivery. Pin it on the map, then your fee loads."
+          : "We couldn't get the delivery fee because our servers had a problem. Try again in a moment."
+  // What the Shipping row says while there is no fee to show; nothing once the fee is known.
+  const shippingNote = simulated ? undefined : saved === 'loading' || quoteLoading ? (
+    <>
+      <span aria-hidden="true" className="inline-block h-4 w-20 animate-pulse bg-kral-porcelain align-middle dark:bg-kral-graphite" />
+      <span className="sr-only">Getting delivery fee</span>
+    </>
+  ) : !picked ? (
+    'Add an address'
+  ) : picked.latitude == null ? (
+    <button type="button" onClick={() => openPinSheet()} className={KRAL_LINK}>
+      Pin your address
+    </button>
+  ) : quoteError ? (
+    'Unavailable'
+  ) : undefined
   const eta = deliveryEta()
   const picking = saved === 'loading' || addresses.length > 1
 
@@ -483,9 +531,10 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     toast.show({ kind: 'success', message: 'Delivery address saved.' })
   }
 
-  function openPinSheet() {
+  // `edit` edits the picked address even when it already has a pin (the server says it has none); otherwise only a pinless one is edited.
+  function openPinSheet(edit = false) {
     const current = addresses.find((a) => a.id === deliverTo)
-    setPinTarget(current && current.latitude == null ? current : null)
+    setPinTarget(current && (edit || current.latitude == null) ? current : null)
     setPinNeeded(true)
     setAdding(true)
     setEditing(true)
@@ -505,7 +554,6 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
       return
     }
     // The order API takes a saved address with a map pin, so what is on screen must be one of the saved ones as it is.
-    const picked = addresses.find((a) => a.id === deliverTo)
     const filled = picked && valuesOf(picked)
     if (!picked || !filled || phoneCountry !== DEFAULT_COUNTRY_CODE || ADDRESS_FIELD_ORDER.some((name) => values[name] !== filled[name])) {
       if (saved === 'failed') setEditing(true)
@@ -519,7 +567,24 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     setFailure(null)
     setPending(true)
     let temporary: string[] = []
+    let refreshed = false
     try {
+      // The fee on screen is the one the order is placed with. If it is about to run out (or never arrived), ask again and stop when it changed.
+      let q = current?.data
+      if (!simulated) {
+        if (picked.latitude == null) throw new OrdersError('no-coordinates', 'Pin this address on the map so we can deliver to it.')
+        if (!q || Date.parse(q.expiresAt) - Date.now() < 30_000) {
+          const fresh = await quoteShipping(picked.id, { signal: abort.signal })
+          setQuote({ key: quoteKey, data: fresh })
+          refreshed = true
+          // A fee the shopper never saw counts as changed too.
+          if (!q || fresh.shippingFee !== q.shippingFee) {
+            throw new OrdersError('quote-expired', `Delivery is now ${formatPeso(fresh.shippingFee)}. Check your total, then place your order again.`)
+          }
+          q = fresh
+        }
+      }
+      const sent = computeTotals(items, q?.shippingFee)
       let cartItemIds: string[]
       if (fromCart) {
         cartItemIds = items.flatMap((i) => (i.itemId ? [i.itemId] : []))
@@ -530,10 +595,10 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
       }
       let order: CustomerOrder
       try {
-        order = await createOrder({ addressId: picked.id, cartItemIds, shippingFee: totals.shipping, customerNotes: cleanText(note) }, { signal: abort.signal })
+        order = await createOrder({ addressId: picked.id, cartItemIds, shippingFee: sent.shipping, quotationId: q?.quotationId, customerNotes: cleanText(note) }, { signal: abort.signal })
       } catch (problem) {
         // A dropped connection may have come after the order was made: never place a second one blindly.
-        const found = problem instanceof OrdersError && problem.kind === 'network' ? await findJustPlaced(totals.total) : null
+        const found = problem instanceof OrdersError && problem.kind === 'network' ? await findJustPlaced(sent.total) : null
         if (!found) throw problem
         order = found
       }
@@ -542,7 +607,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
       saveLastOrder({
         ...receipt,
         items: receipt.items.map((line) => ({ ...line, arReady: items.some((i) => i.product.name === line.name && i.product.arReady) })),
-        quotedTotal: totals.total,
+        quotedTotal: sent.total,
       })
       // Only what was ordered leaves the cart: a line added in another tab meanwhile stays. Buy now never touches it.
       if (fromCart) await cart.removeLines(items.map((i) => i.variantId))
@@ -562,6 +627,8 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     } catch (problem) {
       await dropLines(temporary)
       if (abort.signal.aborted) return
+      // Show the new fee in the summary, unless the fresh quote is already there.
+      if (problem instanceof OrdersError && problem.kind === 'quote-expired' && !refreshed) setQuoteNonce((n) => n + 1)
       setFailure(problem instanceof OrdersError ? problem : new OrdersError('server'))
       setPending(false)
     } finally {
@@ -821,14 +888,27 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           <br />
           {eta}
         </p>
-        <PriceSummary tone="kral" totals={totals} itemCount={itemCount} />
+        <PriceSummary tone="kral" totals={totals} itemCount={itemCount} shipping={shippingNote} />
+        {quoteError && (
+          <div role="alert" className="font-kral-mono flex flex-wrap items-baseline gap-x-3 text-base leading-snug text-danger md:text-sm">
+            <span>{quoteErrorCopy}</span>
+            {quoteError.kind === 'no-coordinates' && (
+              <button type="button" onClick={() => openPinSheet(true)} className={KRAL_LINK}>
+                Pin your address
+              </button>
+            )}
+            <button type="button" onClick={() => setQuoteNonce((n) => n + 1)} className={KRAL_LINK}>
+              Try again
+            </button>
+          </div>
+        )}
 
-        {failure && <FailurePanel error={failure} fromCart={fromCart} next={pathname + search} onRetry={() => void submit()} onPin={openPinSheet} onPick={() => setEditing(true)} />}
+        {failure && <FailurePanel error={failure} fromCart={fromCart} next={pathname + search} onRetry={() => void submit()} onPin={() => openPinSheet()} onPick={() => setEditing(true)} />}
 
         <div className="space-y-4">
           {/* Below lg the button is pinned to the bottom of the screen so it is always in reach; from lg the summary card is sticky instead. */}
           <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:mb-0 max-lg:z-40 max-lg:border-t max-lg:border-kral-rule max-lg:bg-kral-bg max-lg:px-4 max-lg:pt-3 max-lg:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-            <button type="submit" data-tour="checkout-place" disabled={pending} className={`${KRAL_PRIMARY} w-full`}>
+            <button type="submit" data-tour="checkout-place" disabled={pending || quoteLoading || !!quoteError} className={`${KRAL_PRIMARY} w-full`}>
               {pending ? (
                 <>
                   <SpinnerIcon />

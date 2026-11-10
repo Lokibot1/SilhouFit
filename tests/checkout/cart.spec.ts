@@ -96,7 +96,7 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
   await placeOrderButton(page).click()
   await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
   expect(shop.orders.posts).toHaveLength(1)
-  expect(shop.orders.posts[0]).toMatchObject({ addressId: shop.addresses.rows[0].id, shippingFee: 99, customerNotes: 'Gift wrap, please.' })
+  expect(shop.orders.posts[0]).toMatchObject({ addressId: shop.addresses.rows[0].id, quotationId: 'q1', customerNotes: 'Gift wrap, please.' })
 
   await expect(page.getByRole('heading', { level: 1, name: 'Order placed' })).toBeFocused()
   await expect(page.getByText('Heritage Polo')).toBeVisible()
@@ -114,12 +114,13 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
 })
 
 test('a signed-in cart checkout with pieces from two boutiques go in one delivery order', async ({ page }) => {
-  await signedIn(page)
   cart.seed(NAVY_M.id, 1) // Ayala Atelier
   cart.seed(only(TROUSERS), 1) // Lumban Loom
+  await signInViaForm(page) // the delivery fee is quoted for a saved address, which needs a real session
   await page.goto('/checkout?source=cart')
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
-  await expect(page.getByRole('complementary')).toContainText('₱99.00') // one flat fee for the whole order
+  await expect(page.getByRole('complementary')).toContainText('₱99.00') // one quoted fee for the whole order
+  expect(shop.orders.quotes).toHaveLength(1)
 })
 
 test('a piece archived since it was added shows as no longer available and cannot be checked out', async ({ page }) => {

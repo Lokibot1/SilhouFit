@@ -17,7 +17,7 @@ export interface CheckoutItem {
 export type Payment = 'ewallet' | 'cash'
 export type Provider = 'gcash' | 'maya'
 
-/** The API's shipping rule: a flat fee, free once the subtotal reaches the threshold. */
+/** The sample orders' shipping rule: a flat fee, free once the subtotal reaches the threshold. Real orders use the quoted delivery fee. */
 export const SHIPPING_FEE = 150
 export const FREE_SHIPPING_THRESHOLD = 2500
 
@@ -74,10 +74,11 @@ export interface Totals {
   total: number
 }
 
-export function computeTotals(items: CheckoutItem[]): Totals {
+/** `quotedFee` is the delivery fee quoted for a real order (0 is a real fee); without it the sample orders' flat rule applies. */
+export function computeTotals(items: CheckoutItem[], quotedFee?: number): Totals {
   const subtotal = items.reduce((sum, i) => sum + i.unit * i.qty, 0)
   const discount = 0 // The API has no sale price; `unit` is already what the variant costs.
-  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE
+  const shipping = quotedFee ?? (subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE)
   return { subtotal, discount, shipping, total: subtotal - discount + shipping }
 }
 
