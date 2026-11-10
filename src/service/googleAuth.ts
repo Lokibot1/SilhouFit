@@ -11,6 +11,10 @@ import { safeNext } from '../utils/safeNext'
 export const CALLBACK_PATH = '/auth/callback'
 const NATIVE_REDIRECT = 'com.silhoufit.app://auth/callback'
 
+// Off until Google approves the app for this sensitive scope; before that it blocks everyone but listed test users.
+// Without it the callback asks for the birthday instead.
+const BIRTHDAY_OPTIONS = import.meta.env.VITE_GOOGLE_BIRTHDAY === 'true' ? { scopes: BIRTHDAY_SCOPE } : {}
+
 // The safe `?next=` path waits here across the round trip to Google. A path, never a token.
 const NEXT_KEY = 'silhoufit-auth-next'
 
@@ -70,8 +74,8 @@ export async function startGoogleAuth({ next }: { next: string | null }): Promis
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: native
-        ? { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true, scopes: BIRTHDAY_SCOPE }
-        : { redirectTo: `${window.location.origin}${CALLBACK_PATH}`, scopes: BIRTHDAY_SCOPE },
+        ? { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true, ...BIRTHDAY_OPTIONS }
+        : { redirectTo: `${window.location.origin}${CALLBACK_PATH}`, ...BIRTHDAY_OPTIONS },
     })
     // Status 0 is supabase-js's fetch failure.
     if (error) throw new GoogleAuthError(error.status === 0 ? 'network' : 'server')
