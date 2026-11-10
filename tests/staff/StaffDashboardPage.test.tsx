@@ -177,7 +177,7 @@ describe('StaffDashboardPage', () => {
   })
 
   describe('period filter', () => {
-    const week = () => within(screen.getByRole('radiogroup', { name: 'Sales period' })).getByRole('radio', { name: 'Week' })
+    const week = () => within(screen.getByRole('radiogroup', { name: 'Sales period' })).getByRole('radio', { name: 'Weekly' })
     const lastFilter = (fetcher: typeof analytics.fetchSalesSeries) => vi.mocked(fetcher).mock.lastCall?.[0]?.filter
 
     it('filters one card without touching the others', async () => {
@@ -228,7 +228,7 @@ describe('StaffDashboardPage', () => {
         .mockReturnValueOnce(new Promise((resolve) => (finishWeek = resolve)))
         .mockResolvedValueOnce([{ date: '2026-10-01', total: 500 }, { date: '2026-10-02', total: 700 }])
       await userEvent.click(week())
-      await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Sales period' })).getByRole('radio', { name: 'Quarter' }))
+      await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Sales period' })).getByRole('radio', { name: 'Quarterly' }))
       expect(await screen.findByRole('img', { name: /Peak ₱700/ })).toBeInTheDocument()
       await act(async () => finishWeek([{ date: '2026-10-19', total: 9999 }]))
       expect(screen.getByRole('img', { name: /Peak ₱700/ })).toBeInTheDocument()

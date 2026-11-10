@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { withCommas } from '../../../utils/format'
 import {
   DEFAULT_HEX,
@@ -6,7 +5,6 @@ import {
   newColor,
   filterColorName,
   filterPrice,
-  filterSize,
   filterSku,
   filterStock,
   HEX_COLOR,
@@ -40,25 +38,13 @@ interface VariantBuilderProps {
 
 const SMALL_BUTTON = `${SECONDARY_BUTTON} text-sm`
 
-/** Sizes as tick chips plus custom sizes, colours as rows, and the size x colour variants they make, one card each (the sheet is narrow). */
+/** Sizes as tick chips, colours as rows, and the size x colour variants they make, one card each (the sheet is narrow). */
 export function VariantBuilder({ values, skus, disabled, error, touch, set }: VariantBuilderProps) {
-  const [custom, setCustom] = useState('')
-  const [customError, setCustomError] = useState<string>()
   const chips = sizeChips(values)
   const rows = variantRows(values)
 
   function toggle(size: string, on: boolean) {
     set({ sizes: on ? [...values.sizes, size] : values.sizes.filter((s) => s !== size) })
-  }
-
-  function addCustom() {
-    if (!custom) return
-    if (chips.includes(custom)) setCustomError(`${custom} is already in the list. Tick it above instead.`)
-    else {
-      setCustomError(undefined)
-      set({ custom: [...values.custom, custom], sizes: [...values.sizes, custom] })
-      setCustom('')
-    }
   }
 
   const edit = (key: string, patch: RowEdit) => set({ edits: { ...values.edits, [key]: { ...values.edits[key], ...patch } } })
@@ -89,36 +75,6 @@ export function VariantBuilder({ values, skus, disabled, error, touch, set }: Va
                 </span>
               </label>
             ))}
-          </div>
-          <div className="flex items-end gap-2">
-            <div className="min-w-0 flex-1">
-              <Field id="pf-custom-size" label="Add a size" optional error={customError}>
-                <input
-                  id="pf-custom-size"
-                  type="text"
-                  autoComplete="off"
-                  maxLength={PRODUCT_LIMITS.sizeMax}
-                  value={custom}
-                  disabled={disabled}
-                  placeholder="e.g. 2XL"
-                  aria-invalid={Boolean(customError)}
-                  aria-describedby={describedBy('pf-custom-size', customError)}
-                  onChange={(event) => {
-                    setCustomError(undefined)
-                    setCustom(filterSize(event.target.value))
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter') return
-                    event.preventDefault()
-                    addCustom()
-                  }}
-                  className={FIELD_INPUT}
-                />
-              </Field>
-            </div>
-            <button type="button" disabled={disabled || !custom} onClick={addCustom} className={SMALL_BUTTON}>
-              Add size
-            </button>
           </div>
           {sizesError && <p className="text-sm text-danger">{sizesError}</p>}
         </fieldset>

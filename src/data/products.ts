@@ -6,11 +6,11 @@ export type Category = string
 
 export type Badge = 'New' | 'Best seller' | 'Limited' | 'AR-ready'
 
-/** Default sizes per category: Hoodie XS to XL, Pants and Shorts waist 28 to 36, Headwear one size. Stock is tracked per piece, not per size. */
+/** Default sizes per category: Hoodie, Pants and Shorts XS to XL, Headwear one size. Stock is tracked per piece, not per size. */
 export const SIZES_BY_CATEGORY: Record<string, string[]> = {
   Hoodie: ['XS', 'S', 'M', 'L', 'XL'],
-  Pants: ['28', '30', '32', '34', '36'],
-  Shorts: ['28', '30', '32', '34', '36'],
+  Pants: ['XS', 'S', 'M', 'L', 'XL'],
+  Shorts: ['XS', 'S', 'M', 'L', 'XL'],
   Headwear: ['One size'],
 }
 
