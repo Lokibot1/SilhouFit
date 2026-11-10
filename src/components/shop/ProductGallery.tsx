@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { productImages, type Product } from '../../data/products'
 import { ChevronLeftIcon, ChevronRightIcon, HeartIcon } from '../form/icons'
 import { SilhouetteMark } from '../landing/SilhouetteMark'
@@ -8,6 +8,11 @@ const REVEAL =
   'opacity-0 transition-opacity duration-200 ease-out group-hover/img:opacity-100 group-has-focus-visible/img:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none'
 // Below lg the chevrons give way to swiping: hidden and untappable, but still there for keyboard focus.
 const SWIPED = 'max-lg:pointer-events-none max-lg:opacity-0! max-lg:focus-visible:pointer-events-auto max-lg:focus-visible:opacity-100!'
+
+// Magnifier scale, how long a touch must hold to zoom, and how far it may drift (px) before it counts as a swipe.
+const ZOOM = 2.5
+const HOLD_MS = 450
+const MOVE_TOLERANCE = 8
 
 interface ProductGalleryProps {
   product: Product
@@ -33,11 +38,68 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
     const raw = e.clientX - (swipe.current?.x ?? e.clientX)
     return (current === 0 && raw > 0) || (current === images.length - 1 && raw < 0) ? raw * 0.3 : raw
   }
+  // Zoom: a mouse hover follows the pointer; on touch a long press zooms in, dragging pans, letting go zooms out.
+  // Zoom stays at its last origin when it turns off so the image shrinks back towards where it was.
+  const [zoom, setZoom] = useState({ x: 50, y: 50, active: false })
+  const photo = useRef<HTMLDivElement>(null)
+  const press = useRef<{ id: number; x: number; y: number; timer: number; active: boolean } | null>(null)
+  const spot = (el: HTMLElement, e: PointerEvent) => {
+    const r = el.getBoundingClientRect()
+    // Clamped, so a finger dragged past the photo's edge never slides the image off its box.
+    const pct = (value: number) => Math.min(100, Math.max(0, value * 100))
+    return { x: pct((e.clientX - r.left) / r.width), y: pct((e.clientY - r.top) / r.height), active: true }
+  }
+  const releasePress = () => {
+    if (!press.current) return
+    window.clearTimeout(press.current.timer)
+    press.current = null
+    setZoom((z) => ({ ...z, active: false }))
+  }
+  // Once the long press has fired, stop the browser scrolling the page under the panning finger.
+  useEffect(() => {
+    const el = photo.current
+    const block = (e: TouchEvent) => {
+      if (press.current?.active) e.preventDefault()
+    }
+    el?.addEventListener('touchmove', block, { passive: false })
+    return () => {
+      el?.removeEventListener('touchmove', block)
+      window.clearTimeout(press.current?.timer)
+    }
+  }, [])
+
   function swipeStart(e: PointerEvent<HTMLDivElement>) {
+    if (e.pointerType !== 'mouse' && !(e.target as HTMLElement).closest('button')) {
+      const el = e.currentTarget
+      const { clientX: x, clientY: y, pointerId: id } = e
+      const origin = spot(el, e)
+      window.clearTimeout(press.current?.timer)
+      press.current = {
+        id,
+        x,
+        y,
+        active: false,
+        timer: window.setTimeout(() => {
+          if (!press.current) return
+          press.current.active = true
+          setZoom(origin)
+        }, HOLD_MS),
+      }
+    }
     if (!multi || window.matchMedia('(min-width: 64rem)').matches || (e.pointerType === 'mouse' && e.button !== 0)) return
     swipe.current = { id: e.pointerId, x: e.clientX, at: Date.now(), locked: false }
   }
   function swipeMove(e: PointerEvent<HTMLDivElement>) {
+    if (e.pointerType === 'mouse') {
+      if (swipe.current?.locked || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+      if ((e.target as HTMLElement).closest('button')) setZoom((z) => ({ ...z, active: false }))
+      else setZoom(spot(e.currentTarget, e))
+    }
+    const p = press.current
+    if (p && p.id === e.pointerId) {
+      if (p.active) return setZoom(spot(e.currentTarget, e))
+      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) >= MOVE_TOLERANCE) releasePress()
+    }
     const s = swipe.current
     if (!s || s.id !== e.pointerId) return
     if (!s.locked) {
@@ -48,6 +110,7 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
     setDragX(offset(e))
   }
   function swipeEnd(e: PointerEvent<HTMLDivElement>) {
+    if (press.current?.id === e.pointerId) releasePress()
     const s = swipe.current
     if (!s || s.id !== e.pointerId) return
     swipe.current = null
@@ -69,7 +132,10 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
         onPointerMove={swipeMove}
         onPointerUp={swipeEnd}
         onPointerCancel={swipeEnd}
-        className="group/img relative aspect-4/5 h-full w-auto max-w-full touch-pan-y max-lg:h-auto max-lg:w-full overflow-hidden bg-kral-porcelain select-none dark:bg-kral-graphite"
+        onPointerLeave={(e) => e.pointerType === 'mouse' && setZoom((z) => ({ ...z, active: false }))}
+        onContextMenu={(e) => press.current && e.preventDefault()}
+        ref={photo}
+        className="group/img relative aspect-4/5 h-full w-auto max-w-full touch-pan-y max-lg:h-auto max-lg:w-full overflow-hidden bg-kral-porcelain select-none [-webkit-touch-callout:none] pointer-fine:cursor-zoom-in dark:bg-kral-graphite"
       >
         {/* Same sliding track as the shop cards. */}
         <div
@@ -95,7 +161,12 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
                 decoding="async"
                 draggable={false}
                 onError={() => setFailed((f) => [...f, image])}
-                className="photo-mono size-full shrink-0 object-cover"
+                style={
+                  i === current
+                    ? { transform: `scale(${zoom.active ? ZOOM : 1})`, transformOrigin: `${zoom.x}% ${zoom.y}%` }
+                    : undefined
+                }
+                className="photo-mono size-full shrink-0 object-cover transition-transform duration-200 ease-out motion-reduce:transition-none"
               />
             ),
           )}
