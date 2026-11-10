@@ -182,7 +182,7 @@ function ModalView({ title, icon, variant, tone, compact, footer, closable, pane
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={transition}
-        className="absolute inset-0 bg-carbon-950/60"
+        className="absolute inset-0 bg-carbon-950/60 backdrop-blur-xs"
         aria-hidden="true"
         onPointerDown={onClose}
         onMouseDown={(event) => event.preventDefault()}
