@@ -115,7 +115,7 @@ function ItemRow({ item, change, compact }: { item: CheckoutItem; change: boolea
         tone="kral"
         src={product.image}
         alt={product.alt}
-        className={`photo-mono h-24 w-18 shrink-0 object-cover transition-[width,height] duration-200 ease-out motion-reduce:transition-none ${compact ? 'lg:h-16 lg:w-12' : ''}`}
+        className={`h-24 w-18 shrink-0 object-cover transition-[width,height] duration-200 ease-out motion-reduce:transition-none ${compact ? 'lg:h-16 lg:w-12' : ''}`}
       />
       <div className="min-w-0 flex-1">
         <p className="font-kral-mono truncate text-xs tracking-[0.08em] text-kral-muted uppercase">

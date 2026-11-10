@@ -118,7 +118,7 @@ function OrderBody({ order, onCancel }: { order: CustomerOrder; onCancel: (order
           <ul className="mt-4 space-y-4">
             {order.items.map((item) => (
               <li key={item.id} className="flex min-w-0 gap-4">
-                <PhotoImg tone="kral" src={item.imageUrl} alt={item.name} loading="lazy" className="photo-mono h-24 w-18 shrink-0 object-cover" />
+                <PhotoImg tone="kral" src={item.imageUrl} alt={item.name} loading="lazy" className="h-24 w-18 shrink-0 object-cover" />
                 <div className="font-kral-mono min-w-0 flex-1">
                   <h3 className="font-kral-display text-sm leading-tight font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase sm:text-base">{item.name}</h3>
                   {variantLabel(item.size, item.color) && <p className={`${MUTED} mt-1`}>{variantLabel(item.size, item.color)}</p>}

@@ -166,7 +166,7 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
                     ? { transform: `scale(${zoom.active ? ZOOM : 1})`, transformOrigin: `${zoom.x}% ${zoom.y}%` }
                     : undefined
                 }
-                className="photo-mono size-full shrink-0 object-cover transition-transform duration-200 ease-out motion-reduce:transition-none"
+                className="size-full shrink-0 object-cover transition-transform duration-200 ease-out motion-reduce:transition-none"
               />
             ),
           )}
@@ -253,7 +253,7 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
                     loading="lazy"
                     decoding="async"
                     onError={() => setFailed((f) => [...f, image])}
-                    className="photo-mono size-full object-cover"
+                    className="size-full object-cover"
                   />
                 )}
               </button>

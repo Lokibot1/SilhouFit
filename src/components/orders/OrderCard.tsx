@@ -8,7 +8,7 @@ import { PhotoImg } from '../ui/PhotoImg'
 import { OrderStatusChip } from './OrderStatusChip'
 
 const MAX_THUMBS = 3
-const THUMB = 'photo-mono h-16 w-12 shrink-0 object-cover sm:h-20 sm:w-16'
+const THUMB = 'h-16 w-12 shrink-0 object-cover sm:h-20 sm:w-16'
 
 interface OrderCardProps {
   order: CustomerOrder

@@ -367,7 +367,7 @@ export function CartPage() {
                         tone="kral"
                         src={line.image}
                         alt={line.name}
-                        className="photo-mono h-20 w-16 shrink-0 object-cover sm:h-24 sm:w-18"
+                        className="h-20 w-16 shrink-0 object-cover sm:h-24 sm:w-18"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
@@ -531,7 +531,7 @@ function VariationModal({
       }
     >
       <div className="mb-5 flex gap-4 border border-kral-rule p-3">
-        <PhotoImg tone="kral" src={product.image} alt={product.alt} className="photo-mono h-32 w-24 shrink-0 object-cover" />
+        <PhotoImg tone="kral" src={product.image} alt={product.alt} className="h-32 w-24 shrink-0 object-cover" />
         <div className="min-w-0 flex-1">
           <p className="font-kral-mono truncate text-xs tracking-[0.08em] text-kral-muted uppercase">
             {product.category} · {product.boutique}

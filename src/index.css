@@ -125,8 +125,6 @@
   --glass-hi: 0.75;
   --glass-blur: 36px;
 
-  --photo-sat: 0.4;
-
   --halo-a: 0.95;
 
   --z-popover: 100;
@@ -230,8 +228,6 @@
   --glass-edge-a: 0.13;
   --glass-hi: 0.05;
   --glass-blur: 36px;
-
-  --photo-sat: 0.35;
 
   --halo-a: 0.28;
 
@@ -641,11 +637,6 @@
   .glass:where(.chrome-edge),
   .glass-clear:where(.chrome-edge) {
     border-color: transparent;
-  }
-
-  /* Photography is held back toward the cool palette, not stripped; one variable to dial. */
-  .photo-mono {
-    filter: saturate(var(--photo-sat)) contrast(1.04);
   }
 
   .chrome-rule {

@@ -87,7 +87,7 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
                 loading={i === 0 && index < 4 ? 'eager' : 'lazy'}
                 decoding="async"
                 onError={(e) => (i === 0 ? setFailed(true) : (e.currentTarget.style.visibility = 'hidden'))}
-                className="photo-mono size-full shrink-0 object-cover"
+                className="size-full shrink-0 object-cover"
               />
             ))}
           </div>

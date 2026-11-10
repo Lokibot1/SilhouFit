@@ -120,7 +120,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
           <img
             src={product.image}
             alt={product.alt}
-            className={`photo-mono h-48 w-36 shrink-0 object-cover ${kral ? '' : 'rounded-md border border-line'}`}
+            className={`h-48 w-36 shrink-0 object-cover ${kral ? '' : 'rounded-md border border-line'}`}
           />
           <div className="min-w-0 flex-1">
             <p className={`truncate text-xs uppercase ${kral ? 'font-kral-mono tracking-[0.08em] text-kral-muted' : 'font-ui tracking-[0.16em] text-fg-muted'}`}>
