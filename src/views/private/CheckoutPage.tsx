@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AddressForm } from '../../components/address/AddressForm'
 import { CheckoutSkeleton } from '../../components/checkout/CheckoutSkeleton'
@@ -303,12 +303,14 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const [phoneCountry, setPhoneCountry] = useState(DEFAULT_COUNTRY_CODE)
   const [touched, setTouched] = useState<Partial<Record<AddressField, boolean>>>({})
   const [note, setNote] = useState('')
+  const [deliveryNote, setDeliveryNote] = useState('')
   const [pending, setPending] = useState(false)
   // The address editor is a sheet; `focusField` is the invalid field to focus once the sheet has rendered it.
   const [editing, setEditing] = useState(false)
   const focusField = useRef<AddressField | null>(null)
   const [failure, setFailure] = useState<OrdersError | null>(null)
   const noteError = note.trim() && hasProfanity(note) ? PROFANITY_ERROR : null
+  const deliveryNoteError = deliveryNote.trim() && hasProfanity(deliveryNote) ? PROFANITY_ERROR : null
   // The sheet shows the saved-address form (with its map pin) instead of the fields; `pinNeeded` says why it opened.
   const [adding, setAdding] = useState(false)
   const [pinNeeded, setPinNeeded] = useState(false)
@@ -493,8 +495,8 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
 
   async function submit() {
     if (inFlight.current) return
-    if (noteError) {
-      document.getElementById('checkout-note')?.focus()
+    if (deliveryNoteError || noteError) {
+      document.getElementById(deliveryNoteError ? 'checkout-delivery-note' : 'checkout-note')?.focus()
       return
     }
     // The order API takes a saved address with a map pin, so what is on screen must be one of the saved ones as it is.
@@ -559,7 +561,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   }
 
   return (
-    <form noValidate onSubmit={onSubmit} aria-busy={pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
+    <form noValidate onSubmit={onSubmit} aria-busy={pending} className="mt-6 grid gap-6 max-lg:pb-24 lg:grid-cols-[1fr_22rem] lg:items-start">
       <div className="min-w-0 space-y-6">
         {notices.length > 0 && (
           <div role="status" className={SECTION}>
@@ -784,31 +786,9 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
           </p>
         </section>
 
-        <section aria-labelledby="checkout-note-label" className={SECTION}>
-          <label id="checkout-note-label" htmlFor="checkout-note" className={`${HEADING} mb-2`}>
-            <NoteIcon />
-            Note to seller
-          </label>
-          <textarea
-            id="checkout-note"
-            value={note}
-            readOnly={pending}
-            onChange={(event) => setNote(filterNote(event.target.value))}
-            placeholder="Anything the seller should know? (optional)"
-            rows={3}
-            aria-invalid={noteError ? true : undefined}
-            aria-describedby={noteError ? 'checkout-note-error' : undefined}
-            className={`${KRAL_INPUT} h-24 resize-none py-3 ${noteError ? 'border-danger!' : ''}`}
-          />
-          {noteError && (
-            <p id="checkout-note-error" role="alert" className="font-kral-mono mt-1 text-base leading-snug text-danger md:text-sm">
-              {noteError}
-            </p>
-          )}
-          <p className="font-kral-mono mt-1 text-right text-xs text-kral-muted tabular-nums" aria-hidden="true">
-            {note.length}/{ADDRESS_LIMITS.note}
-          </p>
-        </section>
+        <NoteSection id="checkout-delivery-note" title="Delivery notes" icon={<MapPinIcon />} placeholder="Instructions for the rider, like a gate code or where to leave the parcel? (optional)" value={deliveryNote} error={deliveryNoteError} readOnly={pending} onChange={setDeliveryNote} />
+
+        <NoteSection id="checkout-note" title="Note to seller" icon={<NoteIcon />} placeholder="Anything the seller should know? (optional)" value={note} error={noteError} readOnly={pending} onChange={setNote} />
       </div>
 
       <aside aria-labelledby="checkout-summary" className={`${SECTION} space-y-4 lg:sticky lg:top-[calc(4rem+var(--site-header-extra,0px))]`}>
@@ -828,32 +808,68 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
 
         {failure && <FailurePanel error={failure} fromCart={fromCart} next={pathname + search} onRetry={() => void submit()} onPin={openPinSheet} onPick={() => setEditing(true)} />}
 
-        <button type="submit" data-tour="checkout-place" disabled={pending} className={`${KRAL_PRIMARY} w-full`}>
-          {pending ? (
-            <>
-              <SpinnerIcon />
-              Placing order…
-            </>
-          ) : (
-            <>
-              <BagIcon />
-              Place order
-            </>
-          )}
-        </button>
-        <p className="font-kral-mono text-left text-base leading-snug text-kral-muted md:text-sm">
-          By placing an order, you agree to the SilhouFit{' '}
-          <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="tap kral-focus relative underline underline-offset-2 after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:text-kral-fg">
-            Terms of Service
-          </a>{' '}
-          and sale, and acknowledge that you have read the{' '}
-          <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="tap kral-focus relative underline underline-offset-2 after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:text-kral-fg">
-            Privacy Policy
-          </a>
-          .
-        </p>
+        <div className="space-y-4">
+          {/* Below lg the button is pinned to the bottom of the screen so it is always in reach; from lg the summary card is sticky instead. */}
+          <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:mb-0 max-lg:z-40 max-lg:border-t max-lg:border-kral-rule max-lg:bg-kral-bg max-lg:px-4 max-lg:pt-3 max-lg:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+            <button type="submit" data-tour="checkout-place" disabled={pending} className={`${KRAL_PRIMARY} w-full`}>
+              {pending ? (
+                <>
+                  <SpinnerIcon />
+                  Placing order…
+                </>
+              ) : (
+                <>
+                  <BagIcon />
+                  Place order
+                </>
+              )}
+            </button>
+          </div>
+          <p className="font-kral-mono text-left text-base leading-snug text-kral-muted md:text-sm">
+            By placing an order, you agree to the SilhouFit{' '}
+            <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="tap kral-focus relative underline underline-offset-2 after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:text-kral-fg">
+              Terms of Service
+            </a>{' '}
+            and sale, and acknowledge that you have read the{' '}
+            <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="tap kral-focus relative underline underline-offset-2 after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:text-kral-fg">
+              Privacy Policy
+            </a>
+            .
+          </p>
+        </div>
       </aside>
     </form>
+  )
+}
+
+/** A free-text box with its own heading, profanity message and character count. */
+function NoteSection({ id, title, icon, placeholder, value, error, readOnly, onChange }: { id: string; title: string; icon: ReactNode; placeholder: string; value: string; error: string | null; readOnly: boolean; onChange: (value: string) => void }) {
+  return (
+    <section aria-labelledby={`${id}-label`} className={SECTION}>
+      <label id={`${id}-label`} htmlFor={id} className={`${HEADING} mb-2`}>
+        {icon}
+        {title}
+      </label>
+      <textarea
+        id={id}
+        value={value}
+        readOnly={readOnly}
+        onChange={(event) => onChange(filterNote(event.target.value))}
+        placeholder={placeholder}
+        rows={3}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className={`${KRAL_INPUT} h-24 resize-none py-3 ${error ? 'border-danger!' : ''}`}
+      />
+      {error && (
+        <p id={`${id}-error`} role="alert" className="font-kral-mono mt-1 text-base leading-snug text-danger md:text-sm">
+          {error}
+        </p>
+      )}
+      <p className="font-kral-mono mt-1 text-right text-xs text-kral-muted tabular-nums" aria-hidden="true">
+        {value.length}/{ADDRESS_LIMITS.note}
+      </p>
+    </section>
   )
 }
 

@@ -284,11 +284,17 @@ describe('CheckoutPage address and note', () => {
     expect(screen.getByText('9/120')).toBeInTheDocument()
 
     const note = screen.getByRole('textbox', { name: 'Note to seller' })
-    expect(screen.getByText('0/200')).toBeInTheDocument()
+    // One count each for the delivery notes and the note to seller.
+    expect(screen.getAllByText('0/200')).toHaveLength(2)
     await user.click(note)
     await user.paste('x'.repeat(260))
     expect(note).toHaveValue('x'.repeat(200))
     expect(screen.getByText('200/200')).toBeInTheDocument()
+
+    const rider = screen.getByRole('textbox', { name: 'Delivery notes' })
+    await user.click(rider)
+    await user.paste('y'.repeat(260))
+    expect(rider).toHaveValue('y'.repeat(200))
   })
 
   it('allows emoji in the note, strips control characters, and sends the cleaned note', async () => {
