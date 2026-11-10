@@ -67,4 +67,10 @@ export function choiceOf(product: Product, size: string, color: string) {
   }
 }
 
+/** A size or colour is sold out when every variant that has it is out of stock. A piece without variants is never sold out by option. */
+export function optionSoldOut(product: Product, axis: 'size' | 'color', value: string) {
+  const matching = (product.variants ?? []).filter((v) => (axis === 'size' ? (v.size ?? '') === value : (v.color ?? '').toLowerCase() === value.toLowerCase()))
+  return matching.length > 0 && matching.every((v) => v.stock <= 0)
+}
+
 export type ProductGender = 'male' | 'female' | 'other' | 'unisex'

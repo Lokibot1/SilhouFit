@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CATEGORIES, choiceOf, sizesFor, type Product } from '../../src/data/products'
+import { CATEGORIES, choiceOf, optionSoldOut, sizesFor, type Product } from '../../src/data/products'
 import { sameColour, validColour } from '../../src/hooks/useShopColours'
 import { orderSizes, SORT_OPTIONS, shopTitle, toApiParams, type ProductQuery } from '../../src/utils/productQuery'
 
@@ -103,6 +103,16 @@ describe('sizes, price and stock of a product from the API', () => {
 
   it('counts a size and colour no variant has as sold out', () => {
     expect(choiceOf(piece, 'S', 'Navy')).toMatchObject({ stock: 0, variant: undefined })
+  })
+
+  it('calls a size or colour sold out only when every variant that has it is out', () => {
+    expect(optionSoldOut(piece, 'size', 'S')).toBe(false) // S-Black has 4
+    expect(optionSoldOut(piece, 'size', 'M')).toBe(false) // M-Navy has 5
+    expect(optionSoldOut(piece, 'color', 'black')).toBe(false)
+    const out = { ...piece, variants: piece.variants!.map((x) => (x.size === 'M' ? { ...x, stock: 0 } : x)) }
+    expect(optionSoldOut(out, 'size', 'M')).toBe(true)
+    expect(optionSoldOut(out, 'color', 'Navy')).toBe(true)
+    expect(optionSoldOut({ ...piece, variants: undefined }, 'size', 'M')).toBe(false)
   })
 })
 

@@ -155,6 +155,18 @@ describe('ProductPage purchase', () => {
     expect(storedCart()).toEqual([])
   })
 
+  it('makes a sold-out size or colour unclickable', async () => {
+    // M is only in Black (out), and Navy is only in S (out): both are sold out, Black and S are not.
+    fetchMock.mockResolvedValue(piece({ variants: [variant('v1', 'Black', 'S', 1500, 10), variant('v2', 'Black', 'M', 1500, 0), variant('v3', 'Navy', 'S', 1800, 0)] }))
+    renderPage()
+    await screen.findByRole('heading', { level: 2, name: 'Linen Shirt' })
+
+    expect(screen.getByRole('radio', { name: /^M \(sold out\)$/ })).toBeDisabled()
+    expect(screen.getByRole('radio', { name: /^Navy \(sold out\)$/ })).toBeDisabled()
+    expect(screen.getByRole('radio', { name: 'S' })).toBeEnabled()
+    expect(screen.getByRole('radio', { name: 'Black' })).toBeEnabled()
+  })
+
   it('toggles the wishlist with an Undo', async () => {
     const user = userEvent.setup()
     renderPage()

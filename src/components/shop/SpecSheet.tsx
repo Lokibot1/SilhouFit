@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useRef, useState } from 'react'
-import { choiceOf, sizesFor, type Product } from '../../data/products'
+import { choiceOf, optionSoldOut, sizesFor, type Product } from '../../data/products'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { formatPeso } from '../../utils/format'
 import { BagIcon, CartIcon, FilterIcon, HashIcon, MinusIcon, PaletteIcon, PlusIcon, RulerIcon } from '../form/icons'
@@ -37,9 +37,9 @@ const LEGEND = 'font-ui text-xs font-semibold tracking-[0.12em] text-fg uppercas
 const LEGEND_ICON = 'mr-2 -mt-0.5 inline align-middle'
 export const KRAL_LEGEND = 'font-kral-mono text-xs font-medium tracking-[0.08em] text-kral-fg uppercase'
 export const KRAL_OPTION =
-  'kral-focus font-kral-mono flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-none border border-kral-muted px-3 text-base font-medium text-kral-fg uppercase transition-colors duration-150 ease-out hover:border-kral-fg hover:bg-kral-fg/10 data-[checked=true]:border-kral-fg data-[checked=true]:bg-kral-fg data-[checked=true]:text-kral-bg peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-kral-red-ink motion-reduce:transition-none md:text-xs md:tracking-[0.08em]'
+  'kral-focus font-kral-mono flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-none border border-kral-muted px-3 text-base font-medium text-kral-fg uppercase transition-colors duration-150 ease-out hover:border-kral-fg hover:bg-kral-fg/10 data-[checked=true]:border-kral-fg data-[checked=true]:bg-kral-fg data-[checked=true]:text-kral-bg peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-kral-red-ink peer-disabled:cursor-not-allowed peer-disabled:border-dashed peer-disabled:border-kral-rule peer-disabled:text-kral-muted peer-disabled:line-through peer-disabled:hover:border-kral-rule peer-disabled:hover:bg-transparent motion-reduce:transition-none md:text-xs md:tracking-[0.08em]'
 export const OPTION_BASE =
-  'skeuo font-ui flex min-h-8 pointer-coarse:min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong'
+  'skeuo font-ui flex min-h-8 pointer-coarse:min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong peer-disabled:cursor-not-allowed peer-disabled:line-through peer-disabled:opacity-50'
 
 /** Pick the specs (colour, size, quantity) for Add to cart or Buy now, with the price following the choice. */
 export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, guest = false, step, tone }: SpecSheetProps) {
@@ -151,29 +151,36 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
             )}
           </legend>
           <div className="mt-3 flex flex-wrap gap-2">
-            {product.colors.map((c) => (
-              <label key={c.name} className="relative">
-                <input
-                  type="radio"
-                  name="spec-color"
-                  value={c.name}
-                  checked={color === c.name}
-                  onChange={() => {
-                    setColor(c.name)
-                    setError('')
-                  }}
-                  className="peer sr-only"
-                />
-                <span data-checked={color === c.name} className={optionBase}>
-                  <span
-                    aria-hidden="true"
-                    className={`size-3 border ${kral ? 'border-kral-muted' : 'rounded-full border-fg-muted'}`}
-                    style={{ backgroundColor: c.hex }}
+            {product.colors.map((c) => {
+              const out = optionSoldOut(product, 'color', c.name)
+              return (
+                <label key={c.name} className="relative">
+                  <input
+                    type="radio"
+                    name="spec-color"
+                    value={c.name}
+                    checked={color === c.name}
+                    disabled={out}
+                    onChange={() => {
+                      setColor(c.name)
+                      // A size this colour has none of is let go, so the pick never leaves a sold-out pair.
+                      if (size && choiceOf(product, size, c.name).stock === 0) setSize('')
+                      setError('')
+                    }}
+                    className="peer sr-only"
                   />
-                  {c.name}
-                </span>
-              </label>
-            ))}
+                  <span data-checked={color === c.name} className={optionBase}>
+                    <span
+                      aria-hidden="true"
+                      className={`size-3 border ${kral ? 'border-kral-muted' : 'rounded-full border-fg-muted'}`}
+                      style={{ backgroundColor: c.hex }}
+                    />
+                    {c.name}
+                    {out && ' '}{out && <span className="sr-only">(sold out)</span>}
+                  </span>
+                </label>
+              )
+            })}
           </div>
           {error === COLOR_ERROR && (
             <p id="spec-error" role="alert" className={errorClass}>
@@ -188,24 +195,31 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
             Size{size ? <span className={`font-normal ${kral ? 'text-kral-muted' : 'text-fg-muted'}`}>: {size}</span> : <span className={`font-normal ${kral ? 'text-kral-muted' : 'text-fg-muted'}`}> (required)</span>}
           </legend>
           <div className="mt-3 flex flex-wrap gap-2">
-            {sizes.map((s) => (
-              <label key={s} className="relative">
-                <input
-                  type="radio"
-                  name="spec-size"
-                  value={s}
-                  checked={size === s}
-                  onChange={() => {
-                    setSize(s)
-                    setError('')
-                  }}
-                  className="peer sr-only"
-                />
-                <span data-checked={size === s} className={`${optionBase} min-w-8 pointer-coarse:min-w-11 max-lg:min-h-11 max-lg:min-w-11 tabular-nums`}>
-                  {s}
-                </span>
-              </label>
-            ))}
+            {sizes.map((s) => {
+              const out = optionSoldOut(product, 'size', s)
+              return (
+                <label key={s} className="relative">
+                  <input
+                    type="radio"
+                    name="spec-size"
+                    value={s}
+                    checked={size === s}
+                    disabled={out}
+                    onChange={() => {
+                      setSize(s)
+                      // A colour this size is sold out in is let go, so the pick never leaves a sold-out pair.
+                      if (color && product.colors.length > 1 && choiceOf(product, s, color).stock === 0) setColor('')
+                      setError('')
+                    }}
+                    className="peer sr-only"
+                  />
+                  <span data-checked={size === s} className={`${optionBase} min-w-8 pointer-coarse:min-w-11 max-lg:min-h-11 max-lg:min-w-11 tabular-nums`}>
+                    {s}
+                    {out && ' '}{out && <span className="sr-only">(sold out)</span>}
+                  </span>
+                </label>
+              )
+            })}
           </div>
           {error === SIZE_ERROR && (
             <p id="spec-error" role="alert" className={errorClass}>

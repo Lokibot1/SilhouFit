@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { choiceOf, LOW_STOCK, sizesFor, type Product } from '../../data/products'
+import { choiceOf, LOW_STOCK, optionSoldOut, sizesFor, type Product } from '../../data/products'
 import { formatPeso } from '../../utils/format'
 import { BagIcon, CameraIcon, CartIcon, MinusIcon, PaletteIcon, PlusIcon, RulerIcon, StarIcon } from '../form/icons'
 import { Tooltip } from '../ui/Tooltip'
@@ -189,29 +189,36 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
           )}
         </legend>
         <div className="clear-both flex flex-wrap gap-2 pt-3">
-          {product.colors.map((c) => (
-            <label key={c.name} className="relative">
-              <input
-                type="radio"
-                name="product-color"
-                value={c.name}
-                checked={color === c.name}
-                onChange={() => {
-                  setColor(c.name)
-                  setError('')
-                }}
-                className="peer sr-only"
-              />
-              <span data-checked={color === c.name} className={KRAL_OPTION}>
-                <span
-                  aria-hidden="true"
-                  className="size-4 border border-kral-muted"
-                  style={{ backgroundColor: c.hex }}
+          {product.colors.map((c) => {
+            const out = optionSoldOut(product, 'color', c.name)
+            return (
+              <label key={c.name} className="relative">
+                <input
+                  type="radio"
+                  name="product-color"
+                  value={c.name}
+                  checked={color === c.name}
+                  disabled={out}
+                  onChange={() => {
+                    setColor(c.name)
+                    // A size this colour has none of is let go, so the pick never leaves a sold-out pair.
+                    if (size && choiceOf(product, size, c.name).stock === 0) setSize('')
+                    setError('')
+                  }}
+                  className="peer sr-only"
                 />
-                {c.name}
-              </span>
-            </label>
-          ))}
+                <span data-checked={color === c.name} className={KRAL_OPTION}>
+                  <span
+                    aria-hidden="true"
+                    className="size-4 border border-kral-muted"
+                    style={{ backgroundColor: c.hex }}
+                  />
+                  {c.name}
+                  {out && ' '}{out && <span className="sr-only">(sold out)</span>}
+                </span>
+              </label>
+            )
+          })}
         </div>
         {error === COLOR_ERROR && (
           <p id="product-error" role="alert" className="font-kral-mono mt-2 text-base text-danger md:text-sm">
@@ -226,24 +233,31 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
           Size{size ? <span className={MUTED}>: {size}</span> : <span className={MUTED}> (required)</span>}
         </legend>
         <div className="clear-both flex flex-wrap gap-2 pt-3 max-lg:grid max-lg:grid-cols-[repeat(auto-fit,minmax(2.75rem,1fr))]">
-          {sizes.map((s) => (
-            <label key={s} className="relative">
-              <input
-                type="radio"
-                name="product-size"
-                value={s}
-                checked={size === s}
-                onChange={() => {
-                  setSize(s)
-                  setError('')
-                }}
-                className="peer sr-only"
-              />
-              <span data-checked={size === s} className={`${KRAL_OPTION} min-w-11 tabular-nums`}>
-                {s}
-              </span>
-            </label>
-          ))}
+          {sizes.map((s) => {
+            const out = optionSoldOut(product, 'size', s)
+            return (
+              <label key={s} className="relative">
+                <input
+                  type="radio"
+                  name="product-size"
+                  value={s}
+                  checked={size === s}
+                  disabled={out}
+                  onChange={() => {
+                    setSize(s)
+                    // A colour this size is sold out in is let go, so the pick never leaves a sold-out pair.
+                    if (color && product.colors.length > 1 && choiceOf(product, s, color).stock === 0) setColor('')
+                    setError('')
+                  }}
+                  className="peer sr-only"
+                />
+                <span data-checked={size === s} className={`${KRAL_OPTION} min-w-11 tabular-nums`}>
+                  {s}
+                  {out && ' '}{out && <span className="sr-only">(sold out)</span>}
+                </span>
+              </label>
+            )
+          })}
         </div>
         {error === SIZE_ERROR && (
           <p id="product-error" role="alert" className="font-kral-mono mt-2 text-base text-danger md:text-sm">

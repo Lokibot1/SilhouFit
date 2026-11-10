@@ -4,7 +4,7 @@ import { MotionGlobalConfig } from 'motion/react'
 import { useState } from 'react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { SpecSheet } from '../../src/components/shop/SpecSheet'
-import { BLAZER, POLO } from '../fixtures/shopProducts'
+import { BLAZER, POLO, shopProduct, variant } from '../fixtures/shopProducts'
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
@@ -62,6 +62,33 @@ describe('SpecSheet', () => {
     expect(within(sheet).getAllByRole('radio').map((r) => (r as HTMLInputElement).value)).toEqual([
       'White', 'Navy', 'S', 'M',
     ])
+  })
+
+  it('makes a sold-out size or colour unclickable, and says so to a screen reader', async () => {
+    // Size S is only in White, which is out; Navy is only in M, which is out.
+    const user = userEvent.setup()
+    const piece = shopProduct('p90', 'Mixed Stock Tee', [variant('s-white', 'S', 'White', { stock: 0 }), variant('m-white', 'M', 'White', { stock: 3 }), variant('m-navy', 'M', 'Navy', { stock: 0 })])
+    render(<Harness product={piece} />)
+    const sheet = await openSheet(user)
+    expect(within(sheet).getByRole('radio', { name: /^S \(sold out\)$/ })).toBeDisabled()
+    expect(within(sheet).getByRole('radio', { name: /^Navy \(sold out\)$/ })).toBeDisabled()
+    expect(within(sheet).getByRole('radio', { name: 'M' })).toBeEnabled()
+    expect(within(sheet).getByRole('radio', { name: 'White' })).toBeEnabled()
+    await user.click(within(sheet).getByRole('radio', { name: /^S \(sold out\)$/ }))
+    expect(within(sheet).getByRole('radio', { name: /^S \(sold out\)$/ })).not.toBeChecked()
+  })
+
+  it('lets go of the size when a colour has none of it, so no sold-out pair is left chosen', async () => {
+    const user = userEvent.setup()
+    const piece = shopProduct('p91', 'Pair Tee', [variant('s-white', 'S', 'White', { stock: 2 }), variant('m-navy', 'M', 'Navy', { stock: 4 })])
+    render(<Harness product={piece} />)
+    const sheet = await openSheet(user)
+    await user.click(within(sheet).getByRole('radio', { name: 'White' }))
+    await user.click(within(sheet).getByRole('radio', { name: 'S' }))
+    expect(within(sheet).getByRole('radio', { name: 'S' })).toBeChecked()
+    await user.click(within(sheet).getByRole('radio', { name: 'Navy' }))
+    expect(within(sheet).getByRole('radio', { name: 'Navy' })).toBeChecked()
+    expect(within(sheet).getByRole('radio', { name: 'S' })).not.toBeChecked()
   })
 
   it('requires a size, says so inline and puts focus back on the sizes', async () => {
