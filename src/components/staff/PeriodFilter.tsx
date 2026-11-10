@@ -1,5 +1,5 @@
 import { useId, useRef, type KeyboardEvent } from 'react'
-import { PERIODS, yearOptions, type PeriodFilterValue } from '../../utils/period'
+import { PERIODS, SALES_NOUN, yearOptions, type Period, type PeriodFilterValue } from '../../utils/period'
 import { Select } from '../ui/Select'
 
 // Shared with the skeleton so a card's header is the same height loading and loaded. Narrow tiles stack title and
@@ -8,7 +8,7 @@ export const FILTER_HEAD = 'mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-cente
 export const FILTER_DESCRIPTION = 'col-span-full h-4 @2xl:col-span-1'
 const CONTROL_HEIGHT = 'h-9 pointer-coarse:h-11 max-md:h-11'
 export const SEGMENTS_BOX = `col-span-full ${CONTROL_HEIGHT} @2xl:col-span-1 @2xl:col-start-2 @2xl:row-span-2 @2xl:row-start-1 @2xl:w-80`
-export const YEAR_BOX = `w-24 ${CONTROL_HEIGHT} @2xl:col-start-3 @2xl:row-span-2 @2xl:row-start-1`
+export const YEAR_BOX = `w-28 ${CONTROL_HEIGHT} @2xl:col-start-3 @2xl:row-span-2 @2xl:row-start-1`
 
 interface FilterProps {
   /** The card's name, for the controls' accessible names. */
@@ -18,7 +18,7 @@ interface FilterProps {
 }
 
 /** Day | Week | Month | Quarter | Year as one radio group. Arrow keys move focus and select, as radios do. */
-export function PeriodSegments({ name, value, onChange }: FilterProps) {
+export function PeriodSegments({ name, value, onChange, adjectives, disabled = [] }: FilterProps & { adjectives?: boolean; disabled?: Period[] }) {
   const labelId = useId()
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
 
@@ -26,7 +26,10 @@ export function PeriodSegments({ name, value, onChange }: FilterProps) {
     const target = { ArrowLeft: index - 1, ArrowUp: index - 1, ArrowRight: index + 1, ArrowDown: index + 1, Home: 0, End: PERIODS.length - 1 }[event.key]
     if (target === undefined) return
     event.preventDefault()
-    const next = (target + PERIODS.length) % PERIODS.length
+    let next = (target + PERIODS.length) % PERIODS.length
+    // Skip what cannot be picked, in the direction of travel.
+    const step = target < index ? -1 : 1
+    for (let tries = 0; disabled.includes(PERIODS[next].value) && tries < PERIODS.length; tries++) next = (next + step + PERIODS.length) % PERIODS.length
     buttons.current[next]?.focus()
     onChange({ ...value, period: PERIODS[next].value })
   }
@@ -38,6 +41,7 @@ export function PeriodSegments({ name, value, onChange }: FilterProps) {
       </span>
       {PERIODS.map(({ value: period, label }, index) => {
         const checked = value.period === period
+        const off = disabled.includes(period)
         return (
           <button
             key={period}
@@ -47,14 +51,15 @@ export function PeriodSegments({ name, value, onChange }: FilterProps) {
             type="button"
             role="radio"
             aria-checked={checked}
+            disabled={off}
             tabIndex={checked ? 0 : -1}
             onClick={() => onChange({ ...value, period })}
             onKeyDown={(event) => onKeyDown(event, index)}
-            className={`font-ui h-full min-w-11 flex-auto cursor-pointer border-l border-line px-2 text-xs transition-colors first:border-l-0 focus-visible:-outline-offset-2 motion-reduce:transition-none ${
+            className={`font-ui h-full min-w-11 flex-auto cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent border-l border-line px-2 text-xs transition-colors first:border-l-0 focus-visible:-outline-offset-2 motion-reduce:transition-none ${
               checked ? 'bg-fg/10 font-semibold text-fg shadow-[inset_0_-2px_0_0_currentColor]' : 'font-medium text-fg-muted hover:bg-fg/5'
             }`}
           >
-            {label}
+            {adjectives ? SALES_NOUN[period] : label}
           </button>
         )
       })}

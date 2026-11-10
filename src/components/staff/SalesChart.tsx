@@ -8,36 +8,65 @@ import { fetchSalesSeries, type SalesDay } from '../../service/fetchStaffAnalyti
 import type { RequestOptions } from '../../service/simulateRequest'
 import { areaPath, niceCeil, smoothPath } from '../../utils/chartPath'
 import { formatDay, formatPeso, formatPesoCompact, formatPesoWhole } from '../../utils/format'
-import { defaultFilter, describeSales, resolveSalesWindow, SALES_NOUN, type Granularity } from '../../utils/period'
+import { defaultFilter, describeSales, manilaToday, resolveSalesWindow, SALES_NOUN, type Granularity, type Period } from '../../utils/period'
 import { Tooltip } from '../ui/Tooltip'
+import { SalesFilter, type SalesScope } from './SalesFilter'
 import { EmptyNote, SectionBody, StaffSection } from './StaffSection'
 import { AXIS_TWO_LINES, CHART_PLOT, SalesSkeleton } from './StaffSkeleton'
 
 // Percent insets with slack above and below, so the stroke is not clipped at the box edges.
 const CLOSED = 'inset(-5% 100% -5% 0%)'
 const OPEN = 'inset(-5% -2% -5% -2%)'
+// Up to a month of points get a dot each; a year of weeks would be a string of beads.
+const DOTTED_MAX = 31
+// Room one day label ('Nov 10') needs on the axis.
+const DAY_LABEL_PX = 48
 
 /** Sales over the chosen period as a smooth line, with one point per day, week, month, quarter or year, as the filter says. */
 export function SalesChart() {
-  const [filter, setFilter] = useState(defaultFilter)
-  const { period, year } = filter
-  const fetcher = useCallback((options: RequestOptions) => fetchSalesSeries({ ...options, filter: { period, year } }), [period, year])
+  const [period, setPeriod] = useState<Period>(() => defaultFilter().period)
+  const [scope, setScope] = useState<SalesScope>({ month: null, year: null })
+  const year = scope.year ?? manilaToday().year
+  const month = scope.month ?? undefined
+  const filter = { period, year, month }
+  const fetcher = useCallback((options: RequestOptions) => fetchSalesSeries({ ...options, filter: { period, year, month } }), [period, year, month])
   const section = useSection(fetcher)
   const resolved = resolveSalesWindow(filter)
+
+  // Inside one month only days and weeks make sense, so a month pick moves a wider period to Day.
+  // A picked year on Day or Week lands on that year's latest month (this month in the running year), so the change shows.
+  const withMonth = (next: SalesScope, at: Period): SalesScope =>
+    next.year && !next.month && (at === 'day' || at === 'week') ? { ...next, month: next.year === manilaToday().year ? Number(manilaToday().date.slice(5, 7)) : 12 } : next
+  const changeScope = (picked: SalesScope) => {
+    const next = picked.year !== scope.year ? withMonth(picked, period) : picked
+    setScope(next)
+    if (next.month && period !== 'day' && period !== 'week') setPeriod('day')
+  }
+  const changePeriod = (next: Period) => {
+    setPeriod(next)
+    setScope(withMonth(scope, next))
+  }
 
   return (
     <StaffSection
       id="sales"
       title="Sales"
       description={describeSales(filter)}
-      filter={{ name: 'Sales', value: filter, onChange: setFilter }}
+      filter={{
+        name: 'Sales',
+        value: filter,
+        onChange: (next) => changePeriod(next.period),
+        adjectives: true,
+        disabled: month ? ['month', 'quarter', 'year'] : undefined,
+        control: <SalesFilter value={scope} onChange={changeScope} />,
+      }}
     >
       <SectionBody section={section} what="the sales chart" skeleton={<SalesSkeleton twoLineAxis={period === 'quarter'} />}>
         {(series) =>
           series.every((bucket) => bucket.total === 0) ? (
             <EmptyNote>No orders {resolved.when}. Sales show here once the first order is placed.</EmptyNote>
           ) : (
-            <SalesFigure key={`${period}-${year}`} series={series} granularity={resolved.granularity} scope={resolved.scope} />
+            <SalesFigure key={`${period}-${year}-${month}`} series={series} granularity={resolved.granularity} inMonth={resolved.inMonth} scope={resolved.scope} />
           )
         }
       </SectionBody>
@@ -46,7 +75,15 @@ export function SalesChart() {
 }
 
 /** A bucket's name: short for the axis and table, fuller for the tooltip, a phrase for sentences. */
-export function bucketLabel(date: string, granularity: Granularity, style: 'axis' | 'tip' | 'long') {
+export function bucketLabel(date: string, granularity: Granularity, style: 'axis' | 'tip' | 'long', inMonth = false) {
+  if (granularity === 'week' && inMonth) {
+    const [year, month, day] = date.split('-').map(Number)
+    const label = `week ${(day - 1) / 7 + 1}`
+    if (style === 'long') return label
+    const end = day >= 22 ? new Date(Date.UTC(year, month, 0)).getUTCDate() : day + 6
+    const title = label[0].toUpperCase() + label.slice(1)
+    return style === 'axis' ? title : `${title} (${formatDay(date)} to ${end})`
+  }
   if (granularity === 'week') return style === 'axis' ? formatDay(date) : style === 'tip' ? `Week of ${formatDay(date)}` : `the week of ${formatDay(date)}`
   if (granularity === 'month') {
     return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: style === 'axis' ? 'short' : 'long', year: style === 'long' ? 'numeric' : undefined })
@@ -68,11 +105,12 @@ export function quarterRange(date: string) {
 
 export const FIRST_COLUMN: Record<Granularity, string> = { day: 'Date', week: 'Week of', month: 'Month', quarter: 'Quarter', year: 'Year' }
 
-function SalesFigure({ series, granularity, scope }: { series: SalesDay[]; granularity: Granularity; scope: string }) {
+function SalesFigure({ series, granularity, inMonth, scope }: { series: SalesDay[]; granularity: Granularity; inMonth: boolean; scope: string }) {
   const { ref, inView, reduced, fade } = useReveal<HTMLElement>()
   const gradient = useId().replace(/:/g, '')
   const wide = useMediaQuery('(min-width: 640px)')
   const [active, setActive] = useState<number | null>(null)
+  const [plotWidth, setPlotWidth] = useState(0)
   const plotRef = useRef<HTMLDivElement>(null)
 
   const last = series.length - 1
@@ -83,11 +121,25 @@ function SalesFigure({ series, granularity, scope }: { series: SalesDay[]; granu
   const xOf = (i: number) => (last === 0 ? 50 : (i / last) * 100)
   const points = series.map((day, i) => ({ x: xOf(i), y: 100 - (day.total / top) * 100 }))
   const heading = `${SALES_NOUN[granularity]} sales, ${scope}`
-  const summary = `${heading}. Peak ${formatPesoWhole(peak.total)} ${granularity === 'day' ? 'on' : 'in'} ${bucketLabel(peak.date, granularity, 'long')}; total ${formatPesoWhole(total)}.`
+  const summary = `${heading}. Peak ${formatPesoWhole(peak.total)} ${granularity === 'day' ? 'on' : 'in'} ${bucketLabel(peak.date, granularity, 'long', inMonth)}; total ${formatPesoWhole(total)}.`
 
   // A short series (four quarters, three years) fits at any width, so it keeps every label.
   const tickCount = Math.min(series.length, wide ? 5 : series.length <= 4 ? 4 : 3)
-  const ticks = [...new Set(Array.from({ length: tickCount }, (_, n) => (tickCount === 1 ? 0 : Math.round((n * last) / (tickCount - 1)))))]
+  // Days of one month label every few days, as many as fit; the dots mark each day in between.
+  const dayStep = Math.max(1, Math.ceil(DAY_LABEL_PX / ((plotWidth || 300) / Math.max(last, 1))))
+  const ticks =
+    granularity === 'day' && series.length <= DOTTED_MAX
+      ? Array.from({ length: Math.floor(last / dayStep) + 1 }, (_, n) => n * dayStep)
+      : [...new Set(Array.from({ length: tickCount }, (_, n) => (tickCount === 1 ? 0 : Math.round((n * last) / (tickCount - 1)))))]
+  const dotted = last > 0 && series.length <= DOTTED_MAX
+
+  useEffect(() => {
+    const plot = plotRef.current
+    if (!plot || typeof ResizeObserver === 'undefined') return
+    const watch = new ResizeObserver(() => setPlotWidth(plot.clientWidth))
+    watch.observe(plot)
+    return () => watch.disconnect()
+  }, [])
 
   // A touch or pen tap stays shown after the finger lifts, until a tap lands outside the plot.
   useEffect(() => {
@@ -155,12 +207,25 @@ function SalesFigure({ series, granularity, scope }: { series: SalesDay[]; granu
                 vectorEffect="non-scaling-stroke"
               />
             </motion.svg>
+            {dotted && (
+              <motion.div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0"
+                initial={{ clipPath: reduced ? OPEN : CLOSED }}
+                animate={inView ? { clipPath: OPEN } : undefined}
+                transition={{ duration: DURATION.entrance, ease: EASE_OUT }}
+              >
+                {points.map((point, i) => (
+                  <span key={series[i].date} className="absolute -mt-[3px] -ml-[3px] size-1.5 rounded-full bg-chart-2" style={{ left: `${point.x}%`, top: `${point.y}%` }} />
+                ))}
+              </motion.div>
+            )}
             {last === 0 && <span className="absolute -mt-1 -ml-1 size-2 rounded-full bg-chart-2" style={{ left: '50%', top: `${points[0].y}%` }} />}
             {active !== null && (
               <>
                 <div className="pointer-events-none absolute inset-y-0 w-px bg-fg-muted/60" style={{ left: `${xOf(active)}%` }} />
                 <span className="pointer-events-none absolute -mt-1.5 -ml-1.5" style={{ left: `${xOf(active)}%`, top: `${points[active].y}%` }}>
-                  <Tooltip open label={`${bucketLabel(series[active].date, granularity, 'tip')}: ${formatPeso(series[active].total)}`}>
+                  <Tooltip open label={`${bucketLabel(series[active].date, granularity, 'tip', inMonth)}: ${formatPeso(series[active].total)}`}>
                     <span className="block size-3 rounded-full bg-chart-2 ring-2 ring-canvas-sub" />
                   </Tooltip>
                 </span>
@@ -180,7 +245,7 @@ function SalesFigure({ series, granularity, scope }: { series: SalesDay[]; granu
                     <span className="block">{quarterRange(series[i].date)}</span>
                   </>
                 ) : (
-                  bucketLabel(series[i].date, granularity, 'axis')
+                  bucketLabel(series[i].date, granularity, 'axis', inMonth)
                 )}
               </span>
             ))}
@@ -196,7 +261,7 @@ function SalesFigure({ series, granularity, scope }: { series: SalesDay[]; granu
             <thead>
               <tr className="text-xs text-fg-muted">
                 <th scope="col" className="sticky top-0 bg-canvas-sub py-2 text-left font-medium">
-                  {FIRST_COLUMN[granularity]}
+                  {inMonth && granularity === 'week' ? 'Week' : FIRST_COLUMN[granularity]}
                 </th>
                 <th scope="col" className="sticky top-0 bg-canvas-sub py-2 text-right font-medium">
                   Sales
@@ -206,7 +271,7 @@ function SalesFigure({ series, granularity, scope }: { series: SalesDay[]; granu
             <tbody className="divide-y divide-line">
               {series.map((day) => (
                 <tr key={day.date}>
-                  <td className="py-2 text-fg">{bucketLabel(day.date, granularity, granularity === 'quarter' ? 'tip' : 'axis')}</td>
+                  <td className="py-2 text-fg">{bucketLabel(day.date, granularity, granularity === 'quarter' || inMonth ? 'tip' : 'axis', inMonth)}</td>
                   <td className="py-2 text-right tabular-nums text-fg">{formatPeso(day.total)}</td>
                 </tr>
               ))}

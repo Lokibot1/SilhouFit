@@ -7,6 +7,8 @@ export type Period = 'day' | 'week' | 'month' | 'quarter' | 'year'
 export interface PeriodFilterValue {
   period: Period
   year: number
+  /** 1 to 12. Narrows the Sales chart to that month; nothing else reads it. */
+  month?: number
 }
 /** What one point of the sales chart stands for. It is the same as the chosen period. */
 export type Granularity = Period
@@ -115,6 +117,8 @@ export interface SalesWindow {
   end: string
   /** What one point stands for: the selected filter. */
   granularity: Granularity
+  /** The span is one month, so a week is week 1 to 4 of it rather than a Monday-to-Sunday week. */
+  inMonth: boolean
   scope: string
   /** Fills "No orders ___.". */
   when: string
@@ -125,16 +129,24 @@ export interface SalesWindow {
  * week, month and quarter cover the year, and year covers the chosen year and the two before it. The current year
  * runs to today; a past year is complete.
  */
-export function resolveSalesWindow({ period, year }: PeriodFilterValue, now?: Date): SalesWindow {
+export function resolveSalesWindow({ period, year, month }: PeriodFilterValue, now?: Date): SalesWindow {
   const today = manilaToday(now)
   const isCurrent = year === today.year
   const end = isCurrent ? today.date : `${year}-12-31`
-  if (period === 'year') return { start: `${year - ANALYTICS_YEARS_BACK}-01-01`, end, granularity: period, scope: `${year - ANALYTICS_YEARS_BACK} to ${year}`, when: `from ${year - ANALYTICS_YEARS_BACK} to ${year}` }
+  if (month) {
+    const first = `${year}-${pad(month)}-01`
+    const last = `${year}-${pad(month)}-${pad(new Date(Date.UTC(year, month, 0)).getUTCDate())}`
+    const label = `${monthName(first)} ${year}`
+    const running = isCurrent && today.date.startsWith(first.slice(0, 7))
+    // Only days and weeks make sense inside a month.
+    return { start: first, end: last < end ? last : end, granularity: period === 'week' ? 'week' : 'day', inMonth: true, scope: label, when: running ? 'this month' : `in ${label}` }
+  }
+  if (period === 'year') return { start: `${year - ANALYTICS_YEARS_BACK}-01-01`, end, granularity: period, inMonth: false, scope: `${year - ANALYTICS_YEARS_BACK} to ${year}`, when: `from ${year - ANALYTICS_YEARS_BACK} to ${year}` }
   if (period === 'day') {
     const month = `${monthName(end)} ${year}`
-    return { start: `${end.slice(0, 7)}-01`, end, granularity: period, scope: month, when: isCurrent ? 'this month' : `in ${month}` }
+    return { start: `${end.slice(0, 7)}-01`, end, granularity: period, inMonth: false, scope: month, when: isCurrent ? 'this month' : `in ${month}` }
   }
-  return { start: `${year}-01-01`, end, granularity: period, scope: isCurrent ? `${year} so far` : String(year), when: isCurrent ? 'this year' : `in ${year}` }
+  return { start: `${year}-01-01`, end, granularity: period, inMonth: false, scope: isCurrent ? `${year} so far` : String(year), when: isCurrent ? 'this year' : `in ${year}` }
 }
 
 /** The Sales card's description: "Monthly totals · 2026 so far". Within 38 characters, like `describe`. */

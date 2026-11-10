@@ -110,8 +110,16 @@ suite('resolveSalesWindow', () => {
   it('uses the filter as the size of each point', () => {
     for (const period of ['day', 'week', 'month', 'quarter', 'year'] as const) expect(win(period, 2026).granularity).toBe(period)
   })
+  it('a chosen month narrows to that month, as days or weeks only', () => {
+    const month = (period: Period, m: number, year = 2026) => resolveSalesWindow({ period, year, month: m }, NOW)
+    expect(month('day', 9)).toMatchObject({ start: '2026-09-01', end: '2026-09-30', granularity: 'day', inMonth: true, scope: 'September 2026' })
+    expect(month('week', 9).granularity).toBe('week')
+    expect(month('quarter', 9).granularity).toBe('day')
+    expect(month('day', 10)).toMatchObject({ end: '2026-10-23', when: 'this month' })
+    expect(month('day', 2, 2024)).toMatchObject({ start: '2024-02-01', end: '2024-02-29' })
+  })
   it('day covers the latest month of the year', () => {
-    expect(win('day', 2026)).toEqual({ start: '2026-10-01', end: '2026-10-23', granularity: 'day', scope: 'October 2026', when: 'this month' })
+    expect(win('day', 2026)).toEqual({ start: '2026-10-01', end: '2026-10-23', granularity: 'day', inMonth: false, scope: 'October 2026', when: 'this month' })
     expect(win('day', 2025)).toMatchObject({ start: '2025-12-01', end: '2025-12-31', scope: 'December 2025', when: 'in December 2025' })
   })
   it('week, month and quarter cover the year, to today in the current one', () => {

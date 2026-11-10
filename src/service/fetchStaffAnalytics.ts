@@ -280,12 +280,13 @@ type FilterOptions = RequestOptions & { filter?: PeriodFilterValue }
 const max = (a: string, b: string) => (a > b ? a : b)
 
 /** The start of the bucket holding `date`; a week is clipped to the window's start. */
-export function bucketOf(date: string, granularity: Granularity, start: string) {
+export function bucketOf(date: string, granularity: Granularity, start: string, inMonth = false) {
   switch (granularity) {
     case 'day':
       return date
     case 'week':
-      return max(mondayOf(date), start)
+      // Inside one month a week is days 1 to 7, 8 to 14, 15 to 21 and 22 to the end, so there are always four.
+      return inMonth ? `${date.slice(0, 8)}${pad(Math.min(Math.floor((Number(date.slice(8)) - 1) / 7), 3) * 7 + 1)}` : max(mondayOf(date), start)
     case 'month':
       return `${date.slice(0, 7)}-01`
     case 'quarter':
@@ -302,9 +303,9 @@ export async function fetchSalesSeries({ signal, delayMs = 900, filter = default
   const span = resolveSalesWindow(filter)
   // Every bucket of the span, in order, so quiet ones show as zero.
   const totals = new Map<string, number>()
-  for (let date = span.start; date <= span.end; date = addDays(date, 1)) totals.set(bucketOf(date, span.granularity, span.start), 0)
+  for (let date = span.start; date <= span.end; date = addDays(date, 1)) totals.set(bucketOf(date, span.granularity, span.start, span.inMonth), 0)
   for (const order of ordersFor(span)) {
-    const bucket = bucketOf(order.date, span.granularity, span.start)
+    const bucket = bucketOf(order.date, span.granularity, span.start, span.inMonth)
     totals.set(bucket, totals.get(bucket)! + order.total)
   }
   return [...totals].map(([date, total]) => ({ date, total }))

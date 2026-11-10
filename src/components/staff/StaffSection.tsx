@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { SectionState } from '../../hooks/useSection'
-import type { PeriodFilterValue } from '../../utils/period'
+import type { Period, PeriodFilterValue } from '../../utils/period'
 import { AlertIcon } from '../form/icons'
 import { SECONDARY_BUTTON } from '../ui/buttonStyles'
 import { FILTER_DESCRIPTION, FILTER_HEAD, PeriodSegments, YearSelect } from './PeriodFilter'
@@ -18,7 +18,7 @@ export function StaffSection({
   id: string
   title: string
   description?: string
-  filter?: { name: string; value: PeriodFilterValue; onChange: (value: PeriodFilterValue) => void }
+  filter?: { name: string; value: PeriodFilterValue; onChange: (value: PeriodFilterValue) => void; adjectives?: boolean; disabled?: Period[]; control?: ReactNode }
   /** A control on the right of the title row; the title and description shorten before it is pushed out. */
   action?: ReactNode
   children: ReactNode
@@ -33,7 +33,7 @@ export function StaffSection({
       {filter ? (
         <div className={FILTER_HEAD}>
           {heading}
-          <YearSelect {...filter} />
+          {filter.control ?? <YearSelect {...filter} />}
           {description && (
             <p id={`${id}-desc`} className={`${FILTER_DESCRIPTION} truncate text-xs leading-4 text-fg-muted`}>
               {description}
