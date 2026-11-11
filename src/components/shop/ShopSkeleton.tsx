@@ -130,7 +130,14 @@ export function CartListSkeleton({ count = 2 }: { count?: number }) {
 export function CartSkeleton() {
   return (
     <>
-      <ShopHeader tone="kral" title="Your cart" icon={<CartIcon className="size-[1.1em]" />} crumb="Cart" backToShop />
+      <ShopHeader
+        tone="kral"
+        title="Your cart"
+        icon={<CartIcon className="size-[1.1em]" />}
+        crumb="Cart"
+        backToShop
+        summary={<div aria-hidden="true" className="h-11 sm:hidden" />} // the room the phone Edit button takes once the cart loads
+      />
       <div className="mx-auto max-w-6xl px-6 pb-24 max-sm:pb-36 2xl:max-w-[88rem]">
         <CartListSkeleton />
       </div>

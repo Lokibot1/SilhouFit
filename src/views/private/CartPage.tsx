@@ -399,7 +399,7 @@ export function CartPage() {
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
-                          <h2 className="font-kral-display min-w-0 text-sm leading-snug font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase max-sm:line-clamp-2 sm:text-base">{line.name}</h2>
+                          <h2 className="font-kral-display min-w-0 text-base leading-snug font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase max-sm:line-clamp-2">{line.name}</h2>
                           <div className="max-sm:sr-only max-sm:focus-within:not-sr-only">
                             <RowMenu tone="kral" label={`More actions for ${line.name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
                           </div>
@@ -478,7 +478,7 @@ export function CartPage() {
                       document.documentElement.style.removeProperty('--bottom-bar-h')
                     }
                   }}
-                  className="fixed inset-x-0 bottom-0 z-30 border-t border-kral-rule bg-kral-bg/90 max-sm:bg-kral-bg max-sm:backdrop-blur-none pr-[max(1.5rem,env(safe-area-inset-right))] pl-[max(1.5rem,env(safe-area-inset-left))] pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:inset-x-auto sm:z-10 sm:-mx-6 sm:mt-4 sm:pb-2 short:fixed short:inset-x-0 short:z-30 short:mx-0 short:mt-0 short:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                  className="fixed inset-x-0 bottom-[var(--cookie-banner-h,0px)] z-30 border-t border-kral-rule bg-kral-bg/90 max-sm:bg-kral-bg max-sm:backdrop-blur-none pr-[max(1.5rem,env(safe-area-inset-right))] pl-[max(1.5rem,env(safe-area-inset-left))] pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:inset-x-auto sm:z-10 sm:-mx-6 sm:mt-4 sm:pb-2 short:fixed short:inset-x-0 short:z-30 short:mx-0 short:mt-0 short:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
                   {phone ? (
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <Checkbox
