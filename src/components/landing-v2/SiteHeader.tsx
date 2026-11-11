@@ -9,6 +9,7 @@ import { isAuthPath } from '../../utils/authRoutes'
 import { AccountLink } from '../AccountLink'
 import { AccountMenu } from '../AccountMenu'
 import { CustomerMessagesButton } from '../chat/dock/CustomerMessagesButton'
+import { NotificationsBell } from '../NotificationsBell'
 import { CartIcon, HeartIcon, MenuIcon, SearchIcon, UserIcon, XIcon } from '../form/icons'
 import { ThemeToggle } from '../ThemeToggle'
 import { homeFor, isStaffRole } from '../../utils/staffRole'
@@ -56,7 +57,7 @@ function ThemeButton() {
   )
 }
 
-/** The shop bar's search, wishlist, cart, messages, account and theme. Search belongs to /shop; below lg it opens as a row under the bar. */
+/** The shop bar's search, wishlist, notifications, cart, messages, account and theme. Search belongs to /shop; below lg it opens as a row under the bar. */
 function ShopControls({ user, logo }: { user: CurrentUser | null; logo: ReactNode }) {
   const [search, setSearch] = useShopSearch()
   const savedCount = useSavedIds()?.length ?? null // null until the catalogue is known
@@ -156,6 +157,7 @@ function ShopControls({ user, logo }: { user: CurrentUser | null; logo: ReactNod
             <Badge count={savedCount ?? 0} />
           </Link>
         </Tooltip>
+        {user && (!user.role || user.role === 'customer') && <NotificationsBell key={user.email} email={user.email} />}
         <Tooltip label={`Cart (${cartCount} ${cartCount === 1 ? 'item' : 'items'})`}>
           <Link
             to="/cart"
