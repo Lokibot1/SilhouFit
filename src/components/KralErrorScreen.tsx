@@ -21,7 +21,7 @@ interface Props {
 // page passes its own links. The numerals shrink with the viewport height and are dropped on very short screens.
 export function KralErrorScreen({ code, status, heading, alert, raised, children }: Props) {
   return (
-    <div className="relative flex h-svh flex-col overflow-hidden bg-kral-bg font-kral-mono text-kral-fg">
+    <div className="relative flex min-h-svh flex-col overflow-x-clip bg-kral-bg font-kral-mono text-kral-fg">
       <KralErrorBackdrop />
       <header className="relative mx-auto flex min-h-16 w-full max-w-6xl shrink-0 items-center px-6 2xl:max-w-[88rem]">
         <a href="/" aria-label="KRAL home" className="kral-focus flex min-h-11 items-center hover:text-kral-red-ink">
@@ -33,7 +33,7 @@ export function KralErrorScreen({ code, status, heading, alert, raised, children
       </header>
       <section className="relative flex min-h-0 flex-1 flex-col">
         <div className={`mx-auto flex w-full max-w-6xl min-h-0 flex-1 flex-col justify-center px-6 py-4 2xl:max-w-[88rem] ${raised ? '-translate-y-[5vh]' : ''}`} role={alert ? 'alert' : undefined}>
-          <p className="text-sm font-medium tracking-[0.08em] text-kral-red-ink uppercase">
+          <p className="text-base font-medium tracking-[0.08em] text-kral-red-ink uppercase md:text-sm">
             (Error <span className="tabular-nums">{code}</span>) // {status}
           </p>
           <h1 className="mt-4 max-w-[16ch] font-kral-display text-[clamp(1.75rem,min(6vw,6vh),3rem)] leading-[1.05] font-extrabold uppercase">

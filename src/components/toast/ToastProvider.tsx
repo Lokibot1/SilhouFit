@@ -89,7 +89,7 @@ function ToastView({ toast, onDismiss }: { toast: ActiveToast; onDismiss: () => 
         size={20}
         className={`mt-3 ${isError ? 'text-danger' : toast.kind === 'success' ? 'text-success' : 'text-chrome-strong'}`}
       />
-      <p className="min-w-0 flex-1 basis-36 py-3 text-sm leading-snug text-fg">{toast.message}</p>
+      <p className="min-w-0 flex-1 basis-36 py-3 text-base leading-snug text-fg md:text-sm">{toast.message}</p>
       {toast.action && (
         <button
           type="button"
@@ -97,7 +97,7 @@ function ToastView({ toast, onDismiss }: { toast: ActiveToast; onDismiss: () => 
             onDismiss()
             toast.action?.onClick()
           }}
-          className="font-ui order-last mb-1 ml-8 min-h-11 shrink-0 rounded-xl px-3 text-sm font-semibold text-fg underline decoration-chrome-strong decoration-2 underline-offset-2 hover:text-chrome-strong"
+          className="font-ui order-last mb-1 ml-8 min-h-11 shrink-0 rounded-xl px-3 text-base font-semibold text-fg underline md:text-sm decoration-chrome-strong decoration-2 underline-offset-2 hover:text-chrome-strong"
         >
           {toast.action.label}
         </button>

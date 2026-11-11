@@ -6,7 +6,11 @@ import { DURATION, EASE_OUT } from '../../motion/tokens'
 export function LegalBackToTop() {
   const { scrollY } = useScroll()
   const [visible, setVisible] = useState(false)
-  useMotionValueEvent(scrollY, 'change', (value) => setVisible(value > 600))
+  // Hidden once the footer is on screen, so it never covers the credits at the end of the page.
+  useMotionValueEvent(scrollY, 'change', (value) => {
+    const footer = document.querySelector('footer')
+    setVisible(value > 600 && !(footer && footer.getBoundingClientRect().top < window.innerHeight))
+  })
 
   return (
     <AnimatePresence>
@@ -18,7 +22,7 @@ export function LegalBackToTop() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: DURATION.shift, ease: EASE_OUT }}
-          className="fixed right-4 bottom-[calc(1.5rem+var(--cookie-banner-h,0px))] z-40 flex min-h-11 items-center gap-2 border border-kral-fg bg-kral-bg px-4 font-kral-mono text-xs font-medium tracking-[0.08em] text-kral-fg uppercase transition-colors duration-200 ease-out hover:bg-kral-fg hover:text-kral-bg kral-focus motion-reduce:transition-none sm:right-6"
+          className="fixed left-[max(1rem,env(safe-area-inset-left))] bottom-[calc(1.5rem+var(--cookie-banner-h,0px)+env(safe-area-inset-bottom))] z-40 flex min-h-11 items-center gap-2 border border-kral-fg bg-kral-bg px-4 font-kral-mono text-base font-medium tracking-[0.08em] text-kral-fg uppercase transition-colors duration-200 ease-out hover:bg-kral-fg hover:text-kral-bg kral-focus motion-reduce:transition-none sm:left-[max(1.5rem,env(safe-area-inset-left))] md:text-xs"
         >
           Back to top
           <svg

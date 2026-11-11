@@ -34,7 +34,7 @@ export function MessageBubble({ message, enter = false, mine, staff = false, onR
           </p>
         )}
         <div
-          className={`max-w-full min-w-0 rounded-xl px-3 py-2 text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap ${
+          className={`max-w-full min-w-0 rounded-xl px-3 py-2 text-base leading-6 md:text-sm [overflow-wrap:anywhere] whitespace-pre-wrap ${
             mine ? 'bg-fg text-canvas' : 'border border-line bg-canvas-sub text-fg'
           } transition-opacity duration-200 ${status === 'pending' ? 'opacity-70' : ''} ${status === 'failed' ? 'ring-2 ring-danger' : ''}`}
         >

@@ -356,6 +356,7 @@
   gap: clamp(1rem, calc(24 * var(--u)), 2rem);
   height: 100%;
   padding: 0 clamp(1rem, calc(16 * var(--u)), 1.5rem);
+  padding-inline: max(clamp(1rem, calc(16 * var(--u)), 1.5rem), env(safe-area-inset-left)) max(clamp(1rem, calc(16 * var(--u)), 1.5rem), env(safe-area-inset-right));
 }
 .sv2-logo {
   display: flex;
@@ -695,7 +696,7 @@ a.sv2-logo:hover {
 @media (max-width: 399.98px) {
   .sv2-header--shop .sv2-bar {
     gap: 0.25rem;
-    padding-inline: 0.5rem;
+    padding-inline: max(0.5rem, env(safe-area-inset-left)) max(0.5rem, env(safe-area-inset-right));
   }
 }
 @media (max-width: 359.98px) {
@@ -705,6 +706,7 @@ a.sv2-logo:hover {
   .sv2-header--shop .sv2-controls {
     margin-right: -0.25rem;
   }
+  /* Known exception to the 44px target (width only, height stays 44px): the icons must share one row with the wordmark. */
   .sv2-header--shop .sv2-controls .size-11 {
     width: 2.5rem;
   }

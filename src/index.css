@@ -310,6 +310,7 @@
   body {
     font-family: var(--font-sans);
     background-color: var(--canvas);
+    padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
   }
 
   /* Tailwind's reset leaves buttons on the default arrow. Anything you can press gets the pointer; utilities (disabled:cursor-*) still win. */
@@ -1806,6 +1807,21 @@ a {
     opacity: 0;
     translate: 0 -64px;
     scale: 0.94;
+  }
+}
+/* On touch the cards keep their size (a scaled card would shrink its 44px controls below 44px), so only the fade and the lag remain. */
+@media (pointer: coarse) {
+  @keyframes scroll-settle-in {
+    from {
+      opacity: 0;
+      translate: 0 96px;
+    }
+  }
+  @keyframes scroll-settle-out {
+    to {
+      opacity: 0;
+      translate: 0 -64px;
+    }
   }
 }
 @media (forced-colors: active) {

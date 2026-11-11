@@ -23,7 +23,7 @@ export function CookieConsentBanner() {
           document.documentElement.style.removeProperty('--cookie-banner-h')
         }
       }}
-      className="fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 px-4"
+      className="fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))]"
     >
       <div
         role="region"

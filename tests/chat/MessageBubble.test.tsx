@@ -50,7 +50,7 @@ describe('MessageBubble long text', () => {
     show({ ...failed(), status: undefined, content: word })
     const bubble = screen.getByText(word)
     expect(bubble.className).toContain('[overflow-wrap:anywhere]')
-    expect(bubble).toHaveClass('max-w-full', 'min-w-0', 'text-sm')
+    expect(bubble).toHaveClass('max-w-full', 'min-w-0', 'text-base', 'md:text-sm')
     expect(bubble.parentElement).toHaveClass('min-w-0', 'max-w-[80%]')
     expect(screen.getByTestId('chat-message')).toHaveClass('min-w-0', 'flex-row-reverse')
   })
