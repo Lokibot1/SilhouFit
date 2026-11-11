@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { SectionState } from '../../hooks/useSection'
 import type { Period, PeriodFilterValue } from '../../utils/period'
 import { AlertIcon } from '../form/icons'
@@ -72,15 +72,26 @@ const WHY: Record<SectionErrorKind, string> = {
   simulated: 'Chat needs a real signed-in account. Saved dev accounts have no session with the server, so sign out and sign in with a real account.',
 }
 
+/** How long Retry waits after the API said it is limiting requests: asking again at once only spends the budget that ran out. */
+const RATE_LIMIT_WAIT_S = 15
+
 export function SectionError({ what, kind, onRetry }: { what: string; kind: SectionErrorKind; onRetry: () => void }) {
+  const [wait, setWait] = useState(kind === 'rate-limit' ? RATE_LIMIT_WAIT_S : 0)
+
+  useEffect(() => {
+    if (wait <= 0) return
+    const timer = window.setTimeout(() => setWait((n) => n - 1), 1000)
+    return () => window.clearTimeout(timer)
+  }, [wait])
+
   return (
     <div role="alert" className="flex items-start gap-3">
       <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
       <div className="min-w-0">
         <p className="text-sm font-semibold text-fg">We couldn&apos;t load {what}.</p>
         <p className="mt-1 text-sm text-fg-muted">{WHY[kind]}</p>
-        <button type="button" onClick={onRetry} className={`${SECONDARY_BUTTON} mt-4`}>
-          Retry
+        <button type="button" disabled={wait > 0} onClick={onRetry} className={`${SECONDARY_BUTTON} mt-4 tabular-nums`}>
+          {wait > 0 ? `Retry in ${wait}s` : 'Retry'}
         </button>
       </div>
     </div>
