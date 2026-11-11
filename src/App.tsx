@@ -15,6 +15,7 @@ import { OrderLogSkeleton, StaffShellSkeleton } from './components/staff/StaffSk
 import { MeasurementsPageSkeleton } from './components/staff/MeasurementsSkeleton'
 import { TransactionsPageSkeleton } from './components/staff/TransactionsSkeleton'
 import { ArInsightsPageSkeleton } from './components/admin/ar/ArInsightsSkeleton'
+import { HelpAnswersPageSkeleton } from './components/admin/chatbot/HelpAnswersSkeleton'
 import { PromotionsPageSkeleton } from './components/admin/promotions/PromotionsSkeleton'
 import { RefundsPageSkeleton } from './components/admin/refunds/RefundsSkeleton'
 import { AccountsPageSkeleton } from './components/admin/users/AccountSkeleton'
@@ -120,6 +121,9 @@ const ArInsightsPage = lazy(() =>
 const PromotionsPage = lazy(() =>
   import('./views/admin/PromotionsPage').then((m) => ({ default: m.PromotionsPage })),
 )
+const ChatbotPage = lazy(() =>
+  import('./views/admin/ChatbotPage').then((m) => ({ default: m.ChatbotPage })),
+)
 const RefundsPage = lazy(() =>
   import('./views/admin/RefundsPage').then((m) => ({ default: m.RefundsPage })),
 )
@@ -219,6 +223,14 @@ const adminToolRoutes = (
       element={
         <Suspense fallback={<PromotionsPageSkeleton />}>
           <PromotionsPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="chatbot"
+      element={
+        <Suspense fallback={<HelpAnswersPageSkeleton />}>
+          <ChatbotPage />
         </Suspense>
       }
     />

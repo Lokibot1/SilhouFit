@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, GridIcon, ListIcon, LockIcon, MessageIcon, RestoreIcon, RulerIcon, UserIcon, UsersIcon } from '../form/icons'
+import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, GridIcon, InfoIcon, ListIcon, LockIcon, MessageIcon, RestoreIcon, RulerIcon, UserIcon, UsersIcon } from '../form/icons'
 import type { PageKey } from '../../config/pagePermissions'
 import type { Area } from '../../utils/staffRole'
 
@@ -31,6 +31,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'AR Insights', to: '/admin/ar-insights', icon: ArIcon, group: 'admin', page: 'ar-insights' },
   { label: 'Pricing & Promotions', to: '/admin/promotions', icon: BanknoteIcon, group: 'admin', page: 'promotions' },
   { label: 'Returns & Refunds', to: '/admin/refunds', icon: RestoreIcon, group: 'admin', page: 'refunds' },
+  { label: 'Help Chatbot', to: '/admin/chatbot', icon: InfoIcon, group: 'admin', page: 'chatbot' },
 ]
 
 /** What each role's sidebar lists. Add an item here and the sidebar, drawer and top bar pick it up. */

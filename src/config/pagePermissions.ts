@@ -17,6 +17,7 @@ export type PageKey =
   | 'ar-insights'
   | 'promotions'
   | 'refunds'
+  | 'chatbot'
 
 /** The roles a superadmin can set. A superadmin has no row: every page is always on. */
 export type PermissionRole = 'customer' | 'staff' | 'admin'
@@ -70,6 +71,7 @@ export const PAGE_GROUPS: ReadonlyArray<PageGroup> = [
       { key: 'ar-insights', label: 'AR Insights' },
       { key: 'promotions', label: 'Pricing & Promotions' },
       { key: 'refunds', label: 'Returns & Refunds' },
+      { key: 'chatbot', label: 'Help Chatbot' },
     ],
   },
 ]
@@ -97,6 +99,7 @@ const DASHBOARD_PAGE: Record<string, PageKey> = {
   'ar-insights': 'ar-insights',
   promotions: 'promotions',
   refunds: 'refunds',
+  chatbot: 'chatbot',
 }
 
 const STOREFRONT_PAGE: Record<string, PageKey> = { shop: 'shop', wishlist: 'wishlist', cart: 'cart', checkout: 'checkout' }

@@ -32,6 +32,7 @@ const BADGED = [
   [ADMIN, /\/admin$/, '/admin/ar-insights', 'AR Fitting Insights'],
   [ADMIN, /\/admin$/, '/admin/refunds', 'Returns & Refunds'],
   [ADMIN, /\/admin$/, '/admin/promotions', 'Pricing & Promotions'],
+  [ADMIN, /\/admin$/, '/admin/chatbot', 'Help Chatbot'],
   [SUPERADMIN, /\/superadmin$/, '/superadmin/permissions', 'Permissions'],
 ] as const
 
