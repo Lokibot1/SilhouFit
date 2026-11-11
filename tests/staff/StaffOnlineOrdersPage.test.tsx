@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -102,6 +102,47 @@ const openOrder = async (n: number) => {
 }
 
 describe('Online orders page', () => {
+  it('shows a status change and new counts that arrive on their own, keeping the open drawer and its unsaved notes', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      renderPage()
+      const drawer = await openOrder(1)
+      const notes = await within(drawer).findByRole('textbox', { name: 'Staff notes' })
+      await userEvent.type(notes, 'Call first')
+
+      const moved = [row(1, { status: 'DISPATCHED' }), row(2, { status: 'PENDING_PAYMENT', paymentStatus: 'UNPAID' })]
+      list.mockResolvedValue(answer(moved))
+      metrics.mockResolvedValue({ ...COUNTS, dispatchedCount: 3 })
+      detail.mockImplementation(async (id) => detailOf(moved.find((r) => r.id === id)!))
+      await act(() => vi.advanceTimersByTimeAsync(33_000))
+
+      const table = await screen.findByRole('table', { name: /Orders, newest first/ })
+      await waitFor(() => expect(within(within(table).getAllByRole('row')[1]).getByText('Shipped')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByLabelText('Order counts across all orders')).toHaveTextContent('3'))
+      expect(within(drawer).getByText('Shipped')).toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'SHF-20261026-000001' })).toBeInTheDocument()
+      expect(within(drawer).getByRole('textbox', { name: 'Staff notes' })).toHaveValue('Call first')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the rows and shows no error when a background refresh fails', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      renderPage()
+      await screen.findByRole('table', { name: /Orders, newest first/ })
+      const calls = list.mock.calls.length
+      list.mockRejectedValue(new ProductListError('network'))
+      await act(() => vi.advanceTimersByTimeAsync(23_000))
+      expect(list.mock.calls.length).toBeGreaterThan(calls)
+      expect(screen.getByRole('table', { name: /Orders, newest first/ })).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('shows a skeleton for the counts and the list while they load, then the real figures', async () => {
     const counts = deferred<AdminOrderMetrics>()
     const orders = deferred<AdminOrdersPage>()

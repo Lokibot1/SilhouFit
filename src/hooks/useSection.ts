@@ -35,9 +35,14 @@ export function useSection<T>(fetcher: (options: RequestOptions) => Promise<T>) 
     setAttempt((n) => n + 1)
   }
 
+  /** Puts a background read's answer on screen in place: no loading state, and dropped if the fetcher changed since it was asked. */
+  function swap(data: T) {
+    setAnswer((old) => (old.for === fetcher ? { for: fetcher, state: { status: 'success', data }, last: data } : old))
+  }
+
   const current = answer.for === fetcher
   const state = current ? answer.state : LOADING
   // The last good answer for an earlier fetcher, so a page can keep it on screen while the next one loads or fails.
   const previous = state.status === 'success' ? undefined : answer.last
-  return { state, previous, retry }
+  return { state, previous, retry, swap }
 }

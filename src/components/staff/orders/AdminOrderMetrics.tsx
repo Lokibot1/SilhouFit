@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useSection } from '../../../hooks/useSection'
-import { fetchAdminOrderMetrics, type AdminOrderMetrics as Metrics } from '../../../service/adminOrdersApi'
+import { useLivePoll } from '../../../hooks/useLivePoll'
+import { fetchAdminOrderMetrics, quietRead, type AdminOrderMetrics as Metrics } from '../../../service/adminOrdersApi'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { formatPesoWhole } from '../../../utils/format'
 import { SectionError } from '../StaffSection'
@@ -32,8 +33,16 @@ export function AdminOrderMetrics({ version }: { version: number }) {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [version],
   )
-  const { state, previous, retry } = useSection(load)
+  const { state, previous, retry, swap } = useSection(load)
   const metrics = state.status === 'success' ? state.data : previous
+  // The counts move with every webhook; read them again on a slower beat than the list.
+  useLivePoll(
+    async (signal) => {
+      const data = await quietRead(() => load({ signal }))
+      if (data) swap(data)
+    },
+    { enabled: metrics !== undefined, intervalMs: 30_000 },
+  )
 
   return (
     <div className={TOTALS_WRAP}>

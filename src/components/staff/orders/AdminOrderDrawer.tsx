@@ -1,6 +1,7 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { useSection } from '../../../hooks/useSection'
-import { fetchAdminOrder, type AdminOrderDetail, type AdminOrderItem, type AdminOrderRow, type AdminPayment } from '../../../service/adminOrdersApi'
+import { useLivePoll } from '../../../hooks/useLivePoll'
+import { fetchAdminOrder, quietRead, type AdminOrderDetail, type AdminOrderItem, type AdminOrderRow, type AdminPayment } from '../../../service/adminOrdersApi'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { formatPeso, variantLabel } from '../../../utils/format'
 import { shipmentStatusLabel } from '../../../utils/orders'
@@ -255,8 +256,16 @@ function Body({ order, onChanged }: BodyProps) {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [order.id, reload],
   )
-  const { state, previous, retry } = useSection(fetcher)
+  const { state, previous, retry, swap } = useSection(fetcher)
   const detail = state.status === 'success' ? state.data : (previous ?? null)
+  // The open order alone, read again in place. The actions keep their own state, so unsaved notes survive it. Closed orders can still get a late courier or payment event, so this runs while the drawer is open.
+  useLivePoll(
+    async (signal) => {
+      const data = await quietRead(() => fetcher({ signal }))
+      if (data) swap(data)
+    },
+    { enabled: detail !== null },
+  )
 
   return (
     <div aria-busy={state.status === 'loading'} className="grid gap-6 pb-5">

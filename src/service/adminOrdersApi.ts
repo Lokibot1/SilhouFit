@@ -203,22 +203,48 @@ export async function fetchAdminOrder(id: string, { signal }: RequestOptions = {
   return toDetail(await request('GET', base(id), undefined, signal))
 }
 
+// Changes made here, so polling can stand aside while one is on its way.
+let changesStarted = 0
+let changesRunning = 0
+
+async function change<T>(run: () => Promise<T>): Promise<T> {
+  changesStarted += 1
+  changesRunning += 1
+  try {
+    return await run()
+  } finally {
+    changesRunning -= 1
+  }
+}
+
+/**
+ * shortcut: polling; replace with a realtime channel when the backend broadcasts order changes
+ * A background read for polling: skipped while a change (cancel, book rider, save notes) is in flight, and its answer dropped
+ * (undefined) when one started meanwhile, so it never fights the result the screen already shows.
+ */
+export async function quietRead<T>(read: () => Promise<T>): Promise<T | undefined> {
+  if (changesRunning > 0) return undefined
+  const mark = changesStarted
+  const answer = await read()
+  return changesRunning > 0 || changesStarted !== mark ? undefined : answer
+}
+
 /** Feature: Staff orders – Update order */
 /** PATCH /admin/orders/:id/status. Moves the order to `status` and/or saves the notes. Cancelling puts the stock back and expires the payment link. */
 export async function updateAdminOrder(id: string, changes: { status?: OrderStatus; adminNotes?: string; cancellationReason?: string }): Promise<AdminOrderDetail> {
-  return toDetail(await request('PATCH', `${base(id)}/status`, changes))
+  return change(async () => toDetail(await request('PATCH', `${base(id)}/status`, changes)))
 }
 
 /** Feature: Staff orders – Book rider */
 /** POST /admin/orders/:id/dispatch. Books a Lalamove rider; the caller reads the order again for the result. */
 export async function dispatchOrder(id: string): Promise<void> {
-  await request('POST', `${base(id)}/dispatch`, undefined)
+  await change(() => request('POST', `${base(id)}/dispatch`, undefined))
 }
 
 /** Feature: Staff orders – Cancel delivery */
 /** POST /admin/orders/:id/cancel-delivery. Cancels the rider and puts the order back to Preparing. */
 export async function cancelDelivery(id: string): Promise<void> {
-  await request('POST', `${base(id)}/cancel-delivery`, undefined)
+  await change(() => request('POST', `${base(id)}/cancel-delivery`, undefined))
 }
 
 const failureOf = (error: unknown) => error as { kind?: string; detail?: string; status?: number } | null

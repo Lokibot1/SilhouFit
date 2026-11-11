@@ -15,7 +15,8 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useSection } from '../../hooks/useSection'
-import { fetchAdminOrders, type AdminOrderRow, type AdminOrdersPage } from '../../service/adminOrdersApi'
+import { useLivePoll } from '../../hooks/useLivePoll'
+import { fetchAdminOrders, quietRead, type AdminOrderRow, type AdminOrdersPage } from '../../service/adminOrdersApi'
 import { ORDER_STATUSES, PAYMENT_STATUSES } from '../../service/ordersApi'
 import type { RequestOptions } from '../../service/simulateRequest'
 import { manilaToday } from '../../utils/period'
@@ -48,9 +49,18 @@ export function StaffOnlineOrdersPage() {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [q, status, payment, from, to, page, per, version],
   )
-  const { state, previous, retry } = useSection(load)
+  const { state, previous, retry, swap } = useSection(load)
   const result = state.status === 'success' ? state.data : previous
   const stale = state.status === 'loading' && result !== undefined
+  // The page being shown, read again on its own: the API moves statuses by itself (payment and courier webhooks).
+  // A failed poll keeps the rows on screen; nothing is shown for it.
+  useLivePoll(
+    async (signal) => {
+      const data = await quietRead(() => load({ signal }))
+      if (data) swap(data)
+    },
+    { enabled: result !== undefined },
+  )
 
   // Paging with the pager: once the new page renders, keep keyboard focus in the pager and bring the list back into view.
   const sectionRef = useRef<HTMLElement>(null)
