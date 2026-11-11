@@ -34,6 +34,9 @@ interface Flow {
   picks: Picked[]
 }
 
+/** The toolbar buttons: shorter and tighter than the shop buttons so all of them fit one row at 320px. */
+const COMPACT = '!min-h-9 min-w-0 gap-1.5 px-2.5 text-xs max-md:tracking-normal md:px-3'
+
 const plural = (n: number) => `${n} ${n === 1 ? 'piece' : 'pieces'}`
 
 export function WishlistPage() {
@@ -74,6 +77,8 @@ export function WishlistPage() {
   const chosen = saved.filter((p) => selected.includes(p.id))
   const buyable = chosen.filter((p) => p.stock > 0)
   const allSelected = saved.length > 0 && chosen.length === saved.length
+  /** Everything selected out of several pieces clears the list; one piece, or some, is removed. */
+  const clearsAll = allSelected && saved.length > 1
 
   async function remove(list: Product[]) {
     const ids = list.map((p) => p.id)
@@ -199,30 +204,35 @@ export function WishlistPage() {
 
         {idsReady && products.status === 'success' && saved.length > 0 && (
           <>
-            {/* Sticks just under the navbar (its 64px height) from sm up, so the actions stay in reach while scrolling a long list. */}
+            {/* Sticks just under the navbar, on a solid background, so the actions stay in reach while scrolling a long list. */}
             <div
               role="toolbar"
               aria-label="Wishlist actions"
-              className="z-10 -mx-6 flex flex-wrap items-center gap-2 border-b border-kral-rule bg-kral-bg/90 px-6 py-2 backdrop-blur-md sm:sticky sm:top-[calc(4rem+var(--site-header-extra,0px))] sm:gap-3"
+              className="isolate sticky top-[calc(4rem+var(--site-header-extra,0px))] z-20 -mx-6 flex flex-wrap items-center gap-2 border-b border-kral-rule bg-kral-bg px-6 py-2 sm:gap-3"
             >
-              <button
-                type="button"
-                onClick={() => setSelected(allSelected ? [] : saved.map((p) => p.id))}
-                className={KRAL_SECONDARY}
-              >
-                {allSelected ? 'Clear selection' : 'Select all'}
-              </button>
+              {/* The same grain as the page ground (Layout), so this solid strip is indistinguishable from it. */}
+              <div aria-hidden="true" className="kral-grain pointer-events-none absolute inset-0 -z-10 opacity-[0.05] dark:opacity-[0.03] dark:invert" />
+              {/* Select all only appears once a piece is picked. */}
+              {chosen.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelected(allSelected ? [] : saved.map((p) => p.id))}
+                  className={`${KRAL_SECONDARY} ${COMPACT}`}
+                >
+                  {allSelected ? 'Clear selection' : 'Select all'}
+                </button>
+              )}
               <p aria-live="polite" className="font-kral-mono text-base text-kral-muted tabular-nums md:text-xs md:tracking-[0.08em]">
                 {chosen.length} selected
               </p>
-              {/* A 2x2 grid on phones (a shorter label on Add to cart, the full name kept for screen readers); one row from sm. */}
-              <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:gap-3">
+              {/* One compact row, right-aligned (a shorter label on Add to cart, the full name kept for screen readers). With every piece selected the last button is Clear all; with some, Remove. */}
+              <div className="ml-auto flex w-full justify-end gap-2 sm:w-auto">
                 <button
                   type="button"
                   disabled={buyable.length === 0}
                   aria-label="Add to cart"
                   onClick={() => start('cart', chosen)}
-                  className={`${KRAL_SECONDARY} min-w-0 px-2 max-md:tracking-normal sm:px-4`}
+                  className={`${KRAL_SECONDARY} ${COMPACT}`}
                 >
                   <CartIcon size={16} />
                   <span className="max-sm:hidden">Add to cart</span>
@@ -230,28 +240,21 @@ export function WishlistPage() {
                     Cart
                   </span>
                 </button>
-                <button
-                  type="button"
-                  disabled={buyable.length === 0}
-                  onClick={() => start('buy', chosen)}
-                  className={`${KRAL_PRIMARY} min-w-0 px-2 max-md:tracking-normal sm:px-4`}
-                >
+                <button type="button" disabled={buyable.length === 0} onClick={() => start('buy', chosen)} className={`${KRAL_PRIMARY} ${COMPACT}`}>
                   <BagIcon size={16} />
                   Buy
                 </button>
-                <button
-                  type="button"
-                  disabled={chosen.length === 0}
-                  onClick={() => remove(chosen)}
-                  className={`${KRAL_SECONDARY} min-w-0 px-2 max-md:tracking-normal sm:px-4`}
-                >
-                  <XIcon size={16} />
-                  Remove
-                </button>
-                <button type="button" onClick={() => setClearing(true)} className={`${KRAL_DANGER} min-w-0 px-2 max-md:tracking-normal sm:px-4`}>
-                  <TrashIcon size={16} />
-                  Clear all
-                </button>
+                {clearsAll ? (
+                  <button type="button" onClick={() => setClearing(true)} className={`${KRAL_DANGER} ${COMPACT}`}>
+                    <TrashIcon size={16} />
+                    Clear all
+                  </button>
+                ) : (
+                  <button type="button" disabled={chosen.length === 0} onClick={() => remove(chosen)} className={`${KRAL_SECONDARY} ${COMPACT}`}>
+                    <XIcon size={16} />
+                    Remove
+                  </button>
+                )}
               </div>
             </div>
             {chosen.length > buyable.length && (

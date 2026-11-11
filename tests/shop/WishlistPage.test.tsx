@@ -192,11 +192,27 @@ describe('WishlistPage', () => {
     expect(screen.getByText('0 selected')).toBeInTheDocument()
   })
 
+  it('offers Remove for some pieces and Clear all only when every piece is selected', async () => {
+    seed('wishlist', ['p01', 'p02', 'p03'])
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findAllByRole('article')
+    expect(screen.queryByRole('button', { name: 'Clear all' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Select all' })).toBeNull() // hidden until a piece is picked
+    await user.click(screen.getByRole('checkbox', { name: 'Select Heritage Polo' }))
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Clear all' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Select all' }))
+    expect(screen.getByRole('button', { name: 'Clear all' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+  })
+
   it('selects and clears everything with one control', async () => {
     seed('wishlist', ['p01', 'p02'])
     const user = userEvent.setup()
     renderPage()
     await screen.findAllByRole('article')
+    if (!screen.queryByRole('button', { name: 'Select all' })) await user.click(screen.getAllByRole('checkbox', { name: /^Select / })[0]) // Select all appears once a piece is picked
     await user.click(screen.getByRole('button', { name: 'Select all' }))
     expect(screen.getByText('2 selected')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Clear selection' }))
@@ -208,6 +224,7 @@ describe('WishlistPage', () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findAllByRole('article')
+    if (!screen.queryByRole('button', { name: 'Select all' })) await user.click(screen.getAllByRole('checkbox', { name: /^Select / })[0]) // Select all appears once a piece is picked
     await user.click(screen.getByRole('button', { name: 'Select all' }))
     await user.click(screen.getByRole('button', { name: 'Add to cart' }))
 
@@ -242,6 +259,7 @@ describe('WishlistPage', () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findAllByRole('article')
+    if (!screen.queryByRole('button', { name: 'Select all' })) await user.click(screen.getAllByRole('checkbox', { name: /^Select / })[0]) // Select all appears once a piece is picked
     await user.click(screen.getByRole('button', { name: 'Select all' }))
     await user.click(screen.getByRole('button', { name: 'Buy' }))
     await choose(user, 'M', 'Navy', 'Next piece')

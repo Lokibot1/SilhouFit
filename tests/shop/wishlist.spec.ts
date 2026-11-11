@@ -199,16 +199,18 @@ test.describe('wishlist page', () => {
     await expect.poll(() => server.writes).toEqual([`DELETE ${shirt}`, `POST ${shirt}`])
 
     server.writes.length = 0
-    await page.getByRole('button', { name: 'Select all' }).click()
+    await page.getByRole('checkbox', { name: 'Select Linen Shirt' }).check({ force: true })
+    await page.getByRole('checkbox', { name: 'Select Cotton Tee' }).check({ force: true })
+    await expect(page.getByRole('button', { name: 'Clear all' })).toHaveCount(0) // some selected: Remove, not Clear all
     await page.getByRole('button', { name: 'Remove', exact: true }).click()
-    await expect(page.getByText('Removed 3 pieces from wishlist')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Nothing saved yet' })).toBeVisible()
-    await expect.poll(() => server.writes.sort()).toEqual([`DELETE ${shirt}`, `DELETE ${tee}`, `DELETE ${trousers}`].sort())
+    await expect(page.getByText('Removed 2 pieces from wishlist')).toBeVisible()
+    await expect(page.getByText('1 piece saved')).toBeVisible()
+    await expect.poll(() => server.writes.sort()).toEqual([`DELETE ${shirt}`, `DELETE ${tee}`].sort())
 
     server.writes.length = 0
     await page.getByRole('button', { name: 'Undo' }).click()
     await expect(page.getByText('3 pieces saved')).toBeVisible()
-    await expect.poll(() => server.writes.sort()).toEqual([`POST ${shirt}`, `POST ${tee}`, `POST ${trousers}`].sort())
+    await expect.poll(() => server.writes.sort()).toEqual([`POST ${shirt}`, `POST ${tee}`].sort())
   })
 
   test('Clear all asks first, Cancel changes nothing, confirming sends one DELETE and Undo saves every piece again', async ({ page }) => {
@@ -217,6 +219,9 @@ test.describe('wishlist page', () => {
     await page.goto('/wishlist')
     await expect(page.getByText('3 pieces saved')).toBeVisible()
 
+    await page.getByRole('checkbox', { name: /^Select / }).first().check({ force: true }) // Select all appears once a piece is picked
+    await page.getByRole('button', { name: 'Select all' }).click()
+    await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0) // everything selected: Clear all, not Remove
     await page.getByRole('button', { name: 'Clear all' }).click()
     const dialog = page.getByRole('dialog', { name: 'Clear your wishlist?' })
     await expect(dialog).toBeVisible()
@@ -244,6 +249,9 @@ test.describe('wishlist page', () => {
     await expect(page.getByText('2 pieces saved')).toBeVisible()
 
     server.failWith = 500
+    await page.getByRole('checkbox', { name: /^Select / }).first().check({ force: true }) // Select all appears once a piece is picked
+    await page.getByRole('button', { name: 'Select all' }).click()
+    await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0) // everything selected: Clear all, not Remove
     await page.getByRole('button', { name: 'Clear all' }).click()
     await page.getByRole('dialog', { name: 'Clear your wishlist?' }).getByRole('button', { name: 'Clear wishlist' }).click()
     await expect(page.getByText(/Couldn't update your wishlist\. The request failed.*Check your connection, then try again\./)).toBeVisible()
@@ -352,6 +360,9 @@ test.describe('Wishlist – Add and Clear all, when the follow-up read also fail
     server.failWith = 500
     server.idsFailWith = 500
     const before = server.idsCalls
+    await page.getByRole('checkbox', { name: /^Select / }).first().check({ force: true }) // Select all appears once a piece is picked
+    await page.getByRole('button', { name: 'Select all' }).click()
+    await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0) // everything selected: Clear all, not Remove
     await page.getByRole('button', { name: 'Clear all' }).click()
     await page.getByRole('dialog', { name: 'Clear your wishlist?' }).getByRole('button', { name: 'Clear wishlist' }).click()
 
