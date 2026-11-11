@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { HELP_BOX, openChat } from '../../service/chatDock'
 
 /** Closing banner: AR fitting pitch, set straight on the section with an oversized FIT watermark. */
 export function ArBanner() {
@@ -19,9 +20,9 @@ export function ArBanner() {
               <Link to={{ pathname: '/about', hash: '#how-it-works' }} className="sv2-btn sv2-btn--paper">
                 See how AR fitting works
               </Link>
-              <Link to={{ hash: '#faq' }} className="sv2-btn sv2-btn--line">
-                How sizing works
-              </Link>
+              <button type="button" onClick={() => openChat(HELP_BOX, { name: 'KRAL Help' })} className="sv2-btn sv2-btn--line">
+                Ask about sizing
+              </button>
             </div>
           </div>
         </div>

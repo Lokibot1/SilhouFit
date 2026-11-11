@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import '../../components/landing-v2/landing-v2.css'
 import { ArBanner } from '../../components/landing-v2/ArBanner'
-import { Faq } from '../../components/landing-v2/Faq'
 import { Featured } from '../../components/landing-v2/Featured'
 import { Hero } from '../../components/landing-v2/Hero'
 import { Lookbook, Reception, Study, Tape } from '../../components/landing-v2/Sections'
@@ -14,7 +13,7 @@ const META_DESCRIPTION =
 
 /** Landing page (KRAL-style identity), routed at /. It brings its own nav and footer, so it renders in the bare layout. */
 // Scroll-in reveals: section headings and static grids fade and rise once. Featured's cards load asynchronously, so only its heading reveals.
-const REVEAL = '.sv2-head, .sv2-specs > *, .sv2-mosaic > *, .sv2-quotes > *, .sv2-faq > *, .sv2-ar-copy'
+const REVEAL = '.sv2-head, .sv2-specs > *, .sv2-mosaic > *, .sv2-quotes > *, .sv2-ar-copy'
 
 export function LandingV2Page() {
   const rootRef = useRef<HTMLDivElement>(null)
@@ -54,7 +53,6 @@ export function LandingV2Page() {
       <Study />
       <Lookbook />
       <Reception />
-      <Faq />
       <ArBanner />
       <SiteFooter />
     </div>
