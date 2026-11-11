@@ -50,7 +50,7 @@ export function AdminOrderTable({ rows, skeletonRows, stale, activeId, onOpen }:
               {name}
             </th>
           ))}
-          <th scope="col" className={`${TH} text-right!`}>
+          <th scope="col" className={`${TH} text-center!`}>
             Products
           </th>
           <th scope="col" className={`${TH} text-right!`}>
@@ -113,7 +113,7 @@ export function AdminOrderTable({ rows, skeletonRows, stale, activeId, onOpen }:
                 <td className={`${TD} text-sm text-fg-muted`}>
                   <Time iso={order.placedAt} />
                 </td>
-                <td className={`${TD} text-right text-sm text-fg tabular-nums`}>{order.itemCount}</td>
+                <td className={`${TD} text-center text-sm text-fg tabular-nums`}>{order.itemCount}</td>
                 <td className={`${TD} text-right text-sm whitespace-nowrap text-fg tabular-nums`}>{formatPeso(order.total)}</td>
               </tr>
             ))}
