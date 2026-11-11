@@ -67,7 +67,7 @@ export function BodyMeasurements() {
   return (
     <section aria-labelledby={headingId} className={`${KRAL_PANEL} min-w-0`}>
       <div className="flex items-start justify-between gap-3">
-        <h2 id={headingId} className={KRAL_H2}>
+        <h2 id={headingId} className={`${KRAL_H2} min-w-0 wrap-anywhere`}>
           <RulerIcon />
           Body measurements
         </h2>
@@ -107,7 +107,7 @@ export function BodyMeasurements() {
             You have not saved any measurements yet. Add them to pick your AR fitting avatar and get size
             recommendations.
           </p>
-          <Link to="/profile/measurements" className={`${KRAL_PRIMARY} mt-4 w-fit`}>
+          <Link to="/profile/measurements" className={`${KRAL_PRIMARY} mt-4 w-fit max-w-full whitespace-normal!`}>
             <PlusIcon size={16} />
             Add your measurements
           </Link>

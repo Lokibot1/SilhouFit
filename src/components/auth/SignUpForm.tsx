@@ -16,7 +16,7 @@ import { LIMITS, type FieldName } from '../../utils/signUpValidation'
 const GAPS = '[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3'
 const LEGAL_LINK = 'underline decoration-chrome-strong decoration-2 underline-offset-2 hover:text-chrome-strong'
 const SWITCH_LINK =
-  'flex min-h-11 cursor-pointer items-center font-medium text-fg lg:min-h-9 underline underline-offset-2 hover:text-chrome-strong'
+  'flex min-h-11 cursor-pointer items-center font-medium text-fg lg:pointer-fine:min-h-9 underline underline-offset-2 hover:text-chrome-strong'
 
 type TextField = Exclude<FieldName, 'consent'>
 

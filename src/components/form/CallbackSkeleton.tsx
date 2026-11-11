@@ -16,7 +16,7 @@ export function CallbackSkeleton() {
           <div className="h-5 w-2/3 rounded bg-line" />
         </div>
         <div className="mt-auto pt-6">
-          <div className="h-11 rounded-xl bg-line-strong lg:h-10" />
+          <div className="h-11 rounded-xl bg-line-strong lg:pointer-fine:h-10" />
         </div>
       </div>
     </AuthSkeletonShell>

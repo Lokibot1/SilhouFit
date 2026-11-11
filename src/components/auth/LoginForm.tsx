@@ -14,7 +14,7 @@ const ARCHIVED_COPY = {
 };
 
 const SWITCH_LINK =
-  "flex min-h-11 cursor-pointer items-center font-medium text-fg lg:min-h-9 underline underline-offset-2 hover:text-chrome-strong";
+  "flex min-h-11 cursor-pointer items-center font-medium text-fg lg:pointer-fine:min-h-9 underline underline-offset-2 hover:text-chrome-strong";
 
 const GAPS = "[&>*+*]:mt-4 short:[&>*+*]:mt-3 lg:[&>*+*]:mt-3";
 
@@ -99,7 +99,7 @@ export function LoginForm({ nextParam, modal = false, onSignedIn, onSwitch, arch
           enterKeyHint="done"
         />
         <div className="flex flex-wrap items-center justify-between gap-x-2">
-          <label className="relative flex min-h-11 cursor-pointer items-center gap-2.5 text-sm lg:min-h-9 whitespace-nowrap text-fg-muted">
+          <label className="relative flex min-h-11 cursor-pointer items-center gap-2.5 text-sm lg:pointer-fine:min-h-9 whitespace-nowrap text-fg-muted">
             <input
               type="checkbox"
               checked={remember}
@@ -119,7 +119,7 @@ export function LoginForm({ nextParam, modal = false, onSignedIn, onSwitch, arch
           </label>
           <Link
             to="/forgot-password"
-            className="flex min-h-11 items-center text-sm whitespace-nowrap lg:min-h-9 text-fg-muted underline-offset-2 hover:text-chrome-strong hover:underline"
+            className="flex min-h-11 items-center text-sm whitespace-nowrap lg:pointer-fine:min-h-9 text-fg-muted underline-offset-2 hover:text-chrome-strong hover:underline"
           >
             Forgot password?
           </Link>

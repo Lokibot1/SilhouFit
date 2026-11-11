@@ -175,7 +175,7 @@ export function AboutPage() {
               Credits // 3D avatar models, photography and licences are listed in the footer. The wordmark is generated from Archivo (SIL OFL 1.1).
             </p>
           </div>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link to="/shop" className={KRAL_PRIMARY}>
               <StoreIcon size={16} />
               Shop the catalogue

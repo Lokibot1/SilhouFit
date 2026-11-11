@@ -57,8 +57,8 @@ body:has(.kral-login--bare) .auth-toggle-slot {
 /* Desktop, where the photo panel shows: tighter fields and buttons so a long form like sign up fits one screen.
    Phones and tablets keep 44px targets and 16px text (tap target, no iOS zoom), and so do the pages without the
    photo (forgot and set password, which are short). Unlayered, so it beats the component-layer field rules; the
-   floated label keeps its own 11px size. */
-@media (min-width: 64rem) {
+   floated label keeps its own 11px size. A touch screen this wide (a tablet in landscape) keeps the 44px targets. */
+@media (min-width: 64rem) and (pointer: fine) {
   .kral-login:not(.kral-login--bare) .field {
     --field-h: 40px;
   }
