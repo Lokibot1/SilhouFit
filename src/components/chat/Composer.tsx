@@ -18,10 +18,12 @@ interface ComposerProps {
   disabledReason?: string
   /** Publishes its height as --bottom-bar-h so a toast sits above it. The dock turns this off: it reads that variable itself. */
   publishOffset?: boolean
+  /** The longest message; chat messages by default. */
+  maxLength?: number
 }
 
 /** Enter sends, Shift+Enter starts a new line. The text clears at once; a message that fails stays in the thread with Retry. */
-export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, focusOnMount = false, publishOffset = true }: ComposerProps) {
+export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, focusOnMount = false, publishOffset = true, maxLength = MAX_MESSAGE_LENGTH }: ComposerProps) {
   const [text, setText] = useState('')
   const field = useRef<HTMLTextAreaElement>(null)
   const [masked, setMasked] = useState(false)
@@ -80,7 +82,7 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
             if (event.target.value.trim()) onTyping?.()
           }}
           onKeyDown={onKeyDown}
-          maxLength={MAX_MESSAGE_LENGTH}
+          maxLength={maxLength}
           rows={1}
           aria-label="Message"
           disabled={!!disabledReason}
@@ -105,7 +107,7 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
         </p>
       )}
       <p id="chat-composer-count" className="font-ui mt-1 text-right text-xs text-fg-muted tabular-nums">
-        {text.length} / {MAX_MESSAGE_LENGTH}
+        {text.length} / {maxLength}
       </p>
     </form>
   )

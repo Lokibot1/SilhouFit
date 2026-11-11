@@ -4,13 +4,14 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery'
 import { useSection } from '../../../hooks/useSection'
 import { DURATION, EASE_OUT } from '../../../motion/tokens'
 import { fetchMyConversation } from '../../../service/chatApi'
-import type { DockBox } from '../../../service/chatDock'
+import { HELP_BOX, type DockBox } from '../../../service/chatDock'
 import { MinusIcon, XIcon } from '../../form/icons'
 import { SectionBody } from '../../staff/StaffSection'
 import { Avatar } from '../../ui/Avatar'
 import { Tooltip } from '../../ui/Tooltip'
 import { ChatSkeleton } from '../ChatSkeleton'
 import { ChatThread } from '../ChatThread'
+import { HelpBot } from './HelpBot'
 
 const HEADER_BUTTON = 'flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg hover:bg-fg/10'
 
@@ -79,7 +80,7 @@ export function ChatBox({ box, staff, onMinimize, onClose }: ChatBoxProps) {
           </button>
         </Tooltip>
       </header>
-      {box.id === 'mine' ? <MineThread /> : <ChatThread key={box.id} conversationId={box.id} staff={staff} compact publishOffset={false} />}
+      {box.id === HELP_BOX ? <HelpBot /> : box.id === 'mine' ? <MineThread /> : <ChatThread key={box.id} conversationId={box.id} staff={staff} compact publishOffset={false} />}
     </motion.section>
   )
 }

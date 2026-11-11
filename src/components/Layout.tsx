@@ -96,7 +96,7 @@ export function Layout({ bare: bareProp = false }: { bare?: boolean }) {
         target.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
         return
       }
-      // Arriving from another page (footer links to /#faq): the lazy page may not have rendered its sections yet,
+      // Arriving from another page (a footer link to /#section): the lazy page may not have rendered its sections yet,
       // and what has rendered is still growing (images, fonts, reveals). Wait for the section, then keep it
       // under the bar until the layout settles or the visitor scrolls.
       let releaseSettle: (() => void) | undefined
@@ -166,7 +166,8 @@ export function Layout({ bare: bareProp = false }: { bare?: boolean }) {
       )}
       <CookieConsentBanner />
       <OnboardingGate />
-      {!bare && <ChatDock />}
+      {/* The landing page is bare, but still carries the Help chat. */}
+      {(!bare || pathname === '/') && <ChatDock />}
     </div>
   )
 }

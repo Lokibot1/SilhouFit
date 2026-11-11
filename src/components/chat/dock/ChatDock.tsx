@@ -4,10 +4,11 @@ import { useLocation } from 'react-router-dom'
 import { useChatUnread } from '../../../hooks/useChatUnread'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useInbox } from '../../../hooks/useInbox'
-import { close, expand, minimizeAll, reset, useChatDock, type DockBox } from '../../../service/chatDock'
+import { close, expand, HELP_BOX, minimizeAll, reset, useChatDock, type DockBox } from '../../../service/chatDock'
 import { isStaffRole } from '../../../utils/staffRole'
 import { ChatBox } from './ChatBox'
 import { ChatHead } from './ChatHead'
+import { HelpLauncher } from './HelpLauncher'
 
 // The full-page Messages screens: the dock steps aside there (its boxes stay in the store).
 const MESSAGES_PAGE = /^\/(?:(?:staff|admin|superadmin)\/)?messages(?:\/|$)/
@@ -16,7 +17,7 @@ function Heads({ boxes, unreadOf }: { boxes: DockBox[]; unreadOf: (id: string) =
   return (
     <>
       {boxes.map((box) => (
-        <ChatHead key={box.id} id={box.id} name={box.name} avatarUrl={box.avatarUrl} unread={unreadOf(box.id)} onOpen={() => expand(box.id)} onClose={() => close(box.id)} />
+        <ChatHead key={box.id} id={box.id} name={box.name} avatarUrl={box.avatarUrl} unread={box.id !== HELP_BOX && unreadOf(box.id)} onOpen={() => expand(box.id)} onClose={() => close(box.id)} />
       ))}
     </>
   )
@@ -40,6 +41,7 @@ function CustomerHeads({ boxes }: { boxes: DockBox[] }) {
 /**
  * The Messenger-style chat dock: one open box and a column of heads (minimized chats) at the bottom right. Mounted outside the routes so it
  * survives navigation, and each route change minimizes the open box. Customers get it in the storefront layout, staff in theirs.
+ * The storefront dock also carries the "KRAL Help" bot, for visitors who are not signed in too; the staff dock never shows it.
  */
 export function ChatDock({ staff = false }: { staff?: boolean }) {
   const user = useCurrentUser()
@@ -55,8 +57,14 @@ export function ChatDock({ staff = false }: { staff?: boolean }) {
     minimizeAll()
   }, [pathname])
 
+  // Signing out ends the chats. A visitor who was never signed in keeps the help chat as the page layout changes under the dock.
+  const wasSignedIn = useRef(false)
   useEffect(() => {
-    if (!user) reset()
+    if (user) wasSignedIn.current = true
+    else if (wasSignedIn.current) {
+      wasSignedIn.current = false
+      reset()
+    }
   }, [user])
 
   // After Escape or Minimize, focus goes to the head the box turned into.
@@ -66,15 +74,22 @@ export function ChatDock({ staff = false }: { staff?: boolean }) {
     refocus.current = undefined
   }, [boxes])
 
-  if (!signedIn || MESSAGES_PAGE.test(pathname)) return null
-  const open = boxes.find((box) => box.mode === 'open')
-  const heads = boxes.filter((box) => box.mode === 'min')
-  if (!open && heads.length === 0) return null
+  if (MESSAGES_PAGE.test(pathname)) return null
+  const shown = boxes.filter((box) => (box.id === HELP_BOX ? !staff : signedIn))
+  const open = shown.find((box) => box.mode === 'open')
+  const heads = shown.filter((box) => box.mode === 'min')
+  const launcher = !staff && !shown.some((box) => box.id === HELP_BOX)
+  if (!open && heads.length === 0 && !launcher) return null
 
   return (
     <MotionConfig reducedMotion="user">
       <div className="pointer-events-none fixed right-3 bottom-[calc(1rem+var(--cookie-banner-h,0px)+var(--bottom-bar-h,0px)+var(--sheet-footer-h,0px)+env(safe-area-inset-bottom))] z-[80] flex flex-row-reverse items-end gap-3 sm:right-4 [&>*]:pointer-events-auto">
-        {heads.length > 0 && <div className="flex flex-col-reverse gap-3">{staff ? <StaffHeads boxes={heads} /> : <CustomerHeads boxes={heads} />}</div>}
+        {(heads.length > 0 || launcher) && (
+          <div className="flex flex-col-reverse gap-3">
+            {launcher && <HelpLauncher />}
+            {staff ? <StaffHeads boxes={heads} /> : signedIn ? <CustomerHeads boxes={heads} /> : <Heads boxes={heads} unreadOf={() => false} />}
+          </div>
+        )}
         <AnimatePresence>
           {open && (
             <ChatBox
