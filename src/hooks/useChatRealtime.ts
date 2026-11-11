@@ -8,6 +8,8 @@ export type ConnectionState = 'connecting' | 'connected' | 'reconnecting'
 
 /** While the channel is not SUBSCRIBED, the newest messages are fetched this often instead. */
 export const POLL_MS = 5000
+/** While the channel stays down the wait doubles after each try, up to this, so a long outage does not spend the API's request budget. */
+export const MAX_POLL_MS = 60000
 /** While it is SUBSCRIBED, this often too, so a broadcast that never arrived is picked up anyway. */
 export const SAFETY_POLL_MS = 30000
 
@@ -20,7 +22,7 @@ interface RealtimeOptions {
   enabled?: boolean
   /** A new message was broadcast. */
   onMessage: (message: ChatMessage) => void
-  /** Ask the server for what may have been missed: on every (re)SUBSCRIBED, every SAFETY_POLL_MS while it is up and every POLL_MS while the channel is down. */
+  /** Ask the server for what may have been missed: on every (re)SUBSCRIBED, every SAFETY_POLL_MS while it is up and every POLL_MS (then slower and slower, up to MAX_POLL_MS) while the channel is down. Nothing is asked while the tab is hidden. */
   onSync: () => void
   /** Someone is typing in this conversation. */
   onTyping?: (sender: MessageSender) => void
@@ -42,12 +44,24 @@ export function useChatRealtime({ topic, enabled = true, onMessage, onSync, onTy
     if (!topic || !enabled || (SIMULATED_AUTH && getSession()?.simulated)) return
     let timer: number | undefined
     let every = 0
+    let delay = 0
+    const run = () => {
+      // A hidden tab asks for nothing; it catches up as soon as it is visible again.
+      if (!document.hidden) latest.current.onSync()
+      if (every === POLL_MS) delay = Math.min(delay * 2, MAX_POLL_MS)
+      timer = window.setTimeout(run, delay)
+    }
     const pollEvery = (ms: number) => {
       if (every === ms) return
-      window.clearInterval(timer)
+      window.clearTimeout(timer)
       every = ms
-      timer = window.setInterval(() => latest.current.onSync(), ms)
+      delay = ms
+      timer = window.setTimeout(run, delay)
     }
+    const onVisible = () => {
+      if (!document.hidden) latest.current.onSync()
+    }
+    document.addEventListener('visibilitychange', onVisible)
     pollEvery(POLL_MS)
     const unsubscribe = subscribeToMessages(
       topic,
@@ -66,7 +80,8 @@ export function useChatRealtime({ topic, enabled = true, onMessage, onSync, onTy
     )
     return () => {
       unsubscribe()
-      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.clearTimeout(timer)
     }
   }, [topic, enabled])
 
