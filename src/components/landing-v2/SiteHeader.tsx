@@ -157,7 +157,6 @@ function ShopControls({ user, logo }: { user: CurrentUser | null; logo: ReactNod
             <Badge count={savedCount ?? 0} />
           </Link>
         </Tooltip>
-        {user && (!user.role || user.role === 'customer') && <NotificationsBell key={user.email} email={user.email} />}
         <Tooltip label={`Cart (${cartCount} ${cartCount === 1 ? 'item' : 'items'})`}>
           <Link
             to="/cart"
@@ -178,6 +177,7 @@ function ShopControls({ user, logo }: { user: CurrentUser | null; logo: ReactNod
         )}
         {user ? (
           <>
+            {!user.role || user.role === 'customer' ? <NotificationsBell key={user.email} email={user.email} /> : null}
             {/* A customer is already on the website; the link is for staff. */}
             {user.role && user.role !== 'customer' && <VisitWebsiteLink tone="kral" />}
             <AccountMenu user={user} tone="kral" messages={!user.role || user.role === 'customer'} />
