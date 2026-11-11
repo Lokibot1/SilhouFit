@@ -18,6 +18,7 @@ import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOrder } from '../../hooks/useOrders'
 import { createCheckoutSession, usesSampleOrders, type CustomerOrder } from '../../service/ordersApi'
 import { formatOrderTime, formatPeso, variantLabel } from '../../utils/format'
+import { notificationSentence } from '../../utils/notifications'
 import { adaptOrderToReceipt, buildTimeline, canBuyAgain, canCancel, canPay, hasShipped, paymentStatusLabel, trackingLink } from '../../utils/orders'
 
 const DESCRIPTION = 'Follow one SilhouFit order: where it is now, what is in it, what you paid, where it is going, and what you can do next, such as cancelling or buying again.'
@@ -256,6 +257,16 @@ function OrderPage({ id }: { id: string }) {
   useDocumentTitle(order ? `Order ${order.orderNumber} — SilhouFit` : 'Your order — SilhouFit')
   useMetaDescription(DESCRIPTION)
 
+  // A status that changes while the page is open (polling, or the shopper's own cancel) is read out politely, without moving focus.
+  const [announcement, setAnnouncement] = useState('')
+  const lastStatus = useRef(order?.status)
+  const nowStatus = order?.status
+  useEffect(() => {
+    if (!nowStatus) return
+    if (lastStatus.current && lastStatus.current !== nowStatus) setAnnouncement(`${notificationSentence(nowStatus)}.`)
+    lastStatus.current = nowStatus
+  }, [nowStatus])
+
   // The heading is read out once the order (or why there is none) is on screen.
   const settled = status !== 'loading'
   useEffect(() => {
@@ -268,6 +279,9 @@ function OrderPage({ id }: { id: string }) {
   return (
     <div className="mx-auto max-w-6xl px-6 pt-18 pb-24 2xl:max-w-[88rem]">
       <OrdersBreadcrumb current={order?.orderNumber ?? 'Order'} orders />
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 ref={heading} tabIndex={-1} className="font-kral-display min-w-0 text-xl leading-[1.05] font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase outline-none sm:text-3xl lg:text-4xl">
           {order ? order.orderNumber : status === 'not-found' ? 'Order not found' : 'Your order'}

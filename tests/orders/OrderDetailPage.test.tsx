@@ -53,6 +53,45 @@ const renderPage = (target = ORDER_ID) =>
   )
 
 describe('OrderDetailPage', () => {
+  it('follows a status change from the server without a reload, announces it, and stops once the order is closed', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      api.fetchOrder.mockResolvedValueOnce(customerOrder({ status: 'DISPATCHED', paymentStatus: 'PAID' }))
+      renderPage()
+      expect(await screen.findByText('Shipped', { selector: 'span[data-status]' })).toBeInTheDocument()
+      expect(api.fetchOrder).toHaveBeenCalledTimes(1)
+
+      api.fetchOrder.mockResolvedValue(customerOrder({ status: 'OUT_FOR_DELIVERY', paymentStatus: 'PAID' }))
+      await act(() => vi.advanceTimersByTimeAsync(23_000))
+      expect(await screen.findByText('Out for delivery', { selector: 'span[data-status]' })).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent('Your order is out for delivery.')
+      expect(api.fetchOrder).toHaveBeenCalledTimes(2)
+
+      api.fetchOrder.mockResolvedValue(customerOrder({ status: 'DELIVERED', paymentStatus: 'PAID' }))
+      await act(() => vi.advanceTimersByTimeAsync(23_000))
+      expect(await screen.findByText('Delivered', { selector: 'span[data-status]' })).toBeInTheDocument()
+      await act(() => vi.advanceTimersByTimeAsync(120_000))
+      expect(api.fetchOrder).toHaveBeenCalledTimes(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the order on screen when a background refresh fails', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      renderPage()
+      expect(await screen.findByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })).toBeInTheDocument()
+      api.fetchOrder.mockRejectedValue(new OrdersError('network'))
+      await act(() => vi.advanceTimersByTimeAsync(23_000))
+      expect(api.fetchOrder).toHaveBeenCalledTimes(2)
+      expect(screen.getByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('sends a signed-out visitor to login and back here', async () => {
     act(() => clearSession())
     renderPage()

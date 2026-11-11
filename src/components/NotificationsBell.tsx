@@ -3,7 +3,8 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { DURATION, EASE_OUT } from '../motion/tokens'
-import { getCachedOrders, loadAllOrders, onOrdersChanged, type CustomerOrder } from '../service/ordersApi'
+import { useLivePoll } from '../hooks/useLivePoll'
+import { getCachedOrders, loadAllOrders, onOrdersChanged, onOrdersMerged, pollOrders, type CustomerOrder } from '../service/ordersApi'
 import { buildNotifications, isUnread, loadSeen, markSeen, relativeTime, saveSeen, unreadCount, type Notification, type Seen } from '../utils/notifications'
 import { BellIcon } from './form/icons'
 import { computePlace } from './ui/listbox'
@@ -53,11 +54,15 @@ export function NotificationsBell({ email }: { email?: string }) {
   useEffect(() => {
     load(false)
     const unsubscribe = onOrdersChanged(() => load(true))
+    // A change found by polling lands in the shared cache; the badge and list follow it.
+    const unmerge = onOrdersMerged(setOrders)
     return () => {
       unsubscribe()
+      unmerge()
       controller.current?.abort()
     }
   }, [load])
+  useLivePoll(pollOrders, { enabled: orders !== null })
 
   const markAllRead = useCallback(() => {
     const next = markSeen(latest.current)

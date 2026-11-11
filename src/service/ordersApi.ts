@@ -331,6 +331,12 @@ let inflight: { owner: string; promise: Promise<CustomerOrder[]> } | null = null
 // Bumped by every new read and every change, so a read that finishes late never overwrites newer data.
 let generation = 0
 const listeners = new Set<() => void>()
+const merged = new Set<(list: CustomerOrder[]) => void>()
+// Polling reads only the newest orders, at most once per gap.
+const POLL_LIMIT = 20
+const POLL_GAP_MS = 10_000
+let polling: Promise<void> | null = null
+let polledAt = 0
 
 const owner = () => getSession()?.email ?? ''
 const aborted = () => new DOMException('The request was aborted.', 'AbortError')
@@ -355,6 +361,51 @@ export function onOrdersChanged(run: () => void): () => void {
   return () => {
     listeners.delete(run)
   }
+}
+
+/** Calls `run` with the whole cached list whenever polling merged a change into it, so every screen follows the one cache. Returns the unsubscribe. */
+export function onOrdersMerged(run: (list: CustomerOrder[]) => void): () => void {
+  merged.add(run)
+  return () => {
+    merged.delete(run)
+  }
+}
+
+/** What a shopper can see change on an order. The API's orders carry no updatedAt, so this stands in for it. */
+export const orderSignature = (order: CustomerOrder) =>
+  [order.status, order.paymentStatus, order.paidAt, order.cancelledAt, order.shipment?.status, order.shipment?.driverName, order.shipment?.deliveredAt].join('|')
+
+/**
+ * shortcut: polling; replace with a realtime channel when the backend broadcasts order changes
+ * Reads only the newest page of orders and merges what differs into the cache (no 500-order re-read), then tells the
+ * onOrdersMerged listeners. Does nothing when no list is cached yet. Callers share one request, and a read within
+ * POLL_GAP_MS of the last one is skipped, so the bell and the orders page together cost one request per tick.
+ */
+export function pollOrders(): Promise<void> {
+  if (polling) return polling
+  if (!cache || cache.owner !== owner() || Date.now() - polledAt < POLL_GAP_MS) return Promise.resolve()
+  const who = owner()
+  const mine = generation
+  polling = fetchOrdersPage({ page: 1, limit: POLL_LIMIT })
+    .then(({ data }) => {
+      polledAt = Date.now()
+      // A change or a full read finished meanwhile: that data is newer than this answer.
+      if (mine !== generation || !cache || cache.owner !== who) return
+      const known = new Map(cache.list.map((order) => [order.id, order]))
+      const changed = data.filter((order) => {
+        const old = known.get(order.id)
+        return !old || orderSignature(old) !== orderSignature(order)
+      })
+      if (changed.length === 0) return
+      const updated = new Map(changed.map((order) => [order.id, order]))
+      const list = [...changed.filter((order) => !known.has(order.id)), ...cache.list.map((order) => updated.get(order.id) ?? order)]
+      cache = { ...cache, list }
+      merged.forEach((run) => run(list))
+    })
+    .finally(() => {
+      polling = null
+    })
+  return polling
 }
 
 async function readAll(): Promise<CustomerOrder[]> {

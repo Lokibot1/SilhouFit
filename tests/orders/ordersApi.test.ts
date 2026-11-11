@@ -9,7 +9,7 @@ vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
 }))
 const send = vi.mocked(request)
 
-const { cancelOrder, clearOrdersCache, createOrder, fetchOrder, fetchOrdersPage, getCachedOrder, loadAllOrders, onOrdersChanged, OrdersError, quoteShipping } =await import('../../src/service/ordersApi')
+const { cancelOrder, clearOrdersCache, createOrder, fetchOrder, fetchOrdersPage, getCachedOrder, loadAllOrders, onOrdersChanged, onOrdersMerged, OrdersError, pollOrders, quoteShipping } =await import('../../src/service/ordersApi')
 const { resetSampleOrders } = await import('../../src/service/sampleOrders')
 
 const page = (data: unknown[], more = false) => ({ data, meta: { total: data.length, page: 1, limit: 100, totalPages: more ? 2 : 1, hasNextPage: more, hasPreviousPage: false } })
@@ -230,6 +230,56 @@ describe('loadAllOrders', () => {
     expect(getCachedOrder(ORDER_ID)).not.toBeNull()
     clearOrdersCache()
     expect(getCachedOrder(ORDER_ID)).toBeNull()
+  })
+})
+
+describe('pollOrders', () => {
+  const other = '00000000-0000-4000-8000-000000000302'
+  let clock = Date.parse('2026-11-11T00:00:00Z')
+  beforeEach(() => {
+    // The gap between polls is time-based: each test starts well after the last one's.
+    clock += 600_000
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(clock)
+  })
+
+  it('asks nothing before there is a cached list', async () => {
+    await pollOrders()
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('reads one small page, merges only what changed into the cache and tells the listeners', async () => {
+    send.mockResolvedValueOnce(page([apiOrder(), apiOrder({ id: other, orderNumber: 'SHF-20261026-ZZZ999' })]))
+    await loadAllOrders()
+    const heard = vi.fn()
+    onOrdersMerged(heard)
+
+    send.mockResolvedValueOnce(page([apiOrder({ status: 'DISPATCHED', paymentStatus: 'PAID' }), apiOrder({ id: other, orderNumber: 'SHF-20261026-ZZZ999' })]))
+    await pollOrders()
+    expect(send).toHaveBeenLastCalledWith('GET', '/orders?page=1&limit=20', undefined, undefined)
+    expect(heard).toHaveBeenCalledTimes(1)
+    expect(getCachedOrder(ORDER_ID)?.status).toBe('DISPATCHED')
+    expect(heard.mock.calls[0][0].map((o: { id: string }) => o.id)).toEqual([ORDER_ID, other])
+
+    // Nothing differs: no merge, no notice.
+    vi.setSystemTime(clock + 20_000)
+    send.mockResolvedValueOnce(page([apiOrder({ status: 'DISPATCHED', paymentStatus: 'PAID' }), apiOrder({ id: other, orderNumber: 'SHF-20261026-ZZZ999' })]))
+    await pollOrders()
+    expect(heard).toHaveBeenCalledTimes(1)
+  })
+
+  it('puts a new order first, shares one request between callers and skips a read right after another', async () => {
+    send.mockResolvedValueOnce(page([apiOrder()]))
+    await loadAllOrders()
+    const heard = vi.fn()
+    onOrdersMerged(heard)
+    send.mockClear()
+    send.mockResolvedValueOnce(page([apiOrder({ id: other, orderNumber: 'SHF-20261026-ZZZ999' }), apiOrder()]))
+    await Promise.all([pollOrders(), pollOrders()])
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(heard.mock.calls[0][0].map((o: { id: string }) => o.id)).toEqual([other, ORDER_ID])
+    await pollOrders()
+    expect(send).toHaveBeenCalledTimes(1)
   })
 })
 

@@ -675,3 +675,33 @@ test.describe('dark mode', () => {
     expect(await overflows(page)).toBe(false)
   })
 })
+
+test.describe('live status updates', () => {
+  test('an order page follows a status change made on the server, without a reload, and stops once it is delivered', async ({ page }) => {
+    await signedIn(page)
+    await page.clock.install()
+    const mock = await openOrder(page, [named(6, 'Rolling Romper', { status: 'DISPATCHED', paymentStatus: 'PAID', paidAt: PAID_AT, shipment: apiShipment({ status: 'PICKED_UP' }) })], 6)
+    await expect(chip(page, 'DISPATCHED')).toBeVisible()
+    await page.evaluate(() => (window.__marker = 'same page'))
+
+    // A webhook moves the order between two polls.
+    mock.orders[0] = named(6, 'Rolling Romper', { status: 'OUT_FOR_DELIVERY', paymentStatus: 'PAID', paidAt: PAID_AT, shipment: apiShipment() })
+    await page.clock.runFor(25_000)
+    await expect(chip(page, 'OUT_FOR_DELIVERY')).toBeVisible()
+    await expect(page.getByRole('status').filter({ hasText: 'Your order is out for delivery.' })).toBeAttached()
+    expect(await page.evaluate(() => window.__marker)).toBe('same page')
+
+    mock.orders[0] = named(6, 'Rolling Romper', { status: 'DELIVERED', paymentStatus: 'PAID', paidAt: PAID_AT, shipment: apiShipment({ status: 'COMPLETED', deliveredAt: '2026-10-08T05:00:00.000Z' }) })
+    await page.clock.runFor(25_000)
+    await expect(chip(page, 'DELIVERED')).toBeVisible()
+    const reads = mock.details.length
+    await page.clock.runFor(120_000)
+    expect(mock.details.length).toBe(reads)
+  })
+})
+
+declare global {
+  interface Window {
+    __marker?: string
+  }
+}
