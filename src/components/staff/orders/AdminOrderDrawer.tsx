@@ -4,33 +4,31 @@ import { fetchAdminOrder, type AdminOrderDetail, type AdminOrderItem, type Admin
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { formatPeso, variantLabel } from '../../../utils/format'
 import { shipmentStatusLabel } from '../../../utils/orders'
-import { BagIcon } from '../../form/icons'
+import { BagIcon, BoxIcon, UserIcon, WalletIcon } from '../../form/icons'
+import { PRIMARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { PhotoImg } from '../../ui/PhotoImg'
 import { Modal } from '../../ui/Modal'
 import { CopyId } from '../inventory/ProductDetail'
 import { EmptyNote, SectionError } from '../StaffSection'
 import { PlacedAt } from '../transactions/TransactionParts'
 import { AdminOrderActions } from './AdminOrderActions'
+import { CARD_LABEL, OrderCard } from './OrderCard'
 import { OrderPills, PaymentPill } from './OrderPills'
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
-const TH = 'sticky top-0 z-10 h-11 border-b border-line bg-canvas-sub px-3 text-left font-semibold text-fg'
 
 /** "ASSIGNING_DRIVER" -> "Assigning driver". */
 const humanize = (value: string) => value.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase())
 
-const METHOD_LABEL: Record<string, string> = { GCASH: 'GCash', PAYMAYA: 'Maya', CARD: 'Card', GRAB_PAY: 'GrabPay', BILLEASE: 'BillEase', OTHER: 'Other' }
+/** Units left at or under this show as a warning in the items list. */
+const LOW_STOCK = 5
 
-const Section = ({ title, children }: { title: string; children: ReactNode }) => (
-  <section>
-    <h3 className="mb-2 text-xs font-semibold text-fg">{title}</h3>
-    {children}
-  </section>
-)
+const METHOD_LABEL: Record<string, string> = { GCASH: 'GCash', PAYMAYA: 'Maya', CARD: 'Card', GRAB_PAY: 'GrabPay', BILLEASE: 'BillEase', OTHER: 'Other' }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex gap-3">
-      <dt className="w-24 shrink-0 text-fg-muted">{label}</dt>
+      <dt className="w-28 shrink-0 font-medium text-fg-muted">{label}</dt>
       <dd className="min-w-0 text-fg">{children}</dd>
     </div>
   )
@@ -41,21 +39,29 @@ function Header({ order, detail }: { order: AdminOrderRow; detail: AdminOrderDet
   const live = detail ?? order
   return (
     <div>
-      <p className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pb-4 text-base md:text-sm">
         <OrderPills status={live.status} paymentStatus={live.paymentStatus} />
-      </p>
-      <p className="mt-2 text-xs text-fg-muted">
-        Placed <PlacedAt iso={order.placedAt} />
-      </p>
-      <p className="mt-2 text-base font-semibold text-fg tabular-nums">{formatPeso(live.total)}</p>
-      <div className="mt-2 flex items-center justify-between gap-2 border-t border-line pt-2">
-        <p className="min-w-0 font-mono text-xs break-all text-fg-muted">
-          <span className="sr-only">Order ID </span>
-          {order.id}
-        </p>
-        {/* The shared copy button is 36px; the drawer needs a 44px touch target. */}
-        <div className="shrink-0 [&_button]:m-0! [&_button]:size-11!">
-          <CopyId id={order.id} what="order" />
+        <span className="text-fg-muted">
+          · Placed <PlacedAt iso={order.placedAt} />
+        </span>
+      </div>
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-line pt-4">
+        <div>
+          <p className={CARD_LABEL}>Total amount</p>
+          <p className="mt-1 font-mono text-2xl font-semibold text-fg tabular-nums">{formatPeso(live.total)}</p>
+        </div>
+        <div>
+          <p className={CARD_LABEL}>Reference ID</p>
+          <div className="mt-1 flex items-center rounded-xl border border-line bg-canvas-sub pl-3">
+            <span className="sr-only">Order ID {order.id}</span>
+            <span aria-hidden="true" className="font-mono text-base text-fg md:text-sm">
+              {order.id.slice(0, 8)}…{order.id.slice(-5)}
+            </span>
+            {/* The shared copy button is 36px; the drawer needs a 44px touch target. */}
+            <div className="[&_button]:m-0! [&_button]:size-11!">
+              <CopyId id={order.id} what="order" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -65,73 +71,55 @@ function Header({ order, detail }: { order: AdminOrderRow; detail: AdminOrderDet
 function Customer({ detail }: { detail: AdminOrderDetail }) {
   const { customer, address, note } = detail
   return (
-    <dl className="grid gap-2 rounded-xl border border-line bg-canvas-sub p-3 text-xs">
-      <Row label="Customer">{customer ? customer.name : 'Customer account removed'}</Row>
+    <dl className="grid gap-3 text-base md:text-sm">
+      <Row label="Customer"><span className="font-semibold">{customer ? customer.name : 'Customer account removed'}</span></Row>
       {customer && <Row label="Email"><span className="break-all">{customer.email}</span></Row>}
-      <div className="grid gap-2 border-t border-line pt-2">
-        <Row label="Deliver to">{address.recipientName || 'No name on the address'}</Row>
-        <Row label="Contact">
-          <span className="tabular-nums">{address.phone || 'No phone on the address'}</span>
-        </Row>
-        <Row label="Address">{[address.line, `${address.city} ${address.postalCode}`.trim()].filter(Boolean).join(', ') || 'No address on the order'}</Row>
-      </div>
-      <div className="border-t border-line pt-2">
-        <Row label="Customer note">{note ?? 'No note'}</Row>
+      <Row label="Deliver to">{address.recipientName || 'No name on the address'}</Row>
+      <Row label="Contact">
+        <span className="tabular-nums">{address.phone || 'No phone on the address'}</span>
+      </Row>
+      <Row label="Address">{[address.line, `${address.city} ${address.postalCode}`.trim()].filter(Boolean).join(', ') || 'No address on the order'}</Row>
+      <div className="border-t border-dashed border-line pt-3">
+        <Row label="Customer note">{note ? note : <span className="text-fg-muted italic">No note provided</span>}</Row>
       </div>
     </dl>
   )
 }
 
 function StockNote({ item }: { item: AdminOrderItem }) {
-  return <span className="whitespace-nowrap tabular-nums">{item.stock === null ? 'Variant deleted' : `In stock now: ${item.stock}`}</span>
+  const gone = item.stock === null
+  const low = !gone && item.stock! <= LOW_STOCK
+  return (
+    <span className={`flex items-center gap-1.5 whitespace-nowrap tabular-nums ${low ? 'font-semibold text-fg' : ''}`}>
+      <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${gone ? 'bg-danger' : low ? 'bg-warning' : 'bg-line-strong'}`} />
+      {gone ? 'Variant deleted' : `In stock now: ${item.stock}`}
+    </span>
+  )
 }
 
 function Items({ detail }: { detail: AdminOrderDetail }) {
   if (detail.items.length === 0) return <EmptyNote>This order has no items.</EmptyNote>
   return (
     <>
-      <table className="w-full table-fixed border-separate border-spacing-0 text-xs">
-        <caption className="sr-only">Items in this order with size and colour, SKU, units, unit price, stock now and line total</caption>
-        <colgroup>
-          <col />
-          <col className="w-28" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th scope="col" className={TH}>
-              Item
-            </th>
-            <th scope="col" className={`${TH} text-right`}>
-              Total
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {detail.items.map((item) => (
-            <tr key={item.id}>
-              <td className="border-b border-line px-3 py-2">
-                <div className="flex items-center gap-3">
-                  <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-line text-fg-muted">
-                    <BagIcon size={20} />
-                  </span>
-                  <div className="min-w-0">
-                    <span className="block font-semibold text-fg">{item.name}</span>
-                    <span className="block text-fg-muted">{[variantLabel(item.size, item.color), item.sku].filter(Boolean).join(' · ')}</span>
-                    <span className="flex flex-wrap gap-x-3 text-fg-muted">
-                      <span className="whitespace-nowrap tabular-nums">
-                        {item.qty} × {formatPeso(item.unitPrice)}
-                      </span>
-                      <StockNote item={item} />
-                    </span>
-                  </div>
-                </div>
-              </td>
-              <td className="border-b border-line px-3 text-right whitespace-nowrap text-fg tabular-nums">{formatPeso(item.total)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 px-3 text-xs">
+      <ul aria-label="Items in this order with size and colour, SKU, units, unit price, stock now and line total" className="divide-y divide-line text-base md:text-sm">
+        {detail.items.map((item) => (
+          <li key={item.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3 first:pt-0">
+            <PhotoImg src={item.imageUrl} alt={item.name} loading="lazy" className="h-20 w-16 shrink-0 rounded-xl object-cover" />
+            <div className="min-w-0">
+              <span className="block font-semibold text-fg">{item.name}</span>
+              <span className="block text-fg-muted">{[variantLabel(item.size, item.color), item.sku].filter(Boolean).join(' · ')}</span>
+              <span className="mt-1 block text-fg tabular-nums">
+                {item.qty} × {formatPeso(item.unitPrice)}
+              </span>
+              <span className="text-fg-muted">
+                <StockNote item={item} />
+              </span>
+            </div>
+            <span className="text-right font-semibold whitespace-nowrap text-fg tabular-nums">{formatPeso(item.total)}</span>
+          </li>
+        ))}
+      </ul>
+      <dl className="mt-1 grid grid-cols-[1fr_auto] gap-x-3 gap-y-2 border-t border-line pt-4 text-base md:text-sm">
         <dt className="text-fg-muted">Subtotal</dt>
         <dd className="text-right text-fg tabular-nums">{formatPeso(detail.subtotal)}</dd>
         <dt className="text-fg-muted">Shipping</dt>
@@ -151,7 +139,7 @@ function Items({ detail }: { detail: AdminOrderDetail }) {
 
 function Payment({ payment }: { payment: AdminPayment }) {
   return (
-    <li className="rounded-xl border border-line bg-canvas-sub p-3 text-xs">
+    <li className="rounded-xl border border-line bg-canvas p-3 text-base md:text-sm">
       <p className="flex flex-wrap items-center justify-between gap-x-3">
         <span className="font-semibold text-fg">
           {humanize(payment.provider)} · {METHOD_LABEL[payment.method] ?? humanize(payment.method)}
@@ -186,8 +174,8 @@ function Delivery({ detail }: { detail: AdminOrderDetail }) {
   if (!shipment) return <EmptyNote>No delivery booked.</EmptyNote>
   const tracking = shipment.trackingUrl && /^https:\/\//i.test(shipment.trackingUrl) ? shipment.trackingUrl : null
   return (
-    <div className="grid gap-3">
-      <dl className="grid gap-2 rounded-xl border border-line bg-canvas-sub p-3 text-xs">
+    <div className="grid gap-4">
+      <dl className="grid gap-3 text-base md:text-sm">
         <Row label="Courier">{[shipment.courier, shipment.serviceType].filter(Boolean).join(' · ')}</Row>
         <Row label="Status">{shipmentStatusLabel(shipment.status)}</Row>
         <Row label="Driver">
@@ -213,36 +201,41 @@ function Delivery({ detail }: { detail: AdminOrderDetail }) {
           </Row>
         )}
       </dl>
-      {events.length === 0 ? (
-        <EmptyNote>No courier updates yet.</EmptyNote>
-      ) : (
-        <ol aria-label="Courier updates, oldest first" className="grid gap-2 text-xs">
-          {events.map((event) => (
-            <li key={event.id} className="rounded-xl border border-line px-3 py-2">
-              <p className="font-semibold text-fg">{humanize(event.label)}</p>
-              {event.reason && <p className="text-fg-muted">{event.reason}</p>}
-              <p className="text-fg-muted">
-                <PlacedAt iso={event.at} />
-              </p>
-            </li>
-          ))}
-        </ol>
-      )}
+      <div className="border-t border-line pt-4">
+        {events.length === 0 ? (
+          <EmptyNote>No courier updates yet.</EmptyNote>
+        ) : (
+          <ol aria-label="Courier updates, oldest first" className="grid gap-4 border-l border-line-strong text-base md:text-sm">
+            {events.map((event) => (
+              <li key={event.id} className="relative pl-4">
+                <span aria-hidden="true" className="absolute top-2 -left-[3.5px] size-1.5 rounded-full bg-fg" />
+                <p className="font-semibold text-fg">{humanize(event.label)}</p>
+                {event.reason && <p className="text-fg-muted">{event.reason}</p>}
+                <p className="text-fg-muted">
+                  <PlacedAt iso={event.at} />
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </div>
   )
 }
 
+/** Same blocks as the loaded order, at about the same heights, so nothing jumps when it arrives. */
 function DetailSkeleton() {
   return (
     <div role="status" aria-label="Loading order details" className="grid animate-pulse gap-6">
-      <Bar className="h-24 w-full" />
-      <Bar className="h-36 w-full" />
-      {[0, 1].map((n) => (
-        <div key={n} className="grid gap-2">
-          <Bar className="h-14 w-full" />
-        </div>
-      ))}
-      <Bar className="h-28 w-full" />
+      <div className="grid gap-3">
+        <Bar className="h-4 w-24" />
+        <Bar className="h-11 w-full" />
+      </div>
+      <Bar className="h-56 w-full" />
+      <Bar className="h-64 w-full" />
+      <Bar className="h-72 w-full" />
+      <Bar className="h-40 w-full" />
+      <Bar className="h-48 w-full" />
     </div>
   )
 }
@@ -269,9 +262,9 @@ function Body({ order, onChanged }: BodyProps) {
     <div aria-busy={state.status === 'loading'} className="grid gap-6 pb-5">
       <Header order={order} detail={detail} />
       {state.status === 'error' && (
-        <div className="rounded-xl border border-line bg-canvas-sub p-3">
+        <div className="rounded-xl border border-line bg-canvas-sub p-4">
           <SectionError what={detail ? 'the latest order details' : 'the order details'} kind={state.kind} onRetry={retry} />
-          {detail && <p className="mt-3 text-sm text-fg-muted">What shows below is from before your last change.</p>}
+          {detail && <p className="mt-3 text-base text-fg-muted md:text-sm">What shows below is from before your last change.</p>}
         </div>
       )}
       {detail ? (
@@ -284,26 +277,26 @@ function Body({ order, onChanged }: BodyProps) {
               onChanged()
             }}
           />
-          <Section title="Customer and delivery address">
+          <OrderCard icon={<UserIcon size={16} />} title="Customer and delivery address">
             <Customer detail={detail} />
-          </Section>
-          <Section title="Items">
+          </OrderCard>
+          <OrderCard icon={<BagIcon size={16} />} title={`Items (${detail.items.length})`} aside={<span className={CARD_LABEL}>Total</span>}>
             <Items detail={detail} />
-          </Section>
-          <Section title="Payments">
+          </OrderCard>
+          <OrderCard icon={<WalletIcon size={16} />} title="Payments">
             {detail.payments.length === 0 ? (
               <EmptyNote>No payment attempts yet.</EmptyNote>
             ) : (
-              <ul className="grid gap-2">
+              <ul className="grid gap-3">
                 {detail.payments.map((payment) => (
                   <Payment key={payment.id} payment={payment} />
                 ))}
               </ul>
             )}
-          </Section>
-          <Section title="Delivery">
+          </OrderCard>
+          <OrderCard icon={<BoxIcon size={16} />} title="Delivery">
             <Delivery detail={detail} />
-          </Section>
+          </OrderCard>
         </div>
       ) : (
         state.status === 'loading' && <DetailSkeleton />
@@ -325,7 +318,20 @@ interface AdminOrderDrawerProps {
 /** The order's header at once, then everything staff need to act on it. */
 export function AdminOrderDrawer({ order, open, session, onClose, onChanged }: AdminOrderDrawerProps) {
   return (
-    <Modal variant="sheet" open={open} onClose={onClose} title={order?.orderNumber ?? ''}>
+    <Modal
+      variant="sheet"
+      open={open}
+      onClose={onClose}
+      title={order?.orderNumber ?? ''}
+      titleClassName="min-w-0 font-mono! tracking-normal! break-all"
+      footer={
+        <div className="flex justify-end">
+          <button type="button" onClick={onClose} className={PRIMARY_BUTTON_SM}>
+            Done &amp; Close
+          </button>
+        </div>
+      }
+    >
       {open && order && <Body key={session} order={order} onChanged={onChanged} />}
     </Modal>
   )

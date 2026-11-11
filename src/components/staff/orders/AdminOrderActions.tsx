@@ -3,13 +3,19 @@ import { cancelDelivery, cancelDeliveryFailure, dispatchFailure, dispatchOrder, 
 import { cleanText, stripControl } from '../../../utils/checkoutValidation'
 import { advanceActions, canCancelDelivery, cancelOrderBlock, dispatchBlock, isClosed, type AdvanceAction } from '../../../utils/orders'
 import { ConfirmDialog } from '../../admin/users/ConfirmDialog'
-import { AlertIcon, SpinnerIcon } from '../../form/icons'
+import { AlertIcon, InfoIcon, NoteIcon, SendIcon, SpinnerIcon } from '../../form/icons'
 import { useToast } from '../../toast/useToast'
 import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
-import { Field, FIELD_INPUT } from '../inventory/FormField'
+import { Field, FIELD_INPUT, PLAIN_INPUT } from '../inventory/FormField'
+import { CARD_LABEL, OrderCard } from './OrderCard'
 
 const NOTES_MAX = 500
 const REASON_MAX = 255
+
+// Phones get 16px text; the shared small buttons are 14px.
+const ACTION = 'font-ui flex min-h-9 pointer-coarse:min-h-11 max-md:min-h-11 items-center justify-center gap-2 rounded-xl text-base md:text-sm font-semibold'
+const ACTION_PRIMARY = `${PRIMARY_BUTTON_SM} max-md:text-base`
+const ACTION_SECONDARY = `${SECONDARY_BUTTON_SM} max-md:text-base`
 
 /** A button that can be off, and under it the reason, as text anyone can read. */
 function Guarded({ why, children }: { why: string | null; children: (describedBy: string | undefined) => ReactNode }) {
@@ -18,7 +24,7 @@ function Guarded({ why, children }: { why: string | null; children: (describedBy
     <div className="flex min-w-0 flex-col items-start gap-1">
       {children(why ? id : undefined)}
       {why && (
-        <p id={id} className="text-xs text-fg-muted">
+        <p id={id} className="text-sm text-fg-muted md:text-xs">
           {why}
         </p>
       )}
@@ -127,60 +133,86 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
     }
   }
 
-  return (
-    <section>
-      <h3 className="mb-2 text-xs font-semibold text-fg">Actions</h3>
-      {closed ? (
-        <p className="text-sm text-fg-muted">This order is closed.</p>
-      ) : (
-        <div className="flex flex-wrap items-start gap-3">
-          {advanceActions(detail).map((action, index) => (
-            <button key={action.status} type="button" disabled={pending} aria-busy={busy === action.status} onClick={() => void advance(action)} className={index === 0 ? PRIMARY_BUTTON_SM : SECONDARY_BUTTON_SM}>
-              {spin(action.status)}
-              {action.label}
-            </button>
-          ))}
-          <Guarded why={dispatchWhy}>
-            {(describedBy) => (
-              <button type="button" disabled={pending || !!dispatchWhy} aria-describedby={describedBy} aria-busy={busy === 'dispatch'} onClick={() => void book()} className={SECONDARY_BUTTON_SM}>
-                {spin('dispatch')}
-                {busy === 'dispatch' ? 'Booking a rider…' : 'Book rider'}
-              </button>
-            )}
-          </Guarded>
-          {canCancelDelivery(detail) && (
-            <button type="button" disabled={pending} onClick={() => setDialog('delivery')} className={SECONDARY_BUTTON_SM}>
-              Cancel delivery
-            </button>
-          )}
-          <Guarded why={cancelWhy}>
-            {(describedBy) => (
-              <button type="button" disabled={pending || !!cancelWhy} aria-describedby={describedBy} onClick={() => setDialog('order')} className={SECONDARY_BUTTON_SM}>
-                Cancel order
-              </button>
-            )}
-          </Guarded>
-        </div>
-      )}
+  const primaryBook = advanceActions(detail).length === 0
 
-      <div className="mt-4">
-        <Field id={`notes-${detail.id}`} label="Staff notes" count={{ value: notes.length, max: NOTES_MAX }}>
-          <textarea
-            id={`notes-${detail.id}`}
-            value={notes}
-            onChange={(event) => setNotes(stripControl(event.target.value))}
-            maxLength={NOTES_MAX}
-            rows={3}
-            readOnly={busy === 'notes'}
-            aria-describedby={`notes-${detail.id}-count`}
-            className={FIELD_INPUT}
-          />
-        </Field>
-        <button type="button" disabled={pending || notes.trim() === saved.trim()} aria-busy={busy === 'notes'} onClick={() => void saveNotes()} className={`${SECONDARY_BUTTON_SM} mt-2`}>
-          {spin('notes')}
-          Save notes
-        </button>
-      </div>
+  return (
+    <div className="grid gap-6">
+      <section aria-labelledby={`actions-${detail.id}`}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <h3 id={`actions-${detail.id}`} className={CARD_LABEL}>
+            Actions
+          </h3>
+          {!closed && cancelWhy && (
+            <p id={`cancel-why-${detail.id}`} className="flex items-center gap-1 text-sm text-fg-muted md:text-xs">
+              <InfoIcon className="shrink-0" />
+              {cancelWhy}
+            </p>
+          )}
+        </div>
+        {closed ? (
+          <p className="text-base text-fg-muted md:text-sm">This order is closed.</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
+            {advanceActions(detail).map((action, index) => (
+              <button key={action.status} type="button" disabled={pending} aria-busy={busy === action.status} onClick={() => void advance(action)} className={index === 0 ? ACTION_PRIMARY : ACTION_SECONDARY}>
+                {spin(action.status)}
+                {action.label}
+              </button>
+            ))}
+            <Guarded why={dispatchWhy}>
+              {(describedBy) => (
+                <button type="button" disabled={pending || !!dispatchWhy} aria-describedby={describedBy} aria-busy={busy === 'dispatch'} onClick={() => void book()} className={primaryBook ? ACTION_PRIMARY : ACTION_SECONDARY}>
+                  {busy === 'dispatch' ? <SpinnerIcon /> : <SendIcon size={16} />}
+                  {busy === 'dispatch' ? 'Booking a rider…' : 'Book rider'}
+                </button>
+              )}
+            </Guarded>
+            {canCancelDelivery(detail) && (
+              <button type="button" disabled={pending} onClick={() => setDialog('delivery')} className={ACTION_SECONDARY}>
+                Cancel delivery
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={pending || !!cancelWhy}
+              aria-describedby={cancelWhy ? `cancel-why-${detail.id}` : undefined}
+              onClick={() => setDialog('order')}
+              className={`${ACTION} px-2 whitespace-nowrap text-fg-muted hover:text-danger disabled:cursor-progress disabled:opacity-60`}
+            >
+              Cancel order
+            </button>
+          </div>
+        )}
+      </section>
+
+      <OrderCard
+        icon={<NoteIcon size={16} />}
+        title="Staff notes"
+        aside={
+          <span id={`notes-${detail.id}-count`} className="text-sm text-fg-muted tabular-nums md:text-xs">
+            {notes.length}/{NOTES_MAX}
+          </span>
+        }
+      >
+        <textarea
+          id={`notes-${detail.id}`}
+          aria-label="Staff notes"
+          value={notes}
+          onChange={(event) => setNotes(stripControl(event.target.value))}
+          maxLength={NOTES_MAX}
+          rows={4}
+          readOnly={busy === 'notes'}
+          placeholder="Add internal notes for packaging, customer call verification, or courier handling..."
+          aria-describedby={`notes-${detail.id}-count`}
+          className={`${PLAIN_INPUT} resize-y py-2`}
+        />
+        <div className="mt-3 flex justify-end">
+          <button type="button" disabled={pending || notes.trim() === saved.trim()} aria-busy={busy === 'notes'} onClick={() => void saveNotes()} className={ACTION_PRIMARY}>
+            {spin('notes')}
+            Save notes
+          </button>
+        </div>
+      </OrderCard>
 
       <ConfirmDialog
         open={dialog === 'order'}
@@ -219,7 +251,7 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
         <p>The order goes back to Preparing so you can book again.</p>
         {dialogError && <DialogError>{dialogError}</DialogError>}
       </ConfirmDialog>
-    </section>
+    </div>
   )
 }
 

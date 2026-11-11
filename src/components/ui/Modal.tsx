@@ -22,6 +22,8 @@ interface ModalProps {
   /** Called for Escape, the backdrop and the close button. */
   onClose: () => void
   title: string
+  /** Extra classes for the title heading. */
+  titleClassName?: string
   /** Shown before the title. */
   icon?: ReactNode
   /** 'sheet' is a right-side panel from sm up and a bottom sheet below it; 'sheet-left' is a left panel from lg up (a bottom sheet below it); 'drawer-left' is a left panel at every width. */
@@ -43,7 +45,7 @@ interface ModalProps {
   size?: 'sm'
 }
 
-export function Modal({ open, onClose, title, icon, variant = 'center', tone, compact, children, footer, closable = true, bodyRef, onBodyScroll, initialFocusRef, size }: ModalProps) {
+export function Modal({ open, onClose, title, titleClassName, icon, variant = 'center', tone, compact, children, footer, closable = true, bodyRef, onBodyScroll, initialFocusRef, size }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -120,6 +122,7 @@ export function Modal({ open, onClose, title, icon, variant = 'center', tone, co
       {open && (
         <ModalView
           title={title}
+          titleClassName={titleClassName}
           icon={icon}
           variant={variant}
           tone={tone}
@@ -140,11 +143,11 @@ export function Modal({ open, onClose, title, icon, variant = 'center', tone, co
   )
 }
 
-interface ModalViewProps extends Pick<ModalProps, 'title' | 'icon' | 'variant' | 'tone' | 'compact' | 'footer' | 'closable' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children' | 'size'> {
+interface ModalViewProps extends Pick<ModalProps, 'title' | 'titleClassName' | 'icon' | 'variant' | 'tone' | 'compact' | 'footer' | 'closable' | 'bodyRef' | 'onBodyScroll' | 'onClose' | 'children' | 'size'> {
   panelRef: Ref<HTMLDivElement>
 }
 
-function ModalView({ title, icon, variant, tone, compact, footer, closable, panelRef, bodyRef, onBodyScroll, onClose, children, size }: ModalViewProps) {
+function ModalView({ title, titleClassName = '', icon, variant, tone, compact, footer, closable, panelRef, bodyRef, onBodyScroll, onClose, children, size }: ModalViewProps) {
   const titleId = useId()
   const reduced = useReducedMotion()
   const isPresent = useIsPresent()
@@ -212,7 +215,7 @@ function ModalView({ title, icon, variant, tone, compact, footer, closable, pane
         <div className={`flex items-center justify-between gap-3 px-5 ${tight ? 'pt-4 pb-1 sm:px-6' : 'pt-5 pb-3 sm:px-8 sm:pt-6'}`}>
           <h2
             id={titleId}
-            className={`flex items-center gap-3 text-xl sm:text-2xl ${kral ? 'font-kral-display font-extrabold text-kral-fg uppercase' : 'display text-fg'}`}
+            className={`flex items-center gap-3 text-xl sm:text-2xl ${kral ? 'font-kral-display font-extrabold text-kral-fg uppercase' : 'display text-fg'} ${titleClassName}`}
           >
             {icon}
             {title}
