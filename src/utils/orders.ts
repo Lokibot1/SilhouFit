@@ -1,9 +1,9 @@
 import type { CustomerOrder, OrderStatus, PaymentStatus, ShipmentStatus } from '../service/ordersApi'
 import type { PlacedOrder } from './checkout'
 
-export type OrderTab = 'all' | 'to-pay' | 'to-ship' | 'to-receive' | 'completed' | 'cancelled'
+export type OrderTab = 'all' | 'to-pay' | 'to-ship' | 'to-receive' | 'completed' | 'cancelled' | 'returns'
 
-/** The status tabs. A tab with `statuses: null` shows everything (a refunded order appears there only). */
+/** The status tabs. A tab with `statuses: null` shows everything. */
 export const ORDER_TABS: { id: OrderTab; label: string; statuses: OrderStatus[] | null }[] = [
   { id: 'all', label: 'All', statuses: null },
   { id: 'to-pay', label: 'To pay', statuses: ['PENDING_PAYMENT', 'PAYMENT_FAILED'] },
@@ -11,6 +11,7 @@ export const ORDER_TABS: { id: OrderTab; label: string; statuses: OrderStatus[] 
   { id: 'to-receive', label: 'To receive', statuses: ['DISPATCHED', 'OUT_FOR_DELIVERY'] },
   { id: 'completed', label: 'Completed', statuses: ['DELIVERED'] },
   { id: 'cancelled', label: 'Cancelled', statuses: ['CANCELLED'] },
+  { id: 'returns', label: 'Returns/Refund', statuses: ['REFUNDED'] },
 ]
 
 /** The tab named in the URL, or 'all' for anything else. */

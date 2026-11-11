@@ -7,8 +7,8 @@ import { KRAL_DANGER, KRAL_SECONDARY } from '../shop/shopControls'
 import { PhotoImg } from '../ui/PhotoImg'
 import { OrderStatusChip } from './OrderStatusChip'
 
-const MAX_THUMBS = 3
-const THUMB = 'h-16 w-12 shrink-0 object-cover sm:h-20 sm:w-16'
+const MAX_ROWS = 2
+const THUMB = 'h-20 w-16 shrink-0 object-cover'
 
 interface OrderCardProps {
   order: CustomerOrder
@@ -22,7 +22,7 @@ interface OrderCardProps {
 export function OrderCard({ order, onCancel, onBuyAgain, buying }: OrderCardProps) {
   const titleId = `order-${order.id}`
   const track = trackingLink(order)
-  const extra = order.items.length - MAX_THUMBS
+  const extra = order.items.length - MAX_ROWS
   return (
     <article aria-labelledby={titleId} className="relative border border-kral-rule p-4 transition-colors duration-150 hover:border-kral-fg motion-reduce:transition-none sm:p-5">
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -37,34 +37,29 @@ export function OrderCard({ order, onCancel, onBuyAgain, buying }: OrderCardProp
         <OrderStatusChip status={order.status} />
       </header>
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:gap-4">
-        <ul aria-label="Items" className="flex shrink-0 gap-2">
-          {order.items.slice(0, MAX_THUMBS).map((item) => (
-            <li key={item.id}>
-              <PhotoImg tone="kral" src={item.imageUrl} alt={item.name} loading="lazy" className={THUMB} />
-            </li>
-          ))}
-          {extra > 0 && (
-            <li className={`${THUMB} font-kral-mono flex items-center justify-center bg-kral-porcelain text-base text-kral-muted tabular-nums dark:bg-kral-graphite`}>
-              <span aria-hidden="true">+{extra}</span>
-              <span className="sr-only">and {extra} more</span>
-            </li>
-          )}
-        </ul>
-        <div className="font-kral-mono min-w-0 flex-1">
-          <p className="text-base leading-snug font-medium text-kral-fg [overflow-wrap:anywhere]">
-            {order.items[0]?.name}
-            {order.items.length > 1 && <span className="text-kral-muted"> + {order.items.length - 1} more</span>}
-          </p>
-          <p className="mt-1 text-base text-kral-muted tabular-nums md:text-sm">{itemsLabel(itemCount(order))}</p>
-          <p className="mt-2 flex items-baseline justify-between gap-3 text-base text-kral-fg tabular-nums">
-            <span className="text-kral-muted md:text-sm">Total</span>
-            <span className="font-medium">{formatPeso(order.total)}</span>
-          </p>
-        </div>
-      </div>
+      <ul aria-label="Items" className="mt-4 flex flex-col gap-3">
+        {order.items.slice(0, MAX_ROWS).map((item) => (
+          <li key={item.id} className="font-kral-mono flex gap-3">
+            <PhotoImg tone="kral" src={item.imageUrl} alt={item.name} loading="lazy" className={THUMB} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <p className="line-clamp-2 text-base leading-snug font-medium text-kral-fg [overflow-wrap:anywhere]">{item.name}</p>
+              {(item.size || item.color) && <p className="mt-0.5 text-base text-kral-muted [overflow-wrap:anywhere] md:text-sm">{[item.size, item.color].filter(Boolean).join(' · ')}</p>}
+              <p className="mt-auto flex items-baseline justify-between gap-3 pt-1 text-base tabular-nums">
+                <span className="text-kral-muted md:text-sm">×{item.qty}</span>
+                <span className="text-kral-fg">{formatPeso(item.unitPrice)}</span>
+              </p>
+            </div>
+          </li>
+        ))}
+        {extra > 0 && <li className="font-kral-mono text-base text-kral-muted md:text-sm">+{extra} more {extra === 1 ? 'item' : 'items'}</li>}
+      </ul>
 
-      <footer className="relative z-10 mt-4 flex flex-wrap gap-2">
+      <p className="font-kral-mono mt-4 flex items-baseline justify-end gap-2 border-t border-kral-rule pt-3 text-base text-kral-fg tabular-nums">
+        <span className="text-kral-muted md:text-sm">Total {itemsLabel(itemCount(order))}:</span>
+        <span className="font-medium">{formatPeso(order.total)}</span>
+      </p>
+
+      <footer className="relative z-10 mt-3 flex flex-wrap justify-end gap-2">
         {canCancel(order) && (
           <button type="button" onClick={() => onCancel(order)} className={KRAL_DANGER}>
             Cancel order

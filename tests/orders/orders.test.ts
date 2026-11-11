@@ -18,11 +18,11 @@ import {
 import { ALL_STATUSES, customerOrder, orderItem, shipment } from '../fixtures/orders'
 
 describe('status tabs', () => {
-  it('puts every status in exactly one middle tab, except refunded which only shows under All', () => {
+  it('puts every status in exactly one middle tab, and refunded in Returns/Refund', () => {
     for (const status of ALL_STATUSES) {
       const order = customerOrder({ status })
       const tabs = ORDER_TABS.filter((tab) => tab.id !== 'all' && matchesTab(order, tab.id)).map((tab) => tab.id)
-      expect(tabs, status).toHaveLength(status === 'REFUNDED' ? 0 : 1)
+      expect(tabs, status).toHaveLength(1)
       expect(matchesTab(order, 'all')).toBe(true)
     }
   })
@@ -47,7 +47,7 @@ describe('status tabs', () => {
 
   it('counts each tab', () => {
     const orders = [customerOrder(), customerOrder({ status: 'CANCELLED' }), customerOrder({ status: 'REFUNDED' })]
-    expect(tabCounts(orders)).toEqual({ all: 3, 'to-pay': 1, 'to-ship': 0, 'to-receive': 0, completed: 0, cancelled: 1 })
+    expect(tabCounts(orders)).toEqual({ all: 3, 'to-pay': 1, 'to-ship': 0, 'to-receive': 0, completed: 0, cancelled: 1, returns: 1 })
   })
 
   it('searches the order number and product names as plain text, ignoring case', () => {

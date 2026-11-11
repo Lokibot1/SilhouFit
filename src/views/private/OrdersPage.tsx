@@ -18,7 +18,7 @@ import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOrders } from '../../hooks/useOrders'
 import { usesSampleOrders } from '../../service/ordersApi'
 import { stripControl } from '../../utils/checkoutValidation'
-import { filterOrders, parseTab, tabCounts, tabLabel, type OrderTab } from '../../utils/orders'
+import { filterOrders, parseTab, tabLabel, type OrderTab } from '../../utils/orders'
 
 const DESCRIPTION = 'Your SilhouFit orders in one place: filter them by status, search by order number or product, open one to follow its progress, or cancel an unpaid order.'
 
@@ -32,6 +32,7 @@ const EMPTY_TAB: Partial<Record<OrderTab, { icon: ReactNode; title: string; note
   'to-receive': { icon: <MapPinIcon className="size-14" />, title: 'Nothing on its way', note: "When a rider picks up your order, it shows here with a live map and the rider's details." },
   completed: { icon: <CheckIcon className="size-14" />, title: 'No delivered orders yet', note: 'Orders you have received show here, and you can buy any of them again.' },
   cancelled: { icon: <XIcon className="size-14" />, title: 'No cancelled orders', note: 'An order you cancel shows here, with the reason you gave.' },
+  returns: { icon: <WalletIcon className="size-14" />, title: 'No refunded orders', note: 'An order that has been refunded shows here, with its refunded status.' },
 }
 
 const parsePage = (value: string | null) => (/^\d{1,4}$/.test(value ?? '') ? Math.max(1, Number(value)) : 1)
@@ -51,7 +52,6 @@ export function OrdersPage() {
   const typed = useDebouncedValue(query, 200)
 
   const tab = parseTab(params.get('tab'))
-  const counts = tabCounts(orders)
   const found = filterOrders(orders, tab, typed)
   const pageCount = Math.max(1, Math.ceil(found.length / PER_PAGE))
   const page = Math.min(parsePage(params.get('page')), pageCount)
@@ -141,8 +141,10 @@ export function OrdersPage() {
             </div>
           ) : (
             <>
-              <div className="mt-6">
-                <OrderTabs tab={tab} counts={counts} onChange={(next) => go({ tab: next })} />
+              <div className="isolate sticky top-[calc(4rem+var(--site-header-extra,0px))] z-20 -mx-6 mt-6 bg-kral-bg md:mx-0">
+                {/* The same grain as the page ground (Layout), so this solid strip is indistinguishable from it. */}
+                <div aria-hidden="true" className="kral-grain pointer-events-none absolute inset-0 -z-10 opacity-[0.05] dark:opacity-[0.03] dark:invert" />
+                <OrderTabs tab={tab} onChange={(next) => go({ tab: next })} />
               </div>
               <div className="relative mt-4 sm:w-72">
                 <label htmlFor="orders-search" className="sr-only">

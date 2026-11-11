@@ -94,27 +94,28 @@ test.describe('the orders list', () => {
     await signedIn(page)
   })
 
-  test('each tab shows its own orders and its own count, and refunded ones only under All', async ({ page }) => {
+  test('each tab shows its own orders and its own count, and refunded ones under All and Returns/Refund', async ({ page }) => {
     await openList(page, everyStatus())
     await expect(page.getByRole('status').filter({ hasText: 'orders' })).toHaveText('9 orders')
     await expect(cards(page)).toHaveCount(9)
 
     const expected: [string, number[]][] = [
-      ['To pay (2)', [1, 2]],
-      ['To ship (2)', [3, 4]],
-      ['To receive (2)', [5, 6]],
-      ['Completed (1)', [7]],
-      ['Cancelled (1)', [8]],
+      ['To pay', [1, 2]],
+      ['To ship', [3, 4]],
+      ['To receive', [5, 6]],
+      ['Completed', [7]],
+      ['Cancelled', [8]],
+      ['Returns/Refund', [9]],
     ]
-    await expect(tab(page, 'All (9)')).toHaveAttribute('aria-pressed', 'true')
+    await expect(tab(page, 'All')).toHaveAttribute('aria-pressed', 'true')
     for (const [name, numbers] of expected) {
       await tab(page, name).click()
       await expect(tab(page, name)).toHaveAttribute('aria-pressed', 'true')
       await expect(cards(page)).toHaveCount(numbers.length)
       for (const n of numbers) await expect(card(page, n)).toBeVisible()
-      await expect(card(page, 9)).toHaveCount(0) // refunded is never in a status tab
+      if (name !== 'Returns/Refund') await expect(card(page, 9)).toHaveCount(0) // refunded shows only under All and Returns/Refund
     }
-    await tab(page, 'All (9)').click()
+    await tab(page, 'All').click()
     await expect(card(page, 9)).toBeVisible()
     await expect(chip(page, 'REFUNDED')).toHaveText('Refunded')
   })
@@ -130,22 +131,22 @@ test.describe('the orders list', () => {
 
   test('the tab and the page live in the URL, so a reload keeps them', async ({ page }) => {
     await openList(page, everyStatus())
-    await tab(page, 'To pay (2)').click()
+    await tab(page, 'To pay').click()
     await expect(page).toHaveURL(/\/orders\?tab=to-pay$/)
     await page.reload()
-    await expect(tab(page, 'To pay (2)')).toHaveAttribute('aria-pressed', 'true')
+    await expect(tab(page, 'To pay')).toHaveAttribute('aria-pressed', 'true')
     await expect(cards(page)).toHaveCount(2)
   })
 
   test('a tab with no orders says so and offers View all orders', async ({ page }) => {
     await openList(page, [named(1, 'Pending Polo')])
-    await expect(tab(page, 'To ship (0)')).toBeVisible()
-    await tab(page, 'To ship (0)').click()
+    await expect(tab(page, 'To ship')).toBeVisible()
+    await tab(page, 'To ship').click()
     await expect(page.getByRole('heading', { level: 2, name: 'Nothing being prepared' })).toBeVisible()
     await expect(page.getByText('Once you have paid, your order shows here while we pack it for delivery.')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Continue shopping' })).toHaveAttribute('href', '/shop')
     await page.getByRole('button', { name: 'View all orders' }).click()
-    await expect(tab(page, 'All (1)')).toHaveAttribute('aria-pressed', 'true')
+    await expect(tab(page, 'All')).toHaveAttribute('aria-pressed', 'true')
     await expect(card(page, 1)).toBeVisible()
     await expect(page).toHaveURL(/\/orders$/)
   })
@@ -291,9 +292,9 @@ test.describe('the orders list', () => {
     await expect(page.getByText(`Order ${num(1)} cancelled.`)).toBeVisible()
     await expect(dialog).toBeHidden()
     expect(mock.cancels).toEqual([{ id: orderId(1), body: {} }])
-    await expect(tab(page, 'Cancelled (1)')).toBeVisible()
-    await expect(tab(page, 'To pay (1)')).toBeVisible()
-    await tab(page, 'Cancelled (1)').click()
+    await expect(tab(page, 'Cancelled')).toBeVisible()
+    await expect(tab(page, 'To pay')).toBeVisible()
+    await tab(page, 'Cancelled').click()
     await expect(card(page, 1)).toContainText('Cancelled')
   })
 })
@@ -451,8 +452,8 @@ test.describe('one order', () => {
       await expect(page.getByRole('button', { name: 'Download receipt' })).toHaveCount(0)
 
       await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Orders' }).click()
-      await expect(tab(page, 'Cancelled (1)')).toBeVisible()
-      await tab(page, 'Cancelled (1)').click()
+      await expect(tab(page, 'Cancelled')).toBeVisible()
+      await tab(page, 'Cancelled').click()
       await expect(card(page, 1)).toContainText('Cancelled')
       await expect(cards(page)).toHaveCount(1)
     })
@@ -524,11 +525,11 @@ test.describe('navigation and keyboard', () => {
 
   test('tabs and a card work with the keyboard alone', async ({ page }) => {
     await openList(page, everyStatus())
-    await tabTo(page, tab(page, 'To pay (2)'))
+    await tabTo(page, tab(page, 'To pay'))
     await page.keyboard.press('Enter')
-    await expect(tab(page, 'To pay (2)')).toHaveAttribute('aria-pressed', 'true')
+    await expect(tab(page, 'To pay')).toHaveAttribute('aria-pressed', 'true')
     await expect(cards(page)).toHaveCount(2)
-    await tabTo(page, tab(page, 'Cancelled (1)'))
+    await tabTo(page, tab(page, 'Cancelled'))
     await page.keyboard.press('Space')
     await expect(cards(page)).toHaveCount(1)
     await expect(card(page, 8)).toBeVisible()
@@ -567,7 +568,8 @@ test.describe('small screens', () => {
       await openList(page, orders)
       await expect(cards(page)).toHaveCount(10)
       expect(await overflows(page), `/orders at ${width}px`).toBe(false)
-      await expect(card(page, 10)).toContainText('Long Name Piece Number 1 + 1 more')
+      await expect(card(page, 10)).toContainText('Long Name Piece Number 1')
+      await expect(card(page, 10)).toContainText('Long Name Piece Number 2')
 
       const buttons = await page.getByRole('main').or(page.locator('#root')).first().evaluate(() => {
         const rows: { name: string; h: number }[] = []
@@ -592,16 +594,39 @@ test.describe('small screens', () => {
     })
   }
 
-  test('an order with four lines keeps its thumbnails inside the card at 320px', async ({ page }) => {
+  test('an order with four lines shows two and says how many more, inside the card at 320px', async ({ page }) => {
     await signedIn(page)
     await page.setViewportSize({ width: 320, height: 800 })
     const four = named(10, 'Pending Polo', { items: [1, 2, 3, 4].map((i) => item(`Long Name Piece Number ${i}`, { id: `00000000-0000-4000-8000-00000000004${i}` })) })
     await openList(page, [four])
-    await expect(card(page, 10)).toContainText('+1')
+    await expect(card(page, 10)).toContainText('+2 more items')
     expect(await overflows(page)).toBe(false)
   })
 
-  test('the status tabs scroll inside their own row and the page does not', async ({ page }) => {
+  test('the status tabs stay under the header while the list scrolls', async ({ page }) => {
+    await signedIn(page)
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 700 })
+      const many = Array.from({ length: 10 }, (_, i) => named(i + 1, `Piece ${i + 1}`))
+      await openList(page, many)
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+      const top = await page.getByRole('group', { name: 'Order status' }).evaluate((el) => el.getBoundingClientRect().top)
+      expect(top, `tabs top at ${width}px`).toBeGreaterThanOrEqual(0)
+      expect(top, `tabs top at ${width}px`).toBeLessThan(120)
+      // nothing from the list shows through or over the strip: it is solid
+      for (let y = 0; y < 700; y += 240) {
+        await page.evaluate((to) => window.scrollTo(0, to), y)
+        const covered = await page.getByRole('group', { name: 'Order status' }).evaluate((el) => {
+          const r = el.getBoundingClientRect()
+          const hit = document.elementFromPoint(r.left + 8, r.top + r.height / 2)
+          return r.top > 0 && r.top < 120 && !!hit && !el.contains(hit) && !hit.contains(el)
+        })
+        expect(covered, `strip covered at scroll ${y}, ${width}px`).toBe(false)
+      }
+    }
+  })
+
+  test('the status tabs scroll inside their own row, show the next one cut off, and the page does not', async ({ page }) => {
     await signedIn(page)
     await page.setViewportSize({ width: 320, height: 800 })
     await openList(page, everyStatus())
@@ -609,8 +634,11 @@ test.describe('small screens', () => {
     const { inner, outer } = await row.evaluate((el) => ({ inner: el.scrollWidth, outer: el.clientWidth }))
     expect(inner).toBeGreaterThan(outer)
     expect(await overflows(page)).toBe(false)
-    await tab(page, 'Cancelled (1)').click()
-    await expect(tab(page, 'Cancelled (1)')).toBeInViewport() // the chosen tab is scrolled into view
+    // a chip is partly in view at the right edge, which is what tells a person there is more
+    const cut = await row.getByRole('button').evaluateAll((els, edge) => els.some((el) => { const r = el.getBoundingClientRect(); return r.left < edge && r.right > edge }), 320)
+    expect(cut).toBe(true)
+    await tab(page, 'Cancelled').click()
+    await expect(tab(page, 'Cancelled')).toBeInViewport() // the chosen tab is scrolled into view
   })
 })
 

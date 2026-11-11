@@ -1,28 +1,56 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ORDER_TABS, type OrderTab } from '../../utils/orders'
-import { KRAL_CHIP } from '../shop/shopControls'
 
 interface OrderTabsProps {
   tab: OrderTab
-  /** How many orders each tab holds. */
-  counts: Record<OrderTab, number>
   onChange: (tab: OrderTab) => void
 }
 
-/** The status tabs as a row of chips that scrolls sideways on a phone (the page itself never does), fading out at the right edge. */
-export function OrderTabs({ tab, counts, onChange }: OrderTabsProps) {
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+
+/** The status tabs as a row that scrolls sideways on a phone (the page itself never does). The row bleeds to the screen edge with no fade, so the next tab shows cut off and says there is more. One underline slides to the chosen tab. */
+export function OrderTabs({ tab, onChange }: OrderTabsProps) {
   const row = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    row.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'center' })
+  const [bar, setBar] = useState<{ left: number; width: number } | null>(null)
+  const settled = useRef(false)
+
+  useLayoutEffect(() => {
+    const place = () => {
+      const active = row.current?.querySelector<HTMLElement>('[aria-pressed="true"]')
+      if (active) setBar({ left: active.offsetLeft, width: active.offsetWidth })
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
   }, [tab])
+
+  useEffect(() => {
+    const active = row.current?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    active?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: settled.current && !reducedMotion() ? 'smooth' : 'auto' })
+    settled.current = true
+  }, [tab])
+
   return (
-    <div className="-mx-6 max-md:[mask-image:linear-gradient(to_right,transparent,#000_1.5rem,#000_calc(100%-2rem),transparent)] md:mx-0">
-      <div ref={row} role="group" aria-label="Order status" className="flex gap-2 overflow-x-auto px-6 py-1 md:flex-wrap md:overflow-visible md:px-0">
+    <div>
+      <div ref={row} role="group" aria-label="Order status" className="relative flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border-b border-kral-rule pl-6 md:overflow-visible md:px-0">
         {ORDER_TABS.map(({ id, label }) => (
-          <button key={id} type="button" aria-pressed={tab === id} onClick={() => onChange(id)} className={`${KRAL_CHIP} shrink-0 tabular-nums`}>
-            {label} ({counts[id]})
+          <button
+            key={id}
+            type="button"
+            aria-pressed={tab === id}
+            onClick={() => onChange(id)}
+            className="kral-focus font-kral-mono flex min-h-11 shrink-0 cursor-pointer items-center px-2.5 text-sm font-medium whitespace-nowrap text-kral-muted uppercase transition-colors duration-200 ease-out hover:text-kral-fg aria-pressed:text-kral-fg motion-reduce:transition-none md:px-3 md:text-xs md:tracking-[0.08em]"
+          >
+            {label}
           </button>
         ))}
+        {bar && (
+          <span
+            aria-hidden="true"
+            style={{ transform: `translateX(${bar.left}px)`, width: bar.width }}
+            className={`pointer-events-none absolute bottom-0 left-0 h-0.5 bg-kral-fg transition-[transform,width] duration-300 ease-out motion-reduce:transition-none`}
+          />
+        )}
       </div>
     </div>
   )
