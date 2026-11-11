@@ -10,6 +10,7 @@ import { ArchiveIcon, MailIcon, PlusIcon, RestoreIcon } from '../../form/icons'
 import { AddedDate, RowAction } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { AccountEmail } from './AccountEmail'
 import { AccountName } from './AccountName'
 import { AccountTable, type AccountColumn } from './AccountTable'
 import { AccountToolbar } from './AccountToolbar'
@@ -44,7 +45,7 @@ export function StaffTab() {
       cell: (_, index) => <span className="tabular-nums">{((meta?.page ?? list.page) - 1) * (meta?.limit ?? list.per) + index + 1}</span>,
     },
     { key: 'name', header: 'Staff', sort: 'name', title: true, cell: (a) => <AccountName account={a} /> },
-    { key: 'email', header: 'Email', width: 'w-[30%]', cell: (a) => <span className="block truncate">{a.email}</span> },
+    { key: 'email', header: 'Email', indent: true, width: 'w-[24%]', cell: (a) => <AccountEmail email={a.email} /> },
     { key: 'status', header: 'Status', cardLabel: 'Status:', width: 'w-[14%]', cell: (a) => <StatusBadge status={a.status} /> },
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
   ]

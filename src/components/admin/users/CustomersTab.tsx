@@ -10,6 +10,7 @@ import { ArchiveIcon, EyeIcon, RestoreIcon } from '../../form/icons'
 import { AddedDate, RowAction } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { AccountEmail } from './AccountEmail'
 import { AccountName } from './AccountName'
 import { AccountTable, type AccountColumn } from './AccountTable'
 import { AccountToolbar } from './AccountToolbar'
@@ -45,7 +46,7 @@ export function CustomersTab() {
       cell: (_, index) => <span className="tabular-nums">{((meta?.page ?? list.page) - 1) * (meta?.limit ?? list.per) + index + 1}</span>,
     },
     { key: 'name', header: 'Customer', sort: 'name', title: true, cell: (a) => <AccountName account={a} /> },
-    { key: 'email', header: 'Email', width: 'w-[30%]', cell: (a) => <span className="block truncate">{a.email}</span> },
+    { key: 'email', header: 'Email', indent: true, width: 'w-[24%]', cell: (a) => <AccountEmail email={a.email} /> },
     { key: 'status', header: 'Status', cardLabel: 'Status:', width: 'w-[14%]', cell: (a) => <StatusBadge status={a.status} /> },
     { key: 'offenses', header: 'Offenses', cardLabel: 'Offenses:', center: true, width: 'w-[10%]', cell: (a) => <OffenseCount id={a.id} /> },
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },

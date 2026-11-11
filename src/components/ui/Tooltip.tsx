@@ -62,6 +62,10 @@ interface TooltipProps {
   wrap?: boolean
   /** Flat, square, mono tip for the KRAL pages. */
   tone?: 'kral'
+  /** Extra classes for the wrapper, e.g. `min-w-0` so a truncated child can still shrink. */
+  className?: string
+  /** Never shows, for a caller that only needs the tip some of the time (a label that is cut off). */
+  disabled?: boolean
   children: ReactNode
 }
 
@@ -69,12 +73,12 @@ interface TooltipProps {
  * A hint for a control. Shows on mouse hover after a short delay and at once on keyboard focus; a touch tap never
  * shows it. Hides on leave, press, blur or Escape.
  */
-export function Tooltip({ label, describe = false, open: controlled, wrap, tone, children }: TooltipProps) {
+export function Tooltip({ label, describe = false, open: controlled, wrap, tone, className = '', disabled = false, children }: TooltipProps) {
   const id = useId()
   const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null)
   const timer = useRef<number>(undefined)
   const [hovered, setOpen] = useState(false)
-  const open = controlled ?? hovered
+  const open = !disabled && (controlled ?? hovered)
 
   const hide = () => {
     window.clearTimeout(timer.current)
@@ -95,7 +99,7 @@ export function Tooltip({ label, describe = false, open: controlled, wrap, tone,
   return (
     <span
       ref={setAnchor}
-      className="inline-flex"
+      className={`inline-flex ${className}`}
       aria-describedby={describe && open ? id : undefined}
       onPointerEnter={(event) => {
         if (event.pointerType !== 'mouse') return
