@@ -75,16 +75,18 @@ export function OrderDetailBodySkeleton() {
       <div className="min-w-0 space-y-6">
         <div className="border border-kral-rule p-5">
           <div className={`h-7 w-40 ${BLOCK}`} />
-          <div className="mt-4 space-y-5 lg:flex lg:space-y-0 lg:gap-3">
-            {Array.from({ length: 4 }, (_, i) => (
-              <div key={i} className="grid grid-cols-[1rem_1fr] gap-x-3 lg:flex-1 lg:grid-cols-1 lg:gap-y-2">
-                <div className={`size-4 ${BLOCK}`} />
-                <div>
-                  <Bar className="font-kral-mono w-28 text-base md:text-sm" />
-                  <Bar className="font-kral-mono mt-0.5 w-36 text-base md:text-xs" />
+          <div className="@container">
+            <div className="mt-4 space-y-5 @4xl:flex @4xl:space-y-0 @4xl:gap-3">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="grid grid-cols-[1rem_1fr] gap-x-3 @4xl:flex-1 @4xl:grid-cols-1 @4xl:gap-y-2">
+                  <div className={`size-4 ${BLOCK}`} />
+                  <div>
+                    <Bar className="font-kral-mono w-28 text-base md:text-sm" />
+                    <Bar className="font-kral-mono mt-0.5 w-36 text-base md:text-xs" />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
         <div className="border border-kral-rule p-5">

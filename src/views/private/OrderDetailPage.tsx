@@ -113,7 +113,7 @@ function OrderBody({ order, onCancel }: { order: CustomerOrder; onCancel: (order
             {track && (
               <>
                 {/* The courier's own tracking page, shown in place. The block behind it holds the space while it loads. */}
-                <div className="mt-4 h-72 border border-kral-rule bg-kral-porcelain sm:h-96 dark:bg-kral-graphite">
+                <div className="mt-4 h-72 border border-kral-rule bg-kral-porcelain sm:h-96 shortest:h-56 dark:bg-kral-graphite">
                   <iframe
                     src={track}
                     title="Live delivery map"

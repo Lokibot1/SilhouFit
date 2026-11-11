@@ -18,6 +18,7 @@ import { DEFAULT_COUNTRY_CODE, findCountry } from '../../data/countries'
 import { lineKey, useCart } from '../../hooks/useCart'
 import { useCurrentUser, type CurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProductsByIds } from '../../hooks/useProducts'
 import { useWishlist } from '../../hooks/useWishlist'
@@ -293,6 +294,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const cart = useCart()
   const wishlist = useWishlist()
   const toast = useToast()
+  const wide = useMediaQuery('(min-width: 1024px)')
   const [payment, setPayment] = useState<Payment>('ewallet')
   const [provider, setProvider] = useState<Provider>('gcash')
   const [values, setValues] = useState<AddressValues>({
@@ -907,7 +909,20 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
 
         <div className="space-y-4">
           {/* Below lg the button is pinned to the bottom of the screen so it is always in reach; from lg the summary card is sticky instead. */}
-          <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:mb-0 max-lg:z-40 max-lg:border-t max-lg:border-kral-rule max-lg:bg-kral-bg max-lg:px-4 max-lg:pt-3 max-lg:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div
+            // Publishes its height while it is fixed (below lg) so the chat button and toasts sit above it, not over Place order.
+            ref={(el) => {
+              if (!el || wide) return
+              const publish = () => document.documentElement.style.setProperty('--bottom-bar-h', `${el.offsetHeight}px`)
+              publish()
+              const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish)
+              resize?.observe(el)
+              return () => {
+                resize?.disconnect()
+                document.documentElement.style.removeProperty('--bottom-bar-h')
+              }
+            }}
+            className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:mb-0 max-lg:z-40 max-lg:border-t max-lg:border-kral-rule max-lg:bg-kral-bg max-lg:pr-[max(1rem,env(safe-area-inset-right))] max-lg:pl-[max(1rem,env(safe-area-inset-left))] max-lg:pt-3 max-lg:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             <button type="submit" data-tour="checkout-place" disabled={pending || quoteLoading || !!quoteError} className={`${KRAL_PRIMARY} w-full`}>
               {pending ? (
                 <>
@@ -1007,7 +1022,7 @@ export function CheckoutPage() {
   const items = snapshot?.search === search ? snapshot.items : []
 
   return (
-    <div className="mx-auto max-w-6xl px-6 pt-18 pb-24 2xl:max-w-[88rem]">
+    <div className="mx-auto max-w-6xl px-6 pt-18 pb-24 max-lg:pb-[calc(var(--bottom-bar-h,4.5rem)+1.5rem)] 2xl:max-w-[88rem]">
       {/* Stays under the top bar (61px) while the order scrolls; the summary sticks below it. */}
       <div className="lg:pt-2 lg:pb-[25px]">
         <Breadcrumb />

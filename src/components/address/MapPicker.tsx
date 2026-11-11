@@ -223,7 +223,7 @@ export default function MapPicker({ onBack, onUse, tone }: MapPickerProps) {
         Tap the map to drop a pin and drag it to adjust. Or let your device find you with Auto-pin.
       </p>
 
-      <div className={`relative isolate mt-3 h-72 overflow-hidden border ${kral ? 'border-kral-fg bg-kral-porcelain dark:bg-kral-graphite' : 'rounded-xl border-line bg-canvas-sub'}`}>
+      <div className={`relative isolate mt-3 h-72 shortest:h-48 overflow-hidden border ${kral ? 'border-kral-fg bg-kral-porcelain dark:bg-kral-graphite' : 'rounded-xl border-line bg-canvas-sub'}`}>
         <div ref={hostRef} className="address-map absolute inset-0" />
         {mapState === 'loading' && (
           <div role="status" className={`absolute inset-0 z-[1000] flex animate-pulse items-center justify-center gap-2 text-base ${kral ? 'bg-kral-porcelain font-kral-mono text-kral-muted dark:bg-kral-graphite' : 'bg-line text-fg-muted'}`}>
