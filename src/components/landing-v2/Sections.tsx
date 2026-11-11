@@ -11,7 +11,7 @@ const TAPE = [
   'AR IN YOUR BROWSER',
 ]
 
-/** Red tape strip: one steady linear loop. The second copy only fills the loop, so it is hidden from assistive tech. */
+/** Red tape strip: one steady linear loop. The other seven copies only fill the loop (one run is under 900px, so two left a gap on wide screens), so it is hidden from assistive tech. */
 export function Tape() {
   const run = (hidden: boolean) => (
     <span className="sv2-tape-run" aria-hidden={hidden || undefined}>
@@ -24,7 +24,7 @@ export function Tape() {
     <div className="sv2-tape">
       <div className="sv2-tape-track">
         {run(false)}
-        {run(true)}
+        {[1, 2, 3, 4, 5, 6, 7].map((i) => (<span key={i} className="contents">{run(true)}</span>))}
       </div>
     </div>
   )
