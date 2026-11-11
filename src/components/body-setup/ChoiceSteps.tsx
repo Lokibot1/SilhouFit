@@ -1,8 +1,9 @@
-import type { ReactNode, Ref } from 'react'
+import { useId, type CSSProperties, type ReactNode, type Ref } from 'react'
 import type { BodyBuildId, BodyModelId } from '../../service/bodyProfile'
 import { CheckIcon } from '../form/icons'
 import { BUILDS, MODELS } from './draft'
 import { BUILD_LABEL, MODEL_LABEL } from './measurements'
+import { SKIN_TONE_GRADIENT, skinToneHex, skinToneLabel } from './skinTone'
 
 const MODEL_TEXT: Record<BodyModelId, string> = {
   male: 'A male body shape for your avatar.',
@@ -127,7 +128,14 @@ export function ModelStep({ headingRef, headingId, value, onChange }: StepProps<
   )
 }
 
-export function BuildStep({ headingRef, headingId, value, onChange, model }: StepProps<BodyBuildId> & { model: BodyModelId }) {
+interface BuildStepProps extends StepProps<BodyBuildId> {
+  model: BodyModelId
+  skinTone: number
+  onSkinTone: (tone: number) => void
+}
+
+export function BuildStep({ headingRef, headingId, value, onChange, model, skinTone, onSkinTone }: BuildStepProps) {
+  const toneId = useId()
   return (
     <>
       <h2 id={headingId} ref={headingRef} tabIndex={-1} className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase outline-none sm:text-2xl">
@@ -149,6 +157,30 @@ export function BuildStep({ headingRef, headingId, value, onChange, model }: Ste
           figure={(b) => <Figure model={model} build={b} />}
           columns="grid-cols-1 min-[480px]:grid-cols-2"
         />
+      </div>
+      <div className="mt-6">
+        <label htmlFor={toneId} className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">
+          Skin tone
+        </label>
+        <div className="mt-1 flex items-center gap-3">
+          <input
+            id={toneId}
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={skinTone}
+            onChange={(e) => onSkinTone(Number(e.target.value))}
+            aria-valuetext={`${skinToneLabel(skinTone)}, ${skinTone} of 100`}
+            style={{ '--kral-range-track': SKIN_TONE_GRADIENT } as CSSProperties}
+            className="kral-range h-11 min-w-0 flex-1"
+          />
+          <span aria-hidden="true" className="size-6 shrink-0 border border-kral-fg" style={{ backgroundColor: skinToneHex(skinTone) }} />
+          <span aria-hidden="true" className="font-kral-mono w-8 shrink-0 text-right text-base text-kral-fg tabular-nums">
+            {skinTone}
+          </span>
+        </div>
+        <p className="font-kral-mono text-base text-kral-muted md:text-sm">Changes only how your avatar looks.</p>
       </div>
     </>
   )

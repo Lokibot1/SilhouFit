@@ -15,6 +15,7 @@ import { MeasureStep } from '../../components/body-setup/MeasureStep'
 import { changedFields, fieldsFor, fromProfile, toPayload, warnings as crossChecks } from '../../components/body-setup/measurements'
 import { ReviewStep } from '../../components/body-setup/ReviewStep'
 import { SectionBoundary } from '../../components/body-setup/SectionBoundary'
+import { loadSkinTone, saveSkinTone } from '../../components/body-setup/skinTone'
 import { STEP_BODY, STEP_BODY_PINNED, STEP_CARD_PINNED, STEP_FOOTER } from '../../components/body-setup/stepLayout'
 import { StudioFlat, StudioFrame } from '../../components/body-setup/StudioFallback'
 import { AlertIcon, ChevronLeftIcon, ChevronRightIcon, XIcon } from '../../components/form/icons'
@@ -103,7 +104,7 @@ export function BodySetupPage() {
     if (!email || stored) return
     const controller = new AbortController()
     getBodyProfile({ signal: controller.signal }).then(
-      (profile) => setLoad({ status: 'ready', draft: newDraft(email, profile ? fromProfile(profile) : {}), profile: profile ?? undefined }),
+      (profile) => setLoad({ status: 'ready', draft: newDraft(email, { ...(profile ? fromProfile(profile) : {}), skinTone: loadSkinTone(email) }), profile: profile ?? undefined }),
       (error: unknown) => {
         if (controller.signal.aborted) return
         const kind = error instanceof BodyProfileError ? error.kind : 'server'
@@ -265,6 +266,7 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
         genderSynced = false
       }
     }
+    saveSkinTone(draft.email, draft.skinTone)
     clearBodyDraft()
     toast.show(
       genderSynced
@@ -327,7 +329,7 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
   ) : step === 1 && model ? (
     <>
       <div className={`${STEP_BODY} ${STEP_BODY_PINNED}`}>
-        <BuildStep headingRef={headingRef} headingId={headingId} model={model} value={build} onChange={(b) => dispatch({ type: 'build', build: b })} />
+        <BuildStep headingRef={headingRef} headingId={headingId} model={model} value={build} onChange={(b) => dispatch({ type: 'build', build: b })} skinTone={draft.skinTone} onSkinTone={(value) => dispatch({ type: 'skinTone', value })} />
       </div>
       {nav(() => go(2), true)}
     </>
@@ -429,7 +431,7 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
               )}
             >
               <Suspense fallback={<div className={`animate-pulse ${KRAL_BLOCK} ${STUDIO_SIZE}`} />}>
-                <BodyStudio model={model ?? 'male'} build={build} cm={entered} focus={field} reduced={reduced} className={STUDIO_SIZE} />
+                <BodyStudio model={model ?? 'male'} build={build} cm={entered} focus={field} reduced={reduced} skinTone={draft.skinTone} className={STUDIO_SIZE} />
               </Suspense>
             </SectionBoundary>
             <p className="font-kral-mono mt-1.5 text-base leading-snug text-kral-muted md:text-sm lg:mt-2">

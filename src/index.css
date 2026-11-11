@@ -387,6 +387,63 @@
     border-radius: 0;
   }
 
+  /* KRAL range slider: the input is the 44px touch target, the track is a bordered strip painted with
+     --kral-range-track, the thumb a square. Both engines are styled; nothing animates, so reduced motion needs nothing. */
+  .kral-range {
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  .kral-range::-webkit-slider-runnable-track {
+    box-sizing: border-box;
+    height: 16px;
+    border: 1px solid var(--kral-fg);
+    background: var(--kral-range-track);
+  }
+  .kral-range::-moz-range-track {
+    box-sizing: border-box;
+    height: 16px;
+    border: 1px solid var(--kral-fg);
+    background: var(--kral-range-track);
+  }
+  .kral-range::-webkit-slider-thumb {
+    appearance: none;
+    box-sizing: border-box;
+    width: 20px;
+    height: 28px;
+    margin-top: -7px;
+    border: 2px solid var(--kral-fg);
+    border-radius: 0;
+    background: var(--kral-bg);
+  }
+  .kral-range::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 20px;
+    height: 28px;
+    border: 2px solid var(--kral-fg);
+    border-radius: 0;
+    background: var(--kral-bg);
+  }
+  .kral-range:hover::-webkit-slider-thumb,
+  .kral-range:active::-webkit-slider-thumb {
+    background: color-mix(in srgb, var(--kral-fg) 14%, var(--kral-bg));
+  }
+  .kral-range:hover::-moz-range-thumb,
+  .kral-range:active::-moz-range-thumb {
+    background: color-mix(in srgb, var(--kral-fg) 14%, var(--kral-bg));
+  }
+  .kral-range:focus-visible {
+    outline: none;
+  }
+  .kral-range:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--kral-red-ink);
+    outline-offset: 2px;
+  }
+  .kral-range:focus-visible::-moz-range-thumb {
+    outline: 2px solid var(--kral-red-ink);
+    outline-offset: 2px;
+  }
+
   /* KRAL grain of DESIGN.md: inline SVG noise (no image asset), dark specks on Paper, light specks on Obsidian. */
   .kral-grain {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");

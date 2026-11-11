@@ -1,5 +1,6 @@
 import type { BodyBuildId, BodyModelId } from '../../service/bodyProfile'
 import { FIELDS, fieldsFor, type Entered, type Field, type Unit } from './measurements'
+import { SKIN_TONE_DEFAULT } from './skinTone'
 
 // The setup in progress, kept in sessionStorage so a reload resumes it. It holds body measurements, so it lives for
 // this tab only and is cleared on Finish, Skip, close and sign-out.
@@ -17,6 +18,8 @@ export interface Draft {
   unit: Unit
   entered: Entered
   reviewing: boolean
+  /** 0 lightest to 100 deepest. Only changes how the avatar looks. */
+  skinTone: number
 }
 
 export type DraftAction =
@@ -26,9 +29,10 @@ export type DraftAction =
   | { type: 'unit'; unit: Unit }
   | { type: 'set'; field: Field; value: number | undefined }
   | { type: 'review'; reviewing: boolean }
+  | { type: 'skinTone'; value: number }
 
 export function newDraft(email: string, from: Partial<Draft> = {}): Draft {
-  return { email, model: null, build: null, step: 0, unit: 'metric', entered: {}, reviewing: false, ...from }
+  return { email, model: null, build: null, step: 0, unit: 'metric', entered: {}, reviewing: false, skinTone: SKIN_TONE_DEFAULT, ...from }
 }
 
 /** The index of the last measurement step for a model. */
@@ -56,6 +60,8 @@ export function draftReducer(draft: Draft, action: DraftAction): Draft {
     }
     case 'review':
       return { ...draft, reviewing: action.reviewing }
+    case 'skinTone':
+      return { ...draft, skinTone: action.value }
   }
 }
 
@@ -97,6 +103,7 @@ export function loadDraft(email: string): Draft | null {
       unit: raw.unit === 'imperial' ? 'imperial' : 'metric',
       entered,
       reviewing: raw.reviewing === true && model !== null && entered.height !== undefined,
+      skinTone: typeof raw.skinTone === 'number' && Number.isInteger(raw.skinTone) && raw.skinTone >= 0 && raw.skinTone <= 100 ? raw.skinTone : SKIN_TONE_DEFAULT,
     }
   } catch {
     return null

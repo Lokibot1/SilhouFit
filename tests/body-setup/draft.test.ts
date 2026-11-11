@@ -23,7 +23,13 @@ describe('lastStep', () => {
 
 describe('draftReducer', () => {
   it('starts at the model step in metric with nothing entered', () => {
-    expect(newDraft(EMAIL)).toEqual({ email: EMAIL, model: null, build: null, step: 0, unit: 'metric', entered: {}, reviewing: false })
+    expect(newDraft(EMAIL)).toEqual({ email: EMAIL, model: null, build: null, step: 0, unit: 'metric', entered: {}, reviewing: false, skinTone: 44 })
+  })
+
+  it('records the skin tone without touching anything else', () => {
+    const draft = draftReducer(newDraft(EMAIL, { entered: { height: 170 } }), { type: 'skinTone', value: 80 })
+    expect(draft.skinTone).toBe(80)
+    expect(draft.entered).toEqual({ height: 170 })
   })
 
   it('keeps entered values when moving next and back', () => {
@@ -154,6 +160,15 @@ describe('saveDraft and loadDraft', () => {
     expect(loadDraft(EMAIL)?.reviewing).toBe(false)
     sessionStorage.setItem(KEY, JSON.stringify({ email: EMAIL, model: null, entered: { height: 170 }, reviewing: true }))
     expect(loadDraft(EMAIL)?.reviewing).toBe(false)
+  })
+
+  it('keeps a skin tone that is an integer from 0 to 100 and otherwise uses the default', () => {
+    for (const [stored, expected] of [[0, 0], [100, 100], [73, 73], [101, 44], [-1, 44], [4.5, 44], ['9', 44], [null, 44]] as const) {
+      sessionStorage.setItem(KEY, JSON.stringify({ email: EMAIL, skinTone: stored }))
+      expect(loadDraft(EMAIL)?.skinTone).toBe(expected)
+    }
+    sessionStorage.setItem(KEY, JSON.stringify({ email: EMAIL }))
+    expect(loadDraft(EMAIL)?.skinTone).toBe(44)
   })
 
   it('writes to sessionStorage only, never localStorage', () => {

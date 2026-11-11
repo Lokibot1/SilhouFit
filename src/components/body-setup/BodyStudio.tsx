@@ -6,10 +6,11 @@ import maleUrl from '../../assets/body-male.glb?url'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
 import type { BodyBuildId, BodyModelId } from '../../service/bodyProfile'
 import { ChevronLeftIcon, ChevronRightIcon, RulerIcon, SpinnerIcon } from '../form/icons'
-import { addStudio, createChromeMaterial, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
+import { addStudio, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
 import { Tooltip } from '../ui/Tooltip'
 import { applyMeasurements, lerpValue, type BodyBounds, type Deformed } from './deformBody'
 import { SPECS, type Entered, type Field } from './measurements'
+import { SKIN_TONE_DEFAULT, skinToneHex } from './skinTone'
 import { StudioFlat, StudioFrame } from './StudioFallback'
 
 // The tape and the highlighted band share one accent so they read the same in both themes.
@@ -34,6 +35,8 @@ interface BodyStudioProps {
   autoRotate?: boolean
   /** Show the rotate buttons. Off for a read-only view. */
   controls?: boolean
+  /** 0 lightest to 100 deepest. */
+  skinTone?: number
   className?: string
 }
 
@@ -43,7 +46,7 @@ interface Scene3D {
   camera: THREE.PerspectiveCamera
   pivot: THREE.Group
   tape: THREE.Group
-  material: THREE.MeshPhysicalMaterial
+  material: THREE.MeshStandardMaterial
   band: THREE.Vector2
   mesh?: THREE.Mesh
   base?: Float32Array
@@ -58,7 +61,7 @@ interface Scene3D {
  * The avatar. One WebGL context for the whole setup: it is driven by props and swaps geometry when the model changes.
  * A flat silhouette with a band takes over if WebGL is unavailable, lost, or the model fails to load.
  */
-export function BodyStudio({ model, build, cm, focus, reduced, autoRotate = false, controls = true, className = '' }: BodyStudioProps) {
+export function BodyStudio({ model, build, cm, focus, reduced, autoRotate = false, controls = true, skinTone = SKIN_TONE_DEFAULT, className = '' }: BodyStudioProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const ctx = useRef<Scene3D | null>(null)
   const latest = useRef({ model, build, cm, focus, reduced, autoRotate })
@@ -95,8 +98,12 @@ export function BodyStudio({ model, build, cm, focus, reduced, autoRotate = fals
 
     const scene = new THREE.Scene()
     const envMap = addStudio(renderer, scene)
+    // The studio is lit for chrome; skin needs less, or the lightest tones blow out under tone mapping.
+    renderer.toneMappingExposure = 0.75
+    scene.environmentIntensity = 0.8
     const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 1000)
-    const material = createChromeMaterial()
+    // Matte skin, not chrome: the landing page keeps the chrome, this avatar is meant to look like the person.
+    const material = new THREE.MeshStandardMaterial({ color: skinToneHex(SKIN_TONE_DEFAULT), metalness: 0, roughness: 0.55 })
     const band = new THREE.Vector2(1e9, -1e9)
     const feather = { value: 0 }
     material.onBeforeCompile = (shader) => {
@@ -378,6 +385,16 @@ export function BodyStudio({ model, build, cm, focus, reduced, autoRotate = fals
       releaseRenderer(renderer)
     }
   }, [])
+
+  // The tone only recolours the one material: no rebuild, no re-deform, no recompile.
+  useEffect(() => {
+    const state = ctx.current
+    const host = hostRef.current
+    if (!state || !host) return
+    state.material.color.set(skinToneHex(skinTone))
+    host.dataset.skinTone = '#' + state.material.color.getHexString(THREE.SRGBColorSpace)
+    state.invalidate()
+  }, [skinTone])
 
   // Swap the geometry when the model changes. A load that finishes after a newer request or unmount is ignored.
   useEffect(() => {

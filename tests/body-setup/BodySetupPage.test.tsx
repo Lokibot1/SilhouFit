@@ -1,9 +1,10 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadDraft, newDraft, saveDraft } from '../../src/components/body-setup/draft'
+import { loadSkinTone } from '../../src/components/body-setup/skinTone'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { resetTour, useOnboarding } from '../../src/hooks/useOnboarding'
 import { createAddress, deleteAddress, loadAddresses, updateAddress } from '../../src/service/addresses'
@@ -21,7 +22,7 @@ vi.mock('motion/react', async (importOriginal) => ({
 }))
 // The WebGL studio is replaced by a stub that shows the props the page hands it. Its fallback has its own test file.
 vi.mock('../../src/components/body-setup/BodyStudio', () => ({
-  BodyStudio: (props: { model: string; build: string | null; cm: object; focus: string | null; reduced: boolean }) => {
+  BodyStudio: (props: { model: string; build: string | null; cm: object; focus: string | null; reduced: boolean; skinTone?: number }) => {
     if (crash.studio) throw new Error('studio chunk failed')
     return (
     <div
@@ -32,6 +33,7 @@ vi.mock('../../src/components/body-setup/BodyStudio', () => ({
       data-build={props.build ?? ''}
       data-focus={props.focus ?? ''}
       data-reduced={String(props.reduced)}
+      data-skin-tone={String(props.skinTone)}
       data-cm={JSON.stringify(props.cm)}
     />
     )
@@ -331,6 +333,46 @@ describe('BodySetupPage flow', () => {
     const studio = screen.getByTestId('studio')
     expect(studio).toHaveAttribute('data-focus', 'height')
     expect(JSON.parse(studio.dataset.cm!)).toEqual({ height: 170 })
+  })
+
+  it('changes the avatar skin tone from the build step, saves it only on Finish and keeps it out of the request', async () => {
+    const user = await open()
+    await chooseModel(user, 'Male')
+    const slider = await screen.findByRole('slider', { name: 'Skin tone' })
+    expect(slider).toHaveValue('44')
+    expect(slider).toHaveAttribute('aria-valuetext', 'Medium, 44 of 100')
+    expect(await screen.findByTestId('studio')).toHaveAttribute('data-skin-tone', '44')
+    fireEvent.change(slider, { target: { value: '100' } })
+    expect(screen.getByTestId('studio')).toHaveAttribute('data-skin-tone', '100')
+    expect(slider).toHaveAttribute('aria-valuetext', 'Deep, 100 of 100')
+    expect(loadSkinTone(EMAIL)).toBe(44)
+    act(() => slider.focus())
+    await user.keyboard('{Escape}') // Escape on the slider still means Skip
+    await waitFor(() => expect(where()).toBe('/profile'))
+    expect(loadSkinTone(EMAIL)).toBe(44)
+  })
+
+  it('stores the tone on a successful Finish, and the request has no skin tone', async () => {
+    saveDraft(newDraft(EMAIL, { model: 'male', step: 12, entered: { height: 175 }, reviewing: true, skinTone: 80 }))
+    const user = await open()
+    await screen.findByRole('heading', { name: 'Review your measurements' })
+    expect(screen.getByText('Deep')).toBeInTheDocument()
+    await user.click(consent())
+    await user.click(finishButton())
+    await waitFor(() => expect(where()).toBe('/profile'))
+    expect(loadSkinTone(EMAIL)).toBe(80)
+    expect(JSON.stringify(save.mock.calls[0][0])).not.toMatch(/skin/i)
+  })
+
+  it('does not store the tone when the save fails', async () => {
+    save.mockRejectedValueOnce(new BodyProfileError('server'))
+    saveDraft(newDraft(EMAIL, { model: 'male', step: 12, entered: { height: 175 }, reviewing: true, skinTone: 80 }))
+    const user = await open()
+    await screen.findByRole('heading', { name: 'Review your measurements' })
+    await user.click(consent())
+    await user.click(finishButton())
+    await screen.findByRole('alert')
+    expect(loadSkinTone(EMAIL)).toBe(44)
   })
 
   it('jumps to a field from the review screen, and a build is never turned into measurements', async () => {

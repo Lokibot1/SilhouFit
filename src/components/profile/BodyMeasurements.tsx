@@ -1,6 +1,7 @@
 import { useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useEffect, useId, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { BodyProfileError, getBodyProfile, type BodyProfile } from '../../service/bodyProfile'
 import {
   BUILD_LABEL,
@@ -13,6 +14,7 @@ import {
   unitLabel,
 } from '../body-setup/measurements'
 import { SectionBoundary } from '../body-setup/SectionBoundary'
+import { loadSkinTone } from '../body-setup/skinTone'
 import { StudioFlat, StudioFrame } from '../body-setup/StudioFallback'
 import { AlertIcon, PlusIcon, RulerIcon } from '../form/icons'
 import { KRAL_PRIMARY } from '../shop/shopControls'
@@ -45,6 +47,7 @@ export function BodyMeasurements() {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const reduced = useReducedMotion() ?? false
+  const email = useCurrentUser()?.email
 
   useEffect(() => {
     const controller = new AbortController()
@@ -139,6 +142,7 @@ export function BodyMeasurements() {
                 reduced={reduced}
                 autoRotate={!reduced}
                 controls={false}
+                skinTone={loadSkinTone(email)}
                 className={AVATAR_SIZE}
               />
             </Suspense>

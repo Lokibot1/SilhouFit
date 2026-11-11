@@ -5,6 +5,7 @@ import { IconEditButton } from '../ui/IconEditButton'
 import { KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
 import type { Draft } from './draft'
 import { Warnings } from './MeasureStep'
+import { skinToneHex, skinToneLabel } from './skinTone'
 import { STEP_BODY, STEP_BODY_PINNED, STEP_FOOTER } from './stepLayout'
 import {
   BUILD_LABEL,
@@ -56,6 +57,14 @@ export function ReviewStep({ draft, warnings, consent, pending, headingRef, onCo
               <IconEditButton tone="kral" label={`Change ${row.label.toLowerCase()}`} onClick={() => onEditStep(row.step)} />
             </div>
           ))}
+          <div className="flex min-h-11 items-center gap-3 py-1">
+            <dt className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Skin tone</dt>
+            <dd className="font-kral-mono ml-auto flex items-center gap-2 text-base text-kral-fg">
+              <span aria-hidden="true" className="size-6 shrink-0 border border-kral-fg" style={{ backgroundColor: skinToneHex(draft.skinTone) }} />
+              {skinToneLabel(draft.skinTone)}
+            </dd>
+            <IconEditButton tone="kral" label="Change skin tone" onClick={() => onEditStep(1)} />
+          </div>
           {fields.map((field, i) => {
             const value = entered[field]
             return (
