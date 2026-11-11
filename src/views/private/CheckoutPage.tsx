@@ -922,7 +922,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                 document.documentElement.style.removeProperty('--bottom-bar-h')
               }
             }}
-            className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:mb-0 max-lg:z-40 max-lg:border-t max-lg:border-kral-rule max-lg:bg-kral-bg max-lg:pr-[max(1rem,env(safe-area-inset-right))] max-lg:pl-[max(1rem,env(safe-area-inset-left))] max-lg:pt-3 max-lg:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+            className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[var(--cookie-banner-h,0px)] max-lg:mb-0 max-lg:z-40 max-lg:border-t max-lg:border-kral-rule max-lg:bg-kral-bg max-lg:pr-[max(1rem,env(safe-area-inset-right))] max-lg:pl-[max(1rem,env(safe-area-inset-left))] max-lg:pt-3 max-lg:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             <button type="submit" data-tour="checkout-place" disabled={pending || quoteLoading || !!quoteError} className={`${KRAL_PRIMARY} w-full`}>
               {pending ? (
                 <>

@@ -29,7 +29,7 @@ export const PRODUCT_PANEL =
 // The details read as hairline rows, like a hang tag: a rule between groups, the first one flush with the top.
 export const PRODUCT_DETAILS = 'divide-y divide-kral-rule [&>*]:py-3 [&>:first-child]:pt-0 lg:[&>*]:py-4'
 export const PRODUCT_ACTIONS =
-  '-mx-6 flex shrink-0 flex-col gap-2 border-t border-kral-rule bg-kral-bg pr-[max(1.5rem,env(safe-area-inset-right))] pl-[max(1.5rem,env(safe-area-inset-left))] pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:mt-auto max-lg:grid max-lg:grid-cols-2 lg:m-0 lg:gap-3 lg:border-0 lg:bg-transparent lg:p-0'
+  '-mx-6 flex shrink-0 flex-col gap-2 border-t border-kral-rule bg-kral-bg pr-[max(1.5rem,env(safe-area-inset-right))] pl-[max(1.5rem,env(safe-area-inset-left))] pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-lg:sticky max-lg:bottom-[var(--cookie-banner-h,0px)] max-lg:z-10 max-lg:mt-auto max-lg:grid max-lg:grid-cols-2 lg:m-0 lg:gap-3 lg:border-0 lg:bg-transparent lg:p-0'
 
 export function ProductSkeleton() {
   return (
