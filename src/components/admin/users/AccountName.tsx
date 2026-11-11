@@ -1,4 +1,4 @@
-import { fullName } from '../../../utils/accountQuery'
+import { fullName, titleCase } from '../../../utils/accountQuery'
 import { Avatar } from '../../ui/Avatar'
 
 interface AccountNameProps {
@@ -7,12 +7,12 @@ interface AccountNameProps {
 
 /** The first column of every tab: avatar and name. */
 export function AccountName({ account }: AccountNameProps) {
-  const name = fullName(account)
+  const name = fullName({ ...account, firstName: titleCase(account.firstName), middleName: account.middleName && titleCase(account.middleName), lastName: titleCase(account.lastName) })
   const content = (
     <>
       <Avatar name={name} size="sm" />
       <span className="min-w-0">
-        <span className="block truncate text-base font-semibold text-fg">{name}</span>
+        <span className="block text-base font-semibold whitespace-nowrap text-fg">{name}</span>
       </span>
     </>
   )

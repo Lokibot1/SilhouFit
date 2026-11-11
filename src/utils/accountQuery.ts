@@ -27,6 +27,9 @@ type Account = Customer | StaffAccount | AdminAccount | SuperadminAccount
 export const fullName = (account: Pick<Account, 'firstName' | 'lastName'> & { middleName?: string; suffix?: string }) =>
   [account.firstName, account.middleName, account.lastName, account.suffix].filter(Boolean).join(' ')
 
+/** "jOHN o'neil-SMITH" -> "John O'Neil-Smith": each word starts with a capital, the rest is lower case. Display only; the stored name is untouched. */
+export const titleCase = (text: string) => text.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (_, gap: string, letter: string) => gap + letter.toUpperCase())
+
 function sortValue(account: Account, key: AccountSort): string | number {
   if (key === 'name') return `${account.lastName} ${account.firstName}`.toLowerCase()
   const value = (account as unknown as Record<string, string | number | null | undefined>)[key]
