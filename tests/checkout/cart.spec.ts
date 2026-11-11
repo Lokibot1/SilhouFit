@@ -24,6 +24,8 @@ const overflows = (page: Page) =>
 const placeOrderButton = (page: Page) => page.getByRole('button', { name: /Place order|Placing order/ })
 const cartButton = (page: Page, label: string) => page.getByRole('link', { name: `Cart, ${label}` })
 // Radio cards hide the native input; a user clicks the card, so the test does too.
+// Its visible text is 'Select all items' in the toolbar and 'All' in the phone bottom bar, so click the label by its checkbox.
+const selectAll = (page: Page) => page.locator('label', { has: page.getByRole('checkbox', { name: 'Select all items' }) }).click()
 
 async function signInOnLoginPage(page: Page) {
   await page.getByLabel('Email', { exact: true }).fill(DEMO.email)
@@ -78,7 +80,7 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
   await cartButton(page, '2 items').click()
   await expect(page).toHaveURL(/\/cart$/)
   await expect(page.getByRole('heading', { name: 'Rail Tank Set' })).toBeVisible()
-  await page.getByText('Select all items').click()
+  await selectAll(page)
   await expect(page.getByText('Total (2 items)')).toBeVisible()
   await page.getByRole('button', { name: 'Checkout' }).click()
 
@@ -129,7 +131,7 @@ test('a piece archived since it was added shows as no longer available and canno
   api.rows.find((p) => p.id === POLO.id)!.isActive = false
   await page.goto('/cart')
   await expect(page.getByText('No longer available')).toBeVisible({ timeout: 15000 })
-  await page.getByText('Select all items').click()
+  await selectAll(page)
   await expect(page.getByRole('button', { name: 'Checkout' })).toBeDisabled()
 })
 

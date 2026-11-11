@@ -99,7 +99,7 @@ export function WishlistSkeleton() {
 export function CartListSkeleton({ count = 2 }: { count?: number }) {
   return (
     <div role="status" aria-label="Loading your cart" className="animate-pulse">
-      <div className="mt-4 h-[57px] border-b border-kral-rule">
+      <div className="mt-4 h-[57px] border-b border-kral-rule max-sm:hidden">
         <div className={`h-11 w-56 max-w-full ${KRAL_BLOCK}`} />
       </div>
       <ul className="divide-y divide-kral-rule">
@@ -108,7 +108,7 @@ export function CartListSkeleton({ count = 2 }: { count?: number }) {
             <div className="-ml-2.5 flex size-11 shrink-0 items-center justify-center self-center sm:ml-0">
               <div className={`size-6 ${KRAL_BLOCK}`} />
             </div>
-            <div className={`h-20 w-16 shrink-0 sm:h-24 sm:w-18 ${KRAL_BLOCK}`} />
+            <div className={`h-30 w-24 shrink-0 max-[300px]:h-25 max-[300px]:w-20 sm:h-24 sm:w-18 ${KRAL_BLOCK}`} />
             <div className="min-w-0 flex-1">
               <Bar kral className="font-kral-display w-1/2 text-sm leading-snug font-extrabold sm:text-base" />
               <div className={`mt-1 h-11 w-32 ${KRAL_BLOCK}`} />
@@ -121,7 +121,7 @@ export function CartListSkeleton({ count = 2 }: { count?: number }) {
           </li>
         ))}
       </ul>
-      <div className={`mt-4 h-[61px] ${KRAL_BLOCK}`} />
+      <div className={`mt-4 h-[61px] max-sm:hidden ${KRAL_BLOCK}`} />
     </div>
   )
 }
@@ -131,7 +131,7 @@ export function CartSkeleton() {
   return (
     <>
       <ShopHeader tone="kral" title="Your cart" icon={<CartIcon className="size-[1.1em]" />} crumb="Cart" backToShop />
-      <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
+      <div className="mx-auto max-w-6xl px-6 pb-24 max-sm:pb-36 2xl:max-w-[88rem]">
         <CartListSkeleton />
       </div>
     </>

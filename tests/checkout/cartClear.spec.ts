@@ -13,6 +13,12 @@ test.beforeEach(async ({ page }) => {
 })
 
 const clearCartButton = (page: Page) => page.getByRole('button', { name: 'Clear cart', exact: true })
+// On a phone Clear cart lives in the bottom bar's edit mode; from sm up it is in the toolbar.
+async function openClearDialog(page: Page) {
+  const edit = page.getByRole('button', { name: 'Edit cart' })
+  if (await edit.isVisible()) await edit.click()
+  await clearCartButton(page).click()
+}
 const deletes = (cart: CartMock) => cart.calls.filter((c) => c.method === 'DELETE' && c.itemId === null)
 const posts = (cart: CartMock) => cart.calls.filter((c) => c.method === 'POST')
 
@@ -24,7 +30,7 @@ test.describe('Cart – Clear cart', () => {
     await page.goto('/cart')
     await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
 
-    await clearCartButton(page).click()
+    await openClearDialog(page)
     const dialog = page.getByRole('dialog', { name: 'Clear your cart?' })
     await expect(dialog).toBeVisible()
     await expect(dialog.getByText('Are you sure?')).toBeVisible()
@@ -34,7 +40,7 @@ test.describe('Cart – Clear cart', () => {
     await expect(page.getByRole('heading', { name: 'Wool Trousers' })).toBeVisible()
     expect(deletes(cart)).toHaveLength(0)
 
-    await clearCartButton(page).click()
+    await openClearDialog(page)
     await dialog.getByRole('button', { name: 'Clear cart' }).click()
     await expect(page.getByRole('heading', { name: 'Your cart is currently empty' })).toBeVisible()
     await expect(page.getByText('Cleared your cart')).toBeVisible()
@@ -52,7 +58,7 @@ test.describe('Cart – Clear cart', () => {
     await page.goto('/cart')
     await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
 
-    await clearCartButton(page).click()
+    await openClearDialog(page)
     await page.getByRole('dialog', { name: 'Clear your cart?' }).getByRole('button', { name: 'Clear cart' }).click()
     await expect(page.getByText('Cleared your cart')).toBeVisible()
     await page.getByRole('button', { name: 'Undo' }).click()
@@ -85,7 +91,7 @@ test.describe('Cart – Clear cart', () => {
         return route.fulfill({ status: 500, json: { message: 'Internal server error' }, headers: { 'access-control-allow-origin': '*' } })
       },
     )
-    await clearCartButton(page).click()
+    await openClearDialog(page)
     await page.getByRole('dialog', { name: 'Clear your cart?' }).getByRole('button', { name: 'Clear cart' }).click()
 
     await expect(page.getByText(/Couldn't update your cart\. The request failed.*Check your connection, then try again\./)).toBeVisible()

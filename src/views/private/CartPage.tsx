@@ -107,6 +107,10 @@ function SwipeRow({ onRemove, children }: { onRemove: () => void; children: Reac
   )
 }
 
+// Borderless +/- on phones: 44px to hit, a bare glyph to look at.
+const PHONE_STEP =
+  'kral-focus flex size-11 cursor-pointer items-center justify-center text-kral-fg disabled:cursor-not-allowed disabled:opacity-40'
+
 const plural = (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`
 
 export function CartPage() {
@@ -126,8 +130,13 @@ export function CartPage() {
   // The row being edited is kept after the drawer closes so its content stays put while it slides out.
   const [editing, setEditing] = useState<{ row: Row; product: Product; id: number } | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  // Phones only: Edit swaps Checkout in the bottom bar for Remove selected and Clear cart. From sm up the page is the same either way.
+  const phone = !useMediaQuery('(min-width: 640px)')
+  const [manage, setManage] = useState(false)
 
   const ready = cart.status === 'ready'
+  if (manage && ready && cart.lines.length === 0) setManage(false) // an empty cart has nothing to edit
+  const managing = phone && manage
   const rows: Row[] = ready ? cart.lines.map((line) => ({ line, problem: problemWith(line) })) : []
   // Only keys still in the cart count as selected, so a line removed elsewhere drops out by itself.
   const chosen = rows.filter((row) => selected.includes(lineKey(row.line)))
@@ -258,7 +267,26 @@ export function CartPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <ShopHeader tone="kral" ref={headingRef} title="Your cart" icon={<CartIcon className="size-[1.1em]" />} crumb="Cart" backToShop />
+      <ShopHeader
+        tone="kral"
+        ref={headingRef}
+        title={phone && ready && cart.lines.length > 0 ? `Your cart (${cart.lines.length})` : 'Your cart'}
+        icon={<CartIcon className="size-[1.1em]" />}
+        crumb="Cart"
+        backToShop
+        summary={
+          phone && ready && cart.lines.length > 0 ? (
+            <button
+              type="button"
+              aria-label={managing ? 'Done editing' : 'Edit cart'}
+              onClick={() => setManage(!manage)}
+              className="kral-focus font-kral-mono -mr-3 flex min-h-11 min-w-11 cursor-pointer items-center justify-center px-3 text-base font-medium text-kral-fg uppercase"
+            >
+              {managing ? 'Done' : 'Edit'}
+            </button>
+          ) : undefined
+        }
+      />
 
       <div className="mx-auto max-w-6xl px-6 pb-24 max-sm:pb-36 2xl:max-w-[88rem]">
         {ready && cart.lines.length === 0 && <EmptyCart signedIn={!!user} />}
@@ -287,7 +315,7 @@ export function CartPage() {
               </p>
             )}
 
-            {cart.lines.length > 0 && (
+            {cart.lines.length > 0 && !phone && (
               <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-kral-rule pb-3">
                 <Checkbox
                   tone="kral"
@@ -367,11 +395,11 @@ export function CartPage() {
                         tone="kral"
                         src={line.image}
                         alt={line.name}
-                        className="h-20 w-16 shrink-0 object-cover sm:h-24 sm:w-18"
+                        className="h-30 w-24 shrink-0 object-cover max-[300px]:h-25 max-[300px]:w-20 sm:h-24 sm:w-18"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
-                          <h2 className="font-kral-display min-w-0 text-sm leading-snug font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase sm:text-base">{line.name}</h2>
+                          <h2 className="font-kral-display min-w-0 text-sm leading-snug font-extrabold [overflow-wrap:anywhere] text-kral-fg uppercase max-sm:line-clamp-2 sm:text-base">{line.name}</h2>
                           <div className="max-sm:sr-only max-sm:focus-within:not-sr-only">
                             <RowMenu tone="kral" label={`More actions for ${line.name}`} actionLabel="Remove" onAction={() => removeOne(row)} />
                           </div>
@@ -380,26 +408,33 @@ export function CartPage() {
                           type="button"
                           aria-label={`Change variation of ${line.name}, currently ${variantLabel(line.size, line.color)}`}
                           onClick={() => openEditor(row)}
-                          className={`${KRAL_CHIP} mt-1 h-auto w-fit max-w-full py-2 text-left whitespace-normal!`}
+                          className={
+                            phone
+                              ? 'kral-focus font-kral-mono flex min-h-11 w-fit max-w-full cursor-pointer items-center gap-1 text-left text-base text-kral-muted'
+                              : `${KRAL_CHIP} mt-1 h-auto w-fit max-w-full py-2 text-left whitespace-normal!`
+                          }
                         >
                           <span className="min-w-0 [overflow-wrap:anywhere]">
                             {variantLabel(line.size, line.color)}
                           </span>
                           <ChevronDownIcon size={16} className="shrink-0" />
                         </button>
-                        <p className="font-kral-mono mt-0.5 text-base text-kral-muted tabular-nums md:text-sm">{formatPeso(unit)} each</p>
+                        {(!phone || qty > 1) && <p className="font-kral-mono mt-0.5 text-base text-kral-muted tabular-nums md:text-sm">{formatPeso(unit)} each</p>}
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                          <div role="group" aria-label={`Quantity of ${line.name}`} className="flex items-center gap-2">
+                          {managing ? (
+                            <p className="font-kral-mono text-base text-kral-muted tabular-nums">Qty {qty}</p>
+                          ) : (
+                          <div role="group" aria-label={`Quantity of ${line.name}`} className="flex items-center gap-2 max-sm:-ml-2.5 max-sm:gap-0">
                             <button
                               type="button"
                               aria-label={`Decrease quantity of ${line.name}`}
                               disabled={qty <= 1}
                               onClick={() => cart.setQty(key, qty - 1)}
-                              className={`${KRAL_SECONDARY} size-11 px-0`}
+                              className={phone ? PHONE_STEP : `${KRAL_SECONDARY} size-11 px-0`}
                             >
                               <MinusIcon />
                             </button>
-                            <output aria-live="polite" className="font-kral-mono min-w-6 text-center text-base font-medium text-kral-fg tabular-nums">
+                            <output aria-live="polite" className="font-kral-mono min-w-6 text-center text-base font-medium text-kral-fg tabular-nums max-sm:min-w-5">
                               {qty}
                             </output>
                             <button
@@ -407,12 +442,13 @@ export function CartPage() {
                               aria-label={`Increase quantity of ${line.name}`}
                               disabled={qty >= line.stock}
                               onClick={() => cart.setQty(key, qty + 1)}
-                              className={`${KRAL_SECONDARY} size-11 px-0`}
+                              className={phone ? PHONE_STEP : `${KRAL_SECONDARY} size-11 px-0`}
                             >
                               <PlusIcon />
                             </button>
                           </div>
-                          <p className="font-kral-mono text-right text-base font-medium text-kral-fg tabular-nums">
+                          )}
+                          <p className="font-kral-mono text-right text-base font-medium text-kral-fg tabular-nums max-sm:ml-auto max-sm:font-bold">
                             <span className="sr-only">Line total </span>
                             {formatPeso(unit * qty)}
                           </p>
@@ -428,9 +464,62 @@ export function CartPage() {
             {cart.lines.length > 0 && (
               <>
                 {/* Fixed to the bottom of the screen on phones; sticky from sm up. Either way the total and Checkout stay in reach. */}
-                <div className="fixed inset-x-0 bottom-0 z-30 border-t border-kral-rule bg-kral-bg/90 px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:inset-x-auto sm:z-10 sm:-mx-6 sm:mt-4 sm:pb-2">
+                <div
+                  // Publishes its height so the chat button and toasts sit above the bar, not over Checkout. From sm up it is sticky (fixed again on a
+                  // short screen, so it is always at the bottom edge), so it publishes at every width.
+                  ref={(el) => {
+                    if (!el) return
+                    const publish = () => document.documentElement.style.setProperty('--bottom-bar-h', `${el.offsetHeight}px`)
+                    publish()
+                    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish)
+                    resize?.observe(el)
+                    return () => {
+                      resize?.disconnect()
+                      document.documentElement.style.removeProperty('--bottom-bar-h')
+                    }
+                  }}
+                  className="fixed inset-x-0 bottom-0 z-30 border-t border-kral-rule bg-kral-bg/90 max-sm:bg-kral-bg max-sm:backdrop-blur-none pr-[max(1.5rem,env(safe-area-inset-right))] pl-[max(1.5rem,env(safe-area-inset-left))] pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:inset-x-auto sm:z-10 sm:-mx-6 sm:mt-4 sm:pb-2 short:fixed short:inset-x-0 short:z-30 short:mx-0 short:mt-0 short:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                  {phone ? (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <Checkbox
+                        tone="kral"
+                        checked={allSelected}
+                        onChange={(on) => setSelected(on ? rows.map((row) => lineKey(row.line)) : [])}
+                        label="Select all items"
+                        className="font-kral-mono pr-2 text-base font-medium uppercase"
+                      >
+                        All
+                      </Checkbox>
+                      {managing ? (
+                        <div className="ml-auto flex justify-end gap-2">
+                          <button type="button" disabled={chosen.length === 0} aria-label="Remove selected" onClick={() => setConfirming(true)} className={`${KRAL_SECONDARY} px-2.5 text-xs`}>
+                            <span className="max-[359px]:hidden">Remove selected</span>
+                            <span aria-hidden="true" className="min-[360px]:hidden">Remove</span>
+                          </button>
+                          {user && (
+                            <button type="button" aria-label="Clear cart" onClick={() => setClearing(true)} className={`${KRAL_DANGER} px-2.5 text-xs`}>
+                              <span className="max-[359px]:hidden">Clear cart</span>
+                              <span aria-hidden="true" className="min-[360px]:hidden">Clear</span>
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <p className="font-kral-mono min-w-26 flex-1 text-right tabular-nums">
+                            <span className="block text-base text-kral-muted">
+                              Total<span className="sr-only"> ({plural(count)})</span>
+                            </span>
+                            <span className="block text-xl font-bold text-kral-fg">{formatPeso(total)}</span>
+                          </p>
+                          <button type="button" onClick={checkout} disabled={count === 0} className={`${KRAL_PRIMARY} ml-auto shrink-0 px-3`}>
+                            Checkout ({count})
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ) : (
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
-                    <div className="flex w-full items-center justify-between gap-3 sm:ml-auto sm:w-auto">
+                    <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:ml-auto sm:w-auto">
                       <p className="font-kral-mono text-right tabular-nums">
                         <span className="text-base text-kral-muted md:text-sm">Total ({plural(count)}) </span>
                         <span className="text-xl font-medium text-kral-fg">{formatPeso(total)}</span>
@@ -441,6 +530,7 @@ export function CartPage() {
                       </button>
                     </div>
                   </div>
+                  )}
                 </div>
               </>
             )}

@@ -37,9 +37,12 @@ let server: CartStore
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
-  vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }))
 })
+// Wide by default (the sm layout); the phone tests call showOn(false).
+const showOn = (wide: boolean) =>
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: wide && query.includes('min-width'), media: query, addEventListener() {}, removeEventListener() {} }))
 beforeEach(() => {
+  showOn(true)
   vi.resetAllMocks()
   localStorage.clear()
   act(() => clearSession())
@@ -69,6 +72,51 @@ function renderPage() {
     </MemoryRouter>,
   )
 }
+
+describe('CartPage on a phone', () => {
+  beforeEach(signIn)
+  const seedTwo = () => {
+    server.seed(NAVY, 2)
+    server.seed(TROUSER, 1)
+  }
+
+  it('shows Edit and Checkout (N), without Remove selected or the toolbar', async () => {
+    showOn(false)
+    seedTwo()
+    const user = userEvent.setup()
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'Your cart (2)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit cart' })).toHaveTextContent('Edit')
+    expect(screen.getByRole('button', { name: 'Checkout (0)' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Remove selected' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Clear cart' })).toBeNull()
+    await user.click(screen.getByRole('checkbox', { name: 'Select all items' }))
+    expect(screen.getByRole('button', { name: 'Checkout (3)' })).toBeEnabled()
+    expect(screen.getByText('₱2,100.00 each')).toBeInTheDocument() // only the quantity-2 line
+    expect(screen.getAllByText(/ each$/)).toHaveLength(1)
+  })
+
+  it('Edit swaps Checkout for Remove selected and Clear cart, and Done brings it back with the selection kept', async () => {
+    showOn(false)
+    seedTwo()
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('checkbox', { name: 'Select Heritage Polo' }))
+    const toggle = screen.getByRole('button', { name: 'Edit cart' })
+    await user.click(toggle)
+    expect(toggle).toHaveAccessibleName('Done editing')
+    expect(toggle).toHaveTextContent('Done')
+    expect(toggle).toHaveFocus()
+    expect(screen.queryByRole('button', { name: /^Checkout/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /quantity of/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Remove selected' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Clear cart' })).toBeEnabled()
+    await user.click(toggle)
+    expect(screen.getByRole('button', { name: 'Edit cart' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Checkout (2)' })).toBeEnabled()
+    expect(screen.getByRole('checkbox', { name: 'Select Heritage Polo' })).toBeChecked()
+  })
+})
 
 describe('CartPage as a guest', () => {
   it('shows each line with its spec, price, quantity and line total; the total is for ticked lines only', async () => {
