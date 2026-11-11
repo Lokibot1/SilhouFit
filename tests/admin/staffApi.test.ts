@@ -147,12 +147,20 @@ describe('counting accounts with limit=1', () => {
     ])
   })
 
-  it('shares one request between identical calls in flight, and asks again once it has settled', async () => {
-    totals({ 'staff:true': 4 })
-    await Promise.all([countAccounts('staff', true), countAccounts('staff', true)])
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    await countAccounts('staff', true)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+  it('shares one request between identical calls in flight, reuses the answer for 30 seconds, then asks again', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] })
+    try {
+      totals({ 'staff:true': 4 })
+      await Promise.all([countAccounts('staff', true), countAccounts('staff', true)])
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      await countAccounts('staff', true)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(30_000)
+      await countAccounts('staff', true)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('does not keep a failure: the next call asks again', async () => {

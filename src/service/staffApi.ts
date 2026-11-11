@@ -91,6 +91,8 @@ export const listAdminAccounts = (query: AccountQuery, { signal }: RequestOption
 export const listSuperadminAccounts = (query: AccountQuery, { signal }: RequestOptions = {}) => list('superadmin', toSuperadminAccount, query, signal)
 
 const changeListeners = new Set<() => void>()
+/** How long a count that loaded is reused, so reopening the page or switching tabs does not ask the API again (it limits requests per minute). */
+const COUNT_TTL_MS = 30_000
 const counting = new Map<string, Promise<number>>()
 
 /** Calls `listener` after an invite, deactivate or activate succeeds, so the counts can load again. Returns the way to stop. */
@@ -104,7 +106,7 @@ function accountsChanged() {
   changeListeners.forEach((listener) => listener())
 }
 
-/** GET /users?role&isActive&limit=1, reading meta.total: how many accounts of a role are active (or inactive). Identical requests in flight share one call. */
+/** GET /users?role&isActive&limit=1, reading meta.total: how many accounts of a role are active (or inactive). Identical requests in flight share one call, and a count that loaded is reused for 30 seconds (until an invite, deactivate or activate). */
 export function countAccounts(role: ManagedRole, active: boolean): Promise<number> {
   const key = `${role}:${active}`
   let pending = counting.get(key)
@@ -113,8 +115,8 @@ export function countAccounts(role: ManagedRole, active: boolean): Promise<numbe
     pending = request
     counting.set(key, request)
     // A change clears the map while a request is still out; only forget this request, not its replacement.
-    const done = () => counting.get(key) === request && counting.delete(key)
-    request.then(done, done)
+    const forget = () => counting.get(key) === request && counting.delete(key)
+    request.then(() => setTimeout(forget, COUNT_TTL_MS), forget)
   }
   return pending
 }
