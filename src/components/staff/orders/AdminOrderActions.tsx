@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from 'react'
 import { cancelDelivery, cancelDeliveryFailure, dispatchFailure, dispatchOrder, explainFailure, updateAdminOrder, type AdminOrderDetail } from '../../../service/adminOrdersApi'
 import { cleanText, stripControl } from '../../../utils/checkoutValidation'
-import { advanceActions, canCancelDelivery, cancelOrderBlock, dispatchBlock, isClosed, type AdvanceAction } from '../../../utils/orders'
+import { canCancelDelivery, cancelOrderBlock, dispatchBlock, isClosed } from '../../../utils/orders'
 import { ConfirmDialog } from '../../admin/users/ConfirmDialog'
 import { AlertIcon, InfoIcon, NoteIcon, SendIcon, SpinnerIcon } from '../../form/icons'
 import { useToast } from '../../toast/useToast'
@@ -38,7 +38,7 @@ interface ActionsProps {
   onChanged: () => void
 }
 
-/** What staff can do to the order: move it on, book or cancel the rider, cancel it, and keep notes. */
+/** What staff can do to the order: book or cancel the rider, cancel it, and keep notes. The API moves the other statuses itself (payment webhooks and courier updates). */
 export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
   const toast = useToast()
   // The action in flight ('dispatch', 'notes', 'cancel-order', 'cancel-delivery' or a status); every button waits for it.
@@ -52,19 +52,6 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
   const dispatchWhy = dispatchBlock(detail)
   const cancelWhy = cancelOrderBlock(detail)
   const spin = (key: string) => busy === key && <SpinnerIcon />
-
-  async function advance(action: AdvanceAction) {
-    setBusy(action.status)
-    try {
-      await updateAdminOrder(detail.id, { status: action.status })
-      toast.show({ kind: 'success', message: action.done })
-      onChanged()
-    } catch (error) {
-      toast.show({ kind: 'error', message: `The order was not updated. ${explainFailure(error)}`, action: { label: 'Retry', onClick: () => void advance(action) } })
-    } finally {
-      setBusy(null)
-    }
-  }
 
   async function book() {
     setBusy('dispatch')
@@ -133,8 +120,6 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
     }
   }
 
-  const primaryBook = advanceActions(detail).length === 0
-
   return (
     <div className="grid gap-6">
       <section aria-labelledby={`actions-${detail.id}`}>
@@ -153,15 +138,9 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
           <p className="text-base text-fg-muted md:text-sm">This order is closed.</p>
         ) : (
           <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
-            {advanceActions(detail).map((action, index) => (
-              <button key={action.status} type="button" disabled={pending} aria-busy={busy === action.status} onClick={() => void advance(action)} className={index === 0 ? ACTION_PRIMARY : ACTION_SECONDARY}>
-                {spin(action.status)}
-                {action.label}
-              </button>
-            ))}
             <Guarded why={dispatchWhy}>
               {(describedBy) => (
-                <button type="button" disabled={pending || !!dispatchWhy} aria-describedby={describedBy} aria-busy={busy === 'dispatch'} onClick={() => void book()} className={primaryBook ? ACTION_PRIMARY : ACTION_SECONDARY}>
+                <button type="button" disabled={pending || !!dispatchWhy} aria-describedby={describedBy} aria-busy={busy === 'dispatch'} onClick={() => void book()} className={ACTION_PRIMARY}>
                   {busy === 'dispatch' ? <SpinnerIcon /> : <SendIcon size={16} />}
                   {busy === 'dispatch' ? 'Booking a rider…' : 'Book rider'}
                 </button>

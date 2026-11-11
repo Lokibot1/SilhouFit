@@ -221,16 +221,11 @@ describe('Online orders page', () => {
     expect(within(drawer).getByText('Ready to book')).toBeInTheDocument()
   })
 
-  it('moves a paid order on with an action verb and refreshes the list and the counts', async () => {
+  it('has no manual status buttons: the API moves an order on itself', async () => {
     renderPage()
     const drawer = await openOrder(1)
-    update.mockResolvedValue(detailOf(row(1, { status: 'PROCESSING' })))
-    await userEvent.click(await within(drawer).findByRole('button', { name: 'Mark as preparing' }))
-    expect(update).toHaveBeenCalledWith(row(1).id, { status: 'PROCESSING' })
-    expect(await screen.findByText('Order marked as preparing')).toBeInTheDocument()
-    await waitFor(() => expect(list).toHaveBeenCalledTimes(2))
-    expect(metrics).toHaveBeenCalledTimes(2)
-    expect(detail).toHaveBeenCalledTimes(2)
+    expect(await within(drawer).findByRole('button', { name: 'Book rider' })).toBeInTheDocument()
+    expect(within(drawer).queryByRole('button', { name: /^Mark/ })).not.toBeInTheDocument()
   })
 
   it('offers no way forward for an unpaid order and says why a rider cannot be booked', async () => {

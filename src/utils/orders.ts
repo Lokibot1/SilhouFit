@@ -51,26 +51,6 @@ const CLOSED: OrderStatus[] = ['DELIVERED', 'CANCELLED', 'REFUNDED']
 /** Delivered, cancelled and refunded orders cannot change status. */
 export const isClosed = (order: Pick<CustomerOrder, 'status'>) => CLOSED.includes(order.status)
 
-export interface AdvanceAction {
-  label: string
-  status: OrderStatus
-  /** The success message. */
-  done: string
-}
-
-const PREPARING: AdvanceAction = { label: 'Mark as preparing', status: 'PROCESSING', done: 'Order marked as preparing' }
-const OUT: AdvanceAction = { label: 'Mark out for delivery', status: 'OUT_FOR_DELIVERY', done: 'Order marked out for delivery' }
-const DELIVERED: AdvanceAction = { label: 'Mark delivered', status: 'DELIVERED', done: 'Order marked delivered' }
-
-/** The status moves staff can make by hand, paid orders only. A rider is booked with Book rider, never by setting Shipped. */
-export function advanceActions(order: Pick<CustomerOrder, 'status' | 'paymentStatus'>): AdvanceAction[] {
-  if (order.paymentStatus !== 'PAID') return []
-  if (order.status === 'PAID') return [PREPARING]
-  if (order.status === 'DISPATCHED') return [OUT, DELIVERED]
-  if (order.status === 'OUT_FOR_DELIVERY') return [DELIVERED]
-  return []
-}
-
 const SHIPMENT_LABEL: Record<ShipmentStatus, string> = {
   QUOTED: 'Not booked yet',
   PENDING_DISPATCH: 'Ready to book',

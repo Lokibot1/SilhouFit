@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ORDER_STATUSES, PAYMENT_STATUSES, SHIPMENT_STATUSES, type OrderStatus, type PaymentStatus, type ShipmentStatus } from '../../src/service/ordersApi'
-import { advanceActions, canCancelDelivery, cancelOrderBlock, dispatchBlock, isClosed } from '../../src/utils/orders'
+import { canCancelDelivery, cancelOrderBlock, dispatchBlock, isClosed } from '../../src/utils/orders'
 
 type Booking = { status: ShipmentStatus; externalOrderId: string | null } | null
 
@@ -9,30 +9,6 @@ const BOOKINGS: Booking[] = [null, ...SHIPMENT_STATUSES.flatMap((status) => [{ s
 const ORDERS = ORDER_STATUSES.flatMap((status) => PAYMENT_STATUSES.flatMap((paymentStatus) => BOOKINGS.map((shipment) => ({ status, paymentStatus, shipment }))))
 const order = (status: OrderStatus, paymentStatus: PaymentStatus, shipment: Booking = null) => ({ status, paymentStatus, shipment })
 const booked = (status: ShipmentStatus): Booking => ({ status, externalOrderId: 'LLM-1' })
-
-describe('advance actions', () => {
-  it('offers the next step to a paid order only', () => {
-    expect(advanceActions(order('PAID', 'PAID')).map((a) => [a.label, a.status])).toEqual([['Mark as preparing', 'PROCESSING']])
-    expect(advanceActions(order('DISPATCHED', 'PAID')).map((a) => [a.label, a.status])).toEqual([
-      ['Mark out for delivery', 'OUT_FOR_DELIVERY'],
-      ['Mark delivered', 'DELIVERED'],
-    ])
-    expect(advanceActions(order('OUT_FOR_DELIVERY', 'PAID')).map((a) => [a.label, a.status])).toEqual([['Mark delivered', 'DELIVERED']])
-  })
-
-  it('offers nothing for Preparing: a rider is booked with Book rider', () => {
-    expect(advanceActions(order('PROCESSING', 'PAID'))).toEqual([])
-  })
-
-  it('never offers anything to an unpaid order, and never Shipped or a way back', () => {
-    for (const o of ORDERS) {
-      const actions = advanceActions(o)
-      if (o.paymentStatus !== 'PAID') expect(actions).toEqual([])
-      if (isClosed(o)) expect(actions).toEqual([])
-      for (const a of actions) expect(['PROCESSING', 'OUT_FOR_DELIVERY', 'DELIVERED']).toContain(a.status)
-    }
-  })
-})
 
 describe('Book rider', () => {
   it('is on for a paid order that is Paid or Preparing with a shipment that is not booked', () => {

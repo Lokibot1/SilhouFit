@@ -317,7 +317,8 @@ test.describe('states', () => {
     const drawer = await openDrawer(page, 1)
 
     api.on.list = () => fail(500)
-    await drawer.getByRole('button', { name: 'Mark as preparing' }).click()
+    await drawer.getByRole('textbox', { name: 'Staff notes' }).fill('Call the customer')
+    await drawer.getByRole('button', { name: 'Save notes' }).click()
 
     const banner = alertAbout(page, 'the latest orders')
     await expect(banner).toBeVisible()
@@ -385,7 +386,7 @@ test.describe('drawer', () => {
     await expect(link).toHaveAttribute('rel', /noopener/)
 
     // No notes yet: an empty box, and nothing to save.
-    await expect(drawer.getByLabel('Staff notes')).toHaveValue('')
+    await expect(drawer.getByRole('textbox', { name: 'Staff notes' })).toHaveValue('')
     await expect(drawer.getByRole('button', { name: 'Save notes' })).toBeDisabled()
   })
 
@@ -462,36 +463,12 @@ test.describe('drawer', () => {
 })
 
 test.describe('actions', () => {
-  test('Mark as preparing sends the status, toasts, and reads the list and counts again', async ({ page }) => {
-    const api = await setup(page, [paidOrder(1)])
+  test('a paid order has no manual status buttons, only Book rider', async ({ page }) => {
+    await setup(page, [paidOrder(1)])
     await open(page)
     const drawer = await openDrawer(page, 1)
-    const lists = api.lists.length
-    const metrics = api.metrics
-
-    await drawer.getByRole('button', { name: 'Mark as preparing' }).click()
-
-    await expect(toast(page, 'Order marked as preparing')).toBeVisible()
-    expect(api.patches).toEqual([{ id: adminOrder(1).id, body: { status: 'PROCESSING' } }])
-    await expect.poll(() => api.lists.length).toBeGreaterThan(lists)
-    await expect.poll(() => api.metrics).toBeGreaterThan(metrics)
-    await expect(drawer.getByText('Preparing', { exact: true })).toBeVisible()
-    await expect(drawer.getByRole('button', { name: 'Mark as preparing' })).toHaveCount(0)
-  })
-
-  test('a failed move says why and offers Retry', async ({ page }) => {
-    const api = await setup(page, [paidOrder(1)])
-    await open(page)
-    const drawer = await openDrawer(page, 1)
-
-    api.on.patch = () => fail(500)
-    await drawer.getByRole('button', { name: 'Mark as preparing' }).click()
-    const failed = toast(page, 'The order was not updated.')
-    await expect(failed).toBeVisible()
-
-    api.on.patch = undefined
-    await failed.getByRole('button', { name: 'Retry' }).click()
-    await expect(toast(page, 'Order marked as preparing')).toBeVisible()
+    await expect(drawer.getByRole('button', { name: 'Book rider' })).toBeVisible()
+    await expect(drawer.getByRole('button', { name: /^Mark/ })).toHaveCount(0)
   })
 
   for (const [label, status] of [
@@ -513,13 +490,13 @@ test.describe('actions', () => {
     await open(page)
     const drawer = await openDrawer(page, 1)
 
-    await drawer.getByLabel('Staff notes').fill('  Call before delivery  ')
+    await drawer.getByRole('textbox', { name: 'Staff notes' }).fill('  Call before delivery  ')
     await expect(drawer.getByText('24/500')).toBeVisible()
     await drawer.getByRole('button', { name: 'Save notes' }).click()
 
     await expect(toast(page, 'Notes saved')).toBeVisible()
     expect(api.patches).toEqual([{ id: adminOrder(1).id, body: { adminNotes: 'Call before delivery' } }])
-    await expect(drawer.getByLabel('Staff notes')).toHaveValue('Call before delivery')
+    await expect(drawer.getByRole('textbox', { name: 'Staff notes' })).toHaveValue('Call before delivery')
     await expect(drawer.getByRole('button', { name: 'Save notes' })).toBeDisabled()
   })
 
