@@ -20,6 +20,8 @@ export interface AccountColumn<T> {
   sort?: AccountSort
   /** Numbers: right-aligned with tabular digits. */
   right?: boolean
+  /** Numbers in a narrow column: centred under the header, with tabular digits. */
+  center?: boolean
   /** A width class. The first column has none and takes what is left. */
   width?: string
   /** The row's place in the shown page (0-based), for numbering columns. */
@@ -107,7 +109,7 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
               column.sort ? (
                 <SortHeader key={column.key} label={column.header} column={column.sort} active={sorted} onSort={sortBy} right={column.right} />
               ) : (
-                <th key={column.key} scope="col" className={column.right ? TH.replace('text-left', 'text-right') : TH}>
+                <th key={column.key} scope="col" className={column.right ? TH.replace('text-left', 'text-right') : column.center ? TH.replace('text-left', 'text-center') : TH}>
                   {column.header}
                 </th>
               ),
@@ -130,7 +132,7 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
                 className={`${TABLE_ROW} enter-row hover:bg-line/40`}
               >
                 {columns.map((column) => (
-                  <td key={column.key} className={`${TD} text-sm text-fg ${column.right ? 'text-right tabular-nums' : ''}`}>
+                  <td key={column.key} className={`${TD} text-sm text-fg ${column.right ? 'text-right tabular-nums' : column.center ? 'text-center tabular-nums' : ''}`}>
                     {column.cell(row, index)}
                   </td>
                 ))}

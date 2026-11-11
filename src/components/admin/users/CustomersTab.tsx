@@ -47,7 +47,7 @@ export function CustomersTab() {
     { key: 'name', header: 'Customer', sort: 'name', title: true, cell: (a) => <AccountName account={a} /> },
     { key: 'email', header: 'Email', width: 'w-[30%]', cell: (a) => <span className="block truncate">{a.email}</span> },
     { key: 'status', header: 'Status', cardLabel: 'Status:', width: 'w-[14%]', cell: (a) => <StatusBadge status={a.status} /> },
-    { key: 'offenses', header: 'Offenses', cardLabel: 'Offenses:', right: true, width: 'w-[10%]', cell: (a) => <OffenseCount id={a.id} /> },
+    { key: 'offenses', header: 'Offenses', cardLabel: 'Offenses:', center: true, width: 'w-[10%]', cell: (a) => <OffenseCount id={a.id} /> },
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
   ]
 
