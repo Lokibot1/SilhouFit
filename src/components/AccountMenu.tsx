@@ -1,12 +1,16 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { CurrentUser } from '../hooks/useCurrentUser'
+import { useChatUnread } from '../hooks/useChatUnread'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { DURATION, EASE_OUT } from '../motion/tokens'
+import { CHAT_BRAND_NAME } from '../service/chatApi'
+import { openChat } from '../service/chatDock'
 import { signOut as endSession } from '../service/signOut'
 import { useToast } from './toast/useToast'
-import { LogOutIcon, MoonIcon, ReceiptIcon, SettingsIcon, UserIcon } from './form/icons'
+import { LogOutIcon, MessageIcon, MoonIcon, ReceiptIcon, SettingsIcon, UserIcon } from './form/icons'
 import { Avatar } from './ui/Avatar'
 import { ThemeToggle } from './ThemeToggle'
 import { computePlace, LISTBOX_PANEL } from './ui/listbox'
@@ -34,6 +38,7 @@ export function AccountMenu({
   ordersTo = '/orders',
   onSignOut,
   themeSwitch = false,
+  messages = false,
   tone,
 }: {
   user: CurrentUser
@@ -41,6 +46,8 @@ export function AccountMenu({
   ordersTo?: string | null
   onSignOut?: () => void
   themeSwitch?: boolean
+  /** With `tone="kral"`: also list Messages (customers) in the panel below md, where the bar no longer has its icon. */
+  messages?: boolean
   tone?: 'kral'
 }) {
   const kral = tone === 'kral'
@@ -174,25 +181,10 @@ export function AccountMenu({
                 Settings
                 <span className="ml-auto text-sm">Soon</span>
               </button>
-              {themeSwitch && (
-                // The whole row toggles; the switch itself and its label already handle their own clicks.
-                <div
-                  onClick={(event) => {
-                    if (!(event.target as HTMLElement).closest('.sky-toggle')) event.currentTarget.querySelector('input')?.click()
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter') return
-                    event.preventDefault()
-                    event.currentTarget.querySelector('input')?.click()
-                  }}
-                  className={`${ITEM_LIVE} focus-within:bg-fg/10`}
-                >
-                  <MoonIcon />
-                  Dark mode
-                  <span className="ml-auto flex">
-                    <ThemeToggle nativeTitle={false} />
-                  </span>
-                </div>
+              {themeSwitch && <ThemeRow className={`${ITEM_LIVE} focus-within:bg-fg/10`} />}
+              {kral && (
+                // Below md the bar keeps only the cart, wishlist and this menu: Messages and the theme switch are here instead.
+                <PhoneTools messages={messages} className={live} onDone={() => close(false)} />
               )}
               <div className={separator} role="separator" />
               <button type="button" onClick={signOut} className={live}>
@@ -205,5 +197,60 @@ export function AccountMenu({
         document.body,
       )}
     </>
+  )
+}
+
+/** The Dark mode row: the whole row toggles; the switch itself and its label already handle their own clicks. */
+function ThemeRow({ className }: { className: string }) {
+  return (
+    <div
+      onClick={(event) => {
+        if (!(event.target as HTMLElement).closest('.sky-toggle')) event.currentTarget.querySelector('input')?.click()
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter') return
+        event.preventDefault()
+        event.currentTarget.querySelector('input')?.click()
+      }}
+      className={className}
+    >
+      <MoonIcon />
+      Dark mode
+      <span className="ml-auto flex">
+        <ThemeToggle nativeTitle={false} />
+      </span>
+    </div>
+  )
+}
+
+/** Messages (customers only) and Dark mode as rows, for the storefront panel on a small screen. Its own component so staff menus never read the chat count. */
+function PhoneTools({ messages, className, onDone }: { messages: boolean; className: string; onDone: () => void }) {
+  const wide = useMediaQuery('(min-width: 768px)')
+  if (wide) return null
+  return (
+    <>
+      {messages && <MessagesRow className={className} onDone={onDone} />}
+      <ThemeRow className={`${className} focus-within:bg-kral-fg/10`} />
+    </>
+  )
+}
+
+function MessagesRow({ className, onDone }: { className: string; onDone: () => void }) {
+  const unread = useChatUnread()
+  const onMessagesPage = useLocation().pathname.replace(/\/$/, '') === '/messages'
+  if (onMessagesPage) return null
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        onDone()
+        openChat('mine', { name: CHAT_BRAND_NAME })
+      }}
+      className={className}
+    >
+      <MessageIcon />
+      Messages
+      {unread > 0 && <span className="ml-auto text-sm tabular-nums">{unread > 99 ? '99+' : unread} unread</span>}
+    </button>
   )
 }

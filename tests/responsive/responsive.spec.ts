@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { mockChat, OLD, SAM, msg } from '../chat/chatMock'
+import { mockChat, OLD, SAM, msg, openMessages } from '../chat/chatMock'
 import { setupOrderShop, signInViaForm, type OrderShop } from '../shared/checkoutOrders'
 import { NAVY_M, buyNow, POLO } from '../shared/checkoutShop'
 import { apiShipment, mockOrders, order, orderId, type ApiOrder } from '../shared/ordersApi'
@@ -294,7 +294,7 @@ test.beforeEach(({ browserName: _browser }, testInfo) => {
 
 async function minimiseChat(page: Page) {
   await page.setViewportSize({ width: 1366, height: 768 })
-  await page.getByRole('button', { name: 'Messages', exact: true }).click()
+  await openMessages(page)
   await expect(page.getByRole('region', { name: 'Chat with KRAL' })).toBeVisible()
   await page.getByRole('button', { name: 'Minimize chat with KRAL' }).click()
   await expect(page.getByRole('region', { name: 'Chat with KRAL' })).toHaveCount(0)

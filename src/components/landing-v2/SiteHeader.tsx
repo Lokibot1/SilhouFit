@@ -168,11 +168,17 @@ function ShopControls({ user, logo }: { user: CurrentUser | null; logo: ReactNod
             <Badge count={cartCount} />
           </Link>
         </Tooltip>
-        {user && (!user.role || user.role === 'customer') && <CustomerMessagesButton />}
+        {/* Below md, Messages and the theme switch move into the account menu. */}
+        {user && (!user.role || user.role === 'customer') && (
+          <span className="hidden md:contents">
+            <CustomerMessagesButton />
+          </span>
+        )}
         {user ? (
           <>
-            <VisitWebsiteLink tone="kral" />
-            <AccountMenu user={user} tone="kral" />
+            {/* A customer is already on the website; the link is for staff. */}
+            {user.role && user.role !== 'customer' && <VisitWebsiteLink tone="kral" />}
+            <AccountMenu user={user} tone="kral" messages={!user.role || user.role === 'customer'} />
           </>
         ) : (
           <Tooltip label="Sign in">
@@ -181,7 +187,13 @@ function ShopControls({ user, logo }: { user: CurrentUser | null; logo: ReactNod
             </Link>
           </Tooltip>
         )}
-        <ThemeButton />
+        {user ? (
+          <span className="hidden md:contents">
+            <ThemeButton />
+          </span>
+        ) : (
+          <ThemeButton />
+        )}
       </div>
     </>
   )

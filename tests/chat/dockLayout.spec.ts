@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { CUSTOMER, OLD, SAM, conversation, msg, startChat } from './chatMock'
+import { CUSTOMER, OLD, SAM, conversation, msg, openMessages, startChat } from './chatMock'
 
 // The staff Messages dropdown and the small chat window: long unbroken text must never scroll sideways, at 320px and 1920px, light and dark.
 
@@ -135,7 +135,7 @@ test.describe('chat window', () => {
     test(`long words and URLs wrap in the bubbles, own bubbles are fully visible, no sideways scroll (${width}px)`, async ({ page }) => {
       await page.setViewportSize({ width, height: 700 })
       await startChat(page, 'customer', { path: '/wishlist', init: { messages: [theirs, theirsUrl, mine, short] } })
-      await page.getByRole('button', { name: 'Messages', exact: true }).click()
+      await openMessages(page)
       const chat = page.getByRole('region', { name: 'Chat with KRAL' })
       await expect(page.getByTestId('chat-message')).toHaveCount(4)
 

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { CID, CUSTOMER, OLD, SAM, conversation, msg, startChat } from './chatMock'
+import { CID, CUSTOMER, OLD, SAM, conversation, msg, openMessages, startChat } from './chatMock'
 
 // The Messenger-style chat dock (customer navbar icon, staff navbar icon) against the mocked chat API and Realtime server (see chatMock.ts).
 
@@ -13,13 +13,15 @@ const HELLO = msg('Hi, how can we help?', SAM, OLD(1))
 const LIA = { id: 'u2', name: 'Lia Cruz', role: 'customer' } as const
 
 test.describe('customer dock', () => {
-  test('the navbar Messages icon opens the chat over the page, focused; the account menu has no Messages row', async ({ page }) => {
+  test('the navbar Messages icon opens the chat over the page, focused; the account menu has a Messages row only on a small screen', async ({ page }) => {
     await startChat(page, 'customer', { path: '/wishlist', init: { messages: [HELLO] } })
     await page.getByRole('button', { name: /^Account/ }).click()
-    await expect(page.getByRole('group', { name: 'Account' }).getByText('Messages')).toHaveCount(0)
+    const small = (page.viewportSize()?.width ?? 1280) < 768
+    await expect(page.getByRole('group', { name: 'Account' }).getByText('Messages')).toHaveCount(small ? 1 : 0)
     await page.keyboard.press('Escape')
+    await expect(page.getByRole('group', { name: 'Account' })).toHaveCount(0) // the panel has finished leaving
 
-    await page.getByRole('button', { name: 'Messages', exact: true }).click()
+    await openMessages(page)
     await expect(box(page, 'KRAL')).toBeVisible()
     await expect(page).toHaveURL(/\/wishlist$/)
     await expect(messages(page)).toHaveCount(1)
@@ -28,7 +30,7 @@ test.describe('customer dock', () => {
 
   test('Escape minimizes to a head with focus on it, a click re-expands with the thread, Close removes it', async ({ page }) => {
     await startChat(page, 'customer', { path: '/wishlist', init: { messages: [HELLO] } })
-    await page.getByRole('button', { name: 'Messages', exact: true }).click()
+    await openMessages(page)
     await expect(composer(page)).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(box(page, 'KRAL')).toHaveCount(0)
@@ -45,7 +47,7 @@ test.describe('customer dock', () => {
 
   test('a route change minimizes the open chat to a head', async ({ page }) => {
     await startChat(page, 'customer', { path: '/wishlist' })
-    await page.getByRole('button', { name: 'Messages', exact: true }).click()
+    await openMessages(page)
     await expect(box(page, 'KRAL')).toBeVisible()
     await page.getByRole('link', { name: /^Cart/ }).click()
     await expect(page).toHaveURL(/\/cart$/)
@@ -56,7 +58,8 @@ test.describe('customer dock', () => {
   test('/messages is still the full page, without the dock', async ({ page }) => {
     await startChat(page, 'customer', { path: '/messages', init: { messages: [HELLO] } })
     await expect(messages(page)).toHaveCount(1)
-    await page.getByRole('button', { name: 'Messages', exact: true }).click()
+    // The icon is on the bar from 768px; below it the menu has no Messages row on this page, since the page is the chat.
+    if ((page.viewportSize()?.width ?? 1280) >= 768) await openMessages(page)
     await expect(page.getByRole('region', { name: /^Chat with/ })).toHaveCount(0)
   })
 
@@ -64,14 +67,14 @@ test.describe('customer dock', () => {
     await page.addInitScript(() => localStorage.setItem('silhoufit-session', JSON.stringify({ name: 'Dev User', email: 'dev@example.com', role: 'customer', simulated: true })))
     await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
     await page.goto('/wishlist')
-    await page.getByRole('button', { name: 'Messages', exact: true }).click()
+    await openMessages(page)
     await expect(box(page, 'KRAL')).toContainText('Chat needs a real signed-in account')
   })
 
   test('on a 320px phone the open chat is a full-width sheet with no horizontal scroll', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 })
     await startChat(page, 'customer', { path: '/wishlist', init: { messages: [HELLO] } })
-    await page.getByRole('button', { name: 'Messages', exact: true }).click()
+    await openMessages(page)
     await expect(messages(page)).toHaveCount(1)
     // The sheet scales in; measure it once it has settled.
     await expect.poll(async () => (await box(page, 'KRAL').boundingBox())?.width).toBe(320)

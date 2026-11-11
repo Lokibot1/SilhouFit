@@ -189,6 +189,11 @@ describe('SiteHeader shop bar', () => {
     currentUser.mockReturnValue({ name: 'Ana Reyes' })
     renderNavbar()
     expect(screen.getByRole('link', { name: /KRAL/ })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('link', { name: 'Visit website' })).toBeNull() // a customer is already on the website
+    unmount()
+
+    currentUser.mockReturnValue({ name: 'Ana Reyes', role: 'admin' })
+    renderNavbar()
     expect(screen.getByRole('link', { name: 'Visit website' })).toHaveAttribute('href', '/')
   })
 

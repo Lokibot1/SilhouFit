@@ -295,3 +295,10 @@ export async function startChat(page: Page, role: Role, { path = inboxPath(role)
   await page.waitForURL((url) => url.pathname + url.search === path)
   return api
 }
+
+/** Opens the customer chat from the navbar: the Messages icon, or on a small screen (below 768px) the Messages row of the account menu. */
+export async function openMessages(page: Page) {
+  const messages = page.getByRole('button', { name: 'Messages', exact: true })
+  if (!(await messages.isVisible())) await page.getByRole('button', { name: /^Account/ }).click()
+  await messages.click()
+}
