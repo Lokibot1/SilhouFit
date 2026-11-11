@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { UserIcon } from '../form/icons'
 
-const SIZES = { sm: 'size-8 text-xs', md: 'size-10 text-sm', lg: 'size-14 text-base', xl: 'size-20 text-2xl sm:size-28 sm:text-4xl' } as const
+const SIZES = { sm: 'size-8 text-xs', md: 'size-10 text-sm', lg: 'size-14 text-base', xl: 'size-16 text-xl sm:size-28 sm:text-4xl' } as const
 
 function initials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean)

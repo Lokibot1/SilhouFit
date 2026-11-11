@@ -22,16 +22,16 @@ function KralProfileSkeleton() {
       <ShopHeader tone="kral" title="Your profile" crumb="Profile" />
       <div className={KRAL_WRAP}>
         <div role="status" aria-label="Loading your profile" className="animate-pulse">
-          <div className={`${KRAL_PANEL} flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-8`}>
-            <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:gap-6 lg:flex-1">
-              <div className={`size-20 shrink-0 sm:size-28 ${KRAL_BLOCK}`} />
+          <div className={`${KRAL_PANEL} flex flex-col gap-4 max-sm:p-4 sm:gap-6 lg:flex-row lg:items-center lg:gap-8`}>
+            <div className="flex min-w-0 items-center gap-4 sm:gap-6 lg:flex-1">
+              <div className={`size-16 shrink-0 sm:size-28 ${KRAL_BLOCK}`} />
               <div className="min-w-0 flex-1">
                 <KralBar className="font-kral-mono w-16 text-base md:text-xs" />
                 <KralBar className="font-kral-mono mt-1 w-56 max-w-full text-base sm:text-lg" />
                 <KralBar className="font-kral-mono mt-2 w-48 max-w-full text-base" />
               </div>
             </div>
-            <div className="grid gap-3 border-t border-kral-rule pt-6 sm:flex sm:flex-wrap lg:shrink-0 lg:border-t-0 lg:pt-0">
+            <div className="grid gap-3 border-t border-kral-rule max-sm:gap-0 sm:flex sm:flex-wrap sm:pt-6 lg:shrink-0 lg:border-t-0 lg:pt-0">
               <div className={`h-11 sm:w-40 ${KRAL_BLOCK}`} />
               <div className={`h-11 sm:w-44 ${KRAL_BLOCK}`} />
               <div className={`h-11 sm:w-32 ${KRAL_BLOCK}`} />

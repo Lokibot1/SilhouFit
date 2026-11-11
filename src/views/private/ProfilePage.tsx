@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useOutletContext } from 'react-router-dom'
-import { AlertIcon, LockIcon, LogOutIcon, ReceiptIcon, SparkleIcon, UserIcon } from '../../components/form/icons'
+import { AlertIcon, ChevronRightIcon, LockIcon, LogOutIcon, ReceiptIcon, SparkleIcon, UserIcon } from '../../components/form/icons'
 import { BodyMeasurements } from '../../components/profile/BodyMeasurements'
 import { ChangePasswordSheet } from '../../components/profile/ChangePasswordSheet'
 import { DeliveryAddress } from '../../components/profile/DeliveryAddress'
@@ -53,6 +53,9 @@ type State =
   | { status: 'success'; me: Me }
 
 /** First letter of the first name and of the last name, so "Anna Maria Cruz Jr." is "AC". */
+/** A row of the account actions on a phone: no box, left-aligned, so the list reads as a menu. */
+const PHONE_ROW = 'max-sm:justify-start max-sm:border-0! max-sm:px-1 max-sm:not-disabled:hover:bg-transparent! max-sm:not-disabled:hover:text-kral-fg!'
+
 const initialsOf = (me: Me) => `${me.firstName[0]}${me.lastName[0]}`.toUpperCase()
 
 /** A simulated account's session keeps its flags when the profile refreshes it, or the next /users/me call would go to Supabase and sign it out. */
@@ -232,8 +235,8 @@ export function ProfilePage({ tone }: { tone?: 'kral' }) {
       <>
         <ShopHeader tone="kral" ref={headingRef} title={name} crumb="Profile" />
         <div className={KRAL_WRAP}>
-          <section aria-label="Your profile" className={`${KRAL_PANEL} flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-8`}>
-            <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:gap-6 lg:flex-1">
+          <section aria-label="Your profile" className={`${KRAL_PANEL} flex flex-col gap-4 max-sm:p-4 sm:gap-6 lg:flex-row lg:items-center lg:gap-8`}>
+            <div className="flex min-w-0 items-center gap-4 sm:gap-6 lg:flex-1">
               <Avatar tone="kral" name={name} src={me.avatarUrl ?? undefined} initials={initialsOf(me)} size="xl" />
               <div className="min-w-0 flex-1">
                 <p className="font-kral-mono text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">(Email)</p>
@@ -270,26 +273,30 @@ export function ProfilePage({ tone }: { tone?: 'kral' }) {
                 )}
               </div>
             </div>
-            <div className="grid gap-3 border-t border-kral-rule pt-6 sm:flex sm:flex-wrap lg:shrink-0 lg:justify-end lg:border-t-0 lg:pt-0">
+            {/* On a phone these are plain list rows with a chevron, divided by hairlines; from sm they are the bordered buttons. */}
+            <div className="grid border-t border-kral-rule max-sm:divide-y max-sm:divide-kral-rule sm:flex sm:flex-wrap sm:gap-3 sm:pt-6 lg:shrink-0 lg:justify-end lg:border-t-0 lg:pt-0">
               {me.role === 'customer' && (
-                <Link to="/orders" className={KRAL_SECONDARY}>
+                <Link to="/orders" className={`${KRAL_SECONDARY} ${PHONE_ROW}`}>
                   <ReceiptIcon size={16} />
                   My orders
+                  <ChevronRightIcon size={16} className="ml-auto sm:hidden" />
                 </Link>
               )}
               {me.role === 'customer' && (
-                <button type="button" onClick={() => startTour({ skipWelcome: true })} className={KRAL_SECONDARY}>
+                <button type="button" onClick={() => startTour({ skipWelcome: true })} className={`${KRAL_SECONDARY} ${PHONE_ROW}`}>
                   <SparkleIcon size={16} />
                   Replay the tour
+                  <ChevronRightIcon size={16} className="ml-auto sm:hidden" />
                 </button>
               )}
               {passwordLogin && (
-                <button type="button" onClick={() => setChangingPassword(true)} className={KRAL_SECONDARY}>
+                <button type="button" onClick={() => setChangingPassword(true)} className={`${KRAL_SECONDARY} ${PHONE_ROW}`}>
                   <LockIcon size={16} />
                   Change password
+                  <ChevronRightIcon size={16} className="ml-auto sm:hidden" />
                 </button>
               )}
-              <button type="button" onClick={leave} className={`${KRAL_SECONDARY} border-transparent!`}>
+              <button type="button" onClick={leave} className={`${KRAL_SECONDARY} ${PHONE_ROW} sm:border-transparent!`}>
                 <LogOutIcon size={16} />
                 Sign out
               </button>
