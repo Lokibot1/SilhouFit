@@ -1,12 +1,12 @@
 import { MotionConfig } from 'motion/react'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { CameraOverlay } from '../../components/ar/CameraOverlay'
+import { CameraCard, CameraStageControls } from '../../components/ar/CameraOverlay'
 import { TryOnFlat } from '../../components/ar/TryOnFlat'
 import { RowsSkeleton, STAGE_SIZE, TRY_ON_BODY, TRY_ON_GRID, TryOnPanelSkeleton } from '../../components/ar/TryOnSkeleton'
 import { SectionBoundary } from '../../components/body-setup/SectionBoundary'
 import { fromProfile, SPECS, type Entered } from '../../components/body-setup/measurements'
-import { AlertIcon, CameraIcon, PaletteIcon, RulerIcon } from '../../components/form/icons'
+import { AlertIcon, CameraIcon, PaletteIcon, RulerIcon, SpinnerIcon } from '../../components/form/icons'
 import { NearViewport } from '../../components/NearViewport'
 import { KRAL_BLOCK, KRAL_BODY, KRAL_LABEL, KRAL_PANEL } from '../../components/profile/profileKral'
 import { ShopHeader } from '../../components/shop/ShopHeader'
@@ -16,6 +16,7 @@ import { Tooltip } from '../../components/ui/Tooltip'
 import type { Product } from '../../data/products'
 import { useCamera } from '../../hooks/useCamera'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProduct } from '../../hooks/useProducts'
@@ -25,6 +26,7 @@ import { useProductSizing } from '../../service/customSizings'
 import type { ProductVariant } from '../../service/fetchProductList'
 import { compareFit, recommendSize, type FitLevel, type FitRegion } from '../../utils/arFit'
 import { canTryOn, garmentScale } from '../../utils/arGarment'
+import type { TrackStatus } from '../../utils/arPose'
 
 // Three.js stays out of every other chunk: the stage loads here, and its import starts as soon as the page mounts.
 const loadStage = () => import('../../components/ar/TryOnStage').then((m) => ({ default: m.TryOnStage }))
@@ -38,6 +40,14 @@ const LEGEND = 'font-kral-mono text-base font-medium text-kral-fg uppercase md:t
 const LEVEL: Record<FitLevel, string> = { 'too-tight': 'Too tight', fitted: 'Fitted', regular: 'Regular fit', loose: 'Loose fit', oversized: 'Oversized' }
 const REGION: Record<FitRegion, string> = { chest: 'Chest', waist: 'Waist', shoulders: 'Shoulders', sleeve: 'Sleeve' }
 const BODY_FIELDS = ['chest', 'shoulders', 'sleeve', 'waist'] as const
+const NOT_TRACKED = 'Preview: not tracked to your body yet'
+const TRACK_HINT: Partial<Record<TrackStatus, string>> = {
+  tracking: 'Tracking your shoulders',
+  lost: 'Step back so we can see your shoulders. Good light helps.',
+  'too-close': 'Move back a little so both shoulders fit in view.',
+  'too-far': 'Move closer so we can see your shoulders.',
+}
+const CHIP = 'font-kral-mono bg-kral-bg/85 px-3 py-1.5 text-base text-kral-fg backdrop-blur-sm'
 
 type Profile = { status: 'loading' } | { status: 'error' } | { status: 'ready'; entered: Entered | null }
 
@@ -107,6 +117,12 @@ export function TryOnPage() {
   }, [tryable])
   const guide = useSizeGuide(product?.category ?? 'Shirt', product?.variants ?? NO_VARIANTS, tryable, useProductSizing(product?.id))
   const camera = useCamera()
+  const [declined, setDeclined] = useState(false)
+  const [trackStatus, setTrackStatus] = useState<TrackStatus>('off')
+  const [trackKey, setTrackKey] = useState(0)
+  // The stage reports a change of status, not every frame; the chip waits for it to settle so it does not flicker, except to go off.
+  const settled = useDebouncedValue(trackStatus, 500)
+  const tracking = trackStatus === 'off' ? 'off' : settled
   const [pickedSize, setPickedSize] = useState<string | null>(null)
   const [pickedColor, setPickedColor] = useState<string | null>(null)
 
@@ -133,45 +149,78 @@ export function TryOnPage() {
 
   function stage(item: Product) {
     return (
-      <div
-        role="group"
-        aria-label="AR try-on preview"
-        data-size={size ?? ''}
-        data-scale={`${scale.x.toFixed(3)},${scale.y.toFixed(3)},${scale.z.toFixed(3)}`}
-        className={`relative overflow-hidden border border-kral-rule bg-kral-fg/5 ${STAGE_SIZE}`}
-      >
-        <video
-          ref={camera.videoRef}
-          playsInline
-          muted
-          autoPlay
-          aria-label="Your camera feed"
-          className={`absolute inset-0 size-full -scale-x-100 object-cover ${camera.state === 'live' ? '' : 'invisible'}`}
-        />
-        <NearViewport className="absolute inset-0">
-          <SectionBoundary
-            fallback={(retry) => (
-              <TryOnFlat
-                image={item.image}
-                alt={item.alt}
-                unavailable={false}
-                onRetry={() => {
-                  TryOnStage = lazy(loadStage)
-                  retry()
-                }}
-              />
+      <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4">
+        <div
+          role="group"
+          aria-label="AR try-on preview"
+          data-size={size ?? ''}
+          data-scale={`${scale.x.toFixed(3)},${scale.y.toFixed(3)},${scale.z.toFixed(3)}`}
+          className={`relative overflow-hidden border border-kral-rule bg-kral-fg/5 ${STAGE_SIZE}`}
+        >
+          <video
+            ref={camera.videoRef}
+            playsInline
+            muted
+            autoPlay
+            aria-label="Your camera feed"
+            className={`absolute inset-0 size-full -scale-x-100 object-cover ${camera.state === 'live' ? '' : 'invisible'}`}
+          />
+          <NearViewport className="absolute inset-0">
+            <SectionBoundary
+              fallback={(retry) => (
+                <TryOnFlat
+                  image={item.image}
+                  alt={item.alt}
+                  unavailable={false}
+                  onRetry={() => {
+                    TryOnStage = lazy(loadStage)
+                    retry()
+                  }}
+                />
+              )}
+            >
+              <Suspense fallback={<div className="absolute inset-0 animate-pulse" />}>
+                <TryOnStage
+                  colorHex={colour?.hex ?? '#ffffff'}
+                  scale={scale}
+                  largest={largest}
+                  image={item.image}
+                  alt={item.alt}
+                  video={camera.videoRef}
+                  live={camera.state === 'live'}
+                  shoulderCm={entered?.shoulders}
+                  trackKey={trackKey}
+                  onStatus={setTrackStatus}
+                />
+              </Suspense>
+            </SectionBoundary>
+          </NearViewport>
+          <div className="absolute top-3 right-3 left-3 flex flex-col items-start gap-2">
+            <div role="status" className={`${CHIP} flex max-w-full items-start gap-2`}>
+              {tracking === 'loading' ? <SpinnerIcon size={16} className="mt-1 shrink-0" /> : <CameraIcon size={16} className="mt-1 shrink-0" />}
+              <span>
+                {tracking === 'loading' ? 'Loading body tracking' : (TRACK_HINT[tracking] ?? NOT_TRACKED)}
+                {tracking === 'tracking' && entered?.shoulders === undefined && (
+                  <span className="block">Sized for an average build. Add your measurements for your real fit.</span>
+                )}
+              </span>
+            </div>
+            {(tracking === 'slow' || tracking === 'failed') && (
+              <div className={`${CHIP} flex flex-col items-start gap-2`}>
+                <p>
+                  {tracking === 'slow'
+                    ? 'Tracking is too slow on this device, so the shirt stays in a fixed position.'
+                    : "Body tracking didn't load. Check your connection, then try again. The shirt stays in a fixed position."}
+                </p>
+                <button type="button" onClick={() => setTrackKey((n) => n + 1)} className={KRAL_SECONDARY}>
+                  Try tracking again
+                </button>
+              </div>
             )}
-          >
-            <Suspense fallback={<div className="absolute inset-0 animate-pulse" />}>
-              <TryOnStage colorHex={colour?.hex ?? '#ffffff'} scale={scale} largest={largest} image={item.image} alt={item.alt} />
-            </Suspense>
-          </SectionBoundary>
-        </NearViewport>
-        <p className="font-kral-mono absolute top-3 left-3 flex items-center gap-2 bg-kral-bg/85 px-3 py-1.5 text-base text-kral-fg backdrop-blur-sm">
-          <CameraIcon size={16} />
-          Preview: not tracked to your body yet
-        </p>
-        <CameraOverlay camera={camera} />
+          </div>
+          <CameraStageControls camera={camera} declined={declined} onDeclinedChange={setDeclined} />
+        </div>
+        <CameraCard camera={camera} declined={declined} onDeclinedChange={setDeclined} />
       </div>
     )
   }

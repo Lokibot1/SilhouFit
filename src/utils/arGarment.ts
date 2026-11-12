@@ -9,7 +9,12 @@ export const canTryOn = (product: Pick<Product, 'arReady' | 'category'>) => prod
 // What the committed model measures, in cm (flat widths, like a size chart).
 // Length and sleeve: scripts/convert-tshirt.mjs output. Chest: half the girth of the torso below the underarm (the model is draped, so its x width
 // is not a flat width). Shoulder: the width at the sleeve join. All approximate.
-export const GARMENT_BASE = { length: 67.5, shoulder: 41.5, sleeve: 26.7, chest: 50.0 }
+// The last three are measured on the mesh itself (all 237,938 triangles, hem at y=0): the collar top, how far below it the shoulder seam sits
+// (the top surface at half the shoulder width from the centre, 20.75 cm), and the full x extent with the sleeves.
+export const GARMENT_BASE = { length: 67.5, shoulder: 41.5, sleeve: 26.7, chest: 50.0, collarTop: 70.16, seamBelowCollar: 5.9, drawnWidth: 65.3 }
+
+/** Height of the model's shoulder point above the hem (cm): the point a tracked shoulder midpoint is pinned to. */
+export const SEAM_HEIGHT = GARMENT_BASE.collarTop - GARMENT_BASE.seamBelowCollar
 
 /**
  * Scale of the model for a size: width (x and z) from the chest, or from the shoulders when there is no chest; height from the total length.

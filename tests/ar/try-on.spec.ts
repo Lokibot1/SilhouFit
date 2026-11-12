@@ -1,63 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
-import { signInViaForm } from '../shared/checkoutOrders'
-import { mockProducts, product, variant, type MockProduct } from '../shared/products'
-import { mockAuth } from '../shared/session'
-import { mockSizeMeasurements, sizeRow } from '../shared/sizeMeasurements'
+import { CORS, shirt, stage, start, stubCamera } from '../shared/tryOn'
 
 // The AR try-on page. Linen Shirt (Shirt, AR ready) comes in S, M, L (with standard rows) and XL (without one), in Navy and Black.
 // The camera is stubbed, so no hardware is needed; the specs assert the page's state, never pixels, as WebGL may be software here.
 
-const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' }
-const BASE = [
-  sizeRow({ category: 'Shirt', size: 'S', chestWidthCm: 48, totalLengthCm: 66, shoulderWidthCm: 42, sleeveLengthCm: 20 }),
-  sizeRow({ category: 'Shirt', size: 'M', chestWidthCm: 52, totalLengthCm: 70, shoulderWidthCm: 44, sleeveLengthCm: 21 }),
-  sizeRow({ category: 'Shirt', size: 'L', chestWidthCm: 56, totalLengthCm: 72, shoulderWidthCm: 46, sleeveLengthCm: 22 }),
-]
-// Chest 96 cm, no sleeve length (a short sleeve is compared with the whole arm): S is too tight at the shoulders, M regular (+8.0), L loose (+16.0).
-const PROFILE = {
-  heightCm: 175, weightKg: null, shoulderWidthCm: 44, chestCm: 96, bustCm: null, torsoLengthCm: null, waistCm: 82, hipsCm: null,
-  inseamCm: null, outseamCm: null, thighCm: null, armLengthCm: null, bodyModel: 'male', bodyBuild: 'regular',
-}
-
-const shirt = (overrides: Partial<MockProduct> = {}) =>
-  product({
-    category: 'Shirt',
-    isArReady: true,
-    variants: ['S', 'M', 'L', 'XL'].flatMap((size) => [
-      variant({ size, color: 'Navy', colorHex: '#1b2a49', sku: `LS-NAVY-${size}` }),
-      variant({ size, color: 'Black', colorHex: '#111111', sku: `LS-BLACK-${size}` }),
-    ]),
-    ...overrides,
-  })
-
-async function start(page: Page, { products = [shirt()], profile = true }: { products?: MockProduct[]; profile?: boolean } = {}) {
-  await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
-  await mockAuth(page)
-  await mockProducts(page, products)
-  await mockSizeMeasurements(page, BASE)
-  await page.route('**/users/me/body-profile', (route) => {
-    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
-    return profile ? route.fulfill({ json: PROFILE, headers: CORS }) : route.fulfill({ status: 404, json: {}, headers: CORS })
-  })
-  await signInViaForm(page)
-}
-
-/** Stands in for the camera: a live stream from a canvas, or a rejection with the DOMException name of that failure. */
-async function stubCamera(page: Page, mode: string) {
-  await page.addInitScript((m) => {
-    Object.defineProperty(navigator, 'mediaDevices', {
-      configurable: true,
-      value: {
-        getUserMedia: () => {
-          if (m !== 'live') return Promise.reject(new DOMException('stub', m))
-          return Promise.resolve(document.createElement('canvas').captureStream())
-        },
-      },
-    })
-  }, mode)
-}
-
-const stage = (page: Page) => page.getByRole('group', { name: 'AR try-on preview' })
 const noPageScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)
 
 test.describe('AR try-on', () => {
@@ -92,6 +38,20 @@ test.describe('AR try-on', () => {
     await page.getByRole('button', { name: 'Turn camera off' }).click()
     await expect(page.getByRole('button', { name: 'Turn on camera' })).toBeVisible()
   })
+
+  for (const width of [320, 768]) {
+    test(`the consent card does not cover the stage at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await start(page)
+      await page.goto('/shop/linen-shirt/try-on')
+      const card = page.getByRole('group', { name: 'Camera' })
+      await expect(card).toBeVisible({ timeout: 15000 })
+      await expect(card).toContainText('Body tracking runs on this device. The first time, it downloads about 20 MB of tracking files.')
+      const [stageBox, cardBox] = await Promise.all([stage(page).boundingBox(), card.boundingBox()])
+      expect(cardBox!.y).toBeGreaterThanOrEqual(stageBox!.y + stageBox!.height - 1)
+      expect(await noPageScroll(page)).toBe(true)
+    })
+  }
 
   for (const [name, title] of [
     ['NotAllowedError', 'Camera access is blocked'],

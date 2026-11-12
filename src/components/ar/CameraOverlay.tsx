@@ -1,13 +1,13 @@
-import { useState } from 'react'
 import type { useCamera } from '../../hooks/useCamera'
 import { SpinnerIcon } from '../form/icons'
 import { KRAL_BODY } from '../profile/profileKral'
 import { KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
 
-const CARD: Record<string, { title: string; body: string; again?: string }> = {
+const CARD: Record<string, { title: string; body: string; note?: string; again?: string }> = {
   idle: {
     title: 'Try it on over your camera',
     body: 'Your camera feed stays on this device. Nothing is recorded or uploaded. You can also continue without the camera.',
+    note: 'Body tracking runs on this device. The first time, it downloads about 20 MB of tracking files.',
     again: 'Turn on camera',
   },
   denied: {
@@ -36,11 +36,47 @@ const CARD: Record<string, { title: string; body: string; again?: string }> = {
   },
 }
 
-/** The camera consent card and controls over the stage. The tap on "Turn on camera" is the consent; nothing starts before it. */
-export function CameraOverlay({ camera }: { camera: ReturnType<typeof useCamera> }) {
-  const { state, start, stop } = camera
-  const [declined, setDeclined] = useState(false)
+interface CameraPartProps {
+  camera: ReturnType<typeof useCamera>
+  /** The customer chose to continue without the camera: the card stays away until they turn it on. */
+  declined: boolean
+  onDeclinedChange: (declined: boolean) => void
+}
+
+const cardShown = (state: string, declined: boolean) => state !== 'starting' && !!CARD[state] && !declined
+
+/**
+ * The camera consent card. The tap on "Turn on camera" is the consent; nothing starts before it. It sits under the stage in the page flow on
+ * narrow screens so it never covers the shirt, and over the bottom of a tall stage from lg up (its parent is the positioned box).
+ */
+export function CameraCard({ camera, declined, onDeclinedChange }: CameraPartProps) {
+  const { state, start } = camera
   const card = CARD[state]
+  if (!cardShown(state, declined)) return null
+  return (
+    <div className="flex justify-center lg:absolute lg:inset-x-0 lg:bottom-0 lg:p-4">
+      <div role="group" aria-label="Camera" className="w-full border border-kral-rule bg-kral-bg p-4 sm:p-6 lg:max-w-sm">
+        <h2 className="font-kral-display text-lg leading-[1.05] font-extrabold text-kral-fg uppercase">{card.title}</h2>
+        <p className={`${KRAL_BODY} mt-2`}>{card.body}</p>
+        {card.note && <p className={`${KRAL_BODY} mt-2`}>{card.note}</p>}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {card.again && (
+            <button type="button" onClick={start} className={KRAL_PRIMARY}>
+              {card.again}
+            </button>
+          )}
+          <button type="button" onClick={() => onDeclinedChange(true)} className={`${KRAL_SECONDARY} max-w-full whitespace-normal! text-center`}>
+            Continue without camera
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** What sits on the stage itself: the starting spinner and the camera on/off button. */
+export function CameraStageControls({ camera, declined, onDeclinedChange }: CameraPartProps) {
+  const { state, start, stop } = camera
 
   if (state === 'starting') {
     return (
@@ -51,26 +87,8 @@ export function CameraOverlay({ camera }: { camera: ReturnType<typeof useCamera>
     )
   }
 
-  if (card && !declined) {
-    return (
-      <div className="absolute inset-x-0 bottom-0 flex justify-center p-4">
-        <div role="group" aria-label="Camera" className="max-w-sm border border-kral-rule bg-kral-bg p-4 sm:p-6">
-          <h2 className="font-kral-display text-lg leading-[1.05] font-extrabold text-kral-fg uppercase">{card.title}</h2>
-          <p className={`${KRAL_BODY} mt-2`}>{card.body}</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {card.again && (
-              <button type="button" onClick={start} className={KRAL_PRIMARY}>
-                {card.again}
-              </button>
-            )}
-            <button type="button" onClick={() => setDeclined(true)} className={KRAL_SECONDARY}>
-              Continue without camera
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // While the card is up it carries the button, so the stage stays clear of it.
+  if (cardShown(state, declined)) return null
 
   const live = state === 'live'
   return (
@@ -80,9 +98,9 @@ export function CameraOverlay({ camera }: { camera: ReturnType<typeof useCamera>
         onClick={() => {
           if (live) {
             stop()
-            setDeclined(true)
+            onDeclinedChange(true)
           } else {
-            setDeclined(false)
+            onDeclinedChange(false)
             void start()
           }
         }}
