@@ -3,6 +3,7 @@ import {
   adminCustomer,
   adminEvent,
   adminOrder,
+  adminOrderId,
   adminPayment,
   adminShipment,
   bookedOrder,
@@ -13,6 +14,7 @@ import {
   type AdminOrderDto,
   type AdminOrdersMock,
 } from '../shared/adminOrders'
+import { contrastRatio } from '../shared/contrast'
 import { mockStaffMe } from '../shared/products'
 import { DEMO, mockAuth } from '../shared/session'
 
@@ -463,10 +465,11 @@ test.describe('drawer', () => {
 })
 
 test.describe('actions', () => {
-  test('a paid order has no manual status buttons, only Book rider', async ({ page }) => {
+  test('a paid order has no Mark buttons, only Start preparing and Book rider', async ({ page }) => {
     await setup(page, [paidOrder(1)])
     await open(page)
     const drawer = await openDrawer(page, 1)
+    await expect(drawer.getByRole('button', { name: 'Start preparing' })).toBeVisible()
     await expect(drawer.getByRole('button', { name: 'Book rider' })).toBeVisible()
     await expect(drawer.getByRole('button', { name: /^Mark/ })).toHaveCount(0)
   })
@@ -481,7 +484,7 @@ test.describe('actions', () => {
       const drawer = await openDrawer(page, 1)
 
       await expect(drawer.getByText('This order is closed.')).toBeVisible()
-      await expect(drawer.getByRole('button', { name: /^Mark |^Book rider|^Cancel/ })).toHaveCount(0)
+      await expect(drawer.getByRole('button', { name: /^Mark |^Start preparing|^Book rider|^Cancel/ })).toHaveCount(0)
     })
   }
 
@@ -545,6 +548,99 @@ test.describe('actions', () => {
       await confirm.getByRole('button', { name: 'Cancel', exact: true }).click()
       await expect(confirm).toBeHidden()
       expect(api.patches).toHaveLength(0)
+    })
+  })
+
+  test.describe('start preparing', () => {
+    const start = (drawer: Locator) => drawer.getByRole('button', { name: 'Start preparing' })
+
+    test('moves the order to Preparing, toasts, and leaves Book rider on', async ({ page }) => {
+      const api = await setup(page, [paidOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      await start(drawer).click()
+
+      await expect(toast(page, 'Order moved to Preparing')).toBeVisible()
+      expect(api.patches).toEqual([{ id: adminOrder(1).id, body: { status: 'PROCESSING' } }])
+      await expect(drawer.getByText('Preparing', { exact: true }).first()).toBeVisible()
+      await expect(start(drawer)).toHaveCount(0)
+      await expect(drawer.getByRole('button', { name: 'Book rider' })).toBeEnabled()
+      await expect(rowOf(page, 1).first()).toContainText('Preparing')
+    })
+
+    test('while pending it is busy, every other action waits, and a second click sends nothing', async ({ page }) => {
+      const api = await setup(page, [paidOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      const release = api.hold('patch')
+      await start(drawer).click()
+
+      const busy = drawer.getByRole('button', { name: 'Starting…' })
+      await expect(busy).toBeDisabled()
+      await expect(busy).toHaveAttribute('aria-busy', 'true')
+      await expect(drawer.getByRole('button', { name: 'Book rider' })).toBeDisabled()
+      await expect(drawer.getByRole('button', { name: 'Cancel order', exact: true })).toBeDisabled()
+      await busy.click({ force: true })
+      expect(api.patches).toHaveLength(1)
+
+      release()
+      await expect(toast(page, 'Order moved to Preparing')).toBeVisible()
+      expect(api.patches).toHaveLength(1)
+    })
+
+    test('a refusal shows the server sentence with no Retry, and the drawer then shows the order closed', async ({ page }) => {
+      const api = await setup(page, [paidOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      api.on.patch = () => {
+        api.orders[0].status = 'CANCELLED'
+        return fail(400, 'Order SHF-1 is in terminal status "CANCELLED" and cannot be transitioned to "PROCESSING".')
+      }
+      await start(drawer).click()
+
+      const failed = toast(page, 'The order was not moved to Preparing. Order SHF-1 is in terminal status "CANCELLED"')
+      await expect(failed).toBeVisible()
+      await expect(failed.getByRole('button', { name: 'Retry' })).toHaveCount(0)
+      await expect(drawer.getByText('This order is closed.')).toBeVisible()
+    })
+
+    test('a 429 says to wait a minute, with Retry', async ({ page }) => {
+      const api = await setup(page, [paidOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      api.on.patch = () => fail(429, 'Too Many Requests')
+      await start(drawer).click()
+
+      const failed = toast(page, 'The order was not moved to Preparing. Too many requests right now. Wait a minute, then try again.')
+      await expect(failed).toBeVisible()
+      await expect(failed.getByRole('button', { name: 'Retry' })).toBeVisible()
+    })
+
+    test('a dropped connection says so, and Retry moves the order', async ({ page }) => {
+      const api = await setup(page, [paidOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      api.on.patch = () => 'abort'
+      await start(drawer).click()
+
+      const failed = toast(page, 'The order was not moved to Preparing. The connection dropped before we got a response.')
+      await expect(failed).toBeVisible()
+      api.on.patch = undefined
+      await failed.getByRole('button', { name: 'Retry' }).click()
+      await expect(toast(page, 'Order moved to Preparing')).toBeVisible()
+      expect(api.patches).toHaveLength(2)
+    })
+
+    test('a 403 says the session ended, with no Retry', async ({ page }) => {
+      const api = await setup(page, [paidOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      api.on.patch = () => fail(403, 'Forbidden resource')
+      await start(drawer).click()
+
+      const failed = toast(page, 'The order was not moved to Preparing. Your session ended')
+      await expect(failed).toBeVisible()
+      await expect(failed.getByRole('button', { name: 'Retry' })).toHaveCount(0)
     })
   })
 
@@ -795,5 +891,175 @@ test.describe('layout', () => {
     const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
     const [red, green, blue] = background.match(/\d+/g)!.map(Number)
     expect(red + green + blue).toBeLessThan(384)
+  })
+})
+
+// Start preparing next to Book rider and Cancel order: how the three sit in the drawer, by keyboard, when it is off, in both colour schemes, and what it does to the list and counts.
+test.describe('start preparing layout', () => {
+  const start = (drawer: Locator) => drawer.getByRole('button', { name: 'Start preparing' })
+  const book = (drawer: Locator) => drawer.getByRole('button', { name: 'Book rider' })
+  const cancel = (drawer: Locator) => drawer.getByRole('button', { name: 'Cancel order', exact: true })
+  const BOOKING = 'A rider is being booked. Wait for it to finish.'
+  const dispatching = (n: number) => paidOrder(n, { shipment: adminShipment({ orderId: adminOrderId(n), status: 'DISPATCHING', externalOrderId: null }) })
+
+  for (const width of [320, 375, 768, 1280]) {
+    test(`at ${width}px the three actions stay inside the drawer, apart, readable and tall enough to touch`, async ({ page, hasTouch }) => {
+      await setup(page, [paidOrder(1)])
+      await page.setViewportSize({ width, height: 800 })
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      const buttons = [start(drawer), book(drawer), cancel(drawer)]
+      for (const button of buttons) await expect(button).toBeVisible()
+
+      expect(await overflow(page)).toBe(0)
+      expect(await drawer.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0)
+
+      // The drawer slides in: measure once it has stopped.
+      let last = -1
+      await expect.poll(async () => {
+        const x = (await drawer.boundingBox())!.x
+        const still = x === last
+        last = x
+        return still
+      }).toBe(true)
+      const frame = (await drawer.boundingBox())!
+      const boxes = []
+      for (const button of buttons) boxes.push((await button.boundingBox())!)
+      for (const box of boxes) {
+        expect(box.x).toBeGreaterThanOrEqual(frame.x)
+        expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width)
+      }
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i]
+          const b = boxes[j]
+          const apart = a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y
+          expect(apart, `button ${i} overlaps button ${j} at ${width}px`).toBe(true)
+        }
+      }
+
+      if (width < 768) {
+        for (const button of buttons) expect(await button.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16)
+      }
+      // A touch screen, or a phone-width window, gets 44px controls; a mouse at 768px and up gets 36px ones, by design.
+      test.skip(!hasTouch && width >= 768, 'touch targets only apply to touch screens and phone widths')
+      // 43.99997 is 44 after layout rounding.
+      for (const box of boxes) expect(box.height).toBeGreaterThanOrEqual(43.9)
+    })
+  }
+
+  for (const key of ['Enter', 'Space']) {
+    test(`with the keyboard alone ${key} on Start preparing moves the order and focus lands on Book rider`, async ({ page }) => {
+      const api = await setup(page, [paidOrder(1)])
+      await open(page)
+      await orderButton(page, 1).focus()
+      await page.keyboard.press('Enter')
+      const drawer = drawerOf(page, 1)
+      await expect(drawer.getByRole('heading', { name: 'Actions' })).toBeVisible()
+
+      let found = false
+      for (let i = 0; i < 25 && !found; i++) {
+        await page.keyboard.press('Tab')
+        found = await page.evaluate(() => document.activeElement?.textContent?.trim() === 'Start preparing')
+      }
+      expect(found, 'Tab reaches Start preparing').toBe(true)
+      await expect(start(drawer)).toBeFocused()
+
+      await page.keyboard.press(key)
+      await expect(toast(page, 'Order moved to Preparing')).toBeVisible()
+      expect(api.patches).toEqual([{ id: adminOrder(1).id, body: { status: 'PROCESSING' } }])
+      await expect(book(drawer)).toBeFocused()
+      expect(await page.evaluate(() => document.activeElement?.textContent?.trim())).toBe('Book rider')
+    })
+  }
+
+  test('while a rider is being booked it is off, says why in view, and the reason is its description', async ({ page }) => {
+    const api = await setup(page, [dispatching(1)])
+    await open(page)
+    const drawer = await openDrawer(page, 1)
+
+    await expect(start(drawer)).toBeDisabled()
+    await expect(start(drawer)).toHaveAccessibleDescription(BOOKING)
+    // No role names a paragraph, so the reason is found through the id the button points at.
+    const reason = drawer.locator(`[id="${await start(drawer).getAttribute('aria-describedby')}"]`)
+    await expect(reason).toBeVisible()
+    await expect(reason).toHaveText(BOOKING)
+
+    await start(drawer).click({ force: true })
+    expect(api.patches).toHaveLength(0)
+  })
+
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`in ${scheme} mode the button text, its border and the reason are readable`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme })
+      await setup(page, [paidOrder(1), dispatching(2)])
+      await open(page)
+
+      /** `prop` of the element and the colour it sits on (translucent layers up the tree are blended), both as rgb(). */
+      const colours = (locator: Locator, prop: 'color' | 'borderTopColor') =>
+        locator.evaluate((el, property) => {
+          const canvas = document.createElement('canvas')
+          canvas.width = canvas.height = 1
+          const context = canvas.getContext('2d', { willReadFrequently: true })!
+          const parse = (css: string): number[] => {
+            context.clearRect(0, 0, 1, 1)
+            context.fillStyle = '#000'
+            context.fillStyle = css
+            context.fillRect(0, 0, 1, 1)
+            const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
+            return [r, g, b, a / 255]
+          }
+          const over = (top: number[], below: number[]) => [0, 1, 2].map((i) => top[i] * top[3] + below[i] * (1 - top[3]))
+          const layers: number[][] = []
+          for (let node: Element | null = el; node; node = node.parentElement) {
+            const layer = parse(getComputedStyle(node).backgroundColor)
+            if (layer[3] > 0) layers.push(layer)
+            if (layer[3] === 1) break
+          }
+          let bg = [255, 255, 255]
+          for (const layer of layers.reverse()) bg = over(layer, bg)
+          const fg = over(parse(getComputedStyle(el)[property]), bg)
+          const rgb = (c: number[]) => `rgb(${c.map(Math.round).join(', ')})`
+          return { fg: rgb(fg), bg: rgb(bg) }
+        }, prop)
+
+      const first = await openDrawer(page, 1)
+      const text = await colours(start(first), 'color')
+      expect(contrastRatio(text.fg, text.bg), `${scheme} Start preparing text ${text.fg} on ${text.bg}`).toBeGreaterThanOrEqual(4.5)
+      // The edge is a faint glass line shared by every secondary button; the label carries the contrast. Its ratio is recorded for the report, and it must at least be drawn.
+      const border = await colours(start(first), 'borderTopColor')
+      test.info().annotations.push({ type: `${scheme} border contrast`, description: `${contrastRatio(border.fg, border.bg).toFixed(2)} (${border.fg} on ${border.bg})` })
+      expect(await start(first).evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))).toBeGreaterThan(0)
+      await page.keyboard.press('Escape')
+      await expect(first).toBeHidden()
+
+      const second = await openDrawer(page, 2)
+      const why = second.locator(`[id="${await start(second).getAttribute('aria-describedby')}"]`)
+      const reason = await colours(why, 'color')
+      expect(contrastRatio(reason.fg, reason.bg), `${scheme} reason ${reason.fg} on ${reason.bg}`).toBeGreaterThanOrEqual(4.5)
+    })
+  }
+
+  test('after it succeeds the row reads Preparing, no row is lost and the Preparing count goes up after the refetch', async ({ page }) => {
+    const api = await setup(page, [paidOrder(1), paidOrder(2), adminOrder(3), bookedOrder(4)])
+    await open(page)
+    const counts = page.getByLabel('Order counts across all orders')
+    const tile = (label: string) => counts.locator('div').filter({ has: page.getByText(label, { exact: true }) })
+    await expect(tile('Preparing')).toHaveText('Preparing0All orders')
+    await expect(tile('Awaiting payment')).toHaveText('Awaiting payment1All orders')
+    await expect(tile('On the way')).toHaveText('On the way1All orders')
+    const reads = api.metrics
+
+    const drawer = await openDrawer(page, 1)
+    await start(drawer).click()
+    await expect(toast(page, 'Order moved to Preparing')).toBeVisible()
+
+    await expect.poll(() => api.metrics).toBeGreaterThan(reads)
+    await expect(tile('Preparing')).toHaveText('Preparing1All orders')
+    await expect(tile('Awaiting payment')).toHaveText('Awaiting payment1All orders')
+    await expect(tile('On the way')).toHaveText('On the way1All orders')
+    await expect(rowOf(page, 1).first()).toContainText('Preparing')
+    await expect(rowOf(page, 2).first()).not.toContainText('Preparing')
+    for (const n of [1, 2, 3, 4]) await expect(page.getByRole('button', { name: new RegExp(`^${num(n)}`) })).toHaveCount(1)
   })
 })

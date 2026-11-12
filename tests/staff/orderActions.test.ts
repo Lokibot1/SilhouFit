@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ORDER_STATUSES, PAYMENT_STATUSES, SHIPMENT_STATUSES, type OrderStatus, type PaymentStatus, type ShipmentStatus } from '../../src/service/ordersApi'
-import { canCancelDelivery, cancelOrderBlock, dispatchBlock, isClosed } from '../../src/utils/orders'
+import { canCancelDelivery, canStartPreparing, cancelOrderBlock, dispatchBlock, isClosed, RIDER_BOOKING_WHY } from '../../src/utils/orders'
 
 type Booking = { status: ShipmentStatus; externalOrderId: string | null } | null
 
@@ -41,6 +41,19 @@ describe('Book rider', () => {
         ['QUOTED', 'PENDING_DISPATCH', 'CANCELLED', 'FAILED'].includes(o.shipment.status)
       expect(dispatchBlock(o) === null, JSON.stringify(o)).toBe(takes)
     }
+  })
+})
+
+describe('Start preparing', () => {
+  it('is on only for an order that is Paid and paid', () => {
+    for (const o of ORDERS) {
+      expect(canStartPreparing(o), JSON.stringify(o)).toBe(o.status === 'PAID' && o.paymentStatus === 'PAID')
+    }
+  })
+
+  it('shares the wait reason with Cancel order while a rider is being booked', () => {
+    expect(cancelOrderBlock(order('PAID', 'PAID', { status: 'DISPATCHING', externalOrderId: null }))).toBe(RIDER_BOOKING_WHY)
+    expect(RIDER_BOOKING_WHY).toBe('A rider is being booked. Wait for it to finish.')
   })
 })
 

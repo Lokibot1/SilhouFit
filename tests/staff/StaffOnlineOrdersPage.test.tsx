@@ -262,11 +262,35 @@ describe('Online orders page', () => {
     expect(within(drawer).getByText('Ready to book')).toBeInTheDocument()
   })
 
-  it('has no manual status buttons: the API moves an order on itself', async () => {
+  it('offers Start preparing and no other manual status buttons for a paid order', async () => {
     renderPage()
     const drawer = await openOrder(1)
     expect(await within(drawer).findByRole('button', { name: 'Book rider' })).toBeInTheDocument()
+    expect(within(drawer).getByRole('button', { name: 'Start preparing' })).toBeEnabled()
     expect(within(drawer).queryByRole('button', { name: /^Mark/ })).not.toBeInTheDocument()
+  })
+
+  it('moves a paid order to Preparing, reads it again and puts focus on Book rider', async () => {
+    renderPage()
+    const drawer = await openOrder(1)
+    update.mockResolvedValue(detailOf(row(1, { status: 'PROCESSING' })))
+    await userEvent.click(await within(drawer).findByRole('button', { name: 'Start preparing' }))
+    expect(update).toHaveBeenCalledWith(row(1).id, { status: 'PROCESSING' })
+    expect(await screen.findByText('Order moved to Preparing')).toBeInTheDocument()
+    await waitFor(() => expect(detail).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2))
+    expect(within(drawer).getByRole('button', { name: 'Book rider' })).toHaveFocus()
+  })
+
+  it('shows the server sentence with no Retry when the move is refused, and still reads the order again', async () => {
+    renderPage()
+    const drawer = await openOrder(1)
+    update.mockRejectedValue(new ProductListError('validation', 'Order SHF-20261026-000001 is in terminal status "CANCELLED".', 400))
+    await userEvent.click(await within(drawer).findByRole('button', { name: 'Start preparing' }))
+    const toast = await screen.findByRole('alert')
+    expect(toast).toHaveTextContent('The order was not moved to Preparing. Order SHF-20261026-000001 is in terminal status "CANCELLED".')
+    expect(within(toast).queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    await waitFor(() => expect(detail).toHaveBeenCalledTimes(2))
   })
 
   it('offers no way forward for an unpaid order and says why a rider cannot be booked', async () => {
@@ -274,6 +298,7 @@ describe('Online orders page', () => {
     const drawer = await openOrder(2)
     expect(await within(drawer).findByText('Book a rider once the payment is confirmed.')).toBeInTheDocument()
     expect(within(drawer).getByRole('button', { name: 'Book rider' })).toBeDisabled()
+    expect(within(drawer).queryByRole('button', { name: 'Start preparing' })).not.toBeInTheDocument()
     expect(within(drawer).queryByRole('button', { name: /^Mark/ })).not.toBeInTheDocument()
   })
 

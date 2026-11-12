@@ -247,13 +247,14 @@ export async function cancelDelivery(id: string): Promise<void> {
   await change(() => request('POST', `${base(id)}/cancel-delivery`, undefined))
 }
 
-const failureOf = (error: unknown) => error as { kind?: string; detail?: string; status?: number } | null
+export const failureOf = (error: unknown) => error as { kind?: string; detail?: string; status?: number } | null
 
 /** Why a change failed, in words a staff member can act on. The server's own sentence is used for a refusal (400, 409); never a provider's. */
 export function explainFailure(error: unknown): string {
   const { kind, detail } = failureOf(error) ?? {}
   if ((kind === 'validation' || kind === 'conflict') && detail) return detail
   if (kind === 'network') return 'The connection dropped before we got a response. Check your connection, then try again.'
+  if (kind === 'rate-limit') return 'Too many requests right now. Wait a minute, then try again.'
   if (kind === 'forbidden') return 'Your session ended or your account is not allowed to do this. Sign in again, or ask an admin for access.'
   return 'Something went wrong on our side. Try again in a moment.'
 }

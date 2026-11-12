@@ -81,10 +81,15 @@ export function dispatchBlock(order: Actionable): string | null {
 const hasActiveBooking = (order: Pick<Actionable, 'shipment'>) =>
   !!order.shipment?.externalOrderId && order.shipment.status !== 'COMPLETED' && order.shipment.status !== 'CANCELLED'
 
+export const RIDER_BOOKING_WHY = 'A rider is being booked. Wait for it to finish.'
+
+/** Start preparing is offered for a paid order that is still waiting; the API moves it to Preparing. */
+export const canStartPreparing = (order: Actionable) => order.status === 'PAID' && order.paymentStatus === 'PAID'
+
 /** Why Cancel order is off, or null when it can be cancelled. Cancelling does not cancel a rider, so the delivery goes first. */
 export function cancelOrderBlock(order: Actionable): string | null {
   if (isClosed(order)) return 'This order is closed.'
-  if (order.shipment?.status === 'DISPATCHING') return 'A rider is being booked. Wait for it to finish.'
+  if (order.shipment?.status === 'DISPATCHING') return RIDER_BOOKING_WHY
   return hasActiveBooking(order) ? 'Cancel the delivery first.' : null
 }
 

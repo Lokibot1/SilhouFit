@@ -1,9 +1,10 @@
-import { useId, useState, type ReactNode } from 'react'
-import { cancelDelivery, cancelDeliveryFailure, dispatchFailure, dispatchOrder, explainFailure, updateAdminOrder, type AdminOrderDetail } from '../../../service/adminOrdersApi'
+import { flushSync } from 'react-dom'
+import { useId, useRef, useState, type ReactNode } from 'react'
+import { cancelDelivery, cancelDeliveryFailure, dispatchFailure, dispatchOrder, explainFailure, failureOf, updateAdminOrder, type AdminOrderDetail } from '../../../service/adminOrdersApi'
 import { cleanText, stripControl } from '../../../utils/checkoutValidation'
-import { canCancelDelivery, cancelOrderBlock, dispatchBlock, isClosed } from '../../../utils/orders'
+import { canCancelDelivery, canStartPreparing, cancelOrderBlock, dispatchBlock, isClosed, RIDER_BOOKING_WHY } from '../../../utils/orders'
 import { ConfirmDialog } from '../../admin/users/ConfirmDialog'
-import { AlertIcon, InfoIcon, NoteIcon, SendIcon, SpinnerIcon } from '../../form/icons'
+import { AlertIcon, BoxIcon, InfoIcon, NoteIcon, SendIcon, SpinnerIcon } from '../../form/icons'
 import { useToast } from '../../toast/useToast'
 import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Field, FIELD_INPUT, PLAIN_INPUT } from '../inventory/FormField'
@@ -38,10 +39,10 @@ interface ActionsProps {
   onChanged: () => void
 }
 
-/** What staff can do to the order: book or cancel the rider, cancel it, and keep notes. The API moves the other statuses itself (payment webhooks and courier updates). */
+/** What staff can do to the order: start preparing it, book or cancel the rider, cancel it, and keep notes. The API moves the other statuses itself (payment webhooks and courier updates). */
 export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
   const toast = useToast()
-  // The action in flight ('dispatch', 'notes', 'cancel-order', 'cancel-delivery' or a status); every button waits for it.
+  // The action in flight ('prepare', 'dispatch', 'notes', 'cancel-order' or 'cancel-delivery'); every button waits for it.
   const [busy, setBusy] = useState<string | null>(null)
   const [dialog, setDialog] = useState<'order' | 'delivery' | null>(null)
   const [reason, setReason] = useState('')
@@ -51,7 +52,28 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
   const closed = isClosed(detail)
   const dispatchWhy = dispatchBlock(detail)
   const cancelWhy = cancelOrderBlock(detail)
+  const prepareWhy = detail.shipment?.status === 'DISPATCHING' ? RIDER_BOOKING_WHY : null
+  const bookRef = useRef<HTMLButtonElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const spin = (key: string) => busy === key && <SpinnerIcon />
+
+  async function prepare() {
+    setBusy('prepare')
+    try {
+      await updateAdminOrder(detail.id, { status: 'PROCESSING' })
+      toast.show({ kind: 'success', message: 'Order moved to Preparing' })
+      // The button leaves once the order reloads, so hand focus on now, after the buttons are enabled again.
+      flushSync(() => setBusy(null))
+      ;(bookRef.current && !bookRef.current.disabled ? bookRef.current : headingRef.current)?.focus()
+    } catch (error) {
+      const { kind } = failureOf(error) ?? {}
+      const retry = kind !== 'validation' && kind !== 'forbidden' && kind !== 'conflict'
+      toast.show({ kind: 'error', message: `The order was not moved to Preparing. ${explainFailure(error)}`, action: retry ? { label: 'Retry', onClick: () => void prepare() } : undefined })
+    } finally {
+      setBusy(null)
+      onChanged()
+    }
+  }
 
   async function book() {
     setBusy('dispatch')
@@ -124,7 +146,7 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
     <div className="grid gap-6">
       <section aria-labelledby={`actions-${detail.id}`}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <h3 id={`actions-${detail.id}`} className={CARD_LABEL}>
+          <h3 id={`actions-${detail.id}`} ref={headingRef} tabIndex={-1} className={`${CARD_LABEL} outline-none`}>
             Actions
           </h3>
           {!closed && cancelWhy && (
@@ -137,10 +159,20 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
         {closed ? (
           <p className="text-base text-fg-muted md:text-sm">This order is closed.</p>
         ) : (
-          <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-2">
+            {canStartPreparing(detail) && (
+              <Guarded why={prepareWhy}>
+                {(describedBy) => (
+                  <button type="button" disabled={pending || !!prepareWhy} aria-describedby={describedBy} aria-busy={busy === 'prepare'} onClick={() => void prepare()} className={ACTION_SECONDARY}>
+                    {busy === 'prepare' ? <SpinnerIcon /> : <BoxIcon size={16} />}
+                    {busy === 'prepare' ? 'Starting…' : 'Start preparing'}
+                  </button>
+                )}
+              </Guarded>
+            )}
             <Guarded why={dispatchWhy}>
               {(describedBy) => (
-                <button type="button" disabled={pending || !!dispatchWhy} aria-describedby={describedBy} aria-busy={busy === 'dispatch'} onClick={() => void book()} className={ACTION_PRIMARY}>
+                <button ref={bookRef} type="button" disabled={pending || !!dispatchWhy} aria-describedby={describedBy} aria-busy={busy === 'dispatch'} onClick={() => void book()} className={ACTION_PRIMARY}>
                   {busy === 'dispatch' ? <SpinnerIcon /> : <SendIcon size={16} />}
                   {busy === 'dispatch' ? 'Booking a rider…' : 'Book rider'}
                 </button>
