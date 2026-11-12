@@ -12,6 +12,9 @@ import { KRAL_ICON_BUTTON, KRAL_ICON_COUNT } from './ui/kralIconButton'
 import { Tooltip } from './ui/Tooltip'
 
 const PANEL_WIDTH = 352
+/** Below the md breakpoint the panel is narrower and shorter, so it covers less of a small screen. */
+const PANEL_WIDTH_SMALL = 288
+const panelWidth = () => (window.innerWidth < 768 ? PANEL_WIDTH_SMALL : PANEL_WIDTH)
 const FOCUSABLE = 'a, button:not(:disabled)'
 const ROW = 'flex min-h-18 w-full items-start gap-3 px-3 py-3 text-kral-fg transition-colors duration-150 ease-out hover:bg-kral-fg/10 focus-visible:bg-kral-fg/10 motion-reduce:transition-none'
 const TEXT_BUTTON = 'kral-focus font-kral-mono relative flex min-h-9 cursor-pointer after:absolute after:-inset-y-1 after:inset-x-0 after:content-[""] items-center justify-center border border-kral-fg px-3 text-xs tracking-[0.08em] uppercase text-kral-fg transition-colors duration-150 ease-out hover:bg-kral-fg hover:text-kral-bg disabled:cursor-not-allowed disabled:border-kral-rule disabled:text-kral-muted disabled:hover:bg-transparent disabled:hover:text-kral-muted motion-reduce:transition-none'
@@ -88,7 +91,8 @@ export function NotificationsBell({ email }: { email?: string }) {
     if (!open) return
     const update = () => {
       const button = buttonRef.current!
-      setPlace(computePlace(button, PANEL_WIDTH, Math.min(PANEL_WIDTH, window.innerWidth - 16) - button.offsetWidth))
+      const width = panelWidth()
+      setPlace(computePlace(button, width, Math.min(width, window.innerWidth - 16) - button.offsetWidth))
     }
     function onKeyDown(event: KeyboardEvent) {
       const items = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
@@ -144,7 +148,7 @@ export function NotificationsBell({ email }: { email?: string }) {
 
   const state = orders ? (entries.length ? 'list' : 'empty') : failed ? 'error' : 'loading'
   const top = place?.top
-  const maxHeight = top === undefined ? `calc(100dvh - ${place?.bottom ?? 0}px - 0.5rem)` : `min(70dvh, calc(100dvh - ${top}px - 0.5rem))`
+  const maxHeight = top === undefined ? `calc(100dvh - ${place?.bottom ?? 0}px - 0.5rem)` : `min(${window.innerWidth < 768 ? 55 : 70}dvh, calc(100dvh - ${top}px - 0.5rem))`
 
   return (
     <>
