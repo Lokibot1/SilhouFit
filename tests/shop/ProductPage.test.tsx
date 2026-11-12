@@ -7,6 +7,7 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import type { Product } from '../../src/data/products'
 import { clearProductCache } from '../../src/hooks/useProducts'
 import { ProductListError } from '../../src/service/fetchProductList'
+import { clearSession, setSession } from '../../src/service/session'
 import { fetchShopProduct } from '../../src/service/fetchShopProducts'
 import { ProductPage } from '../../src/views/public/ProductPage'
 
@@ -198,6 +199,39 @@ describe('ProductPage purchase', () => {
     renderPage()
     await screen.findByRole('heading', { level: 2, name: 'Linen Shirt' })
     expect(screen.queryByRole('button', { name: 'AR Virtual Try-On' })).toBeNull()
+  })
+
+  it('sends a signed-in shopper to the try-on of a ready shirt with the chosen colour', async () => {
+    const user = userEvent.setup()
+    act(() => setSession({ name: 'Test Shopper', email: 'shopper@example.com' }))
+    fetchMock.mockResolvedValue(piece({ category: 'Shirt', arReady: true }))
+    renderPage()
+    await screen.findByRole('heading', { level: 2, name: 'Linen Shirt' })
+    await user.click(screen.getByRole('radio', { name: 'Navy' }))
+    await user.click(screen.getByRole('button', { name: 'AR Virtual Try-On' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/shop/linen-shirt/try-on?color=Navy')
+    act(() => clearSession())
+  })
+
+  it('asks a guest to sign in before the try-on', async () => {
+    const user = userEvent.setup()
+    fetchMock.mockResolvedValue(piece({ category: 'Shirt', arReady: true }))
+    renderPage()
+    await screen.findByRole('heading', { level: 2, name: 'Linen Shirt' })
+    await user.click(screen.getByRole('button', { name: 'AR Virtual Try-On' }))
+    expect(screen.getByText('Sign in to try it on with AR.')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent('/login?next=')
+  })
+
+  it('keeps the AR button disabled for an AR-ready piece that is not a shirt', async () => {
+    const user = userEvent.setup()
+    fetchMock.mockResolvedValue(piece({ category: 'Hoodie', arReady: true }))
+    renderPage()
+    await screen.findByRole('heading', { level: 2, name: 'Linen Shirt' })
+    const button = screen.getByRole('button', { name: 'AR Virtual Try-On' })
+    expect(button).toHaveAttribute('aria-disabled', 'true')
+    await user.click(button)
+    expect(screen.getByTestId('where')).toHaveTextContent('/shop/linen-shirt')
   })
 
   it('disables both buttons for a sold-out piece', async () => {

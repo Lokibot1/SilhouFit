@@ -84,9 +84,9 @@ const STEPS: TourStep[] = [
     stops: [
       {
         targets: ['product-ar'],
-        body: 'AR try-on is coming soon, so this button is switched off for now. When it launches it will ask for camera access, only after you tap it.',
+        body: 'Shirts marked AR ready have a Try-On button. It opens a preview of the shirt in your size and colour, and asks for camera access only after you tap it.',
         fallback:
-          'AR try-on is coming soon. When it launches, AR-ready pieces will have a Try-On button that asks for camera access only after you tap it.',
+          'AR-ready shirts have a Try-On button. It previews the shirt in your size and colour, and asks for camera access only after you tap it.',
       },
     ],
   },

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { choiceOf, LOW_STOCK, optionSoldOut, sizesFor, type Product } from '../../data/products'
+import { canTryOn } from '../../utils/arGarment'
 import { formatPeso } from '../../utils/format'
 import { BagIcon, CameraIcon, CartIcon, MinusIcon, PaletteIcon, PlusIcon, RulerIcon, StarIcon } from '../form/icons'
 import { Tooltip } from '../ui/Tooltip'
@@ -14,6 +15,8 @@ interface ProductPurchasePanelProps {
   inCart: (variantId: string | undefined) => number
   onAdd: (choice: Choice) => void
   onBuy: (choice: Choice) => void
+  /** Opens the AR try-on with the chosen colour (an empty string when none is chosen yet). */
+  onTryOn: (color: string) => void
 }
 
 const SIZE_ERROR = 'Choose a size to continue.'
@@ -32,7 +35,7 @@ const SLOT = 'flex [&>span]:w-full [&>span>button]:w-full'
 const DESCRIPTION_PREVIEW = 200
 const ACTION = 'w-full whitespace-normal! px-3 text-center'
 
-export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductPurchasePanelProps) {
+export function ProductPurchasePanel({ product, inCart, onAdd, onBuy, onTryOn }: ProductPurchasePanelProps) {
   const { name, salePrice } = product
   const sizes = sizesFor(product)
   const [color, setColor] = useState(product.colors.length === 1 ? product.colors[0].name : '')
@@ -335,7 +338,23 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
         }}
         className={PRODUCT_ACTIONS}
       >
-        {product.arReady && (
+        {canTryOn(product) ? (
+          <div className={`${SLOT} max-lg:order-2`}>
+            <button
+              type="button"
+              data-tour="product-ar"
+              aria-label="AR Virtual Try-On"
+              onClick={() => onTryOn(color)}
+              className={`${KRAL_SECONDARY} ${ACTION}`}
+            >
+              <CameraIcon size={16} />
+              <span aria-hidden="true">
+                AR <span className="max-sm:hidden">Virtual </span>Try-On
+              </span>
+            </button>
+          </div>
+        ) : (
+          product.arReady && (
           <div className={`${SLOT} max-lg:order-2`}>
             <Tooltip tone="kral" label="AR try-on isn't available yet">
               <button
@@ -352,6 +371,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy }: ProductP
               </button>
             </Tooltip>
           </div>
+          )
         )}
         <div className="flex flex-col gap-2 max-lg:contents sm:flex-row sm:gap-3">
           <div className={`${SLOT} flex-1 max-lg:order-1 max-lg:col-span-2`}>{soldOut ? <Tooltip tone="kral" label="Sold out">{addButton}</Tooltip> : addButton}</div>

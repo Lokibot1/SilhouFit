@@ -305,12 +305,12 @@ describe('OnboardingTour', () => {
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/shop$/)
   })
 
-  it('states that AR try-on is coming soon and will ask for the camera later', async () => {
+  it('explains the AR try-on button and that it asks for the camera only after a tap', async () => {
     const ar = addTarget('product-ar')
     const user = await open({ welcome: false })
     for (let i = 0; i < 6; i += 1) await user.click(screen.getByRole('button', { name: 'Next' }))
     expect(screen.getByRole('heading', { name: 'Try it on with AR' })).toBeInTheDocument()
-    expect(await screen.findByText(/coming soon.*camera access/)).toBeInTheDocument()
+    expect(await screen.findByText(/Try-On button.*camera access/)).toBeInTheDocument()
     ar.remove()
   })
 

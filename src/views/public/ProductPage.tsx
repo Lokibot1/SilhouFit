@@ -130,6 +130,10 @@ export function ProductPage() {
               inCart={cart.qtyOfVariant}
               onAdd={(choice) => add(product, choice)}
               onBuy={(choice) => buy(product, choice)}
+              onTryOn={(color) => {
+                if (requireSignIn('try it on with AR')) return
+                navigate(`/shop/${product.slug ?? product.id}/try-on${color ? `?color=${encodeURIComponent(color)}` : ''}`)
+              }}
             />
           </div>
         )}

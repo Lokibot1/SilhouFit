@@ -23,6 +23,7 @@ import { AccountsPageSkeleton } from './components/admin/users/AccountSkeleton'
 import { LoginModalProvider } from './components/auth/LoginModal'
 import { ToastProvider } from './components/toast/ToastProvider'
 import { ProfileSkeleton } from './components/profile/ProfileSkeleton'
+import { TryOnSkeleton } from './components/ar/TryOnSkeleton'
 import { ProductRouteSkeleton } from './components/shop/ProductSkeleton'
 import { CartSkeleton, ShopSkeleton, WishlistSkeleton } from './components/shop/ShopSkeleton'
 import { AboutPage } from './views/public/AboutPage'
@@ -142,6 +143,9 @@ const UserManagementPage = lazy(() =>
   import('./views/admin/UserManagementPage').then((m) => ({ default: m.UserManagementPage })),
 )
 
+const TryOnPage = lazy(() =>
+  import('./views/private/TryOnPage').then((m) => ({ default: m.TryOnPage })),
+)
 const BodySetupPage = lazy(() =>
   import('./views/private/BodySetupPage').then((m) => ({ default: m.BodySetupPage })),
 )
@@ -336,6 +340,14 @@ function App() {
                 element={
                   <Suspense fallback={<ProductRouteSkeleton />}>
                     <ProductPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="shop/:id/try-on"
+                element={
+                  <Suspense fallback={<TryOnSkeleton />}>
+                    <TryOnPage />
                   </Suspense>
                 }
               />
