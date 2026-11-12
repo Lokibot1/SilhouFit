@@ -25,6 +25,9 @@ export interface Notification {
   sentence: string
   /** The best time we have for the order's current status, an ISO string. */
   at: string
+  /** The first item's photo and name, for the picture beside the entry. */
+  imageUrl: string | null
+  itemName: string
 }
 
 /** When the order reached its current status, falling back to when it was placed. */
@@ -58,6 +61,8 @@ export function buildNotifications(orders: CustomerOrder[], limit = NOTIFICATION
       status: order.status,
       sentence: notificationSentence(order.status),
       at: stamp(order),
+      imageUrl: order.items[0]?.imageUrl ?? null,
+      itemName: order.items[0]?.name ?? 'Your order',
     }))
 }
 

@@ -7,6 +7,7 @@ import { useLivePoll } from '../hooks/useLivePoll'
 import { getCachedOrders, loadAllOrders, onOrdersChanged, onOrdersMerged, pollOrders, type CustomerOrder } from '../service/ordersApi'
 import { buildNotifications, isUnread, loadSeen, markSeen, onSeenChanged, relativeTime, saveSeen, unreadCount, type Notification, type Seen } from '../utils/notifications'
 import { BellIcon } from './form/icons'
+import { PhotoImg } from './ui/PhotoImg'
 import { computePlace } from './ui/listbox'
 import { KRAL_ICON_BUTTON, KRAL_ICON_COUNT } from './ui/kralIconButton'
 import { Tooltip } from './ui/Tooltip'
@@ -246,6 +247,7 @@ function Row({ entry, unread, onDone }: { entry: Notification; unread: boolean; 
     <Link to={`/orders/${entry.id}`} onClick={onDone} className={`kral-focus ${ROW}`}>
       {/* A square dot, not colour alone: present only while unread, with the same room kept when read. */}
       <span aria-hidden="true" className={`mt-2 size-2 shrink-0 ${unread ? 'bg-kral-fg' : ''}`} />
+      <PhotoImg tone="kral" src={entry.imageUrl} alt={entry.itemName} loading="lazy" className="h-14 w-11 shrink-0 object-cover" />
       <span className="min-w-0 flex-1">
         {unread && <span className="sr-only">Unread. </span>}
         <span className="flex items-baseline justify-between gap-3">

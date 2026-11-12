@@ -35,6 +35,13 @@ describe('buildNotifications', () => {
     expect(entries.map((e) => e.orderNumber)).toEqual(['SHF-12', 'SHF-11', 'SHF-10', 'SHF-9', 'SHF-8', 'SHF-7', 'SHF-6', 'SHF-5', 'SHF-4', 'SHF-3'])
   })
 
+  it('carries the first item photo and name for the picture beside the entry', () => {
+    const base = order(1, {})
+    const withPhoto = { ...base, items: [{ ...base.items[0], name: 'Heritage Polo', imageUrl: 'https://example.com/polo.jpg' }] }
+    expect(buildNotifications([withPhoto])[0]).toMatchObject({ imageUrl: 'https://example.com/polo.jpg', itemName: 'Heritage Polo' })
+    expect(buildNotifications([{ ...base, items: [] }])[0]).toMatchObject({ imageUrl: null, itemName: 'Your order' })
+  })
+
   it('describes the current status', () => {
     const [entry] = buildNotifications([order(1, { status: 'PROCESSING' })])
     expect(entry).toMatchObject({ id: 'id-1', orderNumber: 'SHF-1', status: 'PROCESSING', sentence: 'Your order is being prepared' })
@@ -127,7 +134,7 @@ describe('seen and unread', () => {
   })
 
   it('counts the unread entries', () => {
-    const entries = [entry('a', 'PAID'), entry('b', 'CANCELLED'), entry('c', 'PAID')].map((e) => ({ ...e, orderNumber: '', sentence: '', at: '' }))
+    const entries = [entry('a', 'PAID'), entry('b', 'CANCELLED'), entry('c', 'PAID')].map((e) => ({ ...e, orderNumber: '', sentence: '', at: '', imageUrl: null, itemName: '' }))
     expect(unreadCount(entries, { a: 'PAID', b: 'DELIVERED' })).toBe(2)
     expect(unreadCount(entries, markSeen(entries))).toBe(0)
     expect(unreadCount([], {})).toBe(0)
