@@ -119,13 +119,13 @@ async function choose(user: ReturnType<typeof userEvent.setup>, combobox: string
 }
 
 describe('StaffInventoryPage', () => {
-  it('offers exactly the four categories in the Category filter', async () => {
+  it('offers exactly the five categories in the Category filter', async () => {
     const user = userEvent.setup()
     renderPage()
     await within(await screen.findByRole('table')).findByRole('button', { name: /^Tee 1/ })
     await user.click(screen.getByRole('combobox', { name: 'Category' }))
     const options = (await screen.findAllByRole('option')).map((o) => o.textContent)
-    expect(options).toEqual(['All categories', 'Hoodie', 'Pants', 'Headwear', 'Shorts'])
+    expect(options).toEqual(['All categories', 'Hoodie', 'Shirt', 'Pants', 'Headwear', 'Shorts'])
   })
 
   it('keeps the Gender, Stock and AR Fitting filters, and sends only what the API accepts (AR Fitting as isArReady)', async () => {

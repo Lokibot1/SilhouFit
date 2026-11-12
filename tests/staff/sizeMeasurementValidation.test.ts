@@ -95,7 +95,7 @@ describe('compareSizes and COLUMNS_BY_CATEGORY', () => {
     expect(['One size', '34', 'XL', 'S', '28', 'XS', 'M'].sort(compareSizes)).toEqual(['XS', 'S', 'M', 'XL', '28', '34', 'One size'])
   })
 
-  it('has columns for exactly the four categories', () => {
+  it('has columns for exactly the five categories', () => {
     expect(Object.keys(COLUMNS_BY_CATEGORY).sort()).toEqual([...CATEGORIES].sort())
     expect(COLUMNS_BY_CATEGORY.Headwear).toEqual(['neckCm'])
   })

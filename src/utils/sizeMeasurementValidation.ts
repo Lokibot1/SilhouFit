@@ -12,6 +12,7 @@ export const SIZE_MAX = 20
  */
 export const COLUMNS_BY_CATEGORY: Record<string, MeasurementKey[]> = {
   Hoodie: ['chestWidthCm', 'totalLengthCm', 'shoulderWidthCm', 'sleeveLengthCm', 'neckCm'],
+  Shirt: ['chestWidthCm', 'totalLengthCm', 'shoulderWidthCm', 'sleeveLengthCm', 'neckCm'],
   Pants: ['waistWidthCm', 'hipWidthCm', 'inseamCm', 'thighCm', 'totalLengthCm'],
   Shorts: ['waistWidthCm', 'hipWidthCm', 'inseamCm', 'thighCm', 'totalLengthCm'],
   Headwear: ['neckCm'],

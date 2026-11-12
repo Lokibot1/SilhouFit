@@ -166,12 +166,12 @@ describe('ShopPage states', () => {
 })
 
 describe('ShopPage categories', () => {
-  it('offers exactly the four categories, and an unknown API category adds no pill', async () => {
+  it('offers exactly the five categories, and an unknown API category adds no pill', async () => {
     shop.mockResolvedValue(answer([piece(1, { category: 'Hats' }), piece(2)]))
     renderPage()
     await loaded()
     const pills = within(screen.getByRole('group', { name: 'Filter by category' })).getAllByRole('button')
-    expect(pills.map((b) => b.textContent?.replace(/, \d+ pieces?\d+$/, ''))).toEqual(['All', 'Hoodie', 'Pants', 'Headwear', 'Shorts'])
+    expect(pills.map((b) => b.textContent?.replace(/, \d+ pieces?\d+$/, ''))).toEqual(['All', 'Hoodie', 'Shirt', 'Pants', 'Headwear', 'Shorts'])
   })
 
   it('shows each category count (matched ignoring case) and the total on All, in the accessible names', async () => {
@@ -199,7 +199,7 @@ describe('ShopPage categories', () => {
     await loaded()
     const group = screen.getByRole('group', { name: 'Filter by category' })
     await waitFor(() => expect(filters).toHaveBeenCalled())
-    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Hoodie', 'Pants', 'Headwear', 'Shorts'])
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Hoodie', 'Shirt', 'Pants', 'Headwear', 'Shorts'])
     expect(within(group).getByRole('button', { name: 'Hoodie' })).toBeInTheDocument()
   })
 })

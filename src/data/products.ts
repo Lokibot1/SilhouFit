@@ -1,14 +1,15 @@
 import type { ProductVariant } from '../service/fetchProductList'
 
 /** The only product categories, in display order. The API accepts any string: others still render, but are never offered as a category. */
-export const CATEGORIES = ['Hoodie', 'Pants', 'Headwear', 'Shorts'] as const
+export const CATEGORIES = ['Hoodie', 'Shirt', 'Pants', 'Headwear', 'Shorts'] as const
 export type Category = string
 
 export type Badge = 'New' | 'Best seller' | 'Limited' | 'AR-ready'
 
-/** Default sizes per category: Hoodie, Pants and Shorts XS to XL, Headwear one size. Stock is tracked per piece, not per size. */
+/** Default sizes per category: Hoodie, Shirt, Pants and Shorts XS to XL, Headwear one size. Stock is tracked per piece, not per size. */
 export const SIZES_BY_CATEGORY: Record<string, string[]> = {
   Hoodie: ['XS', 'S', 'M', 'L', 'XL'],
+  Shirt: ['XS', 'S', 'M', 'L', 'XL'],
   Pants: ['XS', 'S', 'M', 'L', 'XL'],
   Shorts: ['XS', 'S', 'M', 'L', 'XL'],
   Headwear: ['One size'],

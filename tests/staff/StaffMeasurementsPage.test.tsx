@@ -96,11 +96,11 @@ describe('StaffMeasurementsPage list', () => {
     expect(within(screen.getByRole('region', { name: 'Custom sizings' })).getByText('Sample data')).toBeInTheDocument()
   })
 
-  it('offers exactly the four categories and an Active / Archived toggle as tabs', async () => {
+  it('offers exactly the five categories and an Active / Archived toggle as tabs', async () => {
     renderPage()
     await waitFor(() => expect(sizesInTable()).toHaveLength(3))
     const categories = within(screen.getByRole('tablist', { name: 'Category' })).getAllByRole('tab')
-    expect(categories.map((t) => t.textContent)).toEqual(['Hoodie', 'Pants', 'Headwear', 'Shorts'])
+    expect(categories.map((t) => t.textContent)).toEqual(['Hoodie', 'Shirt', 'Pants', 'Headwear', 'Shorts'])
     expect(categories[0]).toHaveAttribute('aria-selected', 'true')
     const status = within(screen.getByRole('tablist', { name: 'Size status' })).getAllByRole('tab')
     expect(status.map((t) => t.textContent)).toEqual(['Active', 'Archived'])

@@ -56,8 +56,8 @@ describe('shopTitle and CATEGORIES', () => {
     expect(shopTitle(new URLSearchParams(''))).toBe('All pieces')
   })
 
-  it('has exactly the four categories', () => {
-    expect([...CATEGORIES]).toEqual(['Hoodie', 'Pants', 'Headwear', 'Shorts'])
+  it('has exactly the five categories', () => {
+    expect([...CATEGORIES]).toEqual(['Hoodie', 'Shirt', 'Pants', 'Headwear', 'Shorts'])
   })
 })
 
