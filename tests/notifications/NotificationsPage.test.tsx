@@ -85,6 +85,15 @@ describe('NotificationsPage', () => {
     expect(screen.getByRole('status')).toHaveTextContent('3 unread')
   })
 
+  it('shows the first item photo beside each order, and a placeholder when it has none', async () => {
+    const base = order(1)
+    const item = { ...base.items[0], name: 'Heritage Polo', imageUrl: 'https://example.com/polo.jpg' }
+    api.loadAllOrders.mockResolvedValue([{ ...base, items: [item] }, order(2, { items: [{ ...item, imageUrl: null }] })])
+    renderPage()
+    expect(await screen.findByRole('img', { name: 'Heritage Polo' })).toHaveAttribute('src', 'https://example.com/polo.jpg')
+    expect(screen.getByRole('img', { name: 'Heritage Polo (photo unavailable)' })).toBeInTheDocument()
+  })
+
   it('shows every order past the dropdown limit of 10, 20 at a time with Show more', async () => {
     api.loadAllOrders.mockResolvedValue(orders(45))
     const user = userEvent.setup()

@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from 'react-router-dom'
 import { BagIcon, StoreIcon } from '../../components/form/icons'
 import { NotificationsListSkeleton } from '../../components/notifications/NotificationsSkeleton'
 import { OrdersBreadcrumb } from '../../components/orders/OrdersBreadcrumb'
+import { PhotoImg } from '../../components/ui/PhotoImg'
 import { KRAL_CHIP, KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
@@ -148,6 +149,7 @@ function Row({ entry, unread, onOpen }: { entry: Notification; unread: boolean; 
     <Link to={`/orders/${entry.id}`} onClick={onOpen} className={ROW}>
       {/* A square dot, not colour alone: present only while unread, with the same room kept when read. */}
       <span aria-hidden="true" className={`mt-2 size-2 shrink-0 ${unread ? 'bg-kral-fg' : ''}`} />
+      <PhotoImg tone="kral" src={entry.imageUrl} alt={entry.itemName} loading="lazy" className="h-20 w-16 shrink-0 object-cover" />
       <span className="min-w-0 flex-1">
         {unread && <span className="sr-only">Unread. </span>}
         <span className="flex items-baseline justify-between gap-3">

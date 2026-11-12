@@ -15,6 +15,7 @@ export function NotificationsListSkeleton() {
         {Array.from({ length: 5 }, (_, i) => (
           <li key={i} className="flex min-h-18 items-start gap-3 border-b border-kral-rule px-4 py-3 last:border-b-0">
             <span className={`mt-2 size-2 shrink-0 ${BLOCK}`} />
+            <span className={`h-20 w-16 shrink-0 ${BLOCK}`} />
             <span className="min-w-0 flex-1">
               <span className="flex h-6 items-center">
                 <span className={`h-3 w-1/3 ${BLOCK}`} />
