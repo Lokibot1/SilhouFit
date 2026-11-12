@@ -1,42 +1,68 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import ExcelJS from 'exceljs'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransactionTotalsSkeleton } from '../../src/components/staff/TransactionsSkeleton'
 import { TransactionTotals } from '../../src/components/staff/transactions/TransactionTotals'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import type { PaginatedTransactions, TransactionExportRow, TransactionListItem } from '../../src/service/fetchTransactions'
-import { sampleTransactionExport, sampleTransactionList, sampleTransactionSummary } from '../../src/service/sampleTransactions'
+import { fetchAdminTransactionMetrics, fetchAdminTransactions, type AdminTransactionMetrics, type AdminTransactionRow, type AdminTransactionsPage } from '../../src/service/adminTransactionsApi'
+import { ProductListError } from '../../src/service/fetchProductList'
 import { manilaToday } from '../../src/utils/period'
 import { StaffTransactionsPage } from '../../src/views/staff/StaffTransactionsPage'
 
-vi.mock('../../src/service/sampleTransactions', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../src/service/sampleTransactions')>()),
-  sampleTransactionList: vi.fn(),
-  sampleTransactionSummary: vi.fn(),
-  sampleTransactionExport: vi.fn(),
+vi.mock('../../src/service/adminTransactionsApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/adminTransactionsApi')>()),
+  fetchAdminTransactions: vi.fn(),
+  fetchAdminTransactionMetrics: vi.fn(),
+}))
+vi.mock('../../src/service/ordersApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/ordersApi')>()),
+  usesSampleOrders: () => false,
 }))
 
-const list = vi.mocked(sampleTransactionList)
-const summary = vi.mocked(sampleTransactionSummary)
-const exportRows = vi.mocked(sampleTransactionExport)
+const list = vi.mocked(fetchAdminTransactions)
+const metrics = vi.mocked(fetchAdminTransactionMetrics)
 
-const order = (n: number): TransactionListItem => ({
-  id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
-  orderNo: `SF-${10000 + n}`,
+const order = (n: number): AdminTransactionRow => ({
+  id: `00000000-0000-4000-9000-${String(n).padStart(12, '0')}`,
+  orderId: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
+  orderNumber: `SF-${10000 + n}`,
+  orderStatus: 'PAID',
   customerName: `Customer ${n}`,
-  placedAt: '2026-10-22T07:45:00.000Z',
-  itemCount: 3,
-  total: 4580,
+  customerEmail: `customer${n}@example.com`,
+  provider: 'paymongo',
+  reference: `pay_${n}`,
+  method: 'GCASH',
+  status: 'PAID',
+  amount: 4580,
+  fee: null,
+  net: null,
+  at: '2026-10-22T07:45:00.000Z',
 })
-const answer = (items: TransactionListItem[], total = items.length): PaginatedTransactions => ({
+const answer = (items: AdminTransactionRow[], total = items.length, page = 1, limit = 25): AdminTransactionsPage => ({
   data: items,
-  meta: { total, page: 1, limit: 25, totalPages: Math.max(1, Math.ceil(total / 25)), hasNextPage: false, hasPreviousPage: false },
+  meta: { total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) },
 })
-const csvRows: TransactionExportRow[] = [1, 2, 3].map((n) => ({ ...order(n), vat: 490.71, ...(n === 1 && { invoiceNo: 'SI-0000001' }) }))
+const figures: AdminTransactionMetrics = { totalTransactions: 1234, paidCount: 1000, refundedCount: 100, failedCount: 90, pendingCount: 44, totalGrossVolume: 2283000, totalFeeVolume: 57075, totalNetVolume: 2225925 }
+
+/** A server of `total` payments that pages the way the API does. */
+const serve = (total: number) =>
+  list.mockImplementation(async ({ page = 1, limit = 25 }) => {
+    const from = (page - 1) * limit
+    const rows = Array.from({ length: Math.max(0, Math.min(limit, total - from)) }, (_, n) => order(from + n + 1))
+    return answer(rows, total, page, limit)
+  })
 
 const saved: { name: string; blob: Blob }[] = []
+
+/** The exported workbook's Transactions sheet: a title block and header (7 rows), then the payments, then Total and Count. */
+const sheetOf = async (blob: Blob) => {
+  const book = new ExcelJS.Workbook()
+  await book.xlsx.load(await blob.arrayBuffer())
+  return book.getWorksheet('Transactions')!
+}
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
@@ -55,9 +81,8 @@ beforeEach(() => {
     saved.push({ name: '', blob })
     return 'blob:test'
   })
-  list.mockResolvedValue(answer([order(1), order(2)], 3))
-  summary.mockResolvedValue({ count: 1234, gross: 2283000, vat: 244607.14, returnedCount: 0 })
-  exportRows.mockResolvedValue(csvRows)
+  serve(3)
+  metrics.mockResolvedValue(figures)
 })
 
 function renderPage(search = '') {
@@ -72,52 +97,72 @@ function renderPage(search = '') {
   )
 }
 
-const totals = () => screen.findByLabelText('Totals for the matching transactions')
+const totals = () => screen.findByLabelText('Totals across all transactions')
+const exportButton = async () => {
+  const button = await screen.findByRole('button', { name: 'Export Excel' })
+  return button
+}
+/** The requests the export made: the page walk, which asks for 100 at a time. */
+const walk = () => list.mock.calls.map(([params]) => params).filter((params) => params.limit === 100)
 
 describe('the totals strip', () => {
-  it('shows the count, gross sales, VAT portion and average order of the filtered range', async () => {
-    renderPage('?range=today')
+  it('shows every payment, the paid volumes, fees and net, whatever the filters', async () => {
+    renderPage('?range=today&status=FAILED')
     const strip = await totals()
-    await waitFor(() => expect(summary).toHaveBeenCalled())
-    const today = manilaToday().date
-    expect(summary.mock.calls[0][0]).toEqual({ search: undefined, from: today, to: today })
-    expect(within(strip).getByText('Orders').nextSibling).toHaveTextContent('1,234')
-    expect(within(strip).getByText('Gross sales').nextSibling).toHaveTextContent('₱2,283,000')
-    expect(within(strip).getByText('VAT (12%)').nextSibling).toHaveTextContent('₱244,607')
-    expect(within(strip).getByText('Avg. order').nextSibling).toHaveTextContent('₱1,850')
+    await waitFor(() => expect(metrics).toHaveBeenCalled())
+    expect(within(strip).getByText('Transactions').nextSibling).toHaveTextContent('1,234')
+    expect(within(strip).getByText('44 pending · 90 failed')).toBeInTheDocument()
+    expect(within(strip).getByText('Paid volume').closest('div')).toHaveTextContent('₱2,283,000')
+    expect(within(strip).getByText('1,000 paid · 100 refunded')).toBeInTheDocument()
+    expect(within(strip).getByText('Fees').nextSibling).toHaveTextContent('₱57,075')
+    expect(within(strip).getByText('Net').nextSibling).toHaveTextContent('₱2,225,925')
+    expect(within(strip).getAllByText('Paid payments only')).toHaveLength(2)
   })
 
-  it('does not ask again when only the page or sort changes', async () => {
+  it('explains on the Paid volume label that totals count paid payments only and ignore the filters', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const strip = await totals()
+    await user.hover(within(strip).getByText('Paid volume'))
+    expect(await screen.findByText(/count paid payments only/)).toHaveTextContent(/ignore the filters/)
+  })
+
+  it('asks once, and not again when a filter, the page or the sort changes', async () => {
     const user = userEvent.setup()
     renderPage('?q=maria')
     await totals()
-    await user.click(await screen.findByRole('button', { name: /Total/ }))
+    await user.click(await screen.findByRole('button', { name: /Amount/ }))
     await waitFor(() => expect(list.mock.calls.length).toBeGreaterThan(1))
-    expect(summary).toHaveBeenCalledTimes(1)
-    expect(summary.mock.calls[0][0]).toMatchObject({ search: 'maria' })
+    expect(metrics).toHaveBeenCalledTimes(1)
   })
 
-  it('is hidden when nothing matches', async () => {
+  it('stays when a search matches nothing, and is hidden only when there are no payments at all', async () => {
     list.mockResolvedValue(answer([], 0))
-    summary.mockResolvedValue({ count: 0, gross: 0, vat: 0, returnedCount: 0 })
-    renderPage('?q=zzz')
+    const { unmount } = renderPage('?q=zzz')
     expect(await screen.findByText('No transactions match')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Totals for the matching transactions')).not.toBeInTheDocument()
+    expect(await totals()).toBeInTheDocument()
+    unmount()
+
+    metrics.mockResolvedValue({ ...figures, totalTransactions: 0 })
+    renderPage()
+    expect(await screen.findByText('No transactions yet')).toBeInTheDocument()
+    await waitFor(() => expect(metrics).toHaveBeenCalledTimes(2))
+    expect(screen.queryByLabelText('Totals across all transactions')).not.toBeInTheDocument()
   })
 
   it('keeps its own error with a retry, and the list stays', async () => {
     const user = userEvent.setup()
-    summary.mockRejectedValueOnce(Object.assign(new Error('x'), { kind: 'network' }))
+    metrics.mockRejectedValueOnce(new ProductListError('network'))
     renderPage()
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent("We couldn't load the totals.")
     expect((await screen.findAllByRole('button', { name: /SF-10001/ })).length).toBeGreaterThan(0)
     await user.click(within(alert).getByRole('button', { name: 'Retry' }))
-    expect(await screen.findByLabelText('Totals for the matching transactions')).toBeInTheDocument()
+    expect(await totals()).toBeInTheDocument()
   })
 
   it('has a skeleton with the same grid and tiles, so nothing shifts when it loads', () => {
-    const realWrap = render(<TransactionTotals summary={{ count: 1, gross: 1, vat: 0, returnedCount: 0 }} stale={false} />).container.firstElementChild as HTMLElement
+    const realWrap = render(<TransactionTotals metrics={figures} stale={false} />).container.firstElementChild as HTMLElement
     const skeletonWrap = render(<TransactionTotalsSkeleton />).container.firstElementChild as HTMLElement
     const base = (el: Element) => el.className.split(/\s+/).filter((c) => c && !['animate-pulse', 'transition-opacity', 'duration-150'].includes(c)).sort()
     expect(base(skeletonWrap)).toEqual(base(realWrap))
@@ -128,9 +173,9 @@ describe('the totals strip', () => {
     expect(base(skeleton.children[0])).toEqual(base(real.children[0]))
   })
 
-  it('dims while the next range loads', () => {
-    render(<TransactionTotals summary={{ count: 1, gross: 1, vat: 0, returnedCount: 0 }} stale />)
-    expect(screen.getByLabelText('Totals for the matching transactions')).toHaveClass('opacity-60')
+  it('dims while the totals load again', () => {
+    render(<TransactionTotals metrics={figures} stale />)
+    expect(screen.getByLabelText('Totals across all transactions')).toHaveClass('opacity-60')
   })
 
   it('sits under the page title, above the table panel and not inside it', async () => {
@@ -141,65 +186,92 @@ describe('the totals strip', () => {
     expect(strip.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1 }).compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
-
-  it('counts every order, sums the net of returns, and says how many were returned', async () => {
-    summary.mockResolvedValue({ count: 10, gross: 4000, vat: 428.57, returnedCount: 2 })
-    renderPage()
-    const strip = await totals()
-    expect(within(strip).getByText('Orders').nextSibling).toHaveTextContent('10')
-    expect(within(strip).getByText('2 returned')).toBeInTheDocument()
-    // Net 4,000 over the 8 orders that were kept.
-    expect(within(strip).getByText('Avg. order').nextSibling).toHaveTextContent('₱500')
-  })
-
-  it('shows no returned caption when nothing was returned', async () => {
-    const strip = await (renderPage(), totals())
-    expect(within(strip).queryByText(/returned/)).not.toBeInTheDocument()
-  })
 })
 
-describe('Export CSV', () => {
-  it('exports every filtered transaction, not the page, with the filters and sort but no paging', async () => {
+describe('Export Excel', () => {
+  it('walks the pages one request at a time and joins them into one file, with the filters and sort', async () => {
     const user = userEvent.setup()
-    renderPage('?q=maria&range=week&sort=total&dir=asc&page=2&per=10')
-    const button = await screen.findByRole('button', { name: 'Export CSV' })
+    serve(150)
+    renderPage('?q=maria&range=week&status=PAID&sort=total&dir=asc&page=2&per=10')
+    const button = await exportButton()
     await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'))
     await user.click(button)
 
     await waitFor(() => expect(saved).toHaveLength(1))
-    const params = exportRows.mock.calls[0][0]
-    expect(params).toMatchObject({ search: 'maria', sortBy: 'total', sortOrder: 'asc' })
-    expect(params).not.toHaveProperty('page')
-    expect(params).not.toHaveProperty('limit')
-    expect(saved[0].name).toBe(`transactions-${manilaToday().date}.csv`)
-    const text = await saved[0].blob.text()
-    expect(text.split('\r\n').filter(Boolean)).toHaveLength(4)
-    expect(text).toContain('SI-0000001')
-    expect(await screen.findByText('3 transactions exported')).toBeInTheDocument()
+    expect(walk()).toHaveLength(2)
+    expect(walk().map((params) => params.page)).toEqual([1, 2])
+    expect(walk()[0]).toMatchObject({ search: 'maria', status: 'PAID', sortBy: 'amount', sortOrder: 'asc', limit: 100 })
+    expect(saved[0].name).toBe(`transactions-${manilaToday().date}.xlsx`)
+    expect(saved[0].blob.type).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    const sheet = await sheetOf(saved[0].blob)
+    expect(sheet.getCell('A1').value).toBe('KRAL Transactions')
+    expect(sheet.getCell('B4').value).toBe('Search "maria"; Status Paid; Dates Last 7 days')
+    expect(sheet.getCell('B5').value).toBe(150)
+    expect(sheet.getCell('A7').value).toBe('Order No.')
+    expect(sheet.getCell('B7').value).toBe('Date (Manila)')
+    expect(sheet.getCell('A8').value).toBe('SF-10001')
+    expect(sheet.getCell('A157').value).toBe('SF-10150')
+    expect(sheet.getCell('A158').value).toBe('Total')
+    expect(await screen.findByText('150 transactions exported')).toBeInTheDocument()
+  })
+
+  it('is off above 1,000 matches, says why on hover, and does nothing when pressed', async () => {
+    const user = userEvent.setup()
+    serve(1001)
+    renderPage()
+    const button = await exportButton()
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
+    await screen.findByText(/Displaying 1–25 of 1,?001/)
+    const calls = list.mock.calls.length
+    await user.click(button)
+    expect(list.mock.calls.length).toBe(calls)
+    await user.unhover(button)
+    await user.hover(button)
+    expect(await screen.findByText('Narrow the filters to 1,000 transactions or fewer to export')).toBeInTheDocument()
+  })
+
+  it('exports exactly 1,000 matches, stopping at the cap', async () => {
+    const user = userEvent.setup()
+    serve(1000)
+    renderPage()
+    const button = await exportButton()
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'))
+    await user.click(button)
+    await waitFor(() => expect(saved).toHaveLength(1), { timeout: 3000 })
+    expect(walk()).toHaveLength(10)
+    expect((await sheetOf(saved[0].blob)).getCell('B5').value).toBe(1000)
   })
 
   it('is disabled, and does nothing, when no transaction matches', async () => {
     const user = userEvent.setup()
     list.mockResolvedValue(answer([], 0))
-    summary.mockResolvedValue({ count: 0, gross: 0, vat: 0, returnedCount: 0 })
     renderPage('?q=zzz')
     await screen.findByText('No transactions match')
-    const button = screen.getByRole('button', { name: 'Export CSV' })
+    const button = screen.getByRole('button', { name: 'Export Excel' })
     expect(button).toHaveAttribute('aria-disabled', 'true')
     await user.click(button)
-    expect(exportRows).not.toHaveBeenCalled()
+    expect(walk()).toHaveLength(0)
   })
 
-  it('says what failed and retries', async () => {
+  it('makes no file when a page fails part way, says what failed, and retries from the start', async () => {
     const user = userEvent.setup()
-    exportRows.mockRejectedValueOnce(new Error('network'))
+    serve(150)
     renderPage()
-    const button = await screen.findByRole('button', { name: 'Export CSV' })
+    const button = await exportButton()
     await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'))
+    const serving = list.getMockImplementation()!
+    list.mockImplementation(async (params, options) => {
+      if (params.limit === 100 && params.page === 2) throw new ProductListError('rate-limit')
+      return serving(params, options)
+    })
     await user.click(button)
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent("Couldn't export the transactions")
+    expect(saved).toHaveLength(0)
+
+    list.mockImplementation(serving)
     await user.click(within(alert).getByRole('button', { name: 'Retry' }))
     await waitFor(() => expect(saved).toHaveLength(1))
+    expect((await sheetOf(saved[0].blob)).getCell('B5').value).toBe(150)
   })
 })

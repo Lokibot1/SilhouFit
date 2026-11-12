@@ -1,16 +1,18 @@
 import type { CSSProperties } from 'react'
-import type { TransactionListItem } from '../../../service/fetchTransactions'
-import { formatPeso, itemsLabel } from '../../../utils/format'
+import type { AdminTransactionRow } from '../../../service/adminTransactionsApi'
+import { formatPeso } from '../../../utils/format'
+import { methodLabel } from '../../../utils/orders'
 import { openRow } from '../inventory/InventoryParts'
 import { CARD_ROW } from '../inventory/layout'
 import { TransactionCardSkeletonRows } from '../TransactionsSkeleton'
-import { PlacedAt, StatusBadge } from './TransactionParts'
+import { PaymentPill } from '../orders/OrderPills'
+import { PlacedAt } from './TransactionParts'
 
 interface TransactionCardsProps {
-  rows: TransactionListItem[] | null
+  rows: AdminTransactionRow[] | null
   skeletonRows: number
   stale: boolean
-  onOpen: (transaction: TransactionListItem) => void
+  onOpen: (transaction: AdminTransactionRow) => void
 }
 
 /** The list shown where the card is too narrow for the table. Sorting is the toolbar's Sort by select. */
@@ -38,15 +40,15 @@ export function TransactionCards({ rows, skeletonRows, stale, onOpen }: Transact
                 aria-haspopup="dialog"
                 className="block min-h-11 min-w-0 flex-1 cursor-pointer rounded-xl text-left hover:text-chrome-strong"
               >
-                <span className="block truncate font-mono text-base font-semibold text-fg">{transaction.orderNo}</span>
+                <span className="block font-mono text-base font-semibold text-fg [overflow-wrap:anywhere]">{transaction.orderNumber}</span>
                 <span className="block truncate text-sm text-fg-muted">{transaction.customerName}</span>
               </button>
-              <p className="shrink-0 text-base font-semibold whitespace-nowrap text-fg tabular-nums">{formatPeso(transaction.total)}</p>
+              <p className="shrink-0 text-base font-semibold whitespace-nowrap text-fg tabular-nums">{formatPeso(transaction.amount)}</p>
             </div>
             <p className="flex flex-wrap items-center gap-x-3 text-sm text-fg-muted">
-              <StatusBadge returned={Boolean(transaction.returnedAt)} />
-              <PlacedAt iso={transaction.placedAt} />
-              <span className="whitespace-nowrap tabular-nums">{itemsLabel(transaction.itemCount)}</span>
+              <PaymentPill status={transaction.status} />
+              <PlacedAt iso={transaction.at} />
+              <span className="whitespace-nowrap">{methodLabel(transaction.method)}</span>
             </p>
           </li>
         ))

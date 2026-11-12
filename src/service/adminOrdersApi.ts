@@ -103,11 +103,11 @@ export interface AdminOrderMetrics {
 }
 
 const bad = () => new ProductListError('server')
-const isTime = (value: unknown): value is string => typeof value === 'string' && !Number.isNaN(Date.parse(value))
+export const isTime = (value: unknown): value is string => typeof value === 'string' && !Number.isNaN(Date.parse(value))
 
-const REMOVED = 'Customer account removed'
+export const REMOVED = 'Customer account removed'
 
-function toCustomer(value: unknown): { name: string; email: string } | null {
+export function toCustomer(value: unknown): { name: string; email: string } | null {
   if (value === null || value === undefined) return null
   if (!isRecord(value) || typeof value.email !== 'string') throw bad()
   return { name: text(value.fullName) ?? value.email, email: value.email }

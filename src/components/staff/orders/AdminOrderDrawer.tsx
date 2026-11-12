@@ -4,7 +4,7 @@ import { useLivePoll } from '../../../hooks/useLivePoll'
 import { fetchAdminOrder, quietRead, type AdminOrderDetail, type AdminOrderItem, type AdminOrderRow, type AdminPayment } from '../../../service/adminOrdersApi'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { formatPeso, variantLabel } from '../../../utils/format'
-import { shipmentStatusLabel } from '../../../utils/orders'
+import { humanize, methodLabel, shipmentStatusLabel } from '../../../utils/orders'
 import { BagIcon, BoxIcon, UserIcon, WalletIcon } from '../../form/icons'
 import { PRIMARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { PhotoImg } from '../../ui/PhotoImg'
@@ -18,13 +18,8 @@ import { OrderPills, PaymentPill } from './OrderPills'
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
-/** "ASSIGNING_DRIVER" -> "Assigning driver". */
-const humanize = (value: string) => value.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase())
-
 /** Units left at or under this show as a warning in the items list. */
 const LOW_STOCK = 5
-
-const METHOD_LABEL: Record<string, string> = { GCASH: 'GCash', PAYMAYA: 'Maya', CARD: 'Card', GRAB_PAY: 'GrabPay', BILLEASE: 'BillEase', OTHER: 'Other' }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -143,7 +138,7 @@ function Payment({ payment }: { payment: AdminPayment }) {
     <li className="rounded-xl border border-line bg-canvas p-3 text-base md:text-sm">
       <p className="flex flex-wrap items-center justify-between gap-x-3">
         <span className="font-semibold text-fg">
-          {humanize(payment.provider)} · {METHOD_LABEL[payment.method] ?? humanize(payment.method)}
+          {humanize(payment.provider)} · {methodLabel(payment.method)}
         </span>
         <PaymentPill status={payment.status} />
       </p>

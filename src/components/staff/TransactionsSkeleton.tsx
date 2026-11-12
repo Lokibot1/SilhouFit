@@ -24,10 +24,10 @@ export function TransactionTableSkeletonRows({ count }: { count: number }) {
         <Bar className="h-4 w-36" />
       </td>
       <td className={TD}>
-        <Bar className="mx-auto h-4 w-8" />
+        <Bar className="h-4 w-16" />
       </td>
       <td className={TD}>
-        <Bar className="h-4 w-20" />
+        <Bar className="ml-auto h-4 w-20" />
       </td>
     </tr>
   ))

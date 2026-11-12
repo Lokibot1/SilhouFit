@@ -5,7 +5,7 @@ const read = (search: string) => readTransactionQuery(new URLSearchParams(search
 
 describe('readTransactionQuery', () => {
   it('defaults to all time, newest first, 25 per page', () => {
-    expect(read('')).toEqual({ q: '', range: '', from: '', to: '', status: '', sort: 'date', dir: 'desc', page: 1, per: 25 })
+    expect(read('')).toEqual({ q: '', range: '', from: '', to: '', status: '', method: '', provider: '', sort: 'date', dir: 'desc', page: 1, per: 25 })
   })
 
   it('falls back to the default for anything off the whitelist', () => {
@@ -17,8 +17,14 @@ describe('readTransactionQuery', () => {
 
   it('gives each sort its own first direction, and honours dir', () => {
     expect(read('sort=total').dir).toBe('desc')
-    expect(read('sort=customer').dir).toBe('asc')
-    expect(read('sort=customer&dir=desc').dir).toBe('desc')
+    expect(read('sort=total&dir=asc').dir).toBe('asc')
+    // The customer sort is gone: the API cannot sort by it.
+    expect(read('sort=customer')).toMatchObject({ sort: 'date', dir: 'desc' })
+  })
+
+  it('reads a payment status, method and provider, and drops any that are not on the whitelist', () => {
+    expect(read('status=REFUNDED&method=GRAB_PAY&provider=xendit')).toMatchObject({ status: 'REFUNDED', method: 'GRAB_PAY', provider: 'xendit' })
+    expect(read('status=completed&method=gcash&provider=stripe')).toMatchObject({ status: '', method: '', provider: '' })
   })
 
   it('trims the search and caps its length', () => {

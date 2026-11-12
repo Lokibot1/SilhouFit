@@ -1,5 +1,6 @@
 import { formatDay } from '../../../utils/format'
-import { MAX_SEARCH, PER_PAGE_OPTIONS, type TransactionDir, type TransactionQuery, type TransactionSort } from '../../../utils/transactionQuery'
+import { methodLabel, paymentStatusLabel } from '../../../utils/orders'
+import { MAX_SEARCH, METHODS, PER_PAGE_OPTIONS, PROVIDERS, STATUSES, type TransactionDir, type TransactionQuery, type TransactionSort } from '../../../utils/transactionQuery'
 import { ChevronDownIcon, SearchIcon, SpinnerIcon, XIcon } from '../../form/icons'
 import { SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { RangeCalendar } from '../../ui/RangeCalendar'
@@ -13,19 +14,15 @@ const RANGE_OPTIONS = [
   { value: 'month', label: 'This month' },
   { value: 'custom', label: 'Custom' },
 ]
-const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'returned', label: 'Returned (refunded)' },
-]
+const STATUS_OPTIONS = [{ value: '', label: 'All statuses' }, ...STATUSES.map((value) => ({ value, label: paymentStatusLabel(value) }))]
+const METHOD_OPTIONS = [{ value: '', label: 'All methods' }, ...METHODS.map((value) => ({ value, label: methodLabel(value) }))]
+const PROVIDER_OPTIONS = [{ value: '', label: 'All providers' }, ...PROVIDERS]
 const PER_PAGE_CHOICES = PER_PAGE_OPTIONS.map((n) => ({ value: n, label: `${n} per page` }))
 const SORT_OPTIONS = [
   { value: 'date-desc', label: 'Newest first' },
   { value: 'date-asc', label: 'Oldest first' },
-  { value: 'total-desc', label: 'Total: high to low' },
-  { value: 'total-asc', label: 'Total: low to high' },
-  { value: 'customer-asc', label: 'Customer: A to Z' },
-  { value: 'customer-desc', label: 'Customer: Z to A' },
+  { value: 'total-desc', label: 'Amount: high to low' },
+  { value: 'total-asc', label: 'Amount: low to high' },
 ]
 
 interface TransactionToolbarProps {
@@ -34,18 +31,18 @@ interface TransactionToolbarProps {
   query: TransactionQuery
   /** `today` is the latest date the inputs accept (no order is dated later). */
   today: string
-  onFilter: (changes: { range?: string; from?: string; to?: string; status?: string }) => void
+  onFilter: (changes: { range?: string; from?: string; to?: string; status?: string; method?: string; provider?: string }) => void
   onSort: (sort: TransactionSort, dir: TransactionDir) => void
   onPer: (per: number) => void
   onClear: () => void
-  /** Whether any transaction matches, so there is something to export. */
-  canExport: boolean
+  /** Why Export Excel is off (nothing to export, or too many to), or null when it can run. */
+  exportBlock: string | null
   exporting: boolean
   onExport: () => void
 }
 
-export function TransactionToolbar({ text, onText, query, today, onFilter, onSort, onPer, onClear, canExport, exporting, onExport }: TransactionToolbarProps) {
-  const active = Number(query.range !== '') + Number(query.status !== '')
+export function TransactionToolbar({ text, onText, query, today, onFilter, onSort, onPer, onClear, exportBlock, exporting, onExport }: TransactionToolbarProps) {
+  const active = Number(query.range !== '') + Number(query.status !== '') + Number(query.method !== '') + Number(query.provider !== '')
   // Choosing Custom keeps the list open and shows a calendar beside it, like a submenu; the chosen dates then show on the button.
   const rangeOptions = RANGE_OPTIONS.map((option) =>
     option.value === 'custom'
@@ -67,8 +64,8 @@ export function TransactionToolbar({ text, onText, query, today, onFilter, onSor
           value={text}
           onChange={(event) => onText(event.target.value)}
           maxLength={MAX_SEARCH}
-          placeholder="Order or customer"
-          aria-label="Search transactions by order number or customer name"
+          placeholder="Order, customer, email or reference"
+          aria-label="Search transactions by order, customer, email or reference"
           autoComplete="off"
           spellCheck={false}
           className="font-ui min-h-11 w-full rounded-xl border border-line-strong bg-canvas pr-11 pl-10 text-base text-fg placeholder:text-fg-muted"
@@ -106,6 +103,12 @@ export function TransactionToolbar({ text, onText, query, today, onFilter, onSor
           <div className="w-full @sm:w-48 @4xl:w-44">
             <Select label="Status" value={query.status} options={STATUS_OPTIONS} onChange={(status) => onFilter({ status })} />
           </div>
+          <div className="w-full @sm:w-44 @4xl:w-40">
+            <Select label="Payment method" value={query.method} options={METHOD_OPTIONS} onChange={(method) => onFilter({ method })} />
+          </div>
+          <div className="w-full @sm:w-44 @4xl:w-36">
+            <Select label="Provider" value={query.provider} options={PROVIDER_OPTIONS} onChange={(provider) => onFilter({ provider })} />
+          </div>
           <div className="w-full @sm:w-44 @4xl:w-36">
             <Select label="Rows per page" value={query.per} options={PER_PAGE_CHOICES} onChange={onPer} />
           </div>
@@ -115,15 +118,15 @@ export function TransactionToolbar({ text, onText, query, today, onFilter, onSor
             </button>
           )}
           <div className="w-full @sm:w-auto @4xl:ml-auto [&>span]:w-full @sm:[&>span]:w-auto">
-            <Tooltip label={canExport ? 'Download every matching transaction as a CSV file' : 'There are no transactions to export'} describe>
+            <Tooltip label={exportBlock ?? 'Download every matching transaction as an Excel file'} describe>
               <button
                 type="button"
-                aria-disabled={!canExport || exporting}
-                onClick={() => canExport && !exporting && onExport()}
+                aria-disabled={exportBlock !== null || exporting}
+                onClick={() => exportBlock === null && !exporting && onExport()}
                 className={`${SECONDARY_BUTTON_SM} w-full`}
               >
                 {exporting && <SpinnerIcon />}
-                {exporting ? 'Exporting…' : 'Export CSV'}
+                {exporting ? 'Exporting…' : 'Export Excel'}
               </button>
             </Tooltip>
           </div>

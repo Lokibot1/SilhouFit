@@ -169,6 +169,13 @@ const PAYMENT_LABEL: Record<PaymentStatus, string> = {
 }
 export const paymentStatusLabel = (status: PaymentStatus) => PAYMENT_LABEL[status]
 
+/** "ASSIGNING_DRIVER" -> "Assigning driver". */
+export const humanize = (value: string) => value.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase())
+
+const METHOD_LABEL: Record<string, string> = { GCASH: 'GCash', PAYMAYA: 'Maya', CARD: 'Card', GRAB_PAY: 'GrabPay', BILLEASE: 'BillEase', OTHER: 'Other' }
+/** How a payment method reads; one the API adds later falls back to its own name, humanized. */
+export const methodLabel = (method: string) => METHOD_LABEL[method] ?? humanize(method)
+
 /** An order as the receipt page and the PDF read it. There is no delivery estimate yet, so `eta` is empty and left off. */
 export function adaptOrderToReceipt(order: CustomerOrder): PlacedOrder {
   return {

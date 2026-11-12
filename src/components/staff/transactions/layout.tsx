@@ -1,4 +1,4 @@
-// The table is `table-fixed`, so seven equal columns hold with or without rows: Order, Customer, Payment, Status, Date and time, Items, Total.
+// The table is `table-fixed`, so seven equal columns hold with or without rows: Order, Customer, Method, Status, Date and time, Provider, Amount.
 const COLUMNS = 7
 
 export function TransactionColgroup() {

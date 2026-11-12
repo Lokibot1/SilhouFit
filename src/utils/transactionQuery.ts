@@ -1,13 +1,15 @@
+import { PAYMENT_STATUSES, type PaymentStatus } from '../service/ordersApi'
+import { humanize } from './orders'
 import { addDays, manilaToday } from './period'
 
-export const TRANSACTION_SORTS = ['date', 'total', 'customer'] as const
+export const TRANSACTION_SORTS = ['date', 'total'] as const
 export type TransactionSort = (typeof TRANSACTION_SORTS)[number]
 export type TransactionDir = 'asc' | 'desc'
 
 /** The API's `sortBy` for each URL sort. */
-export const SORT_COLUMN = { date: 'placedAt', total: 'total', customer: 'customerName' } as const
-/** The way a column sorts when first chosen: newest first, biggest first, A to Z. */
-export const DEFAULT_DIR: Record<TransactionSort, TransactionDir> = { date: 'desc', total: 'desc', customer: 'asc' }
+export const SORT_COLUMN = { date: 'createdAt', total: 'amount' } as const
+/** The way a column sorts when first chosen: newest first, biggest first. */
+export const DEFAULT_DIR: Record<TransactionSort, TransactionDir> = { date: 'desc', total: 'desc' }
 
 export const PER_PAGE_OPTIONS = [10, 25, 50]
 const DEFAULT_PER_PAGE = 25
@@ -16,19 +18,33 @@ export const MAX_SEARCH = 100
 export const RANGES = ['today', 'week', 'month', 'custom'] as const
 export type TransactionRange = (typeof RANGES)[number]
 
-export const STATUSES = ['completed', 'returned'] as const
-export type TransactionStatus = (typeof STATUSES)[number]
+export const STATUSES = PAYMENT_STATUSES
+export type TransactionStatus = PaymentStatus
+
+/** The API's PaymentMethod values, in the order the Method filter lists them. */
+export const METHODS = ['GCASH', 'PAYMAYA', 'CARD', 'GRAB_PAY', 'BILLEASE', 'OTHER'] as const
+export type TransactionMethod = (typeof METHODS)[number]
+
+/** The gateways, as the API names them (it matches any case). */
+export const PROVIDERS = [
+  { value: 'paymongo', label: 'PayMongo' },
+  { value: 'xendit', label: 'Xendit' },
+] as const
+/** A gateway's name as staff read it; one not listed falls back to its own name, humanized. */
+export const providerLabel = (provider: string) => PROVIDERS.find((p) => p.value === provider.toLowerCase())?.label ?? humanize(provider)
 
 export interface TransactionQuery {
-  /** Order number or customer name (or, on the real API, a full order ID). */
+  /** Order number, customer name or email, or gateway reference (a full order ID lists that order's payments). */
   q: string
   /** The date preset; '' lists all time. */
   range: TransactionRange | ''
   /** YYYY-MM-DD in Asia/Manila. Only kept with `range=custom`; '' is open-ended. */
   from: string
   to: string
-  /** Completed orders or returned ones (refunded in full); '' lists both. */
+  /** The payment's status; '' lists every one. */
   status: TransactionStatus | ''
+  method: TransactionMethod | ''
+  provider: (typeof PROVIDERS)[number]['value'] | ''
   sort: TransactionSort
   dir: TransactionDir
   page: number
@@ -58,6 +74,8 @@ export function readTransactionQuery(params: URLSearchParams): TransactionQuery 
     from,
     to,
     status: STATUSES.find((v) => v === params.get('status')) ?? '',
+    method: METHODS.find((v) => v === params.get('method')) ?? '',
+    provider: PROVIDERS.find((v) => v.value === params.get('provider'))?.value ?? '',
     sort,
     dir: dir === 'asc' || dir === 'desc' ? dir : DEFAULT_DIR[sort],
     page: Number.isFinite(page) && page > 1 ? page : 1,
@@ -83,7 +101,7 @@ export function rangeDates({ range, from, to }: Pick<TransactionQuery, 'range' |
 }
 
 // Changing what is listed starts again from the first page; paging and sorting keep the page they are on.
-const RESETS_PAGE = ['q', 'range', 'from', 'to', 'status', 'per']
+const RESETS_PAGE = ['q', 'range', 'from', 'to', 'status', 'method', 'provider', 'per']
 
 /** The URL after `changes` (an empty value removes its key). Search, date and page size writes reset the page; a preset other than custom drops from and to. */
 export function withTransactionParams(current: URLSearchParams, changes: Partial<Record<string, string>>): URLSearchParams {

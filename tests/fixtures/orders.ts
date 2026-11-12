@@ -1,3 +1,4 @@
+import type { AdminOrderDetail } from '../../src/service/adminOrdersApi'
 import type { CustomerOrder, CustomerOrderItem, OrderStatus } from '../../src/service/ordersApi'
 
 export const ORDER_ID = '00000000-0000-4000-8000-000000000301'
@@ -109,3 +110,15 @@ export const shipment = (over: Partial<NonNullable<CustomerOrder['shipment']>> =
 })
 
 export const ALL_STATUSES: OrderStatus[] = ['PENDING_PAYMENT', 'PAYMENT_FAILED', 'PAID', 'PROCESSING', 'DISPATCHED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'REFUNDED']
+
+/** An order as the staff app holds it (an AdminOrderDetail): the default order, its customer, no rider and no payments. */
+export const adminOrderDetail = (over: Partial<AdminOrderDetail> = {}): AdminOrderDetail => ({
+  ...customerOrder(),
+  customer: { name: 'Anne Santos', email: 'anne.santos@example.com' },
+  adminNotes: null,
+  items: [{ ...orderItem(), stock: 7 }],
+  shipment: null,
+  payments: [],
+  events: [],
+  ...over,
+})

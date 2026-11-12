@@ -2,25 +2,15 @@ import { buildOrderHistory, getSampleProducts, loadSampleProducts, seedOf, type 
 import { ADDRESSES } from '../data/mockAccounts'
 import { computeTotals, toCentavos } from '../utils/invoiceTax'
 import { getAccounts } from './accountStore'
-import {
-  RETURN_REASONS,
-  type CustomerContact,
-  type PaginatedTransactions,
-  type TransactionDetail,
-  type TransactionExportRow,
-  type TransactionFilterParams,
-  type TransactionListItem,
-  type TransactionListParams,
-  type TransactionSummary,
-} from './fetchTransactions'
-import { invoiceNoFor } from './sampleInvoices'
+import type { AdminTransactionDetail, AdminTransactionMetrics, AdminTransactionRow, AdminTransactionsPage, AdminTransactionsParams } from './adminTransactionsApi'
+import { RETURN_REASONS, type CustomerContact, type TransactionDetail, type TransactionListItem, type TransactionSummary } from './fetchTransactions'
+import type { PaymentStatus } from './ordersApi'
 import { simulateRequest, type RequestOptions } from './simulateRequest'
-
-/** True while Transactions lists the dashboard's generated orders (the last 12 months) instead of GET /orders. Set to false when the backend has orders. */
-export const TRANSACTIONS_SAMPLE_DATA = true
 
 // A UUID-shaped id made from the order number, so the same order always has the same id.
 const idOf = (orderNo: string) => `00000000-0000-4000-8000-${orderNo.slice(3).padStart(12, '0')}`
+/** The id of the order's one payment: the same shape, so it never equals an order id. */
+const paymentIdOf = (orderNo: string) => idOf(orderNo).replace('-8000-', '-9000-')
 
 const HOUR = 3_600_000
 
@@ -47,37 +37,25 @@ const toListItem = (order: HistoryOrder): TransactionListItem => ({
   ...returnOf(order),
 })
 
-const COMPARE = {
-  placedAt: (a: HistoryOrder, b: HistoryOrder) => a.placedAt.localeCompare(b.placedAt),
-  total: (a: HistoryOrder, b: HistoryOrder) => a.total - b.total,
-  customerName: (a: HistoryOrder, b: HistoryOrder) => a.customerName.localeCompare(b.customerName),
-}
+const METHOD = { gcash: 'GCASH', maya: 'PAYMAYA', cod: 'OTHER' } as const
+const PROVIDER = 'paymongo'
+const referenceOf = (order: HistoryOrder) => `pay_${order.orderId}`
+const statusOf = (order: HistoryOrder): PaymentStatus => (returnOf(order).returnedAt ? 'REFUNDED' : 'PAID')
 
 /** The orders the filters match, in the requested sort. Rows that tie fall back to order number, in the sort's direction. */
-function matching(params: TransactionFilterParams) {
+function matching(params: AdminTransactionsParams) {
   const needle = params.search?.trim().toLowerCase()
   const sign = params.sortOrder === 'asc' ? 1 : -1
-  const compare = COMPARE[params.sortBy ?? 'placedAt']
+  const compare = params.sortBy === 'amount' ? (a: HistoryOrder, b: HistoryOrder) => a.total - b.total : (a: HistoryOrder, b: HistoryOrder) => a.placedAt.localeCompare(b.placedAt)
   return buildOrderHistory()
     .filter((order) => (!params.from || order.date >= params.from) && (!params.to || order.date <= params.to))
-    .filter((order) => !params.status || Boolean(returnOf(order).returnedAt) === (params.status === 'returned'))
-    .filter((order) => !needle || order.orderId.toLowerCase().includes(needle) || order.customerName.toLowerCase().includes(needle))
+    .filter((order) => !params.status || statusOf(order) === params.status)
+    .filter((order) => !params.method || METHOD[order.paymentMethod] === params.method)
+    .filter(() => !params.provider || params.provider.toLowerCase() === PROVIDER)
+    .filter((order) => !params.orderId || idOf(order.orderId) === params.orderId)
+    .filter((order) => !needle || [order.orderId, order.customerName, referenceOf(order)].some((value) => value.toLowerCase().includes(needle)))
     .map((order, index) => ({ order, index }))
     .sort((a, b) => sign * (compare(a.order, b.order) || a.index - b.index))
-}
-
-/** The same query the API takes, answered from the generated order history. */
-export async function sampleTransactionList(params: TransactionListParams, { signal, delayMs = 500 }: RequestOptions = {}): Promise<PaginatedTransactions> {
-  await simulateRequest(delayMs, signal, () => false)
-  await loadSampleProducts()
-  const matched = matching(params)
-  const limit = params.limit ?? 25
-  const page = params.page ?? 1
-  const totalPages = Math.ceil(matched.length / limit)
-  return {
-    data: matched.slice((page - 1) * limit, page * limit).map(({ order }) => toListItem(order)),
-    meta: { total: matched.length, page, limit, totalPages, hasNextPage: page < totalPages, hasPreviousPage: page > 1 },
-  }
 }
 
 /** The saved account with this name, else a contact made from the name (the same each time), so every order has someone to reach. */
@@ -89,6 +67,66 @@ function contactOf(name: string): CustomerContact {
     email: `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com`,
     phone: `+63917${String(1000000 + (seed % 9000000))}`,
     address: ADDRESSES[seed % ADDRESSES.length],
+  }
+}
+
+const toRow = (order: HistoryOrder): AdminTransactionRow => {
+  const status = statusOf(order)
+  return {
+    id: paymentIdOf(order.orderId),
+    orderId: idOf(order.orderId),
+    orderNumber: order.orderId,
+    orderStatus: status === 'REFUNDED' ? 'REFUNDED' : 'PAID',
+    customerName: order.customerName,
+    customerEmail: contactOf(order.customerName).email,
+    provider: PROVIDER,
+    reference: referenceOf(order),
+    method: METHOD[order.paymentMethod],
+    status,
+    amount: order.total,
+    fee: null,
+    net: null,
+    at: order.placedAt,
+  }
+}
+
+/** The same query the API takes, answered from the generated order history: one payment per order, paid or (once returned) refunded. */
+export async function sampleAdminTransactions(params: AdminTransactionsParams, { signal, delayMs = 500 }: RequestOptions = {}): Promise<AdminTransactionsPage> {
+  await simulateRequest(delayMs, signal, () => false)
+  await loadSampleProducts()
+  const matched = matching(params)
+  const limit = Math.min(params.limit ?? 25, 100)
+  const page = params.page ?? 1
+  return {
+    data: matched.slice((page - 1) * limit, page * limit).map(({ order }) => toRow(order)),
+    meta: { total: matched.length, page, limit, totalPages: Math.ceil(matched.length / limit) },
+  }
+}
+
+export async function sampleAdminTransaction(id: string, { signal, delayMs = 400 }: RequestOptions = {}): Promise<AdminTransactionDetail> {
+  await simulateRequest(delayMs, signal, () => false)
+  await loadSampleProducts()
+  const order = buildOrderHistory().find((o) => paymentIdOf(o.orderId) === id)
+  if (!order) throw Object.assign(new Error('Transaction not found.'), { kind: 'not-found' })
+  return { ...toRow(order), orderTotal: order.total, updatedAt: order.placedAt, payload: { sample: true } }
+}
+
+/** The counts of every payment, and the gross of the paid ones (the sample has no gateway fees). */
+export async function sampleAdminTransactionMetrics({ signal, delayMs = 450 }: RequestOptions = {}): Promise<AdminTransactionMetrics> {
+  await simulateRequest(delayMs, signal, () => false)
+  await loadSampleProducts()
+  const orders = buildOrderHistory()
+  const paid = orders.filter((o) => statusOf(o) === 'PAID')
+  const gross = paid.reduce((sum, o) => sum + toCentavos(o.total), 0) / 100
+  return {
+    totalTransactions: orders.length,
+    paidCount: paid.length,
+    refundedCount: orders.length - paid.length,
+    failedCount: 0,
+    pendingCount: 0,
+    totalGrossVolume: gross,
+    totalFeeVolume: 0,
+    totalNetVolume: gross,
   }
 }
 
@@ -109,19 +147,8 @@ export async function sampleTransactionDetail(id: string, { signal, delayMs = 40
 const vatOf = (order: HistoryOrder) =>
   computeTotals(order.lines.map((l) => ({ amount: l.units * toCentavos(l.price), vatClass: l.vatClass ?? 'vatable' }))).vatAmount
 
-/** Every order the filters match, unpaged, for the CSV. */
-export async function sampleTransactionExport(params: TransactionFilterParams, { signal, delayMs = 600 }: RequestOptions = {}): Promise<TransactionExportRow[]> {
-  await simulateRequest(delayMs, signal, () => false)
-  await loadSampleProducts()
-  return matching(params).map(({ order }) => {
-    const item = toListItem(order)
-    const invoiceNo = invoiceNoFor(item.id)
-    return { ...item, vat: vatOf(order) / 100, ...(invoiceNo && { invoiceNo }) }
-  })
-}
-
-/** The count of every order the filters match, and the gross and VAT of those not returned. */
-export async function sampleTransactionSummary(params: Pick<TransactionFilterParams, 'search' | 'status' | 'from' | 'to'>, { signal, delayMs = 450 }: RequestOptions = {}): Promise<TransactionSummary> {
+/** The count of every order the dates match, and the gross and VAT of those not returned. */
+export async function sampleTransactionSummary(params: Pick<AdminTransactionsParams, 'from' | 'to'>, { signal, delayMs = 450 }: RequestOptions = {}): Promise<TransactionSummary> {
   await simulateRequest(delayMs, signal, () => false)
   await loadSampleProducts()
   const orders = matching(params).map(({ order }) => order)

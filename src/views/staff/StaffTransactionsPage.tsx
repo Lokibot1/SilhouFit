@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   PAGER_FOOTER,
@@ -20,29 +20,26 @@ import { useToast } from "../../components/toast/useToast";
 import { Pagination } from "../../components/shop/Pagination";
 import { SECONDARY_BUTTON } from "../../components/ui/buttonStyles";
 import { SampleDataBadge } from "../../components/ui/SampleDataBadge";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useMetaDescription } from "../../hooks/useMetaDescription";
 import { useSection } from "../../hooks/useSection";
 import { UUID } from "../../service/fetchProductList";
 import {
-  fetchTransactionDetail,
-  fetchTransactionExport,
-  fetchTransactionList,
-  fetchTransactionSummary,
-  type PaginatedTransactions,
-  type TransactionListItem,
-} from "../../service/fetchTransactions";
+  fetchAdminTransactionMetrics,
+  fetchAdminTransactions,
+  type AdminTransactionRow,
+  type AdminTransactionsPage,
+} from "../../service/adminTransactionsApi";
+import { usesSampleOrders } from "../../service/ordersApi";
 import {
-  sampleTransactionExport,
-  sampleTransactionList,
-  sampleTransactionSummary,
-  TRANSACTIONS_SAMPLE_DATA,
+  sampleAdminTransactionMetrics,
+  sampleAdminTransactions,
 } from "../../service/sampleTransactions";
 import type { RequestOptions } from "../../service/simulateRequest";
 import { downloadFile } from "../../utils/downloadFile";
 import { manilaToday } from "../../utils/period";
-import { buildTransactionsCsv } from "../../utils/transactionsCsv";
 import {
   DEFAULT_DIR,
   rangeDates,
@@ -53,7 +50,11 @@ import {
 } from "../../utils/transactionQuery";
 
 const META_DESCRIPTION =
-  "Search every SilhouFit order by order number or customer name, filter by date range, and open any order to see its items, units, unit prices and total.";
+  "Search every SilhouFit payment by order, customer or reference, filter by status, method and date, and open one to see its fee, net amount and gateway record.";
+
+// shortcut: client-side page walk capped at 1,000 rows, upgrade when the API ships /admin/transactions/export
+const EXPORT_CAP = 1000;
+const EXPORT_PAGE = 100;
 
 export function StaffTransactionsPage() {
   useDocumentTitle("Transactions — SilhouFit");
@@ -61,86 +62,91 @@ export function StaffTransactionsPage() {
 
   const [params, setParams] = useSearchParams();
   const query = readTransactionQuery(params);
-  const { q, range, status, sort, dir, page, per } = query;
-  const filtered = Boolean(q || range || status);
+  const { q, range, status, method, provider, sort, dir, page, per } = query;
+  const filtered = Boolean(q || range || status || method || provider);
+  const sample = usesSampleOrders();
+  const fetchList = sample ? sampleAdminTransactions : fetchAdminTransactions;
   // A preset is worked out from today; only its two dates go into the fetcher, so it changes only when a value does.
   const { from, to } = rangeDates(query);
 
+  // A pasted full order ID lists that order's payments; any other text is searched.
+  const filters = useMemo(
+    () => ({
+      search: UUID.test(q) ? undefined : q || undefined,
+      orderId: UUID.test(q) ? q : undefined,
+      status: status || undefined,
+      method: method || undefined,
+      provider: provider || undefined,
+      from,
+      to,
+      sortBy: SORT_COLUMN[sort],
+      sortOrder: dir,
+    }),
+    [q, status, method, provider, from, to, sort, dir],
+  );
   const load = useCallback(
-    (options: RequestOptions): Promise<PaginatedTransactions> => {
-      const listParams = {
-        search: q || undefined,
-        status: status || undefined,
-        from,
-        to,
-        sortBy: SORT_COLUMN[sort],
-        sortOrder: dir,
-        page,
-        limit: per,
-      };
-      if (TRANSACTIONS_SAMPLE_DATA)
-        return sampleTransactionList(listParams, options);
-      if (UUID.test(q)) {
-        // A pasted full order ID opens that order. No order with that ID is an empty result.
-        const meta = {
-          total: 1,
-          page: 1,
-          limit: per,
-          totalPages: 1,
-          hasNextPage: false,
-          hasPreviousPage: false,
-        };
-        return fetchTransactionDetail(q, options).then(
-          (order) => ({ data: [order], meta }),
-          (error: unknown) => {
-            if ((error as { kind?: string } | null)?.kind === "not-found")
-              return { data: [], meta: { ...meta, total: 0, totalPages: 0 } };
-            throw error;
-          },
-        );
-      }
-      return fetchTransactionList(listParams, options);
-    },
-    [q, status, from, to, sort, dir, page, per],
+    (options: RequestOptions): Promise<AdminTransactionsPage> =>
+      fetchList({ ...filters, page, limit: per }, options),
+    [fetchList, filters, page, per],
   );
   const { state, previous, retry } = useSection(load);
   const result = state.status === "success" ? state.data : previous;
   const stale = state.status === "loading" && result !== undefined;
 
-  // The totals strip is its own section: the filtered range's figures, whatever the sort or page.
-  const loadSummary = useCallback(
+  // The totals strip is its own section: every payment, whatever the filters, sort or page. It loads once.
+  const loadTotals = useCallback(
     (options: RequestOptions) =>
-      (TRANSACTIONS_SAMPLE_DATA
-        ? sampleTransactionSummary
-        : fetchTransactionSummary)({ search: q || undefined, status: status || undefined, from, to }, options),
-    [q, status, from, to],
+      (sample
+        ? sampleAdminTransactionMetrics
+        : fetchAdminTransactionMetrics)(options),
+    [sample],
   );
-  const totals = useSection(loadSummary);
+  const totals = useSection(loadTotals);
   const totalsResult =
     totals.state.status === "success" ? totals.state.data : totals.previous;
 
   const toast = useToast();
+  const user = useCurrentUser();
   const [exporting, setExporting] = useState(false);
-  async function exportCsv() {
+  const matches = result?.meta.total ?? 0;
+  const exportBlock =
+    matches === 0
+      ? "There are no transactions to export"
+      : matches > EXPORT_CAP
+        ? "Narrow the filters to 1,000 transactions or fewer to export"
+        : null;
+  async function exportExcel() {
     setExporting(true);
     try {
-      const rows = await (
-        TRANSACTIONS_SAMPLE_DATA
-          ? sampleTransactionExport
-          : fetchTransactionExport
-      )({
-        search: q || undefined,
-        status: status || undefined,
-        from,
-        to,
-        sortBy: SORT_COLUMN[sort],
-        sortOrder: dir,
+      // One request at a time, so a long export never bursts the API's rate limit.
+      const rows: AdminTransactionRow[] = [];
+      for (let next = 1; rows.length < EXPORT_CAP; next++) {
+        const { data, meta } = await fetchList({
+          ...filters,
+          page: next,
+          limit: EXPORT_PAGE,
+        });
+        rows.push(...data);
+        if (next >= meta.totalPages || data.length === 0) break;
+      }
+      rows.length = Math.min(rows.length, EXPORT_CAP);
+      // Loaded on demand: ExcelJS is large and only staff exporting need it.
+      const {
+        buildTransactionsXlsx,
+        filtersSummary,
+        renderWatermark,
+        XLSX_MIME,
+      } = await import("../../utils/transactionsXlsx");
+      const file = await buildTransactionsXlsx({
+        rows,
+        exportedBy: { name: user?.name, email: user?.email },
+        exportedAt: new Date(),
+        filtersSummary: filtersSummary(query),
+        watermark: (await renderWatermark()) ?? undefined,
       });
       downloadFile(
-        new Blob([buildTransactionsCsv(rows)], {
-          type: "text/csv;charset=utf-8",
-        }),
-        `transactions-${manilaToday().date}.csv`,
+        new Blob([file], { type: XLSX_MIME }),
+        `transactions-${manilaToday().date}.xlsx`,
       );
       toast.show({
         kind: "success",
@@ -151,7 +157,7 @@ export function StaffTransactionsPage() {
         kind: "error",
         message:
           "Couldn't export the transactions. The list could not be fetched, so no file was made. Check your connection, then retry.",
-        action: { label: "Retry", onClick: () => void exportCsv() },
+        action: { label: "Retry", onClick: () => void exportExcel() },
       });
     } finally {
       setExporting(false);
@@ -221,7 +227,15 @@ export function StaffTransactionsPage() {
   function clearFilters() {
     written.current = "";
     setText("");
-    update({ q: "", range: "", from: "", to: "", status: "" });
+    update({
+      q: "",
+      range: "",
+      from: "",
+      to: "",
+      status: "",
+      method: "",
+      provider: "",
+    });
   }
 
   function sortBy(column: TransactionSort) {
@@ -237,15 +251,12 @@ export function StaffTransactionsPage() {
   }
 
   const rows = result?.data ?? null;
-  // The totals show only above a list that has rows, as before: not over an error or an empty result.
-  const showTotals =
-    !(state.status === "error" && !result) && result?.data.length !== 0;
 
   // `selected` outlives `open`, so the drawer keeps its title and content while it slides out.
-  const [selected, setSelected] = useState<TransactionListItem | null>(null);
+  const [selected, setSelected] = useState<AdminTransactionRow | null>(null);
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState(0);
-  const openDetail = (transaction: TransactionListItem) => {
+  const openDetail = (transaction: AdminTransactionRow) => {
     setSelected(transaction);
     setSession((n) => n + 1);
     setOpen(true);
@@ -257,30 +268,29 @@ export function StaffTransactionsPage() {
         <h1 className="display min-w-0 text-2xl text-fg sm:text-3xl">
           Transactions
         </h1>
-        {TRANSACTIONS_SAMPLE_DATA && (
-          <SampleDataBadge reason="These orders are generated placeholders until the orders backend is connected." />
+        {sample && (
+          <SampleDataBadge reason="These transactions are placeholders for this test account." />
         )}
       </header>
 
-      {showTotals &&
-        (totals.state.status === "error" ? (
-          <div className="rounded-xl border border-line bg-canvas-sub p-3">
-            <SectionError
-              what="the totals"
-              kind={totals.state.kind}
-              onRetry={totals.retry}
-            />
-          </div>
-        ) : totalsResult ? (
-          totalsResult.count > 0 && (
-            <TransactionTotals
-              summary={totalsResult}
-              stale={totals.state.status === "loading"}
-            />
-          )
-        ) : (
-          <TransactionTotalsSkeleton />
-        ))}
+      {totals.state.status === "error" ? (
+        <div className="rounded-xl border border-line bg-canvas-sub p-3">
+          <SectionError
+            what="the totals"
+            kind={totals.state.kind}
+            onRetry={totals.retry}
+          />
+        </div>
+      ) : totalsResult ? (
+        totalsResult.totalTransactions > 0 && (
+          <TransactionTotals
+            metrics={totalsResult}
+            stale={totals.state.status === "loading"}
+          />
+        )
+      ) : (
+        <TransactionTotalsSkeleton />
+      )}
 
       <section
         ref={sectionRef}
@@ -301,9 +311,9 @@ export function StaffTransactionsPage() {
           }
           onPer={(n) => update({ per: String(n) })}
           onClear={clearFilters}
-          canExport={(result?.meta.total ?? 0) > 0}
+          exportBlock={exportBlock}
           exporting={exporting}
-          onExport={() => void exportCsv()}
+          onExport={() => void exportExcel()}
         />
         <p role="status" className="sr-only">
           {state.status === "loading" ? "Loading transactions" : ""}
@@ -366,7 +376,7 @@ export function StaffTransactionsPage() {
                   No transactions yet
                 </p>
                 <p className="mt-1 text-base text-fg-muted">
-                  Orders show here as soon as customers check out.
+                  Payments show here once customers pay at checkout.
                 </p>
               </>
             )}
