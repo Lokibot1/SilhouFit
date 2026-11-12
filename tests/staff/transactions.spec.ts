@@ -81,6 +81,19 @@ async function pick(page: Page, label: string, option: string) {
   await page.getByRole('listbox', { name: label, exact: true }).getByRole('option', { name: option, exact: true }).click()
 }
 
+/** Opens the Month and year panel (under the folded filters on a phone). */
+async function openMonthYear(page: Page) {
+  await showFilters(page)
+  await page.getByRole('button', { name: /^Payment filter/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Payment filter' })).toBeVisible()
+}
+
+/** Picks from one of the panel's two selects. */
+async function pickInPanel(page: Page, label: string, option: string) {
+  await page.getByRole('combobox', { name: label, exact: true }).click()
+  await page.getByRole('listbox', { name: label, exact: true }).getByRole('option', { name: option, exact: true }).click()
+}
+
 /** A mixed set of five payments, newest = highest number. */
 const mixed = () => [
   adminTransaction(1, { status: 'REFUNDED', paymentMethod: 'PAYMAYA', provider: 'xendit', customer: null }),
@@ -217,7 +230,7 @@ test.describe('URL and request', () => {
     await expect(page).toHaveURL(/per=10/)
     await expect.poll(() => api.lists.at(-1)!.get('limit')).toBe('10')
 
-    await pick(page, 'Date range', 'Last 7 days')
+    await pick(page, 'Payment date', 'Last 7 days')
     await expect(page).toHaveURL(/range=week/)
     await expect.poll(() => api.lists.at(-1)!.has('startDate') && api.lists.at(-1)!.has('endDate')).toBe(true)
     // The mock's payments are all dated 1 Oct 2026, so a week ending today holds none of them or all of them; either way the keys are the only claim here.
@@ -228,6 +241,35 @@ test.describe('URL and request', () => {
     await expect(page).not.toHaveURL(/status=|method=|provider=|range=/)
     await expect.poll(() => Object.keys(query(api)).sort()).toEqual(['limit', 'page', 'sortBy', 'sortOrder'])
     await expect(orderButton(page, 3)).toBeVisible()
+  })
+
+  test('the Month and year button sends that month or year in Manila bounds, and clears back to no filter', async ({ page }) => {
+    const api = await setup(page, mixed())
+    await open(page)
+    await expect(orderButton(page, 5)).toBeVisible()
+
+    await openMonthYear(page)
+    await pickInPanel(page, 'Payment month', 'October')
+    await expect(page).toHaveURL(/range=custom&from=2026-10-01&to=2026-10-31/)
+    await expect.poll(() => query(api).startDate).toBe('2026-10-01T00:00:00+08:00')
+    expect(query(api).endDate).toBe('2026-10-31T23:59:59.999+08:00')
+    await expect(page.getByRole('button', { name: 'Payment filter, Oct 2026' })).toBeVisible()
+    await expect(orderButton(page, 5)).toBeVisible()
+
+    await pickInPanel(page, 'Payment year', '2025')
+    await expect.poll(() => query(api).startDate).toBe('2025-10-01T00:00:00+08:00')
+    expect(query(api).endDate).toBe('2025-10-31T23:59:59.999+08:00')
+    await expect(orderButton(page, 5)).toHaveCount(0)
+
+    await pickInPanel(page, 'Payment month', 'All months')
+    await expect.poll(() => query(api).startDate).toBe('2025-01-01T00:00:00+08:00')
+    expect(query(api).endDate).toBe('2025-12-31T23:59:59.999+08:00')
+    await expect(page.getByRole('button', { name: 'Payment filter, 2025' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Clear filter', exact: true }).click()
+    await expect(page).not.toHaveURL(/range=|from=|to=/)
+    await expect.poll(() => Object.keys(query(api)).sort()).toEqual(['limit', 'page', 'sortBy', 'sortOrder'])
+    await expect(orderButton(page, 5)).toBeVisible()
   })
 
   test('typing in the search box sends one request after the pause and writes ?q=', async ({ page }) => {
@@ -540,6 +582,27 @@ test.describe('export', () => {
     expect(sheet.getCell('B4').value).toBe('Status Paid')
     expect(query(api)).toMatchObject({ status: 'PAID', limit: '100' })
     await expect(toast(page, '2 transactions exported')).toBeVisible()
+  })
+
+  test('exports the picked month with the same dates as the list, and the Filters row names it', async ({ page }) => {
+    const api = await setup(page, mixed())
+    await page.setViewportSize(TABLE)
+    await open(page)
+    await expect(orderButton(page, 5)).toBeVisible()
+    await openMonthYear(page)
+    await pickInPanel(page, 'Payment month', 'October')
+    await expect.poll(() => query(api).startDate).toBe('2026-10-01T00:00:00+08:00')
+    await page.keyboard.press('Escape')
+    const before = api.lists.length
+
+    const [download] = await Promise.all([page.waitForEvent('download'), exportButton(page).click()])
+    const sheet = await readSheet(download)
+
+    expect(sheet.getCell('B4').value).toBe('Dates Oct 2026')
+    expect(sheet.getCell('B5').value).toBe(5)
+    const exportRequests = api.lists.slice(before).map((list) => Object.fromEntries(list))
+    expect(exportRequests).toHaveLength(1)
+    expect(exportRequests[0]).toMatchObject({ limit: '100', startDate: '2026-10-01T00:00:00+08:00', endDate: '2026-10-31T23:59:59.999+08:00' })
   })
 
   test('is off, with the reason as its tooltip, when more than 1,000 payments match', async ({ page }) => {

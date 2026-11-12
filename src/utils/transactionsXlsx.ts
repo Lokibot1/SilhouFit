@@ -1,8 +1,8 @@
 import type { AdminTransactionRow } from '../service/adminTransactionsApi'
 import { WORDMARK } from '../components/landing-v2/wordmark'
-import { formatDayWithYear, formatPlacedAt } from './format'
+import { formatDay, formatDayWithYear, formatPlacedAt } from './format'
 import { methodLabel, paymentStatusLabel } from './orders'
-import { providerLabel, type TransactionQuery } from './transactionQuery'
+import { providerLabel, scopeOfRange, type TransactionQuery } from './transactionQuery'
 
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
@@ -19,7 +19,7 @@ const RULE = 'FFD9D5D6'
 const BAND = 'FFF6F4F5'
 const WHITE = 'FFFFFFFF'
 
-const RANGE_LABEL = { today: 'Today', week: 'Last 7 days', month: 'This month' } as const
+const RANGE_LABEL = { today: 'Today', week: 'Last 7 days', month: 'This month', year: 'This year' } as const
 const TITLE_ROW = 1
 const INFO_ROWS = 4
 const HEADER_ROW = TITLE_ROW + INFO_ROWS + 2
@@ -34,6 +34,15 @@ export interface TransactionsXlsxInput {
   watermark?: string
 }
 
+/** A custom range as staff read it: "Nov 2026" or "2026" for a whole month or year, "Nov 12, 2026" for a day, else "Nov 1 – Nov 12, 2026". */
+function customDates(from: string, to: string) {
+  if (!from || !to) return `${from ? formatDayWithYear(from) : 'start'} to ${to ? formatDayWithYear(to) : 'today'}`
+  if (from === to) return formatDayWithYear(from)
+  const { month, year } = scopeOfRange(from, to)
+  if (year) return month ? new Date(`${from}T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', year: 'numeric' }) : String(year)
+  return `${from.slice(0, 4) === to.slice(0, 4) ? formatDay(from) : formatDayWithYear(from)} – ${formatDayWithYear(to)}`
+}
+
 /** The active filters as one readable line, or "None". */
 export function filtersSummary({ q, range, from, to, status, method, provider }: Pick<TransactionQuery, 'q' | 'range' | 'from' | 'to' | 'status' | 'method' | 'provider'>) {
   const parts = [
@@ -41,9 +50,7 @@ export function filtersSummary({ q, range, from, to, status, method, provider }:
     status && `Status ${paymentStatusLabel(status)}`,
     method && `Method ${methodLabel(method)}`,
     provider && `Provider ${providerLabel(provider)}`,
-    range === 'custom'
-      ? `Dates ${from ? formatDayWithYear(from) : 'start'} to ${to ? formatDayWithYear(to) : 'today'}`
-      : range && `Dates ${RANGE_LABEL[range]}`,
+    range === 'custom' ? `Dates ${customDates(from, to)}` : range && `Dates ${RANGE_LABEL[range]}`,
   ].filter(Boolean)
   return parts.length ? parts.join('; ') : 'None'
 }

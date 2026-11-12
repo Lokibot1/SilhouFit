@@ -18,6 +18,7 @@ import {
 import { adminOrderDetail } from '../fixtures/orders'
 import { SAMPLE_PRODUCTS } from '../fixtures/sampleProducts'
 import { StaffTransactionsPage } from '../../src/views/staff/StaffTransactionsPage'
+import { monthYearDates } from '../../src/utils/transactionQuery'
 
 vi.mock('../../src/service/adminTransactionsApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/adminTransactionsApi')>()),
@@ -383,7 +384,7 @@ describe('StaffTransactionsPage', () => {
     renderPage('?sort=total')
     await within(table()).findByRole('button', { name: /SF-10001/ })
 
-    await choose(user, 'Date range', 'Last 7 days')
+    await choose(user, 'Payment date', 'Last 7 days')
     await waitFor(() => expect(lastParams().from).toBeDefined())
     expect(where()).toBe('/staff/transactions?sort=total&range=week')
     expect(lastParams().from! < lastParams().to!).toBe(true)
@@ -396,15 +397,61 @@ describe('StaffTransactionsPage', () => {
     expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
   })
 
+  it('filters by month and year from one button, counts it once, and clears back to no filter', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await within(table()).findByRole('button', { name: /SF-10001/ })
+    const open = () => user.click(screen.getByRole('button', { name: /^Payment filter/ }))
+
+    await open()
+    await choose(user, 'Payment year', '2025')
+    await waitFor(() => expect(lastParams().from).toBe('2025-01-01'))
+    expect(lastParams().to).toBe('2025-12-31')
+    expect(where()).toBe('/staff/transactions?range=custom&from=2025-01-01&to=2025-12-31')
+    expect(screen.getByRole('button', { name: 'Payment filter, 2025' })).toHaveTextContent('2025')
+    expect(screen.getByText('Filters (1)')).toBeInTheDocument()
+
+    await choose(user, 'Payment month', 'February')
+    await waitFor(() => expect(lastParams().from).toBe('2025-02-01'))
+    expect(lastParams().to).toBe('2025-02-28')
+    expect(screen.getByRole('button', { name: 'Payment filter, Feb 2025' })).toHaveTextContent('Feb 2025')
+    expect(screen.getByRole('combobox', { name: 'Payment date' })).toHaveTextContent('Feb 1 – Feb 28')
+    expect(screen.getByText('Filters (1)')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Clear filter' }))
+    expect(where()).toBe('/staff/transactions')
+    await waitFor(() => expect(lastParams().from).toBeUndefined())
+    expect(lastParams().to).toBeUndefined()
+    expect(screen.getByRole('button', { name: 'Payment filter, none' })).toHaveTextContent('Month and year')
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+  })
+
+  it('takes a month without a year as that month of this year, shows the This year preset, and a preset resets the button', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await within(table()).findByRole('button', { name: /SF-10001/ })
+    await user.click(screen.getByRole('button', { name: /^Payment filter/ }))
+    await choose(user, 'Payment month', 'January')
+    const { from, to } = monthYearDates({ month: 1, year: null })!
+    await waitFor(() => expect(lastParams().from).toBe(from))
+    expect(lastParams().to).toBe(to)
+
+    await choose(user, 'Payment date', 'This year')
+    expect(where()).toBe('/staff/transactions?range=year')
+    await waitFor(() => expect(lastParams().from).toBe(`${from.slice(0, 4)}-01-01`))
+    expect(screen.getByRole('button', { name: 'Payment filter, none' })).toBeInTheDocument()
+    expect(screen.getByText('Filters (1)')).toBeInTheDocument()
+  })
+
   it('shows a calendar beside the list when Custom is chosen, takes a range from it, and a preset forgets it', async () => {
     const user = userEvent.setup()
     renderPage()
     await within(table()).findByRole('button', { name: /SF-10001/ })
     const calendar = () => screen.queryByRole('group', { name: 'Choose dates' })
-    const rangeBox = () => screen.getByRole('combobox', { name: 'Date range' })
+    const rangeBox = () => screen.getByRole('combobox', { name: 'Payment date' })
     expect(screen.queryByRole('button', { name: /^Dates/ })).not.toBeInTheDocument() // no extra field in the row
 
-    await choose(user, 'Date range', 'Custom')
+    await choose(user, 'Payment date', 'Custom')
     expect(where()).toBe('/staff/transactions?range=custom')
     // the list stays open with the calendar beside it, like a submenu
     expect(screen.getByRole('listbox')).toBeInTheDocument()
@@ -425,7 +472,7 @@ describe('StaffTransactionsPage', () => {
     expect(rangeBox()).toHaveTextContent('–')
     expect(rangeBox()).toHaveFocus()
 
-    await choose(user, 'Date range', 'Today')
+    await choose(user, 'Payment date', 'Today')
     expect(where()).toBe('/staff/transactions?range=today')
     expect(rangeBox()).toHaveTextContent('Today')
   })
@@ -434,13 +481,13 @@ describe('StaffTransactionsPage', () => {
     const user = userEvent.setup()
     renderPage()
     await within(table()).findByRole('button', { name: /SF-10001/ })
-    await choose(user, 'Date range', 'Custom')
+    await choose(user, 'Payment date', 'Custom')
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('group', { name: 'Choose dates' })).not.toBeInTheDocument()
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Date range' })).toHaveFocus()
+    expect(screen.getByRole('combobox', { name: 'Payment date' })).toHaveFocus()
 
-    await user.click(screen.getByRole('combobox', { name: 'Date range' }))
+    await user.click(screen.getByRole('combobox', { name: 'Payment date' }))
     await user.click(await screen.findByRole('option', { name: 'Custom' })) // already custom: just shows the calendar
     expect(screen.getByRole('group', { name: 'Choose dates' })).toBeInTheDocument()
     await user.hover(screen.getByRole('option', { name: 'Today' }))
@@ -452,7 +499,7 @@ describe('StaffTransactionsPage', () => {
     await within(table()).findByRole('button', { name: /SF-10001/ })
     expect(lastParams().from).toBeUndefined()
     expect(lastParams().to).toBeUndefined()
-    expect(screen.getByRole('combobox', { name: 'Date range' })).toHaveTextContent('Custom')
+    expect(screen.getByRole('combobox', { name: 'Payment date' })).toHaveTextContent('Custom')
     expect(screen.queryByRole('group', { name: 'Choose dates' })).not.toBeInTheDocument() // arriving on a custom page does not pop the calendar open
   })
 
@@ -463,7 +510,7 @@ describe('StaffTransactionsPage', () => {
     const next = deferred<AdminTransactionsPage>()
     list.mockReturnValue(next.promise)
 
-    await choose(user, 'Date range', 'Today')
+    await choose(user, 'Payment date', 'Today')
     expect(within(table()).getByRole('button', { name: /SF-10001/ })).toBeInTheDocument()
     expect(table()).toHaveAttribute('aria-busy', 'true')
     expect(table().querySelector('tbody')).toHaveClass('opacity-60')
@@ -479,7 +526,7 @@ describe('StaffTransactionsPage', () => {
     renderPage()
     await within(table()).findByRole('button', { name: /SF-10001/ })
     list.mockRejectedValueOnce(new ProductListError('network'))
-    await choose(user, 'Date range', 'Today')
+    await choose(user, 'Payment date', 'Today')
     expect(await screen.findByRole('alert')).toHaveTextContent("We couldn't load the latest transactions.")
     expect(within(table()).getByRole('button', { name: /SF-10001/ })).toBeInTheDocument()
     expect(screen.getByText('Displaying 1–25 of 60')).toBeInTheDocument()

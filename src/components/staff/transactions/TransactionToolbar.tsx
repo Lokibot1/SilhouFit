@@ -1,8 +1,9 @@
 import { formatDay } from '../../../utils/format'
 import { methodLabel, paymentStatusLabel } from '../../../utils/orders'
-import { MAX_SEARCH, METHODS, PER_PAGE_OPTIONS, PROVIDERS, STATUSES, type TransactionDir, type TransactionQuery, type TransactionSort } from '../../../utils/transactionQuery'
+import { MAX_SEARCH, METHODS, monthYearDates, PER_PAGE_OPTIONS, PROVIDERS, scopeOfRange, STATUSES, type TransactionDir, type TransactionQuery, type TransactionSort } from '../../../utils/transactionQuery'
 import { ChevronDownIcon, SearchIcon, SpinnerIcon, XIcon } from '../../form/icons'
 import { SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { SalesFilter, type SalesScope } from '../SalesFilter'
 import { RangeCalendar } from '../../ui/RangeCalendar'
 import { Select } from '../../ui/Select'
 import { Tooltip } from '../../ui/Tooltip'
@@ -12,6 +13,7 @@ const RANGE_OPTIONS = [
   { value: 'today', label: 'Today' },
   { value: 'week', label: 'Last 7 days' },
   { value: 'month', label: 'This month' },
+  { value: 'year', label: 'This year' },
   { value: 'custom', label: 'Custom' },
 ]
 const STATUS_OPTIONS = [{ value: '', label: 'All statuses' }, ...STATUSES.map((value) => ({ value, label: paymentStatusLabel(value) }))]
@@ -43,6 +45,12 @@ interface TransactionToolbarProps {
 
 export function TransactionToolbar({ text, onText, query, today, onFilter, onSort, onPer, onClear, exportBlock, exporting, onExport }: TransactionToolbarProps) {
   const active = Number(query.range !== '') + Number(query.status !== '') + Number(query.method !== '') + Number(query.provider !== '')
+  // The month and year button shows a custom range only when it is exactly a whole month or year.
+  const scope: SalesScope = query.range === 'custom' ? scopeOfRange(query.from, query.to) : { month: null, year: null }
+  const pickMonthYear = (next: SalesScope) => {
+    const dates = monthYearDates(next)
+    onFilter(dates ? { range: 'custom', ...dates } : { range: '' })
+  }
   // Choosing Custom keeps the list open and shows a calendar beside it, like a submenu; the chosen dates then show on the button.
   const rangeOptions = RANGE_OPTIONS.map((option) =>
     option.value === 'custom'
@@ -98,7 +106,10 @@ export function TransactionToolbar({ text, onText, query, today, onFilter, onSor
         </summary>
         <div className="mt-3 flex flex-wrap items-center gap-3 @4xl:mt-0">
           <div className="w-full @sm:w-48 @4xl:w-40">
-            <Select label="Date range" value={query.range} options={rangeOptions} onChange={(range) => onFilter({ range })} />
+            <Select label="Payment date" value={query.range} options={rangeOptions} onChange={(range) => onFilter({ range })} />
+          </div>
+          <div className="w-full @sm:w-48 @4xl:w-40">
+            <SalesFilter name="Payment" idle="Month and year" className="h-9 w-full pointer-coarse:h-11 max-md:h-11" value={scope} onChange={pickMonthYear} />
           </div>
           <div className="w-full @sm:w-48 @4xl:w-44">
             <Select label="Status" value={query.status} options={STATUS_OPTIONS} onChange={(status) => onFilter({ status })} />

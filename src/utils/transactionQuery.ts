@@ -1,5 +1,6 @@
 import { PAYMENT_STATUSES, type PaymentStatus } from '../service/ordersApi'
 import { humanize } from './orders'
+import type { SalesScope } from '../components/staff/SalesFilter'
 import { addDays, manilaToday } from './period'
 
 export const TRANSACTION_SORTS = ['date', 'total'] as const
@@ -15,7 +16,7 @@ export const PER_PAGE_OPTIONS = [10, 25, 50]
 const DEFAULT_PER_PAGE = 25
 export const MAX_SEARCH = 100
 
-export const RANGES = ['today', 'week', 'month', 'custom'] as const
+export const RANGES = ['today', 'week', 'month', 'year', 'custom'] as const
 export type TransactionRange = (typeof RANGES)[number]
 
 export const STATUSES = PAYMENT_STATUSES
@@ -93,11 +94,35 @@ export function rangeDates({ range, from, to }: Pick<TransactionQuery, 'range' |
       return { from: addDays(today, -6), to: today }
     case 'month':
       return { from: `${today.slice(0, 7)}-01`, to: today }
+    case 'year':
+      return { from: `${today.slice(0, 4)}-01-01`, to: today }
     case 'custom':
       return { from: from || undefined, to: to || undefined }
     default:
       return {}
   }
+}
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/** The dates a month and/or year pick stands for: a whole year, a whole month, or that month of the running Manila year, never past today. `null` when neither is set. */
+export function monthYearDates({ month, year }: SalesScope, now?: Date): { from: string; to: string } | null {
+  if (!month && !year) return null
+  const today = manilaToday(now)
+  const y = year ?? today.year
+  const last = month ? `${y}-${pad(month)}-${pad(new Date(Date.UTC(y, month, 0)).getUTCDate())}` : `${y}-12-31`
+  return { from: `${y}-${pad(month ?? 1)}-01`, to: last < today.date ? last : today.date }
+}
+
+/** The month and year a custom range spans exactly (a whole year, or a whole month; the running one up to today), else no scope. */
+export function scopeOfRange(from: string, to: string, now?: Date): SalesScope {
+  const year = Number(from.slice(0, 4))
+  const month = Number(from.slice(5, 7))
+  for (const scope of [{ month: null, year }, { month, year }]) {
+    const span = monthYearDates(scope, now)
+    if (span?.from === from && span.to === to) return scope
+  }
+  return { month: null, year: null }
 }
 
 // Changing what is listed starts again from the first page; paging and sorting keep the page they are on.

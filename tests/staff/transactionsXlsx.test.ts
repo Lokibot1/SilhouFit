@@ -54,6 +54,16 @@ describe('pure parts', () => {
     expect(filtersSummary(none)).toBe('None')
     expect(filtersSummary({ ...none, q: 'maria', status: 'PAID', method: 'GCASH', provider: 'paymongo', range: 'week' })).toBe('Search "maria"; Status Paid; Method GCash; Provider PayMongo; Dates Last 7 days')
     expect(filtersSummary({ ...none, range: 'custom', from: '2026-10-01', to: '' })).toBe('Dates Oct 1, 2026 to today')
+    expect(filtersSummary({ ...none, range: 'year' })).toBe('Dates This year')
+  })
+
+  it('words a custom range as a month, a year, a day or a span', () => {
+    const custom = (from: string, to: string) => filtersSummary({ q: '', status: '', method: '', provider: '', range: 'custom', from, to })
+    expect(custom('2025-11-01', '2025-11-30')).toBe('Dates Nov 2025')
+    expect(custom('2025-01-01', '2025-12-31')).toBe('Dates 2025')
+    expect(custom('2025-11-12', '2025-11-12')).toBe('Dates Nov 12, 2025')
+    expect(custom('2025-11-01', '2025-11-12')).toBe('Dates Nov 1 – Nov 12, 2025')
+    expect(custom('2025-12-30', '2026-01-02')).toBe('Dates Dec 30, 2025 – Jan 2, 2026')
   })
 })
 

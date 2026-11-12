@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rangeDates, readTransactionQuery, withTransactionParams } from '../../src/utils/transactionQuery'
+import { monthYearDates, rangeDates, readTransactionQuery, scopeOfRange, withTransactionParams } from '../../src/utils/transactionQuery'
 
 const read = (search: string) => readTransactionQuery(new URLSearchParams(search))
 
@@ -9,7 +9,8 @@ describe('readTransactionQuery', () => {
   })
 
   it('falls back to the default for anything off the whitelist', () => {
-    expect(read('sort=id&dir=sideways&per=7&page=-3&range=year')).toMatchObject({ sort: 'date', dir: 'desc', per: 25, page: 1, range: '' })
+    expect(read('sort=id&dir=sideways&per=7&page=-3&range=decade')).toMatchObject({ sort: 'date', dir: 'desc', per: 25, page: 1, range: '' })
+    expect(read('range=year').range).toBe('year')
     expect(read('page=abc').page).toBe(1)
     expect(read('page=4.9').page).toBe(4)
     expect(read('per=50').per).toBe(50)
@@ -55,6 +56,7 @@ describe('rangeDates', () => {
     expect(rangeDates({ range: 'today', ...none }, now)).toEqual({ from: '2026-10-21', to: '2026-10-21' })
     expect(rangeDates({ range: 'week', ...none }, now)).toEqual({ from: '2026-10-15', to: '2026-10-21' })
     expect(rangeDates({ range: 'month', ...none }, now)).toEqual({ from: '2026-10-01', to: '2026-10-21' })
+    expect(rangeDates({ range: 'year', ...none }, now)).toEqual({ from: '2026-01-01', to: '2026-10-21' })
     expect(rangeDates({ range: '', ...none }, now)).toEqual({})
   })
 
@@ -90,5 +92,37 @@ describe('withTransactionParams', () => {
     expect(withTransactionParams(custom, { range: 'week' }).toString()).toBe('range=week')
     expect(withTransactionParams(custom, { range: '' }).toString()).toBe('')
     expect(withTransactionParams(custom, { range: 'custom', to: '2026-09-15' }).toString()).toBe('range=custom&from=2026-09-01&to=2026-09-15')
+  })
+})
+
+describe('monthYearDates and scopeOfRange', () => {
+  const now = new Date('2026-11-12T01:05:00Z') // Nov 12, 2026, 9:05 AM in Manila
+  const none = { month: null, year: null }
+
+  it('turns a pick into dates, capped at today in the running year', () => {
+    expect(monthYearDates(none, now)).toBeNull()
+    expect(monthYearDates({ month: null, year: 2025 }, now)).toEqual({ from: '2025-01-01', to: '2025-12-31' })
+    expect(monthYearDates({ month: null, year: 2026 }, now)).toEqual({ from: '2026-01-01', to: '2026-11-12' })
+    expect(monthYearDates({ month: 11, year: 2026 }, now)).toEqual({ from: '2026-11-01', to: '2026-11-12' })
+    expect(monthYearDates({ month: 3, year: 2026 }, now)).toEqual({ from: '2026-03-01', to: '2026-03-31' })
+    // A month with no year is that month of the running year.
+    expect(monthYearDates({ month: 10, year: null }, now)).toEqual({ from: '2026-10-01', to: '2026-10-31' })
+  })
+
+  it('knows leap-year February', () => {
+    expect(monthYearDates({ month: 2, year: 2024 }, now)).toEqual({ from: '2024-02-01', to: '2024-02-29' })
+    expect(monthYearDates({ month: 2, year: 2025 }, now)).toEqual({ from: '2025-02-01', to: '2025-02-28' })
+  })
+
+  it('reads a whole month or year back, and nothing else', () => {
+    for (const scope of [{ month: null, year: 2025 }, { month: null, year: 2026 }, { month: 11, year: 2026 }, { month: 2, year: 2024 }, { month: 9, year: 2026 }]) {
+      const { from, to } = monthYearDates(scope, now)!
+      expect(scopeOfRange(from, to, now)).toEqual(scope)
+    }
+    expect(scopeOfRange('2026-10-02', '2026-10-31', now)).toEqual(none)
+    expect(scopeOfRange('2026-11-01', '2026-11-11', now)).toEqual(none)
+    expect(scopeOfRange('2026-01-01', '2026-06-30', now)).toEqual(none)
+    expect(scopeOfRange('', '', now)).toEqual(none)
+    expect(scopeOfRange('2026-09-01', '', now)).toEqual(none)
   })
 })
