@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { peekLoginNotice, takeLoginNotice } from '../../src/service/loginNotice'
+import { setOrderReviews } from '../../src/service/orderReviews'
 import { clearSession, setSession } from '../../src/service/session'
 import { OrderDetailPage } from '../../src/views/private/OrderDetailPage'
 import { customerOrder, ORDER_ID, shipment } from '../fixtures/orders'
@@ -33,8 +34,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   act(() => setSession({ name: 'Anne Santos', email: 'anne@example.com' }))
   api.fetchOrder.mockResolvedValue(customerOrder())
+  act(() => setOrderReviews([]))
 })
-afterEach(() => act(() => clearSession()))
+afterEach(() => {
+  window.history.replaceState({}, '', '/')
+  act(() => clearSession())
+})
 
 function Where() {
   const { pathname, search } = useLocation()
@@ -198,5 +203,89 @@ describe('OrderDetailPage', () => {
     await screen.findByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })
     expect(screen.getByText('Juan Dela Cruz')).toBeInTheDocument()
     expect(screen.queryByText('+639171112222')).toBeNull()
+  })
+
+  describe('review section', () => {
+    const delivered = () => api.fetchOrder.mockResolvedValue(customerOrder({ status: 'DELIVERED', paymentStatus: 'PAID' }))
+    const section = async () => (await screen.findByRole('heading', { level: 2, name: 'Your review' })).closest('section')!
+
+    it('is shown only for a delivered order', async () => {
+      renderPage()
+      await screen.findByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })
+      expect(screen.queryByRole('heading', { name: 'Your review' })).toBeNull()
+    })
+
+    it('loads into the empty state, with the sample-data note, after the items', async () => {
+      delivered()
+      renderPage()
+      const card = await section()
+      expect(within(card).getByRole('status', { name: 'Loading your review' })).toBeInTheDocument()
+      expect(await within(card).findByText('How did this order go?')).toBeInTheDocument()
+      expect(within(card).getByText('Sample data')).toBeInTheDocument()
+      const items = screen.getByRole('heading', { level: 2, name: /^Items/ })
+      expect(items.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('explains a failed load without hiding the order, and recovers on Try again', async () => {
+      const user = userEvent.setup({ delay: null })
+      delivered()
+      window.history.replaceState({}, '', '/?fail=review-load')
+      renderPage()
+      const card = await section()
+      const alert = await within(card).findByRole('alert')
+      expect(alert).toHaveTextContent("We couldn't load your review")
+      expect(screen.getByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })).toBeInTheDocument()
+      window.history.replaceState({}, '', '/')
+      await user.click(within(alert).getByRole('button', { name: 'Try again' }))
+      expect(await within(card).findByText('How did this order go?')).toBeInTheDocument()
+    })
+
+    it('posts, edits and deletes a review, with a toast and focus kept at each step', async () => {
+      const user = userEvent.setup({ delay: null })
+      delivered()
+      renderPage()
+      const card = await section()
+      await user.click(await within(card).findByRole('button', { name: 'Review order' }))
+
+      let dialog = await screen.findByRole('dialog', { name: 'Review order' })
+      await user.click(within(dialog).getByRole('radio', { name: '4 stars: Very good' }))
+      await user.type(within(dialog).getByRole('textbox', { name: 'Your review' }), 'Fits very well, fast delivery.')
+      await user.click(within(dialog).getByRole('button', { name: 'Post review' }))
+      expect(await within(card).findByRole('img', { name: 'Rated 4 out of 5' }, { timeout: 4000 })).toBeInTheDocument()
+      expect(screen.getByText('Review posted.')).toBeInTheDocument()
+      expect(within(card).getByText('Fits very well, fast delivery.')).toBeInTheDocument()
+      expect(within(card).getByText(/^Reviewed .*(AM|PM)$/)).toBeInTheDocument()
+      await waitFor(() => expect(within(card).getByRole('button', { name: 'Edit review' })).toHaveFocus())
+
+      await user.click(within(card).getByRole('button', { name: 'Edit review' }))
+      dialog = await screen.findByRole('dialog', { name: 'Edit review' })
+      expect(within(dialog).getByRole('radio', { name: '4 stars: Very good' })).toBeChecked()
+      await user.click(within(dialog).getByRole('radio', { name: '2 stars: Fair' }))
+      await user.click(within(dialog).getByRole('button', { name: 'Save review' }))
+      expect(await within(card).findByRole('img', { name: 'Rated 2 out of 5' }, { timeout: 4000 })).toBeInTheDocument()
+      expect(within(card).getByText(/\(edited\)/)).toBeInTheDocument()
+
+      await user.click(within(card).getByRole('button', { name: 'Delete review' }))
+      dialog = await screen.findByRole('dialog', { name: 'Delete this review?' })
+      expect(dialog).toHaveTextContent('Are you sure?')
+      await user.click(within(dialog).getByRole('button', { name: 'Delete review' }))
+      expect(await within(card).findByText('How did this order go?', {}, { timeout: 4000 })).toBeInTheDocument()
+      await waitFor(() => expect(within(card).getByRole('button', { name: 'Review order' })).toHaveFocus())
+    })
+
+    it('keeps the dialog open with the reason when saving fails', async () => {
+      const user = userEvent.setup({ delay: null })
+      delivered()
+      renderPage()
+      const card = await section()
+      await user.click(await within(card).findByRole('button', { name: 'Review order' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Review order' })
+      await user.click(within(dialog).getByRole('radio', { name: '5 stars: Excellent' }))
+      await user.type(within(dialog).getByRole('textbox', { name: 'Your review' }), 'Fits very well, fast delivery.')
+      window.history.replaceState({}, '', '/?fail=review-save')
+      await user.click(within(dialog).getByRole('button', { name: 'Post review' }))
+      expect(await within(dialog).findByText(/couldn't save your review/, {}, { timeout: 4000 })).toBeInTheDocument()
+      expect(within(dialog).getByRole('button', { name: 'Post review' })).toBeEnabled()
+    })
   })
 })
