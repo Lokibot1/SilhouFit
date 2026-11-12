@@ -6,7 +6,7 @@ import { DURATION, EASE_OUT } from '../../motion/tokens'
 import { XIcon } from '../form/icons'
 
 const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
 
 /** Drawer curve: eases in and out, so the slide has no jump at either end. */
 const SHEET_EASE: [number, number, number, number] = [0.32, 0.72, 0, 1]
