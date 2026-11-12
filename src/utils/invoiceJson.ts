@@ -32,7 +32,7 @@ export function buildInvoiceJson(invoice: Invoice) {
       sample: seller.sample,
     },
     buyer: buyer ? { type: 'business', ...buyer } : { type: 'walk-in', name: 'Walk-in customer' },
-    paymentMethod: invoice.paymentMethod,
+    paymentMethod: invoice.paymentLabel ?? invoice.paymentMethod,
     lines: invoice.lines.map((line) => ({
       description: line.description,
       quantity: line.units,

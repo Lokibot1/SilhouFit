@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { useSection } from '../../../hooks/useSection'
-import { exportInvoice, fetchInvoiceBundle, issueInvoice, type InvoiceBundle, type InvoiceRecord } from '../../../service/fetchInvoice'
+import type { InvoiceBundle, InvoiceRecord } from '../../../service/fetchInvoice'
 import type { TransactionDetail, TransactionListItem } from '../../../service/fetchTransactions'
 import { sampleExportInvoice, sampleInvoiceBundle, sampleIssueInvoice } from '../../../service/sampleInvoices'
-import { TRANSACTIONS_SAMPLE_DATA } from '../../../service/sampleTransactions'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { downloadFile } from '../../../utils/downloadFile'
 import { buildInvoiceJson } from '../../../utils/invoiceJson'
@@ -94,7 +93,8 @@ interface InvoicePreviewProps {
 export function InvoicePreview({ transaction, detail, onBack }: InvoicePreviewProps) {
   const toast = useToast()
   const id = transaction.id
-  const load = useCallback((options: RequestOptions) => (TRANSACTIONS_SAMPLE_DATA ? sampleInvoiceBundle : fetchInvoiceBundle)(id, options), [id])
+  // shortcut: seller details and invoice numbers are placeholders kept in this browser; swap to fetchInvoiceBundle/issueInvoice/exportInvoice (src/service/fetchInvoice.ts) when the backend ships /merchant/profile and /orders/:id/invoice
+  const load = useCallback((options: RequestOptions) => sampleInvoiceBundle(id, options), [id])
   const section = useSection(load)
   const [format, setFormat] = useState<Format>('pdf')
   const [pending, setPending] = useState(false)
@@ -124,7 +124,7 @@ export function InvoicePreview({ transaction, detail, onBack }: InvoicePreviewPr
         chunkFailures.current = 0
       }
       // The number is assigned here, on the first real export (idempotent afterwards). The file is made before the export is recorded, so a failure there counts no copy.
-      const assigned = await (TRANSACTIONS_SAMPLE_DATA ? sampleIssueInvoice : issueInvoice)(id)
+      const assigned = await sampleIssueInvoice(id)
       // Print reads the sheet, so it must show the number before the browser prints.
       flushSync(() => setIssued(assigned))
       const output = buildInvoice(detail, bundle.profile, assigned, assigned.exportCount)
@@ -137,7 +137,7 @@ export function InvoicePreview({ transaction, detail, onBack }: InvoicePreviewPr
       } else if (kind === 'download') {
         file = { blob: new Blob([JSON.stringify(buildInvoiceJson(output), null, 2)], { type: 'application/json' }), name: `${assigned.invoiceNo}.json` }
       }
-      const recorded = await (TRANSACTIONS_SAMPLE_DATA ? sampleExportInvoice : exportInvoice)(id)
+      const recorded = await sampleExportInvoice(id)
       if (file) downloadFile(file.blob, file.name)
       else window.print()
       setIssued({ invoiceNo: assigned.invoiceNo, exportCount: recorded.reprintCount + 1 })

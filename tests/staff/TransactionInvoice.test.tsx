@@ -1,16 +1,35 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransactionDrawer } from '../../src/components/staff/transactions/TransactionDrawer'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import type { TransactionDetail, TransactionListItem } from '../../src/service/fetchTransactions'
+import { fetchAdminOrder } from '../../src/service/adminOrdersApi'
+import { fetchAdminTransaction, type AdminTransactionDetail, type AdminTransactionRow } from '../../src/service/adminTransactionsApi'
+import type { TransactionDetail } from '../../src/service/fetchTransactions'
 import { invoiceNoFor, resetSampleInvoices, setSampleMerchant } from '../../src/service/sampleInvoices'
-import { sampleTransactionDetail } from '../../src/service/sampleTransactions'
+import { adminOrderDetail } from '../fixtures/orders'
+import { sampleAdminTransaction, sampleTransactionDetail } from '../../src/service/sampleTransactions'
 import { INVOICE_NOTICE, RETURN_NOTICE } from '../../src/utils/invoiceTax'
 
+// A simulated account by default: the drawer reads the sample payment and the order's items, and offers the Invoice. `account.sample` flips it to a real one.
+const account = vi.hoisted(() => ({ sample: true }))
+vi.mock('../../src/service/ordersApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/ordersApi')>()),
+  usesSampleOrders: () => account.sample,
+}))
+vi.mock('../../src/service/adminOrdersApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/adminOrdersApi')>()),
+  fetchAdminOrder: vi.fn(),
+}))
+vi.mock('../../src/service/adminTransactionsApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/adminTransactionsApi')>()),
+  fetchAdminTransaction: vi.fn(),
+}))
 vi.mock('../../src/service/sampleTransactions', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/sampleTransactions')>()),
+  sampleAdminTransaction: vi.fn(),
   sampleTransactionDetail: vi.fn(),
 }))
 const pdf = vi.hoisted(() => ({ render: vi.fn(), chunkFails: false }))
@@ -22,16 +41,30 @@ vi.mock('../../src/utils/invoicePdf', () => ({
   },
 }))
 
-const transaction: TransactionListItem = {
-  id: '00000000-0000-4000-8000-000000000001',
+const transaction: AdminTransactionRow = {
+  id: '00000000-0000-4000-9000-000000000001',
+  orderId: '00000000-0000-4000-8000-000000000001',
+  orderNumber: 'SF-10001',
+  orderStatus: 'PAID',
+  customerName: 'Maria Santos',
+  customerEmail: 'maria@example.com',
+  provider: 'paymongo',
+  reference: 'pay_SF-10001',
+  method: 'GCASH',
+  status: 'PAID',
+  amount: 4580,
+  fee: null,
+  net: null,
+  at: '2026-10-22T07:45:00.000Z',
+}
+const payment: AdminTransactionDetail = { ...transaction, orderTotal: 4580, updatedAt: '2026-10-22T07:45:00.000Z', payload: { sample: true } }
+const detail: TransactionDetail = {
+  id: transaction.orderId,
   orderNo: 'SF-10001',
   customerName: 'Maria Santos',
   placedAt: '2026-10-22T07:45:00.000Z',
   itemCount: 3,
   total: 4580,
-}
-const detail: TransactionDetail = {
-  ...transaction,
   subtotal: 4580,
   paymentMethod: 'gcash',
   lines: [
@@ -59,18 +92,22 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  account.sample = true
   saved.length = 0
   resetSampleInvoices()
+  vi.mocked(sampleAdminTransaction).mockResolvedValue(payment)
   vi.mocked(sampleTransactionDetail).mockResolvedValue(detail)
   pdf.chunkFails = false
   render_.mockResolvedValue({ blob: new Blob(['%PDF'], { type: 'application/pdf' }), replaced: [] })
 })
 afterEach(() => vi.clearAllMocks())
 
-function renderDrawer() {
+function renderDrawer(row = transaction) {
   return render(
     <ToastProvider>
-      <TransactionDrawer transaction={transaction} open session={1} onClose={() => {}} />
+      <MemoryRouter>
+        <TransactionDrawer transaction={row} open session={1} onClose={() => {}} />
+      </MemoryRouter>
     </ToastProvider>,
   )
 }
@@ -94,7 +131,7 @@ describe('the invoice in the transaction drawer', () => {
     expect(within(dialog).getByRole('article', { name: 'Sales invoice, number not yet assigned' })).toBeInTheDocument()
     expect(within(dialog).getByText('Invoice No. assigned on first download or print')).toBeInTheDocument()
     expect(within(dialog).queryByText(/DUPLICATE|reprint|SI-0/)).not.toBeInTheDocument()
-    expect(invoiceNoFor(transaction.id)).toBeUndefined()
+    expect(invoiceNoFor(detail.id)).toBeUndefined()
     expect(within(dialog).getByText(INVOICE_NOTICE)).toBeInTheDocument()
     expect(within(dialog).getByText('Sample merchant profile')).toBeInTheDocument()
     expect(within(dialog).getByText('Walk-in customer')).toBeInTheDocument()
@@ -110,11 +147,7 @@ describe('the invoice in the transaction drawer', () => {
     const user = userEvent.setup()
     const returned = { returnedAt: '2026-10-24T02:05:00.000Z', returnReason: 'Wrong size' as const, refundAmount: 4580 }
     vi.mocked(sampleTransactionDetail).mockResolvedValue({ ...detail, ...returned })
-    render(
-      <ToastProvider>
-        <TransactionDrawer transaction={{ ...transaction, ...returned }} open session={1} onClose={() => {}} />
-      </ToastProvider>,
-    )
+    renderDrawer({ ...transaction, status: 'REFUNDED', orderStatus: 'REFUNDED' })
     const button = screen.getByRole('button', { name: 'Invoice' })
     await waitFor(() => expect(button).toBeEnabled(), WAIT)
     await user.click(button)
@@ -218,13 +251,13 @@ describe('the invoice in the transaction drawer', () => {
     await user.click(await screen.findByRole('button', { name: 'Invoice' }))
     const again = await screen.findByRole('dialog', { name: 'Invoice SF-10001' })
     await within(again).findByText('Invoice No. assigned on first download or print', {}, WAIT)
-    expect(invoiceNoFor(transaction.id)).toBeUndefined()
+    expect(invoiceNoFor(detail.id)).toBeUndefined()
 
     const download = within(again).getByRole('button', { name: 'Download PDF' })
     await waitFor(() => expect(download).toBeEnabled(), WAIT)
     await user.click(download)
     expect(await within(again).findByText('No. SI-0000001', {}, WAIT)).toBeInTheDocument()
-    expect(invoiceNoFor(transaction.id)).toBe('SI-0000001')
+    expect(invoiceNoFor(detail.id)).toBe('SI-0000001')
     expect(render_.mock.calls[0][0].invoiceNo).toBe('SI-0000001')
     expect(await within(again).findByText(/Previously issued as SI-0000001 · next copy will be stamped DUPLICATE \(reprint 1\)/, {}, WAIT)).toBeInTheDocument()
   })
@@ -258,7 +291,7 @@ describe('the invoice in the transaction drawer', () => {
     const second = screen.getByRole('alert')
     expect(within(second).queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
     expect(within(second).getByRole('button', { name: 'Reload page' })).toBeInTheDocument()
-    expect(invoiceNoFor(transaction.id)).toBeUndefined()
+    expect(invoiceNoFor(detail.id)).toBeUndefined()
     expect(saved).toHaveLength(0)
   })
 
@@ -291,6 +324,50 @@ describe('the invoice in the transaction drawer', () => {
     expect(within(dialog).getByRole('button', { name: 'Download PDF' })).toBeDisabled()
     expect(within(dialog).getByRole('button', { name: 'Print' })).toBeDisabled()
     expect(within(dialog).getByText(INVOICE_NOTICE)).toBeInTheDocument()
-    expect(invoiceNoFor(transaction.id)).toBeUndefined()
+    expect(invoiceNoFor(detail.id)).toBeUndefined()
+  })
+})
+
+describe('the invoice of a real account', () => {
+  beforeEach(() => {
+    account.sample = false
+    vi.mocked(fetchAdminTransaction).mockResolvedValue(payment)
+    vi.mocked(fetchAdminOrder).mockResolvedValue(adminOrderDetail({ id: transaction.orderId, orderNumber: 'SF-10001' }))
+  })
+
+  it('shows the order and builds the invoice from it, with the real payment method and the placeholder seller', async () => {
+    const user = userEvent.setup()
+    const dialog = await openPreview(user)
+    expect(fetchAdminOrder).toHaveBeenCalledWith(transaction.orderId, expect.anything())
+    const sheet = await within(dialog).findByRole('article', {}, WAIT)
+    expect(within(sheet).getByText('Heritage Polo')).toBeInTheDocument()
+    expect(within(sheet).getByText('Delivery fee')).toBeInTheDocument()
+    expect(within(sheet).getByText('GCash')).toBeInTheDocument()
+    expect(within(sheet).getByText('Sample merchant profile')).toBeInTheDocument()
+    expect(within(dialog).getByText(INVOICE_NOTICE)).toBeInTheDocument()
+  })
+
+  it('downloads JSON with the real method and the placeholder numbering', async () => {
+    const user = userEvent.setup()
+    const dialog = await openPreview(user)
+    await user.click(within(dialog).getByRole('radio', { name: 'JSON' }))
+    const download = within(dialog).getByRole('button', { name: 'Download JSON' })
+    await waitFor(() => expect(download).toBeEnabled(), WAIT)
+    await user.click(download)
+    await waitFor(() => expect(saved).toHaveLength(1), WAIT)
+    const json = JSON.parse(await saved[0].blob.text())
+    expect(json).toMatchObject({ invoiceNo: 'SI-0000001', paymentMethod: 'GCash', notice: INVOICE_NOTICE, seller: { sample: true } })
+    expect(json.totals.totalAmountDue).toBe(3879)
+  })
+
+  it('says the items could not load, with Retry, and keeps the Invoice off until they do', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetchAdminOrder).mockRejectedValueOnce(new Error('down'))
+    renderDrawer()
+    const alert = await screen.findByRole('alert', {}, WAIT)
+    expect(alert).toHaveTextContent("We couldn't load the items.")
+    expect(screen.getByRole('button', { name: 'Invoice' })).toBeDisabled()
+    await user.click(within(alert).getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Invoice' })).toBeEnabled(), WAIT)
   })
 })

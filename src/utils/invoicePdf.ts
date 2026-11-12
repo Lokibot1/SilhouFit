@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf'
 import boldUrl from '../assets/fonts/NotoSans-700Bold.subset.ttf?url'
 import regularUrl from '../assets/fonts/NotoSans-400Regular.subset.ttf?url'
 import { formatPeso, formatPlacedAt } from './format'
-import { INVOICE_NOTICE, PAYMENT_LABELS, RETURN_NOTICE, type Invoice } from './invoiceTax'
+import { INVOICE_NOTICE, paymentText, RETURN_NOTICE, type Invoice } from './invoiceTax'
 
 // Loaded on demand (this module is a lazy chunk). The subset fonts are Noto Sans (SIL OFL) with the peso sign, which the built-in PDF fonts lack.
 const FAMILY = 'NotoSans'
@@ -152,7 +152,7 @@ export async function renderInvoicePdf(source: Invoice): Promise<InvoicePdf> {
   const meta: [string, string][] = [
     ['Date and time', formatPlacedAt(invoice.placedAt)],
     ['Order', invoice.orderNo],
-    ['Payment', invoice.paymentMethod ? PAYMENT_LABELS[invoice.paymentMethod] : 'Not recorded'],
+    ['Payment', paymentText(invoice)],
     ['Sold to', buyer ? buyer.name : 'Walk-in customer'],
     ...(buyer ? ([['Buyer TIN', buyer.tin], ['Buyer address', buyer.address]] as [string, string][]) : []),
   ]

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { formatPeso, formatPlacedAt } from '../../../utils/format'
-import { INVOICE_NOTICE, PAYMENT_LABELS, RETURN_NOTICE, type Invoice, type VatClass } from '../../../utils/invoiceTax'
+import { INVOICE_NOTICE, paymentText, RETURN_NOTICE, type Invoice, type VatClass } from '../../../utils/invoiceTax'
 
 const money = (centavos: number) => formatPeso(centavos / 100)
 const VAT_TAG: Record<VatClass, string> = { vatable: '', exempt: 'VAT-exempt', zero: 'Zero-rated' }
@@ -71,7 +71,7 @@ export function InvoiceSheet({ invoice }: { invoice: Invoice }) {
           <time dateTime={invoice.placedAt}>{formatPlacedAt(invoice.placedAt)}</time>
         </Field>
         <Field label="Order">{invoice.orderNo}</Field>
-        <Field label="Payment">{invoice.paymentMethod ? PAYMENT_LABELS[invoice.paymentMethod] : 'Not recorded'}</Field>
+        <Field label="Payment">{paymentText(invoice)}</Field>
         <Field label="Sold to">{buyer ? buyer.name : 'Walk-in customer'}</Field>
         {buyer && (
           <>

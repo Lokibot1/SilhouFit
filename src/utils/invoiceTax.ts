@@ -14,6 +14,10 @@ export const RETURN_NOTICE = 'Credit note / BIR return handling is not generated
 
 export const PAYMENT_LABELS: Record<PaymentMethod, string> = { gcash: 'GCash', maya: 'Maya', cod: 'Cash on delivery' }
 
+/** How the invoice names the payment: the real method's own label when it has one, else the sample method's. */
+export const paymentText = ({ paymentLabel, paymentMethod }: Pick<Invoice, 'paymentLabel' | 'paymentMethod'>) =>
+  paymentLabel ?? (paymentMethod ? PAYMENT_LABELS[paymentMethod] : 'Not recorded')
+
 /** 1290.5 -> 129050. */
 export const toCentavos = (pesos: number) => Math.round(pesos * 100)
 
@@ -64,6 +68,8 @@ export interface Invoice {
   /** Null for a walk-in customer. */
   buyer: Buyer | null
   paymentMethod: PaymentMethod | null
+  /** The payment method's name for real orders, whose methods are more than the sample three. */
+  paymentLabel?: string
   lines: InvoiceLine[]
   totals: InvoiceTotals
   /** 0 is the original; each later export is a duplicate copy with this reprint number. */
@@ -86,6 +92,7 @@ export function buildInvoice(detail: TransactionDetail, seller: MerchantProfile,
     seller,
     buyer: detail.buyer ?? null,
     paymentMethod: detail.paymentMethod ?? null,
+    paymentLabel: detail.paymentLabel,
     lines,
     totals: computeTotals(lines, seller.vatRegistered),
     reprintCount,
