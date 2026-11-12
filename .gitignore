@@ -48,3 +48,6 @@ playwright-report/
 *.jks
 *.keystore
 keystore.properties
+
+# Source archive for src/assets/t-shirt.glb
+src/assets/t-shirt.zip
