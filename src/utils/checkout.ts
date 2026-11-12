@@ -14,9 +14,6 @@ export interface CheckoutItem {
   itemId?: string
 }
 
-export type Payment = 'ewallet' | 'cash'
-export type Provider = 'gcash' | 'maya'
-
 /** The sample orders' shipping rule: a flat fee, free once the subtotal reaches the threshold. Real orders use the quoted delivery fee. */
 export const SHIPPING_FEE = 150
 export const FREE_SHIPPING_THRESHOLD = 2500

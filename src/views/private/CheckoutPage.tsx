@@ -32,8 +32,6 @@ import {
   resolveCartItems,
   saveLastOrder,
   type CheckoutItem,
-  type Payment,
-  type Provider,
 } from '../../utils/checkout'
 import {
   ADDRESS_FIELD_ORDER,
@@ -61,7 +59,7 @@ import { hasProfanity, PROFANITY_ERROR } from '../../utils/profanity'
 import { LIMITS, sanitizePhoneDigits, validatePhone } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
-  'Review your SilhouFit order, pick a saved delivery address and add a note for the seller. Online payment opens soon, so your order is held as awaiting payment.'
+  'Review your SilhouFit order, pick a saved delivery address and add a note for the seller. You pay on a secure payment page right after placing your order.'
 
 const SECTION = 'border border-kral-rule p-5'
 const HEADING = 'font-kral-display flex items-center gap-2 text-lg leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-xl'
@@ -295,8 +293,6 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const wishlist = useWishlist()
   const toast = useToast()
   const wide = useMediaQuery('(min-width: 1024px)')
-  const [payment, setPayment] = useState<Payment>('ewallet')
-  const [provider, setProvider] = useState<Provider>('gcash')
   const [values, setValues] = useState<AddressValues>({
     fullName: filterFullName(user.name),
     phone: '',
@@ -857,18 +853,11 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
         </Modal>
 
         <section data-tour="checkout-payment" className={SECTION}>
-          <PaymentMethods
-            payment={payment}
-            provider={provider}
-            onChange={(nextPayment, nextProvider) => {
-              setPayment(nextPayment)
-              setProvider(nextProvider)
-            }}
-          />
+          <PaymentMethods />
           <p className="font-kral-mono mt-1 text-base text-kral-muted md:text-sm">
             {simulated
               ? 'This is a prototype: no payment is taken.'
-              : "You'll pay online after placing your order. Online payment opens soon, so your order is held as Awaiting payment."}
+              : "You'll pay on a secure payment page after placing your order."}
           </p>
         </section>
 

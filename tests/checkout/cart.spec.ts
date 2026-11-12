@@ -164,9 +164,9 @@ test('can be done with the keyboard alone: cart page to the success page', async
   await expect(page).toHaveURL(/\/checkout\?source=cart&line=/)
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible({ timeout: 15000 })
   await savedAddress(page)
-  await tabTo(page, page.getByRole('radio', { name: 'GCash' }))
-  await page.keyboard.press('ArrowRight') // cash on delivery is disabled, so the arrows stay on the e-wallet
-  await expect(page.getByRole('radio', { name: 'GCash' })).toBeChecked()
+  await tabTo(page, page.getByRole('radio', { name: 'Pay online' }))
+  await page.keyboard.press('ArrowRight') // cash on delivery is disabled, so the arrows stay on Pay online
+  await expect(page.getByRole('radio', { name: 'Pay online' })).toBeChecked()
   await expect(page.getByRole('radio', { name: 'Cash on delivery' })).toBeDisabled()
   await tabTo(page, placeOrderButton(page))
   await page.keyboard.press('Enter')

@@ -103,8 +103,8 @@ const STEPS: TourStep[] = [
       },
       {
         targets: ['checkout-payment'],
-        body: 'Pay with GCash, Maya or cash. SilhouFit is a prototype, so no payment is taken.',
-        fallback: 'You can pay with GCash, Maya or cash. SilhouFit is a prototype, so no payment is taken.',
+        body: 'Pay online with GCash, Maya, card and more on a secure payment page. SilhouFit is a prototype, so no payment is taken.',
+        fallback: 'You can pay online with GCash, Maya, card and more. SilhouFit is a prototype, so no payment is taken.',
       },
       {
         targets: ['checkout-place'],

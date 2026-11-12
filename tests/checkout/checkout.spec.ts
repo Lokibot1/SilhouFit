@@ -8,7 +8,7 @@ import { mockPsgc } from '../shared/psgc'
 import { DEMO, signedIn } from '../shared/session'
 
 // Checkout places a real order: POST /orders with a saved, pinned address and the cart lines' ids. Cash on delivery is disabled
-// (the API has no such method), so the e-wallet is the one payment, and the order is held as Awaiting payment. Everything is mocked.
+// (the API has no such method), so Pay online is the one payment (the method is picked on the provider's page), and the order is held as Awaiting payment. Everything is mocked.
 
 const MIN_TARGET = 44
 const COMPACT_TARGET = 36
@@ -90,7 +90,7 @@ test('Buy now to success: delivery total and ETA, the order is Awaiting payment,
 
   await expect(summary(page)).toContainText('₱1,989.00') // 1,890 + 99 delivery
   await expect(summary(page)).toContainText(/Arrives \w{3}, \w{3} \d+ – \w{3}, \w{3} \d+/)
-  await expect(page.getByRole('radio', { name: 'GCash' })).toBeChecked()
+  await expect(page.getByRole('radio', { name: 'Pay online' })).toBeChecked()
 
   await placeOrderButton(page).click()
   await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
@@ -157,30 +157,37 @@ test('without a note the order carries no customerNotes key, and My orders opens
   await expect(page.getByRole('article', { name: shop.orders.orders[0].orderNumber })).toBeVisible()
 })
 
-test('cash on delivery is shown but disabled with a reason, and the e-wallet is the default', async ({ page }) => {
+test('Pay online is the default and cash on delivery is shown but unavailable, with a tooltip', async ({ page }) => {
   await openCheckout(page)
   const cod = page.getByRole('radio', { name: 'Cash on delivery' })
   await expect(cod).toBeDisabled()
   await expect(cod).not.toBeChecked()
-  await expect(cod).toHaveAccessibleDescription("Cash on delivery isn't available yet.")
-  await expect(page.getByRole('radio', { name: 'GCash' })).toBeChecked()
-  await expect(page.getByText("You'll pay online after placing your order. Online payment opens soon, so your order is held as Awaiting payment.")).toBeVisible()
+  await expect(cod).toHaveAccessibleDescription('Unavailable for now')
+  await expect(page.getByRole('radio', { name: 'Pay online' })).toBeChecked()
+  await expect(page.getByText("You'll pay on a secure payment page after placing your order.")).toBeVisible()
+  await expect(page.getByRole('button', { name: 'View all options' })).toHaveCount(0)
 
-  // Clicking the disabled card changes nothing.
-  await cod.locator('xpath=ancestor::label').click({ force: true })
-  await expect(page.getByRole('radio', { name: 'GCash' })).toBeChecked()
+  // Clicking the disabled row changes nothing.
+  const row = cod.locator('xpath=ancestor::label')
+  await row.click({ force: true })
+  await expect(page.getByRole('radio', { name: 'Pay online' })).toBeChecked()
 
-  // The full list says why too, and Maya is a choice.
-  await page.getByRole('button', { name: 'View all options' }).click()
-  const list = page.getByRole('dialog', { name: 'Payment method' })
-  await expect(list.getByText("Cash on delivery isn't available yet.")).toBeVisible()
-  await expect(list.getByRole('radio', { name: 'Cash on delivery' })).toBeDisabled()
-  await list.getByRole('radio', { name: 'Maya' }).locator('xpath=ancestor::label').click()
-  await list.getByRole('button', { name: 'Continue' }).click()
-  await expect(page.locator('#main-content').getByRole('radio', { name: 'Maya' })).toBeChecked()
+  // Hovering anywhere on the row fades the tooltip in; moving off fades it out.
+  await page.locator('legend', { hasText: 'Payment method' }).hover() // the click left the pointer on the row
+  await row.hover()
+  await expect(page.getByRole('tooltip', { name: 'Unavailable for now' })).toHaveText('Unavailable for now')
+  await page.locator('legend', { hasText: 'Payment method' }).hover()
+  await expect(page.getByRole('tooltip', { name: 'Unavailable for now' })).toHaveCount(0)
+
   await placeOrderButton(page).click()
   await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
   expect(Object.keys(shop.orders.posts[0])).not.toContain('paymentMethod') // the choice is not sent
+})
+
+test('keyboard focus on the cash on delivery info button shows its tooltip', async ({ page }) => {
+  await openCheckout(page)
+  await tabTo(page, page.getByRole('button', { name: 'About Cash on delivery' }))
+  await expect(page.getByRole('tooltip', { name: 'Unavailable for now' })).toHaveText('Unavailable for now')
 })
 
 test('with no saved address, Place order opens the address sheet asking for a map pin and sends nothing', async ({ page }) => {
@@ -384,9 +391,9 @@ test('can be completed with the keyboard alone, from the sheet to the success pa
 
   await expect(page).toHaveURL(/\/checkout\?item=/)
   await expect(page.getByRole('heading', { name: 'Delivery address' }).locator('xpath=ancestor::section')).toContainText('12 Rizal Avenue', { timeout: 15000 })
-  await tabTo(page, page.getByRole('radio', { name: 'GCash' })) // the checked radio holds the tab stop
+  await tabTo(page, page.getByRole('radio', { name: 'Pay online' })) // the checked radio holds the tab stop
   await page.keyboard.press('ArrowRight') // cash on delivery is disabled, so the arrows skip it
-  await expect(page.getByRole('radio', { name: 'GCash' })).toBeChecked()
+  await expect(page.getByRole('radio', { name: 'Pay online' })).toBeChecked()
   await expect(page.getByRole('radio', { name: 'Cash on delivery' })).not.toBeChecked()
   await tabTo(page, placeOrderButton(page))
   await page.keyboard.press('Enter')
@@ -417,13 +424,13 @@ test.describe('at 320px', () => {
     await expect(sheet.getByRole('button', { name: 'Add to cart' })).toBeInViewport({ ratio: 1 }) // the action stays in view
   })
 
-  test('the checkout page fits with no horizontal scroll, with the payment list open too', async ({ page }) => {
+  test('the checkout page fits with no horizontal scroll, payment section included', async ({ page }) => {
     await openCheckout(page)
     expect(await overflows(page)).toBe(false)
     await expectTarget(placeOrderButton(page), 'Place order', false)
     await expectTarget(page.getByRole('button', { name: 'Change delivery address' }), 'Change delivery address', false)
-    await page.getByRole('button', { name: 'View all options' }).click()
-    await expect(page.getByRole('dialog', { name: 'Payment method' }).getByText("Cash on delivery isn't available yet.")).toBeVisible()
+    await expect(page.getByText('Unavailable for now')).toBeVisible()
+    await expectTarget(page.getByRole('radio', { name: 'Pay online' }).locator('xpath=ancestor::label'), 'Pay online', false)
     expect(await overflows(page)).toBe(false)
   })
 

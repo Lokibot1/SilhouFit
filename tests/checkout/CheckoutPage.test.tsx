@@ -257,18 +257,59 @@ describe('CheckoutPage options and totals', () => {
     expect(screen.getByRole('complementary')).not.toHaveTextContent('Sale discount')
   })
 
-  it('offers GCash and Maya under E-Wallet, with cash on delivery switched off', async () => {
+  it('selects Pay online by default and lists the methods the payment page accepts', async () => {
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    const online = screen.getByRole('radio', { name: 'Pay online' })
+    expect(online).toBeChecked()
+    expect(online).toHaveAccessibleDescription(/GCash, Maya, card, GrabPay, online banking or BillEase/)
+    expect(screen.getByAltText('GCash')).toBeInTheDocument()
+    expect(screen.getByAltText('Maya')).toBeInTheDocument()
+    for (const name of ['Card', 'GrabPay', 'Online banking', 'BillEase']) expect(screen.getByText(name)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /View all options/ })).toBeNull()
+  })
+
+  it('shows cash on delivery as unavailable: it cannot be chosen by click or keyboard', async () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
-    expect(screen.getByRole('radio', { name: 'GCash' })).toBeChecked()
-    await user.click(screen.getByRole('button', { name: /View all options/ }))
-    const sheet = within(screen.getByRole('dialog'))
-    await user.click(sheet.getByRole('radio', { name: 'Maya' }))
-    await user.click(sheet.getByRole('button', { name: 'Continue' }))
-    expect(screen.getByRole('radio', { name: 'Maya' })).toBeChecked()
-    await user.click(screen.getByRole('button', { name: /View all options/ }))
-    expect(within(screen.getByRole('dialog')).getByRole('radio', { name: /Cash on delivery/ })).toBeDisabled()
+    const cash = screen.getByRole('radio', { name: 'Cash on delivery' })
+    expect(cash).toBeDisabled()
+    expect(cash).toHaveAccessibleDescription('Unavailable for now')
+    await user.click(cash)
+    expect(cash).not.toBeChecked()
+    await user.click(screen.getByText('Cash on delivery'))
+    expect(cash).not.toBeChecked()
+    const online = screen.getByRole('radio', { name: 'Pay online' })
+    online.focus()
+    await user.keyboard('{ArrowDown}')
+    expect(online).toBeChecked()
+    expect(cash).not.toBeChecked()
+  })
+
+  it('explains the unavailable cash on delivery in a tooltip when hovering anywhere on its row', async () => {
+    const user = userEvent.setup({ delay: null })
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await user.hover(screen.getByText('Cash on delivery'))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Unavailable for now')
+    await user.unhover(screen.getByText('Cash on delivery'))
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull())
+  })
+
+  it('shows the same tooltip when the cash on delivery info button gets keyboard focus', async () => {
+    const user = userEvent.setup({ delay: null })
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    // jsdom's :focus-visible depends on earlier pointer events in the file, so treat a focus here as keyboard focus.
+    const matches = Element.prototype.matches
+    vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector: string) {
+      return selector === ':focus-visible' || matches.call(this, selector)
+    })
+    const info = screen.getByRole('button', { name: 'About Cash on delivery' })
+    for (let i = 0; i < 40 && document.activeElement !== info; i++) await user.tab() // the disabled radio is skipped
+    expect(info).toHaveFocus()
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Unavailable for now')
   })
 })
 
