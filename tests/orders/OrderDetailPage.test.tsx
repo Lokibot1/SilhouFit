@@ -12,6 +12,7 @@ import { customerOrder, ORDER_ID, shipment } from '../fixtures/orders'
 const api = vi.hoisted(() => ({
   fetchOrder: vi.fn(),
   cancelOrder: vi.fn(),
+  createCheckoutSession: vi.fn(),
   getCachedOrders: vi.fn(() => null),
   getCachedOrder: vi.fn(() => null),
   onOrdersChanged: vi.fn(() => () => {}),
@@ -90,6 +91,17 @@ describe('OrderDetailPage', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('tells the shopper their payment was received when the payment service says the order is already paid', async () => {
+    api.createCheckoutSession.mockRejectedValue(new OrdersError('already-paid'))
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Pay now' }))
+    expect(await screen.findByText(/We received your payment/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pay now' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Cancel order' })).toBeNull()
+    expect(screen.queryByText(/couldn't open the payment page/)).toBeNull()
+    expect(api.fetchOrder).toHaveBeenCalledTimes(2)
   })
 
   it('sends a signed-out visitor to login and back here', async () => {

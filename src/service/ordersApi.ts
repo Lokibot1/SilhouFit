@@ -77,8 +77,8 @@ export interface OrdersPage {
   meta: { total: number; page: number; limit: number; totalPages: number; hasNextPage: boolean }
 }
 
-/** 'no-coordinates': the saved address has no map pin. 'not-cancellable': the order moved on. 'quote-expired': the delivery fee quote ran out or no longer fits. 'simulated' is kept for callers that gate on it. */
-export type OrdersErrorKind = ProductListErrorKind | 'simulated' | 'no-coordinates' | 'not-cancellable' | 'quote-expired'
+/** 'no-coordinates': the saved address has no map pin. 'not-cancellable': the order moved on. 'quote-expired': the delivery fee quote ran out or no longer fits. 'already-paid': the payment service already took the payment, but the order has not caught up yet. 'simulated' is kept for callers that gate on it. */
+export type OrdersErrorKind = ProductListErrorKind | 'simulated' | 'no-coordinates' | 'not-cancellable' | 'quote-expired' | 'already-paid'
 
 export class OrdersError extends Error {
   kind: OrdersErrorKind
@@ -180,6 +180,7 @@ function toOrdersError(failure: unknown, operation: Operation): unknown {
   const told = detail ?? ''
   if (kind === 'validation') {
     if (operation === 'cancel') return new OrdersError('not-cancellable', undefined, status)
+    if (operation === 'pay' && /already been paid/i.test(told)) return new OrdersError('already-paid', undefined, status)
     if (operation === 'quote' && /coordinates/i.test(told)) return new OrdersError('no-coordinates', 'Pin this address on the map so we can deliver to it.', status)
     if (operation === 'create') {
       if (/coordinates/i.test(told)) return new OrdersError('no-coordinates', 'Pin this address on the map so we can deliver to it.', status)

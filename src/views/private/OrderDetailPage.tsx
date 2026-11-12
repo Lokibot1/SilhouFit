@@ -16,7 +16,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useOrder } from '../../hooks/useOrders'
-import { createCheckoutSession, usesSampleOrders, type CustomerOrder } from '../../service/ordersApi'
+import { createCheckoutSession, OrdersError, usesSampleOrders, type CustomerOrder } from '../../service/ordersApi'
 import { formatOrderTime, formatPeso, variantLabel } from '../../utils/format'
 import { notificationSentence } from '../../utils/notifications'
 import { adaptOrderToReceipt, buildTimeline, canBuyAgain, canCancel, canPay, hasShipped, paymentStatusLabel, trackingLink } from '../../utils/orders'
@@ -36,16 +36,18 @@ function Row({ label, children, strong = false }: { label: string; children: Rea
   )
 }
 
-function OrderBody({ order, onCancel }: { order: CustomerOrder; onCancel: (order: CustomerOrder) => void }) {
+function OrderBody({ order, onCancel, onRefresh }: { order: CustomerOrder; onCancel: (order: CustomerOrder) => void; onRefresh: () => void }) {
   const toast = useToast()
   const { busy, buyAgain } = useBuyAgain()
   const [downloading, setDownloading] = useState(false)
   const [receiptFailed, setReceiptFailed] = useState(false)
   const [paying, setPaying] = useState(false)
   const [payFailed, setPayFailed] = useState(false)
+  // The payment service says it already has the payment while the order still reads unpaid: the order is catching up.
+  const [alreadyPaid, setAlreadyPaid] = useState(false)
   const { shipment } = order
   const track = trackingLink(order)
-  const payable = canPay(order) && !usesSampleOrders()
+  const payable = canPay(order) && !usesSampleOrders() && !alreadyPaid
 
   async function payNow() {
     if (paying) return
@@ -53,8 +55,12 @@ function OrderBody({ order, onCancel }: { order: CustomerOrder; onCancel: (order
     setPayFailed(false)
     try {
       window.location.assign(await createCheckoutSession(order.id))
-    } catch {
-      setPayFailed(true)
+    } catch (problem) {
+      if (problem instanceof OrdersError && problem.kind === 'already-paid') {
+        setAlreadyPaid(true)
+        toast.show({ kind: 'success', message: 'Your payment was received. Your order is updating.' })
+        onRefresh()
+      } else setPayFailed(true)
       setPaying(false)
     }
   }
@@ -210,6 +216,11 @@ function OrderBody({ order, onCancel }: { order: CustomerOrder; onCancel: (order
               Pay now
             </button>
           )}
+          {alreadyPaid && order.status === 'PENDING_PAYMENT' && (
+            <p role="status" className="font-kral-mono text-base leading-snug text-kral-fg md:text-sm">
+              We received your payment, but this order has not caught up yet. This can take a few minutes. This page updates on its own, so there is nothing to pay again.
+            </p>
+          )}
           {payFailed && (
             <p role="alert" className="font-kral-mono text-base leading-snug text-danger md:text-sm">
               We couldn&apos;t open the payment page. The payment service did not answer, so nothing was charged. Press Pay now to try again.
@@ -231,7 +242,7 @@ function OrderBody({ order, onCancel }: { order: CustomerOrder; onCancel: (order
             <MessageIcon size={16} />
             Contact seller
           </Link>
-          {canCancel(order) && (
+          {canCancel(order) && !alreadyPaid && (
             <button type="button" onClick={() => onCancel(order)} className={KRAL_DANGER}>
               Cancel order
             </button>
@@ -315,7 +326,7 @@ function OrderPage({ id }: { id: string }) {
         </div>
       )}
 
-      {order && <OrderBody order={order} onCancel={cancel.open} />}
+      {order && <OrderBody order={order} onCancel={cancel.open} onRefresh={refresh} />}
 
       <CancelOrderModal
         open={cancel.target !== null}
