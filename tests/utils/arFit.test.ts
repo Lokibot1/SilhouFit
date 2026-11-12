@@ -16,6 +16,12 @@ describe('compareFit', () => {
     expect(regions.sleeve).toEqual({ easeCm: 1, level: 'fitted' })
   })
 
+  it('does not compare a short sleeve with the whole arm', () => {
+    const fit = compareFit(BODY, { chestWidthCm: 55, sleeveLengthCm: 21 })
+    expect(fit.regions.sleeve).toBeUndefined()
+    expect(fit.overall).toBe('regular')
+  })
+
   it('labels the ease from too tight to oversized', () => {
     const levelAt = (width: number) => compareFit(BODY, { chestWidthCm: width }).regions.chest?.level
     expect(levelAt(49)).toBe('too-tight') // ease -2

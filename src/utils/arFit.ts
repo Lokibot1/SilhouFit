@@ -30,6 +30,9 @@ const REGIONS: Record<FitRegion, { body: keyof Entered; garment: MeasurementKey;
   sleeve: { body: 'sleeve', garment: 'sleeveLengthCm', factor: 1, limits: [-2, 2, 5, 9] },
 }
 
+/** A garment sleeve shorter than this share of the arm is a short sleeve: it covers part of the arm, so it is not compared with the whole arm. */
+const MIN_SLEEVE_SHARE = 0.6
+
 /** The chest ease a recommended size aims for: the middle of "regular". */
 const TARGET_CHEST_EASE = 8
 
@@ -45,6 +48,7 @@ export function compareFit(body: Entered, garment: GarmentValues): Fit {
     const bodyCm = body[spec.body]
     const garmentCm = garment[spec.garment]
     if (bodyCm === undefined || garmentCm === null || garmentCm === undefined) continue
+    if (region === 'sleeve' && garmentCm < bodyCm * MIN_SLEEVE_SHARE) continue
     const easeCm = round1(garmentCm * spec.factor - bodyCm)
     regions[region] = { easeCm, level: levelOf(easeCm, spec.limits) }
   }
