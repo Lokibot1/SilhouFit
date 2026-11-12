@@ -96,10 +96,23 @@ export function loadSeen(email: string | undefined): Seen {
   }
 }
 
+const listeners = new Set<() => void>()
+
+/** Runs when the seen list is saved here or in another tab, so the bell and the notifications page stay in step. */
+export function onSeenChanged(listener: () => void) {
+  listeners.add(listener)
+  window.addEventListener('storage', listener)
+  return () => {
+    listeners.delete(listener)
+    window.removeEventListener('storage', listener)
+  }
+}
+
 export function saveSeen(email: string | undefined, seen: Seen) {
   if (!email) return
   try {
     localStorage.setItem(KEY, JSON.stringify({ email, seen }))
+    listeners.forEach((listener) => listener())
   } catch {
     // Storage blocked: the entries show as unread again next visit.
   }

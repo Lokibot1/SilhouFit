@@ -81,7 +81,7 @@ test('Escape closes the panel and returns focus to the bell; Tab and the arrows 
   await page.keyboard.press('Shift+Tab')
   await expect(panel(page).getByRole('button', { name: 'Mark all read' })).toBeFocused()
   await page.keyboard.press('Shift+Tab')
-  await expect(panel(page).getByRole('link', { name: 'View all orders' })).toBeFocused()
+  await expect(panel(page).getByRole('link', { name: 'View all notifications' })).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(panel(page).getByRole('button', { name: 'Mark all read' })).toBeFocused()
 

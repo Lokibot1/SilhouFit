@@ -6,6 +6,7 @@ import { CallbackSkeleton } from './components/form/CallbackSkeleton'
 import { LoginSkeleton } from './components/form/LoginSkeleton'
 import { SignUpSkeleton } from './components/form/SignUpSkeleton'
 import { CheckoutRouteFallback } from './components/checkout/CheckoutSkeleton'
+import { NotificationsSkeleton } from './components/notifications/NotificationsSkeleton'
 import { OrderDetailSkeleton, OrdersSkeleton } from './components/orders/OrdersSkeleton'
 import { Layout } from './components/Layout'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
@@ -79,6 +80,9 @@ const OrderSuccessPage = lazy(() =>
 
 const OrdersPage = lazy(() =>
   import('./views/private/OrdersPage').then((m) => ({ default: m.OrdersPage })),
+)
+const NotificationsPage = lazy(() =>
+  import('./views/private/NotificationsPage').then((m) => ({ default: m.NotificationsPage })),
 )
 const OrderDetailPage = lazy(() =>
   import('./views/private/OrderDetailPage').then((m) => ({ default: m.OrderDetailPage })),
@@ -372,6 +376,14 @@ function App() {
                 element={
                   <Suspense fallback={<OrdersSkeleton />}>
                     <OrdersPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="notifications"
+                element={
+                  <Suspense fallback={<NotificationsSkeleton />}>
+                    <NotificationsPage />
                   </Suspense>
                 }
               />

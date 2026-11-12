@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { DURATION, EASE_OUT } from '../motion/tokens'
 import { useLivePoll } from '../hooks/useLivePoll'
 import { getCachedOrders, loadAllOrders, onOrdersChanged, onOrdersMerged, pollOrders, type CustomerOrder } from '../service/ordersApi'
-import { buildNotifications, isUnread, loadSeen, markSeen, relativeTime, saveSeen, unreadCount, type Notification, type Seen } from '../utils/notifications'
+import { buildNotifications, isUnread, loadSeen, markSeen, onSeenChanged, relativeTime, saveSeen, unreadCount, type Notification, type Seen } from '../utils/notifications'
 import { BellIcon } from './form/icons'
 import { computePlace } from './ui/listbox'
 import { KRAL_ICON_BUTTON, KRAL_ICON_COUNT } from './ui/kralIconButton'
@@ -63,6 +63,9 @@ export function NotificationsBell({ email }: { email?: string }) {
     }
   }, [load])
   useLivePoll(pollOrders, { enabled: orders !== null })
+
+  // The notifications page saves to the same list; follow it.
+  useEffect(() => onSeenChanged(() => setSeen(loadSeen(email))), [email])
 
   const markAllRead = useCallback(() => {
     const next = markSeen(latest.current)
@@ -219,11 +222,11 @@ export function NotificationsBell({ email }: { email?: string }) {
                 )}
               </div>
               <Link
-                to="/orders"
+                to="/notifications"
                 onClick={() => close(false)}
                 className="kral-focus font-kral-mono flex min-h-11 items-center border-t border-kral-rule px-3 text-base tracking-[0.08em] uppercase transition-colors duration-150 ease-out hover:bg-kral-fg hover:text-kral-bg focus-visible:bg-kral-fg focus-visible:text-kral-bg motion-reduce:transition-none"
               >
-                View all orders
+                View all notifications
               </Link>
             </motion.div>
           )}

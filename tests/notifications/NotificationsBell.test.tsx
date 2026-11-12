@@ -58,12 +58,12 @@ describe('NotificationsBell', () => {
     const open = within(panel())
     expect(open.getByText('2 unread')).toBeInTheDocument()
     const links = open.getAllByRole('link')
-    expect(links.map((link) => link.getAttribute('href'))).toEqual([`/orders/${id(2)}`, `/orders/${id(1)}`, '/orders'])
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([`/orders/${id(2)}`, `/orders/${id(1)}`, '/notifications'])
     expect(links[0]).toHaveTextContent('SHF-2')
     expect(links[0]).toHaveTextContent('Your order was delivered')
     expect(links[0]).toHaveTextContent('Unread')
     expect(links[1]).toHaveTextContent('Your order is waiting for payment')
-    expect(links[2]).toHaveTextContent('View all orders')
+    expect(links[2]).toHaveTextContent('View all notifications')
     expect(open.getByRole('button', { name: 'Mark all read' })).toHaveFocus()
   })
 
@@ -122,7 +122,7 @@ describe('NotificationsBell', () => {
     await user.keyboard('{ArrowDown}')
     expect(open.getAllByRole('link')[0]).toHaveFocus()
     await user.keyboard('{ArrowUp}{ArrowUp}')
-    expect(open.getByRole('link', { name: 'View all orders' })).toHaveFocus()
+    expect(open.getByRole('link', { name: 'View all notifications' })).toHaveFocus()
   })
 
   it('shows a skeleton while the orders load', async () => {
