@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { BoxIcon, CartArrowIcon, DownloadIcon, MessageIcon, SpinnerIcon, StoreIcon } from '../../components/form/icons'
 import { CancelOrderModal } from '../../components/orders/CancelOrderModal'
+import { OrderReviewSection } from '../../components/orders/OrderReviewSection'
 import { OrderStatusChip } from '../../components/orders/OrderStatusChip'
 import { OrderTimeline } from '../../components/orders/OrderTimeline'
 import { OrdersBreadcrumb } from '../../components/orders/OrdersBreadcrumb'
@@ -169,6 +170,8 @@ function OrderBody({ order, onCancel, onRefresh }: { order: CustomerOrder; onCan
             ))}
           </ul>
         </section>
+
+        {order.status === 'DELIVERED' && <OrderReviewSection order={order} />}
 
         {order.note && (
           <section aria-labelledby="order-note" className={SECTION}>
