@@ -21,14 +21,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div className="pointer-events-none fixed inset-x-4 bottom-[calc(max(5rem,var(--cookie-banner-h,0px)+1.75rem,var(--bottom-bar-h,0px)+0.75rem,var(--sheet-footer-h,0px)+0.75rem)+env(safe-area-inset-bottom))] z-[95] flex justify-center lg:inset-x-auto lg:top-[calc(5rem+env(safe-area-inset-top))] lg:bottom-auto lg:right-4 lg:justify-end">
+      <div className="pointer-events-none fixed inset-x-3 top-[calc(0.5rem+env(safe-area-inset-top))] z-[95] flex justify-center sm:inset-x-4 lg:inset-x-auto lg:top-[calc(5rem+env(safe-area-inset-top))] lg:right-4 lg:justify-end">
         <AnimatePresence mode="wait">
           {toast && (
             <motion.div
               key={toast.id}
-              initial={{ opacity: 0, y: reduced ? 0 : 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 0 }}
+              initial={{ opacity: 0, y: reduced ? 0 : -16, scale: reduced ? 1 : 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: reduced ? 0 : -12, scale: reduced ? 1 : 0.97 }}
               transition={{ duration: DURATION.state, ease: EASE_OUT }}
               className="pointer-events-auto w-full max-w-96 lg:w-96"
             >
@@ -83,13 +83,13 @@ function ToastView({ toast, onDismiss }: { toast: ActiveToast; onDismiss: () => 
       onMouseLeave={resume}
       onFocus={pause}
       onBlur={resume}
-      className="glass-card glass-floating [--g-fill:1.2]! flex flex-wrap items-start gap-3 rounded-xl py-2 pr-2 pl-4"
+      className="glass-card glass-floating [--g-fill:1.2]! flex flex-wrap items-start gap-3 rounded-xl py-1 pr-1 pl-3 sm:py-2 sm:pr-2 sm:pl-4"
     >
       <Icon
         size={20}
-        className={`mt-3 ${isError ? 'text-danger' : toast.kind === 'success' ? 'text-success' : 'text-chrome-strong'}`}
+        className={`mt-2.5 sm:mt-3 ${isError ? 'text-danger' : toast.kind === 'success' ? 'text-success' : 'text-chrome-strong'}`}
       />
-      <p className="min-w-0 flex-1 basis-36 py-3 text-base leading-snug text-fg md:text-sm">{toast.message}</p>
+      <p className="min-w-0 flex-1 basis-36 py-2.5 text-base leading-snug sm:py-3 text-fg md:text-sm">{toast.message}</p>
       {toast.action && (
         <button
           type="button"
