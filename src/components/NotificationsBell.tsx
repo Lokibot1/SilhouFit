@@ -14,7 +14,7 @@ import { Tooltip } from './ui/Tooltip'
 const PANEL_WIDTH = 352
 const FOCUSABLE = 'a, button:not(:disabled)'
 const ROW = 'flex min-h-18 w-full items-start gap-3 px-3 py-3 text-kral-fg transition-colors duration-150 ease-out hover:bg-kral-fg/10 focus-visible:bg-kral-fg/10 motion-reduce:transition-none'
-const TEXT_BUTTON = 'kral-focus font-kral-mono flex min-h-11 cursor-pointer items-center justify-center border border-kral-fg px-3 text-base tracking-[0.08em] uppercase text-kral-fg transition-colors duration-150 ease-out hover:bg-kral-fg hover:text-kral-bg disabled:cursor-not-allowed disabled:border-kral-rule disabled:text-kral-muted disabled:hover:bg-transparent disabled:hover:text-kral-muted motion-reduce:transition-none'
+const TEXT_BUTTON = 'kral-focus font-kral-mono relative flex min-h-9 cursor-pointer after:absolute after:-inset-y-1 after:inset-x-0 after:content-[""] items-center justify-center border border-kral-fg px-3 text-xs tracking-[0.08em] uppercase text-kral-fg transition-colors duration-150 ease-out hover:bg-kral-fg hover:text-kral-bg disabled:cursor-not-allowed disabled:border-kral-rule disabled:text-kral-muted disabled:hover:bg-transparent disabled:hover:text-kral-muted motion-reduce:transition-none'
 
 /** The customer navbar's bell: order updates built from their own orders, unread until the panel is closed. Mount it with `key={email}` so each account reads its own seen list. */
 export function NotificationsBell({ email }: { email?: string }) {
@@ -183,8 +183,8 @@ export function NotificationsBell({ email }: { email?: string }) {
             >
               <div className="flex items-center justify-between gap-3 border-b border-kral-rule px-3 py-2">
                 <div className="min-w-0">
-                  <h2 className="text-base font-semibold">Notifications</h2>
-                  <p className="font-kral-mono text-base text-kral-muted tabular-nums md:text-sm">{unread} unread</p>
+                  <h2 className="text-sm font-semibold">Notifications</h2>
+                  <p className="font-kral-mono text-xs text-kral-muted tabular-nums">{unread} unread</p>
                 </div>
                 <button type="button" onClick={markAllRead} disabled={unread === 0} className={TEXT_BUTTON}>
                   Mark all read
@@ -194,7 +194,7 @@ export function NotificationsBell({ email }: { email?: string }) {
                 {state === 'loading' && <Skeleton />}
                 {state === 'error' && (
                   <div className="flex flex-col items-start gap-3 px-3 py-4">
-                    <p className="text-base">We couldn&apos;t load your orders. Check your connection, then try again.</p>
+                    <p className="text-sm">We couldn&apos;t load your orders. Check your connection, then try again.</p>
                     <button type="button" onClick={retry} className={TEXT_BUTTON}>
                       Try again
                     </button>
@@ -203,8 +203,8 @@ export function NotificationsBell({ email }: { email?: string }) {
                 {state === 'empty' && (
                   <div className="flex flex-col items-start gap-3 px-3 py-4">
                     <div>
-                      <p className="text-base font-semibold">No notifications yet</p>
-                      <p className="text-base text-kral-muted">Updates on your orders show up here once you place one.</p>
+                      <p className="text-sm font-semibold">No notifications yet</p>
+                      <p className="text-sm text-kral-muted">Updates on your orders show up here once you place one.</p>
                     </div>
                     <Link to="/shop" onClick={() => close(false)} className={TEXT_BUTTON}>
                       Continue shopping
@@ -224,7 +224,7 @@ export function NotificationsBell({ email }: { email?: string }) {
               <Link
                 to="/notifications"
                 onClick={() => close(false)}
-                className="kral-focus font-kral-mono flex min-h-11 items-center border-t border-kral-rule px-3 text-base tracking-[0.08em] uppercase transition-colors duration-150 ease-out hover:bg-kral-fg hover:text-kral-bg focus-visible:bg-kral-fg focus-visible:text-kral-bg motion-reduce:transition-none"
+                className="kral-focus font-kral-mono flex min-h-11 items-center border-t border-kral-rule px-3 text-xs tracking-[0.08em] uppercase transition-colors duration-150 ease-out hover:bg-kral-fg hover:text-kral-bg focus-visible:bg-kral-fg focus-visible:text-kral-bg motion-reduce:transition-none"
               >
                 View all notifications
               </Link>
@@ -245,12 +245,12 @@ function Row({ entry, unread, onDone }: { entry: Notification; unread: boolean; 
       <span className="min-w-0 flex-1">
         {unread && <span className="sr-only">Unread. </span>}
         <span className="flex items-baseline justify-between gap-3">
-          <span className="font-kral-mono min-w-0 truncate text-base tabular-nums">{entry.orderNumber}</span>
-          <time dateTime={entry.at} className="font-kral-mono shrink-0 text-base text-kral-muted tabular-nums md:text-sm">
+          <span className="font-kral-mono min-w-0 truncate text-sm tabular-nums">{entry.orderNumber}</span>
+          <time dateTime={entry.at} className="font-kral-mono shrink-0 text-xs text-kral-muted tabular-nums">
             {relativeTime(entry.at)}
           </time>
         </span>
-        <span className={`block text-base ${unread ? 'font-semibold' : 'text-kral-muted'}`}>{entry.sentence}</span>
+        <span className={`block text-sm ${unread ? 'font-semibold' : 'text-kral-muted'}`}>{entry.sentence}</span>
       </span>
     </Link>
   )
