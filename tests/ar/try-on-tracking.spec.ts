@@ -4,25 +4,42 @@ import { shirt, stage, start, stubCamera } from '../shared/tryOn'
 // The shirt following the customer's shoulders. MediaPipe is never loaded here: in development the stage reads poses from
 // window.__silhoufitPoseFeed, which these specs drive. The specs assert the DOM and data attributes, never pixels, as WebGL may be software here.
 
+/** An elbow, in video pixels (640 x 480) out to the side of its shoulder and down from it, and its visibility. Absent: no elbow landmark at all. */
+interface Elbow {
+  out: number
+  down: number
+  v: number
+}
+
 declare global {
   interface Window {
-    __feed: { centreX: number; y: number; off: boolean }
+    __feed: { centreX: number; y: number; off: boolean; elbowL?: Elbow; elbowR?: Elbow; yawDeg: number; face?: number }
   }
 }
 
-/** A person facing the camera whose shoulders are 0.2 of the frame apart, centred at raw x `centreX`; `off` is no body in view. */
+/**
+ * A person whose shoulders are 0.2 of the frame apart when facing the camera, centred at raw x `centreX`; `off` is no body in view. `yawDeg` turns
+ * them round (0 facing the camera, 180 facing away; landmark labels stay true to the body, so past 90 the left shoulder is on the screen's right),
+ * and the nose and eyes read `face` visibility, by default 1 facing the camera and 0.1 facing away.
+ */
 async function feedPoses(page: Page) {
   await page.addInitScript(() => {
-    window.__feed = { centreX: 0.5, y: 0.4, off: false }
+    window.__feed = { centreX: 0.5, y: 0.4, off: false, yawDeg: 0 }
     window.__silhoufitPoseFeed = () => {
       const f = window.__feed
       if (f.off) return null
       const image = []
       const world = []
-      image[11] = { x: f.centreX + 0.1, y: f.y, visibility: 1 }
-      image[12] = { x: f.centreX - 0.1, y: f.y, visibility: 1 }
-      world[11] = { x: 0.2, y: 0, z: 0 }
-      world[12] = { x: -0.2, y: 0, z: 0 }
+      const turn = (f.yawDeg * Math.PI) / 180
+      const [cos, sin] = [Math.cos(turn), Math.sin(turn)]
+      image[11] = { x: f.centreX + 0.1 * cos, y: f.y, visibility: 1 }
+      image[12] = { x: f.centreX - 0.1 * cos, y: f.y, visibility: 1 }
+      for (const i of [0, 2, 5]) image[i] = { x: f.centreX, y: f.y - 0.1, visibility: f.face ?? (cos < 0 ? 0.1 : 1) }
+      // Landmarks 13 and 14: the person's left elbow is on the screen's left, so out is a larger raw x there and a smaller one on the right.
+      if (f.elbowL) image[13] = { x: f.centreX + 0.1 + f.elbowL.out / 640, y: f.y + f.elbowL.down / 480, visibility: f.elbowL.v }
+      if (f.elbowR) image[14] = { x: f.centreX - 0.1 - f.elbowR.out / 640, y: f.y + f.elbowR.down / 480, visibility: f.elbowR.v }
+      world[11] = { x: 0.2 * cos, y: 0, z: -0.2 * sin }
+      world[12] = { x: -0.2 * cos, y: 0, z: 0.2 * sin }
       return { image, world }
     }
   })
@@ -34,6 +51,15 @@ async function garment(page: Page) {
   const [x, y, roll, yaw, pxPerCm, width] = raw!.split(',').map(Number)
   return { x, y, roll, yaw, pxPerCm, width }
 }
+
+/** The stage's data-sleeves: the two arm angles in degrees (from hanging straight down), the left of the screen first. */
+async function sleeves(page: Page) {
+  const raw = await page.locator('[data-sleeves]').getAttribute('data-sleeves')
+  return raw!.split(',').map(Number)
+}
+
+/** The stage's data-facing: which way the person is read to face. */
+const facing = (page: Page) => page.locator('[data-facing]').getAttribute('data-facing')
 
 async function goLive(page: Page, options: Parameters<typeof start>[1] = {}) {
   await feedPoses(page)
@@ -102,5 +128,85 @@ test.describe('AR try-on tracking', () => {
     await page.getByRole('button', { name: 'Turn camera off' }).click()
     await expect(page.getByText('Preview: not tracked to your body yet')).toBeVisible()
     await expect(page.locator('[data-tracking="off"]')).toBeVisible()
+  })
+
+  test.describe('a full turn', () => {
+    test('flips front, back, front once each way, with the placement and size finite and bounded all through', async ({ page }) => {
+      await goLive(page)
+      const start = await garment(page)
+      // The feed turns 4 degrees a frame; the page records each attribute change as it happens.
+      const seen = await page.evaluate(async () => {
+        const out: { facing: string | null; garment: string | null; sleeves: string | null }[] = []
+        const host = document.querySelector<HTMLElement>('[data-garment]')!
+        const read = () => out.push({ facing: host.dataset.facing ?? null, garment: host.dataset.garment ?? null, sleeves: host.dataset.sleeves ?? null })
+        for (let deg = 0; deg <= 360; deg += 4) {
+          window.__feed.yawDeg = deg
+          await new Promise((resolve) => setTimeout(resolve, 70))
+          read()
+        }
+        return out
+      })
+      const order = seen.map((s) => s.facing).filter((f, i, all) => f !== all[i - 1])
+      expect(order).toEqual(['front', 'back', 'front'])
+      for (const s of seen) {
+        const [x, y, roll, yaw, pxPerCm, width] = s.garment!.split(',').map(Number)
+        for (const v of [x, y, roll, yaw, pxPerCm, width, ...s.sleeves!.split(',').map(Number)]) expect(Number.isFinite(v)).toBe(true)
+        expect(pxPerCm / start.pxPerCm).toBeGreaterThan(0.5)
+        expect(pxPerCm / start.pxPerCm).toBeLessThan(1.5)
+      }
+    })
+
+    test('stays on the back view while the person faces away, and returns to the front view', async ({ page }) => {
+      await goLive(page)
+      await expect.poll(() => facing(page)).toBe('front')
+      await page.evaluate(() => (window.__feed.yawDeg = 180))
+      await expect.poll(() => facing(page), { timeout: 10000 }).toBe('back')
+      await page.waitForTimeout(500)
+      expect(await facing(page)).toBe('back')
+      await page.evaluate(() => (window.__feed.yawDeg = 0))
+      await expect.poll(() => facing(page), { timeout: 10000 }).toBe('front')
+    })
+  })
+
+  // Sleeve angles are the 2D upper-arm angle clamped to [10, 82] degrees (82 is the model's 42 degree A-pose plus 40).
+  test.describe('sleeves', () => {
+    const hang = { out: 0, down: 100, v: 1 }
+    const reach = (deg: number): Elbow => ({ out: 100 * Math.sin((deg * Math.PI) / 180), down: 100 * Math.cos((deg * Math.PI) / 180), v: 1 })
+
+    test('elbows straight below the shoulders put both sleeves at the lowest angle', async ({ page }) => {
+      await goLive(page)
+      await page.evaluate((e) => Object.assign(window.__feed, { elbowL: e, elbowR: e }), hang)
+      await expect.poll(() => sleeves(page), { timeout: 10000 }).toEqual([10, 10])
+    })
+
+    test('only the arm that lifts rises, on its own side of the screen', async ({ page }) => {
+      await goLive(page)
+      await page.evaluate(([h, r]) => Object.assign(window.__feed, { elbowL: r, elbowR: h }), [hang, reach(60)])
+      await expect.poll(() => sleeves(page), { timeout: 10000 }).toEqual([60, 10])
+      await page.evaluate(([h, r]) => Object.assign(window.__feed, { elbowL: h, elbowR: r }), [hang, reach(60)])
+      await expect.poll(() => sleeves(page), { timeout: 10000 }).toEqual([10, 60])
+    })
+
+    test('an arm straight out or raised above the shoulder stops at the highest angle', async ({ page }) => {
+      await goLive(page)
+      await page.evaluate(([h, r]) => Object.assign(window.__feed, { elbowL: r, elbowR: h }), [hang, reach(90)])
+      await expect.poll(() => sleeves(page), { timeout: 10000 }).toEqual([82, 10])
+      await page.evaluate(([h, up]) => Object.assign(window.__feed, { elbowL: h, elbowR: up }), [hang, { out: 0, down: -100, v: 1 }])
+      await expect.poll(() => sleeves(page), { timeout: 10000 }).toEqual([10, 82])
+    })
+
+    test('a lost elbow is held for 300 ms, then the sleeve eases to the arms-down angle', async ({ page }) => {
+      await goLive(page)
+      await page.evaluate((e) => Object.assign(window.__feed, { elbowL: e, elbowR: e }), reach(60))
+      await expect.poll(() => sleeves(page), { timeout: 10000 }).toEqual([60, 60])
+      await page.evaluate(() => Object.assign(window.__feed, { elbowL: { out: 0, down: 100, v: 0 } }))
+      // Settles at 12 degrees on the left only, after about 600 ms.
+      await expect.poll(() => sleeves(page), { timeout: 10000 }).toEqual([12, 60])
+    })
+
+    test('without elbow landmarks both sleeves read the arms-down angle', async ({ page }) => {
+      await goLive(page)
+      await expect.poll(() => sleeves(page), { timeout: 10000 }).toEqual([12, 12])
+    })
   })
 })

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import tshirtUrl from '../../assets/t-shirt.glb?url'
+import { sleeveRotation, sleevesOnBones } from '../../utils/arArms'
+import { GARMENT_BASE } from '../../utils/arGarment'
 import { garmentTransform, PoseFollower, RateHealth, type Pose, type TrackStatus } from '../../utils/arPose'
 import { SpinnerIcon } from '../form/icons'
 import { addStudio, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
@@ -91,6 +93,9 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     const ortho = new THREE.OrthographicCamera(0, 1, 0, -1, -5000, 5000)
     const material = new THREE.MeshStandardMaterial({ color: latest.current.colorHex, roughness: 0.8, metalness: 0, side: THREE.DoubleSide })
     let mesh: THREE.Mesh | undefined
+    // Root, then the sleeve on the left of the screen (-x) and on the right (+x): joints 0, 1 and 2 of the model's skin weights.
+    let bones: THREE.Bone[] = []
+    let skeleton: THREE.Skeleton | undefined
     let size = new THREE.Vector3()
     let top = 0
     let frame = 0
@@ -146,9 +151,15 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       // Roll about the screen axis after yaw about the shirt's own vertical axis.
       mesh.rotation.set(0, t.rotationY, t.rotationZ, 'ZYX')
       mesh.scale.set(t.scale.x, t.scale.y, t.scale.z)
+      const [onLeft, onRight] = sleevesOnBones(pose.sleeves, pose.facing === 'back')
+      bones[1].rotation.z = sleeveRotation(onLeft, -1)
+      bones[2].rotation.z = sleeveRotation(onRight, 1)
       if (exposeAttributes) {
         const deg = (rad: number) => ((rad * 180) / Math.PI).toFixed(1)
         host.dataset.garment = [Math.round(t.x), Math.round(-t.y), deg(t.rotationZ), deg(t.rotationY), pose.pxPerCm.toFixed(2), Math.round(t.widthPx)].join(',')
+        // The arm angles themselves (from hanging straight down), not the bone turns, by screen side.
+        host.dataset.sleeves = pose.sleeves.map((a) => Math.round((a * 180) / Math.PI)).join(',')
+        host.dataset.facing = pose.facing
       }
     }
 
@@ -161,6 +172,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         mesh.rotation.set(0, 0, 0)
         mesh.scale.set(s.x, s.y, s.z)
         mesh.position.set(0, -top * s.y, 0)
+        for (const bone of bones) bone.rotation.z = 0
       }
       invalidate()
     }
@@ -170,7 +182,11 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       follow = false
       pose = null
       renderer.domElement.style.opacity = ''
-      if (exposeAttributes) delete host.dataset.garment
+      if (exposeAttributes) {
+        delete host.dataset.garment
+        delete host.dataset.sleeves
+        delete host.dataset.facing
+      }
       report(next)
       apply.current()
     }
@@ -183,6 +199,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         `render ${median(renderMs).toFixed(1)} ms (${rendered}/s)`,
         `tracking ${detections}/s on ${delegate}`,
         `${pose ? pose.pxPerCm.toFixed(2) : '-'} px/cm`,
+        `yaw ${pose ? `${Math.round((pose.yaw * 180) / Math.PI)} deg, facing ${pose.facing}` : '-'}`,
       ].join('\n')
       debugBar.current.style.width = `${pose ? Math.round(RULER_CM * pose.pxPerCm) : 0}px`
       renderMs = []
@@ -219,6 +236,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
                 tMs,
                 { videoW: element.videoWidth, videoH: element.videoHeight, width: host.clientWidth, height: host.clientHeight },
                 latest.current.shoulderCm,
+                reduceMotion.matches,
               )
               if (health.slow) {
                 stopLoop()
@@ -287,11 +305,33 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     loadBodyGeometry(tshirtUrl).then(
       (geometry) => {
         if (disposed) return geometry.dispose()
+        let skinned: THREE.SkinnedMesh
+        try {
+          if (!geometry.attributes.skinIndex || !geometry.attributes.skinWeight) throw new Error('The shirt model has no skin weights')
+          // Bones sit at the shoulder joints in the model's own space; the mesh is bound while it is still untransformed.
+          const { x, y } = GARMENT_BASE.sleevePivot
+          const [root, left, right] = [new THREE.Bone(), new THREE.Bone(), new THREE.Bone()]
+          left.position.set(-x, y, 0)
+          right.position.set(x, y, 0)
+          root.add(left, right)
+          skinned = new THREE.SkinnedMesh(geometry, material)
+          skinned.add(root)
+          bones = [root, left, right]
+          skeleton = new THREE.Skeleton(bones)
+          skinned.bind(skeleton)
+        } catch {
+          skeleton?.dispose()
+          skeleton = undefined
+          bones = []
+          geometry.dispose()
+          setLoad('failed')
+          return
+        }
         geometry.computeBoundingBox()
         const box = geometry.boundingBox!
         size = box.getSize(new THREE.Vector3())
         top = box.max.y
-        mesh = new THREE.Mesh(geometry, material)
+        mesh = skinned
         mesh.frustumCulled = false
         scene.add(mesh)
         apply.current()
@@ -314,6 +354,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       resizeObserver.disconnect()
       renderer.domElement.removeEventListener('webglcontextlost', lost)
       mesh?.geometry.dispose()
+      skeleton?.dispose()
       material.dispose()
       envMap.dispose()
       releaseRenderer(renderer)

@@ -1,7 +1,8 @@
 // Converts src/assets/t-shirt.zip (nested zip -> glTF, CLO export) into src/assets/t-shirt.glb.
 // Output units: centimetres (source is metres, not rescaled to a size), Y-up, hem at y=0, centred on x/z. The six garment parts
 // are merged into one mesh with one primitive; every triangle is kept (no weld, no simplification), with the source normals and
-// UVs. Approximate garment measurements are printed, not stored. Run: npm run convert:tshirt
+// UVs. Skin weights (JOINTS_0/WEIGHTS_0) let the app swing each sleeve about its armhole: joint 0 body, 1 the -x sleeve, 2 the +x sleeve.
+// Approximate garment measurements, and each sleeve's pivot and rest angle, are printed, not stored. Run: npm run convert:tshirt
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -113,6 +114,129 @@ function chestBand(P) {
   console.warn('chest band skipped: no sleeve join found')
 }
 
+
+// A 1 cm-ish spatial hash over vertex ids, to find neighbours without comparing every pair (the mesh is 340k unwelded vertices).
+const cellKey = (x, y, z, cell) => ((Math.floor(x / cell) + 16384) * 32768 + Math.floor(y / cell) + 16384) * 32768 + Math.floor(z / cell) + 16384
+const gridOf = (P, ids, cell) => {
+  const g = new Map()
+  for (const i of ids) { const k = cellKey(P[3 * i], P[3 * i + 1], P[3 * i + 2], cell); const l = g.get(k); if (l) l.push(i); else g.set(k, [i]) }
+  return g
+}
+/** Calls fn(id) for every id in the 27 cells around (x, y, z); `cell` must be at least the search radius. */
+const forNear = (g, cell, x, y, z, fn) => {
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+    const l = g.get(cellKey(x + dx * cell, y + dy * cell, z + dz * cell, cell))
+    if (l) for (const i of l) fn(i)
+  }
+}
+
+const BLEND_CM = 4 // half-width of the blend across the armhole seam
+const SEAM_CM = 0.3 // a sleeve vertex this close to a body vertex is on the armhole seam
+
+/**
+ * Skin weights for the sleeves. `P` is the final position array (cm), `partOf[i]` the part a vertex came from. The armhole seam is the sleeve
+ * vertices that have a body vertex within 0.3 cm. A vertex's sleeve weight is smoothstep(-4, 4, d) cm, d the distance to the seam, positive
+ * on the sleeve side: 0 deep in the body, 1 deep in the sleeve. Vertices on the seam (both copies) are pinned to 0.5, so the two copies
+ * never separate. Returns the joint ids, weights and the seam vertices of each sleeve.
+ */
+function skinSleeves(P, parts, partOf) {
+  const n = P.length / 3
+  const jointOfPart = parts.map((p, k) => {
+    if (!/sleeve/i.test(p.name)) return 0
+    let sx = 0
+    for (let i = 0; i < n; i++) if (partOf[i] === k) sx += P[3 * i]
+    return sx > 0 ? 2 : 1
+  })
+  if (!jointOfPart.includes(1) || !jointOfPart.includes(2)) throw new Error(`need one sleeve on each side, got joints ${jointOfPart.join(',')}`)
+  const own = Uint8Array.from({ length: n }, (_, i) => jointOfPart[partOf[i]])
+  const ids = (test) => [...own.keys()].filter((i) => test(own[i]))
+  const bodyIds = ids((j) => j === 0)
+
+  const onSeam = new Uint8Array(n)
+  const bodyGrid = gridOf(P, bodyIds, 1)
+  for (const s of ids((j) => j > 0)) {
+    forNear(bodyGrid, 1, P[3 * s], P[3 * s + 1], P[3 * s + 2], (b) => {
+      if (Math.hypot(P[3 * s] - P[3 * b], P[3 * s + 1] - P[3 * b + 1], P[3 * s + 2] - P[3 * b + 2]) <= SEAM_CM) { onSeam[s] = 1; onSeam[b] = 1 }
+    })
+  }
+  const seam = [[], [], []]
+  for (const s of ids((j) => j > 0)) if (onSeam[s]) seam[own[s]].push(s)
+  const seamGrid = gridOf(P, [...seam[1], ...seam[2]], BLEND_CM)
+
+  const joints = new Uint8Array(4 * n)
+  const weights = new Float32Array(4 * n)
+  for (let i = 0; i < n; i++) {
+    let d = Infinity, near = 0
+    forNear(seamGrid, BLEND_CM, P[3 * i], P[3 * i + 1], P[3 * i + 2], (s) => {
+      const e = Math.hypot(P[3 * i] - P[3 * s], P[3 * i + 1] - P[3 * s + 1], P[3 * i + 2] - P[3 * s + 2])
+      if (e < d) { d = e; near = own[s] }
+    })
+    // A body vertex with no seam in reach has weight 0 on a sleeve joint, but still needs a valid joint id.
+    const sleeveJoint = own[i] || near || 1
+    const t = (Math.min(d, BLEND_CM) * (own[i] ? 1 : -1) + BLEND_CM) / (2 * BLEND_CM)
+    const w = onSeam[i] ? 0.5 : t * t * (3 - 2 * t)
+    joints[4 * i + 1] = sleeveJoint
+    weights[4 * i] = 1 - w
+    weights[4 * i + 1] = w
+  }
+  return { joints, weights, seam, own }
+}
+
+/** Prints each sleeve's pivot candidates and rest angle (from vertical, degrees): the seam centre and top, and the sleeve opening's centre. */
+function reportSleeves(P, { seam, own }) {
+  for (const j of [1, 2]) {
+    const sign = j === 2 ? 1 : -1
+    const pts = seam[j].map((i) => [P[3 * i], P[3 * i + 1], P[3 * i + 2]])
+    const mean = (c) => pts.reduce((a, p) => a + p[c], 0) / pts.length
+    const centre = [mean(0), mean(1), mean(2)]
+    const top = pts.reduce((a, p) => (p[1] > a[1] ? p : a))
+    // The opening: sleeve vertices in the outermost 1 cm along the axis from the seam centre (farthest vertex).
+    const dist = (i, o) => Math.hypot(P[3 * i] - o[0], P[3 * i + 1] - o[1], P[3 * i + 2] - o[2])
+    const mine = [...own.keys()].filter((i) => own[i] === j)
+    const far = Math.max(...mine.map((i) => dist(i, centre)))
+    const ring = mine.filter((i) => dist(i, centre) > far - 1)
+    const cuff = [0, 1, 2].map((c) => ring.reduce((a, i) => a + P[3 * i + c], 0) / ring.length)
+    const angle = (pivot) => ((Math.atan2(sign * (cuff[0] - pivot[0]), pivot[1] - cuff[1]) * 180) / Math.PI).toFixed(1)
+    const f = (v) => v.map((x) => x.toFixed(2)).join(', ')
+    console.log(`sleeve ${sign < 0 ? '-x' : '+x'}: ${pts.length} seam vertices; seam centre (${f(centre)}), seam top (${f(top)}), opening centre (${f(cuff)})`)
+    console.log(`  rest angle from vertical: ${angle(centre)} deg about the seam centre, ${angle([sign * 16.6, 60.3])} deg about the landmark point (${sign * 16.6}, 60.3)`)
+  }
+}
+
+/**
+ * Reads the skin back from the written file (after quantisation): the weights of each vertex sum to 1, each joint spans 0 to 1, and
+ * vertices closer than 0.01 cm (the two copies of a seam vertex) carry the same sleeve weights to within 1/255. Returns the problem, or ''.
+ */
+function checkSkin(prim, world) {
+  const J = prim.getAttribute('JOINTS_0'), W = prim.getAttribute('WEIGHTS_0')
+  if (!J || !W) return 'JOINTS_0/WEIGHTS_0 are missing from the output'
+  const n = W.getCount()
+  const share = new Float32Array(3 * n) // each joint's total weight at each vertex
+  const lo = [1, 1, 1], hi = [0, 0, 0]
+  let sumErr = 0
+  const j = [], w = []
+  for (let i = 0; i < n; i++) {
+    J.getElement(i, j); W.getElement(i, w)
+    sumErr = Math.max(sumErr, Math.abs(w[0] + w[1] + w[2] + w[3] - 1))
+    for (let k = 0; k < 4; k++) share[3 * i + j[k]] += w[k]
+    for (let c = 0; c < 3; c++) { lo[c] = Math.min(lo[c], share[3 * i + c]); hi[c] = Math.max(hi[c], share[3 * i + c]) }
+  }
+  if (sumErr > 1 / 255) return `weights do not sum to 1 (off by ${sumErr})`
+  if (lo.some((v) => v > 0.01) || hi.some((v) => v < 0.99)) return `a joint does not span 0..1 (min ${lo}, max ${hi})`
+  const g = gridOf(world, [...Array(n).keys()], 0.01)
+  let pairs = 0, worst = 0
+  for (let i = 0; i < n; i++) {
+    forNear(g, 0.01, world[3 * i], world[3 * i + 1], world[3 * i + 2], (o) => {
+      if (o <= i || Math.hypot(world[3 * i] - world[3 * o], world[3 * i + 1] - world[3 * o + 1], world[3 * i + 2] - world[3 * o + 2]) >= 0.01) return
+      pairs++
+      worst = Math.max(worst, Math.abs(share[3 * i + 1] - share[3 * o + 1]), Math.abs(share[3 * i + 2] - share[3 * o + 2]))
+    })
+  }
+  if (worst > 1 / 255 + 1e-6) return `coincident vertices differ in weight by ${worst} (over 1/255)`
+  console.log(`skin ok: weights ${W.getComponentType() === 5121 ? 'uint8' : 'type ' + W.getComponentType()}${W.getNormalized() ? ' normalised' : ''}, joints type ${J.getComponentType()}; sums within ${sumErr.toExponential(1)}; ${pairs} coincident pairs within ${(worst * 255).toFixed(2)}/255`)
+  return ''
+}
+
 try {
   untar(ZIP, join(work, 'outer'))
   untar(findFile(join(work, 'outer'), (n) => n.endsWith('.zip')), join(work, 'inner'))
@@ -165,9 +289,10 @@ try {
   chestBand(parts.flatMap((p) => p.positions))
 
   // Merge into one soup, then hem to y=0 and centre the box on x/z.
-  const P = [], N = [], UV = [], I = []
-  for (const part of parts) {
+  const P = [], N = [], UV = [], I = [], partOf = []
+  for (const [k, part] of parts.entries()) {
     const base = P.length / 3
+    for (let i = 0; i < part.positions.length / 3; i++) partOf.push(k)
     for (const v of part.positions) P.push(v)
     for (const v of part.normals) N.push(v)
     for (const v of part.uvs) UV.push(v)
@@ -178,6 +303,8 @@ try {
   const cx = (min[0] + max[0]) / 2, cz = (min[2] + max[2]) / 2
   for (let i = 0; i < positions.length; i += 3) { positions[i] -= cx; positions[i + 1] -= min[1]; positions[i + 2] -= cz }
   console.log(`size: ${(max[0] - min[0]).toFixed(1)} x ${(max[1] - min[1]).toFixed(1)} x ${(max[2] - min[2]).toFixed(1)} cm (w x h x d)`)
+  const skin = skinSleeves(positions, parts, partOf)
+  reportSleeves(positions, skin)
 
   const doc = new Document()
   doc.getRoot().getAsset().extras = {
@@ -185,7 +312,7 @@ try {
     author: 'funlab117 (https://sketchfab.com/funlab117)',
     license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
     source: 'https://skfb.ly/ozHJJ',
-    modified: 'Modified: the parts were merged into one mesh and the units rescaled from metres to centimetres.',
+    modified: 'Modified: the parts were merged into one mesh, skin weights were added for the sleeves, and the units rescaled from metres to centimetres.',
   }
   const buf = doc.createBuffer()
   const mat = doc.createMaterial('fabric').setBaseColorFactor([1, 1, 1, 1]).setMetallicFactor(0).setRoughnessFactor(0.9)
@@ -194,6 +321,8 @@ try {
     .setAttribute('POSITION', doc.createAccessor().setType('VEC3').setArray(positions).setBuffer(buf))
     .setAttribute('NORMAL', doc.createAccessor().setType('VEC3').setArray(Float32Array.from(N)).setBuffer(buf))
     .setAttribute('TEXCOORD_0', doc.createAccessor().setType('VEC2').setArray(Float32Array.from(UV)).setBuffer(buf))
+    .setAttribute('JOINTS_0', doc.createAccessor().setType('VEC4').setArray(skin.joints).setBuffer(buf))
+    .setAttribute('WEIGHTS_0', doc.createAccessor().setType('VEC4').setArray(skin.weights).setBuffer(buf))
     .setMaterial(mat)
   const mesh = doc.createMesh('tshirt').addPrimitive(prim)
   doc.createScene('scene').addChild(doc.createNode('tshirt').setMesh(mesh))
@@ -217,8 +346,10 @@ try {
   }
   const bb = bounds(world)
   const near = (a, b) => Math.abs(a - b) < 0.5 // quantisation tolerance, cm
-  const ok = meshes.length === 1 && prims.length === 1 && outTris === sourceTris && near(bb.min[1], 0)
+  const skinProblem = checkSkin(prims[0], world)
+  const ok = !skinProblem && meshes.length === 1 && prims.length === 1 && outTris === sourceTris && near(bb.min[1], 0)
     && near((bb.min[0] + bb.max[0]) / 2, 0) && near((bb.min[2] + bb.max[2]) / 2, 0) && back.getRoot().getAsset().extras?.license
+  if (skinProblem) throw new Error(`self-check failed: ${skinProblem}`)
   if (!ok) throw new Error(`self-check failed: ${meshes.length} meshes, ${prims.length} primitives, ${outTris}/${sourceTris} tris, min y ${bb.min[1]}`)
   console.log(`self-check ok: ${outTris} tris (source ${sourceTris}), min y ${bb.min[1].toFixed(3)}, centre x ${((bb.min[0] + bb.max[0]) / 2).toFixed(3)} z ${((bb.min[2] + bb.max[2]) / 2).toFixed(3)}`)
   console.log(`wrote ${OUT} (${(statSync(OUT).size / 1024).toFixed(0)} KB)`)
