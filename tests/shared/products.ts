@@ -425,7 +425,7 @@ export async function mockCart(page: Page, products: ProductsMock): Promise<Cart
 }
 
 /** Keeps the staff session but makes /users/me answer with `role` (staff by default). Register it after mockAuth. */
-export async function mockStaffMe(page: Page, role: 'staff' | 'admin' | 'customer' = 'staff') {
+export async function mockStaffMe(page: Page, role: 'staff' | 'admin' | 'superadmin' | 'customer' = 'staff') {
   await page.route('**/users/me', (route) => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
     return route.fulfill({

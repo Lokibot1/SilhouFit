@@ -19,6 +19,7 @@ import { ArInsightsPageSkeleton } from './components/admin/ar/ArInsightsSkeleton
 import { HelpAnswersPageSkeleton } from './components/admin/chatbot/HelpAnswersSkeleton'
 import { PromotionsPageSkeleton } from './components/admin/promotions/PromotionsSkeleton'
 import { RefundsPageSkeleton } from './components/admin/refunds/RefundsSkeleton'
+import { ReviewsPageSkeleton } from './components/admin/reviews/ReviewsSkeleton'
 import { AccountsPageSkeleton } from './components/admin/users/AccountSkeleton'
 import { LoginModalProvider } from './components/auth/LoginModal'
 import { ToastProvider } from './components/toast/ToastProvider'
@@ -132,6 +133,9 @@ const ChatbotPage = lazy(() =>
 const RefundsPage = lazy(() =>
   import('./views/admin/RefundsPage').then((m) => ({ default: m.RefundsPage })),
 )
+const ReviewsPage = lazy(() =>
+  import('./views/admin/ReviewsPage').then((m) => ({ default: m.ReviewsPage })),
+)
 const StaffTransactionsPage = lazy(() =>
   import('./views/staff/StaffTransactionsPage').then((m) => ({ default: m.StaffTransactionsPage })),
 )
@@ -201,6 +205,14 @@ const operationsRoutes = (
       element={
         <Suspense fallback={<StaffMessagesPageSkeleton />}>
           <StaffMessagesPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="reviews"
+      element={
+        <Suspense fallback={<ReviewsPageSkeleton />}>
+          <ReviewsPage />
         </Suspense>
       }
     />

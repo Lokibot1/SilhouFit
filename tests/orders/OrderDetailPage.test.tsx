@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { peekLoginNotice, takeLoginNotice } from '../../src/service/loginNotice'
-import { setOrderReviews } from '../../src/service/orderReviews'
+import type { PendingReview, Review } from '../../src/service/reviewsApi'
 import { clearSession, setSession } from '../../src/service/session'
 import { OrderDetailPage } from '../../src/views/private/OrderDetailPage'
 import { customerOrder, ORDER_ID, shipment } from '../fixtures/orders'
@@ -19,6 +19,11 @@ const api = vi.hoisted(() => ({
   onOrdersChanged: vi.fn(() => () => {}),
   usesSampleOrders: vi.fn(() => false),
 }))
+const reviews = vi.hoisted(() => ({ fetchPendingReviews: vi.fn(), fetchMyReviews: vi.fn(), createReview: vi.fn(), updateReview: vi.fn() }))
+vi.mock('../../src/service/reviewsApi', async (original) => ({ ...(await original<typeof import('../../src/service/reviewsApi')>()), ...reviews }))
+const storage = vi.hoisted(() => ({ uploadAvatar: vi.fn(), deleteAvatar: vi.fn() }))
+vi.mock('../../src/service/uploadAvatar', async (original) => ({ ...(await original<typeof import('../../src/service/uploadAvatar')>()), ...storage }))
+vi.mock('../../src/service/fetchMe', async (original) => ({ ...(await original<typeof import('../../src/service/fetchMe')>()), fetchMe: async () => ({ id: 'u-1' }) }))
 vi.mock('../../src/service/ordersApi', async (original) => ({ ...(await original<typeof import('../../src/service/ordersApi')>()), ...api }))
 vi.mock('../../src/hooks/useBuyAgain', () => ({ useBuyAgain: () => ({ busy: null, buyAgain: vi.fn() }) }))
 
@@ -34,7 +39,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   act(() => setSession({ name: 'Anne Santos', email: 'anne@example.com' }))
   api.fetchOrder.mockResolvedValue(customerOrder())
-  act(() => setOrderReviews([]))
+  reviews.fetchPendingReviews.mockResolvedValue([])
+  reviews.fetchMyReviews.mockResolvedValue([])
 })
 afterEach(() => {
   window.history.replaceState({}, '', '/')
@@ -207,85 +213,159 @@ describe('OrderDetailPage', () => {
 
   describe('review section', () => {
     const delivered = () => api.fetchOrder.mockResolvedValue(customerOrder({ status: 'DELIVERED', paymentStatus: 'PAID' }))
-    const section = async () => (await screen.findByRole('heading', { level: 2, name: 'Your review' })).closest('section')!
+    const section = async () => (await screen.findByRole('heading', { level: 2, name: 'Your reviews' })).closest('section')!
+    const waiting = (): PendingReview => ({
+      orderId: ORDER_ID,
+      orderNumber: 'SHF-20261026-ABC123',
+      deliveredAt: null,
+      product: { id: 'p-1', name: 'Heritage Polo', slug: 'heritage-polo', primaryImage: null },
+      variations: [{ orderItemId: 'oi-1', variantId: 'v-1', size: 'M', color: 'Navy', quantity: 2 }],
+    })
+    const done = (over: Partial<Review> = {}): Review => ({
+      id: 'r-1',
+      orderId: ORDER_ID,
+      productId: 'p-1',
+      rating: 4,
+      comment: 'Fits very well, fast delivery.',
+      user: { id: 'u-1', name: 'Anne Santos', avatarUrl: null },
+      images: [{ id: 'i-1', url: 'https://img/a.jpg' }],
+      purchasedVariants: [{ size: 'M', color: 'Navy', sku: 'POLO-M-NAVY' }],
+      adminReply: null,
+      adminRepliedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...over,
+    })
 
     it('is shown only for a delivered order', async () => {
       renderPage()
       await screen.findByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })
-      expect(screen.queryByRole('heading', { name: 'Your review' })).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Your reviews' })).toBeNull()
     })
 
-    it('loads into the empty state, with the sample-data note, after the items', async () => {
+    it('is left out for a sample account, whose order ids the reviews API would reject', async () => {
       delivered()
+      api.usesSampleOrders.mockReturnValue(true)
+      renderPage()
+      await screen.findByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })
+      expect(screen.queryByRole('heading', { name: 'Your reviews' })).toBeNull()
+      api.usesSampleOrders.mockReturnValue(false)
+    })
+
+    it('loads one row per product after the items: a Review button for the unreviewed one, the saved review for the other', async () => {
+      delivered()
+      reviews.fetchPendingReviews.mockResolvedValue([waiting()])
+      reviews.fetchMyReviews.mockResolvedValue([done({ id: 'r-2', productId: 'p-2', purchasedVariants: [{ size: null, color: null, sku: 'OTHER' }] }), done({ orderId: 'other-order' })])
       renderPage()
       const card = await section()
-      expect(within(card).getByRole('status', { name: 'Loading your review' })).toBeInTheDocument()
-      expect(await within(card).findByText('How did this order go?')).toBeInTheDocument()
-      expect(within(card).getByText('Sample data')).toBeInTheDocument()
+      expect(within(card).getByRole('status', { name: 'Loading your reviews' })).toBeInTheDocument()
+      expect(await within(card).findByRole('button', { name: 'Review Heritage Polo' })).toBeInTheDocument()
+      expect(within(card).getAllByRole('listitem').filter((li) => li.tagName === 'LI' && li.querySelector('h3'))).toHaveLength(2)
+      expect(within(card).getByRole('img', { name: 'Rated 4 out of 5' })).toBeInTheDocument()
+      expect(within(card).getByAltText('Photo 1: Product')).toHaveAttribute('src', 'https://img/a.jpg')
+      expect(within(card).queryByText('Sample data')).toBeNull()
       const items = screen.getByRole('heading', { level: 2, name: /^Items/ })
       expect(items.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('says so when nothing on the order can be reviewed', async () => {
+      delivered()
+      renderPage()
+      expect(await screen.findByText(/nothing to review on this order/)).toBeInTheDocument()
     })
 
     it('explains a failed load without hiding the order, and recovers on Try again', async () => {
       const user = userEvent.setup({ delay: null })
       delivered()
-      window.history.replaceState({}, '', '/?fail=review-load')
+      reviews.fetchPendingReviews.mockRejectedValueOnce(new Error('down'))
       renderPage()
       const card = await section()
       const alert = await within(card).findByRole('alert')
-      expect(alert).toHaveTextContent("We couldn't load your review")
+      expect(alert).toHaveTextContent("We couldn't load your reviews")
       expect(screen.getByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })).toBeInTheDocument()
-      window.history.replaceState({}, '', '/')
+      reviews.fetchPendingReviews.mockResolvedValue([waiting()])
       await user.click(within(alert).getByRole('button', { name: 'Try again' }))
-      expect(await within(card).findByText('How did this order go?')).toBeInTheDocument()
+      expect(await within(card).findByRole('button', { name: 'Review Heritage Polo' })).toBeInTheDocument()
     })
 
-    it('posts, edits and deletes a review, with a toast and focus kept at each step', async () => {
+    it('posts, then edits a review, with a toast and focus kept at each step', async () => {
       const user = userEvent.setup({ delay: null })
       delivered()
+      reviews.fetchPendingReviews.mockResolvedValue([waiting()])
+      reviews.createReview.mockResolvedValue(done())
       renderPage()
       const card = await section()
-      await user.click(await within(card).findByRole('button', { name: 'Review order' }))
+      await user.click(await within(card).findByRole('button', { name: 'Review Heritage Polo' }))
 
-      let dialog = await screen.findByRole('dialog', { name: 'Review order' })
+      let dialog = await screen.findByRole('dialog', { name: 'Review Heritage Polo' })
       await user.click(within(dialog).getByRole('radio', { name: '4 stars: Very good' }))
       await user.type(within(dialog).getByRole('textbox', { name: 'Your review' }), 'Fits very well, fast delivery.')
+      reviews.fetchPendingReviews.mockResolvedValue([])
+      reviews.fetchMyReviews.mockResolvedValue([done({ images: [] })])
       await user.click(within(dialog).getByRole('button', { name: 'Post review' }))
+      expect(reviews.createReview).toHaveBeenCalledWith(ORDER_ID, 'p-1', { rating: 4, comment: 'Fits very well, fast delivery.' })
       expect(await within(card).findByRole('img', { name: 'Rated 4 out of 5' }, { timeout: 4000 })).toBeInTheDocument()
       expect(screen.getByText('Review posted.')).toBeInTheDocument()
-      expect(within(card).getByText('Fits very well, fast delivery.')).toBeInTheDocument()
       expect(within(card).getByText(/^Reviewed .*(AM|PM)$/)).toBeInTheDocument()
-      await waitFor(() => expect(within(card).getByRole('button', { name: 'Edit review' })).toHaveFocus())
+      await waitFor(() => expect(within(card).getByRole('button', { name: 'Edit review of Heritage Polo' })).toHaveFocus())
+      expect(within(card).queryByRole('button', { name: /^Delete/ })).toBeNull()
 
-      await user.click(within(card).getByRole('button', { name: 'Edit review' }))
-      dialog = await screen.findByRole('dialog', { name: 'Edit review' })
+      reviews.updateReview.mockResolvedValue(done({ rating: 2 }))
+      await user.click(within(card).getByRole('button', { name: 'Edit review of Heritage Polo' }))
+      dialog = await screen.findByRole('dialog', { name: 'Edit review: Heritage Polo' })
       expect(within(dialog).getByRole('radio', { name: '4 stars: Very good' })).toBeChecked()
       await user.click(within(dialog).getByRole('radio', { name: '2 stars: Fair' }))
+      reviews.fetchMyReviews.mockResolvedValue([done({ rating: 2, images: [] })])
       await user.click(within(dialog).getByRole('button', { name: 'Save review' }))
+      expect(reviews.updateReview).toHaveBeenCalledWith('r-1', { rating: 2, comment: 'Fits very well, fast delivery.', imageUrls: [] })
       expect(await within(card).findByRole('img', { name: 'Rated 2 out of 5' }, { timeout: 4000 })).toBeInTheDocument()
-      expect(within(card).getByText(/\(edited\)/)).toBeInTheDocument()
-
-      await user.click(within(card).getByRole('button', { name: 'Delete review' }))
-      dialog = await screen.findByRole('dialog', { name: 'Delete this review?' })
-      expect(dialog).toHaveTextContent('Are you sure?')
-      await user.click(within(dialog).getByRole('button', { name: 'Delete review' }))
-      expect(await within(card).findByText('How did this order go?', {}, { timeout: 4000 })).toBeInTheDocument()
-      await waitFor(() => expect(within(card).getByRole('button', { name: 'Review order' })).toHaveFocus())
     })
 
-    it('keeps the dialog open with the reason when saving fails', async () => {
-      const user = userEvent.setup({ delay: null })
+    it('offers no edit once the 30 days have passed', async () => {
       delivered()
+      reviews.fetchMyReviews.mockResolvedValue([done({ createdAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString() })])
       renderPage()
       const card = await section()
-      await user.click(await within(card).findByRole('button', { name: 'Review order' }))
-      const dialog = await screen.findByRole('dialog', { name: 'Review order' })
+      expect(await within(card).findByText(/edited for 30 days/)).toBeInTheDocument()
+      expect(within(card).queryByRole('button', { name: /^Edit review/ })).toBeNull()
+    })
+
+    it('uploads new photos to the reviews bucket first and sends their URLs with the kept ones', async () => {
+      const user = userEvent.setup({ delay: null, applyAccept: false })
+      delivered()
+      reviews.fetchMyReviews.mockResolvedValue([done()])
+      storage.uploadAvatar.mockResolvedValue('https://store/reviews/u-1/new.jpg')
+      reviews.updateReview.mockResolvedValue(done())
+      renderPage()
+      const card = await section()
+      await user.click(await within(card).findByRole('button', { name: 'Edit review of Heritage Polo' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Edit review: Heritage Polo' })
+      const file = new File(['x'], 'look.jpg', { type: 'image/jpeg' })
+      await user.upload(within(dialog).getByLabelText('Choose photo files'), file)
+      await user.click(within(dialog).getByRole('button', { name: 'Save review' }))
+      await waitFor(() => expect(reviews.updateReview).toHaveBeenCalled())
+      expect(storage.uploadAvatar).toHaveBeenCalledWith(file, 'u-1', expect.any(Function), undefined, 'reviews')
+      expect(reviews.updateReview).toHaveBeenCalledWith('r-1', expect.objectContaining({ imageUrls: ['https://img/a.jpg', 'https://store/reviews/u-1/new.jpg'] }))
+    })
+
+    it('keeps the dialog open with the reason when saving fails, and removes the photos it just uploaded', async () => {
+      const user = userEvent.setup({ delay: null, applyAccept: false })
+      delivered()
+      reviews.fetchPendingReviews.mockResolvedValue([waiting()])
+      storage.uploadAvatar.mockResolvedValue('https://store/reviews/u-1/new.jpg')
+      const { ReviewsError } = await import('../../src/service/reviewsApi')
+      reviews.createReview.mockRejectedValue(new ReviewsError('already-reviewed', 'You already reviewed this product on this order, possibly from another tab.'))
+      renderPage()
+      const card = await section()
+      await user.click(await within(card).findByRole('button', { name: 'Review Heritage Polo' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Review Heritage Polo' })
       await user.click(within(dialog).getByRole('radio', { name: '5 stars: Excellent' }))
       await user.type(within(dialog).getByRole('textbox', { name: 'Your review' }), 'Fits very well, fast delivery.')
-      window.history.replaceState({}, '', '/?fail=review-save')
+      await user.upload(within(dialog).getByLabelText('Choose photo files'), new File(['x'], 'look.jpg', { type: 'image/jpeg' }))
       await user.click(within(dialog).getByRole('button', { name: 'Post review' }))
-      expect(await within(dialog).findByText(/couldn't save your review/, {}, { timeout: 4000 })).toBeInTheDocument()
+      expect(await within(dialog).findByText(/already reviewed this product/)).toBeInTheDocument()
       expect(within(dialog).getByRole('button', { name: 'Post review' })).toBeEnabled()
+      expect(storage.deleteAvatar).toHaveBeenCalledWith('https://store/reviews/u-1/new.jpg', 'u-1', 'reviews')
     })
   })
 })

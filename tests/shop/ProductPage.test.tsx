@@ -52,6 +52,8 @@ function seed(key: 'silhoufit-cart' | 'silhoufit-wishlist', value: unknown[] = [
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
+  // The reviews below the page mount near the viewport; this page's tests do not look at them.
+  vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} })
   vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }))
 })
 

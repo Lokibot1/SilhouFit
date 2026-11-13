@@ -1,9 +1,8 @@
-import { configure, render, screen, waitFor } from '@testing-library/react'
+import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReviewOrderModal } from '../../src/components/orders/ReviewOrderModal'
-import type { ReviewMedia } from '../../src/service/orderReviews'
 
 const revoke = vi.fn()
 let counter = 0
@@ -25,12 +24,12 @@ function setup(props: Partial<Parameters<typeof ReviewOrderModal>[0]> = {}) {
   const onClose = vi.fn()
   const user = userEvent.setup({ delay: null, applyAccept: false })
   const ui = (p: Partial<Parameters<typeof ReviewOrderModal>[0]>) => (
-    <ReviewOrderModal open orderNumber="SHF-1" pending={false} error={null} onClose={onClose} onSubmit={onSubmit} {...p} />
+    <ReviewOrderModal open productName="Heritage Polo" orderNumber="SHF-1" pending={false} progress={null} error={null} onClose={onClose} onSubmit={onSubmit} {...p} />
   )
   const view = render(ui(props))
   return { user, onSubmit, onClose, view, rerender: (p: Partial<Parameters<typeof ReviewOrderModal>[0]>) => view.rerender(ui({ ...props, ...p })) }
 }
-const upload = () => screen.getByLabelText('Choose photo and video files')
+const upload = () => screen.getByLabelText('Choose photo files')
 
 describe('ReviewOrderModal', () => {
   it('moves the rating with the arrow keys and shows a tooltip on keyboard focus', async () => {
@@ -85,7 +84,7 @@ describe('ReviewOrderModal', () => {
     const file = photo()
     await user.upload(upload(), file)
     await user.click(screen.getByRole('button', { name: 'Post review' }))
-    expect(onSubmit).toHaveBeenCalledWith({ rating: 5, text: TEXT, keepIds: [], files: [file] })
+    expect(onSubmit).toHaveBeenCalledWith({ rating: 5, text: TEXT, keptImages: [], files: [file], orderItemId: undefined })
   })
 
   it('lists rejected files in an alert and keeps the good ones', async () => {
@@ -102,7 +101,7 @@ describe('ReviewOrderModal', () => {
     await user.click(screen.getByRole('button', { name: 'Remove look.jpg' }))
     expect(revoke).toHaveBeenCalledTimes(1)
     expect(screen.queryByAltText('Photo 1: look.jpg')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Add photos or video' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Add photos' })).toHaveFocus()
   })
 
   it('lets go of unsaved previews when it closes', async () => {
@@ -120,14 +119,62 @@ describe('ReviewOrderModal', () => {
     expect(screen.queryByRole('button', { name: /^Close/ })).toBeNull()
   })
 
-  it('opens an edit pre-filled with the saved review', () => {
-    const media: ReviewMedia[] = [{ id: 'rm-1', kind: 'photo', name: 'saved.jpg', type: 'image/jpeg', size: 10 }]
-    setup({ initial: { rating: 3, text: TEXT, media } })
-    expect(screen.getByRole('dialog', { name: 'Edit review' })).toBeInTheDocument()
+  it('names the product in the title', () => {
+    setup()
+    expect(screen.getByRole('dialog', { name: 'Review Heritage Polo' })).toBeInTheDocument()
+  })
+
+  it('opens an edit pre-filled with the saved review and hands back the photos kept', async () => {
+    const images = [
+      { id: 'i-1', url: 'https://img/a.jpg' },
+      { id: 'i-2', url: 'https://img/b.jpg' },
+    ]
+    const { user, onSubmit } = setup({ initial: { rating: 3, text: TEXT, images } })
+    expect(screen.getByRole('dialog', { name: 'Edit review: Heritage Polo' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: '3 stars: Good' })).toBeChecked()
     expect(screen.getByRole('textbox', { name: 'Your review' })).toHaveValue(TEXT)
-    expect(screen.getByText('Preview not kept in this demo')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Save review' })).toBeInTheDocument()
+    expect(screen.getByAltText('Photo 1: Saved photo 1')).toHaveAttribute('src', 'https://img/a.jpg')
+    await user.click(screen.getByRole('button', { name: 'Remove Saved photo 1' }))
+    await user.click(screen.getByRole('button', { name: 'Save review' }))
+    expect(onSubmit).toHaveBeenCalledWith({ rating: 3, text: TEXT, keptImages: [images[1]], files: [], orderItemId: undefined })
+  })
+
+  it('rejects a video and a sixth photo, with only photos mentioned', async () => {
+    const { user } = setup()
+    expect(screen.getByText(/Up to 5 photos \(JPG, PNG or WebP, 5 MB each\)\./)).toBeInTheDocument()
+    await user.upload(upload(), new File(['x'], 'clip.mp4', { type: 'video/mp4' }))
+    expect(screen.getByRole('alert')).toHaveTextContent("clip.mp4 wasn't added")
+    await user.upload(upload(), [1, 2, 3, 4, 5, 6].map((n) => photo(`p${n}.jpg`)))
+    expect(screen.getByRole('alert')).toHaveTextContent('5 photos at most')
+    await user.click(screen.getByRole('radio', { name: '5 stars: Excellent' }))
+    await user.type(screen.getByRole('textbox', { name: 'Your review' }), TEXT)
+    await user.click(screen.getByRole('button', { name: 'Post review' }))
+    expect(screen.queryByText(/5 photos at most/)).toBeNull()
+  })
+
+  it('offers the variants when the order has several, and sends the chosen order line', async () => {
+    const variants = [
+      { orderItemId: 'oi-1', label: 'Size M · Black' },
+      { orderItemId: 'oi-2', label: 'Size L · Navy' },
+    ]
+    const { user, onSubmit } = setup({ variants })
+    await user.click(screen.getByRole('radio', { name: 'Size L · Navy' }))
+    await user.click(screen.getByRole('radio', { name: '5 stars: Excellent' }))
+    await user.type(screen.getByRole('textbox', { name: 'Your review' }), TEXT)
+    await user.click(screen.getByRole('button', { name: 'Post review' }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ orderItemId: 'oi-2' }))
+  })
+
+  it('shows the upload progress with its percentage', () => {
+    setup({ pending: true, progress: 40 })
+    expect(screen.getByRole('progressbar', { name: 'Uploading photos' })).toHaveAttribute('aria-valuenow', '40')
+    expect(screen.getByText('40%')).toBeInTheDocument()
+  })
+
+  it('shows the photo name instead of a broken image', () => {
+    setup({ initial: { rating: 3, text: TEXT, images: [{ id: 'i-1', url: 'https://img/gone.jpg' }] } })
+    fireEvent.error(screen.getByAltText('Photo 1: Saved photo 1'))
+    expect(screen.getByText('Photo could not load')).toBeInTheDocument()
   })
 
   it('shows a failure from the last try inside the dialog', () => {

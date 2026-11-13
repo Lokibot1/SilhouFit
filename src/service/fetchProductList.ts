@@ -23,6 +23,9 @@ export interface ProductListItem {
   sizes?: string[]
   /** The API's `isArReady`; the AR column shows a dash while it is missing. */
   arReady?: boolean
+  /** From the API's `ratingSummary`; hidden in the UI while they are missing. */
+  rating?: number
+  reviewCount?: number
 }
 
 export interface PaginatedProducts {
@@ -141,6 +144,7 @@ function toListItem(value: unknown): ProductListItem {
   if (typeof id !== 'string' || typeof name !== 'string' || typeof category !== 'string') throw new ProductListError('server')
   if (!isCount(minPrice) || !isCount(maxPrice) || !isCount(totalStock)) throw new ProductListError('server')
   const image = value.primaryImage
+  const summary = value.ratingSummary
   return {
     id,
     name,
@@ -156,6 +160,7 @@ function toListItem(value: unknown): ProductListItem {
     ...(typeof value.isArReady === 'boolean' && { arReady: value.isArReady }),
     ...(isCount(value.outOfStockVariants) && { outOfStockVariants: value.outOfStockVariants as number }),
     ...(isCount(value.variantCount) && { variantCount: value.variantCount as number }),
+    ...(isRecord(summary) && isCount(summary.averageRating) && isCount(summary.reviewCount) && { rating: summary.averageRating as number, reviewCount: summary.reviewCount as number }),
     ...(Array.isArray(value.colors) && { colors: value.colors.filter(isColour) }),
     ...(Array.isArray(value.sizes) && { sizes: value.sizes.filter((size): size is string => typeof size === 'string' && size !== '') }),
   }

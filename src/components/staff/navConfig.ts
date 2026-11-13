@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, GridIcon, InfoIcon, ListIcon, LockIcon, MessageIcon, RestoreIcon, RulerIcon, UserIcon, UsersIcon } from '../form/icons'
+import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, GridIcon, InfoIcon, ListIcon, LockIcon, MessageIcon, RestoreIcon, RulerIcon, StarIcon, UserIcon, UsersIcon } from '../form/icons'
 import type { PageKey } from '../../config/pagePermissions'
 import type { Area } from '../../utils/staffRole'
 
@@ -26,6 +26,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Transactions', to: '/admin/transactions', icon: ListIcon, group: 'operations', page: 'transactions' },
   { label: 'Online Orders', to: '/admin/online-orders', icon: CartIcon, group: 'operations', page: 'online-orders' },
   { label: 'Messages', to: '/admin/messages', icon: MessageIcon, group: 'operations', page: 'messages' },
+  { label: 'Reviews', to: '/admin/reviews', icon: StarIcon, group: 'operations', page: 'reviews' },
   { label: 'User Management', to: '/admin/users', icon: UsersIcon, group: 'admin', page: 'user-management' },
   { label: 'Activity Logs', to: '/admin/activity-logs', icon: ClockIcon, group: 'admin', page: 'activity-logs' },
   { label: 'AR Insights', to: '/admin/ar-insights', icon: ArIcon, group: 'admin', page: 'ar-insights' },
@@ -43,6 +44,7 @@ export const NAV: Record<Area, NavItem[]> = {
     { label: 'Transactions', to: '/staff/transactions', icon: ListIcon, page: 'transactions' },
     { label: 'Online Orders', to: '/staff/online-orders', icon: CartIcon, page: 'online-orders' },
     { label: 'Messages', to: '/staff/messages', icon: MessageIcon, page: 'messages' },
+    { label: 'Reviews', to: '/staff/reviews', icon: StarIcon, page: 'reviews' },
     // Admin tools a superadmin turned on for staff. They open under /admin and stay hidden until then.
     ...ADMIN_NAV.filter((item) => item.group === 'admin').map((item) => ({ ...item, group: undefined })),
     { label: 'Profile', to: '/staff/profile', icon: UserIcon },

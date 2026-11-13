@@ -12,6 +12,7 @@ export type PageKey =
   | 'transactions'
   | 'online-orders'
   | 'messages'
+  | 'reviews'
   | 'user-management'
   | 'activity-logs'
   | 'ar-insights'
@@ -59,6 +60,7 @@ export const PAGE_GROUPS: ReadonlyArray<PageGroup> = [
       { key: 'transactions', label: 'Transactions' },
       { key: 'online-orders', label: 'Online Orders' },
       { key: 'messages', label: 'Messages' },
+      { key: 'reviews', label: 'Reviews' },
     ],
   },
   {
@@ -94,6 +96,7 @@ const DASHBOARD_PAGE: Record<string, PageKey> = {
   transactions: 'transactions',
   'online-orders': 'online-orders',
   messages: 'messages',
+  reviews: 'reviews',
   users: 'user-management',
   'activity-logs': 'activity-logs',
   'ar-insights': 'ar-insights',

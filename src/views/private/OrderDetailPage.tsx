@@ -171,7 +171,8 @@ function OrderBody({ order, onCancel, onRefresh }: { order: CustomerOrder; onCan
           </ul>
         </section>
 
-        {order.status === 'DELIVERED' && <OrderReviewSection order={order} />}
+        {/* A sample account's orders have made-up ids the reviews API would reject, so it gets no review section. */}
+        {order.status === 'DELIVERED' && !usesSampleOrders() && <OrderReviewSection order={order} />}
 
         {order.note && (
           <section aria-labelledby="order-note" className={SECTION}>

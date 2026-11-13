@@ -4,7 +4,6 @@ import { checkReviewFile, filterReviewText, REVIEW_LIMITS, validateReview } from
 
 const MB = 1024 * 1024
 const file = (name: string, type: string, size = 1000) => ({ name, type, size })
-const NONE = { photos: 0, videos: 0 }
 
 describe('validateReview', () => {
   it.each([0, 6, 2.5, NaN])('rejects a rating of %s', (rating) => {
@@ -43,24 +42,21 @@ describe('filterReviewText', () => {
 })
 
 describe('checkReviewFile', () => {
-  it('accepts JPG, PNG and WebP photos and MP4 and WebM videos', () => {
-    for (const f of [file('a.jpg', 'image/jpeg'), file('a.png', 'image/png'), file('a.webp', 'image/webp'), file('a.mp4', 'video/mp4'), file('a.webm', 'video/webm')]) {
-      expect(checkReviewFile(f, NONE), f.name).toBeNull()
+  it('accepts JPG, PNG and WebP photos', () => {
+    for (const f of [file('a.jpg', 'image/jpeg'), file('a.png', 'image/png'), file('a.webp', 'image/webp')]) {
+      expect(checkReviewFile(f, 0), f.name).toBeNull()
     }
   })
-  it('rejects a gif and a wrong MIME type, saying what to do', () => {
-    expect(checkReviewFile(file('a.gif', 'image/gif'), NONE)).toMatch(/a\.gif wasn't added.*choose a different file/)
-    expect(checkReviewFile(file('a.jpg', 'application/pdf'), NONE)).toMatch(/wasn't added/)
-    expect(checkReviewFile(file('a.mov', 'video/quicktime'), NONE)).toMatch(/Only MP4 or WebM/)
+  it('rejects a gif, a wrong MIME type and a video, saying what to do', () => {
+    expect(checkReviewFile(file('a.gif', 'image/gif'), 0)).toMatch(/a\.gif wasn't added.*choose a different file/)
+    expect(checkReviewFile(file('a.jpg', 'application/pdf'), 0)).toMatch(/wasn't added/)
+    expect(checkReviewFile(file('a.mp4', 'video/mp4'), 0)).toMatch(/wasn't added/)
   })
-  it('rejects a 6 MB photo and a 51 MB video', () => {
-    expect(checkReviewFile(file('big.jpg', 'image/jpeg', 6 * MB), NONE)).toMatch(/6\.0 MB.*5 MB/)
-    expect(checkReviewFile(file('big.mp4', 'video/mp4', 51 * MB), NONE)).toMatch(/51\.0 MB.*50\.0 MB/)
-    expect(checkReviewFile(file('ok.mp4', 'video/mp4', 50 * MB), NONE)).toBeNull()
+  it('rejects a 6 MB photo', () => {
+    expect(checkReviewFile(file('big.jpg', 'image/jpeg', 6 * MB), 0)).toMatch(/6\.0 MB.*5 MB/)
   })
-  it('rejects a sixth photo and a second video', () => {
-    expect(checkReviewFile(file('a.jpg', 'image/jpeg'), { photos: 4, videos: 0 })).toBeNull()
-    expect(checkReviewFile(file('a.jpg', 'image/jpeg'), { photos: 5, videos: 0 })).toMatch(/5 photos at most/)
-    expect(checkReviewFile(file('a.mp4', 'video/mp4'), { photos: 0, videos: 1 })).toMatch(/1 video at most/)
+  it('rejects a sixth photo', () => {
+    expect(checkReviewFile(file('a.jpg', 'image/jpeg'), 4)).toBeNull()
+    expect(checkReviewFile(file('a.jpg', 'image/jpeg'), 5)).toMatch(/5 photos at most/)
   })
 })

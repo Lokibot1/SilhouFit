@@ -1,7 +1,9 @@
 import { MotionConfig } from 'motion/react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { NearViewport } from '../../components/NearViewport'
 import { ProductGallery } from '../../components/shop/ProductGallery'
 import { ProductPurchasePanel } from '../../components/shop/ProductPurchasePanel'
+import { ProductReviews } from '../../components/shop/ProductReviews'
 import { PRODUCT_BODY, PRODUCT_GRID, PRODUCT_SCREEN, ProductSkeleton } from '../../components/shop/ProductSkeleton'
 import { ShopHeader } from '../../components/shop/ShopHeader'
 import { KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
@@ -139,6 +141,12 @@ export function ProductPage() {
         )}
       </div>
       </div>
+      {/* Outside the one-screen layout above, which never scrolls on wide screens: the reviews sit below it. */}
+      {product && (
+        <NearViewport>
+          <ProductReviews key={product.id} productId={product.id} />
+        </NearViewport>
+      )}
     </MotionConfig>
   )
 }

@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { mediaUrl, type ReviewInput, type ReviewMedia } from '../../service/orderReviews'
-import { formatFileSize } from '../../utils/fileSize'
-import { checkReviewFile, filterReviewText, isVideoFile, REVIEW_ACCEPT, REVIEW_LIMITS, validateReview } from '../../utils/reviewValidation'
+import type { ReviewImage } from '../../service/reviewsApi'
+import { checkReviewFile, filterReviewText, REVIEW_ACCEPT, REVIEW_LIMITS, validateReview } from '../../utils/reviewValidation'
 import { AlertIcon, PlusIcon, SpinnerIcon } from '../form/icons'
 import { KRAL_INPUT, KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
 import { Modal } from '../ui/Modal'
@@ -11,23 +10,38 @@ import { StarRating } from './StarRating'
 export interface ReviewInitial {
   rating: number
   text: string
-  media: ReviewMedia[]
+  images: ReviewImage[]
+}
+
+/** What the form hands over: the saved photos to keep and the new files to upload. */
+export interface ReviewFormInput {
+  rating: number
+  text: string
+  keptImages: ReviewImage[]
+  files: File[]
+  orderItemId?: string
 }
 
 interface ReviewOrderModalProps {
   open: boolean
+  /** The product the dialog names. */
+  productName: string
   /** The order number the dialog names. */
   orderNumber: string
   /** The saved review, when editing. */
   initial?: ReviewInitial
+  /** The order's variants of the product, when it holds more than one: the shopper may say which one they review. */
+  variants?: { orderItemId: string; label: string }[]
   pending: boolean
+  /** Upload progress in percent while photos are being sent, else null. */
+  progress: number | null
   /** Why the last try failed, shown inside the dialog. */
   error: string | null
   onClose: () => void
-  onSubmit: (input: ReviewInput) => void
+  onSubmit: (input: ReviewFormInput) => void
 }
 
-/** A photo or video picked in this dialog, not saved yet. `url` previews it. */
+/** A photo picked in this dialog, not saved yet. `url` previews it. */
 interface Draft {
   id: string
   file: File
@@ -38,13 +52,14 @@ let nextDraft = 0
 const LABEL = 'font-kral-mono block text-base text-kral-muted md:text-xs md:tracking-[0.08em] md:uppercase'
 const revokeAll = (drafts: Draft[]) => drafts.forEach((d) => URL.revokeObjectURL(d.url))
 
-/** Rate an order, write about it and add photos or a video. Errors show once a field is touched, and all of them on submit, which also focuses the first one. */
-export function ReviewOrderModal({ open, orderNumber, initial, pending, error, onClose, onSubmit }: ReviewOrderModalProps) {
+/** Rate a product, write about it and add photos. Errors show once a field is touched, and all of them on submit, which also focuses the first one. */
+export function ReviewOrderModal({ open, productName, orderNumber, initial, variants, pending, progress, error, onClose, onSubmit }: ReviewOrderModalProps) {
   const [rating, setRating] = useState(initial?.rating ?? 0)
   const [text, setText] = useState(initial?.text ?? '')
-  const [kept, setKept] = useState<ReviewMedia[]>(initial?.media ?? [])
+  const [kept, setKept] = useState<ReviewImage[]>(initial?.images ?? [])
   const [added, setAdded] = useState<Draft[]>([])
   const [rejected, setRejected] = useState<string[]>([])
+  const [orderItemId, setOrderItemId] = useState<string>()
   const [touched, setTouched] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const firstStar = useRef<HTMLInputElement>(null)
@@ -66,7 +81,8 @@ export function ReviewOrderModal({ open, orderNumber, initial, pending, error, o
     if (open) {
       setRating(initial?.rating ?? 0)
       setText(initial?.text ?? '')
-      setKept(initial?.media ?? [])
+      setKept(initial?.images ?? [])
+      setOrderItemId(undefined)
       setAdded([])
       setRejected([])
       setTouched(false)
@@ -91,17 +107,14 @@ export function ReviewOrderModal({ open, orderNumber, initial, pending, error, o
   function pick(files: FileList | null) {
     const notes: string[] = []
     const accepted: Draft[] = []
-    const counts = {
-      photos: kept.filter((m) => m.kind === 'photo').length + added.filter((d) => !isVideoFile(d.file)).length,
-      videos: kept.filter((m) => m.kind === 'video').length + added.filter((d) => isVideoFile(d.file)).length,
-    }
+    let photos = kept.length + added.length
     for (const file of Array.from(files ?? [])) {
-      const problem = checkReviewFile(file, counts)
+      const problem = checkReviewFile(file, photos)
       if (problem) {
         notes.push(problem)
         continue
       }
-      counts[isVideoFile(file) ? 'videos' : 'photos']++
+      photos++
       accepted.push({ id: `draft${++nextDraft}`, file, url: URL.createObjectURL(file) })
     }
     setRejected(notes)
@@ -109,8 +122,8 @@ export function ReviewOrderModal({ open, orderNumber, initial, pending, error, o
     if (fileInput.current) fileInput.current.value = ''
   }
 
-  function removeKept(media: ReviewMedia) {
-    setKept(kept.filter((m) => m.id !== media.id))
+  function removeKept(image: ReviewImage) {
+    setKept(kept.filter((m) => m.id !== image.id))
     addButton.current?.focus()
   }
 
@@ -124,12 +137,15 @@ export function ReviewOrderModal({ open, orderNumber, initial, pending, error, o
     setSubmitted(true)
     if (errors.rating) firstStar.current?.focus()
     else if (errors.text) textRef.current?.focus()
-    else onSubmit({ rating, text, keepIds: kept.map((m) => m.id), files: added.map((d) => d.file) })
+    else {
+      setRejected([])
+      onSubmit({ rating, text, keptImages: kept, files: added.map((d) => d.file), orderItemId })
+    }
   }
 
   const tiles = [
-    ...kept.map((m) => ({ key: m.id, kind: m.kind, name: m.name, url: mediaUrl(m.id), remove: () => removeKept(m) })),
-    ...added.map((d) => ({ key: d.id, kind: isVideoFile(d.file) ? ('video' as const) : ('photo' as const), name: d.file.name, url: d.url, remove: () => removeDraft(d) })),
+    ...kept.map((m, i) => ({ key: m.id, name: `Saved photo ${i + 1}`, url: m.url, remove: () => removeKept(m) })),
+    ...added.map((d) => ({ key: d.id, name: d.file.name, url: d.url, remove: () => removeDraft(d) })),
   ]
   let photoNo = 0
 
@@ -139,7 +155,7 @@ export function ReviewOrderModal({ open, orderNumber, initial, pending, error, o
       initialFocusRef={firstStar}
       onClose={pending ? () => {} : onClose}
       closable={!pending}
-      title={initial ? 'Edit review' : 'Review order'}
+      title={initial ? `Edit review: ${productName}` : `Review ${productName}`}
       tone="kral"
       footer={
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -155,7 +171,7 @@ export function ReviewOrderModal({ open, orderNumber, initial, pending, error, o
     >
       <div className="font-kral-mono space-y-5 pb-5">
         <p className="text-base text-kral-muted">
-          How did order <span className="tabular-nums">{orderNumber}</span> go?
+          From order <span className="tabular-nums">{orderNumber}</span>
         </p>
 
         <div>
@@ -166,6 +182,18 @@ export function ReviewOrderModal({ open, orderNumber, initial, pending, error, o
             </p>
           )}
         </div>
+
+        {variants && variants.length > 1 && (
+          <fieldset disabled={pending} className="min-w-0">
+            <legend className={LABEL}>Which one did you buy? (optional)</legend>
+            {variants.map((v) => (
+              <label key={v.orderItemId} className="flex min-h-11 cursor-pointer items-center gap-3 text-base text-kral-fg md:text-sm">
+                <input type="radio" name={`${id}-variant`} value={v.orderItemId} checked={orderItemId === v.orderItemId} onChange={() => setOrderItemId(v.orderItemId)} className="size-5 accent-kral-red-ink" />
+                {v.label}
+              </label>
+            ))}
+          </fieldset>
+        )}
 
         <div>
           <label htmlFor={`${id}-text`} className={LABEL}>
@@ -194,14 +222,12 @@ export function ReviewOrderModal({ open, orderNumber, initial, pending, error, o
         </div>
 
         <div>
-          <p className={LABEL}>Photos and video (optional)</p>
-          <p className="mt-1 text-base text-kral-muted md:text-xs">
-            Up to {REVIEW_LIMITS.photosMax} photos (JPG, PNG or WebP, 5 MB each) and {REVIEW_LIMITS.videosMax} video (MP4 or WebM, {formatFileSize(REVIEW_LIMITS.videoBytes)}).
-          </p>
-          <input ref={fileInput} type="file" accept={REVIEW_ACCEPT} multiple tabIndex={-1} aria-label="Choose photo and video files" className="sr-only" onChange={(event) => pick(event.target.files)} />
+          <p className={LABEL}>Photos (optional)</p>
+          <p className="mt-1 text-base text-kral-muted md:text-xs">Up to {REVIEW_LIMITS.photosMax} photos (JPG, PNG or WebP, 5 MB each).</p>
+          <input ref={fileInput} type="file" accept={REVIEW_ACCEPT} multiple tabIndex={-1} aria-label="Choose photo files" className="sr-only" onChange={(event) => pick(event.target.files)} />
           <button ref={addButton} type="button" disabled={pending} onClick={() => fileInput.current?.click()} className={`${KRAL_SECONDARY} mt-2`}>
             <PlusIcon />
-            Add photos or video
+            Add photos
           </button>
           {rejected.length > 0 && (
             <ul role="alert" className="mt-2 space-y-1 text-base leading-snug text-danger">
@@ -212,12 +238,24 @@ export function ReviewOrderModal({ open, orderNumber, initial, pending, error, o
           )}
           {tiles.length > 0 && (
             <ul className="mt-3 grid grid-cols-2 gap-2 min-[480px]:grid-cols-3 sm:grid-cols-5">
-              {tiles.map(({ key, kind, name, url, remove }) => (
-                <ReviewMediaTile key={key} kind={kind} name={name} url={url} label={kind === 'photo' ? `Photo ${++photoNo}: ${name}` : `Video: ${name}`} onRemove={remove} disabled={pending} />
+              {tiles.map(({ key, name, url, remove }) => (
+                <ReviewMediaTile key={key} name={name} url={url} label={`Photo ${++photoNo}: ${name}`} onRemove={remove} disabled={pending} />
               ))}
             </ul>
           )}
         </div>
+
+        {progress !== null && (
+          <div>
+            <div className="flex justify-between text-base text-kral-muted tabular-nums md:text-xs">
+              <span id={`${id}-progress`}>Uploading photos</span>
+              <span>{progress}%</span>
+            </div>
+            <div role="progressbar" aria-labelledby={`${id}-progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="mt-1 h-2 bg-kral-porcelain dark:bg-kral-graphite">
+              <div className="h-full bg-kral-red-ink transition-[width] duration-150 motion-reduce:transition-none" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
 
         {error && (
           <p ref={errorRef} role="alert" className="flex items-start gap-2 text-base leading-snug text-danger">
