@@ -64,6 +64,16 @@ export const TOO_FAR_SPAN = 0.18
 /** Too close is when the drawn shirt (sleeves included) would be wider than the stage: the reference size's drawn width is this many times the shoulder span (about 1.65). */
 const DRAWN_PER_SPAN = (GARMENT_BASE.drawnWidth / GARMENT_BASE.shoulder) * FIT_EASE
 export const TOO_CLOSE_SPAN = 1 / DRAWN_PER_SPAN
+/** The too-close and too-far hints are left only 8% inside the threshold they were entered at, and only after the new call has held this long (ms), so the chip does not flicker. */
+export const HINT_LEAVE = 0.08
+export const HINT_DWELL_MS = 300
+/** The reference size is never drawn wider than this many stage widths, or narrower than MIN_DRAWN: a wild landmark must not blow the shirt up or shrink it to nothing. */
+export const MAX_DRAWN = 2.5
+export const MIN_DRAWN = 0.05
+/** The shirt's anchor stays within this many stage sizes outside the stage (a landmark can come back far off screen). */
+export const ANCHOR_REACH = 1
+/** A shoulder span under this many stage px is two shoulders on the same spot: a bad detection, not a person at scale 0. */
+export const MIN_SPAN_PX = 1
 
 export interface Landmark {
   x: number
@@ -122,7 +132,10 @@ export function maskTransform(view: View, drawW: number, drawH: number): [number
   return [-view.width / drawW / w, -view.height / drawH / h, 1 + offsetX / w, (view.height - offsetY) / h]
 }
 
-const seen = (p: Landmark | null | undefined): p is Landmark => !!p && (p.visibility ?? 1) >= MIN_VISIBILITY
+/** A landmark with real coordinates: one NaN fed to a One Euro filter would poison it for good. */
+const finitePoint = (p: Landmark | null | undefined): p is Landmark => !!p && Number.isFinite(p.x) && Number.isFinite(p.y)
+const finiteWorld = (p: WorldLandmark | null | undefined): p is WorldLandmark => !!p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z)
+const seen = (p: Landmark | null | undefined): p is Landmark => finitePoint(p) && (p.visibility ?? 1) >= MIN_VISIBILITY
 export const shouldersTracked = (frame: PoseFrame) => seen(frame.image[LEFT_SHOULDER]) && seen(frame.image[RIGHT_SHOULDER])
 /** A hip to fit the shirt by: inside the video frame by FRAME_MARGIN (an out-of-frame hip comes back at the edge with a visibility that still passes). Seen is the follower's gate. */
 const hipTrusted = (p: Landmark | undefined) => !!p && p.x >= FRAME_MARGIN && p.x <= 1 - FRAME_MARGIN && p.y >= FRAME_MARGIN && p.y <= 1 - FRAME_MARGIN
@@ -132,10 +145,10 @@ export type Facing = 'front' | 'back'
 /**
  * Body yaw from the world shoulders on the left and right of the screen, in (-180, 180] degrees. MediaPipe labels the shoulders by image side
  * (checked on a real back view), so for a body past side-on this is the mirrored yaw of a front view: add a half turn when facing away.
- * Zero when the world landmarks are missing.
+ * Zero when the world landmarks are missing or not finite.
  */
 export function yawOf(l: WorldLandmark | undefined, r: WorldLandmark | undefined) {
-  return l && r ? Math.atan2(r.z - l.z, l.x - r.x) : 0
+  return finiteWorld(l) && finiteWorld(r) ? Math.atan2(r.z - l.z, l.x - r.x) : 0
 }
 
 /** `angle` plus whole turns so it lies within half a turn of `near`: the yaw stays continuous through a full turn. */
@@ -167,6 +180,13 @@ export const torsoRoll = (shoulderMid: Point, hipMid: Point) => Math.atan2(hipMi
  */
 export const pxPerCmOf = (spanPx: number, yaw: number, refScaleX: number) =>
   (spanPx / Math.max(Math.cos(yaw), RELIABLE_COS)) * FIT_EASE / (GARMENT_BASE.shoulder * refScaleX)
+
+/** `pxPerCm` kept so the reference size is drawn between MIN_DRAWN and MAX_DRAWN stage widths. */
+export const clampPxPerCm = (pxPerCm: number, refScaleX: number, stageW: number) => {
+  const perDrawnWidth = 1 / (GARMENT_BASE.drawnWidth * refScaleX)
+  return Math.min(Math.max(pxPerCm, MIN_DRAWN * stageW * perDrawnWidth), MAX_DRAWN * stageW * perDrawnWidth)
+}
+const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
 
 /**
  * Each visible elbow goes with the nearer shoulder on the screen (stage pixels), not by its label: [left of the screen, right of the screen].
@@ -267,12 +287,17 @@ export class PoseFollower {
   private last: { follow: Follow; t: number } | null = null
   /** Placement from the last frame whose shoulder span was reliable (see RELIABLE_COS): held while the body is side-on. */
   private good: { x: number; y: number; roll: number; pxPerCm: number; span: number; minY: number } | null = null
+  /** The distance call on show, and the different one waiting out HINT_DWELL_MS; see hint(). */
+  private shown: FollowState | null = null
+  private pending: { call: FollowState; since: number } | null = null
   private readonly turns = new TurnDetector()
   private facing: Facing = 'front'
   /** Half turns added to the shoulders' yaw: one for each flip, in the direction the person was turning, so the shirt turns on through it. */
   private spin = 0
   /** The part of `spin` applied so far. A flip with no turn behind it (the face cue, a dwell, the button) eases in at SPIN_RATE instead of snapping; a handover is already continuous. */
   private shownSpin = 0
+  /** The half turn the last handover added, which a retrace takes back. */
+  private handoverHalf = 0
   private spinT: number | null = null
   /** What the face cue last settled on; it only acts when it changes, so a face MediaPipe still sees from behind cannot undo a turn or a manual flip. */
   private faceState: Facing = 'front'
@@ -288,10 +313,13 @@ export class PoseFollower {
     this.frontOn = false
     this.last = null
     this.good = null
+    this.shown = null
+    this.pending = null
     this.turns.reset()
     this.facing = 'front'
     this.spin = 0
     this.shownSpin = 0
+    this.handoverHalf = 0
     this.spinT = null
     this.faceState = 'front'
     this.votes = 0
@@ -303,7 +331,7 @@ export class PoseFollower {
   /** Whether landmark `i` is seen, with hysteresis around `min`. A missing landmark is not seen; one without a visibility is. */
   private seenAt(frame: PoseFrame, i: number, min = MIN_VISIBILITY) {
     const p = frame.image[i]
-    const on = !!p && (p.visibility ?? 1) >= (this.on.get(i + min) ? min - HYSTERESIS : min + HYSTERESIS)
+    const on = finitePoint(p) && (p.visibility ?? 1) >= (this.on.get(i + min) ? min - HYSTERESIS : min + HYSTERESIS)
     this.on.set(i + min, on)
     return on
   }
@@ -311,12 +339,14 @@ export class PoseFollower {
   private setFacing(next: Facing, reason: NonNullable<Cues['reason']>) {
     if (next === this.facing) return
     this.facing = next
-    const half = this.turns.direction * Math.PI
+    // A retrace takes back the half turn its handover gave.
+    const half = reason === 'retrace' ? -this.handoverHalf : this.turns.direction * Math.PI
     this.spin += half
-    if (reason === 'handover') this.shownSpin += half
+    if (reason === 'handover' || reason === 'retrace') this.shownSpin += half
+    if (reason === 'handover') this.handoverHalf = half
     this.reason = reason
     this.source = reason === 'manual' ? 'manual' : 'auto'
-    this.turns.markFlipped()
+    if (reason === 'face' || reason === 'manual') this.turns.markFlipped()
   }
 
   /** The customer's correction: the other side, until the next automatic flip (a lost body, 600 ms, starts afresh). */
@@ -328,7 +358,7 @@ export class PoseFollower {
    * The facing from two cues. The turn: a pass through side-on (see arTurn.ts) toggles it. The face: after FACING_FRAMES frames in a row that
    * differ from what it last settled on it sets it; a frame that does not say, or says the same, starts the count over.
    */
-  private decide(frame: PoseFrame, yaw: number, ratio: number, tMs: number) {
+  private decide(frame: PoseFrame, yaw: number, ratio: number) {
     const vote = facingVote(frame)
     this.votes = vote && vote !== this.faceState ? this.votes + 1 : 0
     if (this.votes >= FACING_FRAMES) {
@@ -336,7 +366,7 @@ export class PoseFollower {
       this.votes = 0
       this.setFacing(vote!, 'face')
     }
-    const why = this.turns.update(yaw, ratio, tMs)
+    const why = this.turns.update(yaw, ratio)
     if (why) this.setFacing(this.facing === 'front' ? 'back' : 'front', why)
   }
 
@@ -353,12 +383,15 @@ export class PoseFollower {
     const [rawL, rawR] = [LEFT_SHOULDER, RIGHT_SHOULDER].sort((a, b) => toStage(frame.image[a], view).x - toStage(frame.image[b], view).x)
     const rawLeft = toStage(frame.image[rawL], view)
     const rawRight = toStage(frame.image[rawR], view)
-    const l = this.left.filter(rawLeft, tMs)
-    const r = this.right.filter(rawRight, tMs)
     // The yaw of the shoulders as seen (within +-90 degrees).
     const seenYaw = yawOf(frame.world[rawL], frame.world[rawR])
     // The unsmoothed span goes with the unsmoothed yaw: the two filters lag differently and would not cancel in the division by cos.
     const span = Math.hypot(rawLeft.x - rawRight.x, rawLeft.y - rawRight.y)
+    // Two shoulders on one spot while front-on (or with nothing good to hold): not a person, so hold the last good pose instead of drawing the
+    // shirt at scale 0. Side-on the span is legitimately about 0 and is not used for the scale.
+    if (span < MIN_SPAN_PX && (!this.good || Math.cos(seenYaw) >= RELIABLE_COS)) return this.missing(tMs)
+    const l = this.left.filter(rawLeft, tMs)
+    const r = this.right.filter(rawRight, tMs)
     const hips = this.seenAt(frame, LEFT_HIP) && this.seenAt(frame, RIGHT_HIP) ? [this.hipLeft.filter(toStage(frame.image[LEFT_HIP], view), tMs), this.hipRight.filter(toStage(frame.image[RIGHT_HIP], view), tMs)] : null
     if (hips) this.hipMid = { x: (hips[0].x + hips[1].x) / 2, y: (hips[0].y + hips[1].y) / 2 }
     const hipWeight = this.hipWeight.filter(hips ? 1 : 0, tMs)
@@ -366,14 +399,15 @@ export class PoseFollower {
       const mid = { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 }
       let roll = shoulderRoll(l, r)
       if (this.hipMid) roll += (hipWeight * (torsoRoll(mid, this.hipMid) - roll)) / 2
-      const pxPerCm = this.scale.filter(pxPerCmOf(span, seenYaw, refScaleX), tMs)
+      const pxPerCm = this.scale.filter(clampPxPerCm(pxPerCmOf(span, seenYaw, refScaleX), refScaleX, view.width), tMs)
       // The seam is above the landmarks, along the (rolled) up direction of the body.
       const lift = LANDMARK_TO_SEAM_CM * pxPerCm
-      this.good = { x: mid.x - lift * Math.sin(roll), y: mid.y - lift * Math.cos(roll), roll, pxPerCm, span: span / Math.max(Math.cos(seenYaw), RELIABLE_COS), minY: Math.min(l.y, r.y) }
+      const [x, y] = [mid.x - lift * Math.sin(roll), mid.y - lift * Math.cos(roll)]
+      this.good = { x: clamp(x, -ANCHOR_REACH * view.width, (1 + ANCHOR_REACH) * view.width), y: clamp(y, -ANCHOR_REACH * view.height, (1 + ANCHOR_REACH) * view.height), roll, pxPerCm, span: span / Math.max(Math.cos(seenYaw), RELIABLE_COS), minY: Math.min(l.y, r.y) }
     }
     const { x, y, roll, pxPerCm } = this.good
     const ratio = span / this.good.span
-    this.decide(frame, seenYaw, ratio, tMs)
+    this.decide(frame, seenYaw, ratio)
     // A half turn more for each flip, and while a handover waits for its frames, so the yaw stays continuous; continued from the last one.
     const step = (SPIN_RATE * (tMs - (this.spinT ?? tMs))) / 1000
     this.spinT = tMs
@@ -404,7 +438,7 @@ export class PoseFollower {
       return forearmInFront(arm[i].wristZ, shoulderZ, this.facing) ? { capsule, cut: true, gapM } : { capsule, cut: false, why: 'behind', gapM }
     }) as [ForearmCall | null, ForearmCall | null]
     const face = faceEllipse(
-      Array.from({ length: 11 }, (_, i) => ((FACE_GATED.includes(i) ? this.seenAt(frame, i) : frame.image[i]) ? { ...this.facePoints[i].filter(toStage(frame.image[i], view), tMs), visibility: 1 } : undefined)),
+      Array.from({ length: 11 }, (_, i) => ((FACE_GATED.includes(i) ? this.seenAt(frame, i) : finitePoint(frame.image[i])) ? { ...this.facePoints[i].filter(toStage(frame.image[i], view), tMs), visibility: 1 } : undefined)),
       this.facing,
     )
     const fit = this.fitBody(frame, [rawL, rawR], hips, l, r, seenYaw, tMs)
@@ -412,11 +446,30 @@ export class PoseFollower {
     const pose: Pose = { x, y, roll, yaw, facing: this.facing, pxPerCm, sleeves, occluders: { forearms, face }, fit, cues }
 
     // Distance is judged by the span corrected for the turn, and by the last reliable one while side-on.
-    const tooClose = this.good.span > TOO_CLOSE_SPAN * view.width || this.good.minY < 0
-    const state: FollowState = tooClose ? 'too-close' : this.good.span < TOO_FAR_SPAN * view.width ? 'too-far' : 'tracking'
-    const follow: Follow = { state, opacity: 1, pose }
+    const follow: Follow = { state: this.hint(this.good.span, this.good.minY, view.width, tMs), opacity: 1, pose }
     this.last = { follow, t: tMs }
     return follow
+  }
+
+  /**
+   * Tracking, too close or too far. A hint is entered at its threshold and left HINT_LEAVE inside it, and any change shows only once the new
+   * call has held for HINT_DWELL_MS; the first call after a start or a loss shows at once.
+   */
+  private hint(span: number, minY: number, width: number, tMs: number): FollowState {
+    const close = this.shown === 'too-close' ? 1 - HINT_LEAVE : 1
+    const far = this.shown === 'too-far' ? 1 + HINT_LEAVE : 1
+    const call: FollowState = span > TOO_CLOSE_SPAN * width * close || minY < 0 ? 'too-close' : span < TOO_FAR_SPAN * width * far ? 'too-far' : 'tracking'
+    if (!this.shown || call === this.shown) {
+      this.shown = call
+      this.pending = null
+    } else {
+      const pending = this.pending?.call === call ? this.pending : (this.pending = { call, since: tMs })
+      if (tMs - pending.since >= HINT_DWELL_MS) {
+        this.shown = call
+        this.pending = null
+      }
+    }
+    return this.shown
   }
 
   /**
@@ -441,7 +494,7 @@ export class PoseFollower {
         hip: hipFactor(Math.hypot(hips![0].x - hips![1].x, hips![0].y - hips![1].y), shoulderSpan),
       }
       const world = [...shoulders, LEFT_HIP, RIGHT_HIP].map((i) => frame.world[i])
-      if (this.facing === 'front' && world.every(Boolean)) measure.pitch = leanOf(world.slice(0, 2), world.slice(2))
+      if (this.facing === 'front' && world.every(finiteWorld)) measure.pitch = leanOf(world.slice(0, 2), world.slice(2))
     }
     return {
       ...this.body.update(measure, tMs),
@@ -488,6 +541,9 @@ export function garmentTransform(pose: Pose, size: ReturnType<typeof garmentScal
     widthPx: GARMENT_BASE.drawnWidth * scale.x,
   }
 }
+
+/** What a detector's mask switch must do to reach `wanted`: the state to set, or null when it already is that (each set rebuilds MediaPipe's graph, a hitch). */
+export const nextMaskState = (current: boolean, wanted: boolean): boolean | null => (current === wanted ? null : wanted)
 
 export const MAX_RATE = 30
 export const MAX_RATE_COARSE = 20

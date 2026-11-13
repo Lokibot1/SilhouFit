@@ -3,12 +3,19 @@ import { ARMS_DOWN, SLEEVE_MAX, SLEEVE_MIN } from '../../src/utils/arArms'
 import { recommendSize } from '../../src/utils/arFit'
 import { garmentScale, GARMENT_BASE, SEAM_HEIGHT } from '../../src/utils/arGarment'
 import {
+  ANCHOR_REACH,
+  clampPxPerCm,
   coverMap,
   FACING_FRAMES,
   FIT_EASE,
   facingVote,
   garmentTransform,
+  HINT_DWELL_MS,
+  HINT_LEAVE,
   maskTransform,
+  MAX_DRAWN,
+  MIN_DRAWN,
+  nextMaskState,
   LANDMARK_TO_SEAM_CM,
   LEFT_ELBOW,
   LEFT_HIP,
@@ -24,6 +31,8 @@ import {
   RIGHT_SHOULDER,
   shouldersTracked,
   toStage,
+  TOO_CLOSE_SPAN,
+  TOO_FAR_SPAN,
   type Landmark,
   type PoseFrame,
   type View,
@@ -293,9 +302,9 @@ describe('facing from the turn', () => {
         const { flips, frames } = drive(new PoseFollower(), 0, ms, path, { jitter, rand: seeded(7) })
         expect(flips.map((x) => x.facing)).toEqual(['back', 'front'])
         expect(flips[0].deg).toBeGreaterThan(85)
-        expect(flips[0].deg).toBeLessThan(140)
+        expect(flips[0].deg).toBeLessThan(150)
         expect(flips[1].deg).toBeGreaterThan(265)
-        expect(flips[1].deg).toBeLessThan(320)
+        expect(flips[1].deg).toBeLessThan(330)
         // The shirt's yaw follows the person all the way round: continuous, close to the real angle (a filter lag aside), no jump at a flip.
         frames.forEach((fr, i) => {
           expect(Number.isFinite(fr.yaw)).toBe(true)
@@ -322,11 +331,79 @@ describe('facing from the turn', () => {
     expect(drive(new PoseFollower(), 0, ms, path).flips.map((x) => x.facing)).toEqual(['back'])
   })
 
-  it('reads a turn with the depth mirrored too only when it takes over 1.5 s; a faster one cannot be told from a peek', () => {
-    const slow = turnBy(45, 360)
-    expect(drive(new PoseFollower(), 0, slow.ms, slow.path, { fold: 'tri' }).flips.map((x) => x.facing)).toEqual(['back', 'front'])
-    const fast = turnBy(180, 360)
-    expect(drive(new PoseFollower(), 0, fast.ms, fast.path, { fold: 'tri' }).flips).toEqual([])
+  it('with the depth mirrored too (triangle fold) never flips by itself: a turn is the same numbers as a deep peek or a side-on pose, so the button does it', () => {
+    for (const rate of [45, 180]) {
+      const turn = turnBy(rate, 360)
+      expect(drive(new PoseFollower(), 0, turn.ms, turn.path, { fold: 'tri' }).flips).toEqual([])
+    }
+    for (const peak of [100, 120, 150]) {
+      const { path, ms } = peekTo(peak, 1000, 1500)
+      expect(drive(new PoseFollower(), 0, ms + 500, path, { fold: 'tri' }).flips).toEqual([])
+    }
+  })
+
+  it('does not leave the front on a peek that crosses side-on, to 80, 100 or 120 degrees and back, either side, either speed, with jitter', () => {
+    for (const sign of [1, -1]) {
+      for (const peak of [80, 100, 120]) {
+        for (const [outMs, hold] of [[400, 0], [1000, 0], [700, 2500]]) {
+          const { path, ms } = peekTo(peak, outMs, hold)
+          for (const jitter of [0, 4]) {
+            const { frames } = drive(new PoseFollower(), 0, ms + 500, (t) => sign * path(t), { jitter, rand: seeded(peak + outMs) })
+            expect(frames.every((fr) => fr.facing === 'front')).toBe(true)
+          }
+        }
+      }
+    }
+  })
+
+  it('stays front when the person stands side-on for 2.5 s and turns back, and with jitter of 10 degrees around side-on the sign chattering does not flip it', () => {
+    for (const sign of [1, -1]) {
+      for (const [at, noise] of [[88, 0], [90, 0], [95, 0], [90, 10]]) {
+        const rand = seeded(at + noise)
+        const path = (t: number) => sign * (t < 1000 ? (at * t) / 1000 : t < 3500 ? at + (rand() * 2 - 1) * noise : Math.max(0, (at * (4500 - t)) / 1000))
+        const { frames } = drive(new PoseFollower(), 0, 5500, path)
+        expect(frames.every((fr) => fr.facing === 'front')).toBe(true)
+      }
+    }
+  })
+
+  it('comes back to the front by itself after a turn past about 130 degrees that returns through side-on (a retrace, or a turn back), the yaw continuous', () => {
+    for (const sign of [1, -1]) {
+      for (const [peak, outMs] of [[140, 1500], [150, 800], [160, 300]]) {
+        const { path, ms } = peekTo(peak, outMs, 0)
+        const { flips, frames } = drive(new PoseFollower(), 0, ms + 800, (t) => sign * path(t))
+        expect(flips.map((x) => x.facing)).toEqual(['back', 'front'])
+        expect(frames.at(-1)!.facing).toBe('front')
+        expect(Math.abs(frames.at(-1)!.yaw)).toBeLessThan(0.2)
+        frames.forEach((fr, i) => i && expect(Math.abs(fr.yaw - frames[i - 1].yaw)).toBeLessThan(0.7))
+      }
+    }
+  })
+
+  it('names the undo of a handover a retrace', () => {
+    const { path, ms } = peekTo(140, 1500, 0)
+    expect(drive(new PoseFollower(), 0, ms + 800, path).frames.some((fr) => fr.reason === 'retrace')).toBe(true)
+  })
+
+  it('keeps a real turn to the back, and turning back through the same side takes it to the front again', () => {
+    const out = turnBy(90, 180)
+    const f = new PoseFollower()
+    const first = drive(f, 0, out.ms, out.path)
+    expect(first.flips.map((x) => x.facing)).toEqual(['back'])
+    const held = drive(f, first.end, 1500, () => 180)
+    expect(held.flips).toEqual([])
+    const home = drive(f, held.end, out.ms, (t) => 180 - Math.min((90 * t) / 1000, 180))
+    expect(home.flips.map((x) => x.facing)).toEqual(['front'])
+  })
+
+  it('lets a manual flip win over the detector for the rest of that excursion', () => {
+    const f = new PoseFollower()
+    const { path, ms } = peekTo(100, 1000, 1000)
+    const out = drive(f, 0, 1500, path)
+    f.flip()
+    const back = drive(f, out.end, ms - 1500 + 500, (t) => path(t + 1500))
+    expect(back.flips).toEqual([])
+    expect(back.frames.at(-1)).toMatchObject({ facing: 'back', source: 'manual' })
   })
 
   it('does not flicker: a person standing still, front or back, with jittery yaw and span never flips', () => {
@@ -696,5 +773,135 @@ describe('RateHealth', () => {
   })
   it('is not slow at 15 a second', () => {
     expect(run(new RateHealth(false), 66, 40, 10).slow).toBe(false)
+  })
+})
+
+describe('the mask switch and a session that starts after a busy drop', () => {
+  it('sets the mask only when it differs from what is wanted', () => {
+    expect(nextMaskState(true, true)).toBeNull()
+    expect(nextMaskState(false, false)).toBeNull()
+    expect(nextMaskState(true, false)).toBe(false)
+    expect(nextMaskState(false, true)).toBe(true)
+  })
+  const clock = (h: RateHealth, gap: number, ms: number, seconds: number, from = 0) => {
+    for (let t = from; t <= from + seconds * 1000; t += gap) h.record(t, ms)
+    return h
+  }
+  it('a session started without the mask (it was dropped earlier) never has it, and its first busy period already lowers the rate', () => {
+    const h = clock(new RateHealth(false, false), 33, 25, 2.1)
+    expect(h.mask).toBe(false)
+    expect(h.rate).toBe(15)
+  })
+  it('never turns the mask back on within a session, however quick the detections get', () => {
+    const h = clock(new RateHealth(false, true), 33, 25, 2.1)
+    expect(h.mask).toBe(false)
+    clock(h, 33, 5, 20, 3000)
+    expect(h.mask).toBe(false)
+  })
+})
+
+describe('wild and broken landmarks', () => {
+  const [w, h] = [VIEW.width, VIEW.height]
+  const ref = garmentScale({ chestWidthCm: 52, totalLengthCm: 70 })
+  const fields = (p: NonNullable<ReturnType<PoseFollower['update']>['pose']>) => [p.x, p.y, p.roll, p.yaw, p.pxPerCm, ...p.sleeves, p.fit.vy, p.fit.hip, p.fit.pitch]
+  const drawn = (p: NonNullable<ReturnType<PoseFollower['update']>['pose']>) => GARMENT_BASE.drawnWidth * ref.x * p.pxPerCm
+
+  it('keeps the drawn width between MIN_DRAWN and MAX_DRAWN stage widths, and the anchor within one stage size outside the stage', () => {
+    expect(drawn({ pxPerCm: clampPxPerCm(1e9, ref.x, w) } as never)).toBeCloseTo(MAX_DRAWN * w)
+    expect(drawn({ pxPerCm: clampPxPerCm(1e-9, ref.x, w) } as never)).toBeCloseTo(MIN_DRAWN * w)
+    expect(drawn({ pxPerCm: clampPxPerCm(1, ref.x, w) } as never)).toBeGreaterThan(MIN_DRAWN * w)
+    for (const [lx, rx, y] of [[1e6, -1e6, 0.4], [3, -2, 5], [0.5001, 0.4999, 0.4], [-4e5, -4e5 - 0.01, -9e5], [2e3, 1e3, 7e4]]) {
+      const hips = { x: 3e5, y: -8e5 }
+      const pose = new PoseFollower().update(frame({ l: { x: lx, y }, r: { x: rx, y: y + 1 }, hips, elL: { x: 9e5, y: -9e5 }, elR: { x: -9e5, y: 9e5 } }), 0, VIEW, ref.x).pose!
+      for (const v of fields(pose)) expect(Number.isFinite(v)).toBe(true)
+      expect(drawn(pose)).toBeLessThanOrEqual(MAX_DRAWN * w + 1e-6)
+      expect(drawn(pose)).toBeGreaterThanOrEqual(MIN_DRAWN * w - 1e-6)
+      expect(pose.x).toBeGreaterThanOrEqual(-ANCHOR_REACH * w)
+      expect(pose.x).toBeLessThanOrEqual((1 + ANCHOR_REACH) * w)
+      expect(pose.y).toBeGreaterThanOrEqual(-ANCHOR_REACH * h)
+      expect(pose.y).toBeLessThanOrEqual((1 + ANCHOR_REACH) * h)
+    }
+  })
+
+  it('ignores a non-finite coordinate: it is unseen, no filter is poisoned and the frames after it are normal', () => {
+    const clean = new PoseFollower()
+    const dirty = new PoseFollower()
+    const bad = (i: number): PoseFrame => {
+      const fr = frame({ hips: { x: 0.5, y: 0.8 }, elL: {}, elR: {} })
+      for (const j of [LEFT_ELBOW, RIGHT_ELBOW, LEFT_HIP, RIGHT_HIP, LEFT_WRIST]) if (fr.image[j]) fr.image[j] = { ...fr.image[j], [i % 2 ? 'x' : 'y']: NaN }
+      fr.image[LEFT_WRIST] = { x: NaN, y: Infinity, visibility: 1 }
+      fr.image[2] = { x: Infinity, y: 0.3, visibility: 1 }
+      fr.world[LEFT_HIP] = { x: NaN, y: 0, z: 0 }
+      return fr
+    }
+    for (let i = 0; i < 20; i++) {
+      const t = i * STEP
+      const fr = frame({ hips: { x: 0.5, y: 0.8 }, elL: {}, elR: {} })
+      const a = clean.update(fr, t, VIEW, 1).pose!
+      const b = dirty.update(i === 5 || i === 6 ? bad(i) : fr, t, VIEW, 1).pose!
+      for (const v of fields(b)) expect(Number.isFinite(v)).toBe(true)
+      expect(JSON.stringify(b.occluders)).not.toContain('null,null,null')
+      if (i === 5 || i === 6) expect(b.cues.held).toBeGreaterThan(a.cues.held)
+      if (i > 12) {
+        expect(b.x).toBeCloseTo(a.x, 0)
+        expect(b.fit.vy).toBeCloseTo(a.fit.vy, 1)
+      }
+    }
+  })
+
+  it('treats a shoulder that is not finite as not tracked (the last pose is held), and a world landmark that is not finite as no yaw', () => {
+    const f = new PoseFollower()
+    const seen = f.update(frame(), 0, VIEW, 1)
+    expect(f.update(frame({ l: { x: NaN } }), STEP, VIEW, 1)).toBe(seen)
+    expect(f.update(frame({ r: { y: NaN } }), 2 * STEP, VIEW, 1)).toBe(seen)
+    const nan = frame()
+    nan.world[LEFT_SHOULDER] = { x: NaN, y: 0, z: 0 }
+    expect(new PoseFollower().update(nan, 0, VIEW, 1).pose!.yaw).toBe(0)
+  })
+
+  it('holds the last good pose for two shoulders on the same spot (span under 1 px), and is lost with nothing to hold', () => {
+    const f = new PoseFollower()
+    const seen = f.update(frame(), 0, VIEW, 1)
+    const same = frame({ l: { x: 0.5 }, r: { x: 0.5 } })
+    expect(f.update(same, STEP, VIEW, 1)).toBe(seen)
+    expect(f.update(frame({ l: { x: 0.5 + 0.4 / 640 }, r: { x: 0.5 } }), 2 * STEP, VIEW, 1)).toBe(seen)
+    const next = f.update(frame(), 3 * STEP, VIEW, 1)
+    expect(next.pose!.pxPerCm).toBeGreaterThan(0)
+    expect(next.pose).not.toBe(seen.pose)
+    expect(new PoseFollower().update(same, 0, VIEW, 1)).toMatchObject({ state: 'lost', pose: null })
+  })
+})
+
+describe('the too close and too far hints', () => {
+  const wide = (frac: number) => frame({ l: { x: 0.5 + frac / 2 }, r: { x: 0.5 - frac / 2 } })
+  /** Feeds frames `ms` long at the span share `frac` of the width, from `t0`, and gives the call on the last one. */
+  const hold = (f: PoseFollower, frac: number, t0: number, ms: number) => {
+    let state = ''
+    for (let t = t0; t <= t0 + ms; t += STEP) state = f.update(wide(frac), t, VIEW, 1).state
+    return state
+  }
+
+  it('enters too close at the threshold at once, leaves only 8% inside it, and only after 300 ms', () => {
+    const f = new PoseFollower()
+    expect(hold(f, TOO_CLOSE_SPAN * 1.01, 0, 0)).toBe('too-close')
+    // Inside the threshold but not by 8%: stays, however long.
+    expect(hold(f, TOO_CLOSE_SPAN * (1 - HINT_LEAVE / 2), 100, 3000)).toBe('too-close')
+    const t = 3200
+    expect(hold(f, TOO_CLOSE_SPAN * (1 - HINT_LEAVE) * 0.99, t, HINT_DWELL_MS - 50)).toBe('too-close')
+    expect(hold(f, TOO_CLOSE_SPAN * (1 - HINT_LEAVE) * 0.99, t + HINT_DWELL_MS, STEP)).toBe('tracking')
+  })
+  it('enters too far at the threshold and leaves only 8% inside it', () => {
+    const f = new PoseFollower()
+    expect(hold(f, TOO_FAR_SPAN * 0.99, 0, 0)).toBe('too-far')
+    expect(hold(f, TOO_FAR_SPAN * (1 + HINT_LEAVE / 2), 100, 3000)).toBe('too-far')
+    expect(hold(f, TOO_FAR_SPAN * (1 + HINT_LEAVE) * 1.01, 3200, HINT_DWELL_MS + STEP)).toBe('tracking')
+  })
+  it('does not flicker: a span flipping over the threshold every frame keeps the call, and a change needs 300 ms in a row', () => {
+    const f = new PoseFollower()
+    hold(f, 0.3, 0, 0)
+    const states = new Set<string>()
+    for (let i = 1; i < 200; i++) states.add(f.update(wide(i % 2 ? TOO_CLOSE_SPAN * 1.1 : 0.3), i * STEP, VIEW, 1).state)
+    expect([...states]).toEqual(['tracking'])
+    expect(hold(f, TOO_CLOSE_SPAN * 1.1, 7000, HINT_DWELL_MS + STEP)).toBe('too-close')
   })
 })

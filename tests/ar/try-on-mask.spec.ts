@@ -37,4 +37,19 @@ test.describe('AR try-on person mask', () => {
     await expect(page.locator('[data-mask]')).toHaveAttribute('data-mask', 'off', { timeout: 15000 })
     await expect(page.locator('[data-tracking]')).not.toHaveAttribute('data-tracking', 'slow')
   })
+
+  test('after a busy drop, the next camera session on the page starts without the mask and keeps it off', async ({ page }) => {
+    await goLive(page)
+    await page.evaluate((box) => Object.assign(window.__arFeed, { mask: { w: 64, h: 48, box }, busyMs: 40 }), BOX)
+    await expect(page.locator('[data-mask]')).toHaveAttribute('data-mask', 'off', { timeout: 25000 })
+    // The device is quick again, and a mask is on offer; a new session still must not start with one.
+    await page.evaluate(() => (window.__arFeed.busyMs = 0))
+    await page.getByRole('button', { name: 'Turn camera off' }).click()
+    await expect(page.getByRole('button', { name: 'Turn on camera' })).toBeVisible()
+    await page.getByRole('button', { name: 'Turn on camera' }).click()
+    await expect(page.locator('[data-tracking="tracking"]')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('[data-mask]')).toHaveAttribute('data-mask', 'off')
+    await page.waitForTimeout(1000)
+    await expect(page.locator('[data-mask]')).toHaveAttribute('data-mask', 'off')
+  })
 })

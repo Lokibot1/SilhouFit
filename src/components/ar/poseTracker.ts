@@ -2,7 +2,7 @@ import wasmBinaryPath from '@mediapipe/tasks-vision/vision_wasm_internal.wasm?ur
 import wasmLoaderPath from '@mediapipe/tasks-vision/vision_wasm_internal.js?url'
 import modelAssetPath from '../../assets/pose_landmarker_lite.task?url'
 import type { MPMask } from '@mediapipe/tasks-vision'
-import type { PoseFrame, RateHealth } from '../../utils/arPose'
+import { nextMaskState, type PoseFrame, type RateHealth } from '../../utils/arPose'
 
 // Body tracking for the AR try-on: MediaPipe pose landmarks from the camera feed, on this device. Frames and landmarks are never sent anywhere
 // or logged. The wasm, the model and the library are all served from our own origin (nothing comes from a CDN), and the library is imported
@@ -18,7 +18,7 @@ declare global {
 export interface Detector {
   detect: (video: HTMLVideoElement, tMs: number) => PoseFrame | null
   close: () => void
-  /** Turns the person mask on or off (off once the device is busy: reading it is the costliest part of a detection). The feed ignores it. */
+  /** Turns the person mask on or off (off once the device is busy: reading it is the costliest part of a detection); does nothing if it already is. The feed ignores it. */
   setMask: (on: boolean) => void
   /** What the model runs on; 'feed' is the dev test hook. */
   delegate: 'GPU' | 'CPU' | 'feed'
@@ -99,6 +99,7 @@ async function loadLandmarker(): Promise<Detector> {
     },
     close: () => landmarker.close(),
     setMask: (on) => {
+      if (nextMaskState(masking, on) === null) return
       masking = on
       landmarker.setOptions({ outputSegmentationMasks: on }).catch(() => {})
     },
@@ -147,6 +148,8 @@ export function startPoseLoop(
   let lastDetect = -Infinity
   let lastStamp = 0
   let masking = health.mask
+  // The detector outlives a session: start with its mask matching this one's health (a no-op when it already does). Within a session it is only ever dropped.
+  detector.setMask(masking)
   const useVideoFrames = 'requestVideoFrameCallback' in video
 
   const schedule = () => {

@@ -69,6 +69,9 @@ declare global {
   }
 }
 
+/** Set once the device was too busy to read the person mask: later camera sessions on this page load start without it instead of hitching again 2 to 5 s in. */
+let maskDroppedForLoad = false
+
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0
 const percentile95 = (values: number[]) => [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * 0.95))] ?? 0
 const debugOverlay = () => new URLSearchParams(location.search).get('debug') === 'ar'
@@ -114,6 +117,8 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
   /** The manual correction of the front/back facing: the running follower's flip, nothing while there is none. */
   const flipFacing = useRef<() => void>(() => {})
   const [unavailable, setUnavailable] = useState(false)
+  /** The WebGL context was lost mid-session (unlike no WebGL at all): the scene can be rebuilt, see TryOnFlat. */
+  const [lost, setLost] = useState(false)
   const [load, setLoad] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [attempt, setAttempt] = useState(0)
   const [overlay] = useState(debugOverlay)
@@ -535,7 +540,7 @@ varying vec3 vFold;
       detector.then(
         (d) => {
           if (disposed || mine !== run) return
-          const health = new RateHealth(coarse, true)
+          const health = new RateHealth(coarse, !maskDroppedForLoad)
           const follower = new PoseFollower()
           flipFacing.current = () => follower.flip()
           let placed: Pose | null = null
@@ -568,7 +573,10 @@ varying vec3 vFold;
                 return
               }
               // No body keeps the last mask, so the hold and fade still show the shirt; a busy device drops it for good.
-              if (!health.mask) setMaskState('off')
+              if (!health.mask) {
+                maskDroppedForLoad = true
+                setMaskState('off')
+              }
               else if (result?.mask && out.pose) uploadMask(result.mask)
               renderer.domElement.style.opacity = String(reduceMotion.matches && out.opacity < 1 ? 0 : out.opacity)
               if (out.pose && out.pose !== placed) {
@@ -664,6 +672,7 @@ varying vec3 vFold;
     const lost = (e: Event) => {
       e.preventDefault()
       setUnavailable(true)
+      setLost(true)
     }
     renderer.domElement.addEventListener('webglcontextlost', lost)
     resize()
@@ -795,8 +804,11 @@ varying vec3 vFold;
           image={image}
           alt={alt}
           unavailable={unavailable}
+          lost={lost}
+          live={live}
           onRetry={() => {
             setUnavailable(false)
+            setLost(false)
             setAttempt((n) => n + 1)
           }}
         />
