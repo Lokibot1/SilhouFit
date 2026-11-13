@@ -2,7 +2,7 @@ import { sleeveAngle, SleeveTracker, type Side } from './arArms'
 import { BodyFitter, FRONT_ON_ENTER, FRONT_ON_LEAVE, hipFactor, leanOf, torsoFactor, type BodyFit, type BodyMeasure } from './arFitBody'
 import { garmentScale, GARMENT_BASE, SEAM_HEIGHT } from './arGarment'
 import { OneEuro, OneEuroPoint } from './oneEuro'
-import { faceEllipse, forearmCapsule, forearmInFront, FRAME_MARGIN, wristTrusted, type Ellipse, type ForearmCall } from './arOcclude'
+import { faceEllipse, forearmCapsule, forearmInFront, FRAME_MARGIN, WRIST_SEEN, wristTrusted, type Ellipse, type ForearmCall } from './arOcclude'
 import { TurnDetector, type FlipReason } from './arTurn'
 
 // From pose landmarks to where the shirt goes on the stage, for the AR try-on. Pure TypeScript with no rendering. The camera feed is shown
@@ -24,6 +24,15 @@ export const LEFT_HIP = 23
 export const RIGHT_HIP = 24
 
 export const MIN_VISIBILITY = 0.5
+/**
+ * A landmark comes on at MIN_VISIBILITY + this and goes off below MIN_VISIBILITY - this (0.55 and 0.45), so a visibility hovering around 0.5
+ * cannot toggle a capsule, a sleeve, the chin or the hip fit on and off from frame to frame. While it is off its filter is held, not fed.
+ */
+export const HYSTERESIS = 0.05
+/** The face landmarks that must be seen for the chin ellipse (nose, ears, mouth corners); the eyes are used as they come, as before. */
+const FACE_GATED = [NOSE, 7, 8, 9, 10]
+/** The landmarks the follower gates, for the "held" count of the ?debug=ar overlay: those of the face, shoulders, elbows, wrists, hips. */
+const TRACKED = [...FACE_GATED, LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_ELBOW, RIGHT_ELBOW, LEFT_WRIST, RIGHT_WRIST, LEFT_HIP, RIGHT_HIP]
 /**
  * How much wider than the tracked shoulder-joint span the reference size's shoulder seams are drawn. The landmarks sit on the joints, a bit
  * inside the seams, so a little over 1 puts the seams just outside the joints. Tunable: raise it if the shirt still looks too narrow, lower it if too wide.
@@ -115,9 +124,8 @@ export function maskTransform(view: View, drawW: number, drawH: number): [number
 
 const seen = (p: Landmark | null | undefined): p is Landmark => !!p && (p.visibility ?? 1) >= MIN_VISIBILITY
 export const shouldersTracked = (frame: PoseFrame) => seen(frame.image[LEFT_SHOULDER]) && seen(frame.image[RIGHT_SHOULDER])
-const hipsTracked = (frame: PoseFrame) => seen(frame.image[LEFT_HIP]) && seen(frame.image[RIGHT_HIP])
-/** A hip to fit the shirt by: seen, and inside the video frame by FRAME_MARGIN (an out-of-frame hip comes back at the edge with a visibility that still passes). */
-const hipTrusted = (p: Landmark | undefined) => seen(p) && p.x >= FRAME_MARGIN && p.x <= 1 - FRAME_MARGIN && p.y >= FRAME_MARGIN && p.y <= 1 - FRAME_MARGIN
+/** A hip to fit the shirt by: inside the video frame by FRAME_MARGIN (an out-of-frame hip comes back at the edge with a visibility that still passes). Seen is the follower's gate. */
+const hipTrusted = (p: Landmark | undefined) => !!p && p.x >= FRAME_MARGIN && p.x <= 1 - FRAME_MARGIN && p.y >= FRAME_MARGIN && p.y <= 1 - FRAME_MARGIN
 
 export type Facing = 'front' | 'back'
 
@@ -191,6 +199,8 @@ export interface Cues {
   yaw: number
   ratio: number
   face: number | null
+  /** How many of the tracked landmarks (face, shoulders, arms, hips) were below the visibility threshold in this frame. */
+  held: number
   source: 'auto' | 'manual'
   reason: FlipReason | 'face' | 'manual' | null
 }
@@ -219,7 +229,15 @@ export interface Follow {
   pose: Pose | null
 }
 
-const LANDMARK_FILTER = { minCutoff: 1, beta: 0.007, dCutoff: 1 }
+/**
+ * Every landmark's One Euro filter, in stage px at 30 detections a second. Chosen on tests/shared/arSynth.ts (a person with 2 px of landmark
+ * noise, the shoulder anchor): minCutoff / beta, still sd at 2 px noise, lag walking at 200 px/s, time to 90% of a 20 px shrug step.
+ *   1 / 0.007 (before) 0.49 px, 39 ms, 200 ms     0.5 / 0.007 0.39 px, 43 ms, 233 ms     2 / 0.007 0.62 px, 33 ms, 133 ms
+ *   0.5 / 0.02 (now)   0.47 px, 22 ms, 133 ms     1 / 0.02 0.54 px, 21 ms, 100 ms         0.5 / 0.05 0.60 px, 11 ms, 67 ms
+ * The real model's noise on a still photo (video mode, 1 px shifts and sensor-like noise) was 0.4 to 1.9% of the shoulder span for the shoulders
+ * (about 1.3 px at a 140 px span), so 2 px is the pessimistic case. Exported and mutable only so those tests can try other values.
+ */
+export const LANDMARK_FILTER = { minCutoff: 0.5, beta: 0.02, dCutoff: 1 }
 
 /** Smooths landmarks into a pose frame by frame, and decides what to show when the body is lost, too close or too far. */
 export class PoseFollower {
@@ -233,7 +251,15 @@ export class PoseFollower {
   private readonly wristRight = new OneEuroPoint(LANDMARK_FILTER)
   private readonly armLeft = new SleeveTracker(HOLD_MS, FADE_MS)
   private readonly armRight = new SleeveTracker(HOLD_MS, FADE_MS)
-  private readonly scale = new OneEuro({ minCutoff: 0.4, beta: 0 })
+  /** The face points the chin ellipse is built from (0..10, the unused ones are never fed): filtered like the shoulders, or it would jitter on its own. */
+  private readonly facePoints = Array.from({ length: 11 }, () => new OneEuroPoint(LANDMARK_FILTER))
+  /** px/cm: 0.7 Hz gives 0.5% noise at 2 px of landmark noise and 90% of a 20% step in 0.5 s (0.4 Hz took 0.9 s). */
+  private readonly scale = new OneEuro({ minCutoff: 0.7, beta: 0 })
+  /** How much the hips bend the roll (0 or 1, eased), so the roll does not step when they appear or go; `hipMid` is the last smoothed hip midpoint it uses meanwhile. */
+  private readonly hipWeight = new OneEuro({ minCutoff: 0.4, beta: 0 })
+  private hipMid: Point | null = null
+  /** Whether each landmark (by index plus the threshold it is judged by) is on; see HYSTERESIS. */
+  private readonly on = new Map<number, boolean>()
   private readonly body = new BodyFitter()
   /** Whether the body is front-on enough to measure the torso and hips (with hysteresis, see FRONT_ON_ENTER). */
   private frontOn = false
@@ -256,7 +282,9 @@ export class PoseFollower {
   private rawYaw: number | null = null
 
   private reset() {
-    for (const f of [this.left, this.right, this.hipLeft, this.hipRight, this.elbowLeft, this.elbowRight, this.wristLeft, this.wristRight, this.armLeft, this.armRight, this.scale, this.turn, this.body]) f.reset()
+    for (const f of [this.left, this.right, this.hipLeft, this.hipRight, this.elbowLeft, this.elbowRight, this.wristLeft, this.wristRight, this.armLeft, this.armRight, this.scale, this.hipWeight, this.turn, this.body, ...this.facePoints]) f.reset()
+    this.on.clear()
+    this.hipMid = null
     this.frontOn = false
     this.last = null
     this.good = null
@@ -270,6 +298,14 @@ export class PoseFollower {
     this.source = 'auto'
     this.reason = null
     this.rawYaw = null
+  }
+
+  /** Whether landmark `i` is seen, with hysteresis around `min`. A missing landmark is not seen; one without a visibility is. */
+  private seenAt(frame: PoseFrame, i: number, min = MIN_VISIBILITY) {
+    const p = frame.image[i]
+    const on = !!p && (p.visibility ?? 1) >= (this.on.get(i + min) ? min - HYSTERESIS : min + HYSTERESIS)
+    this.on.set(i + min, on)
+    return on
   }
 
   private setFacing(next: Facing, reason: NonNullable<Cues['reason']>) {
@@ -309,8 +345,9 @@ export class PoseFollower {
    * recommended one, else the middle one) that the drawing is sized by. `reduceMotion` makes a lost arm drop at once instead of easing.
    */
   update(frame: PoseFrame | null, tMs: number, view: View, refScaleX: number, reduceMotion = false): Follow {
-    if (!frame || !shouldersTracked(frame)) return this.missing(tMs)
+    if (!frame || ![LEFT_SHOULDER, RIGHT_SHOULDER].map((i) => this.seenAt(frame, i)).every(Boolean)) return this.missing(tMs)
     if (this.last && tMs - this.last.t > HOLD_MS + FADE_MS) this.reset()
+    const held = TRACKED.filter((i) => !this.seenAt(frame, i)).length
 
     // Screen sides by where the shoulders are in the image, not by label, so a label swap cannot turn the roll upside down.
     const [rawL, rawR] = [LEFT_SHOULDER, RIGHT_SHOULDER].sort((a, b) => toStage(frame.image[a], view).x - toStage(frame.image[b], view).x)
@@ -322,12 +359,13 @@ export class PoseFollower {
     const seenYaw = yawOf(frame.world[rawL], frame.world[rawR])
     // The unsmoothed span goes with the unsmoothed yaw: the two filters lag differently and would not cancel in the division by cos.
     const span = Math.hypot(rawLeft.x - rawRight.x, rawLeft.y - rawRight.y)
-    const hips = hipsTracked(frame) ? [this.hipLeft.filter(toStage(frame.image[LEFT_HIP], view), tMs), this.hipRight.filter(toStage(frame.image[RIGHT_HIP], view), tMs)] : null
-    const hipMid = hips && { x: (hips[0].x + hips[1].x) / 2, y: (hips[0].y + hips[1].y) / 2 }
+    const hips = this.seenAt(frame, LEFT_HIP) && this.seenAt(frame, RIGHT_HIP) ? [this.hipLeft.filter(toStage(frame.image[LEFT_HIP], view), tMs), this.hipRight.filter(toStage(frame.image[RIGHT_HIP], view), tMs)] : null
+    if (hips) this.hipMid = { x: (hips[0].x + hips[1].x) / 2, y: (hips[0].y + hips[1].y) / 2 }
+    const hipWeight = this.hipWeight.filter(hips ? 1 : 0, tMs)
     if (Math.cos(seenYaw) >= RELIABLE_COS || !this.good) {
       const mid = { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 }
       let roll = shoulderRoll(l, r)
-      if (hipMid) roll = (roll + torsoRoll(mid, hipMid)) / 2
+      if (this.hipMid) roll += (hipWeight * (torsoRoll(mid, this.hipMid) - roll)) / 2
       const pxPerCm = this.scale.filter(pxPerCmOf(span, seenYaw, refScaleX), tMs)
       // The seam is above the landmarks, along the (rolled) up direction of the body.
       const lift = LANDMARK_TO_SEAM_CM * pxPerCm
@@ -343,13 +381,15 @@ export class PoseFollower {
     const turned = unwrap(seenYaw + this.shownSpin + this.turns.unfold, this.rawYaw ?? 0)
     this.rawYaw = turned
     const yaw = this.turn.filter(turned, tMs)
-    const pair = pairElbows([frame.image[LEFT_ELBOW], frame.image[RIGHT_ELBOW]], rawLeft, rawRight, view)
+    // Only elbows the hysteresis lets through (marked fully visible, so pairElbows' own 0.5 does not second-guess it).
+    const elbowIn = [LEFT_ELBOW, RIGHT_ELBOW].map((i) => (this.seenAt(frame, i) ? { ...frame.image[i], visibility: 1 } : undefined))
+    const pair = pairElbows(elbowIn, rawLeft, rawRight, view)
     // The wrist goes with its own elbow (13 with 15, 14 with 16), so each arm keeps its side.
     const arm = pair.map((e) => {
-      const wrist = e === frame.image[LEFT_ELBOW] ? LEFT_WRIST : RIGHT_WRIST
-      return { elbow: e, wrist: frame.image[wrist], wristZ: frame.world[wrist]?.z }
+      const wrist = e === elbowIn[0] ? LEFT_WRIST : RIGHT_WRIST
+      return { elbow: e, wrist: frame.image[wrist], wristAt: wrist, wristZ: frame.world[wrist]?.z }
     })
-    const elbows = [this.elbowLeft, this.elbowRight].map((f, i) => (seen(arm[i].elbow) ? f.filter(toStage(arm[i].elbow, view), tMs) : null))
+    const elbows = [this.elbowLeft, this.elbowRight].map((f, i) => (arm[i].elbow ? f.filter(toStage(arm[i].elbow, view), tMs) : null))
     const sleeves: [number, number] = [
       this.sleeve(elbows[0], l, roll, -1, this.armLeft, tMs, reduceMotion),
       this.sleeve(elbows[1], r, roll, 1, this.armRight, tMs, reduceMotion),
@@ -357,18 +397,18 @@ export class PoseFollower {
     const shoulderZ = frame.world[rawL] && frame.world[rawR] ? (frame.world[rawL].z + frame.world[rawR].z) / 2 : undefined
     const forearms = [this.wristLeft, this.wristRight].map((f, i) => {
       const wrist = arm[i].wrist
-      const capsule = elbows[i] && seen(wrist) ? forearmCapsule(elbows[i], f.filter(toStage(wrist, view), tMs), pxPerCm) : null
+      const capsule = elbows[i] && wrist && this.seenAt(frame, arm[i].wristAt) ? forearmCapsule(elbows[i], f.filter(toStage(wrist, view), tMs), pxPerCm) : null
       if (!capsule) return null
       const gapM = arm[i].wristZ !== undefined && shoulderZ !== undefined ? arm[i].wristZ - shoulderZ : undefined
-      if (!wrist || !wristTrusted(wrist)) return { capsule, cut: false, why: 'unsure wrist', gapM }
+      if (!wristTrusted({ ...wrist!, visibility: this.seenAt(frame, arm[i].wristAt, WRIST_SEEN) ? 1 : 0 })) return { capsule, cut: false, why: 'unsure wrist', gapM }
       return forearmInFront(arm[i].wristZ, shoulderZ, this.facing) ? { capsule, cut: true, gapM } : { capsule, cut: false, why: 'behind', gapM }
     }) as [ForearmCall | null, ForearmCall | null]
     const face = faceEllipse(
-      Array.from({ length: 11 }, (_, i) => frame.image[i] && { ...toStage(frame.image[i], view), visibility: frame.image[i].visibility }),
+      Array.from({ length: 11 }, (_, i) => ((FACE_GATED.includes(i) ? this.seenAt(frame, i) : frame.image[i]) ? { ...this.facePoints[i].filter(toStage(frame.image[i], view), tMs), visibility: 1 } : undefined)),
       this.facing,
     )
     const fit = this.fitBody(frame, [rawL, rawR], hips, l, r, seenYaw, tMs)
-    const cues: Cues = { spanPx: this.good.span, yaw: seenYaw, ratio, face: faceVisibility(frame), source: this.source, reason: this.reason }
+    const cues: Cues = { spanPx: this.good.span, yaw: seenYaw, ratio, face: faceVisibility(frame), held, source: this.source, reason: this.reason }
     const pose: Pose = { x, y, roll, yaw, facing: this.facing, pxPerCm, sleeves, occluders: { forearms, face }, fit, cues }
 
     // Distance is judged by the span corrected for the turn, and by the last reliable one while side-on.

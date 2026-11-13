@@ -55,4 +55,12 @@ test.describe('AR try-on draw tracking toggle', () => {
     await page.getByRole('button', { name: 'Turn on camera' }).click()
     await expect(toggle(page)).toHaveAttribute('aria-pressed', 'false', { timeout: 15000 })
   })
+
+  test('shows the jitter, lag and held-landmark meter lines in the text overlay, numbers only', async ({ page }) => {
+    await live(page, '?debug=ar')
+    const text = stage(page).locator('pre')
+    // The meter updates about once a second and needs a couple of seconds of anchors before it has a jitter number.
+    await expect(text).toContainText(/jitter [\d.]+ px, lag ~\d+ ms at \d+ px\/s/, { timeout: 8000 })
+    await expect(text).toContainText(/held \d+ landmarks under visibility/)
+  })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ARMS_DOWN, armAngle, SLEEVE_MAX, SLEEVE_MIN, SLEEVE_REST, sleeveAngle, sleeveRotation, sleevesOnBones, SleeveTracker } from '../../src/utils/arArms'
+import { ARMS_DOWN, armAngle, EASE_IN_MS, SLEEVE_MAX, SLEEVE_MIN, SLEEVE_REST, sleeveAngle, sleeveRotation, sleevesOnBones, SleeveTracker } from '../../src/utils/arArms'
 import { GARMENT_BASE } from '../../src/utils/arGarment'
 
 const deg = (rad: number) => (rad * 180) / Math.PI
@@ -102,13 +102,26 @@ describe('SleeveTracker', () => {
     expect(t.update(null, 300, true)).toBe(rad(60))
     expect(t.update(null, 301, true)).toBe(ARMS_DOWN)
   })
-  it('takes the measurement again when the elbow returns mid-ease, and forgets after a reset', () => {
+  it('eases in from what was showing when the elbow returns (no jump), at once with reduced motion, and forgets after a reset', () => {
     const t = make()
     t.update(rad(60), 0)
-    t.update(null, 450)
-    expect(t.update(rad(70), 500)).toBe(rad(70))
+    const showing = t.update(null, 450)
+    expect(t.update(rad(70), 500)).toBeCloseTo(showing)
+    expect(t.update(rad(70), 500 + EASE_IN_MS)).toBeCloseTo(rad(70) + (showing - rad(70)) / Math.E)
+    expect(t.update(rad(70), 500 + 10 * EASE_IN_MS)).toBeCloseTo(rad(70), 3)
+    const snapped = make()
+    snapped.update(rad(60), 0)
+    snapped.update(null, 450, true)
+    expect(snapped.update(rad(70), 500, true)).toBe(rad(70))
     t.reset()
     expect(t.update(null, 600)).toBe(ARMS_DOWN)
+  })
+  it('does not jump from arms-down to the measured angle when an arm lost for a while is seen again', () => {
+    const t = make()
+    t.update(rad(80), 0)
+    expect(t.update(null, 2000)).toBe(ARMS_DOWN)
+    expect(t.update(rad(80), 2033)).toBeCloseTo(ARMS_DOWN)
+    expect(t.update(rad(80), 2033 + 5 * EASE_IN_MS)).toBeGreaterThan(rad(75))
   })
 })
 

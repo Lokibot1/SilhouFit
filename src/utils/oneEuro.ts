@@ -2,6 +2,10 @@
 
 const alphaOf = (cutoffHz: number, dtSeconds: number) => 1 / (1 + 1 / (2 * Math.PI * cutoffHz) / dtSeconds)
 
+/** A gap between samples longer than this (4 frames at 30 detections a second, still under 10 a second), and the frame it is treated as. */
+const GAP_S = 0.15
+const FRAME_S = 1 / 30
+
 export interface OneEuroParams {
   /** Smoothing of a steady value, in Hz: lower is smoother. */
   minCutoff: number
@@ -26,10 +30,14 @@ export class OneEuro {
       this.last = { x, dx: 0, t: tMs }
       return x
     }
-    const dt = (tMs - last.t) / 1000
+    let dt = (tMs - last.t) / 1000
     if (dt <= 0) return last.x
+    // After a gap (a landmark that was not seen) the old value is stale: treat the sample as one ordinary frame with no speed, so the
+    // filter eases toward it at its steady pace instead of jumping most of the way because dt was big.
+    const gap = dt > GAP_S
+    if (gap) dt = FRAME_S
     const { minCutoff, beta, dCutoff = 1 } = this.params
-    const dx = last.dx + alphaOf(dCutoff, dt) * ((x - last.x) / dt - last.dx)
+    const dx = gap ? 0 : last.dx + alphaOf(dCutoff, dt) * ((x - last.x) / dt - last.dx)
     const smoothed = last.x + alphaOf(minCutoff + beta * Math.abs(dx), dt) * (x - last.x)
     this.last = { x: smoothed, dx, t: tMs }
     return smoothed

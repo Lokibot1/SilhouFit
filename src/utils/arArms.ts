@@ -43,9 +43,18 @@ export const sleeveRotation = (theta: number, side: Side) => side * (theta - SLE
 /** The arm angles for the -x and +x sleeve bones. Facing away the mesh is turned half way round, so the -x sleeve is on the right of the screen. */
 export const sleevesOnBones = (sleeves: [number, number], facingAway: boolean): [number, number] => (facingAway ? [sleeves[1], sleeves[0]] : sleeves)
 
-/** One arm's angle over time: the measured one, held for `holdMs` when the elbow goes, then eased to ARMS_DOWN over `fadeMs` (at once if `snap`). */
+/** How long (ms, the time constant) an arm takes to ease from what it showed to the measured angle once its elbow is seen again. */
+export const EASE_IN_MS = 150
+
+/**
+ * One arm's angle over time: the measured one, held for `holdMs` when the elbow goes, then eased to ARMS_DOWN over `fadeMs` (at once if `snap`).
+ * When the elbow comes back it eases in from the angle that was showing (not at once, unless `snap`).
+ */
 export class SleeveTracker {
   private last: { theta: number; t: number } | null = null
+  private shown: number | null = null
+  private lost = false
+  private from: { delta: number; t: number } | null = null
   private readonly holdMs: number
   private readonly fadeMs: number
 
@@ -56,10 +65,17 @@ export class SleeveTracker {
 
   /** `theta` is the measured angle, or null when the elbow or shoulder is not visible. */
   update(theta: number | null, tMs: number, snap = false) {
-    if (theta !== null) {
-      this.last = { theta, t: tMs }
-      return theta
+    if (theta === null) {
+      this.lost = true
+      return (this.shown = this.unseen(tMs, snap))
     }
+    if (this.lost && !snap && this.shown !== null) this.from = { delta: this.shown - theta, t: tMs }
+    this.lost = false
+    this.last = { theta, t: tMs }
+    return (this.shown = theta + (this.from ? this.from.delta * Math.exp(-(tMs - this.from.t) / EASE_IN_MS) : 0))
+  }
+
+  private unseen(tMs: number, snap: boolean) {
     if (!this.last) return ARMS_DOWN
     const gone = tMs - this.last.t
     if (gone <= this.holdMs) return this.last.theta
@@ -69,5 +85,8 @@ export class SleeveTracker {
 
   reset() {
     this.last = null
+    this.shown = null
+    this.lost = false
+    this.from = null
   }
 }

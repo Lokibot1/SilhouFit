@@ -4,7 +4,8 @@ import tshirtUrl from '../../assets/t-shirt.glb?url'
 import { sleeveRotation, sleevesOnBones } from '../../utils/arArms'
 import { GARMENT_BASE, NECK_PLUG, UNDERARM_Y } from '../../utils/arGarment'
 import type { Ellipse, ForearmCall } from '../../utils/arOcclude'
-import { garmentTransform, maskTransform, PoseFollower, RateHealth, type MaskFrame, type Pose, type TrackStatus } from '../../utils/arPose'
+import { jitterPx, lagMs, speedPxS, type Sample } from '../../utils/arMeter'
+import { garmentTransform, LANDMARK_FILTER, maskTransform, PoseFollower, RateHealth, type MaskFrame, type Pose, type TrackStatus } from '../../utils/arPose'
 import { FlipIcon, SpinnerIcon, TrackIcon } from '../form/icons'
 import { addStudio, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
 import { KRAL_SECONDARY } from '../shop/shopControls'
@@ -18,6 +19,9 @@ const FOV = 30
 const RULER_CM = 21
 /** How long the ?debug=ar cue log keeps, in video time. */
 const CUE_LOG_MS = 5000
+/** The ?debug=ar jitter meter looks at the shirt anchor over this long (ms), and its lag at the speed over the last METER_SPEED_MS. */
+const METER_MS = 2000
+const METER_SPEED_MS = 500
 /** A mask value (0..1) below this is background: the shirt is cut away there. */
 const MASK_THRESHOLD = 0.4
 /** Where the depth-only occluders sit: in front of the shirt (whose depth is about +-15 cm x px/cm) inside the camera's +-5000. */
@@ -198,6 +202,9 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     const painter = drawCanvas.current ? createTrackingPainter(drawCanvas.current) : null
     let drawn: TrackingScene | null = null
     const cueLog: CueSample[] | null = debugOverlay() ? (window.__silhoufitCues = []) : null
+    // ?debug=ar only, in memory: the shirt anchor and how many landmarks were under the visibility threshold, per detection, for the meter lines.
+    const anchors: Sample[] = []
+    const heldLog: { t: number; n: number }[] = []
     if (exposeAttributes) host.dataset.tracking = status
 
     function report(next: TrackStatus) {
@@ -368,11 +375,17 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       const deg = (rad: number) => Math.round((rad * 180) / Math.PI)
       const cues = pose?.cues
       const fit = pose?.fit
+      const now = performance.now()
+      const recent = anchors.filter((a) => a.t > now - METER_MS)
+      const speed = speedPxS(recent.filter((a) => a.t > now - METER_SPEED_MS))
+      const held = heldLog.filter((h) => h.t > now - 1000)
       const hem = pose ? garmentTransform(pose, latest.current.scale) : null
       debugText.current.textContent = [
         `detect ${median(detectMs).toFixed(1)} / ${percentile95(detectMs).toFixed(1)} ms (median / p95)`,
         `render ${median(renderMs).toFixed(1)} ms (${rendered}/s)`,
         `tracking ${detections}/s on ${delegate}`,
+        `jitter ${recent.length > 3 ? jitterPx(recent).toFixed(2) : '-'} px, lag ~${Math.round(lagMs(LANDMARK_FILTER, speed))} ms at ${Math.round(speed)} px/s`,
+        `held ${held.length ? Math.max(...held.map((h) => h.n)) : '-'} landmarks under visibility`,
         `ref size ${latest.current.refSize}, joint span ${cues ? Math.round(cues.spanPx) : '-'} px, px/cm ${pose ? pose.pxPerCm.toFixed(2) : '-'}`,
         `hips ${fit?.hips ?? '-'}, torso ${fit?.torsoPx != null ? Math.round(fit.torsoPx) : '-'} px, ratio ${fit ? fit.vy.toFixed(2) : '-'}, hip ${fit ? fit.hip.toFixed(2) : '-'}, pitch ${fit ? deg(fit.pitch) : '-'}`,
         `hem y ${hem ? Math.round(-hem.y) : '-'} vs hip y ${fit?.hipY != null ? Math.round(fit.hipY) : '-'}${hem && fit?.hipY != null ? ` (${Math.round(-hem.y - fit.hipY)} px below)` : ''}`,
@@ -437,6 +450,10 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
                   const c = out.pose.cues
                   cueLog.push({ t: Math.round(tMs), yawDeg: Math.round((c.yaw * 180) / Math.PI), ratio: Math.round(c.ratio * 100) / 100, face: c.face ?? -1, back: out.pose.facing === 'back' ? 1 : 0, manual: c.source === 'manual' ? 1 : 0 })
                   while (cueLog[0].t < tMs - CUE_LOG_MS) cueLog.shift()
+                  anchors.push({ t: tMs, x: out.pose.x, y: out.pose.y })
+                  heldLog.push({ t: tMs, n: c.held })
+                  while (anchors[0].t < tMs - METER_MS) anchors.shift()
+                  while (heldLog[0].t < tMs - 1000) heldLog.shift()
                 }
                 place()
                 if (painter && result) {
