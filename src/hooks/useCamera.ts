@@ -12,8 +12,11 @@ const ERROR_STATE: Record<string, CameraState> = {
 }
 
 /**
- * The front camera for the AR preview. `start` must be called from a click: that tap is the consent. The stream goes to `videoRef` only;
- * no frame is drawn, copied or sent anywhere. Every track is stopped on unmount and when the tab is hidden (state `paused`, tap to resume).
+ * The front camera for the AR preview. `start` must be called from a click: that tap is the consent. The stream goes to `videoRef`; nothing is
+ * recorded, stored or sent anywhere. Two things on this device read the live frame, only while the shirt follows a person: the pose model
+ * (poseTracker.ts) and a luminance sample (components/ar/lightProbe.ts: the frame scaled to 16 x 12 pixels, at most 192, reduced to a mean
+ * brightness and a left-right balance every 500 ms so the shirt's light matches the room; the pixels are never kept). Both stop when the tracks
+ * do. Every track is stopped on unmount and when the tab is hidden (state `paused`, tap to resume).
  */
 export function useCamera() {
   const videoRef = useRef<HTMLVideoElement>(null)

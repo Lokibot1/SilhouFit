@@ -2,15 +2,17 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import tshirtUrl from '../../assets/t-shirt.glb?url'
 import { sleeveRotation, sleevesOnBones } from '../../utils/arArms'
-import { GARMENT_BASE, NECK_PLUG, UNDERARM_Y } from '../../utils/arGarment'
+import { GARMENT_BASE, NECK_PLUG, SEAM_HEIGHT, UNDERARM_Y } from '../../utils/arGarment'
 import type { Ellipse, ForearmCall } from '../../utils/arOcclude'
 import { jitterPx, lagMs, speedPxS, type Sample } from '../../utils/arMeter'
+import { keyLightX, LIGHT, lightGain, LightMeter, Sway, trackedCamera } from '../../utils/arLook'
 import { garmentTransform, LANDMARK_FILTER, maskTransform, PoseFollower, RateHealth, type MaskFrame, type Pose, type TrackStatus } from '../../utils/arPose'
 import { FlipIcon, SpinnerIcon, TrackIcon } from '../form/icons'
 import { addStudio, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
 import { KRAL_SECONDARY } from '../shop/shopControls'
 import { Tooltip } from '../ui/Tooltip'
 import { createTrackingPainter, type TrackingScene } from './debugDraw'
+import { sampleLight } from './lightProbe'
 import { createDetector, startPoseLoop, type Detector } from './poseTracker'
 import { TryOnFlat } from './TryOnFlat'
 
@@ -24,8 +26,30 @@ const METER_MS = 2000
 const METER_SPEED_MS = 500
 /** A mask value (0..1) below this is background: the shirt is cut away there. */
 const MASK_THRESHOLD = 0.4
-/** Where the depth-only occluders sit: in front of the shirt (whose depth is about +-15 cm x px/cm) inside the camera's +-5000. */
-const OCCLUDER_Z = 4000
+/** The depth-only occluders sit this far (of the camera distance) in front of the shirt's farthest point, but never nearer to the camera than 15% of it. */
+const OCCLUDER_GAP = 0.02
+const OCCLUDER_NEAREST = 0.85
+/** The cloth look. LIGHTS are the intensities at the reference room brightness (see arLook.ts for how the video scales them); tune by eye on a white and a black shirt. */
+const LIGHTS = { env: 0.6, hemisphere: 0.45, key: 1.7, studio: [0.8, 0.7], exposure: 0.6 }
+const FABRIC = { roughness: 0.9, sheenRoughness: 0.6, sheen: 0.4 }
+const WHITE = new THREE.Color(1, 1, 1)
+/** Soft occlusion on the colour, from the rest-pose position (cm above the hem, x from the centre): strength 0..1 and the size of each patch. */
+const AMBIENT_OCCLUSION = {
+  underarm: { x: 17.5, y: UNDERARM_Y, rx: 4, ry: 5.5, strength: 0.3 },
+  collar: { reach: 1.9, strength: 0.25 },
+  hem: { height: 4, strength: 0.2 },
+}
+/** Fold normals: how far the shading normal tilts (about 0.08 is 5 degrees), and the pattern: three octaves of sines, mostly vertical folds. No texture. */
+const FOLD_STRENGTH = 0.08
+const FOLD_GLSL = `vec3 foldGradient(vec3 p) {
+  vec3 g = cos(dot(p, vec3(0.55, 0.10, 0.35)) + 0.4) * vec3(0.55, 0.10, 0.35)
+    + 0.5 * cos(dot(p, vec3(1.15, -0.30, 0.80)) + 2.1) * vec3(1.15, -0.30, 0.80)
+    + 0.25 * cos(dot(p, vec3(2.30, 0.45, -1.30)) + 4.2) * vec3(2.30, 0.45, -1.30);
+  return g / 1.86;
+}
+`
+/** How often the room's brightness is read from the video while the shirt follows a person (ms). */
+const LIGHT_MS = 500
 /** Forearm: a plane for the shaft and a circle at each end (a scaled capsule would squash its ends). Face: one circle, scaled. */
 const OCCLUDER_MESHES = 7
 
@@ -73,8 +97,8 @@ interface TryOnStageProps {
 /**
  * The t-shirt over the camera feed. One transparent WebGL canvas. Without tracking it renders only when something changes (load, size,
  * colour, resize), from a fixed camera with the shoulder line held still, so a longer size grows downward. While the camera is live it
- * follows the customer's shoulders instead: one render per new pose from the pose loop (no animation loop of its own), in an orthographic
- * camera measured in stage pixels. The photo takes over if WebGL is unavailable, lost, or the model fails to load.
+ * follows the customer's shoulders instead: one render per new pose from the pose loop (no animation loop of its own), in a perspective
+ * camera whose z = 0 plane is the stage in pixels. The photo takes over if WebGL is unavailable, lost, or the model fails to load.
  */
 export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, refSize, refScaleX, trackKey, onStatus }: TryOnStageProps) {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -125,43 +149,101 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
 
     const scene = new THREE.Scene()
     const envMap = addStudio(renderer, scene)
-    // Lit for chrome; a white shirt needs less or it blows out under tone mapping.
-    renderer.toneMappingExposure = 0.75
-    scene.environmentIntensity = 0.8
+    // addStudio lights a chrome figure (key from the right, rim from behind); cloth needs them much softer, with the hemisphere and a key from the upper front-left doing most of it.
+    const studioLights = scene.children.slice() as THREE.DirectionalLight[]
+    const hemisphere = new THREE.HemisphereLight(0xdde6f5, 0xf2dcc4, LIGHTS.hemisphere)
+    const keyLight = new THREE.DirectionalLight(0xfff3e6, LIGHTS.key)
+    keyLight.position.set(LIGHT.keyX, 3, 4)
+    scene.add(hemisphere, keyLight)
+    // The light of the room: every intensity and the exposure scale with the gain of the video's brightness (1 without a reading); see arLook.ts.
+    function setLight(gain: number, keyX: number) {
+      scene.environmentIntensity = LIGHTS.env * gain
+      hemisphere.intensity = LIGHTS.hemisphere * gain
+      keyLight.intensity = LIGHTS.key * gain
+      studioLights.forEach((light, i) => (light.intensity = LIGHTS.studio[i] * gain))
+      keyLight.position.x = keyX
+      renderer.toneMappingExposure = LIGHTS.exposure * Math.sqrt(gain)
+    }
+    setLight(1, LIGHT.keyX)
     const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 1000)
-    // Tracked mode: one world unit is one stage pixel, x right and y up from the top-left corner, so a pose lands where it was seen.
-    const ortho = new THREE.OrthographicCamera(0, 1, 0, -1, -5000, 5000)
-    const material = new THREE.MeshStandardMaterial({ color: latest.current.colorHex, roughness: 0.8, metalness: 0, side: THREE.DoubleSide })
+    // Tracked mode: a perspective camera like the webcam's, placed so the plane z = 0 is the stage in pixels (x right and y up from the top-left corner):
+    // a pose lands where it was seen, and the shirt's depth gives it the body's perspective. See trackedCamera in arLook.ts.
+    const tracked = new THREE.PerspectiveCamera(FOV, 1, 1, 10000)
+    let cameraDistance = 1
+    let cameraVideoW = 0
+    // Cloth: rough, with a soft sheen (fuzz at grazing angles) whose colour follows the shirt's, so black keeps its folds and white does not glare.
+    const material = new THREE.MeshPhysicalMaterial({ color: latest.current.colorHex, roughness: FABRIC.roughness, metalness: 0, sheen: 1, sheenRoughness: FABRIC.sheenRoughness, side: THREE.DoubleSide })
     // The person mask cuts the shirt away outside the silhouette. A 1 x 1 texture stands in until the first mask; uMaskOn stays 0 till then.
     const maskUniforms = { uMask: { value: new THREE.DataTexture(new Uint8Array(1), 1, 1, THREE.RedFormat) }, uMaskMap: { value: new THREE.Vector4() }, uMaskOn: { value: 0 } }
     // The hem width factor (see arFitBody.ts): the body below the underarm is widened or narrowed, easing from 1 at the underarm to this at the hem.
     const hemUniforms = { uHip: { value: 1 } }
+    // How far the hem and cuffs lag the body, in the shirt's own units (cm), see arLook.ts.
+    const swayUniforms = { uSway: { value: new THREE.Vector2() } }
+    const f = (n: number) => n.toFixed(2)
+    const underarm = f(UNDERARM_Y)
+    const ao = AMBIENT_OCCLUSION
     material.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, maskUniforms, hemUniforms)
-      // After skinning, so the sleeves (which are above the underarm in the rest pose) keep following their bones.
+      Object.assign(shader.uniforms, maskUniforms, hemUniforms, swayUniforms)
+      // After skinning, so the sleeves (which are above the underarm in the rest pose) keep following their bones. Everything here is a function of the
+      // REST position, so a moving sleeve does not drag the folds or the occlusion with it, and a vertex shared by two triangles moves as one (nothing tears).
       shader.vertexShader =
-        'uniform float uHip;\n' +
+        `uniform float uHip;
+uniform vec2 uSway;
+varying vec3 vRest;
+varying vec3 vFold;
+${FOLD_GLSL}` +
         shader.vertexShader.replace(
           '#include <skinning_vertex>',
-          `#include <skinning_vertex>\n  transformed.x *= 1.0 + (uHip - 1.0) * smoothstep(0.0, 1.0, clamp((${UNDERARM_Y.toFixed(1)} - position.y) / ${UNDERARM_Y.toFixed(1)}, 0.0, 1.0));`,
+          `#include <skinning_vertex>
+  float hemW = smoothstep(0.0, 1.0, clamp((${underarm} - position.y) / ${underarm}, 0.0, 1.0));
+  transformed.x *= 1.0 + (uHip - 1.0) * hemW;
+  float cuffW = smoothstep(0.0, 1.0, clamp((abs(position.x) - ${f(GARMENT_BASE.sleevePivot.x - 0.6)}) / ${f(GARMENT_BASE.sleeve * 0.67)}, 0.0, 1.0));
+  transformed.xy += uSway * (hemW + cuffW);
+  vRest = position;
+  vec3 fold = foldGradient(position);
+  vFold = normalize(normalMatrix * fold) * length(fold) * ${f(FOLD_STRENGTH)};`,
         )
       shader.fragmentShader =
-        'uniform sampler2D uMask;\nuniform vec4 uMaskMap;\nuniform float uMaskOn;\n' +
-        shader.fragmentShader.replace(
-          '#include <clipping_planes_fragment>',
-          `#include <clipping_planes_fragment>\n  if (uMaskOn > 0.5 && texture2D(uMask, uMaskMap.xy * gl_FragCoord.xy + uMaskMap.zw).r < ${MASK_THRESHOLD.toFixed(2)}) discard;`,
-        )
+        `uniform sampler2D uMask;
+uniform vec4 uMaskMap;
+uniform float uMaskOn;
+varying vec3 vRest;
+varying vec3 vFold;
+` +
+        shader.fragmentShader
+          .replace(
+            '#include <clipping_planes_fragment>',
+            `#include <clipping_planes_fragment>
+  if (uMaskOn > 0.5 && texture2D(uMask, uMaskMap.xy * gl_FragCoord.xy + uMaskMap.zw).r < ${MASK_THRESHOLD.toFixed(2)}) discard;`,
+          )
+          // Soft occlusion on the colour: under the sleeve joints, just inside and around the collar, and a thin band at the hem.
+          .replace(
+            '#include <color_fragment>',
+            `#include <color_fragment>
+  vec2 pit = vec2(abs(vRest.x) - ${f(ao.underarm.x)}, vRest.y - ${f(ao.underarm.y)}) / vec2(${f(ao.underarm.rx)}, ${f(ao.underarm.ry)});
+  vec2 rim = vec2(vRest.x / ${f(NECK_PLUG.rx)}, (vRest.y - ${f(NECK_PLUG.y)}) / ${f(NECK_PLUG.ry)});
+  float occlusion = (1.0 - ${f(ao.underarm.strength)} * exp(-dot(pit, pit)))
+    * (1.0 - ${f(ao.collar.strength)} * (1.0 - smoothstep(1.0, ${f(ao.collar.reach)}, length(rim))))
+    * (1.0 - ${f(ao.hem.strength)} * (1.0 - smoothstep(0.0, ${f(ao.hem.height)}, vRest.y)));
+  diffuseColor.rgb *= occlusion;`,
+          )
+          // A little procedural fold in the shading normal.
+          .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+  normal = normalize(normal + vFold);`)
     }
     // Depth-only occluders: they write depth before the shirt (renderOrder -1) and no colour, so a forearm or the chin in front hides the shirt behind it.
     const occluderMaterial = new THREE.MeshBasicMaterial({ colorWrite: false })
     const planeGeometry = new THREE.PlaneGeometry(1, 1)
     const circleGeometry = new THREE.CircleGeometry(1, 24)
+    // They sit in a group in front of the shirt, scaled about the stage centre so that, seen from the camera, each lands on its stage pixels as if it were at z = 0.
+    const occluderGroup = new THREE.Group()
+    scene.add(occluderGroup)
     const occluders = Array.from({ length: OCCLUDER_MESHES }, (_, i) => {
       const part = new THREE.Mesh(i % 3 === 0 && i < 6 ? planeGeometry : circleGeometry, occluderMaterial)
       part.renderOrder = -1
       part.visible = false
       part.frustumCulled = false
-      scene.add(part)
+      occluderGroup.add(part)
       return part
     })
     let mesh: THREE.Mesh | undefined
@@ -188,11 +270,17 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     let detector: Promise<Detector> | undefined
     let stopLoop = () => {}
     let run = 0
+    const probe = new Uint8Array(4)
     let renderMs: number[] = []
     let detectMs: number[] = []
     let detections = 0
     let delegate = ''
     let debugTimer = 0
+    // The room's brightness, from a 16 x 12 luminance sample of the video (see lightProbe.ts): kept as two numbers only.
+    const meter = new LightMeter()
+    let lightTimer = 0
+    const sway = new Sway()
+    const swayVector = new THREE.Vector3()
     // The person mask: 'waiting' for the first one, 'on' while clipping, 'off' once the device was too busy to read it. Bytes live only in the texture.
     let maskState: 'waiting' | 'on' | 'off' = 'waiting'
     let maskTexture = maskUniforms.uMask.value
@@ -218,7 +306,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       frame = 0
       if (disposed || !mesh) return
       if (follow) {
-        renderer.render(scene, ortho)
+        renderer.render(scene, tracked)
         return
       }
       const { x, y, z } = latest.current.largest
@@ -238,6 +326,28 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       maskState = next
       maskUniforms.uMaskOn.value = next === 'on' ? 1 : 0
       if (exposeAttributes) host.dataset.mask = next
+    }
+
+    /** The hem and cuffs lag the body (arLook.ts Sway), turned from stage pixels into the shirt's own cm. None with reduced motion. */
+    function updateSway(p: Pose, tMs: number) {
+      if (!mesh) return
+      if (reduceMotion.matches) sway.reset()
+      else {
+        const t = garmentTransform(p, latest.current.scale)
+        sway.update({ x: t.x, y: t.y, roll: t.rotationZ }, tMs, SEAM_HEIGHT * t.scale.y, t.widthPx)
+      }
+      swayVector.set(sway.x, sway.y, 0).applyQuaternion(mesh.quaternion.clone().invert())
+      swayUniforms.uSway.value.set(swayVector.x / mesh.scale.x, swayVector.y / mesh.scale.y)
+      if (exposeAttributes) host.dataset.sway = sway.magnitude.toFixed(1)
+    }
+
+    function readLight() {
+      if (!follow || !pose || !video.current) return
+      const reading = sampleLight(video.current)
+      if (!reading) return
+      meter.push(reading.lum, reading.balance)
+      setLight(lightGain(meter.lum), keyLightX(meter.balance))
+      if (exposeAttributes) host.dataset.light = `${meter.lum.toFixed(2)},${meter.balance.toFixed(2)}`
     }
 
     /** Where a drawing-buffer pixel is in the mask: depends on the stage size, the pixel ratio and the video's size. */
@@ -270,7 +380,12 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     }
 
     /** Hides the occluders and puts them where the pose says. */
-    function placeOccluders(calls: [ForearmCall | null, ForearmCall | null], face: Ellipse | null) {
+    function placeOccluders(calls: [ForearmCall | null, ForearmCall | null], face: Ellipse | null, shirtReach: number) {
+      // In front of the shirt's farthest point (its half width when turned side-on, or its half height when leaning), well inside the camera's distance.
+      const z = Math.min(shirtReach + OCCLUDER_GAP * cameraDistance, OCCLUDER_NEAREST * cameraDistance)
+      const k = (cameraDistance - z) / cameraDistance
+      occluderGroup.position.set((host.clientWidth / 2) * (1 - k), (-host.clientHeight / 2) * (1 - k), z)
+      occluderGroup.scale.set(k, k, 1)
       const forearms = calls.map((call) => (call?.cut ? call.capsule : null))
       forearms.forEach((c, i) => {
         const parts = occluders.slice(i * 3, i * 3 + 3)
@@ -278,18 +393,18 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         if (!c) return
         const [shaft, a, b] = parts
         const [dx, dy] = [c.b.x - c.a.x, c.b.y - c.a.y]
-        shaft.position.set((c.a.x + c.b.x) / 2, -(c.a.y + c.b.y) / 2, OCCLUDER_Z)
+        shaft.position.set((c.a.x + c.b.x) / 2, -(c.a.y + c.b.y) / 2, 0)
         shaft.rotation.z = Math.atan2(-dy, dx)
         shaft.scale.set(Math.hypot(dx, dy), 2 * c.radius, 1)
-        a.position.set(c.a.x, -c.a.y, OCCLUDER_Z)
-        b.position.set(c.b.x, -c.b.y, OCCLUDER_Z)
+        a.position.set(c.a.x, -c.a.y, 0)
+        b.position.set(c.b.x, -c.b.y, 0)
         a.scale.setScalar(c.radius)
         b.scale.setScalar(c.radius)
       })
       const head = occluders[6]
       head.visible = !!face
       if (face) {
-        head.position.set(face.x, -face.y, OCCLUDER_Z)
+        head.position.set(face.x, -face.y, 0)
         head.rotation.z = -face.tilt
         head.scale.set(face.rx, face.ry, 1)
       }
@@ -316,7 +431,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       const [onLeft, onRight] = sleevesOnBones(pose.sleeves, pose.facing === 'back')
       bones[1].rotation.z = sleeveRotation(onLeft, -1)
       bones[2].rotation.z = sleeveRotation(onRight, 1)
-      placeOccluders(pose.occluders.forearms, pose.occluders.face)
+      placeOccluders(pose.occluders.forearms, pose.occluders.face, Math.max(t.widthPx, GARMENT_BASE.length * t.scale.y) / 2)
       if (exposeAttributes) {
         const deg = (rad: number) => ((rad * 180) / Math.PI).toFixed(1)
         host.dataset.garment = [Math.round(t.x), Math.round(-t.y), deg(t.rotationZ), deg(t.rotationY), pose.pxPerCm.toFixed(2), Math.round(t.widthPx)].join(',')
@@ -333,6 +448,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       if (!mesh) return
       const { colorHex: hex, scale: s } = latest.current
       material.color.set(hex)
+      material.sheenColor.set(hex).lerp(WHITE, 0.25).multiplyScalar(FABRIC.sheen)
       if (follow) place()
       else {
         mesh.rotation.set(0, 0, 0)
@@ -347,6 +463,11 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     function leave(next: TrackStatus) {
       follow = false
       pose = null
+      clearInterval(lightTimer)
+      meter.reset()
+      setLight(1, LIGHT.keyX)
+      sway.reset()
+      swayUniforms.uSway.value.set(0, 0)
       drawn = null
       painter?.clear()
       flipFacing.current = () => {}
@@ -364,6 +485,8 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         delete host.dataset.occluders
         delete host.dataset.mask
         delete host.dataset.maskCoverage
+        delete host.dataset.light
+        delete host.dataset.sway
       }
       report(next)
       apply.current()
@@ -393,6 +516,9 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         `span ${cues ? cues.ratio.toFixed(2) : '-'} face ${cues?.face?.toFixed(2) ?? '-'}`,
         `facing ${pose && cues ? `${pose.facing} (${cues.source}) by ${cues.reason ?? 'default'}` : '-'}`,
         `mask ${maskState} ${maskState === 'waiting' ? '-' : `${maskTexture.image.width}x${maskTexture.image.height}`}`,
+        `camera fov ${follow ? tracked.fov.toFixed(1) : '-'} deg, distance ${follow ? Math.round(cameraDistance) : '-'} px`,
+        `sway ${follow ? sway.magnitude.toFixed(1) : '-'} px`,
+        `light lum ${follow ? meter.lum.toFixed(2) : '-'} balance ${follow ? meter.balance.toFixed(2) : '-'} gain ${follow ? lightGain(meter.lum).toFixed(2) : '-'}`,
       ].join('\n')
       debugBar.current.style.width = `${pose ? Math.round(RULER_CM * pose.pxPerCm) : 0}px`
       renderMs = []
@@ -416,6 +542,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
           delegate = d.delegate
           follow = true
           pose = null
+          lightTimer = window.setInterval(readLight, LIGHT_MS)
           setMaskState('waiting')
           renderer.domElement.style.opacity = '0'
           report('lost')
@@ -427,6 +554,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
               detectMs.push(took)
               detections += 1
               const view = { videoW: element.videoWidth, videoH: element.videoHeight, width: host.clientWidth, height: host.clientHeight }
+              if (element.videoWidth !== cameraVideoW) updateCamera()
               const out = follower.update(
                 result,
                 tMs,
@@ -456,6 +584,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
                   while (heldLog[0].t < tMs - 1000) heldLog.shift()
                 }
                 place()
+                updateSway(out.pose, tMs)
                 if (painter && result) {
                   const t = garmentTransform(out.pose, latest.current.scale)
                   drawn = { frame: result, pose: out.pose, view, seamHalf: (GARMENT_BASE.shoulder / 2) * latest.current.scale.x * out.pose.pxPerCm, hem: { x: t.x, y: -t.y, half: (GARMENT_BASE.chest / 2) * t.scale.x * out.pose.fit.hip } }
@@ -464,6 +593,8 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
                 const start = performance.now()
                 if (frame) cancelAnimationFrame(frame)
                 render()
+                // A 1-pixel read only for the ?debug=ar number: it waits for the GPU, or this would time the command submit alone.
+                if (cueLog) renderer.getContext().readPixels(0, 0, 1, 1, WebGL2RenderingContext.RGBA, WebGL2RenderingContext.UNSIGNED_BYTE, probe)
                 renderMs.push(performance.now() - start)
               } else if (!out.pose && drawn) {
                 drawn = null
@@ -497,15 +628,28 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     tracking.current = { start: startTracking, stop: stopTracking }
     if (debugOverlay()) debugTimer = window.setInterval(writeDebug, 1000)
 
+    function updateCamera() {
+      const element = video.current
+      const [width, height] = [host.clientWidth, host.clientHeight]
+      // Before the video has a size, a 4:3 camera.
+      const { fovDeg, distance, aspect } = trackedCamera({ videoW: element?.videoWidth || 640, videoH: element?.videoHeight || 480, width, height })
+      cameraVideoW = element?.videoWidth ?? 0
+      cameraDistance = distance
+      tracked.fov = fovDeg
+      tracked.aspect = aspect
+      tracked.near = distance * 0.05
+      tracked.far = distance * 3
+      tracked.position.set(width / 2, -height / 2, distance)
+      tracked.updateProjectionMatrix()
+    }
+
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = host
       if (!w || !h) return
       renderer.setSize(w, h)
       camera.aspect = w / h
       camera.updateProjectionMatrix()
-      ortho.right = w
-      ortho.bottom = -h
-      ortho.updateProjectionMatrix()
+      updateCamera()
       if (drawCanvas.current) {
         const dpr = Math.min(window.devicePixelRatio, 2)
         drawCanvas.current.width = Math.round(w * dpr)
@@ -573,6 +717,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         () => {},
       )
       clearInterval(debugTimer)
+      clearInterval(lightTimer)
       if (cueLog) delete window.__silhoufitCues
       apply.current = () => {}
       redraw.current = () => {}
