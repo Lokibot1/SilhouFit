@@ -234,7 +234,6 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
         onClose={closeDialog}
       >
         <p>Stock goes back to inventory and any open payment link expires.</p>
-        {detail.paymentStatus === 'PAID' && <p className="mt-2 font-semibold text-fg">The payment is not refunded automatically.</p>}
         <div className="mt-3">
           <Field id={`reason-${detail.id}`} label="Reason" optional count={{ value: reason.length, max: REASON_MAX }}>
             <textarea

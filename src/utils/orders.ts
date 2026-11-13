@@ -86,11 +86,10 @@ export const RIDER_BOOKING_WHY = 'A rider is being booked. Wait for it to finish
 /** Start preparing is offered for a paid order that is still waiting; the API moves it to Preparing. */
 export const canStartPreparing = (order: Actionable) => order.status === 'PAID' && order.paymentStatus === 'PAID'
 
-/** Why Cancel order is off, or null when it can be cancelled. Cancelling does not cancel a rider, so the delivery goes first. */
+/** Why Cancel order is off, or null when it can be cancelled. The API only cancels unpaid orders; a rider needs a paid one, so unpaid orders have none. */
 export function cancelOrderBlock(order: Actionable): string | null {
   if (isClosed(order)) return 'This order is closed.'
-  if (order.shipment?.status === 'DISPATCHING') return RIDER_BOOKING_WHY
-  return hasActiveBooking(order) ? 'Cancel the delivery first.' : null
+  return order.paymentStatus === 'PAID' ? "Paid orders can't be cancelled here. Refunds go through the payment provider." : null
 }
 
 /** A rider is booked and the order is not delivered yet. */

@@ -51,38 +51,35 @@ describe('Start preparing', () => {
     }
   })
 
-  it('shares the wait reason with Cancel order while a rider is being booked', () => {
-    expect(cancelOrderBlock(order('PAID', 'PAID', { status: 'DISPATCHING', externalOrderId: null }))).toBe(RIDER_BOOKING_WHY)
+  it('has a wait reason while a rider is being booked', () => {
     expect(RIDER_BOOKING_WHY).toBe('A rider is being booked. Wait for it to finish.')
   })
 })
 
 describe('Cancel order', () => {
-  it('is on for an open order with no active booking, paid or not', () => {
+  const PAID_WHY = "Paid orders can't be cancelled here. Refunds go through the payment provider."
+
+  it('is on for an open unpaid order', () => {
     expect(cancelOrderBlock(order('PENDING_PAYMENT', 'UNPAID'))).toBeNull()
-    expect(cancelOrderBlock(order('PAID', 'PAID', { status: 'QUOTED', externalOrderId: null }))).toBeNull()
-    expect(cancelOrderBlock(order('PROCESSING', 'PAID', booked('CANCELLED')))).toBeNull()
+    expect(cancelOrderBlock(order('PAYMENT_FAILED', 'UNPAID'))).toBeNull()
   })
 
-  it('says to cancel the delivery first while a rider is booked', () => {
-    for (const status of ['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP', 'FAILED'] as const) {
-      expect(cancelOrderBlock(order('DISPATCHED', 'PAID', booked(status)))).toBe('Cancel the delivery first.')
-    }
-  })
-
-  it('waits while a rider is being booked', () => {
-    expect(cancelOrderBlock(order('PROCESSING', 'PAID', { status: 'DISPATCHING', externalOrderId: null }))).toBe('A rider is being booked. Wait for it to finish.')
+  it('is off for an open paid order, with or without a rider', () => {
+    expect(cancelOrderBlock(order('PAID', 'PAID', { status: 'QUOTED', externalOrderId: null }))).toBe(PAID_WHY)
+    expect(cancelOrderBlock(order('PROCESSING', 'PAID', booked('CANCELLED')))).toBe(PAID_WHY)
+    expect(cancelOrderBlock(order('DISPATCHED', 'PAID', booked('ON_GOING')))).toBe(PAID_WHY)
+    expect(cancelOrderBlock(order('PROCESSING', 'PAID', { status: 'DISPATCHING', externalOrderId: null }))).toBe(PAID_WHY)
   })
 
   it('is off for a closed order', () => {
     for (const status of ['DELIVERED', 'CANCELLED', 'REFUNDED'] as const) expect(cancelOrderBlock(order(status, 'PAID'))).toBe('This order is closed.')
   })
 
-  it('is never on for a closed order or one with a rider booked', () => {
+  it('is never on for a closed order or a paid one', () => {
     for (const o of ORDERS) {
       if (cancelOrderBlock(o) !== null) continue
       expect(isClosed(o), JSON.stringify(o)).toBe(false)
-      expect(!!o.shipment?.externalOrderId && !['COMPLETED', 'CANCELLED'].includes(o.shipment.status), JSON.stringify(o)).toBe(false)
+      expect(o.paymentStatus, JSON.stringify(o)).not.toBe('PAID')
     }
   })
 })

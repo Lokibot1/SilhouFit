@@ -311,34 +311,43 @@ describe('Online orders page', () => {
     expect(within(drawer).queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument()
   })
 
-  it('asks "Are you sure?" before cancelling a paid order, warns about the payment, and cancels with the reason', async () => {
+  it('asks "Are you sure?" before cancelling an unpaid order and cancels with the reason', async () => {
     renderPage()
-    const drawer = await openOrder(1)
+    const drawer = await openOrder(2)
     await userEvent.click(await within(drawer).findByRole('button', { name: 'Cancel order' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Cancel order SHF-20261026-000001?' })
+    const dialog = await screen.findByRole('dialog', { name: 'Cancel order SHF-20261026-000002?' })
     expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
     expect(within(dialog).getByText('Stock goes back to inventory and any open payment link expires.')).toBeInTheDocument()
-    expect(within(dialog).getByText('The payment is not refunded automatically.')).toBeInTheDocument()
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Reason/ }), '  Customer asked  ')
     expect(within(dialog).getByText('18/255')).toBeInTheDocument()
-    update.mockResolvedValue(detailOf(row(1, { status: 'CANCELLED' })))
+    update.mockResolvedValue(detailOf(row(2, { status: 'CANCELLED' })))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel order' }))
-    expect(update).toHaveBeenCalledWith(row(1).id, { status: 'CANCELLED', cancellationReason: 'Customer asked' })
+    expect(update).toHaveBeenCalledWith(row(2).id, { status: 'CANCELLED', cancellationReason: 'Customer asked' })
     expect(await screen.findByText('Order cancelled')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /^Cancel order SHF/ })).not.toBeInTheDocument())
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2))
   })
 
-  it('does not warn about a refund when the order was not paid, and keeps the dialog open with the reason on failure', async () => {
+  it('keeps the cancel dialog open with the reason on failure', async () => {
     renderPage()
     const drawer = await openOrder(2)
     await userEvent.click(await within(drawer).findByRole('button', { name: 'Cancel order' }))
     const dialog = await screen.findByRole('dialog', { name: 'Cancel order SHF-20261026-000002?' })
-    expect(within(dialog).queryByText('The payment is not refunded automatically.')).not.toBeInTheDocument()
     update.mockRejectedValue(new ProductListError('validation', 'Order SHF-20261026-000002 is in terminal status "CANCELLED".', 400))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel order' }))
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('The order was not cancelled. Order SHF-20261026-000002 is in terminal status "CANCELLED".')
     expect(dialog).toBeInTheDocument()
+  })
+
+  it('keeps Cancel order off for a paid order and says why', async () => {
+    renderPage()
+    const drawer = await openOrder(1)
+    expect(await within(drawer).findByText("Paid orders can't be cancelled here. Refunds go through the payment provider.")).toBeInTheDocument()
+    const cancel = within(drawer).getByRole('button', { name: 'Cancel order' })
+    expect(cancel).toBeDisabled()
+    await userEvent.click(cancel)
+    expect(screen.queryByRole('dialog', { name: /^Cancel order SHF/ })).not.toBeInTheDocument()
+    expect(update).not.toHaveBeenCalled()
   })
 
   it('books a rider, and when Lalamove does not answer shows the fixed copy with a Retry', async () => {
@@ -363,7 +372,7 @@ describe('Online orders page', () => {
     detail.mockResolvedValue(booked)
     renderPage()
     const drawer = await openOrder(1)
-    expect(await within(drawer).findByText('Cancel the delivery first.')).toBeInTheDocument()
+    expect(await within(drawer).findByText("Paid orders can't be cancelled here. Refunds go through the payment provider.")).toBeInTheDocument()
     expect(within(drawer).getByRole('button', { name: 'Cancel order' })).toBeDisabled()
     vi.mocked(api.cancelDelivery).mockRejectedValue(new ProductListError('conflict', undefined, 409))
     await userEvent.click(within(drawer).getByRole('button', { name: 'Cancel delivery' }))

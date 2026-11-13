@@ -506,8 +506,8 @@ test.describe('actions', () => {
   test.describe('cancel order', () => {
     const confirmOf = (page: Page, n: number) => page.getByRole('dialog', { name: `Cancel order ${num(n)}?`, exact: true })
 
-    test('asks "Are you sure?", warns that a paid order is not refunded, and sends the status and reason', async ({ page }) => {
-      const api = await setup(page, [paidOrder(1)])
+    test('asks "Are you sure?" for an unpaid order, and sends the status and reason', async ({ page }) => {
+      const api = await setup(page, [adminOrder(1)])
       await open(page)
       const drawer = await openDrawer(page, 1)
       await drawer.getByRole('button', { name: 'Cancel order', exact: true }).click()
@@ -515,7 +515,6 @@ test.describe('actions', () => {
       const confirm = confirmOf(page, 1)
       await expect(confirm.getByText('Are you sure?')).toBeVisible()
       await expect(confirm.getByText('Stock goes back to inventory and any open payment link expires.')).toBeVisible()
-      await expect(confirm.getByText('The payment is not refunded automatically.')).toBeVisible()
       await expect(confirm.getByText('0/255')).toBeVisible()
       await expect(confirm.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused()
 
@@ -536,7 +535,181 @@ test.describe('actions', () => {
       await expect(drawer.getByText('This order is closed.')).toBeVisible()
     })
 
-    test('an unpaid order has no refund warning, and Cancel leaves it alone', async ({ page }) => {
+    test('a paid order cannot be cancelled here: Cancel order is off with the reason and sends nothing', async ({ page }) => {
+      const api = await setup(page, [paidOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      const cancel = drawer.getByRole('button', { name: 'Cancel order', exact: true })
+      await expect(cancel).toBeDisabled()
+      await expect(drawer.getByText("Paid orders can't be cancelled here. Refunds go through the payment provider.")).toBeVisible()
+      await cancel.scrollIntoViewIfNeeded() // a forced click skips the wait, so on a phone it could fire while the drawer is still sliding in
+      await cancel.click({ force: true })
+      await expect(confirmOf(page, 1)).toHaveCount(0)
+      expect(api.patches).toHaveLength(0)
+    })
+
+    const PAID_WHY = "Paid orders can't be cancelled here. Refunds go through the payment provider."
+    const cancelButton = (drawer: Locator) => drawer.getByRole('button', { name: 'Cancel order', exact: true })
+
+    test('a paid order stays uncancellable while Preparing, while a rider is being booked and while one is booked', async ({ page }) => {
+      const api = await setup(page, [
+        paidOrder(1, { status: 'PROCESSING' }),
+        paidOrder(2, { shipment: adminShipment({ orderId: adminOrderId(2), status: 'DISPATCHING', externalOrderId: null }) }),
+        bookedOrder(3),
+      ])
+      await open(page)
+
+      for (const n of [1, 2, 3]) {
+        const drawer = await openDrawer(page, n)
+        await expect(cancelButton(drawer)).toBeDisabled()
+        await expect(cancelButton(drawer)).toHaveAccessibleDescription(PAID_WHY)
+        await expect(drawer.getByText(PAID_WHY, { exact: true })).toBeVisible()
+        await cancelButton(drawer).scrollIntoViewIfNeeded()
+        await cancelButton(drawer).click({ force: true })
+        await expect(confirmOf(page, n)).toHaveCount(0)
+        await page.keyboard.press('Escape')
+        await expect(drawer).toBeHidden()
+      }
+      expect(api.patches).toHaveLength(0)
+    })
+
+    test('with the keyboard, Tab skips the off Cancel order and Enter or Space on the page sends nothing', async ({ page }) => {
+      const api = await setup(page, [paidOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      await expect(drawer.getByText(PAID_WHY, { exact: true })).toBeVisible()
+
+      const stops: string[] = []
+      for (let i = 0; i < 12; i++) {
+        await page.keyboard.press('Tab')
+        stops.push(await page.evaluate(() => document.activeElement?.textContent?.trim() ?? ''))
+      }
+      expect(stops).toContain('Book rider')
+      expect(stops).not.toContain('Cancel order')
+      // Pressing keys on the page cannot open the dialog either.
+      await page.keyboard.press('Enter')
+      await page.keyboard.press('Space')
+      await expect(confirmOf(page, 1)).toHaveCount(0)
+      expect(api.patches.filter((p) => 'status' in p.body)).toHaveLength(0)
+    })
+
+    test('Escape closes the dialog without sending anything, and the order stays open for cancelling', async ({ page }) => {
+      const api = await setup(page, [adminOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      await cancelButton(drawer).click()
+      const confirm = confirmOf(page, 1)
+      await expect(confirm).toBeVisible()
+
+      await page.keyboard.press('Escape')
+      await expect(confirm).toBeHidden()
+      expect(api.patches).toHaveLength(0)
+      await expect(cancelButton(drawer)).toBeEnabled()
+    })
+
+    test('confirming with no reason sends only the status and the row reads Cancelled', async ({ page }) => {
+      const api = await setup(page, [adminOrder(1), adminOrder(2)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      await cancelButton(drawer).click()
+      await confirmOf(page, 1).getByRole('button', { name: 'Cancel order', exact: true }).click()
+
+      await expect(toast(page, 'Order cancelled')).toBeVisible()
+      expect(api.patches).toEqual([{ id: adminOrder(1).id, body: { status: 'CANCELLED' } }])
+      await expect(drawer.getByText('This order is closed.')).toBeVisible()
+      await expect(rowOf(page, 1).first()).toContainText('Cancelled')
+      await expect(rowOf(page, 2).first()).not.toContainText('Cancelled')
+    })
+
+    for (const status of [400, 500]) {
+      test(`a ${status} on confirm keeps the dialog open with an inline error and the button back on`, async ({ page }) => {
+        const api = await setup(page, [adminOrder(1)])
+        await open(page)
+        const drawer = await openDrawer(page, 1)
+        await cancelButton(drawer).click()
+        const confirm = confirmOf(page, 1)
+        const submit = confirm.getByRole('button', { name: 'Cancel order', exact: true })
+
+        api.on.patch = () => fail(status, 'Nope')
+        await submit.click()
+
+        await expect(confirm.getByRole('alert')).toContainText('The order was not cancelled.')
+        await expect(confirm).toBeVisible()
+        await expect(submit).toBeEnabled()
+        expect(api.patches).toHaveLength(1)
+        await expect(toast(page, 'Order cancelled')).toHaveCount(0)
+      })
+    }
+
+    test('a double click on confirm sends one request', async ({ page }) => {
+      const api = await setup(page, [adminOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      await cancelButton(drawer).click()
+      const confirm = confirmOf(page, 1)
+      const submit = confirm.getByRole('button', { name: 'Cancel order', exact: true })
+      const release = api.hold('patch')
+
+      await submit.dblclick({ force: true })
+      await expect(confirm.getByRole('button', { name: 'Cancel order', exact: true })).toBeDisabled()
+      release()
+      await expect(toast(page, 'Order cancelled')).toBeVisible()
+      expect(api.patches).toHaveLength(1)
+    })
+
+    test('at 320px the reason is in view, inside the drawer, with no horizontal scroll', async ({ page }) => {
+      await setup(page, [paidOrder(1)])
+      await page.setViewportSize({ width: 320, height: 700 })
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+
+      const why = drawer.getByText(PAID_WHY, { exact: true })
+      await why.scrollIntoViewIfNeeded()
+      await expect(why).toBeVisible()
+      const [box, frame] = [(await why.boundingBox())!, (await drawer.boundingBox())!]
+      expect(box.x).toBeGreaterThanOrEqual(frame.x)
+      expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width)
+      expect(await overflow(page)).toBe(0)
+      expect(await drawer.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0)
+    })
+
+    test('in dark mode the reason is shown and readable', async ({ page }) => {
+      await page.emulateMedia({ colorScheme: 'dark' })
+      await setup(page, [paidOrder(1)])
+      await open(page)
+      const drawer = await openDrawer(page, 1)
+      await expect(page.locator('html')).toHaveClass(/dark/)
+
+      const why = drawer.getByText(PAID_WHY, { exact: true })
+      await expect(why).toBeVisible()
+      const { fg, bg } = await why.evaluate((el) => {
+        const canvas = document.createElement('canvas')
+        canvas.width = canvas.height = 1
+        const context = canvas.getContext('2d', { willReadFrequently: true })!
+        const parse = (css: string) => {
+          context.clearRect(0, 0, 1, 1)
+          context.fillStyle = '#000'
+          context.fillStyle = css
+          context.fillRect(0, 0, 1, 1)
+          const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
+          return [r, g, b, a / 255]
+        }
+        const over = (top: number[], below: number[]) => [0, 1, 2].map((i) => top[i] * top[3] + below[i] * (1 - top[3]))
+        const layers: number[][] = []
+        for (let node: Element | null = el; node; node = node.parentElement) {
+          const layer = parse(getComputedStyle(node).backgroundColor)
+          if (layer[3] > 0) layers.push(layer)
+          if (layer[3] === 1) break
+        }
+        let back = [255, 255, 255]
+        for (const layer of layers.reverse()) back = over(layer, back)
+        const rgb = (c: number[]) => `rgb(${c.map(Math.round).join(', ')})`
+        return { fg: rgb(over(parse(getComputedStyle(el).color), back)), bg: rgb(back) }
+      })
+      expect(contrastRatio(fg, bg), `reason ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5)
+    })
+
+    test('Cancel in the dialog leaves an unpaid order alone', async ({ page }) => {
       const api = await setup(page, [adminOrder(1)])
       await open(page)
       const drawer = await openDrawer(page, 1)
@@ -544,7 +717,6 @@ test.describe('actions', () => {
 
       const confirm = confirmOf(page, 1)
       await expect(confirm.getByText('Are you sure?')).toBeVisible()
-      await expect(confirm.getByText('The payment is not refunded automatically.')).toHaveCount(0)
       await confirm.getByRole('button', { name: 'Cancel', exact: true }).click()
       await expect(confirm).toBeHidden()
       expect(api.patches).toHaveLength(0)
@@ -743,7 +915,7 @@ test.describe('actions', () => {
       await open(page)
       const drawer = await openDrawer(page, 1)
       await expect(drawer.getByRole('button', { name: 'Cancel order', exact: true })).toBeDisabled()
-      await expect(drawer.getByText('Cancel the delivery first.')).toBeVisible()
+      await expect(drawer.getByText("Paid orders can't be cancelled here. Refunds go through the payment provider.")).toBeVisible()
 
       await drawer.getByRole('button', { name: 'Cancel delivery' }).click()
       const confirm = confirmOf(page, 1)
