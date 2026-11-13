@@ -1,7 +1,8 @@
 import { sleeveAngle, SleeveTracker, type Side } from './arArms'
+import { BodyFitter, FRONT_ON_ENTER, FRONT_ON_LEAVE, hipFactor, leanOf, torsoFactor, type BodyFit, type BodyMeasure } from './arFitBody'
 import { garmentScale, GARMENT_BASE, SEAM_HEIGHT } from './arGarment'
 import { OneEuro, OneEuroPoint } from './oneEuro'
-import { faceEllipse, forearmCapsule, forearmInFront, wristTrusted, type Ellipse, type ForearmCall } from './arOcclude'
+import { faceEllipse, forearmCapsule, forearmInFront, FRAME_MARGIN, wristTrusted, type Ellipse, type ForearmCall } from './arOcclude'
 import { TurnDetector, type FlipReason } from './arTurn'
 
 // From pose landmarks to where the shirt goes on the stage, for the AR try-on. Pure TypeScript with no rendering. The camera feed is shown
@@ -115,6 +116,8 @@ export function maskTransform(view: View, drawW: number, drawH: number): [number
 const seen = (p: Landmark | null | undefined): p is Landmark => !!p && (p.visibility ?? 1) >= MIN_VISIBILITY
 export const shouldersTracked = (frame: PoseFrame) => seen(frame.image[LEFT_SHOULDER]) && seen(frame.image[RIGHT_SHOULDER])
 const hipsTracked = (frame: PoseFrame) => seen(frame.image[LEFT_HIP]) && seen(frame.image[RIGHT_HIP])
+/** A hip to fit the shirt by: seen, and inside the video frame by FRAME_MARGIN (an out-of-frame hip comes back at the edge with a visibility that still passes). */
+const hipTrusted = (p: Landmark | undefined) => seen(p) && p.x >= FRAME_MARGIN && p.x <= 1 - FRAME_MARGIN && p.y >= FRAME_MARGIN && p.y <= 1 - FRAME_MARGIN
 
 export type Facing = 'front' | 'back'
 
@@ -204,6 +207,8 @@ export interface Pose {
   sleeves: [number, number]
   /** What hides the shirt where a forearm or the chin is in front of it, in stage pixels (y down); see arOcclude.ts. */
   occluders: { forearms: [ForearmCall | null, ForearmCall | null]; face: Ellipse | null }
+  /** How the torso, hips and lean adjust the drawing (neutral without trusted hips); see arFitBody.ts. */
+  fit: BodyFit
   cues: Cues
 }
 export interface Follow {
@@ -229,6 +234,9 @@ export class PoseFollower {
   private readonly armLeft = new SleeveTracker(HOLD_MS, FADE_MS)
   private readonly armRight = new SleeveTracker(HOLD_MS, FADE_MS)
   private readonly scale = new OneEuro({ minCutoff: 0.4, beta: 0 })
+  private readonly body = new BodyFitter()
+  /** Whether the body is front-on enough to measure the torso and hips (with hysteresis, see FRONT_ON_ENTER). */
+  private frontOn = false
   private readonly turn = new OneEuro({ minCutoff: 0.5, beta: 0.3 })
   private last: { follow: Follow; t: number } | null = null
   /** Placement from the last frame whose shoulder span was reliable (see RELIABLE_COS): held while the body is side-on. */
@@ -248,7 +256,8 @@ export class PoseFollower {
   private rawYaw: number | null = null
 
   private reset() {
-    for (const f of [this.left, this.right, this.hipLeft, this.hipRight, this.elbowLeft, this.elbowRight, this.wristLeft, this.wristRight, this.armLeft, this.armRight, this.scale, this.turn]) f.reset()
+    for (const f of [this.left, this.right, this.hipLeft, this.hipRight, this.elbowLeft, this.elbowRight, this.wristLeft, this.wristRight, this.armLeft, this.armRight, this.scale, this.turn, this.body]) f.reset()
+    this.frontOn = false
     this.last = null
     this.good = null
     this.turns.reset()
@@ -313,14 +322,12 @@ export class PoseFollower {
     const seenYaw = yawOf(frame.world[rawL], frame.world[rawR])
     // The unsmoothed span goes with the unsmoothed yaw: the two filters lag differently and would not cancel in the division by cos.
     const span = Math.hypot(rawLeft.x - rawRight.x, rawLeft.y - rawRight.y)
+    const hips = hipsTracked(frame) ? [this.hipLeft.filter(toStage(frame.image[LEFT_HIP], view), tMs), this.hipRight.filter(toStage(frame.image[RIGHT_HIP], view), tMs)] : null
+    const hipMid = hips && { x: (hips[0].x + hips[1].x) / 2, y: (hips[0].y + hips[1].y) / 2 }
     if (Math.cos(seenYaw) >= RELIABLE_COS || !this.good) {
       const mid = { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 }
       let roll = shoulderRoll(l, r)
-      if (hipsTracked(frame)) {
-        const hl = this.hipLeft.filter(toStage(frame.image[LEFT_HIP], view), tMs)
-        const hr = this.hipRight.filter(toStage(frame.image[RIGHT_HIP], view), tMs)
-        roll = (roll + torsoRoll(mid, { x: (hl.x + hr.x) / 2, y: (hl.y + hr.y) / 2 })) / 2
-      }
+      if (hipMid) roll = (roll + torsoRoll(mid, hipMid)) / 2
       const pxPerCm = this.scale.filter(pxPerCmOf(span, seenYaw, refScaleX), tMs)
       // The seam is above the landmarks, along the (rolled) up direction of the body.
       const lift = LANDMARK_TO_SEAM_CM * pxPerCm
@@ -360,8 +367,9 @@ export class PoseFollower {
       Array.from({ length: 11 }, (_, i) => frame.image[i] && { ...toStage(frame.image[i], view), visibility: frame.image[i].visibility }),
       this.facing,
     )
+    const fit = this.fitBody(frame, [rawL, rawR], hips, l, r, seenYaw, tMs)
     const cues: Cues = { spanPx: this.good.span, yaw: seenYaw, ratio, face: faceVisibility(frame), source: this.source, reason: this.reason }
-    const pose: Pose = { x, y, roll, yaw, facing: this.facing, pxPerCm, sleeves, occluders: { forearms, face }, cues }
+    const pose: Pose = { x, y, roll, yaw, facing: this.facing, pxPerCm, sleeves, occluders: { forearms, face }, fit, cues }
 
     // Distance is judged by the span corrected for the turn, and by the last reliable one while side-on.
     const tooClose = this.good.span > TOO_CLOSE_SPAN * view.width || this.good.minY < 0
@@ -369,6 +377,38 @@ export class PoseFollower {
     const follow: Follow = { state, opacity: 1, pose }
     this.last = { follow, t: tMs }
     return follow
+  }
+
+  /**
+   * The torso length, hip width and lean for this frame, eased. Measured only with both hips trusted and the body front-on (the hips hide and the
+   * widths foreshorten otherwise); otherwise the factors ease back to neutral, never snap. The lean also waits for the front view: facing
+   * away the depth is not trustworthy (see forearmInFront).
+   */
+  private fitBody(frame: PoseFrame, shoulders: number[], hips: Point[] | null, l: Point, r: Point, seenYaw: number, tMs: number): BodyFit {
+    const trusted = hips !== null && hipTrusted(frame.image[LEFT_HIP]) && hipTrusted(frame.image[RIGHT_HIP])
+    const angle = Math.abs(seenYaw)
+    this.frontOn = angle < FRONT_ON_ENTER || (this.frontOn && angle < FRONT_ON_LEAVE)
+    const measuring = trusted && this.frontOn
+    let measure: BodyMeasure | null = null
+    let torsoPx: number | null = null
+    if (measuring) {
+      const shoulderSpan = Math.hypot(l.x - r.x, l.y - r.y)
+      const [sx, sy] = [(l.x + r.x) / 2, (l.y + r.y) / 2]
+      torsoPx = Math.hypot((hips![0].x + hips![1].x) / 2 - sx, (hips![0].y + hips![1].y) / 2 - sy)
+      // The torso is not foreshortened by a turn, the span is: compare it with the span as if front-on.
+      measure = {
+        vy: torsoFactor(torsoPx, shoulderSpan / Math.max(Math.cos(seenYaw), RELIABLE_COS)),
+        hip: hipFactor(Math.hypot(hips![0].x - hips![1].x, hips![0].y - hips![1].y), shoulderSpan),
+      }
+      const world = [...shoulders, LEFT_HIP, RIGHT_HIP].map((i) => frame.world[i])
+      if (this.facing === 'front' && world.every(Boolean)) measure.pitch = leanOf(world.slice(0, 2), world.slice(2))
+    }
+    return {
+      ...this.body.update(measure, tMs),
+      hips: measuring ? 'tracked' : trusted ? 'side-on' : 'missing',
+      torsoPx,
+      hipY: hips && (hips[0].y + hips[1].y) / 2,
+    }
   }
 
   /** One arm from its smoothed elbow (null when not visible; the shoulder is, or there would be no frame): else the tracker's hold and ease. */
@@ -392,12 +432,15 @@ export class PoseFollower {
 
 /** The shirt mesh's placement on the canvas (three.js units are pixels, y up, origin at the top-left corner of the stage). */
 export function garmentTransform(pose: Pose, size: ReturnType<typeof garmentScale>) {
-  const scale = { x: size.x * pose.pxPerCm, y: size.y * pose.pxPerCm, z: size.z * pose.pxPerCm }
-  // The mesh origin is at the hem and the shoulder point is SEAM_HEIGHT above it, so the origin is that far down the rolled axis from the seam.
-  const drop = SEAM_HEIGHT * scale.y
+  // The vertical scale is also the torso's: a longer torso draws a longer shirt, the width keeps following the shoulders.
+  const scale = { x: size.x * pose.pxPerCm, y: size.y * pose.pxPerCm * pose.fit.vy, z: size.z * pose.pxPerCm }
+  // The mesh origin is at the hem and the shoulder point is SEAM_HEIGHT above it, so the origin is that far down the rolled axis from the seam;
+  // leaning toward the camera shortens that on the screen by cos(pitch).
+  const drop = SEAM_HEIGHT * scale.y * Math.cos(pose.fit.pitch)
   return {
     x: pose.x + drop * Math.sin(pose.roll),
     y: -pose.y - drop * Math.cos(pose.roll),
+    rotationX: pose.fit.pitch,
     rotationY: pose.yaw,
     rotationZ: pose.roll,
     scale,

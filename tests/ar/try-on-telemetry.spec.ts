@@ -6,6 +6,8 @@ import { start, stubCamera } from '../shared/tryOn'
 
 test.describe('AR try-on privacy', () => {
   test('no request goes to the MediaPipe telemetry host, while tracking still runs', async ({ page }) => {
+    // Slow under load: loading the real model takes most of the default 30 s.
+    test.setTimeout(60000)
     const sent: string[] = []
     page.on('request', (r) => {
       if (new URL(r.url()).hostname === 'odml.pa.googleapis.com') sent.push(r.url())

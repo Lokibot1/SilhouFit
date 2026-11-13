@@ -25,6 +25,8 @@ export interface TrackingScene {
   view: View
   /** Half the drawn shoulder seam width in stage px. */
   seamHalf: number
+  /** Where the shirt's hem is (stage px, y down) and half its drawn width there. */
+  hem: { x: number; y: number; half: number }
 }
 
 /** Paints into `canvas` (stage size in CSS px, backing store scaled by dpr). The mask goes through a small offscreen canvas first, so its cost is a few thousand pixels. */
@@ -78,7 +80,7 @@ export function createTrackingPainter(canvas: HTMLCanvasElement) {
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, canvas.width, canvas.height)
     },
-    draw({ frame, pose, view, seamHalf }: TrackingScene) {
+    draw({ frame, pose, view, seamHalf, hem }: TrackingScene) {
       const dpr = canvas.width / view.width
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, view.width, view.height)
@@ -121,6 +123,14 @@ export function createTrackingPainter(canvas: HTMLCanvasElement) {
       ctx.fillStyle = '#facc15'
       const [dx, dy] = [Math.cos(pose.roll) * seamHalf, -Math.sin(pose.roll) * seamHalf]
       for (const [x, y] of [[pose.x, pose.y], [pose.x - dx, pose.y - dy], [pose.x + dx, pose.y + dy]]) ctx.fillRect(x - 4, y - 4, 8, 8)
+
+      // The hem line, along the rolled shoulder axis: it should land below the hip dots (the torso box is the white shoulder and hip lines above).
+      ctx.strokeStyle = '#e879f9'
+      ctx.beginPath()
+      ctx.moveTo(hem.x - Math.cos(pose.roll) * hem.half, hem.y + Math.sin(pose.roll) * hem.half)
+      ctx.lineTo(hem.x + Math.cos(pose.roll) * hem.half, hem.y - Math.sin(pose.roll) * hem.half)
+      ctx.stroke()
+      label('hem', { x: hem.x + hem.half, y: hem.y }, '#e879f9', view.width)
 
       for (const i of SHOWN) {
         if (!frame.image[i]) continue

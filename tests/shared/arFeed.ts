@@ -3,7 +3,7 @@ import { start, stubCamera } from './tryOn'
 import { expect } from '@playwright/test'
 
 // A dev pose feed for the AR try-on occluder and mask specs (MediaPipe is never loaded). Same person as try-on-tracking.spec.ts, plus wrists with
-// a world z, the face landmarks, and a synthetic person mask. Specs drive `window.__arFeed` and read data attributes only.
+// a world z, the face landmarks, optional hips, and a synthetic person mask. Specs drive `window.__arFeed` and read data attributes only.
 
 /** A wrist, in video pixels (640 x 480) out to the side of its shoulder and down from it, its visibility and its world z in metres. */
 export interface Joint {
@@ -24,6 +24,11 @@ export interface Feed {
   elbowR?: Joint
   wristL?: Joint
   wristR?: Joint
+  /**
+   * Hips 23/24, absent by default (so no hip landmarks): `down` video px below the shoulder line, visibility `v`, `half` raw half-width (the shoulders'
+   * is 0.1, the average hips' 0.057), and `z` the hips' world z in m (the shoulder midpoint's is 0, so positive leans toward the camera).
+   */
+  hips?: { down: number; v: number; half?: number; z?: number }
   /** A mask of `w` x `h` with 255 inside the box (columns and rows, end exclusive) and 0 outside. */
   mask?: { w: number; h: number; box: [number, number, number, number] }
   /** Each detection busy-waits this long. */
@@ -75,6 +80,13 @@ export async function feedPoses(page: Page) {
       arm(16, -1, f.wristR)
       world[11] = { x: 0.2 * cos, y: 0, z: -0.2 * sin }
       world[12] = { x: -0.2 * cos, y: 0, z: 0.2 * sin }
+      if (f.hips) {
+        const { down, v, half = 0.057, z = 0 } = f.hips
+        image[23] = { x: f.centreX + half * cos, y: f.y + down / 480, visibility: v }
+        image[24] = { x: f.centreX - half * cos, y: f.y + down / 480, visibility: v }
+        world[23] = { x: 0.1 * cos, y: 0.5, z: z - 0.1 * sin }
+        world[24] = { x: -0.1 * cos, y: 0.5, z: z + 0.1 * sin }
+      }
       if (!f.mask) return { image, world }
       const { w, h, box } = f.mask
       if (maskBuffer?.length !== w * h) maskBuffer = new Uint8Array(w * h)

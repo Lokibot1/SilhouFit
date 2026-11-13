@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import tshirtUrl from '../../assets/t-shirt.glb?url'
 import { sleeveRotation, sleevesOnBones } from '../../utils/arArms'
-import { GARMENT_BASE, NECK_PLUG } from '../../utils/arGarment'
+import { GARMENT_BASE, NECK_PLUG, UNDERARM_Y } from '../../utils/arGarment'
 import type { Ellipse, ForearmCall } from '../../utils/arOcclude'
 import { garmentTransform, maskTransform, PoseFollower, RateHealth, type MaskFrame, type Pose, type TrackStatus } from '../../utils/arPose'
 import { FlipIcon, SpinnerIcon, TrackIcon } from '../form/icons'
@@ -130,8 +130,17 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     const material = new THREE.MeshStandardMaterial({ color: latest.current.colorHex, roughness: 0.8, metalness: 0, side: THREE.DoubleSide })
     // The person mask cuts the shirt away outside the silhouette. A 1 x 1 texture stands in until the first mask; uMaskOn stays 0 till then.
     const maskUniforms = { uMask: { value: new THREE.DataTexture(new Uint8Array(1), 1, 1, THREE.RedFormat) }, uMaskMap: { value: new THREE.Vector4() }, uMaskOn: { value: 0 } }
+    // The hem width factor (see arFitBody.ts): the body below the underarm is widened or narrowed, easing from 1 at the underarm to this at the hem.
+    const hemUniforms = { uHip: { value: 1 } }
     material.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, maskUniforms)
+      Object.assign(shader.uniforms, maskUniforms, hemUniforms)
+      // After skinning, so the sleeves (which are above the underarm in the rest pose) keep following their bones.
+      shader.vertexShader =
+        'uniform float uHip;\n' +
+        shader.vertexShader.replace(
+          '#include <skinning_vertex>',
+          `#include <skinning_vertex>\n  transformed.x *= 1.0 + (uHip - 1.0) * smoothstep(0.0, 1.0, clamp((${UNDERARM_Y.toFixed(1)} - position.y) / ${UNDERARM_Y.toFixed(1)}, 0.0, 1.0));`,
+        )
       shader.fragmentShader =
         'uniform sampler2D uMask;\nuniform vec4 uMaskMap;\nuniform float uMaskOn;\n' +
         shader.fragmentShader.replace(
@@ -291,8 +300,10 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       if (!mesh || !pose) return
       const t = garmentTransform(pose, latest.current.scale)
       mesh.position.set(t.x, t.y, 0)
-      // Roll about the screen axis after yaw about the shirt's own vertical axis.
-      mesh.rotation.set(0, t.rotationY, t.rotationZ, 'ZYX')
+      // Yaw about the shirt's own vertical axis, then the lean about the screen's x axis (it is measured from the camera's world z, not the body's),
+      // then roll about the screen axis. Without a lean this is the same as roll after yaw.
+      mesh.rotation.set(t.rotationX, t.rotationY, t.rotationZ, 'ZXY')
+      hemUniforms.uHip.value = pose.fit.hip
       mesh.scale.set(t.scale.x, t.scale.y, t.scale.z)
       neck.visible = true
       const [onLeft, onRight] = sleevesOnBones(pose.sleeves, pose.facing === 'back')
@@ -303,6 +314,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         const deg = (rad: number) => ((rad * 180) / Math.PI).toFixed(1)
         host.dataset.garment = [Math.round(t.x), Math.round(-t.y), deg(t.rotationZ), deg(t.rotationY), pose.pxPerCm.toFixed(2), Math.round(t.widthPx)].join(',')
         // The arm angles themselves (from hanging straight down), not the bone turns, by screen side.
+        host.dataset.fit = [pose.fit.vy.toFixed(2), pose.fit.hip.toFixed(2), deg(pose.fit.pitch)].join(',')
         host.dataset.sleeves = pose.sleeves.map((a) => Math.round((a * 180) / Math.PI)).join(',')
         host.dataset.facing = pose.facing
         host.dataset.facingSource = pose.cues.source
@@ -338,6 +350,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       if (exposeAttributes) {
         delete host.dataset.garment
         delete host.dataset.sleeves
+        delete host.dataset.fit
         delete host.dataset.facing
         delete host.dataset.facingSource
         delete host.dataset.refSize
@@ -354,11 +367,15 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       const rendered = renderMs.length
       const deg = (rad: number) => Math.round((rad * 180) / Math.PI)
       const cues = pose?.cues
+      const fit = pose?.fit
+      const hem = pose ? garmentTransform(pose, latest.current.scale) : null
       debugText.current.textContent = [
         `detect ${median(detectMs).toFixed(1)} / ${percentile95(detectMs).toFixed(1)} ms (median / p95)`,
         `render ${median(renderMs).toFixed(1)} ms (${rendered}/s)`,
         `tracking ${detections}/s on ${delegate}`,
         `ref size ${latest.current.refSize}, joint span ${cues ? Math.round(cues.spanPx) : '-'} px, px/cm ${pose ? pose.pxPerCm.toFixed(2) : '-'}`,
+        `hips ${fit?.hips ?? '-'}, torso ${fit?.torsoPx != null ? Math.round(fit.torsoPx) : '-'} px, ratio ${fit ? fit.vy.toFixed(2) : '-'}, hip ${fit ? fit.hip.toFixed(2) : '-'}, pitch ${fit ? deg(fit.pitch) : '-'}`,
+        `hem y ${hem ? Math.round(-hem.y) : '-'} vs hip y ${fit?.hipY != null ? Math.round(fit.hipY) : '-'}${hem && fit?.hipY != null ? ` (${Math.round(-hem.y - fit.hipY)} px below)` : ''}`,
         `yaw ${pose && cues ? `${deg(cues.yaw)} seen, ${deg(pose.yaw)} shown` : '-'}`,
         `span ${cues ? cues.ratio.toFixed(2) : '-'} face ${cues?.face?.toFixed(2) ?? '-'}`,
         `facing ${pose && cues ? `${pose.facing} (${cues.source}) by ${cues.reason ?? 'default'}` : '-'}`,
@@ -423,7 +440,8 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
                 }
                 place()
                 if (painter && result) {
-                  drawn = { frame: result, pose: out.pose, view, seamHalf: (GARMENT_BASE.shoulder / 2) * latest.current.scale.x * out.pose.pxPerCm }
+                  const t = garmentTransform(out.pose, latest.current.scale)
+                  drawn = { frame: result, pose: out.pose, view, seamHalf: (GARMENT_BASE.shoulder / 2) * latest.current.scale.x * out.pose.pxPerCm, hem: { x: t.x, y: -t.y, half: (GARMENT_BASE.chest / 2) * t.scale.x * out.pose.fit.hip } }
                   paintTracking()
                 }
                 const start = performance.now()

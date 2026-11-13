@@ -26,6 +26,9 @@ export const GARMENT_BASE = {
  */
 export const NECK_PLUG = { x: 0, y: 68.2, z: -3, rx: 8, ry: 4.2 }
 
+/** Where the body meets the sleeves, cm above the hem: the mesh's x extent jumps from the torso's 32 cm to 42 cm with the sleeves between y 36 and 42 (measured on the committed glb). The hem taper of the fit starts here. */
+export const UNDERARM_Y = 39
+
 /** Height of the model's shoulder point above the hem (cm): the point a tracked shoulder midpoint is pinned to. */
 export const SEAM_HEIGHT = GARMENT_BASE.collarTop - GARMENT_BASE.seamBelowCollar
 
