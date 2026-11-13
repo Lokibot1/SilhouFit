@@ -20,10 +20,11 @@ export const LEFT_HIP = 23
 export const RIGHT_HIP = 24
 
 export const MIN_VISIBILITY = 0.5
-/** The shoulder landmarks sit on the joints, a bit inside the width a person reports (seam to seam): joint distance is about this share of it. */
-export const SHOULDER_JOINT_K = 0.8
-/** Shoulder width (cm) assumed when the customer has no saved measurements. */
-export const DEFAULT_SHOULDER_CM = 42
+/**
+ * How much wider than the tracked shoulder-joint span the reference size's shoulder seams are drawn. The landmarks sit on the joints, a bit
+ * inside the seams, so a little over 1 puts the seams just outside the joints. Tunable: raise it if the shirt still looks too narrow, lower it if too wide.
+ */
+export const FIT_EASE = 1.05
 /** The seam sits about this far above the shoulder-joint landmarks (cm). */
 export const LANDMARK_TO_SEAM_CM = 4
 /**
@@ -47,8 +48,8 @@ export const HOLD_MS = 300
 export const FADE_MS = 300
 /** Shoulder span as a share of the stage width, below which the customer is too far. */
 export const TOO_FAR_SPAN = 0.18
-/** Too close is when the drawn shirt (sleeves included) would be wider than the stage: the drawn width is this many times the shoulder span (about 1.93). */
-const DRAWN_PER_SPAN = GARMENT_BASE.drawnWidth / (SHOULDER_JOINT_K * DEFAULT_SHOULDER_CM)
+/** Too close is when the drawn shirt (sleeves included) would be wider than the stage: the reference size's drawn width is this many times the shoulder span (about 1.65). */
+const DRAWN_PER_SPAN = (GARMENT_BASE.drawnWidth / GARMENT_BASE.shoulder) * FIT_EASE
 export const TOO_CLOSE_SPAN = 1 / DRAWN_PER_SPAN
 
 export interface Landmark {
@@ -127,8 +128,13 @@ export const shoulderRoll = (screenLeft: Point, screenRight: Point) => Math.atan
 /** Tilt of the torso axis (hip midpoint to shoulder midpoint) from vertical, counter-clockwise positive. */
 export const torsoRoll = (shoulderMid: Point, hipMid: Point) => Math.atan2(hipMid.x - shoulderMid.x, hipMid.y - shoulderMid.y)
 
-/** Pixels per cm on the body's plane: the shoulder span, corrected for a turned body, over the joint-to-joint share of the shoulder width. */
-export const pxPerCmOf = (spanPx: number, yaw: number, shoulderCm: number) => spanPx / Math.max(Math.cos(yaw), RELIABLE_COS) / (SHOULDER_JOINT_K * shoulderCm)
+/**
+ * Pixels per cm of the drawing, not of the body: chosen so the reference size (its scale x, see garmentScale) draws its shoulder seams
+ * FIT_EASE times the shoulder span, corrected for a turned body. Other sizes are then drawn at their own cm, so they differ from the
+ * reference by the size chart's ratios however accurately the customer measured their shoulders.
+ */
+export const pxPerCmOf = (spanPx: number, yaw: number, refScaleX: number) =>
+  (spanPx / Math.max(Math.cos(yaw), RELIABLE_COS)) * FIT_EASE / (GARMENT_BASE.shoulder * refScaleX)
 
 /**
  * Each visible elbow goes with the nearer shoulder on the screen (stage pixels), not by its label: [left of the screen, right of the screen].
@@ -156,6 +162,8 @@ export type FollowState = 'tracking' | 'lost' | 'too-close' | 'too-far'
 export type TrackStatus = FollowState | 'off' | 'loading' | 'slow' | 'failed'
 /** What the facing is decided from, for the ?debug=ar overlay: the observed yaw, the span over the front-facing one, the face visibility, and the last flip. */
 export interface Cues {
+  /** The shoulder-joint span in stage px, corrected for the turn (the held one while side-on): what the scale comes from. */
+  spanPx: number
   yaw: number
   ratio: number
   face: number | null
@@ -181,8 +189,6 @@ export interface Follow {
   opacity: number
   /** Null once the body has been lost for good. */
   pose: Pose | null
-  /** True when there were no measurements to size from, so an average shoulder width was used. */
-  averageBuild: boolean
 }
 
 const LANDMARK_FILTER = { minCutoff: 1, beta: 0.007, dCutoff: 1 }
@@ -264,8 +270,11 @@ export class PoseFollower {
     if (why) this.setFacing(this.facing === 'front' ? 'back' : 'front', why)
   }
 
-  /** `tMs` is the video frame's time. A null frame is a frame with no body in it. `reduceMotion` makes a lost arm drop at once instead of easing. */
-  update(frame: PoseFrame | null, tMs: number, view: View, shoulderCm?: number, reduceMotion = false): Follow {
+  /**
+   * `tMs` is the video frame's time. A null frame is a frame with no body in it. `refScaleX` is the scale x of the reference size (the
+   * recommended one, else the middle one) that the drawing is sized by. `reduceMotion` makes a lost arm drop at once instead of easing.
+   */
+  update(frame: PoseFrame | null, tMs: number, view: View, refScaleX: number, reduceMotion = false): Follow {
     if (!frame || !shouldersTracked(frame)) return this.missing(tMs)
     if (this.last && tMs - this.last.t > HOLD_MS + FADE_MS) this.reset()
 
@@ -279,7 +288,6 @@ export class PoseFollower {
     const seenYaw = yawOf(frame.world[rawL], frame.world[rawR])
     // The unsmoothed span goes with the unsmoothed yaw: the two filters lag differently and would not cancel in the division by cos.
     const span = Math.hypot(rawLeft.x - rawRight.x, rawLeft.y - rawRight.y)
-    const averageBuild = !shoulderCm
     if (Math.cos(seenYaw) >= RELIABLE_COS || !this.good) {
       const mid = { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 }
       let roll = shoulderRoll(l, r)
@@ -288,7 +296,7 @@ export class PoseFollower {
         const hr = this.hipRight.filter(toStage(frame.image[RIGHT_HIP], view), tMs)
         roll = (roll + torsoRoll(mid, { x: (hl.x + hr.x) / 2, y: (hl.y + hr.y) / 2 })) / 2
       }
-      const pxPerCm = this.scale.filter(pxPerCmOf(span, seenYaw, shoulderCm || DEFAULT_SHOULDER_CM), tMs)
+      const pxPerCm = this.scale.filter(pxPerCmOf(span, seenYaw, refScaleX), tMs)
       // The seam is above the landmarks, along the (rolled) up direction of the body.
       const lift = LANDMARK_TO_SEAM_CM * pxPerCm
       this.good = { x: mid.x - lift * Math.sin(roll), y: mid.y - lift * Math.cos(roll), roll, pxPerCm, span: span / Math.max(Math.cos(seenYaw), RELIABLE_COS), minY: Math.min(l.y, r.y) }
@@ -308,13 +316,13 @@ export class PoseFollower {
       this.sleeve(elbowL, l, roll, -1, this.elbowLeft, this.armLeft, view, tMs, reduceMotion),
       this.sleeve(elbowR, r, roll, 1, this.elbowRight, this.armRight, view, tMs, reduceMotion),
     ]
-    const cues: Cues = { yaw: seenYaw, ratio, face: faceVisibility(frame), source: this.source, reason: this.reason }
+    const cues: Cues = { spanPx: this.good.span, yaw: seenYaw, ratio, face: faceVisibility(frame), source: this.source, reason: this.reason }
     const pose: Pose = { x, y, roll, yaw, facing: this.facing, pxPerCm, sleeves, cues }
 
     // Distance is judged by the span corrected for the turn, and by the last reliable one while side-on.
     const tooClose = this.good.span > TOO_CLOSE_SPAN * view.width || this.good.minY < 0
     const state: FollowState = tooClose ? 'too-close' : this.good.span < TOO_FAR_SPAN * view.width ? 'too-far' : 'tracking'
-    const follow: Follow = { state, opacity: 1, pose, averageBuild }
+    const follow: Follow = { state, opacity: 1, pose }
     this.last = { follow, t: tMs }
     return follow
   }
@@ -328,13 +336,12 @@ export class PoseFollower {
   /** No body this frame: hold the last pose for 300 ms, fade it out over 300 ms more, then it is lost and the filters start afresh. */
   private missing(tMs: number): Follow {
     const last = this.last
-    if (!last) return { state: 'lost', opacity: 0, pose: null, averageBuild: false }
+    if (!last) return { state: 'lost', opacity: 0, pose: null }
     const gone = tMs - last.t
     if (gone <= HOLD_MS) return last.follow
     if (gone >= HOLD_MS + FADE_MS) {
-      const { averageBuild } = last.follow
       this.reset()
-      return { state: 'lost', opacity: 0, pose: null, averageBuild }
+      return { state: 'lost', opacity: 0, pose: null }
     }
     return { ...last.follow, state: 'lost', opacity: 1 - (gone - HOLD_MS) / FADE_MS }
   }

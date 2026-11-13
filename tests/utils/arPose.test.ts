@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { ARMS_DOWN, SLEEVE_MAX, SLEEVE_MIN } from '../../src/utils/arArms'
+import { recommendSize } from '../../src/utils/arFit'
 import { garmentScale, GARMENT_BASE, SEAM_HEIGHT } from '../../src/utils/arGarment'
 import {
   coverMap,
-  DEFAULT_SHOULDER_CM,
   FACING_FRAMES,
+  FIT_EASE,
   facingVote,
   garmentTransform,
   LANDMARK_TO_SEAM_CM,
@@ -20,7 +21,6 @@ import {
   RIGHT_HIP,
   RIGHT_SHOULDER,
   shouldersTracked,
-  SHOULDER_JOINT_K,
   toStage,
   type Landmark,
   type PoseFrame,
@@ -87,32 +87,48 @@ describe('tracked shoulders', () => {
 })
 
 describe('pixels per cm', () => {
-  it('is the shoulder span over the joint share of the profile shoulder width', () => {
-    const out = new PoseFollower().update(frame(), 0, VIEW, 44)
-    expect(out.pose!.pxPerCm).toBeCloseTo(128 / (SHOULDER_JOINT_K * 44))
-    expect(out.averageBuild).toBe(false)
+  const sizeOf = (chest: number, length = 70) => garmentScale({ chestWidthCm: chest, totalLengthCm: length })
+  const [xs, m, l] = [sizeOf(46), sizeOf(52), sizeOf(56)]
+
+  it('draws the reference size with its shoulder seams at the joint span times FIT_EASE', () => {
+    const pose = new PoseFollower().update(frame(), 0, VIEW, m.x).pose!
+    expect(GARMENT_BASE.shoulder * garmentTransform(pose, m).scale.x).toBeCloseTo(128 * FIT_EASE)
+    expect(garmentTransform(pose, m).widthPx).toBeCloseTo((128 * FIT_EASE * GARMENT_BASE.drawnWidth) / GARMENT_BASE.shoulder)
   })
-  it('assumes an average shoulder width without a profile and says so', () => {
-    const out = new PoseFollower().update(frame(), 0, VIEW)
-    expect(out.pose!.pxPerCm).toBeCloseTo(128 / (SHOULDER_JOINT_K * DEFAULT_SHOULDER_CM))
-    expect(out.averageBuild).toBe(true)
+  it('draws other sizes from the reference by the chart ratios at the same px per cm', () => {
+    const pose = new PoseFollower().update(frame(), 0, VIEW, m.x).pose!
+    const [tXs, tM, tL] = [xs, m, l].map((s) => garmentTransform(pose, s))
+    expect(tL.widthPx / tM.widthPx).toBeCloseTo(56 / 52)
+    expect(tXs.widthPx / tM.widthPx).toBeCloseTo(46 / 52)
+    expect(tXs.widthPx).toBeLessThan(tM.widthPx)
+  })
+  it('draws the recommended size the same whatever shoulder width the profile says', () => {
+    const sizes = [46, 52, 56].map((chest, i) => ({ size: ['XS', 'M', 'L'][i], values: { chestWidthCm: chest } }))
+    const refX = (shoulders: number) => {
+      const size = recommendSize({ chest: 100, shoulders }, sizes)
+      return garmentScale(sizes.find((s) => s.size === size)!.values).x
+    }
+    const drawn = (shoulders: number) => garmentTransform(new PoseFollower().update(frame(), 0, VIEW, refX(shoulders)).pose!, m).widthPx
+    expect(drawn(55)).toBeCloseTo(drawn(44))
+    expect(drawn(55 * 1.2)).toBeCloseTo(drawn(44))
   })
   it('divides by cos(yaw) for a turned body, but never by less than cos 60 degrees', () => {
-    expect(pxPerCmOf(100, 0.3, 42)).toBeCloseTo(100 / Math.cos(0.3) / (SHOULDER_JOINT_K * 42))
-    expect(pxPerCmOf(100, Math.PI / 3, 42)).toBeCloseTo(100 / RELIABLE_COS / (SHOULDER_JOINT_K * 42))
-    expect(pxPerCmOf(100, Math.PI / 2, 42)).toBeCloseTo(pxPerCmOf(100, Math.PI / 3, 42))
-    expect(pxPerCmOf(100, Math.PI, 42)).toBeCloseTo(pxPerCmOf(100, Math.PI / 3, 42))
+    const base = (yaw: number) => (100 / Math.max(Math.cos(yaw), RELIABLE_COS)) * FIT_EASE / (GARMENT_BASE.shoulder * 1.2)
+    expect(pxPerCmOf(100, 0.3, 1.2)).toBeCloseTo(base(0.3))
+    expect(pxPerCmOf(100, Math.PI / 3, 1.2)).toBeCloseTo(base(Math.PI / 3))
+    expect(pxPerCmOf(100, Math.PI / 2, 1.2)).toBeCloseTo(pxPerCmOf(100, Math.PI / 3, 1.2))
+    expect(pxPerCmOf(100, Math.PI, 1.2)).toBeCloseTo(pxPerCmOf(100, Math.PI / 3, 1.2))
   })
 })
 
 describe('yaw', () => {
   it('is zero facing the camera, and negative when the person\'s left shoulder turns away (the left of the mirrored screen)', () => {
-    expect(new PoseFollower().update(frame(), 0, VIEW, 44).pose!.yaw).toBeCloseTo(0)
-    expect(new PoseFollower().update(frame({ zL: 0.2, zR: -0.2 }), 0, VIEW, 44).pose!.yaw).toBeCloseTo(-Math.PI / 4)
-    expect(new PoseFollower().update(frame({ zL: -0.1, zR: 0.1 }), 0, VIEW, 44).pose!.yaw).toBeCloseTo(Math.atan2(0.2, 0.4))
+    expect(new PoseFollower().update(frame(), 0, VIEW, 1).pose!.yaw).toBeCloseTo(0)
+    expect(new PoseFollower().update(frame({ zL: 0.2, zR: -0.2 }), 0, VIEW, 1).pose!.yaw).toBeCloseTo(-Math.PI / 4)
+    expect(new PoseFollower().update(frame({ zL: -0.1, zR: 0.1 }), 0, VIEW, 1).pose!.yaw).toBeCloseTo(Math.atan2(0.2, 0.4))
   })
   it('is not clamped: shoulders turned past 45 degrees read as they are', () => {
-    expect(new PoseFollower().update(frame({ zL: -1, zR: 1 }), 0, VIEW, 44).pose!.yaw).toBeCloseTo(Math.atan2(2, 0.4))
+    expect(new PoseFollower().update(frame({ zL: -1, zR: 1 }), 0, VIEW, 1).pose!.yaw).toBeCloseTo(Math.atan2(2, 0.4))
   })
 })
 
@@ -132,7 +148,7 @@ function turned(deg: number, face = deg < 90 || deg > 270 ? 1 : 0.1): PoseFrame 
 describe('a full turn', () => {
   it('keeps the yaw finite and continuous, the scale within 0.5x to 1.5x of the front one, and flips the facing once each way', () => {
     const f = new PoseFollower()
-    const front = f.update(turned(0), 0, VIEW, 44).pose!
+    const front = f.update(turned(0), 0, VIEW, 1).pose!
     let prev = front.yaw
     let facing = front.facing
     let flips = 0
@@ -140,7 +156,7 @@ describe('a full turn', () => {
     let last = front
     for (let deg = 2; deg <= 360; deg += 2) {
       t += STEP
-      const out = f.update(turned(deg), t, VIEW, 44)
+      const out = f.update(turned(deg), t, VIEW, 1)
       const pose = out.pose!
       last = pose
       for (const v of [pose.x, pose.y, pose.roll, pose.yaw, pose.pxPerCm, ...pose.sleeves]) expect(Number.isFinite(v)).toBe(true)
@@ -157,18 +173,18 @@ describe('a full turn', () => {
   })
   it('turns the shirt to its back once the person faces away, with the yaw a half turn further', () => {
     const f = new PoseFollower()
-    let out = f.update(turned(180), 0, VIEW, 44)
+    let out = f.update(turned(180), 0, VIEW, 1)
     // The facing holds until it has been seen for FACING_FRAMES frames.
-    for (let i = 1; i < FACING_FRAMES - 1; i++) out = f.update(turned(180), i * STEP, VIEW, 44)
+    for (let i = 1; i < FACING_FRAMES - 1; i++) out = f.update(turned(180), i * STEP, VIEW, 1)
     expect(out.pose!.facing).toBe('front')
-    for (let i = FACING_FRAMES - 1; i < 60; i++) out = f.update(turned(180), i * STEP, VIEW, 44)
+    for (let i = FACING_FRAMES - 1; i < 60; i++) out = f.update(turned(180), i * STEP, VIEW, 1)
     expect(out.pose!.facing).toBe('back')
     expect(Math.abs(out.pose!.yaw)).toBeCloseTo(Math.PI, 1)
   })
   it('holds the placement and the size while side-on, and does not call it too far', () => {
     const f = new PoseFollower()
-    const before = f.update(turned(40), 0, VIEW, 44)
-    const side = f.update(turned(85), STEP, VIEW, 44)
+    const before = f.update(turned(40), 0, VIEW, 1)
+    const side = f.update(turned(85), STEP, VIEW, 1)
     expect(side.state).toBe('tracking')
     expect(side.pose!.x).toBe(before.pose!.x)
     expect(side.pose!.y).toBe(before.pose!.y)
@@ -176,8 +192,8 @@ describe('a full turn', () => {
     expect(side.pose!.yaw).toBeGreaterThan(before.pose!.yaw)
   })
   it('sizes from a first frame that is side-on without blowing up', () => {
-    const out = new PoseFollower().update(turned(88), 0, VIEW, 44)
-    expect(out.pose!.pxPerCm).toBeLessThan(128 / RELIABLE_COS / (SHOULDER_JOINT_K * 44) + 1e-6)
+    const out = new PoseFollower().update(turned(88), 0, VIEW, 1)
+    expect(out.pose!.pxPerCm).toBeLessThan((128 / RELIABLE_COS) * FIT_EASE / GARMENT_BASE.shoulder + 1e-6)
   })
 })
 
@@ -192,8 +208,8 @@ describe('label-swapped shoulders', () => {
   }
   it('give the same roll, position, size and yaw', () => {
     for (const fr of [frame({ l: { y: 0.45 }, hips: { x: 0.5, y: 0.8 } }), turned(30)]) {
-      const a = new PoseFollower().update(fr, 0, VIEW, 44).pose!
-      const b = new PoseFollower().update(swap(fr), 0, VIEW, 44).pose!
+      const a = new PoseFollower().update(fr, 0, VIEW, 1).pose!
+      const b = new PoseFollower().update(swap(fr), 0, VIEW, 1).pose!
       expect(b).toEqual(a)
     }
   })
@@ -252,7 +268,7 @@ function drive(f: PoseFollower, t0: number, ms: number, path: (ms: number) => nu
   for (let i = 0; i * STEP <= ms; i++) {
     t = t0 + i * STEP
     const deg = path(i * STEP)
-    const pose = f.update(look(deg, opts), t, VIEW, 44).pose!
+    const pose = f.update(look(deg, opts), t, VIEW, 1).pose!
     frames.push({ deg, yaw: pose.yaw, facing: pose.facing, source: pose.cues.source, reason: pose.cues.reason })
     if (facing !== null && pose.facing !== facing) flips.push({ deg, facing: pose.facing })
     facing = pose.facing
@@ -396,7 +412,7 @@ describe('facing from the face landmarks', () => {
   it('flips only after FACING_FRAMES agreeing frames in a row, and a doubtful frame starts the count over', () => {
     const f = new PoseFollower()
     const at = (n: number) => n * STEP
-    const facing = (v: number, n: number) => f.update(face(v), at(n), VIEW, 44).pose!.facing
+    const facing = (v: number, n: number) => f.update(face(v), at(n), VIEW, 1).pose!.facing
     expect(facing(1, 0)).toBe('front')
     for (let i = 1; i < FACING_FRAMES; i++) expect(facing(0, i)).toBe('front')
     // A front frame in the middle starts the count over.
@@ -434,61 +450,61 @@ describe('elbows paired with the nearer shoulder', () => {
 describe('roll', () => {
   it('is positive when the shoulder on the left of the screen drops', () => {
     // The person's left shoulder (raw x larger) is on the left of the mirrored canvas.
-    expect(new PoseFollower().update(frame({ l: { y: 0.45 } }), 0, VIEW, 44).pose!.roll).toBeGreaterThan(0)
-    expect(new PoseFollower().update(frame({ r: { y: 0.45 } }), 0, VIEW, 44).pose!.roll).toBeLessThan(0)
-    expect(new PoseFollower().update(frame(), 0, VIEW, 44).pose!.roll).toBeCloseTo(0)
+    expect(new PoseFollower().update(frame({ l: { y: 0.45 } }), 0, VIEW, 1).pose!.roll).toBeGreaterThan(0)
+    expect(new PoseFollower().update(frame({ r: { y: 0.45 } }), 0, VIEW, 1).pose!.roll).toBeLessThan(0)
+    expect(new PoseFollower().update(frame(), 0, VIEW, 1).pose!.roll).toBeCloseTo(0)
   })
   it('averages the shoulder line with the torso axis when the hips are tracked', () => {
-    const shoulderOnly = new PoseFollower().update(frame({ l: { y: 0.45 } }), 0, VIEW, 44).pose!.roll
-    const upright = new PoseFollower().update(frame({ l: { y: 0.45 }, hips: { x: 0.5, y: 0.8 } }), 0, VIEW, 44).pose!.roll
+    const shoulderOnly = new PoseFollower().update(frame({ l: { y: 0.45 } }), 0, VIEW, 1).pose!.roll
+    const upright = new PoseFollower().update(frame({ l: { y: 0.45 }, hips: { x: 0.5, y: 0.8 } }), 0, VIEW, 1).pose!.roll
     // Hips straight below the shoulder midpoint: the torso axis is 0, so the average is half the shoulder roll.
     expect(upright).toBeGreaterThan(0)
     expect(upright).toBeLessThan(shoulderOnly)
     // Hips shifted right in the raw image are shifted left on screen, under a body leaning right: negative.
-    expect(new PoseFollower().update(frame({ hips: { x: 0.6, y: 0.8 } }), 0, VIEW, 44).pose!.roll).toBeLessThan(0)
+    expect(new PoseFollower().update(frame({ hips: { x: 0.6, y: 0.8 } }), 0, VIEW, 1).pose!.roll).toBeLessThan(0)
   })
 })
 
 describe('sleeves', () => {
   it('read arms-down without elbow landmarks', () => {
-    expect(new PoseFollower().update(frame(), 0, VIEW, 44).pose!.sleeves).toEqual([ARMS_DOWN, ARMS_DOWN])
+    expect(new PoseFollower().update(frame(), 0, VIEW, 1).pose!.sleeves).toEqual([ARMS_DOWN, ARMS_DOWN])
   })
   it('read the lowest angle for elbows straight below the shoulders', () => {
-    expect(new PoseFollower().update(frame({ elL: {}, elR: {} }), 0, VIEW, 44).pose!.sleeves).toEqual([SLEEVE_MIN, SLEEVE_MIN])
+    expect(new PoseFollower().update(frame({ elL: {}, elR: {} }), 0, VIEW, 1).pose!.sleeves).toEqual([SLEEVE_MIN, SLEEVE_MIN])
   })
   it('put the left of the mirrored screen first and the right second', () => {
     // The left elbow 0.1 further out in raw x (to the screen left) and level with the shoulder: straight out.
-    const out = new PoseFollower().update(frame({ elL: { x: 0.7, y: 0.4 }, elR: {} }), 0, VIEW, 44).pose!.sleeves
+    const out = new PoseFollower().update(frame({ elL: { x: 0.7, y: 0.4 }, elR: {} }), 0, VIEW, 1).pose!.sleeves
     expect(out).toEqual([SLEEVE_MAX, SLEEVE_MIN])
-    const mirror = new PoseFollower().update(frame({ elL: {}, elR: { x: 0.3, y: 0.4 } }), 0, VIEW, 44).pose!.sleeves
+    const mirror = new PoseFollower().update(frame({ elL: {}, elR: { x: 0.3, y: 0.4 } }), 0, VIEW, 1).pose!.sleeves
     expect(mirror).toEqual([SLEEVE_MIN, SLEEVE_MAX])
   })
   it('hold a lost elbow, then ease to arms-down, but snap with reduced motion', () => {
     const f = new PoseFollower()
-    f.update(frame({ elL: { x: 0.7, y: 0.4 }, elR: { x: 0.3, y: 0.4 } }), 0, VIEW, 44)
+    f.update(frame({ elL: { x: 0.7, y: 0.4 }, elR: { x: 0.3, y: 0.4 } }), 0, VIEW, 1)
     const lost = { elL: { visibility: 0.2 }, elR: { x: 0.3, y: 0.4 } }
-    expect(f.update(frame(lost), 200, VIEW, 44).pose!.sleeves[0]).toBe(SLEEVE_MAX)
-    const easing = f.update(frame(lost), 450, VIEW, 44).pose!.sleeves
+    expect(f.update(frame(lost), 200, VIEW, 1).pose!.sleeves[0]).toBe(SLEEVE_MAX)
+    const easing = f.update(frame(lost), 450, VIEW, 1).pose!.sleeves
     expect(easing[0]).toBeGreaterThan(ARMS_DOWN)
     expect(easing[0]).toBeLessThan(SLEEVE_MAX)
     expect(easing[1]).toBe(SLEEVE_MAX)
-    expect(f.update(frame(lost), 700, VIEW, 44).pose!.sleeves[0]).toBe(ARMS_DOWN)
+    expect(f.update(frame(lost), 700, VIEW, 1).pose!.sleeves[0]).toBe(ARMS_DOWN)
     const g = new PoseFollower()
-    g.update(frame({ elL: { x: 0.7, y: 0.4 } }), 0, VIEW, 44)
-    expect(g.update(frame({ elL: { visibility: 0.2 } }), 400, VIEW, 44, true).pose!.sleeves[0]).toBe(ARMS_DOWN)
+    g.update(frame({ elL: { x: 0.7, y: 0.4 } }), 0, VIEW, 1)
+    expect(g.update(frame({ elL: { visibility: 0.2 } }), 400, VIEW, 1, true).pose!.sleeves[0]).toBe(ARMS_DOWN)
   })
   it('are carried through the body-lost hold and start afresh once it is lost', () => {
     const f = new PoseFollower()
-    const seen = f.update(frame({ elL: { x: 0.7, y: 0.4 } }), 0, VIEW, 44)
-    expect(f.update(null, 200, VIEW, 44).pose!.sleeves).toEqual(seen.pose!.sleeves)
-    expect(f.update(null, 450, VIEW, 44).pose!.sleeves).toEqual(seen.pose!.sleeves)
-    f.update(null, 700, VIEW, 44)
-    expect(f.update(frame(), 900, VIEW, 44).pose!.sleeves).toEqual([ARMS_DOWN, ARMS_DOWN])
+    const seen = f.update(frame({ elL: { x: 0.7, y: 0.4 } }), 0, VIEW, 1)
+    expect(f.update(null, 200, VIEW, 1).pose!.sleeves).toEqual(seen.pose!.sleeves)
+    expect(f.update(null, 450, VIEW, 1).pose!.sleeves).toEqual(seen.pose!.sleeves)
+    f.update(null, 700, VIEW, 1)
+    expect(f.update(frame(), 900, VIEW, 1).pose!.sleeves).toEqual([ARMS_DOWN, ARMS_DOWN])
   })
 })
 
 describe('garment transform', () => {
-  const pose = new PoseFollower().update(frame(), 0, VIEW, 44).pose!
+  const pose = new PoseFollower().update(frame(), 0, VIEW, 1).pose!
   const sizeOf = (chest: number, length: number) => garmentScale({ chestWidthCm: chest, totalLengthCm: length })
 
   it('puts the seam point at the shoulder midpoint raised by 4 cm', () => {
@@ -521,41 +537,42 @@ describe('garment transform', () => {
 describe('lost, too close and too far', () => {
   it('holds the pose for 300 ms, fades over the next 300 ms, then is lost and starts afresh', () => {
     const f = new PoseFollower()
-    const seen = f.update(frame(), 0, VIEW, 44)
+    const seen = f.update(frame(), 0, VIEW, 1)
     expect(seen.state).toBe('tracking')
-    const held = f.update(null, 300, VIEW, 44)
+    const held = f.update(null, 300, VIEW, 1)
     expect(held).toEqual({ ...seen })
-    const fading = f.update(null, 450, VIEW, 44)
+    const fading = f.update(null, 450, VIEW, 1)
     expect(fading.opacity).toBeCloseTo(0.5)
     expect(fading.state).toBe('lost')
     expect(fading.pose).toEqual(seen.pose)
-    const gone = f.update(null, 600, VIEW, 44)
+    const gone = f.update(null, 600, VIEW, 1)
     expect(gone).toMatchObject({ state: 'lost', opacity: 0, pose: null })
     // Smoothing was reset: the first sample after a loss is not dragged towards the old position.
-    const back = f.update(frame({ l: { x: 0.8 }, r: { x: 0.6 } }), 900, VIEW, 44)
+    const back = f.update(frame({ l: { x: 0.8 }, r: { x: 0.6 } }), 900, VIEW, 1)
     expect(back.pose!.x).toBeCloseTo(640 * (1 - 0.7))
     expect(back.opacity).toBe(1)
   })
   it('is lost with nothing to hold when the body was never seen, and when a shoulder is not visible', () => {
     const f = new PoseFollower()
-    expect(f.update(null, 0, VIEW, 44)).toMatchObject({ state: 'lost', opacity: 0, pose: null })
-    expect(f.update(frame({ l: { visibility: 0.2 } }), STEP, VIEW, 44)).toMatchObject({ state: 'lost', pose: null })
+    expect(f.update(null, 0, VIEW, 1)).toMatchObject({ state: 'lost', opacity: 0, pose: null })
+    expect(f.update(frame({ l: { visibility: 0.2 } }), STEP, VIEW, 1)).toMatchObject({ state: 'lost', pose: null })
   })
   it('recovers at full opacity when the body returns while fading', () => {
     const f = new PoseFollower()
-    f.update(frame(), 0, VIEW, 44)
-    expect(f.update(null, 450, VIEW, 44).opacity).toBeCloseTo(0.5)
-    expect(f.update(frame(), 500, VIEW, 44)).toMatchObject({ state: 'tracking', opacity: 1 })
+    f.update(frame(), 0, VIEW, 1)
+    expect(f.update(null, 450, VIEW, 1).opacity).toBeCloseTo(0.5)
+    expect(f.update(frame(), 500, VIEW, 1)).toMatchObject({ state: 'tracking', opacity: 1 })
   })
-  it('is too close above 52% of the width (the drawn shirt would not fit), or with a shoulder above the top edge', () => {
-    expect(new PoseFollower().update(frame({ l: { x: 0.95 }, r: { x: 0.15 } }), 0, VIEW, 44).state).toBe('too-close')
-    expect(new PoseFollower().update(frame({ l: { y: -0.05 }, r: { y: 0.1 } }), 0, VIEW, 44).state).toBe('too-close')
-    expect(new PoseFollower().update(frame({ l: { x: 0.7 }, r: { x: 0.3 } }), 0, VIEW, 44).state).toBe('tracking')
-    expect(new PoseFollower().update(frame({ l: { x: 0.8 }, r: { x: 0.25 } }), 0, VIEW, 44).state).toBe('too-close')
+  it('is too close above 60% of the width (the drawn shirt would not fit), or with a shoulder above the top edge', () => {
+    expect(new PoseFollower().update(frame({ l: { x: 0.95 }, r: { x: 0.15 } }), 0, VIEW, 1).state).toBe('too-close')
+    expect(new PoseFollower().update(frame({ l: { y: -0.05 }, r: { y: 0.1 } }), 0, VIEW, 1).state).toBe('too-close')
+    expect(new PoseFollower().update(frame({ l: { x: 0.7 }, r: { x: 0.3 } }), 0, VIEW, 1).state).toBe('tracking')
+    expect(new PoseFollower().update(frame({ l: { x: 0.8 }, r: { x: 0.25 } }), 0, VIEW, 1).state).toBe('tracking')
+    expect(new PoseFollower().update(frame({ l: { x: 0.85 }, r: { x: 0.2 } }), 0, VIEW, 1).state).toBe('too-close')
   })
   it('is too far below 18% of the width', () => {
-    expect(new PoseFollower().update(frame({ l: { x: 0.56 }, r: { x: 0.44 } }), 0, VIEW, 44).state).toBe('too-far')
-    expect(new PoseFollower().update(frame({ l: { x: 0.6 }, r: { x: 0.4 } }), 0, VIEW, 44).state).toBe('tracking')
+    expect(new PoseFollower().update(frame({ l: { x: 0.56 }, r: { x: 0.44 } }), 0, VIEW, 1).state).toBe('too-far')
+    expect(new PoseFollower().update(frame({ l: { x: 0.6 }, r: { x: 0.4 } }), 0, VIEW, 1).state).toBe('tracking')
   })
 })
 

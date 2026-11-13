@@ -134,6 +134,9 @@ export function TryOnPage() {
   const size = row?.size
   const colour = product?.colors.find((c) => c.name === pickedColor) ?? product?.colors.find((c) => c.name.toLowerCase() === query.get('color')?.toLowerCase()) ?? product?.colors[0]
 
+  // The size the drawing is sized by: its seams meet the tracked shoulders. Without a recommendation, the middle size of the product.
+  const reference = sizes.find((r) => r.size === recommended) ?? sizes[Math.floor(sizes.length / 2)]
+  const refScaleX = useMemo(() => garmentScale(reference?.values ?? {}).x, [reference])
   const scale = useMemo(() => garmentScale(row?.values ?? {}), [row])
   const largest = useMemo(() => {
     const all = sizes.map((r) => garmentScale(r.values))
@@ -188,7 +191,8 @@ export function TryOnPage() {
                   alt={item.alt}
                   video={camera.videoRef}
                   live={camera.state === 'live'}
-                  shoulderCm={entered?.shoulders}
+                  refSize={reference?.size ?? ''}
+                  refScaleX={refScaleX}
                   trackKey={trackKey}
                   onStatus={setTrackStatus}
                 />

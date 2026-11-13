@@ -95,6 +95,8 @@ test.describe('AR try-on tracking', () => {
     await expect(stage(page)).toHaveAttribute('data-size', 'L')
     await expect.poll(async () => (await garment(page)).width).toBeGreaterThan(m.width)
     const l = await garment(page)
+    // The drawing is sized by the recommended size, so picking another one does not move the reference.
+    await expect(page.locator('[data-ref-size]')).toHaveAttribute('data-ref-size', 'M')
     expect(l.pxPerCm).toBe(m.pxPerCm)
     expect(l.width / m.width).toBeCloseTo(56 / 52, 1)
   })
@@ -111,6 +113,8 @@ test.describe('AR try-on tracking', () => {
   test('says it is sized for an average build without saved measurements, and not with them', async ({ page }) => {
     await goLive(page, { profile: false })
     await expect(page.getByText('Sized for an average build. Add your measurements for your real fit.')).toBeVisible()
+    // No recommendation, so the middle size (of S, M, L) is the reference.
+    await expect(page.locator('[data-ref-size]')).toHaveAttribute('data-ref-size', 'M')
   })
 
   test('does not say it with saved measurements', async ({ page }) => {

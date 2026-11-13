@@ -12,7 +12,7 @@ import { createDetector, startPoseLoop, type Detector } from './poseTracker'
 import { TryOnFlat } from './TryOnFlat'
 
 const FOV = 30
-/** The 21 cm bar of the ?debug=ar overlay: a ruler to compare with a real one held at the shoulders. */
+/** The 21 cm bar of the ?debug=ar overlay, in the drawing's own scale (relative to the reference size, so not a real ruler any more). */
 const RULER_CM = 21
 /** How long the ?debug=ar cue log keeps, in video time. */
 const CUE_LOG_MS = 5000
@@ -49,8 +49,9 @@ interface TryOnStageProps {
   /** The camera feed, and whether it is live: the shirt follows the shoulders only while it is. */
   video: RefObject<HTMLVideoElement | null>
   live: boolean
-  /** The customer's shoulder width in cm; without it an average build is assumed. */
-  shoulderCm?: number
+  /** The reference size the drawing is sized by (the recommended one, else the middle one) and its scale x: that size's seams meet the shoulders. */
+  refSize: string
+  refScaleX: number
   /** Changed by the page to try body tracking again after it failed or was too slow. */
   trackKey: number
   /** Called when the tracking status changes, not on every frame. */
@@ -63,11 +64,11 @@ interface TryOnStageProps {
  * follows the customer's shoulders instead: one render per new pose from the pose loop (no animation loop of its own), in an orthographic
  * camera measured in stage pixels. The photo takes over if WebGL is unavailable, lost, or the model fails to load.
  */
-export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, shoulderCm, trackKey, onStatus }: TryOnStageProps) {
+export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, refSize, refScaleX, trackKey, onStatus }: TryOnStageProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const debugText = useRef<HTMLPreElement>(null)
   const debugBar = useRef<HTMLDivElement>(null)
-  const latest = useRef({ colorHex, scale, largest, shoulderCm, onStatus })
+  const latest = useRef({ colorHex, scale, largest, refSize, refScaleX, onStatus })
   const apply = useRef<() => void>(() => {})
   const tracking = useRef<{ start: () => void; stop: () => void }>({ start: () => {}, stop: () => {} })
   /** The manual correction of the front/back facing: the running follower's flip, nothing while there is none. */
@@ -78,9 +79,9 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
   const [overlay] = useState(debugOverlay)
 
   useEffect(() => {
-    latest.current = { colorHex, scale, largest, shoulderCm, onStatus }
+    latest.current = { colorHex, scale, largest, refSize, refScaleX, onStatus }
     apply.current()
-  }, [colorHex, scale, largest, shoulderCm, onStatus])
+  }, [colorHex, scale, largest, refSize, refScaleX, onStatus])
 
   useEffect(() => {
     const found = hostRef.current
@@ -184,6 +185,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         host.dataset.sleeves = pose.sleeves.map((a) => Math.round((a * 180) / Math.PI)).join(',')
         host.dataset.facing = pose.facing
         host.dataset.facingSource = pose.cues.source
+        host.dataset.refSize = latest.current.refSize
       }
     }
 
@@ -212,6 +214,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         delete host.dataset.sleeves
         delete host.dataset.facing
         delete host.dataset.facingSource
+        delete host.dataset.refSize
       }
       report(next)
       apply.current()
@@ -226,7 +229,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         `detect ${median(detectMs).toFixed(1)} / ${percentile95(detectMs).toFixed(1)} ms (median / p95)`,
         `render ${median(renderMs).toFixed(1)} ms (${rendered}/s)`,
         `tracking ${detections}/s on ${delegate}`,
-        `${pose ? pose.pxPerCm.toFixed(2) : '-'} px/cm`,
+        `ref size ${latest.current.refSize}, joint span ${cues ? Math.round(cues.spanPx) : '-'} px, px/cm ${pose ? pose.pxPerCm.toFixed(2) : '-'}`,
         `yaw ${pose && cues ? `${deg(cues.yaw)} seen, ${deg(pose.yaw)} shown` : '-'}`,
         `span ${cues ? cues.ratio.toFixed(2) : '-'} face ${cues?.face?.toFixed(2) ?? '-'}`,
         `facing ${pose && cues ? `${pose.facing} (${cues.source}) by ${cues.reason ?? 'default'}` : '-'}`,
@@ -266,7 +269,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
                 result,
                 tMs,
                 { videoW: element.videoWidth, videoH: element.videoHeight, width: host.clientWidth, height: host.clientHeight },
-                latest.current.shoulderCm,
+                latest.current.refScaleX,
                 reduceMotion.matches,
               )
               if (health.slow) {
