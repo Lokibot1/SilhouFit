@@ -35,10 +35,10 @@ export function skinToneLabel(tone: number) {
   return tone <= 33 ? 'Light' : tone <= 66 ? 'Medium' : 'Deep'
 }
 
-// shortcut: one user per browser; move to the body profile when the skinTone backend ticket ships
+// The tone now lives on the body profile; this key is only read for users who chose one before that.
 const KEY = 'silhoufit-skin-tone'
 
-/** The saved tone for this email, or the default when there is none, it is unreadable or invalid, or it is someone else's. */
+/** The tone this browser saved for this email before it moved to the profile, or the default when there is none, it is unreadable or invalid, or it is someone else's. */
 export function loadSkinTone(email: string | undefined) {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null') as { email?: unknown; tone?: unknown } | null
@@ -46,13 +46,5 @@ export function loadSkinTone(email: string | undefined) {
     return typeof raw.tone === 'number' && Number.isInteger(raw.tone) && raw.tone >= 0 && raw.tone <= 100 ? raw.tone : SKIN_TONE_DEFAULT
   } catch {
     return SKIN_TONE_DEFAULT
-  }
-}
-
-export function saveSkinTone(email: string, tone: number) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify({ email, tone }))
-  } catch {
-    // Storage blocked: the avatar shows the default next time.
   }
 }

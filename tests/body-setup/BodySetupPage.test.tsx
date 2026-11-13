@@ -4,7 +4,6 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadDraft, newDraft, saveDraft } from '../../src/components/body-setup/draft'
-import { loadSkinTone } from '../../src/components/body-setup/skinTone'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { resetTour, useOnboarding } from '../../src/hooks/useOnboarding'
 import { createAddress, deleteAddress, loadAddresses, updateAddress } from '../../src/service/addresses'
@@ -85,6 +84,7 @@ const SAVED_PROFILE: BodyProfile = {
   armLengthCm: 59,
   bodyModel: 'female',
   bodyBuild: 'lean',
+  skinTone: 60,
 }
 const getProfile = vi.mocked(getBodyProfile)
 const save = vi.mocked(saveBodyProfile)
@@ -240,6 +240,7 @@ describe('BodySetupPage flow', () => {
       armLengthCm: null,
       bodyModel: 'male',
       bodyBuild: 'muscular',
+      skinTone: 44,
     })
     expect(await screen.findByText('Measurements saved. SilhouFit can now recommend sizes.')).toBeInTheDocument()
     expect(updateMe).toHaveBeenCalledWith({ gender: 'male' })
@@ -335,7 +336,7 @@ describe('BodySetupPage flow', () => {
     expect(JSON.parse(studio.dataset.cm!)).toEqual({ height: 170 })
   })
 
-  it('changes the avatar skin tone from the build step, saves it only on Finish and keeps it out of the request', async () => {
+  it('changes the avatar skin tone from the build step and writes nothing to the browser or the API on Escape', async () => {
     const user = await open()
     await chooseModel(user, 'Male')
     const slider = await screen.findByRole('slider', { name: 'Skin tone' })
@@ -345,14 +346,14 @@ describe('BodySetupPage flow', () => {
     fireEvent.change(slider, { target: { value: '100' } })
     expect(screen.getByTestId('studio')).toHaveAttribute('data-skin-tone', '100')
     expect(slider).toHaveAttribute('aria-valuetext', 'Deep, 100 of 100')
-    expect(loadSkinTone(EMAIL)).toBe(44)
     act(() => slider.focus())
     await user.keyboard('{Escape}') // Escape on the slider still means Skip
     await waitFor(() => expect(where()).toBe('/profile'))
-    expect(loadSkinTone(EMAIL)).toBe(44)
+    expect(save).not.toHaveBeenCalled()
+    expect(localStorage.getItem('silhoufit-skin-tone')).toBeNull()
   })
 
-  it('stores the tone on a successful Finish, and the request has no skin tone', async () => {
+  it('sends the tone in the profile on Finish and does not write it to the browser', async () => {
     saveDraft(newDraft(EMAIL, { model: 'male', step: 12, entered: { height: 175 }, reviewing: true, skinTone: 80 }))
     const user = await open()
     await screen.findByRole('heading', { name: 'Review your measurements' })
@@ -360,11 +361,11 @@ describe('BodySetupPage flow', () => {
     await user.click(consent())
     await user.click(finishButton())
     await waitFor(() => expect(where()).toBe('/profile'))
-    expect(loadSkinTone(EMAIL)).toBe(80)
-    expect(JSON.stringify(save.mock.calls[0][0])).not.toMatch(/skin/i)
+    expect(save.mock.calls[0][0]).toMatchObject({ skinTone: 80 })
+    expect(localStorage.getItem('silhoufit-skin-tone')).toBeNull()
   })
 
-  it('does not store the tone when the save fails', async () => {
+  it('keeps the draft tone and shows the error when the save fails', async () => {
     save.mockRejectedValueOnce(new BodyProfileError('server'))
     saveDraft(newDraft(EMAIL, { model: 'male', step: 12, entered: { height: 175 }, reviewing: true, skinTone: 80 }))
     const user = await open()
@@ -372,7 +373,23 @@ describe('BodySetupPage flow', () => {
     await user.click(consent())
     await user.click(finishButton())
     await screen.findByRole('alert')
-    expect(loadSkinTone(EMAIL)).toBe(44)
+    expect(screen.getByText('Deep')).toBeInTheDocument()
+    expect(where()).not.toBe('/profile')
+  })
+
+  it.each([
+    ['the saved profile tone', { skinTone: 80 }, undefined, '80'],
+    ['the browser value when the profile has none', { skinTone: null }, 20, '20'],
+    ['the browser value when the profile predates skin tone', { skinTone: undefined }, 20, '20'],
+    ['the default when neither has one', { skinTone: null }, undefined, '44'],
+    ['the profile tone over the browser value', { skinTone: 80 }, 20, '80'],
+  ])('starts the slider from %s', async (_name, fields, legacyTone, shown) => {
+    getProfile.mockResolvedValue({ ...SAVED_PROFILE, ...fields })
+    if (legacyTone !== undefined) localStorage.setItem('silhoufit-skin-tone', JSON.stringify({ email: EMAIL, tone: legacyTone }))
+    const user = await open()
+    await modelHeading()
+    await next(user) // build
+    expect(await screen.findByRole('slider', { name: 'Skin tone' })).toHaveValue(shown)
   })
 
   it('jumps to a field from the review screen, and a build is never turned into measurements', async () => {

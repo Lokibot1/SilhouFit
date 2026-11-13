@@ -15,7 +15,7 @@ import { MeasureStep } from '../../components/body-setup/MeasureStep'
 import { changedFields, fieldsFor, fromProfile, toPayload, warnings as crossChecks } from '../../components/body-setup/measurements'
 import { ReviewStep } from '../../components/body-setup/ReviewStep'
 import { SectionBoundary } from '../../components/body-setup/SectionBoundary'
-import { loadSkinTone, saveSkinTone } from '../../components/body-setup/skinTone'
+import { loadSkinTone } from '../../components/body-setup/skinTone'
 import { STEP_BODY, STEP_BODY_PINNED, STEP_CARD_PINNED, STEP_FOOTER } from '../../components/body-setup/stepLayout'
 import { StudioFlat, StudioFrame } from '../../components/body-setup/StudioFallback'
 import { AlertIcon, ChevronLeftIcon, ChevronRightIcon, XIcon } from '../../components/form/icons'
@@ -104,7 +104,7 @@ export function BodySetupPage() {
     if (!email || stored) return
     const controller = new AbortController()
     getBodyProfile({ signal: controller.signal }).then(
-      (profile) => setLoad({ status: 'ready', draft: newDraft(email, { ...(profile ? fromProfile(profile) : {}), skinTone: loadSkinTone(email) }), profile: profile ?? undefined }),
+      (profile) => setLoad({ status: 'ready', draft: newDraft(email, { ...(profile ? fromProfile(profile) : {}), skinTone: profile?.skinTone ?? loadSkinTone(email) }), profile: profile ?? undefined }),
       (error: unknown) => {
         if (controller.signal.aborted) return
         const kind = error instanceof BodyProfileError ? error.kind : 'server'
@@ -241,7 +241,7 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
   }, [step, reviewing])
 
   async function finish() {
-    const payload = toPayload(entered, model, build)
+    const payload = toPayload(entered, model, build, draft.skinTone)
     if (!payload || pending) return
     setPending(true)
     try {
@@ -266,7 +266,6 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
         genderSynced = false
       }
     }
-    saveSkinTone(draft.email, draft.skinTone)
     clearBodyDraft()
     toast.show(
       genderSynced

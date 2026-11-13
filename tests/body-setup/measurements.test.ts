@@ -202,6 +202,10 @@ describe('missingForAr', () => {
 })
 
 describe('toPayload', () => {
+  it('carries the skin tone', () => {
+    expect(toPayload({ height: 175 }, 'male', null, 72)?.skinTone).toBe(72)
+  })
+
   it('is null without a height', () => {
     expect(toPayload({ chest: 90 }, 'male', 'regular')).toBeNull()
     expect(toPayload({}, null, null)).toBeNull()
@@ -275,7 +279,7 @@ describe('toPayload', () => {
     for (const build of builds) {
       const payload = toPayload({ height: 175 }, 'male', build)!
       expect(payload.bodyBuild).toBe(build)
-      const { bodyModel: _m, bodyBuild: _b, heightCm: _h, ...rest } = payload
+      const { bodyModel: _m, bodyBuild: _b, heightCm: _h, skinTone: _s, ...rest } = payload
       expect(Object.values(rest).every((value) => value === null)).toBe(true)
     }
   })

@@ -180,7 +180,7 @@ export function warnings(entered: Entered): string[] {
 const ROUND = (n: number) => Math.round(n * 10) / 10
 
 /** The API body. Only what the user entered is sent, rounded to 0.1; everything else is null. Null without a height. */
-export function toPayload(entered: Entered, model: BodyModelId | null, build: BodyBuildId | null): BodyProfile | null {
+export function toPayload(entered: Entered, model: BodyModelId | null, build: BodyBuildId | null, skinTone?: number): BodyProfile | null {
   if (entered.height === undefined) return null
   const pick = (field: Field) => (entered[field] === undefined ? null : ROUND(entered[field]))
   return {
@@ -198,6 +198,7 @@ export function toPayload(entered: Entered, model: BodyModelId | null, build: Bo
     armLengthCm: pick('sleeve'),
     bodyModel: model,
     bodyBuild: build,
+    skinTone,
   }
 }
 

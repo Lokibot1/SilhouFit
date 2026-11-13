@@ -21,6 +21,8 @@ export interface BodyProfile {
   armLengthCm: number | null
   bodyModel: BodyModelId | null
   bodyBuild: BodyBuildId | null
+  /** The avatar's skin tone, 0 (lightest) to 100 (deepest); null until one is saved. */
+  skinTone?: number | null
 }
 
 export type BodyProfileErrorKind = 'unauthorized' | 'invalid' | 'rate-limit' | 'network' | 'server'
@@ -92,6 +94,7 @@ async function parse(response: Response): Promise<BodyProfile> {
   profile.bodyModel = raw.bodyModel === 'male' || raw.bodyModel === 'female' ? raw.bodyModel : null
   const builds: unknown[] = ['skinny', 'lean', 'skinny_fat', 'regular', 'muscular', 'overweight']
   profile.bodyBuild = builds.includes(raw.bodyBuild) ? (raw.bodyBuild as BodyBuildId) : null
+  profile.skinTone = typeof raw.skinTone === 'number' && Number.isInteger(raw.skinTone) && raw.skinTone >= 0 && raw.skinTone <= 100 ? raw.skinTone : null
   return profile
 }
 

@@ -9,11 +9,12 @@ const DEFAULT_HEX = '#d7bd96'
 const LIGHTEST_HEX = '#f6ede4'
 const DEEPEST_HEX = '#292420'
 const WAIT = { timeout: 10_000 }
+const SAVED = { heightCm: 170, bodyModel: 'female', bodyBuild: 'lean' }
 
-/** Answers /users/me/body-profile (404 until a PUT). `failFirstPut` answers the first PUT with a 500. */
-async function mockBodyProfile(page: Page, { failFirstPut = false } = {}) {
+/** Answers /users/me/body-profile (404 until a PUT). `failFirstPut` answers the first PUT with a 500; `initial` is a profile already saved. */
+async function mockBodyProfile(page: Page, { failFirstPut = false, initial = null }: { failFirstPut?: boolean; initial?: object | null } = {}) {
   const puts: Array<Record<string, unknown>> = []
-  let stored: object | null = null
+  let stored: object | null = initial
   let attempts = 0
   await page.route('**/users/me/body-profile', async (route) => {
     const request = route.request()
@@ -163,7 +164,7 @@ test.describe('Skin tone slider', () => {
     await expect(studio(page)).toHaveAttribute('data-skin-tone', DEEPEST_HEX, WAIT)
   })
 
-  test('after Finish the profile avatar has the tone, the PUT has no skinTone and the tone is stored', async ({ page }) => {
+  test('after Finish the profile avatar has the tone, the PUT carries the tone and nothing is stored in the browser', async ({ page }) => {
     const puts = await mockBodyProfile(page)
     await openBuildStep(page)
     await slider(page).focus()
@@ -176,9 +177,8 @@ test.describe('Skin tone slider', () => {
 
     await expect(page).toHaveURL(/\/profile$/, WAIT)
     expect(puts).toHaveLength(1)
-    expect(Object.keys(puts[0])).not.toContain('skinTone')
-    expect(JSON.stringify(puts[0])).not.toMatch(/skin/i)
-    expect(JSON.parse((await stored(page)) ?? 'null')).toEqual({ email: DEMO.email, tone: 100 })
+    expect(puts[0].skinTone).toBe(100)
+    expect(await stored(page)).toBeNull()
     const card = page.getByRole('region', { name: 'Body measurements' })
     await expect(card.locator('[data-skin-tone]')).toHaveAttribute('data-skin-tone', DEEPEST_HEX, WAIT)
   })
@@ -207,7 +207,7 @@ test.describe('Skin tone slider', () => {
     expect(puts).toHaveLength(0)
   })
 
-  test('a failed first save does not store the tone until Retry succeeds', async ({ page }) => {
+  test('a failed first save keeps the draft tone, and Retry sends it', async ({ page }) => {
     const puts = await mockBodyProfile(page, { failFirstPut: true })
     await openBuildStep(page)
     await slider(page).focus()
@@ -221,13 +221,13 @@ test.describe('Skin tone slider', () => {
     await expect(toast).toBeVisible(WAIT)
     await toast.hover() // hovering pauses the toast's auto-dismiss
     await expect(page).toHaveURL(/\/profile\/measurements$/)
-    expect(await stored(page)).toBeNull()
     expect(puts).toHaveLength(0)
 
     await page.getByRole('button', { name: 'Retry' }).click()
     await expect(page).toHaveURL(/\/profile$/, WAIT)
     expect(puts).toHaveLength(1)
-    expect(JSON.parse((await stored(page)) ?? 'null')).toEqual({ email: DEMO.email, tone: 100 })
+    expect(puts[0].skinTone).toBe(100)
+    expect(await stored(page)).toBeNull()
   })
 
   test('a stored tone for another email is ignored', async ({ page }) => {
@@ -239,7 +239,7 @@ test.describe('Skin tone slider', () => {
     await expect(studio(page)).toHaveAttribute('data-skin-tone', DEFAULT_HEX, WAIT)
   })
 
-  test('a stored tone for this email is used as the starting value', async ({ page }) => {
+  test('a browser value from before the profile stored it is the starting value when the profile has none', async ({ page }) => {
     await mockBodyProfile(page)
     await page.addInitScript(
       ([key, email]) => localStorage.setItem(key, JSON.stringify({ email, tone: 100 })),
@@ -272,4 +272,23 @@ test.describe('Skin tone slider', () => {
     await expect(studio(page)).toHaveAttribute('data-skin-tone', DEEPEST_HEX, WAIT)
     expect(errors).toEqual([])
   })
+
+  test('a saved profile tone wins over the browser value, and the avatar on the profile uses it', async ({ page }) => {
+    await mockBodyProfile(page, { initial: { ...SAVED, skinTone: 0 } })
+    await page.addInitScript(
+      ([key, email]) => localStorage.setItem(key, JSON.stringify({ email, tone: 100 })),
+      [STORE_KEY, DEMO.email],
+    )
+    await openBuildStep(page)
+    await expect(slider(page)).toHaveValue('0')
+    await expect(studio(page)).toHaveAttribute('data-skin-tone', LIGHTEST_HEX, WAIT)
+  })
+
+  for (const [name, extra] of [['null', { skinTone: null }], ['missing', {}]] as const) {
+    test(`a saved profile with skinTone ${name} starts at the default`, async ({ page }) => {
+      await mockBodyProfile(page, { initial: { ...SAVED, ...extra } })
+      await openBuildStep(page)
+      await expect(slider(page)).toHaveValue('44')
+    })
+  }
 })

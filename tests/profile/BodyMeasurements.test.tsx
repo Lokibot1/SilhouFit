@@ -16,7 +16,7 @@ vi.mock('motion/react', async (importOriginal) => ({
 }))
 // The WebGL studio is replaced by a stub that shows the props the card hands it.
 vi.mock('../../src/components/body-setup/BodyStudio', () => ({
-  BodyStudio: (props: { model: string; build: string | null; cm: object; focus: string | null; reduced: boolean; autoRotate?: boolean; controls?: boolean }) => {
+  BodyStudio: (props: { model: string; build: string | null; cm: object; focus: string | null; reduced: boolean; autoRotate?: boolean; controls?: boolean; skinTone?: number }) => {
     if (motion.crash) throw new Error('studio chunk failed')
     return (
       <div
@@ -28,6 +28,7 @@ vi.mock('../../src/components/body-setup/BodyStudio', () => ({
         data-focus={props.focus ?? ''}
         data-auto-rotate={String(props.autoRotate)}
         data-controls={String(props.controls)}
+        data-skin-tone={String(props.skinTone)}
         data-cm={JSON.stringify(props.cm)}
       />
     )
@@ -175,6 +176,17 @@ describe('Profile body measurements', () => {
     expect(studio).toHaveAttribute('data-auto-rotate', 'true')
     expect(studio).toHaveAttribute('data-controls', 'false')
     expect(JSON.parse(studio.dataset.cm!)).toMatchObject({ height: 165.5, weight: 58, waist: 66 })
+  })
+
+  it.each([
+    ['the saved tone', 80, 20, '80'],
+    ['the browser value when the profile has none', null, 20, '20'],
+    ['the default when neither has one', null, undefined, '44'],
+  ])('colours the avatar with %s', async (_name, skinTone, legacyTone, shown) => {
+    getProfile.mockResolvedValue({ ...FEMALE, skinTone })
+    if (legacyTone !== undefined) localStorage.setItem('silhoufit-skin-tone', JSON.stringify({ email: ME.email, tone: legacyTone }))
+    renderPage()
+    expect(await (await section()).findByTestId('studio')).toHaveAttribute('data-skin-tone', shown)
   })
 
   it('keeps the avatar still for a visitor who prefers reduced motion', async () => {

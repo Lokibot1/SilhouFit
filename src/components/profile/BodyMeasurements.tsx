@@ -142,7 +142,7 @@ export function BodyMeasurements() {
                 reduced={reduced}
                 autoRotate={!reduced}
                 controls={false}
-                skinTone={loadSkinTone(email)}
+                skinTone={profile?.skinTone ?? loadSkinTone(email)}
                 className={AVATAR_SIZE}
               />
             </Suspense>

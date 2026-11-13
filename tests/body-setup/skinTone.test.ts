@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadSkinTone, saveSkinTone, SKIN_TONE_DEFAULT, skinToneHex, skinToneLabel } from '../../src/components/body-setup/skinTone'
+import { loadSkinTone, SKIN_TONE_DEFAULT, skinToneHex, skinToneLabel } from '../../src/components/body-setup/skinTone'
 
 const EMAIL = 'demo@silhoufit.com'
 const KEY = 'silhoufit-skin-tone'
+const legacy = (email: string, tone: number) => localStorage.setItem(KEY, JSON.stringify({ email, tone }))
 
 beforeEach(() => localStorage.clear())
 afterEach(() => {
@@ -44,20 +45,20 @@ describe('skinToneLabel', () => {
   })
 })
 
-describe('loadSkinTone and saveSkinTone', () => {
-  it('restores what was saved for the same email', () => {
-    saveSkinTone(EMAIL, 71)
+describe('loadSkinTone (the legacy browser value)', () => {
+  it('restores what this browser saved for the same email', () => {
+    legacy(EMAIL, 71)
     expect(loadSkinTone(EMAIL)).toBe(71)
   })
 
   it('gives the default when nothing is saved or there is no email', () => {
     expect(loadSkinTone(EMAIL)).toBe(SKIN_TONE_DEFAULT)
-    saveSkinTone(EMAIL, 71)
+    legacy(EMAIL, 71)
     expect(loadSkinTone(undefined)).toBe(SKIN_TONE_DEFAULT)
   })
 
   it('ignores a tone saved for another email', () => {
-    saveSkinTone('someone@else.com', 90)
+    legacy('someone@else.com', 90)
     expect(loadSkinTone(EMAIL)).toBe(SKIN_TONE_DEFAULT)
   })
 
@@ -75,10 +76,6 @@ describe('loadSkinTone and saveSkinTone', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked')
     })
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('blocked')
-    })
     expect(loadSkinTone(EMAIL)).toBe(SKIN_TONE_DEFAULT)
-    expect(() => saveSkinTone(EMAIL, 10)).not.toThrow()
   })
 })

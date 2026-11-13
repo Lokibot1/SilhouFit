@@ -22,6 +22,7 @@ const PROFILE = {
   armLengthCm: 58.1,
   bodyModel: 'male' as const,
   bodyBuild: 'lean' as const,
+  skinTone: 55,
 }
 const fetchMock = vi.fn()
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
@@ -45,6 +46,13 @@ describe('getBodyProfile', () => {
     expect(init.method).toBe('GET')
     expect(init.headers).toEqual({ Authorization: 'Bearer token-123' })
     expect(init.body).toBeUndefined()
+  })
+
+  it('reads skinTone, and gives null for null, a missing key or an out-of-range value', async () => {
+    for (const [sent, read] of [[55, 55], [0, 0], [null, null], [undefined, null], [101, null], [4.5, null], ['50', null]]) {
+      fetchMock.mockResolvedValue(json({ ...PROFILE, skinTone: sent }))
+      expect((await getBodyProfile())?.skinTone).toBe(read)
+    }
   })
 
   it('returns null when no profile is saved (404)', async () => {
@@ -111,6 +119,7 @@ describe('getBodyProfile', () => {
       armLengthCm: null,
       bodyModel: null,
       bodyBuild: null,
+      skinTone: null,
     })
   })
 
