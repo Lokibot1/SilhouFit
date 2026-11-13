@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
+import { mockChat } from '../chat/chatMock'
+import { mockCart, mockProducts } from '../shared/products'
 import { DEMO, mockAuth } from '../shared/session'
 
 // Regression for the smoother thigh/hips/knee blend in deformBody.ts. The mesh has no debug hook, so these
@@ -57,6 +59,8 @@ test.describe('avatar shape with extreme thigh values', () => {
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
     page.on('console', (m) => { if (m.type() === 'error' && !m.location().url.endsWith('/users/me/body-profile')) errors.push(`console: ${m.text()}`) })
     await mockAuth(page)
+    await mockCart(page, await mockProducts(page)) // the header and chat widget call these on every page; unmocked they 401 against the real API
+    await mockChat(page)
     await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
   })
 
