@@ -1846,9 +1846,10 @@ a {
         scroll-settle-in linear backwards,
         scroll-settle-out linear forwards;
       animation-timeline: view(), view();
+      /* 99.9%, not 100%: the build minifies "exit 100%" to a bare "exit" and a second pass reads that as "exit 0%", which faded whole rows out while still on screen in production. */
       animation-range:
         entry 0% cover 40%,
-        cover 60% exit 100%;
+        cover 60% exit 99.9%;
     }
   }
 }
