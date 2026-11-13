@@ -19,8 +19,9 @@ declare global {
 
 /**
  * A person whose shoulders are 0.2 of the frame apart when facing the camera, centred at raw x `centreX`; `off` is no body in view. `yawDeg` turns
- * them round (0 facing the camera, 180 facing away; landmark labels stay true to the body, so past 90 the left shoulder is on the screen's right),
- * and the nose and eyes read `face` visibility, by default 1 facing the camera and 0.1 facing away.
+ * them round (0 facing the camera, 90 side-on, 180 facing away) and is reported the way MediaPipe is assumed to (see arTurn.ts and the unit
+ * tests): labels follow image side as if facing the camera, and the observed yaw is folded to +-90 with the depth true to the body, so its sign
+ * changes at side-on. The nose and eyes read `face` visibility, by default 1 facing the camera and 0.1 facing away.
  */
 async function feedPoses(page: Page) {
   await page.addInitScript(() => {
@@ -30,11 +31,12 @@ async function feedPoses(page: Page) {
       if (f.off) return null
       const image = []
       const world = []
-      const turn = (f.yawDeg * Math.PI) / 180
+      const actual = Math.cos((f.yawDeg * Math.PI) / 180)
+      const turn = ((((f.yawDeg + 270) % 180) + 180) % 180 - 90) * (Math.PI / 180)
       const [cos, sin] = [Math.cos(turn), Math.sin(turn)]
       image[11] = { x: f.centreX + 0.1 * cos, y: f.y, visibility: 1 }
       image[12] = { x: f.centreX - 0.1 * cos, y: f.y, visibility: 1 }
-      for (const i of [0, 2, 5]) image[i] = { x: f.centreX, y: f.y - 0.1, visibility: f.face ?? (cos < 0 ? 0.1 : 1) }
+      for (const i of [0, 2, 5]) image[i] = { x: f.centreX, y: f.y - 0.1, visibility: f.face ?? (actual < 0 ? 0.1 : 1) }
       // Landmarks 13 and 14: the person's left elbow is on the screen's left, so out is a larger raw x there and a smaller one on the right.
       if (f.elbowL) image[13] = { x: f.centreX + 0.1 + f.elbowL.out / 640, y: f.y + f.elbowL.down / 480, visibility: f.elbowL.v }
       if (f.elbowR) image[14] = { x: f.centreX - 0.1 - f.elbowR.out / 640, y: f.y + f.elbowR.down / 480, visibility: f.elbowR.v }
@@ -134,7 +136,9 @@ test.describe('AR try-on tracking', () => {
     test('flips front, back, front once each way, with the placement and size finite and bounded all through', async ({ page }) => {
       await goLive(page)
       const start = await garment(page)
-      // The feed turns 4 degrees a frame; the page records each attribute change as it happens.
+      // The face stays visible all round, as MediaPipe reports it even from behind, so only the turn itself can flip the facing.
+      await page.evaluate(() => (window.__feed.face = 0.9))
+      // The feed turns 4 degrees a step; the page records each attribute change as it happens.
       const seen = await page.evaluate(async () => {
         const out: { facing: string | null; garment: string | null; sleeves: string | null }[] = []
         const host = document.querySelector<HTMLElement>('[data-garment]')!
@@ -154,6 +158,60 @@ test.describe('AR try-on tracking', () => {
         expect(pxPerCm / start.pxPerCm).toBeGreaterThan(0.5)
         expect(pxPerCm / start.pxPerCm).toBeLessThan(1.5)
       }
+      await expect(page.locator('[data-facing-source]')).toHaveAttribute('data-facing-source', 'auto')
+    })
+
+    test('a peek out to the side and back does not flip the facing', async ({ page }) => {
+      await goLive(page)
+      await page.evaluate(() => (window.__feed.face = 0.9))
+      const order = await page.evaluate(async () => {
+        const host = document.querySelector<HTMLElement>('[data-garment]')!
+        const seen: (string | undefined)[] = []
+        for (const deg of [0, 20, 40, 60, 80, 80, 60, 40, 20, 0, 0, 0, 0]) {
+          window.__feed.yawDeg = deg
+          await new Promise((resolve) => setTimeout(resolve, 70))
+          seen.push(host.dataset.facing)
+        }
+        return seen
+      })
+      expect(new Set(order)).toEqual(new Set(['front']))
+    })
+
+    test('the flip button corrects the facing by hand until the next automatic flip', async ({ page }) => {
+      await goLive(page)
+      const button = page.getByRole('button', { name: 'Flip front/back' })
+      await expect(button).toBeVisible()
+      const box = (await button.boundingBox())!
+      expect(box.width).toBeGreaterThanOrEqual(44)
+      expect(box.height).toBeGreaterThanOrEqual(44)
+      await expect(button).not.toHaveAttribute('title')
+      await button.hover()
+      await expect(page.getByRole('tooltip')).toHaveText('Flip front/back')
+
+      await expect.poll(() => facing(page)).toBe('front')
+      await button.click()
+      await expect.poll(() => facing(page)).toBe('back')
+      await expect(page.locator('[data-facing-source]')).toHaveAttribute('data-facing-source', 'manual')
+      // It stays put while the person is still facing the camera.
+      await page.waitForTimeout(600)
+      expect(await facing(page)).toBe('back')
+      // Keyboard works too.
+      await button.focus()
+      await page.keyboard.press('Enter')
+      await expect.poll(() => facing(page)).toBe('front')
+
+      // A turn through side-on takes over again.
+      await button.click()
+      await expect.poll(() => facing(page)).toBe('back')
+      await page.evaluate(async () => {
+        window.__feed.face = 0.9
+        for (let deg = 0; deg <= 180; deg += 4) {
+          window.__feed.yawDeg = deg
+          await new Promise((resolve) => setTimeout(resolve, 70))
+        }
+      })
+      await expect.poll(() => facing(page)).toBe('front')
+      await expect(page.locator('[data-facing-source]')).toHaveAttribute('data-facing-source', 'auto')
     })
 
     test('stays on the back view while the person faces away, and returns to the front view', async ({ page }) => {

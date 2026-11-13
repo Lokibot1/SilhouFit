@@ -199,6 +199,187 @@ describe('label-swapped shoulders', () => {
   })
 })
 
+/**
+ * A body `deg` round from facing the camera (0 front, 90 side-on, 180 back), seen the way MediaPipe is assumed to report it (see arTurn.ts):
+ * landmark 11 always on the raw image's right as if the person faced the camera, and the yaw folded to +-90. 'saw' keeps the depth true to the
+ * body, so the observed sign flips at side-on; 'tri' mirrors the depth as well (obs = 180 - actual), so the sign never flips. `jitter` is in
+ * degrees on the yaw, and 5% on the span. By default the face reads 0.9 all round, as MediaPipe does even from behind.
+ */
+interface Look {
+  fold?: 'saw' | 'tri'
+  face?: number | ((deg: number) => number)
+  jitter?: number
+  rand?: () => number
+  swap?: boolean
+}
+const rad = (deg: number) => (deg * Math.PI) / 180
+function seeded(seed: number) {
+  let a = seed
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+function look(deg: number, { fold = 'saw', face = 0.9, jitter = 0, rand = Math.random, swap = false }: Look = {}): PoseFrame {
+  const s = (((deg + 180) % 360) + 360) % 360 - 180
+  const folded = fold === 'saw' ? ((s + 270) % 180) - 90 : (Math.asin(Math.sin(rad(s))) * 180) / Math.PI
+  const noisy = rad(folded + (rand() * 2 - 1) * jitter)
+  const [cos, sin] = [Math.cos(noisy), Math.sin(noisy)]
+  const span = 1 + (jitter ? (rand() * 2 - 1) * 0.05 : 0)
+  const image: Landmark[] = []
+  image[LEFT_SHOULDER] = { x: 0.5 + 0.1 * cos * span, y: 0.4, visibility: 1 }
+  image[RIGHT_SHOULDER] = { x: 0.5 - 0.1 * cos * span, y: 0.4, visibility: 1 }
+  const v = typeof face === 'function' ? face(s) : face
+  for (const i of [0, 2, 5]) image[i] = { x: 0.5, y: 0.3, visibility: v }
+  const world = []
+  world[LEFT_SHOULDER] = { x: 0.2 * cos, y: 0, z: -0.2 * sin }
+  world[RIGHT_SHOULDER] = { x: -0.2 * cos, y: 0, z: 0.2 * sin }
+  if (swap) {
+    ;[image[LEFT_SHOULDER], image[RIGHT_SHOULDER]] = [image[RIGHT_SHOULDER], image[LEFT_SHOULDER]]
+    ;[world[LEFT_SHOULDER], world[RIGHT_SHOULDER]] = [world[RIGHT_SHOULDER], world[LEFT_SHOULDER]]
+  }
+  return { image, world }
+}
+
+/** Feeds `ms` of frames from `t0`, the body at `path(ms since t0)` degrees, and records each change of facing with the angle it happened at. */
+function drive(f: PoseFollower, t0: number, ms: number, path: (ms: number) => number, opts: Look = {}) {
+  const frames: { deg: number; yaw: number; facing: string; source: string; reason: string | null }[] = []
+  const flips: { deg: number; facing: string }[] = []
+  let facing: string | null = null
+  let t = t0
+  for (let i = 0; i * STEP <= ms; i++) {
+    t = t0 + i * STEP
+    const deg = path(i * STEP)
+    const pose = f.update(look(deg, opts), t, VIEW, 44).pose!
+    frames.push({ deg, yaw: pose.yaw, facing: pose.facing, source: pose.cues.source, reason: pose.cues.reason })
+    if (facing !== null && pose.facing !== facing) flips.push({ deg, facing: pose.facing })
+    facing = pose.facing
+  }
+  return { frames, flips, end: t + STEP }
+}
+/** A constant turn of `rate` degrees a second from `from`, for `deg` degrees. */
+const turnBy = (rate: number, deg: number, from = 0) => ({ path: (ms: number) => from + Math.min((rate * ms) / 1000, deg), ms: (deg / rate) * 1000 })
+/** Out to `peak` degrees at `rate`, held for `hold` ms, and back the same way. */
+const peekTo = (peak: number, outMs: number, hold: number) => ({
+  path: (ms: number) => (ms < outMs ? (peak * ms) / outMs : ms < outMs + hold ? peak : Math.max(0, (peak * (2 * outMs + hold - ms)) / outMs)),
+  ms: 2 * outMs + hold,
+})
+
+describe('facing from the turn', () => {
+  for (const [name, rate] of [['slow', 45], ['fast', 180]] as const) {
+    it(`flips to the back once the person is past side-on and to the front once they are round again, on a ${name} full turn`, () => {
+      const { path, ms } = turnBy(rate, 360)
+      for (const jitter of [0, 4]) {
+        const { flips, frames } = drive(new PoseFollower(), 0, ms, path, { jitter, rand: seeded(7) })
+        expect(flips.map((x) => x.facing)).toEqual(['back', 'front'])
+        expect(flips[0].deg).toBeGreaterThan(85)
+        expect(flips[0].deg).toBeLessThan(140)
+        expect(flips[1].deg).toBeGreaterThan(265)
+        expect(flips[1].deg).toBeLessThan(320)
+        // The shirt's yaw follows the person all the way round: continuous, close to the real angle (a filter lag aside), no jump at a flip.
+        frames.forEach((fr, i) => {
+          expect(Number.isFinite(fr.yaw)).toBe(true)
+          expect(Math.abs(fr.yaw - rad(fr.deg))).toBeLessThan(rad(45))
+          if (i) expect(Math.abs(fr.yaw - frames[i - 1].yaw)).toBeLessThan(0.4)
+        })
+      }
+    })
+  }
+
+  it('does not flip on a peek out to the side and back, either side, but a peek is not told from a turn once it stays out', () => {
+    for (const sign of [1, -1]) {
+      for (const [peak, outMs, hold] of [[80, 700, 0], [80, 500, 300], [60, 1000, 3000], [50, 300, 0]]) {
+        const { path, ms } = peekTo(peak, outMs, hold)
+        const { flips } = drive(new PoseFollower(), 0, ms + 500, (t) => sign * path(t))
+        expect(flips).toEqual([])
+      }
+    }
+  })
+
+  it('flips on a pass-through even when it is fast, because the observed sign changes at side-on', () => {
+    // 360 degrees a second: 12 degrees a frame.
+    const { path, ms } = turnBy(360, 180)
+    expect(drive(new PoseFollower(), 0, ms, path).flips.map((x) => x.facing)).toEqual(['back'])
+  })
+
+  it('reads a turn with the depth mirrored too only when it takes over 1.5 s; a faster one cannot be told from a peek', () => {
+    const slow = turnBy(45, 360)
+    expect(drive(new PoseFollower(), 0, slow.ms, slow.path, { fold: 'tri' }).flips.map((x) => x.facing)).toEqual(['back', 'front'])
+    const fast = turnBy(180, 360)
+    expect(drive(new PoseFollower(), 0, fast.ms, fast.path, { fold: 'tri' }).flips).toEqual([])
+  })
+
+  it('does not flicker: a person standing still, front or back, with jittery yaw and span never flips', () => {
+    for (const deg of [0, 180]) {
+      for (const seed of [1, 2, 3]) expect(drive(new PoseFollower(), 0, 20000, () => deg, { jitter: 5, rand: seeded(seed) }).flips).toEqual([])
+    }
+  })
+
+  it('does not flicker: jitter on the yaw and span through a full turn still gives exactly two flips', () => {
+    const { path, ms } = turnBy(60, 360)
+    for (const seed of [11, 12, 13, 14, 15]) {
+      expect(drive(new PoseFollower(), 0, ms, path, { jitter: 5, rand: seeded(seed) }).flips.map((x) => x.facing)).toEqual(['back', 'front'])
+    }
+  })
+
+  it('does not flicker: a sign that chatters while the person hovers side-on flips at most once, and never back', () => {
+    const rand = seeded(3)
+    const hover = (t: number) => (t < 1000 ? (88 * t) / 1000 : t < 4000 ? 88 + (rand() < 0.5 ? 4 : 0) : Math.max(0, 88 - (88 * (t - 4000)) / 1000))
+    const { flips } = drive(new PoseFollower(), 0, 5200, hover)
+    expect(flips.length).toBeLessThanOrEqual(1)
+  })
+
+  it('gives the same flips when the shoulder labels are swapped', () => {
+    const { path, ms } = turnBy(60, 360)
+    const a = drive(new PoseFollower(), 0, ms, path, { jitter: 3, rand: seeded(5) }).flips
+    const b = drive(new PoseFollower(), 0, ms, path, { jitter: 3, rand: seeded(5), swap: true }).flips
+    expect(a).toHaveLength(2)
+    expect(b).toEqual(a)
+  })
+
+  it('has the face cue agree rather than flip twice, when the face does hide while turned away', () => {
+    const { path, ms } = turnBy(60, 360)
+    const hidden = (s: number) => (Math.abs(s) > 100 ? 0.1 : 0.9)
+    expect(drive(new PoseFollower(), 0, ms, path, { face: hidden }).flips.map((x) => x.facing)).toEqual(['back', 'front'])
+  })
+
+  it('stays on the back after the turn although MediaPipe still sees the face from behind', () => {
+    const turn = turnBy(90, 180)
+    const f = new PoseFollower()
+    const first = drive(f, 0, turn.ms, turn.path)
+    const held = drive(f, first.end, 4000, () => 180)
+    expect(first.flips.map((x) => x.facing)).toEqual(['back'])
+    expect(held.flips).toEqual([])
+    expect(held.frames.at(-1)!.facing).toBe('back')
+    expect(Math.abs(held.frames.at(-1)!.yaw - Math.PI)).toBeLessThan(0.1)
+  })
+
+  it('lets the customer flip it by hand, which holds until the next automatic flip', () => {
+    const f = new PoseFollower()
+    const still = drive(f, 0, 500, () => 0)
+    expect(still.frames.at(-1)).toMatchObject({ facing: 'front', source: 'auto' })
+    f.flip()
+    const held = drive(f, still.end, 3000, () => 0)
+    // It turns on smoothly, the way it was going (positive), to a half turn, not in one jump.
+    expect(held.frames[0]).toMatchObject({ facing: 'back', source: 'manual', reason: 'manual' })
+    held.frames.forEach((fr, i) => {
+      if (i) expect(fr.yaw - held.frames[i - 1].yaw).toBeGreaterThanOrEqual(-1e-9)
+      if (i) expect(fr.yaw - held.frames[i - 1].yaw).toBeLessThan(0.5)
+    })
+    expect(held.frames.at(-1)!.yaw).toBeCloseTo(Math.PI, 1)
+    expect(held.frames.at(-1)).toMatchObject({ facing: 'back', source: 'manual' })
+    // The next automatic flip (here the person turns round through side-on) takes it over.
+    const turn = turnBy(60, 180)
+    const after = drive(f, held.end, turn.ms, turn.path)
+    expect(after.flips.map((x) => x.facing)).toEqual(['front'])
+    expect(after.frames.at(-1)).toMatchObject({ facing: 'front', source: 'auto', reason: 'handover' })
+    f.flip()
+    expect(drive(f, after.end, 100, () => 180).frames[0]).toMatchObject({ facing: 'back', source: 'manual' })
+  })
+})
+
 describe('facing from the face landmarks', () => {
   const face = (v: number | undefined): PoseFrame => {
     const fr = frame()

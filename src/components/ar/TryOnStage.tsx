@@ -4,14 +4,34 @@ import tshirtUrl from '../../assets/t-shirt.glb?url'
 import { sleeveRotation, sleevesOnBones } from '../../utils/arArms'
 import { GARMENT_BASE } from '../../utils/arGarment'
 import { garmentTransform, PoseFollower, RateHealth, type Pose, type TrackStatus } from '../../utils/arPose'
-import { SpinnerIcon } from '../form/icons'
+import { FlipIcon, SpinnerIcon } from '../form/icons'
 import { addStudio, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
+import { KRAL_SECONDARY } from '../shop/shopControls'
+import { Tooltip } from '../ui/Tooltip'
 import { createDetector, startPoseLoop, type Detector } from './poseTracker'
 import { TryOnFlat } from './TryOnFlat'
 
 const FOV = 30
 /** The 21 cm bar of the ?debug=ar overlay: a ruler to compare with a real one held at the shoulders. */
 const RULER_CM = 21
+/** How long the ?debug=ar cue log keeps, in video time. */
+const CUE_LOG_MS = 5000
+
+/** One detection's facing cues, numbers only: video ms, observed yaw (degrees), span ratio, face visibility (-1 if none), back (0/1), manual (0/1). */
+interface CueSample {
+  t: number
+  yawDeg: number
+  ratio: number
+  face: number
+  back: 0 | 1
+  manual: 0 | 1
+}
+declare global {
+  interface Window {
+    /** Only with ?debug=ar: the last 5 s of facing cues, in memory for diagnosis. Never frames or landmarks, never sent anywhere. */
+    __silhoufitCues?: CueSample[]
+  }
+}
 
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0
 const percentile95 = (values: number[]) => [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * 0.95))] ?? 0
@@ -50,6 +70,8 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
   const latest = useRef({ colorHex, scale, largest, shoulderCm, onStatus })
   const apply = useRef<() => void>(() => {})
   const tracking = useRef<{ start: () => void; stop: () => void }>({ start: () => {}, stop: () => {} })
+  /** The manual correction of the front/back facing: the running follower's flip, nothing while there is none. */
+  const flipFacing = useRef<() => void>(() => {})
   const [unavailable, setUnavailable] = useState(false)
   const [load, setLoad] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [attempt, setAttempt] = useState(0)
@@ -114,6 +136,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     let detections = 0
     let delegate = ''
     let debugTimer = 0
+    const cueLog: CueSample[] | null = debugOverlay() ? (window.__silhoufitCues = []) : null
     if (exposeAttributes) host.dataset.tracking = status
 
     function report(next: TrackStatus) {
@@ -160,6 +183,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         // The arm angles themselves (from hanging straight down), not the bone turns, by screen side.
         host.dataset.sleeves = pose.sleeves.map((a) => Math.round((a * 180) / Math.PI)).join(',')
         host.dataset.facing = pose.facing
+        host.dataset.facingSource = pose.cues.source
       }
     }
 
@@ -181,11 +205,13 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     function leave(next: TrackStatus) {
       follow = false
       pose = null
+      flipFacing.current = () => {}
       renderer.domElement.style.opacity = ''
       if (exposeAttributes) {
         delete host.dataset.garment
         delete host.dataset.sleeves
         delete host.dataset.facing
+        delete host.dataset.facingSource
       }
       report(next)
       apply.current()
@@ -194,12 +220,16 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     function writeDebug() {
       if (!debugText.current || !debugBar.current) return
       const rendered = renderMs.length
+      const deg = (rad: number) => Math.round((rad * 180) / Math.PI)
+      const cues = pose?.cues
       debugText.current.textContent = [
         `detect ${median(detectMs).toFixed(1)} / ${percentile95(detectMs).toFixed(1)} ms (median / p95)`,
         `render ${median(renderMs).toFixed(1)} ms (${rendered}/s)`,
         `tracking ${detections}/s on ${delegate}`,
         `${pose ? pose.pxPerCm.toFixed(2) : '-'} px/cm`,
-        `yaw ${pose ? `${Math.round((pose.yaw * 180) / Math.PI)} deg, facing ${pose.facing}` : '-'}`,
+        `yaw ${pose && cues ? `${deg(cues.yaw)} seen, ${deg(pose.yaw)} shown` : '-'}`,
+        `span ${cues ? cues.ratio.toFixed(2) : '-'} face ${cues?.face?.toFixed(2) ?? '-'}`,
+        `facing ${pose && cues ? `${pose.facing} (${cues.source}) by ${cues.reason ?? 'default'}` : '-'}`,
       ].join('\n')
       debugBar.current.style.width = `${pose ? Math.round(RULER_CM * pose.pxPerCm) : 0}px`
       renderMs = []
@@ -218,6 +248,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
           if (disposed || mine !== run) return
           const health = new RateHealth(coarse)
           const follower = new PoseFollower()
+          flipFacing.current = () => follower.flip()
           let placed: Pose | null = null
           delegate = d.delegate
           follow = true
@@ -247,6 +278,11 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
               if (out.pose && out.pose !== placed) {
                 placed = out.pose
                 pose = out.pose
+                if (cueLog) {
+                  const c = out.pose.cues
+                  cueLog.push({ t: Math.round(tMs), yawDeg: Math.round((c.yaw * 180) / Math.PI), ratio: Math.round(c.ratio * 100) / 100, face: c.face ?? -1, back: out.pose.facing === 'back' ? 1 : 0, manual: c.source === 'manual' ? 1 : 0 })
+                  while (cueLog[0].t < tMs - CUE_LOG_MS) cueLog.shift()
+                }
                 place()
                 const start = performance.now()
                 if (frame) cancelAnimationFrame(frame)
@@ -349,6 +385,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         () => {},
       )
       clearInterval(debugTimer)
+      if (cueLog) delete window.__silhoufitCues
       apply.current = () => {}
       cancelAnimationFrame(frame)
       resizeObserver.disconnect()
@@ -382,6 +419,15 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         <div aria-hidden="true" className="font-kral-mono pointer-events-none absolute bottom-16 left-3 max-w-[calc(100%-1.5rem)] overflow-hidden bg-kral-bg/85 p-2 text-base text-kral-fg">
           <pre ref={debugText} className="whitespace-pre" />
           <div ref={debugBar} className="mt-1 h-2 bg-kral-fg" />
+        </div>
+      )}
+      {live && !flat && load === 'ready' && (
+        <div className="absolute right-3 bottom-16">
+          <Tooltip tone="kral" label="Flip front/back">
+            <button type="button" aria-label="Flip front/back" onClick={() => flipFacing.current()} className={`${KRAL_SECONDARY} w-11 px-0! bg-kral-bg/85 backdrop-blur-sm`}>
+              <FlipIcon size={20} />
+            </button>
+          </Tooltip>
         </div>
       )}
       {flat && (

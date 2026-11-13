@@ -1,6 +1,7 @@
 import { sleeveAngle, SleeveTracker, type Side } from './arArms'
 import { garmentScale, GARMENT_BASE, SEAM_HEIGHT } from './arGarment'
 import { OneEuro, OneEuroPoint } from './oneEuro'
+import { TurnDetector, type FlipReason } from './arTurn'
 
 // From pose landmarks to where the shirt goes on the stage, for the AR try-on. Pure TypeScript with no rendering. The camera feed is shown
 // mirrored (a selfie) but the canvas is not, so landmarks are mirrored into canvas pixels here (x' = 1 - x). Angles are for the canvas, in
@@ -30,12 +31,17 @@ export const LANDMARK_TO_SEAM_CM = 4
  * dominates and dividing by cos would blow the shirt up. Beyond it the follower holds its last good placement and size.
  */
 export const RELIABLE_COS = 0.5
-/** Nose and both eyes at least this visible: the person faces the camera. */
+/**
+ * Nose and both eyes at least this visible: the person faces the camera. A secondary cue only: MediaPipe still reports them visible from behind
+ * (see arTurn.ts), so it can say "away" when a head is turned away but never proves "front" on its own after the turn detector said back.
+ */
 export const FACE_SEEN = 0.5
 /** Nose and both eyes all below this while the shoulders are visible: the person faces away. In between, the facing is left as it was. */
 export const FACE_GONE = 0.3
-/** Consecutive frames that must agree before the facing flips (about 200 ms at 30 detections a second), so noise cannot flicker it. */
+/** Consecutive frames that must agree before the face cue changes its mind (about 200 ms at 30 detections a second), so noise cannot flicker it. */
 export const FACING_FRAMES = 6
+/** How fast the shirt turns to the other side after a flip that has no turn behind it (radians a second: a half turn in half a second). */
+export const SPIN_RATE = 2 * Math.PI
 
 export const HOLD_MS = 300
 export const FADE_MS = 300
@@ -110,6 +116,12 @@ export function facingVote(frame: PoseFrame): Facing | null {
   return face.every((v) => v! < FACE_GONE) ? 'back' : null
 }
 
+/** The least visible of nose and both eyes, or null without them: what the face cue reads. */
+export const faceVisibility = (frame: PoseFrame) => {
+  const face = [NOSE, LEFT_EYE, RIGHT_EYE].map((i) => frame.image[i]?.visibility)
+  return face.some((v) => v === undefined) ? null : Math.min(...(face as number[]))
+}
+
 /** Roll of the shoulder line on the canvas, counter-clockwise positive (a shoulder dropping on the left of the screen is positive). */
 export const shoulderRoll = (screenLeft: Point, screenRight: Point) => Math.atan2(screenLeft.y - screenRight.y, screenRight.x - screenLeft.x)
 /** Tilt of the torso axis (hip midpoint to shoulder midpoint) from vertical, counter-clockwise positive. */
@@ -142,17 +154,26 @@ export function pairElbows(elbows: (Landmark | undefined)[], left: Point, right:
 export type FollowState = 'tracking' | 'lost' | 'too-close' | 'too-far'
 /** What the stage tells the page: off (camera off), loading the model, following the body, or why it is not ('slow' device, 'failed' to load). */
 export type TrackStatus = FollowState | 'off' | 'loading' | 'slow' | 'failed'
+/** What the facing is decided from, for the ?debug=ar overlay: the observed yaw, the span over the front-facing one, the face visibility, and the last flip. */
+export interface Cues {
+  yaw: number
+  ratio: number
+  face: number | null
+  source: 'auto' | 'manual'
+  reason: FlipReason | 'face' | 'manual' | null
+}
 /** Where the shoulder seam point is on the canvas (px, y down) and how the garment is turned and sized there. */
 export interface Pose {
   x: number
   y: number
   roll: number
-  /** Unwrapped, so it can pass 180 degrees through a full turn; a half turn more than the shoulders say when facing away. */
+  /** Unwrapped, so it can pass 180 degrees through a full turn; a half turn more than the shoulders say for each flip of the facing. */
   yaw: number
   facing: Facing
   pxPerCm: number
   /** Each arm's angle from hanging straight down (radians, clamped), the left of the screen first: see sleeveAngle. */
   sleeves: [number, number]
+  cues: Cues
 }
 export interface Follow {
   state: FollowState
@@ -181,28 +202,66 @@ export class PoseFollower {
   private last: { follow: Follow; t: number } | null = null
   /** Placement from the last frame whose shoulder span was reliable (see RELIABLE_COS): held while the body is side-on. */
   private good: { x: number; y: number; roll: number; pxPerCm: number; span: number; minY: number } | null = null
+  private readonly turns = new TurnDetector()
   private facing: Facing = 'front'
+  /** Half turns added to the shoulders' yaw: one for each flip, in the direction the person was turning, so the shirt turns on through it. */
+  private spin = 0
+  /** The part of `spin` applied so far. A flip with no turn behind it (the face cue, a dwell, the button) eases in at SPIN_RATE instead of snapping; a handover is already continuous. */
+  private shownSpin = 0
+  private spinT: number | null = null
+  /** What the face cue last settled on; it only acts when it changes, so a face MediaPipe still sees from behind cannot undo a turn or a manual flip. */
+  private faceState: Facing = 'front'
   private votes = 0
+  private source: Cues['source'] = 'auto'
+  private reason: Cues['reason'] = null
   private rawYaw: number | null = null
 
   private reset() {
     for (const f of [this.left, this.right, this.hipLeft, this.hipRight, this.elbowLeft, this.elbowRight, this.armLeft, this.armRight, this.scale, this.turn]) f.reset()
     this.last = null
     this.good = null
+    this.turns.reset()
     this.facing = 'front'
+    this.spin = 0
+    this.shownSpin = 0
+    this.spinT = null
+    this.faceState = 'front'
     this.votes = 0
+    this.source = 'auto'
+    this.reason = null
     this.rawYaw = null
   }
 
-  /** Flips the facing only after FACING_FRAMES frames in a row vote for the other way; a frame that does not say, or says the same, starts the count over. */
-  private face(frame: PoseFrame) {
+  private setFacing(next: Facing, reason: NonNullable<Cues['reason']>) {
+    if (next === this.facing) return
+    this.facing = next
+    const half = this.turns.direction * Math.PI
+    this.spin += half
+    if (reason === 'handover') this.shownSpin += half
+    this.reason = reason
+    this.source = reason === 'manual' ? 'manual' : 'auto'
+    this.turns.markFlipped()
+  }
+
+  /** The customer's correction: the other side, until the next automatic flip (a lost body, 600 ms, starts afresh). */
+  flip() {
+    this.setFacing(this.facing === 'front' ? 'back' : 'front', 'manual')
+  }
+
+  /**
+   * The facing from two cues. The turn: a pass through side-on (see arTurn.ts) toggles it. The face: after FACING_FRAMES frames in a row that
+   * differ from what it last settled on it sets it; a frame that does not say, or says the same, starts the count over.
+   */
+  private decide(frame: PoseFrame, yaw: number, ratio: number, tMs: number) {
     const vote = facingVote(frame)
-    this.votes = vote && vote !== this.facing ? this.votes + 1 : 0
+    this.votes = vote && vote !== this.faceState ? this.votes + 1 : 0
     if (this.votes >= FACING_FRAMES) {
-      this.facing = vote!
+      this.faceState = vote!
       this.votes = 0
+      this.setFacing(vote!, 'face')
     }
-    return this.facing
+    const why = this.turns.update(yaw, ratio, tMs)
+    if (why) this.setFacing(this.facing === 'front' ? 'back' : 'front', why)
   }
 
   /** `tMs` is the video frame's time. A null frame is a frame with no body in it. `reduceMotion` makes a lost arm drop at once instead of easing. */
@@ -216,12 +275,8 @@ export class PoseFollower {
     const rawRight = toStage(frame.image[rawR], view)
     const l = this.left.filter(rawLeft, tMs)
     const r = this.right.filter(rawRight, tMs)
-    // The yaw of the shoulders as seen (within +-90 degrees), then a half turn more when facing away, continued from the last one.
+    // The yaw of the shoulders as seen (within +-90 degrees).
     const seenYaw = yawOf(frame.world[rawL], frame.world[rawR])
-    const facing = this.face(frame)
-    const turned = unwrap(seenYaw + (facing === 'back' ? Math.PI : 0), this.rawYaw ?? 0)
-    this.rawYaw = turned
-    const yaw = this.turn.filter(turned, tMs)
     // The unsmoothed span goes with the unsmoothed yaw: the two filters lag differently and would not cancel in the division by cos.
     const span = Math.hypot(rawLeft.x - rawRight.x, rawLeft.y - rawRight.y)
     const averageBuild = !shoulderCm
@@ -239,12 +294,22 @@ export class PoseFollower {
       this.good = { x: mid.x - lift * Math.sin(roll), y: mid.y - lift * Math.cos(roll), roll, pxPerCm, span: span / Math.max(Math.cos(seenYaw), RELIABLE_COS), minY: Math.min(l.y, r.y) }
     }
     const { x, y, roll, pxPerCm } = this.good
+    const ratio = span / this.good.span
+    this.decide(frame, seenYaw, ratio, tMs)
+    // A half turn more for each flip, and while a handover waits for its frames, so the yaw stays continuous; continued from the last one.
+    const step = (SPIN_RATE * (tMs - (this.spinT ?? tMs))) / 1000
+    this.spinT = tMs
+    this.shownSpin += Math.max(-step, Math.min(step, this.spin - this.shownSpin))
+    const turned = unwrap(seenYaw + this.shownSpin + this.turns.unfold, this.rawYaw ?? 0)
+    this.rawYaw = turned
+    const yaw = this.turn.filter(turned, tMs)
     const [elbowL, elbowR] = pairElbows([frame.image[LEFT_ELBOW], frame.image[RIGHT_ELBOW]], rawLeft, rawRight, view)
     const sleeves: [number, number] = [
       this.sleeve(elbowL, l, roll, -1, this.elbowLeft, this.armLeft, view, tMs, reduceMotion),
       this.sleeve(elbowR, r, roll, 1, this.elbowRight, this.armRight, view, tMs, reduceMotion),
     ]
-    const pose: Pose = { x, y, roll, yaw, facing, pxPerCm, sleeves }
+    const cues: Cues = { yaw: seenYaw, ratio, face: faceVisibility(frame), source: this.source, reason: this.reason }
+    const pose: Pose = { x, y, roll, yaw, facing: this.facing, pxPerCm, sleeves, cues }
 
     // Distance is judged by the span corrected for the turn, and by the last reliable one while side-on.
     const tooClose = this.good.span > TOO_CLOSE_SPAN * view.width || this.good.minY < 0

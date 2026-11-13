@@ -299,7 +299,14 @@ export const RestoreIcon = ({ size = 16, className }: IconProps) => (
   </Icon>
 )
 
-export const SparkleIcon = ({ size = 20, className }: IconProps) => (
+/** Two arrows pointing opposite ways: switch to the other side. */
+export const FlipIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4" />
+  </Icon>
+)
+
+export const SparkleIcon =({ size = 20, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" />
     <path d="M19 16v4M17 18h4" />
