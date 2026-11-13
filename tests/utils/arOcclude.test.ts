@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BEHIND_M, FOREARM_RADIUS_CM, forearmCapsule, forearmInFront, faceEllipse, HAND_REACH, type StagePoint } from '../../src/utils/arOcclude'
+import { BEHIND_M, FOREARM_RADIUS_CM, FRAME_MARGIN, forearmCapsule, forearmInFront, faceEllipse, HAND_REACH, WRIST_SEEN, wristTrusted, type StagePoint } from '../../src/utils/arOcclude'
 
 describe('forearm capsule', () => {
   it('runs from the elbow to the wrist plus 70% of the forearm more, as wide as 5 cm', () => {
@@ -40,6 +40,23 @@ describe('forearm in front or behind', () => {
   })
   it('has no veto facing away, where the world z cannot be trusted', () => {
     expect(forearmInFront(0.5, 0, 'back')).toBe(true)
+  })
+})
+
+describe('a wrist to trust', () => {
+  it('needs visibility of 0.7, not just the 0.5 an elbow needs', () => {
+    expect(wristTrusted({ x: 0.5, y: 0.5, visibility: WRIST_SEEN })).toBe(true)
+    expect(wristTrusted({ x: 0.5, y: 0.5, visibility: WRIST_SEEN - 0.01 })).toBe(false)
+    expect(wristTrusted({ x: 0.5, y: 0.5 })).toBe(true)
+  })
+  it('needs to be inside the video frame by a margin on every side', () => {
+    const at = (x: number, y: number) => wristTrusted({ x, y, visibility: 1 })
+    expect(at(0.5, 1 - FRAME_MARGIN)).toBe(true)
+    expect(at(0.5, 1 - FRAME_MARGIN + 0.01)).toBe(false)
+    expect(at(0.5, FRAME_MARGIN - 0.01)).toBe(false)
+    expect(at(FRAME_MARGIN - 0.01, 0.5)).toBe(false)
+    expect(at(1 - FRAME_MARGIN + 0.01, 0.5)).toBe(false)
+    expect(at(1.2, 1.2)).toBe(false)
   })
 })
 

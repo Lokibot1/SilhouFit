@@ -28,6 +28,15 @@ test.describe('AR try-on occluders', () => {
     await expect(occluders(page)).toHaveAttribute('data-occluders', '0,1,0', { timeout: 10000 })
   })
 
+  test('a wrist that is only just seen, or at the edge of the frame, is not an occluder', async ({ page }) => {
+    await goLive(page)
+    await page.evaluate((a) => Object.assign(window.__arFeed, a, { wristL: { out: 0, down: 200, v: 0.6 }, wristR: { out: 0, down: 200, v: 1 } }), arm)
+    await expect(occluders(page)).toHaveAttribute('data-occluders', '0,1,0', { timeout: 10000 })
+    // 280 px below the shoulders is 97% of the way down the 480 px frame.
+    await page.evaluate(() => Object.assign(window.__arFeed, { wristL: { out: 0, down: 200, v: 1 }, wristR: { out: 0, down: 280, v: 1 } }))
+    await expect(occluders(page)).toHaveAttribute('data-occluders', '1,0,0', { timeout: 10000 })
+  })
+
   test('the face is an occluder only while the person faces the camera', async ({ page }) => {
     await goLive(page)
     await page.evaluate(() => (window.__arFeed.faceMarks = true))

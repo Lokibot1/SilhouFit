@@ -2,13 +2,14 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import tshirtUrl from '../../assets/t-shirt.glb?url'
 import { sleeveRotation, sleevesOnBones } from '../../utils/arArms'
-import { GARMENT_BASE } from '../../utils/arGarment'
-import type { Capsule, Ellipse } from '../../utils/arOcclude'
+import { GARMENT_BASE, NECK_PLUG } from '../../utils/arGarment'
+import type { Ellipse, ForearmCall } from '../../utils/arOcclude'
 import { garmentTransform, maskTransform, PoseFollower, RateHealth, type MaskFrame, type Pose, type TrackStatus } from '../../utils/arPose'
-import { FlipIcon, SpinnerIcon } from '../form/icons'
+import { FlipIcon, SpinnerIcon, TrackIcon } from '../form/icons'
 import { addStudio, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
 import { KRAL_SECONDARY } from '../shop/shopControls'
 import { Tooltip } from '../ui/Tooltip'
+import { createTrackingPainter, type TrackingScene } from './debugDraw'
 import { createDetector, startPoseLoop, type Detector } from './poseTracker'
 import { TryOnFlat } from './TryOnFlat'
 
@@ -75,6 +76,10 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
   const hostRef = useRef<HTMLDivElement>(null)
   const debugText = useRef<HTMLPreElement>(null)
   const debugBar = useRef<HTMLDivElement>(null)
+  const drawCanvas = useRef<HTMLCanvasElement>(null)
+  /** ?debug=ar "Draw tracking": mirrored into a ref so the pose loop reads it without a re-render per frame. */
+  const drawOn = useRef(false)
+  const redraw = useRef<() => void>(() => {})
   const latest = useRef({ colorHex, scale, largest, refSize, refScaleX, onStatus })
   const apply = useRef<() => void>(() => {})
   const tracking = useRef<{ start: () => void; stop: () => void }>({ start: () => {}, stop: () => {} })
@@ -84,6 +89,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
   const [load, setLoad] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [attempt, setAttempt] = useState(0)
   const [overlay] = useState(debugOverlay)
+  const [drawing, setDrawing] = useState(false)
 
   useEffect(() => {
     latest.current = { colorHex, scale, largest, refSize, refScaleX, onStatus }
@@ -146,6 +152,13 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       return part
     })
     let mesh: THREE.Mesh | undefined
+    // The neck plug: a depth-only ellipse on the shirt itself, so the real neck shows through the opening instead of the inside of the back panel.
+    // Single-sided, so it drops out by itself once the shirt is turned to its back (the plane faces away).
+    const neck = new THREE.Mesh(circleGeometry, occluderMaterial)
+    neck.position.set(NECK_PLUG.x, NECK_PLUG.y, NECK_PLUG.z)
+    neck.scale.set(NECK_PLUG.rx, NECK_PLUG.ry, 1)
+    neck.renderOrder = -1
+    neck.visible = false
     // Root, then the sleeve on the left of the screen (-x) and on the right (+x): joints 0, 1 and 2 of the model's skin weights.
     let bones: THREE.Bone[] = []
     let skeleton: THREE.Skeleton | undefined
@@ -172,6 +185,9 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     let maskTexture = maskUniforms.uMask.value
     let maskVideoW = 0
     const drawingSize = new THREE.Vector2()
+    // ?debug=ar only: the 2D overlay and the last pose it drew, so switching it on paints at once.
+    const painter = drawCanvas.current ? createTrackingPainter(drawCanvas.current) : null
+    let drawn: TrackingScene | null = null
     const cueLog: CueSample[] | null = debugOverlay() ? (window.__silhoufitCues = []) : null
     if (exposeAttributes) host.dataset.tracking = status
 
@@ -238,7 +254,8 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     }
 
     /** Hides the occluders and puts them where the pose says. */
-    function placeOccluders(forearms: [Capsule | null, Capsule | null], face: Ellipse | null) {
+    function placeOccluders(calls: [ForearmCall | null, ForearmCall | null], face: Ellipse | null) {
+      const forearms = calls.map((call) => (call?.cut ? call.capsule : null))
       forearms.forEach((c, i) => {
         const parts = occluders.slice(i * 3, i * 3 + 3)
         for (const part of parts) part.visible = !!c
@@ -263,6 +280,12 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       if (exposeAttributes) host.dataset.occluders = [...forearms, face].map((o) => (o ? 1 : 0)).join(',')
     }
 
+    function paintTracking() {
+      if (drawOn.current && drawn) painter?.draw(drawn)
+      else painter?.clear()
+    }
+    redraw.current = paintTracking
+
     /** Puts the mesh on the last pose, at the selected size. */
     function place() {
       if (!mesh || !pose) return
@@ -271,6 +294,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       // Roll about the screen axis after yaw about the shirt's own vertical axis.
       mesh.rotation.set(0, t.rotationY, t.rotationZ, 'ZYX')
       mesh.scale.set(t.scale.x, t.scale.y, t.scale.z)
+      neck.visible = true
       const [onLeft, onRight] = sleevesOnBones(pose.sleeves, pose.facing === 'back')
       bones[1].rotation.z = sleeveRotation(onLeft, -1)
       bones[2].rotation.z = sleeveRotation(onRight, 1)
@@ -304,8 +328,11 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     function leave(next: TrackStatus) {
       follow = false
       pose = null
+      drawn = null
+      painter?.clear()
       flipFacing.current = () => {}
       for (const part of occluders) part.visible = false
+      neck.visible = false
       setMaskState('waiting')
       renderer.domElement.style.opacity = ''
       if (exposeAttributes) {
@@ -369,10 +396,11 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
             (result, tMs, took) => {
               detectMs.push(took)
               detections += 1
+              const view = { videoW: element.videoWidth, videoH: element.videoHeight, width: host.clientWidth, height: host.clientHeight }
               const out = follower.update(
                 result,
                 tMs,
-                { videoW: element.videoWidth, videoH: element.videoHeight, width: host.clientWidth, height: host.clientHeight },
+                view,
                 latest.current.refScaleX,
                 reduceMotion.matches,
               )
@@ -394,10 +422,17 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
                   while (cueLog[0].t < tMs - CUE_LOG_MS) cueLog.shift()
                 }
                 place()
+                if (painter && result) {
+                  drawn = { frame: result, pose: out.pose, view, seamHalf: (GARMENT_BASE.shoulder / 2) * latest.current.scale.x * out.pose.pxPerCm }
+                  paintTracking()
+                }
                 const start = performance.now()
                 if (frame) cancelAnimationFrame(frame)
                 render()
                 renderMs.push(performance.now() - start)
+              } else if (!out.pose && drawn) {
+                drawn = null
+                paintTracking()
               }
               report(out.state)
             },
@@ -436,6 +471,12 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       ortho.right = w
       ortho.bottom = -h
       ortho.updateProjectionMatrix()
+      if (drawCanvas.current) {
+        const dpr = Math.min(window.devicePixelRatio, 2)
+        drawCanvas.current.width = Math.round(w * dpr)
+        drawCanvas.current.height = Math.round(h * dpr)
+        paintTracking()
+      }
       updateMaskMap()
       invalidate()
     }
@@ -479,6 +520,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         size = box.getSize(new THREE.Vector3())
         top = box.max.y
         mesh = skinned
+        mesh.add(neck)
         mesh.frustumCulled = false
         scene.add(mesh)
         apply.current()
@@ -498,6 +540,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       clearInterval(debugTimer)
       if (cueLog) delete window.__silhoufitCues
       apply.current = () => {}
+      redraw.current = () => {}
       cancelAnimationFrame(frame)
       resizeObserver.disconnect()
       renderer.domElement.removeEventListener('webglcontextlost', lost)
@@ -519,8 +562,16 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
   useEffect(() => {
     if (!live || flat) return
     tracking.current.start()
-    return () => tracking.current.stop()
+    return () => {
+      tracking.current.stop()
+      setDrawing(false)
+    }
   }, [live, flat, trackKey, attempt])
+
+  useEffect(() => {
+    drawOn.current = drawing
+    redraw.current()
+  }, [drawing])
 
   return (
     <>
@@ -530,6 +581,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
           <SpinnerIcon size={20} className="text-kral-muted" />
         </div>
       )}
+      {overlay && <canvas ref={drawCanvas} aria-hidden="true" className="pointer-events-none absolute inset-0 size-full" />}
       {overlay && (
         <div aria-hidden="true" className="font-kral-mono pointer-events-none absolute bottom-16 left-3 max-w-[calc(100%-1.5rem)] overflow-hidden bg-kral-bg/85 p-2 text-base text-kral-fg">
           <pre ref={debugText} className="whitespace-pre" />
@@ -537,7 +589,20 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         </div>
       )}
       {live && !flat && load === 'ready' && (
-        <div className="absolute right-3 bottom-16">
+        <div className="absolute right-3 bottom-16 flex flex-col items-end gap-2">
+          {overlay && (
+            <Tooltip tone="kral" label="Draw tracking">
+              <button
+                type="button"
+                aria-label="Draw tracking"
+                aria-pressed={drawing}
+                onClick={() => setDrawing((on) => !on)}
+                className={`${KRAL_SECONDARY} w-11 px-0! backdrop-blur-sm ${drawing ? 'bg-kral-fg! text-kral-bg!' : 'bg-kral-bg/85'}`}
+              >
+                <TrackIcon size={20} />
+              </button>
+            </Tooltip>
+          )}
           <Tooltip tone="kral" label="Flip front/back">
             <button type="button" aria-label="Flip front/back" onClick={() => flipFacing.current()} className={`${KRAL_SECONDARY} w-11 px-0! bg-kral-bg/85 backdrop-blur-sm`}>
               <FlipIcon size={20} />

@@ -306,6 +306,16 @@ export const FlipIcon = ({ size = 16, className }: IconProps) => (
   </Icon>
 )
 
+/** Three joints on a line: draw the tracked skeleton (the ?debug=ar overlay). */
+export const TrackIcon = ({ size = 16, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <circle cx="6" cy="6" r="2" />
+    <circle cx="18" cy="12" r="2" />
+    <circle cx="8" cy="19" r="2" />
+    <path d="M7.5 7.5l9 3M16.5 13.5l-7 4" />
+  </Icon>
+)
+
 export const SparkleIcon =({ size = 20, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" />

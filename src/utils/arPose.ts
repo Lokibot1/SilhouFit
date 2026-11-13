@@ -1,7 +1,7 @@
 import { sleeveAngle, SleeveTracker, type Side } from './arArms'
 import { garmentScale, GARMENT_BASE, SEAM_HEIGHT } from './arGarment'
 import { OneEuro, OneEuroPoint } from './oneEuro'
-import { faceEllipse, forearmCapsule, forearmInFront, type Capsule, type Ellipse } from './arOcclude'
+import { faceEllipse, forearmCapsule, forearmInFront, wristTrusted, type Ellipse, type ForearmCall } from './arOcclude'
 import { TurnDetector, type FlipReason } from './arTurn'
 
 // From pose landmarks to where the shirt goes on the stage, for the AR try-on. Pure TypeScript with no rendering. The camera feed is shown
@@ -203,7 +203,7 @@ export interface Pose {
   /** Each arm's angle from hanging straight down (radians, clamped), the left of the screen first: see sleeveAngle. */
   sleeves: [number, number]
   /** What hides the shirt where a forearm or the chin is in front of it, in stage pixels (y down); see arOcclude.ts. */
-  occluders: { forearms: [Capsule | null, Capsule | null]; face: Ellipse | null }
+  occluders: { forearms: [ForearmCall | null, ForearmCall | null]; face: Ellipse | null }
   cues: Cues
 }
 export interface Follow {
@@ -351,8 +351,11 @@ export class PoseFollower {
     const forearms = [this.wristLeft, this.wristRight].map((f, i) => {
       const wrist = arm[i].wrist
       const capsule = elbows[i] && seen(wrist) ? forearmCapsule(elbows[i], f.filter(toStage(wrist, view), tMs), pxPerCm) : null
-      return capsule && forearmInFront(arm[i].wristZ, shoulderZ, this.facing) ? capsule : null
-    }) as [Capsule | null, Capsule | null]
+      if (!capsule) return null
+      const gapM = arm[i].wristZ !== undefined && shoulderZ !== undefined ? arm[i].wristZ - shoulderZ : undefined
+      if (!wrist || !wristTrusted(wrist)) return { capsule, cut: false, why: 'unsure wrist', gapM }
+      return forearmInFront(arm[i].wristZ, shoulderZ, this.facing) ? { capsule, cut: true, gapM } : { capsule, cut: false, why: 'behind', gapM }
+    }) as [ForearmCall | null, ForearmCall | null]
     const face = faceEllipse(
       Array.from({ length: 11 }, (_, i) => frame.image[i] && { ...toStage(frame.image[i], view), visibility: frame.image[i].visibility }),
       this.facing,

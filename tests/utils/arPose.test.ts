@@ -13,6 +13,7 @@ import {
   LEFT_ELBOW,
   LEFT_HIP,
   LEFT_SHOULDER,
+  LEFT_WRIST,
   pairElbows,
   PoseFollower,
   pxPerCmOf,
@@ -501,6 +502,34 @@ describe('sleeves', () => {
     expect(f.update(null, 450, VIEW, 1).pose!.sleeves).toEqual(seen.pose!.sleeves)
     f.update(null, 700, VIEW, 1)
     expect(f.update(frame(), 900, VIEW, 1).pose!.sleeves).toEqual([ARMS_DOWN, ARMS_DOWN])
+  })
+})
+
+describe('forearm calls', () => {
+  /** A frame with the left elbow (0.6, 0.55) and left wrist at (0.6, wristY) with the given visibility and world z. */
+  function arm(wristY: number, visibility = 1, z = 0) {
+    const f = frame({ elL: {} })
+    f.image[LEFT_WRIST] = { x: 0.6, y: wristY, visibility }
+    f.world[LEFT_WRIST] = { x: 0, y: 0, z }
+    return f
+  }
+  const left = (f: PoseFrame) => new PoseFollower().update(f, 0, VIEW, 1).pose!.occluders.forearms[0]
+
+  it('cut the shirt for a well seen wrist in the frame and not behind the body', () => {
+    expect(left(arm(0.8))).toMatchObject({ cut: true })
+  })
+  it('keep the shirt, with the reason, for a wrist behind the body', () => {
+    expect(left(arm(0.8, 1, 0.3))).toMatchObject({ cut: false, why: 'behind' })
+  })
+  it('keep the shirt for a wrist seen at 0.5 to 0.7, as the real model reports one that is out of the frame', () => {
+    expect(left(arm(0.8, 0.68))).toMatchObject({ cut: false, why: 'unsure wrist' })
+  })
+  it('keep the shirt for a wrist at the very edge of the frame, however visible', () => {
+    expect(left(arm(0.97))).toMatchObject({ cut: false, why: 'unsure wrist' })
+  })
+  it('have no call without a wrist or with one below 0.5', () => {
+    expect(left(frame({ elL: {} }))).toBeNull()
+    expect(left(arm(0.8, 0.3))).toBeNull()
   })
 })
 

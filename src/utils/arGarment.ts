@@ -19,6 +19,13 @@ export const GARMENT_BASE = {
   sleevePivot: { x: 16.6, y: 60.3 }, sleeveRestDeg: 42,
 }
 
+/**
+ * The neck opening seen from the front, measured on the mesh (cm, model space): the front rim dips to y 64.0 (z +3.4) at the centre and rises to 67 at
+ * 6 cm out, the back rim is at y 69.6 to 70.2 (z -8.4 to -6.2). The plug is an ellipse over that opening at z -3: behind the front rim, in front of the
+ * back panel's inside (z -5 to -11), so a depth-only plug there hides only the back panel seen through the neck.
+ */
+export const NECK_PLUG = { x: 0, y: 68.2, z: -3, rx: 8, ry: 4.2 }
+
 /** Height of the model's shoulder point above the hem (cm): the point a tracked shoulder midpoint is pinned to. */
 export const SEAM_HEIGHT = GARMENT_BASE.collarTop - GARMENT_BASE.seamBelowCollar
 

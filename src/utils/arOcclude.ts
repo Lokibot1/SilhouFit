@@ -15,6 +15,16 @@ const seen = (p: StagePoint | null | undefined): p is StagePoint => !!p && (p.vi
 /** The forearm capsule's radius in cm, and how far past the wrist it reaches as a share of the elbow-to-wrist length (covers the hand). */
 export const FOREARM_RADIUS_CM = 5
 export const HAND_REACH = 0.7
+/**
+ * A wrist must be seen this well to cut the shirt, and sit this far inside the video frame (a share of its width and height, every side). Found with the
+ * real model on a chest-up crop of a product photo: the wrists that were out of the frame came back at the frame edge with visibility 0.56 to 0.68,
+ * above the 0.5 that is enough for the elbow, and cut a patch where no forearm was.
+ */
+export const WRIST_SEEN = 0.7
+export const FRAME_MARGIN = 0.04
+/** `p` is the raw landmark: x and y over the video frame, 0..1. */
+export const wristTrusted = (p: { x: number; y: number; visibility?: number }) =>
+  (p.visibility ?? 1) >= WRIST_SEEN && p.x >= FRAME_MARGIN && p.x <= 1 - FRAME_MARGIN && p.y >= FRAME_MARGIN && p.y <= 1 - FRAME_MARGIN
 /** A wrist this far behind the shoulder midpoint (metres of MediaPipe world z, which grows away from the camera) is behind the body. */
 export const BEHIND_M = 0.1
 /** The chin sits this far below the mouth, as a share of the eye-to-mouth distance. */
@@ -24,6 +34,14 @@ export interface Capsule {
   a: Point
   b: Point
   radius: number
+}
+
+/** One forearm as the stage sees it: its capsule, whether it cuts the shirt, why not (if it does not), and the wrist's world z minus the shoulder midpoint's (m). */
+export interface ForearmCall {
+  capsule: Capsule
+  cut: boolean
+  why?: string
+  gapM?: number
 }
 
 /** From the elbow to the wrist plus 70% of the forearm more (the hand); null unless both are seen. */
