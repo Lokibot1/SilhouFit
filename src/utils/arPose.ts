@@ -1,6 +1,7 @@
 import { sleeveAngle, SleeveTracker, type Side } from './arArms'
 import { garmentScale, GARMENT_BASE, SEAM_HEIGHT } from './arGarment'
 import { OneEuro, OneEuroPoint } from './oneEuro'
+import { faceEllipse, forearmCapsule, forearmInFront, type Capsule, type Ellipse } from './arOcclude'
 import { TurnDetector, type FlipReason } from './arTurn'
 
 // From pose landmarks to where the shirt goes on the stage, for the AR try-on. Pure TypeScript with no rendering. The camera feed is shown
@@ -16,6 +17,8 @@ export const LEFT_SHOULDER = 11
 export const RIGHT_SHOULDER = 12
 export const LEFT_ELBOW = 13
 export const RIGHT_ELBOW = 14
+export const LEFT_WRIST = 15
+export const RIGHT_WRIST = 16
 export const LEFT_HIP = 23
 export const RIGHT_HIP = 24
 
@@ -66,6 +69,13 @@ export interface WorldLandmark {
 export interface PoseFrame {
   image: Landmark[]
   world: WorldLandmark[]
+  /** The person silhouette of this detection, if asked for: 0..255 per pixel, row 0 on top, not mirrored. The buffer is reused by the next detection. */
+  mask?: MaskFrame
+}
+export interface MaskFrame {
+  data: Uint8Array
+  width: number
+  height: number
 }
 /** The video's own size, and the box it is shown in with object-fit: cover. */
 export interface View {
@@ -89,6 +99,17 @@ export function coverMap({ videoW, videoH, width, height }: View) {
 export function toStage(p: Point, view: View): Point {
   const { scale, offsetX, offsetY } = coverMap(view)
   return { x: (1 - p.x) * view.videoW * scale + offsetX, y: p.y * view.videoH * scale + offsetY }
+}
+
+/**
+ * Turns a fragment position of the drawing buffer (gl_FragCoord, pixels, y up) into a coordinate of the person mask (0..1, row 0 on top, the
+ * raw unmirrored video frame): u = x * fragX + z, v = y * fragY + w. The inverse of toStage, so the mask lines up with the video as shown.
+ * `drawW` and `drawH` are the drawing buffer's size, which is the stage size times the pixel ratio.
+ */
+export function maskTransform(view: View, drawW: number, drawH: number): [number, number, number, number] {
+  const { scale, offsetX, offsetY } = coverMap(view)
+  const [w, h] = [view.videoW * scale, view.videoH * scale]
+  return [-view.width / drawW / w, -view.height / drawH / h, 1 + offsetX / w, (view.height - offsetY) / h]
 }
 
 const seen = (p: Landmark | null | undefined): p is Landmark => !!p && (p.visibility ?? 1) >= MIN_VISIBILITY
@@ -181,6 +202,8 @@ export interface Pose {
   pxPerCm: number
   /** Each arm's angle from hanging straight down (radians, clamped), the left of the screen first: see sleeveAngle. */
   sleeves: [number, number]
+  /** What hides the shirt where a forearm or the chin is in front of it, in stage pixels (y down); see arOcclude.ts. */
+  occluders: { forearms: [Capsule | null, Capsule | null]; face: Ellipse | null }
   cues: Cues
 }
 export interface Follow {
@@ -201,6 +224,8 @@ export class PoseFollower {
   private readonly hipRight = new OneEuroPoint(LANDMARK_FILTER)
   private readonly elbowLeft = new OneEuroPoint(LANDMARK_FILTER)
   private readonly elbowRight = new OneEuroPoint(LANDMARK_FILTER)
+  private readonly wristLeft = new OneEuroPoint(LANDMARK_FILTER)
+  private readonly wristRight = new OneEuroPoint(LANDMARK_FILTER)
   private readonly armLeft = new SleeveTracker(HOLD_MS, FADE_MS)
   private readonly armRight = new SleeveTracker(HOLD_MS, FADE_MS)
   private readonly scale = new OneEuro({ minCutoff: 0.4, beta: 0 })
@@ -223,7 +248,7 @@ export class PoseFollower {
   private rawYaw: number | null = null
 
   private reset() {
-    for (const f of [this.left, this.right, this.hipLeft, this.hipRight, this.elbowLeft, this.elbowRight, this.armLeft, this.armRight, this.scale, this.turn]) f.reset()
+    for (const f of [this.left, this.right, this.hipLeft, this.hipRight, this.elbowLeft, this.elbowRight, this.wristLeft, this.wristRight, this.armLeft, this.armRight, this.scale, this.turn]) f.reset()
     this.last = null
     this.good = null
     this.turns.reset()
@@ -311,13 +336,29 @@ export class PoseFollower {
     const turned = unwrap(seenYaw + this.shownSpin + this.turns.unfold, this.rawYaw ?? 0)
     this.rawYaw = turned
     const yaw = this.turn.filter(turned, tMs)
-    const [elbowL, elbowR] = pairElbows([frame.image[LEFT_ELBOW], frame.image[RIGHT_ELBOW]], rawLeft, rawRight, view)
+    const pair = pairElbows([frame.image[LEFT_ELBOW], frame.image[RIGHT_ELBOW]], rawLeft, rawRight, view)
+    // The wrist goes with its own elbow (13 with 15, 14 with 16), so each arm keeps its side.
+    const arm = pair.map((e) => {
+      const wrist = e === frame.image[LEFT_ELBOW] ? LEFT_WRIST : RIGHT_WRIST
+      return { elbow: e, wrist: frame.image[wrist], wristZ: frame.world[wrist]?.z }
+    })
+    const elbows = [this.elbowLeft, this.elbowRight].map((f, i) => (seen(arm[i].elbow) ? f.filter(toStage(arm[i].elbow, view), tMs) : null))
     const sleeves: [number, number] = [
-      this.sleeve(elbowL, l, roll, -1, this.elbowLeft, this.armLeft, view, tMs, reduceMotion),
-      this.sleeve(elbowR, r, roll, 1, this.elbowRight, this.armRight, view, tMs, reduceMotion),
+      this.sleeve(elbows[0], l, roll, -1, this.armLeft, tMs, reduceMotion),
+      this.sleeve(elbows[1], r, roll, 1, this.armRight, tMs, reduceMotion),
     ]
+    const shoulderZ = frame.world[rawL] && frame.world[rawR] ? (frame.world[rawL].z + frame.world[rawR].z) / 2 : undefined
+    const forearms = [this.wristLeft, this.wristRight].map((f, i) => {
+      const wrist = arm[i].wrist
+      const capsule = elbows[i] && seen(wrist) ? forearmCapsule(elbows[i], f.filter(toStage(wrist, view), tMs), pxPerCm) : null
+      return capsule && forearmInFront(arm[i].wristZ, shoulderZ, this.facing) ? capsule : null
+    }) as [Capsule | null, Capsule | null]
+    const face = faceEllipse(
+      Array.from({ length: 11 }, (_, i) => frame.image[i] && { ...toStage(frame.image[i], view), visibility: frame.image[i].visibility }),
+      this.facing,
+    )
     const cues: Cues = { spanPx: this.good.span, yaw: seenYaw, ratio, face: faceVisibility(frame), source: this.source, reason: this.reason }
-    const pose: Pose = { x, y, roll, yaw, facing: this.facing, pxPerCm, sleeves, cues }
+    const pose: Pose = { x, y, roll, yaw, facing: this.facing, pxPerCm, sleeves, occluders: { forearms, face }, cues }
 
     // Distance is judged by the span corrected for the turn, and by the last reliable one while side-on.
     const tooClose = this.good.span > TOO_CLOSE_SPAN * view.width || this.good.minY < 0
@@ -327,10 +368,9 @@ export class PoseFollower {
     return follow
   }
 
-  /** One arm: its elbow smoothed like the shoulders when visible (the shoulder is, or there would be no frame), else the tracker's hold and ease. */
-  private sleeve(raw: Landmark | null, shoulder: Point, roll: number, side: Side, filter: OneEuroPoint, tracker: SleeveTracker, view: View, tMs: number, snap: boolean) {
-    const theta = seen(raw) ? sleeveAngle(shoulder, filter.filter(toStage(raw, view), tMs), roll, side) : null
-    return tracker.update(theta, tMs, snap)
+  /** One arm from its smoothed elbow (null when not visible; the shoulder is, or there would be no frame): else the tracker's hold and ease. */
+  private sleeve(elbow: Point | null, shoulder: Point, roll: number, side: Side, tracker: SleeveTracker, tMs: number, snap: boolean) {
+    return tracker.update(elbow ? sleeveAngle(shoulder, elbow, roll, side) : null, tMs, snap)
   }
 
   /** No body this frame: hold the last pose for 300 ms, fade it out over 300 ms more, then it is lost and the filters start afresh. */
@@ -373,11 +413,13 @@ const SLOW_MS = 3000
 
 /**
  * How often to detect. Starts at 30 a second (20 on a coarse pointer); if detecting itself takes over 60% of that frame budget for 2 s it
- * drops to 15; if fewer than 10 detections a second keep up for 3 s the device is too slow for tracking.
+ * drops to 15; if fewer than 10 detections a second keep up for 3 s the device is too slow for tracking. With `mask` on (reading the person
+ * mask costs the most) the mask is dropped first, on the first busy period or the first slow one; only the next one lowers the rate or gives up.
  */
 export class RateHealth {
   rate: number
   slow = false
+  mask: boolean
   private readonly budgetMs: number
   private readonly times: number[] = []
   private readonly durations: number[] = []
@@ -385,7 +427,8 @@ export class RateHealth {
   private busySince: number | null = null
   private slowSince: number | null = null
 
-  constructor(coarse: boolean) {
+  constructor(coarse: boolean, mask = false) {
+    this.mask = mask
     this.rate = coarse ? MAX_RATE_COARSE : MAX_RATE
     this.budgetMs = 1000 / this.rate
   }
@@ -405,12 +448,22 @@ export class RateHealth {
     const sorted = [...this.durations].sort((a, b) => a - b)
     if (sorted[Math.floor(sorted.length / 2)] > BUSY_SHARE * this.budgetMs) this.busySince ??= tMs
     else this.busySince = null
-    if (this.busySince !== null && tMs - this.busySince >= BUSY_MS) this.rate = Math.min(this.rate, DEGRADED_RATE)
+    if (this.busySince !== null && tMs - this.busySince >= BUSY_MS) {
+      if (this.mask) {
+        this.mask = false
+        this.busySince = null
+      } else this.rate = Math.min(this.rate, DEGRADED_RATE)
+    }
 
     // The first second is a warm-up: the window is not full yet.
     if (tMs - this.firstT < 1000) return
     if (this.times.length < SLOW_BELOW) this.slowSince ??= tMs
     else this.slowSince = null
-    if (this.slowSince !== null && tMs - this.slowSince >= SLOW_MS) this.slow = true
+    if (this.slowSince !== null && tMs - this.slowSince >= SLOW_MS) {
+      if (this.mask) {
+        this.mask = false
+        this.slowSince = null
+      } else this.slow = true
+    }
   }
 }

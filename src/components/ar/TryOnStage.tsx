@@ -3,7 +3,8 @@ import * as THREE from 'three'
 import tshirtUrl from '../../assets/t-shirt.glb?url'
 import { sleeveRotation, sleevesOnBones } from '../../utils/arArms'
 import { GARMENT_BASE } from '../../utils/arGarment'
-import { garmentTransform, PoseFollower, RateHealth, type Pose, type TrackStatus } from '../../utils/arPose'
+import type { Capsule, Ellipse } from '../../utils/arOcclude'
+import { garmentTransform, maskTransform, PoseFollower, RateHealth, type MaskFrame, type Pose, type TrackStatus } from '../../utils/arPose'
 import { FlipIcon, SpinnerIcon } from '../form/icons'
 import { addStudio, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
 import { KRAL_SECONDARY } from '../shop/shopControls'
@@ -16,6 +17,12 @@ const FOV = 30
 const RULER_CM = 21
 /** How long the ?debug=ar cue log keeps, in video time. */
 const CUE_LOG_MS = 5000
+/** A mask value (0..1) below this is background: the shirt is cut away there. */
+const MASK_THRESHOLD = 0.4
+/** Where the depth-only occluders sit: in front of the shirt (whose depth is about +-15 cm x px/cm) inside the camera's +-5000. */
+const OCCLUDER_Z = 4000
+/** Forearm: a plane for the shaft and a circle at each end (a scaled capsule would squash its ends). Face: one circle, scaled. */
+const OCCLUDER_MESHES = 7
 
 /** One detection's facing cues, numbers only: video ms, observed yaw (degrees), span ratio, face visibility (-1 if none), back (0/1), manual (0/1). */
 interface CueSample {
@@ -115,6 +122,29 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     // Tracked mode: one world unit is one stage pixel, x right and y up from the top-left corner, so a pose lands where it was seen.
     const ortho = new THREE.OrthographicCamera(0, 1, 0, -1, -5000, 5000)
     const material = new THREE.MeshStandardMaterial({ color: latest.current.colorHex, roughness: 0.8, metalness: 0, side: THREE.DoubleSide })
+    // The person mask cuts the shirt away outside the silhouette. A 1 x 1 texture stands in until the first mask; uMaskOn stays 0 till then.
+    const maskUniforms = { uMask: { value: new THREE.DataTexture(new Uint8Array(1), 1, 1, THREE.RedFormat) }, uMaskMap: { value: new THREE.Vector4() }, uMaskOn: { value: 0 } }
+    material.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, maskUniforms)
+      shader.fragmentShader =
+        'uniform sampler2D uMask;\nuniform vec4 uMaskMap;\nuniform float uMaskOn;\n' +
+        shader.fragmentShader.replace(
+          '#include <clipping_planes_fragment>',
+          `#include <clipping_planes_fragment>\n  if (uMaskOn > 0.5 && texture2D(uMask, uMaskMap.xy * gl_FragCoord.xy + uMaskMap.zw).r < ${MASK_THRESHOLD.toFixed(2)}) discard;`,
+        )
+    }
+    // Depth-only occluders: they write depth before the shirt (renderOrder -1) and no colour, so a forearm or the chin in front hides the shirt behind it.
+    const occluderMaterial = new THREE.MeshBasicMaterial({ colorWrite: false })
+    const planeGeometry = new THREE.PlaneGeometry(1, 1)
+    const circleGeometry = new THREE.CircleGeometry(1, 24)
+    const occluders = Array.from({ length: OCCLUDER_MESHES }, (_, i) => {
+      const part = new THREE.Mesh(i % 3 === 0 && i < 6 ? planeGeometry : circleGeometry, occluderMaterial)
+      part.renderOrder = -1
+      part.visible = false
+      part.frustumCulled = false
+      scene.add(part)
+      return part
+    })
     let mesh: THREE.Mesh | undefined
     // Root, then the sleeve on the left of the screen (-x) and on the right (+x): joints 0, 1 and 2 of the model's skin weights.
     let bones: THREE.Bone[] = []
@@ -137,6 +167,11 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     let detections = 0
     let delegate = ''
     let debugTimer = 0
+    // The person mask: 'waiting' for the first one, 'on' while clipping, 'off' once the device was too busy to read it. Bytes live only in the texture.
+    let maskState: 'waiting' | 'on' | 'off' = 'waiting'
+    let maskTexture = maskUniforms.uMask.value
+    let maskVideoW = 0
+    const drawingSize = new THREE.Vector2()
     const cueLog: CueSample[] | null = debugOverlay() ? (window.__silhoufitCues = []) : null
     if (exposeAttributes) host.dataset.tracking = status
 
@@ -167,6 +202,67 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       if (!frame && !disposed) frame = requestAnimationFrame(render)
     }
 
+    function setMaskState(next: typeof maskState) {
+      maskState = next
+      maskUniforms.uMaskOn.value = next === 'on' ? 1 : 0
+      if (exposeAttributes) host.dataset.mask = next
+    }
+
+    /** Where a drawing-buffer pixel is in the mask: depends on the stage size, the pixel ratio and the video's size. */
+    function updateMaskMap() {
+      const element = video.current
+      if (!element?.videoWidth) return
+      maskVideoW = element.videoWidth
+      renderer.getDrawingBufferSize(drawingSize)
+      const view = { videoW: element.videoWidth, videoH: element.videoHeight, width: host.clientWidth, height: host.clientHeight }
+      maskUniforms.uMaskMap.value.set(...maskTransform(view, drawingSize.x, drawingSize.y))
+    }
+
+    function uploadMask(mask: MaskFrame) {
+      if (maskTexture.image.width !== mask.width || maskTexture.image.height !== mask.height) {
+        maskTexture.dispose()
+        maskTexture = new THREE.DataTexture(mask.data, mask.width, mask.height, THREE.RedFormat, THREE.UnsignedByteType)
+        maskTexture.minFilter = maskTexture.magFilter = THREE.LinearFilter
+        maskTexture.unpackAlignment = 1
+        maskUniforms.uMask.value = maskTexture
+      }
+      maskTexture.needsUpdate = true
+      if (video.current?.videoWidth !== maskVideoW) updateMaskMap()
+      setMaskState('on')
+      if (exposeAttributes) {
+        let person = 0
+        let counted = 0
+        for (let i = 0; i < mask.data.length; i += 8, counted++) if (mask.data[i] >= MASK_THRESHOLD * 255) person++
+        host.dataset.maskCoverage = (person / counted).toFixed(2)
+      }
+    }
+
+    /** Hides the occluders and puts them where the pose says. */
+    function placeOccluders(forearms: [Capsule | null, Capsule | null], face: Ellipse | null) {
+      forearms.forEach((c, i) => {
+        const parts = occluders.slice(i * 3, i * 3 + 3)
+        for (const part of parts) part.visible = !!c
+        if (!c) return
+        const [shaft, a, b] = parts
+        const [dx, dy] = [c.b.x - c.a.x, c.b.y - c.a.y]
+        shaft.position.set((c.a.x + c.b.x) / 2, -(c.a.y + c.b.y) / 2, OCCLUDER_Z)
+        shaft.rotation.z = Math.atan2(-dy, dx)
+        shaft.scale.set(Math.hypot(dx, dy), 2 * c.radius, 1)
+        a.position.set(c.a.x, -c.a.y, OCCLUDER_Z)
+        b.position.set(c.b.x, -c.b.y, OCCLUDER_Z)
+        a.scale.setScalar(c.radius)
+        b.scale.setScalar(c.radius)
+      })
+      const head = occluders[6]
+      head.visible = !!face
+      if (face) {
+        head.position.set(face.x, -face.y, OCCLUDER_Z)
+        head.rotation.z = -face.tilt
+        head.scale.set(face.rx, face.ry, 1)
+      }
+      if (exposeAttributes) host.dataset.occluders = [...forearms, face].map((o) => (o ? 1 : 0)).join(',')
+    }
+
     /** Puts the mesh on the last pose, at the selected size. */
     function place() {
       if (!mesh || !pose) return
@@ -178,6 +274,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       const [onLeft, onRight] = sleevesOnBones(pose.sleeves, pose.facing === 'back')
       bones[1].rotation.z = sleeveRotation(onLeft, -1)
       bones[2].rotation.z = sleeveRotation(onRight, 1)
+      placeOccluders(pose.occluders.forearms, pose.occluders.face)
       if (exposeAttributes) {
         const deg = (rad: number) => ((rad * 180) / Math.PI).toFixed(1)
         host.dataset.garment = [Math.round(t.x), Math.round(-t.y), deg(t.rotationZ), deg(t.rotationY), pose.pxPerCm.toFixed(2), Math.round(t.widthPx)].join(',')
@@ -208,6 +305,8 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       follow = false
       pose = null
       flipFacing.current = () => {}
+      for (const part of occluders) part.visible = false
+      setMaskState('waiting')
       renderer.domElement.style.opacity = ''
       if (exposeAttributes) {
         delete host.dataset.garment
@@ -215,6 +314,9 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         delete host.dataset.facing
         delete host.dataset.facingSource
         delete host.dataset.refSize
+        delete host.dataset.occluders
+        delete host.dataset.mask
+        delete host.dataset.maskCoverage
       }
       report(next)
       apply.current()
@@ -233,6 +335,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
         `yaw ${pose && cues ? `${deg(cues.yaw)} seen, ${deg(pose.yaw)} shown` : '-'}`,
         `span ${cues ? cues.ratio.toFixed(2) : '-'} face ${cues?.face?.toFixed(2) ?? '-'}`,
         `facing ${pose && cues ? `${pose.facing} (${cues.source}) by ${cues.reason ?? 'default'}` : '-'}`,
+        `mask ${maskState} ${maskState === 'waiting' ? '-' : `${maskTexture.image.width}x${maskTexture.image.height}`}`,
       ].join('\n')
       debugBar.current.style.width = `${pose ? Math.round(RULER_CM * pose.pxPerCm) : 0}px`
       renderMs = []
@@ -249,13 +352,14 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       detector.then(
         (d) => {
           if (disposed || mine !== run) return
-          const health = new RateHealth(coarse)
+          const health = new RateHealth(coarse, true)
           const follower = new PoseFollower()
           flipFacing.current = () => follower.flip()
           let placed: Pose | null = null
           delegate = d.delegate
           follow = true
           pose = null
+          setMaskState('waiting')
           renderer.domElement.style.opacity = '0'
           report('lost')
           stopLoop = startPoseLoop(
@@ -277,6 +381,9 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
                 leave('slow')
                 return
               }
+              // No body keeps the last mask, so the hold and fade still show the shirt; a busy device drops it for good.
+              if (!health.mask) setMaskState('off')
+              else if (result?.mask && out.pose) uploadMask(result.mask)
               renderer.domElement.style.opacity = String(reduceMotion.matches && out.opacity < 1 ? 0 : out.opacity)
               if (out.pose && out.pose !== placed) {
                 placed = out.pose
@@ -329,6 +436,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       ortho.right = w
       ortho.bottom = -h
       ortho.updateProjectionMatrix()
+      updateMaskMap()
       invalidate()
     }
     const resizeObserver = new ResizeObserver(resize)
@@ -396,6 +504,10 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       mesh?.geometry.dispose()
       skeleton?.dispose()
       material.dispose()
+      maskTexture.dispose()
+      occluderMaterial.dispose()
+      planeGeometry.dispose()
+      circleGeometry.dispose()
       envMap.dispose()
       releaseRenderer(renderer)
     }

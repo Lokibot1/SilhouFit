@@ -8,6 +8,7 @@ import {
   FIT_EASE,
   facingVote,
   garmentTransform,
+  maskTransform,
   LANDMARK_TO_SEAM_CM,
   LEFT_ELBOW,
   LEFT_HIP,
@@ -576,6 +577,33 @@ describe('lost, too close and too far', () => {
   })
 })
 
+describe('maskTransform', () => {
+  const views: [string, View][] = [
+    ['landscape video in a landscape box', { videoW: 640, videoH: 480, width: 400, height: 300 }],
+    ['landscape video in a portrait box (crops the sides a lot)', { videoW: 640, videoH: 480, width: 300, height: 600 }],
+    ['portrait video in a landscape box (crops top and bottom)', { videoW: 480, videoH: 640, width: 600, height: 300 }],
+    ['portrait video in a portrait box', { videoW: 480, videoH: 640, width: 390, height: 500 }],
+  ]
+  for (const [name, view] of views)
+    for (const ratio of [1, 1.5, 2])
+      it(`maps a fragment back to the landmark it came from: ${name}, pixel ratio ${ratio}`, () => {
+        const [drawW, drawH] = [view.width * ratio, view.height * ratio]
+        const [su, sv, ou, ov] = maskTransform(view, drawW, drawH)
+        for (const p of [{ x: 0.5, y: 0.5 }, { x: 0.1, y: 0.8 }, { x: 0.93, y: 0.07 }]) {
+          // The landmark on the stage, then the fragment of the drawing buffer there (pixels, y up), then back to the mask.
+          const stage = toStage(p, view)
+          const [fx, fy] = [stage.x * ratio, drawH - stage.y * ratio]
+          expect(su * fx + ou).toBeCloseTo(p.x, 6)
+          expect(sv * fy + ov).toBeCloseTo(p.y, 6)
+        }
+      })
+  it('mirrors: the left of the stage reads the right of the raw frame', () => {
+    const [su, , ou] = maskTransform({ videoW: 640, videoH: 480, width: 640, height: 480 }, 640, 480)
+    expect(ou).toBeCloseTo(1)
+    expect(su * 640 + ou).toBeCloseTo(0)
+  })
+})
+
 describe('RateHealth', () => {
   const clock = new WeakMap<RateHealth, number>()
   /** Detections every `gap` ms for `seconds` more, each taking `detectMs`. */
@@ -615,6 +643,27 @@ describe('RateHealth', () => {
     expect(h.slow).toBe(false)
     run(h, 200, 150, 12)
     expect(h.slow).toBe(true)
+  })
+  it('with the mask on, drops the mask first and only a second busy period lowers the rate', () => {
+    const h = run(new RateHealth(false, true), 33, 25, 2.1)
+    expect(h.mask).toBe(false)
+    expect(h.rate).toBe(30)
+    run(h, 33, 25, 1.5)
+    expect(h.rate).toBe(30)
+    run(h, 33, 25, 1)
+    expect(h.rate).toBe(15)
+    expect(h.slow).toBe(false)
+  })
+  it('with the mask on, drops the mask before it reports slow', () => {
+    const h = run(new RateHealth(false, true), 200, 5, 4.5)
+    expect(h.mask).toBe(false)
+    expect(h.slow).toBe(false)
+    run(h, 200, 5, 4)
+    expect(h.slow).toBe(true)
+  })
+  it('keeps the mask while quick, and starts without one unless asked', () => {
+    expect(run(new RateHealth(false, true), 33, 8, 6).mask).toBe(true)
+    expect(new RateHealth(false).mask).toBe(false)
   })
   it('is not slow at 15 a second', () => {
     expect(run(new RateHealth(false), 66, 40, 10).slow).toBe(false)
