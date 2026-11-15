@@ -40,13 +40,22 @@ const ACTIONS = [
 ]
 
 const PROFILE = [
-  ['Business type', 'Online-only streetwear clothing seller'],
-  ['Products', 'Basic menswear, hoodies, jackets, pants, shorts, beanies and more'],
+  ['Brand', 'A streetwear brand from the Philippines'],
+  ['Products', 'Printed hoodies with designs like camo and realtree, and pants that match the style. The catalogue also carries other streetwear basics.'],
   ['Target customers', 'Males who love streetwear'],
-  ['Platforms', 'Facebook, Shopee, TikTok Shop and Lazada. SilhouFit gives KRAL its own storefront.'],
+  ['How it sells', 'KRAL started by selling online and has expanded into live selling. It sells on Facebook, Shopee, TikTok Shop and Lazada, and SilhouFit gives KRAL its own storefront.'],
   ['Catalogue size', 'Very large, with many products and size and colour variations'],
   ['Team', 'The owner plus a few staff. One staff member handles inventory and product updates together with the owner.'],
   ['Production', 'Its own production team (tahian) that delivers output regularly'],
+]
+
+// Hex values from the KRAL rebranding sheet. Porcelain is shown as the light grey it appears in the sheet.
+const PALETTE = [
+  { name: 'Crimson', hex: '#D11F2E' },
+  { name: 'Obsidian', hex: '#231F20' },
+  { name: 'Graphite', hex: '#393935' },
+  { name: 'Stonewash', hex: '#8D8981' },
+  { name: 'Porcelain', hex: '#EEECED' },
 ]
 
 const BACK_OFFICE = [
@@ -94,7 +103,7 @@ export function AboutPage() {
           <span aria-hidden="true" className="mb-6 block h-0.5 w-14 bg-kral-red" />
           <p className="text-sm font-medium tracking-[0.08em] text-kral-muted uppercase">Made to Represent // Mark of Identity</p>
           <p className="mt-4 text-base leading-relaxed text-kral-muted sm:text-lg">
-            KRAL® is the company: an online-only streetwear clothing seller. SilhouFit is the system: a BSIT capstone platform built for KRAL&apos;s online store, whose storefront carries the KRAL brand.
+            KRAL® is the company: a streetwear brand from the Philippines that began online and now sells through live selling too. SilhouFit is the system: a BSIT capstone platform built for KRAL&apos;s online store, whose storefront carries the KRAL brand.
           </p>
           <nav aria-label="On this page" className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link to={{ pathname: '/about', hash: '#kral' }} className={`${KRAL_SECONDARY} justify-start whitespace-normal! text-left`}>
@@ -109,7 +118,7 @@ export function AboutPage() {
         <GroupHeader id="kral" index="01" kicker="KRAL // The company" title="About KRAL®" />
         <div className="pt-6 pb-10 sm:pb-14">
           <p className="max-w-2xl text-base leading-relaxed text-kral-muted">
-            A streetwear label for men, sold online. Here is the business profile.
+            KRAL sells printed hoodies with designs like camo and realtree, along with pants that match its style. Here is the business profile.
           </p>
           <dl className="mt-6 divide-y divide-kral-rule border-y border-kral-rule">
             {PROFILE.map(([item, details]) => (
@@ -120,6 +129,29 @@ export function AboutPage() {
             ))}
           </dl>
         </div>
+
+        <Section id="rebrand" label="Rebrand" title="A bolder, more consistent identity">
+          <div className="max-w-2xl space-y-4 text-base leading-relaxed text-kral-muted">
+            <p>
+              As KRAL grew, it wanted to replace its old logo and build a stronger brand identity that better represents the brand and its clothing.
+            </p>
+            <p>
+              The rebrand goes beyond the logo. It aims for one consistent look across clothing labels, hang tags, stickers, packaging and other brand materials: bold and recognisable, fitting its streetwear style while the brand reaches new markets.
+            </p>
+            <p>Rebrand by Bryworks. © KRAL. All rights reserved.</p>
+          </div>
+          <ul aria-label="KRAL brand colours" className="mt-8 grid grid-cols-2 gap-px border border-kral-rule bg-kral-rule sm:grid-cols-5">
+            {PALETTE.map((c) => (
+              <li key={c.name} className="bg-kral-bg">
+                <span aria-hidden="true" className="block h-16 border-b border-kral-rule" style={{ backgroundColor: c.hex }} />
+                <span className="block p-3">
+                  <span className="block font-kral-display text-sm font-extrabold text-kral-fg uppercase">{c.name}</span>
+                  <span className="block text-sm text-kral-muted">{c.hex}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
 
         <GroupHeader id="silhoufit" index="02" kicker="SilhouFit // The system" title="About SilhouFit" />
         <p className="max-w-2xl pt-6 pb-4 text-base leading-relaxed text-kral-muted">
@@ -172,7 +204,7 @@ export function AboutPage() {
               This is a working prototype built for a BSIT capstone. Parts that are not live are marked as sample or as not available yet, and nothing here takes a real payment.
             </p>
             <p>
-              Credits // 3D avatar models, photography and licences are listed in the footer. The hero and loading-screen wordmark is generated from Archivo (SIL OFL 1.1); the KRAL logo elsewhere is the official artwork.
+              Credits // 3D avatar models and licences are listed in the footer. Brand photography and mockups are from the KRAL rebranding presentation by Bryworks. The hero and loading-screen wordmark is generated from Archivo (SIL OFL 1.1); the KRAL logo elsewhere is the official artwork.
             </p>
           </div>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">

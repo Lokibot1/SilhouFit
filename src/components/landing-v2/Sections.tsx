@@ -91,13 +91,13 @@ export function Study() {
   )
 }
 
-// Apparel photos from Unsplash (Unsplash License); as used across the app. `pos` is the focal point kept when a tile crops.
+// Brand imagery from the KRAL rebranding presentation by Bryworks, used with the brand's permission. `pos` is the focal point kept when a tile crops.
 const PLATES = [
-  { src: 'denim-jacket', alt: 'Denim jacket hanging among folded denim in a shop', label: 'Frame // Denim', title: 'Folded denim', sub: 'Jacket and folded denim on display', pos: '50% 45%', size: 'lg' },
-  { src: 'white-shirt-rail', alt: 'White shirts hanging on a rail against a black wall', label: 'Frame // Rail', title: 'Shirt rail', sub: 'White shirts on one rail', pos: '50% 35%', size: 'lg' },
-  { src: 'tank-top-outfit', alt: 'Model in a white tank top and camouflage trousers', label: 'Frame // On body', title: 'Tank and camo', sub: 'How it sits on a person', pos: '50% 35%', size: 'sm' },
-  { src: 'jackets-on-hooks', alt: 'Jackets and a cap hanging on wall hooks', label: 'Frame // Outerwear', title: 'The fitting wall', sub: 'Outerwear on wall hooks', pos: '50% 60%', size: 'sm' },
-  { src: 'blazer', alt: 'Black blazer hanging on a rustic fence', label: 'Piece // Outerwear', title: 'Black blazer', sub: 'Tailoring on a hanger', pos: '50% 55%', size: 'sm' },
+  { src: 'storefront', alt: 'KRAL shopfront with a red roller shutter and the KRAL logo across it', label: 'Frame // Storefront', title: 'The storefront', sub: 'Where KRAL meets the street', pos: '50% 45%', size: 'lg' },
+  { src: 'posters', alt: 'KRAL posters pasted on a wall, reading Daily Movement and Individuality', label: 'Frame // Posters', title: 'Daily movement', sub: 'Posters in the street', pos: '50% 40%', size: 'lg' },
+  { src: 'tee', alt: 'Person in a white tee with a small red KRAL logo, holding a red dice keyring', label: 'Frame // On body', title: 'The KRAL tee', sub: 'How it sits on a person', pos: '50% 45%', size: 'sm' },
+  { src: 'box', alt: 'Two stacked red KRAL gift boxes with black sleeves', label: 'Frame // Packaging', title: 'The red box', sub: 'How an order arrives', pos: '50% 50%', size: 'sm' },
+  { src: 'label', alt: 'Red woven neck label with the white KRAL K', label: 'Piece // Label', title: 'Neck label', sub: 'The K, woven in', pos: '50% 50%', size: 'sm' },
 ] as const
 
 function Plate({ plate, no }: { plate: (typeof PLATES)[number]; no: number }) {
@@ -108,7 +108,7 @@ function Plate({ plate, no }: { plate: (typeof PLATES)[number]; no: number }) {
         <span className="sv2-plate-fallback">{plate.alt}</span>
       ) : (
         <img
-          src={`/images/gallery/${plate.src}.webp`}
+          src={`/images/brand/${plate.src}.webp`}
           alt={plate.alt}
           loading="lazy"
           decoding="async"
@@ -137,7 +137,7 @@ export function Lookbook() {
               Lookbook editorial mosaic
             </h2>
           </div>
-          <p className="sv2-label sv2-meta-note">Store-floor photography, shown as stand-ins</p>
+          <p className="sv2-label sv2-meta-note">Brand imagery // KRAL rebrand by Bryworks</p>
         </header>
         <div className="sv2-mosaic">
           {PLATES.map((p, i) => (
