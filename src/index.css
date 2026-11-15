@@ -326,6 +326,11 @@
     cursor: pointer;
   }
 
+  /* Press feedback (utils/pressFeedback.ts) taps instantly: no double-tap-zoom delay. */
+  :where(button, a, summary, [role='button'], [role='tab']) {
+    touch-action: manipulation;
+  }
+
   button:disabled,
   [role='button'][aria-disabled='true'] {
     cursor: not-allowed;

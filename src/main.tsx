@@ -6,9 +6,12 @@ import App from './App.tsx'
 import { CookieConsentProvider } from './contexts/CookieConsentContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import './index.css'
+import { installPressFeedback } from './utils/pressFeedback'
 
 // Plugins load only inside the native shell, so they stay out of the web bundle.
 if (Capacitor.isNativePlatform()) void import('./native')
+
+installPressFeedback()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
