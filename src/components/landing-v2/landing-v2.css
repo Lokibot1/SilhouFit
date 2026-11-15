@@ -36,6 +36,8 @@
   --sv2-skel: var(--sv2-graphite);
   --sv2-watermark: rgb(255 251 253 / 0.06);
   --sv2-focus: var(--sv2-page-fg);
+  --sv2-refl-o: 0.25; /* hero floor reflection */
+  --sv2-contact: transparent; /* hero contact shadows: none on Obsidian */
 
   --sv2-bar-h: 4rem;
   --sv2-z-bar: 20; /* above the page, below the cookie banner and toasts (z-50) */
@@ -61,6 +63,8 @@
   --sv2-text-soft: var(--sv2-obsidian);
   --sv2-text-dim: #5e5859;
   --sv2-red-text: var(--sv2-red);
+  --sv2-refl-o: 0.15;
+  --sv2-contact: rgb(22 17 19 / 0.22);
   --sv2-skel: color-mix(in srgb, var(--sv2-stone) 35%, var(--sv2-porcelain));
   --sv2-watermark: rgb(22 17 19 / 0.06);
 }
@@ -222,42 +226,92 @@
   --u: min(100vw / 1280, 100svh / 640);
 }
 .sv2-hero {
+  --hero-h: max(calc(100svh - var(--sv2-bar-h)), 30rem);
+  --mark-h: 11.46vw; /* the wordmark band's height */
+  --letters-b: calc(0.954 * var(--mark-h)); /* where the glyphs end inside the band */
+  --copy-h: max(10rem, calc(190 * var(--u))); /* the overlay copy at the bottom (its type scales with --u) */
+  --fig-k: 1; /* how much wider than the viewport the figures may grow (phones crop the walkers to keep the man large) */
+  /* Edge to edge on desktop; on narrow screens wider than the viewport, up to what fits between the wordmark and the copy
+     (the figures plus their reflection take 0.42 of their width in height). */
+  --fig-w: max(100vw, min(calc(var(--fig-k) * 100vw), calc((var(--hero-h) - var(--letters-b) - var(--copy-h)) / 0.42)));
   position: relative;
-  height: calc(100svh - var(--sv2-bar-h));
-  min-height: 30rem;
+  height: var(--hero-h);
   overflow: hidden;
   isolation: isolate;
   background: var(--sv2-page-bg);
 }
+@media (max-width: 1023.98px) {
+  .sv2-hero {
+    --fig-k: 3;
+  }
+}
+/* Figures: a transparent cut-out on the plain page background, so the hero is one continuous surface with the bar and wordmark.
+   It sits IN FRONT of the wordmark: the central man's cap overlaps the bottom of the letters (they stay behind him) and the
+   blurred walkers show the letters through their soft edges. It never takes pointer events. */
 .sv2-stage {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 4;
+  pointer-events: none;
 }
-.sv2-stage-img {
+.sv2-figures {
+  position: absolute;
+  left: 50%;
+  /* The man's cap is 4.5% down the 7:4 frame (0.0158 of its width); it dips 1.2% of the width into the letters. */
+  top: calc(var(--letters-b) - 0.0278 * var(--fig-w));
+  transform: translateX(-50%);
+  width: var(--fig-w);
+  aspect-ratio: 1600 / 560;
+}
+.sv2-figures img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: 50% 50%;
-  filter: grayscale(1) contrast(1.1) brightness(0.62);
 }
-.sv2-stage::after {
+.sv2-stage-img {
+  position: relative; /* above the contact shadows */
+}
+:root:not(.dark) .sv2-stage-img {
+  filter: url(#sv2-edge);
+}
+/* Contact shadows under each figure's feet (positions measured on the cut-out); none in dark. */
+.sv2-figures::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgb(22 17 19 / 0) 35%, rgb(22 17 19 / 0.88) 100%);
+  background:
+    radial-gradient(ellipse 7% 3% at 5% 81.6%, var(--sv2-contact), transparent 70%),
+    radial-gradient(ellipse 9% 3.5% at 18.7% 97%, var(--sv2-contact), transparent 70%),
+    radial-gradient(ellipse 9% 3.5% at 29.9% 98.4%, var(--sv2-contact), transparent 70%),
+    radial-gradient(ellipse 7% 3% at 49.1% 91.6%, var(--sv2-contact), transparent 70%),
+    radial-gradient(ellipse 7% 3% at 61.8% 78.9%, var(--sv2-contact), transparent 70%),
+    radial-gradient(ellipse 9% 3.5% at 72.2% 95.2%, var(--sv2-contact), transparent 70%),
+    radial-gradient(ellipse 9% 3.5% at 82.2% 96.6%, var(--sv2-contact), transparent 70%),
+    radial-gradient(ellipse 7% 3% at 95.3% 80.5%, var(--sv2-contact), transparent 70%);
+  pointer-events: none;
+}
+/* Floor reflection: the figures flipped under their feet, fading out over the bottom 20% of the figures' height. */
+.sv2-figures .sv2-reflection {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  transform: scaleY(-1);
+  opacity: var(--sv2-refl-o);
+  filter: blur(1.5px);
+  -webkit-mask-image: linear-gradient(to top, #000, transparent 22%);
+  mask-image: linear-gradient(to top, #000, transparent 22%);
   pointer-events: none;
 }
 
 .sv2-band {
   position: absolute;
   inset: 0 0 auto 0;
-  z-index: 3;
+  z-index: 3; /* behind .sv2-stage */
   touch-action: pan-y; /* horizontal drags reach the shader as pointer moves; vertical drags still scroll the page */
 }
 .sv2-glyph {
   position: absolute;
-  inset: 0;
+  inset: 0 0 2px; /* stops short of the band's fractional bottom row, where it would show as a hairline */
   background: var(--sv2-page-fg); /* Paper letters on Obsidian, Obsidian on Paper: the no-WebGL and loading state */
 }
 /* Phones: the intro loader's KRAL, plain red at its natural ratio, no shader. */
@@ -453,7 +507,7 @@ a.sv2-logo:hover {
   font-size: 1.35em;
   font-weight: 600;
   letter-spacing: 0.12em;
-  color: var(--sv2-red-tint);
+  color: var(--sv2-red-text);
   text-decoration: underline 2px var(--sv2-red);
   text-underline-offset: 0.35em;
 }
@@ -470,14 +524,25 @@ a.sv2-logo:hover {
 .sv2-foot {
   position: absolute;
   inset: auto 0 0 0;
-  z-index: 3;
+  z-index: 5; /* above the figures */
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: calc(14 * var(--u));
-  padding: 0 1rem calc(20 * var(--u));
+  padding: calc(40 * var(--u)) 1rem calc(20 * var(--u));
   text-align: center;
-  color: var(--sv2-paper); /* on the photo and its dark scrim in both themes */
+  color: var(--sv2-page-fg);
+}
+/* Where the figures run behind the copy: a soft page-coloured pool keeps it above 4.5:1 in both themes. */
+.sv2-foot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse 55% 100% at 50% 65%, var(--sv2-page-bg) 35%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 45%);
+  mask-image: linear-gradient(to bottom, transparent, #000 45%);
+  pointer-events: none;
 }
 .sv2-hero-title {
   font-size: max(1.05rem, calc(34 * var(--u)));
@@ -493,7 +558,7 @@ a.sv2-logo:hover {
   font-size: max(0.875rem, calc(14 * var(--u)));
   font-weight: 300;
   line-height: 1.5;
-  color: var(--sv2-porcelain);
+  color: var(--sv2-text-soft);
 }
 .sv2-meta {
   display: flex;
@@ -504,11 +569,11 @@ a.sv2-logo:hover {
   font-weight: 400;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--sv2-porcelain);
+  color: var(--sv2-text-soft);
 }
 .sv2-meta span:not(:first-child)::before {
   content: "// ";
-  color: var(--sv2-red-tint);
+  color: var(--sv2-red-text);
 }
 
 /* Narrow: the tagline gives way before the bar crowds it. */
@@ -673,6 +738,10 @@ a.sv2-logo:hover {
   .sv2-header {
     --u: min(100vw / 400, 100svh / 760);
   }
+  section.sv2-hero {
+    --mark-h: 18vw; /* beats the tablet value below */
+    --copy-h: 8rem;
+  }
   .sv2-bar {
     gap: 0.75rem;
   }
@@ -725,6 +794,9 @@ a.sv2-logo:hover {
   /* The wordmark is taller than its natural ratio (stretched vertically) so KRAL reads big while still fitting 320px. */
   .sv2-mark {
     height: 34vw;
+  }
+  .sv2-hero {
+    --mark-h: 34vw;
   }
   .sv2-header .sv2-btn,
   .sv2-menu-btn,

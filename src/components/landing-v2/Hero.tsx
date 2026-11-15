@@ -9,7 +9,7 @@ const { width: W, height: H, letters } = WORDMARK
 // Far enough up that a retracted lid sits entirely above the letters.
 const LID_TRAVEL = H + 2 * PAD + 10
 
-/** Full-viewport hero: a band whose KRAL(R) letters are cut out, so the shader behind them shows through; the photo stage fills the lower part. */
+/** Full-viewport hero: a band whose KRAL(R) letters are cut out, so the shader behind them shows through; the walkers stand on the same background below it. */
 export function Hero() {
   const heroRef = useRef<HTMLElement>(null)
   const headerRef = useRef<HTMLElement>(null)
@@ -93,12 +93,29 @@ export function Hero() {
 
       <section ref={heroRef} className="sv2-hero" aria-label="KRAL introduction">
         <div className="sv2-stage">
-          <img
-            src="/images/gallery/tank-tops.webp"
-            alt="Rail of tank tops in assorted colours"
-            className="sv2-stage-img"
-            fetchPriority="high"
-          />
+          <div className="sv2-figures">
+            <img
+              src="/images/brand/walkers-2x.webp"
+              srcSet="/images/brand/walkers-1x.webp 1100w, /images/brand/walkers-2x.webp 1600w"
+              sizes="(min-width: 1024px) 90vw, 150vw"
+              width={1600}
+              height={560}
+              alt="A man in a puffer jacket, cap and realtree camouflage trousers stands still while blurred figures in the same outfit walk past"
+              className="sv2-stage-img"
+              loading="eager"
+              fetchPriority="high"
+            />
+            <img
+              src="/images/brand/walkers-2x.webp"
+              srcSet="/images/brand/walkers-1x.webp 1100w, /images/brand/walkers-2x.webp 1600w"
+              sizes="(min-width: 1024px) 90vw, 150vw"
+              width={1600}
+              height={560}
+              alt=""
+              aria-hidden="true"
+              className="sv2-reflection"
+            />
+          </div>
         </div>
 
         <div className="sv2-band">
@@ -115,6 +132,12 @@ export function Hero() {
                   <path key={l.x} d={l.d} clipRule="evenodd" />
                 ))}
               </clipPath>
+              {/* Light theme: the motion-blurred edges are semi-transparent darker tan, which reads as grey smoke on Paper; steepen the alpha ramp a little. */}
+              <filter id="sv2-edge" colorInterpolationFilters="sRGB">
+                <feComponentTransfer>
+                  <feFuncA type="linear" slope="1.5" intercept="-0.2" />
+                </feComponentTransfer>
+              </filter>
             </defs>
             <path
               className="sv2-mark-band"
