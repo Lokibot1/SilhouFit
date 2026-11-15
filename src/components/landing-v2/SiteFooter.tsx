@@ -82,7 +82,7 @@ export function SiteFooter() {
           role="img"
           aria-label="KRAL"
         >
-          <path fillRule="evenodd" d={WORDMARK.letters.map((l) => l.d).join('')} />
+          <path d={WORDMARK.letters.map((l) => l.d).join('')} />
         </svg>
 
         <div className="sv2-foot-meta">

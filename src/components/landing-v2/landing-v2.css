@@ -1451,7 +1451,6 @@ a.sv2-logo:hover {
     font-size: 0.625rem;
   }
   .sv2-foot-mark {
-    height: 17vw; /* natural ratio is about 10vw; stretched vertically so the wordmark reads bigger */
     margin-block: 1.5rem;
   }
   .sv2-foot-meta {

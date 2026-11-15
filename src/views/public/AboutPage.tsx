@@ -172,7 +172,7 @@ export function AboutPage() {
               This is a working prototype built for a BSIT capstone. Parts that are not live are marked as sample or as not available yet, and nothing here takes a real payment.
             </p>
             <p>
-              Credits // 3D avatar models, photography and licences are listed in the footer. The wordmark is generated from Archivo (SIL OFL 1.1).
+              Credits // 3D avatar models, photography and licences are listed in the footer. The hero and loading-screen wordmark is generated from Archivo (SIL OFL 1.1); the KRAL logo elsewhere is the official artwork.
             </p>
           </div>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">

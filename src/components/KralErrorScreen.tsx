@@ -26,7 +26,7 @@ export function KralErrorScreen({ code, status, heading, alert, raised, children
       <header className="relative mx-auto flex min-h-16 w-full max-w-6xl shrink-0 items-center px-6 2xl:max-w-[88rem]">
         <a href="/" aria-label="KRAL home" className="kral-focus flex min-h-11 items-center hover:text-kral-red-ink">
           <svg className="block h-4 w-auto fill-current" viewBox={`0 0 ${WORDMARK.width} ${WORDMARK.height}`} aria-hidden="true">
-            <path fillRule="evenodd" d={WORDMARK.letters.map((l) => l.d).join('')} />
+            <path d={WORDMARK.letters.map((l) => l.d).join('')} />
           </svg>
           <span aria-hidden="true" className="ml-0.5 self-start pt-3 text-xs leading-none">&reg;</span>
         </a>

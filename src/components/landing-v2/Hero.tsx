@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, type MouseEvent } from 'react'
 import { SiteHeader } from './SiteHeader'
-import { WORDMARK } from './wordmark'
+import { WORDMARK } from './wordmarkOriginal'
 
 const HeroShader = lazy(() => import('./HeroShader'))
 

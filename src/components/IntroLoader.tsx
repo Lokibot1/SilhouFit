@@ -1,6 +1,6 @@
 import { animate, motion, useMotionValue, useMotionValueEvent } from 'motion/react'
 import { useEffect, useId, useState } from 'react'
-import { WORDMARK } from './landing-v2/wordmark'
+import { WORDMARK } from './landing-v2/wordmarkOriginal'
 import './IntroLoader.css'
 
 const COUNT_DURATION = 2.3

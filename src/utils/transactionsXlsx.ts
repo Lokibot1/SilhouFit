@@ -196,7 +196,7 @@ export async function buildTransactionsXlsx({ rows, exportedBy, exportedAt, filt
 /** The KRAL wordmark as a base64 PNG tile, tilted, grey and about 11% opaque (the transparency is in the pixels). Null when the browser can't draw it. */
 export async function renderWatermark(): Promise<string | null> {
   try {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WORDMARK.width} ${WORDMARK.height}" width="${WORDMARK.width}" height="${WORDMARK.height}"><path fill="#85807c" fill-rule="evenodd" d="${WORDMARK.letters.map((l) => l.d).join('')}"/></svg>`
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WORDMARK.width} ${WORDMARK.height}" width="${WORDMARK.width}" height="${WORDMARK.height}"><path fill="#85807c" d="${WORDMARK.letters.map((l) => l.d).join('')}"/></svg>`
     const image = new Image()
     image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
     await image.decode()
