@@ -162,15 +162,14 @@ export function Hero() {
         </div>
 
         <div className="sv2-foot">
-          <h1 ref={titleRef} tabIndex={-1} className="sv2-hero-title" data-rise="2">
-            <span>Try the fit //</span> <span>before it ships</span>
+          <h1 ref={titleRef} tabIndex={-1} className="sr-only">
+            KRAL
           </h1>
           <p className="sv2-hero-sub" data-rise="2">
             Preview how a garment sits on your own body, right in the browser. No headset, no kiosk.
           </p>
           <p className="sv2-meta" data-rise="4">
             <span className="sv2-name">SilhouFit</span>
-            <span>AR fit in your browser</span>
           </p>
         </div>
       </section>
