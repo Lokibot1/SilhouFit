@@ -2,16 +2,9 @@
 
 import { useState } from 'react'
 
-const TAPE = [
-  'KRAL®',
-  'TRY THE FIT',
-  'BEFORE IT SHIPS',
-  'MEASURED, NOT GUESSED',
-  'ONE CATALOGUE',
-  'AR IN YOUR BROWSER',
-]
+const TAPE = ['KRAL®', 'SILHOUFIT']
 
-/** Red tape strip: one steady linear loop. The other seven copies only fill the loop (one run is under 900px, so two left a gap on wide screens), so it is hidden from assistive tech. */
+/** Red tape strip: one steady linear loop. The other copies only fill the loop (a run of two words is about 200px, so 24 copies cover a 2400px screen twice over), so it is hidden from assistive tech. */
 export function Tape() {
   const run = (hidden: boolean) => (
     <span className="sv2-tape-run" aria-hidden={hidden || undefined}>
@@ -24,7 +17,7 @@ export function Tape() {
     <div className="sv2-tape">
       <div className="sv2-tape-track">
         {run(false)}
-        {[1, 2, 3, 4, 5, 6, 7].map((i) => (<span key={i} className="contents">{run(true)}</span>))}
+        {Array.from({ length: 23 }, (_, i) => i + 1).map((i) => (<span key={i} className="contents">{run(true)}</span>))}
       </div>
     </div>
   )
