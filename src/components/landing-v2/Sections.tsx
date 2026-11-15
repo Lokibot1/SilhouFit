@@ -95,8 +95,20 @@ const PLATES = [
 
 function Plate({ plate, no }: { plate: (typeof PLATES)[number]; no: number }) {
   const [failed, setFailed] = useState(false)
+  const [colour, setColour] = useState(false) // a tap (no hover on phones) toggles the colour
   return (
-    <figure className={`sv2-plate sv2-plate--${plate.size}`}>
+    <figure
+      className={`sv2-plate sv2-plate--${plate.size}${colour ? ' sv2-plate--colour' : ''}`}
+      tabIndex={0}
+      aria-label={plate.title}
+      onClick={() => setColour((c) => !c)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          setColour((c) => !c)
+        }
+      }}
+    >
       {failed ? (
         <span className="sv2-plate-fallback">{plate.alt}</span>
       ) : (
