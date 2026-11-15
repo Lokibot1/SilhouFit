@@ -15,6 +15,7 @@ import { useToast } from '../../components/toast/useToast'
 import { KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { CATEGORIES, choiceOf, type Product } from '../../data/products'
 import { DURATION } from '../../motion/tokens'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { loadProduct } from '../../hooks/useProducts'
@@ -238,6 +239,7 @@ export function ShopPage() {
 
   return (
     <MotionConfig reducedMotion="user">
+      <PullToRefresh onRefresh={products.retry}>
       <ShopHeader
         tone="kral"
         ref={headingRef}
@@ -406,6 +408,7 @@ export function ShopPage() {
           </>
         )}
       </div>
+      </PullToRefresh>
     </MotionConfig>
   )
 }

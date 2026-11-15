@@ -13,6 +13,7 @@ import { PRIMARY_BUTTON, PRIMARY_BUTTON_SM, SECONDARY_BUTTON, SECONDARY_BUTTON_S
 import { Modal } from '../../components/ui/Modal'
 import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { CATEGORIES, SIZES_BY_CATEGORY } from '../../data/products'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useSection } from '../../hooks/useSection'
@@ -204,6 +205,7 @@ export function StaffMeasurementsPage() {
 
   const archivedView = status === 'archived'
   return (
+    <PullToRefresh onRefresh={retry}>
     <div className="grid gap-3">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -379,5 +381,6 @@ export function StaffMeasurementsPage() {
         )}
       </Modal>
     </div>
+    </PullToRefresh>
   )
 }

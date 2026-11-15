@@ -11,6 +11,7 @@ import { TransactionPagerSkeleton } from '../../components/staff/TransactionsSke
 import { PAGER_ROWS } from '../../components/staff/transactions/layout'
 import { Pagination } from '../../components/shop/Pagination'
 import { SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
@@ -122,6 +123,7 @@ export function StaffOnlineOrdersPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={retry}>
     <div className="grid gap-3">
       <header className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         <h1 className="display min-w-0 text-2xl text-fg sm:text-3xl">Online orders</h1>
@@ -211,5 +213,6 @@ export function StaffOnlineOrdersPage() {
 
       <AdminOrderDrawer order={selected} open={open} session={session} onClose={() => setOpen(false)} onChanged={() => setVersion((n) => n + 1)} />
     </div>
+    </PullToRefresh>
   )
 }

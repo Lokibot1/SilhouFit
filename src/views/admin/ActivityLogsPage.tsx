@@ -9,6 +9,7 @@ import { PAGER_FOOTER } from '../../components/staff/inventory/layout'
 import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
 import { Modal } from '../../components/ui/Modal'
 import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
@@ -95,6 +96,7 @@ export function ActivityLogsPage() {
   const shown = matched.slice((current - 1) * PER_PAGE, current * PER_PAGE)
 
   return (
+    <PullToRefresh onRefresh={section.retry}>
     <div className="grid gap-3">
       <header className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -222,5 +224,6 @@ export function ActivityLogsPage() {
       </section>
       <Details log={open} onClose={() => setOpen(null)} />
     </div>
+    </PullToRefresh>
   )
 }

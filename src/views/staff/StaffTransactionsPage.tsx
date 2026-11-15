@@ -20,6 +20,7 @@ import { useToast } from "../../components/toast/useToast";
 import { Pagination } from "../../components/shop/Pagination";
 import { SECONDARY_BUTTON } from "../../components/ui/buttonStyles";
 import { SampleDataBadge } from "../../components/ui/SampleDataBadge";
+import { PullToRefresh } from "../../components/ui/PullToRefresh";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -263,6 +264,7 @@ export function StaffTransactionsPage() {
   };
 
   return (
+    <PullToRefresh onRefresh={() => { retry(); totals.retry() }}>
     <div className="grid gap-3">
       <header className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         <h1 className="display min-w-0 text-2xl text-fg sm:text-3xl">
@@ -430,5 +432,6 @@ export function StaffTransactionsPage() {
         onClose={() => setOpen(false)}
       />
     </div>
+    </PullToRefresh>
   );
 }

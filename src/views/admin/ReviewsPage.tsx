@@ -11,6 +11,7 @@ import { useToast } from '../../components/toast/useToast'
 import { SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { Checkbox } from '../../components/ui/Checkbox'
 import { Select } from '../../components/ui/Select'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useSection } from '../../hooks/useSection'
@@ -134,6 +135,7 @@ export function ReviewsPage() {
   const clearFilters = () => change({ rating: 0, photos: false })
 
   return (
+    <PullToRefresh onRefresh={retry}>
     <div className="grid gap-3">
       <header className="flex min-h-8 flex-wrap items-center gap-3">
         <div className="min-w-0">
@@ -257,5 +259,6 @@ export function ReviewsPage() {
           : 'Shoppers stop seeing your reply under this review. You can write a new one at any time.'}
       </ConfirmDialog>
     </div>
+    </PullToRefresh>
   )
 }

@@ -24,6 +24,7 @@ import {
   SECONDARY_BUTTON,
 } from "../../components/ui/buttonStyles";
 import { useToast } from "../../components/toast/useToast";
+import { PullToRefresh } from "../../components/ui/PullToRefresh";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useMetaDescription } from "../../hooks/useMetaDescription";
@@ -428,6 +429,7 @@ export function StaffInventoryPage() {
   );
 
   return (
+    <PullToRefresh onRefresh={retry}>
     <div className="grid gap-3">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -676,5 +678,6 @@ export function StaffInventoryPage() {
         }}
       />
     </div>
+    </PullToRefresh>
   );
 }

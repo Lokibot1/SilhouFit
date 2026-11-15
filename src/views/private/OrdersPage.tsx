@@ -9,6 +9,7 @@ import { OrderTabs } from '../../components/orders/OrderTabs'
 import { Pagination } from '../../components/shop/Pagination'
 import { KRAL_INPUT, KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useBuyAgain } from '../../hooks/useBuyAgain'
 import { useCancelOrder } from '../../hooks/useCancelOrder'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
@@ -84,6 +85,7 @@ export function OrdersPage() {
   const failedWithOrders = status === 'error' && orders.length > 0
 
   return (
+    <PullToRefresh onRefresh={refresh}>
     <div className="mx-auto max-w-6xl px-6 pt-18 pb-24 2xl:max-w-[88rem]">
       <OrdersBreadcrumb current="Orders" />
       <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
@@ -229,5 +231,6 @@ export function OrdersPage() {
         onConfirm={(reason) => void cancel.confirm(reason)}
       />
     </div>
+    </PullToRefresh>
   )
 }

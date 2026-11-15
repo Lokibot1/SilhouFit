@@ -29,7 +29,7 @@ export function useOrders(enabled = true) {
     controller.current?.abort()
     const abort = new AbortController()
     controller.current = abort
-    loadAllOrders({ signal: abort.signal, force }).then(
+    return loadAllOrders({ signal: abort.signal, force }).then(
       (list) => {
         setOrders(list)
         setError(null)

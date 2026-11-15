@@ -5,6 +5,7 @@ import { NotificationsListSkeleton } from '../../components/notifications/Notifi
 import { OrdersBreadcrumb } from '../../components/orders/OrdersBreadcrumb'
 import { PhotoImg } from '../../components/ui/PhotoImg'
 import { KRAL_CHIP, KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
@@ -23,7 +24,7 @@ export function NotificationsPage() {
   const user = useCurrentUser()
   const { pathname, search } = useLocation()
   const email = user?.email
-  const { status, orders, retry } = useOrders(!!user)
+  const { status, orders, retry, refresh } = useOrders(!!user)
   const [seen, setSeen] = useState<Seen>(() => loadSeen(email))
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [shown, setShown] = useState(PAGE_SIZE)
@@ -43,6 +44,7 @@ export function NotificationsPage() {
   const failedWithOrders = status === 'error' && orders.length > 0
 
   return (
+    <PullToRefresh onRefresh={refresh}>
     <div className="mx-auto max-w-6xl px-6 pt-18 pb-24 2xl:max-w-[88rem]">
       <OrdersBreadcrumb current="Notifications" />
       <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
@@ -141,6 +143,7 @@ export function NotificationsPage() {
         </>
       )}
     </div>
+    </PullToRefresh>
   )
 }
 
