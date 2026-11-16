@@ -32,7 +32,7 @@ vi.mock('../../src/service/requestPasswordReset', async (importOriginal) => ({
 beforeAll(setUpAdminDom)
 beforeEach(() => {
   resetAdminAccounts()
-  vi.mocked(countAccounts).mockReset().mockResolvedValue(0)
+  vi.mocked(countAccounts).mockReset().mockResolvedValue({ active: 0, inactive: 0 })
   for (const list of [listCustomerAccounts, listStaffAccounts, listAdminAccounts, listSuperadminAccounts]) vi.mocked(list).mockReset().mockImplementation(empty)
   for (const call of [inviteStaffAccountApi, inviteAdminAccountApi, inviteSuperadminAccountApi, deactivateAccountApi, activateAccountApi]) vi.mocked(call).mockReset()
   vi.mocked(requestPasswordReset).mockReset().mockResolvedValue({ ok: true })
@@ -229,7 +229,7 @@ describe('Account summary cards', () => {
   const figures = () => screen.getByRole('region', { name: 'Accounts at a glance' })
   /** What countAccounts answers for each role: [active, inactive]. */
   const COUNTS: Record<string, [number, number]> = { customer: [120, 7], staff: [8, 2], admin: [3, 0], superadmin: [2, 1] }
-  const answer = () => vi.mocked(countAccounts).mockImplementation((role, active) => Promise.resolve(COUNTS[role][active ? 0 : 1]))
+  const answer = () => vi.mocked(countAccounts).mockImplementation((role) => Promise.resolve({ active: COUNTS[role][0], inactive: COUNTS[role][1] }))
 
   it('shows the active count with the inactive count beneath, each card linking to its tab', async () => {
     answer()
@@ -245,13 +245,12 @@ describe('Account summary cards', () => {
     expect(within(link).getByText('7 inactive')).toBeInTheDocument()
   })
 
-  it('adds the Superadmins card for a superadmin, and asks for two counts per card with one call each', async () => {
+  it('adds the Superadmins card for a superadmin, and asks for each role once', async () => {
     answer()
     signInAs('superadmin')
     renderAdmin(<UserManagementPage />, '/superadmin/users')
     expect(await within(figures()).findByRole('link', { name: /^Superadmins: 2 active, 1 inactive/ })).toHaveAttribute('href', '/superadmin/users?tab=superadmins')
-    const calls = vi.mocked(countAccounts).mock.calls.map(([role, active]) => `${role}:${active}`).sort()
-    expect(calls).toEqual(['admin:false', 'admin:true', 'customer:false', 'customer:true', 'staff:false', 'staff:true', 'superadmin:false', 'superadmin:true'])
+    expect(vi.mocked(countAccounts).mock.calls.map(([role]) => role).sort()).toEqual(['admin', 'customer', 'staff', 'superadmin'])
   })
 
   it('shows a skeleton per card while counting, matching the card size', async () => {
@@ -263,7 +262,7 @@ describe('Account summary cards', () => {
   it('lets one card fail with its own Retry while the others and the page keep working', async () => {
     answer()
     let staffFails = true
-    vi.mocked(countAccounts).mockImplementation((role, active) => (role === 'staff' && staffFails ? Promise.reject(new StaffApiError('server', undefined, 500)) : Promise.resolve(COUNTS[role][active ? 0 : 1])))
+    vi.mocked(countAccounts).mockImplementation((role) => (role === 'staff' && staffFails ? Promise.reject(new StaffApiError('server', undefined, 500)) : Promise.resolve({ active: COUNTS[role][0], inactive: COUNTS[role][1] })))
     vi.mocked(listCustomerAccounts).mockResolvedValue(page([KIM]))
     renderAdmin(<UserManagementPage />)
     const alert = await within(figures()).findByRole('alert')

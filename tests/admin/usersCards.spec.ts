@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
-import { inactive, json, manyUsers, stubUsersApi, userRow, type UserRow } from './usersApiStub'
+import { CORS, countsBody, inactive, json, manyUsers, stubUsersApi, userRow, type UserRow } from './usersApiStub'
 
-// The account cards across the top of /admin/users and /superadmin/users: each counts one role with GET /users?role&isActive&limit=1
-// (the answer is meta.total), loads, fails and retries on its own, and counts again after an invite, deactivate or activate.
+// The account cards across the top of /admin/users and /superadmin/users: one GET /users/count answers every role ({ active, inactive } each),
+// and each card loads, fails and retries on its own, and counts again after an invite, deactivate or activate.
 // Backend stubbed (usersApiStub.ts); sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
 
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -56,13 +56,11 @@ test.describe('counts', () => {
     await expect(page).toHaveURL(/\/admin\/users\?tab=admins$/)
   })
 
-  test('each count is one limit=1 request per role and active flag, shared rather than repeated', async ({ page }) => {
+  test('every card is answered by one GET /users/count, shared rather than repeated', async ({ page }) => {
     const api = await stubUsersApi(page, ROWS)
     await open(page)
     await expect(card(page, 'Admins')).toContainText('0 inactive')
-    const seen = api.counts.map((url) => `${url.searchParams.get('role')}:${url.searchParams.get('isActive')}`).sort()
-    expect(seen).toEqual(['admin:false', 'admin:true', 'customer:false', 'customer:true', 'staff:false', 'staff:true'])
-    for (const url of api.counts) expect(url.searchParams.get('limit')).toBe('1')
+    expect(api.counts).toHaveLength(1)
     // The list requests are separate and keep their own paging.
     expect(api.gets.every((url) => url.searchParams.get('limit') !== '1')).toBe(true)
   })
@@ -115,7 +113,7 @@ test.describe('errors', () => {
   test('one failed card shows its own error with Retry while the others and the list keep working', async ({ page }) => {
     const api = await stubUsersApi(page, ROWS)
     let fail = true
-    api.onCount = (route, url) => (fail && url.searchParams.get('role') === 'staff' ? json(route, 500, { message: 'boom' }).then(() => true) : false)
+    api.onCount = (route) => (fail ? json(route, 200, { ...countsBody(api.rows), staff: { active: 'many' } }).then(() => true) : false)
     await open(page)
     const alert = figures(page).getByRole('alert')
     await expect(alert).toHaveCount(1)
@@ -179,6 +177,38 @@ test.describe('refresh', () => {
   })
 })
 
+test.describe('rate limit', () => {
+  test('a 429 counts down from Retry-After, Retry is disabled until it ends, and one retry makes one more count request', async ({ page }) => {
+    const api = await stubUsersApi(page, ROWS)
+    let limited = true
+    // Retry-After is read across origins, so the stub has to expose it as the real API does.
+    api.onCount = (route) =>
+      limited
+        ? route.fulfill({ status: 429, headers: { ...CORS, 'retry-after': '3', 'access-control-expose-headers': 'Retry-After' }, contentType: 'application/json', body: '{}' }).then(() => true)
+        : false
+    await open(page)
+    await expect(figures(page).getByRole('alert')).toHaveCount(3)
+    const countdown = figures(page).getByRole('button', { name: /^Retry in [1-3]s$/ })
+    await expect(countdown).toHaveCount(3)
+    await expect(countdown.first()).toBeDisabled()
+    expect(api.counts).toHaveLength(1)
+
+    limited = false
+    const retry = figures(page).getByRole('button', { name: 'Retry', exact: true })
+    await expect(retry).toHaveCount(3, { timeout: 8000 })
+    await expect(retry.first()).toBeEnabled()
+    await retry.first().click()
+    await expect(figures(page).getByRole('link')).toHaveCount(1)
+    expect(api.counts).toHaveLength(2)
+
+    // The other two cards read the same answer instead of asking again.
+    await retry.first().click()
+    await retry.first().click()
+    await expect(figures(page).getByRole('link')).toHaveCount(3)
+    expect(api.counts).toHaveLength(2)
+  })
+})
+
 test.describe('layout', () => {
   test('no horizontal scroll at 320px for a superadmin with four cards, and the cards stay inside the page', async ({ page }) => {
     await stubUsersApi(page, ROWS)
@@ -212,7 +242,7 @@ test.describe('layout', () => {
     test(`the cards read clearly in ${scheme} mode, in their loaded and error states`, async ({ page }) => {
       const api = await stubUsersApi(page, ROWS)
       let fail = true
-      api.onCount = (route, url) => (fail && url.searchParams.get('role') === 'admin' ? json(route, 500, {}).then(() => true) : false)
+      api.onCount = (route) => (fail ? json(route, 200, { ...countsBody(api.rows), admin: null }).then(() => true) : false)
       await page.emulateMedia({ colorScheme: scheme })
       await open(page)
       if (scheme === 'dark') await expect(page.locator('html')).toHaveClass(/dark/)

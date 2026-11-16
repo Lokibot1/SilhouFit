@@ -95,7 +95,8 @@ export const listSuperadminAccounts = (query: AccountQuery, { signal }: RequestO
 const changeListeners = new Set<() => void>()
 /** How long a count that loaded is reused, so reopening the page or switching tabs does not ask the API again (it limits requests per minute). */
 const COUNT_TTL_MS = 30_000
-const counting = new Map<string, Promise<number>>()
+let counting: Promise<unknown> | null = null
+const isCount = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
 
 /** Calls `listener` after an invite, deactivate or activate succeeds, so the counts can load again. Returns the way to stop. */
 export const subscribeAccountChanges = (listener: () => void) => {
@@ -104,23 +105,28 @@ export const subscribeAccountChanges = (listener: () => void) => {
 }
 
 function accountsChanged() {
-  counting.clear()
+  counting = null
   changeListeners.forEach((listener) => listener())
 }
 
-/** GET /users?role&isActive&limit=1, reading meta.total: how many accounts of a role are active (or inactive). Identical requests in flight share one call, and a count that loaded is reused for 30 seconds (until an invite, deactivate or activate). */
-export function countAccounts(role: ManagedRole, active: boolean): Promise<number> {
-  const key = `${role}:${active}`
-  let pending = counting.get(key)
-  if (!pending) {
-    const request: Promise<number> = list(role, () => null, { status: active ? 'active' : 'inactive', limit: 1 }).then(({ meta }) => meta.total)
-    pending = request
-    counting.set(key, request)
-    // A change clears the map while a request is still out; only forget this request, not its replacement.
-    const forget = () => counting.get(key) === request && counting.delete(key)
+/** GET /users/count: how many accounts of a role are active and inactive. All four roles come in one call, shared while in flight and reused for 30 seconds (until an invite, deactivate or activate). A role whose entry is malformed fails alone. */
+export async function countAccounts(role: ManagedRole): Promise<{ active: number; inactive: number }> {
+  if (!counting) {
+    const request = call('GET', '/users/count', undefined)
+    counting = request
+    // A change clears it while a request is still out; only forget this request, not its replacement.
+    const forget = () => counting === request && (counting = null)
     request.then(() => setTimeout(forget, COUNT_TTL_MS), forget)
   }
-  return pending
+  const shared = counting
+  const body = await shared
+  const entry = isRecord(body) ? body[role] : null
+  if (!isRecord(entry) || !isCount(entry.active) || !isCount(entry.inactive)) {
+    // A bad entry is not worth keeping: Retry must ask the server again.
+    if (counting === shared) counting = null
+    throw new StaffApiError('server')
+  }
+  return { active: entry.active as number, inactive: entry.inactive as number }
 }
 
 /** Every value the backend's Gender enum accepts. */

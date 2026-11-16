@@ -9,10 +9,7 @@ export function useAccountCount(role: ManagedRole) {
   useEffect(() => subscribeAccountChanges(() => setVersion((n) => n + 1)), [])
 
   const load = useCallback(
-    async () => {
-      const [active, inactive] = await Promise.all([countAccounts(role, true), countAccounts(role, false)])
-      return { active, inactive }
-    },
+    () => countAccounts(role),
     // A new version is a new request, though it is not read inside.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [role, version],

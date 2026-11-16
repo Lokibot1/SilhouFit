@@ -1,6 +1,6 @@
 import type { Page, Route } from '@playwright/test'
 
-// A fake backend for the browser tests, covering only the routes the User Management tabs use: GET /users, POST /users/staff/invite,
+// A fake backend for the browser tests, covering only the routes the User Management tabs use: GET /users, GET /users/count, POST /users/staff/invite,
 // POST /users/:id/deactivate and /activate, plus Supabase's POST /auth/v1/recover (the password reset email). There are no real Supabase
 // credentials, so everything is answered here and nothing leaves the machine. The simulated dev sign-in is enough: requests are stubbed before the network.
 
@@ -96,7 +96,7 @@ export interface UsersStub {
   rows: UserRow[]
   /** Every list GET /users the page made (limit 10, 25 or 50). */
   gets: URL[]
-  /** Every GET /users?limit=1 the summary cards made to count a role; the answer is meta.total. */
+  /** Every GET /users/count the summary cards made; the answer is { all, customer, staff, admin, superadmin }, each { active, inactive }. */
   counts: URL[]
   /** Every invite body the page sent. */
   invites: InviteBody[]
@@ -125,20 +125,30 @@ export const json = (route: Route, status: number, body: unknown) => route.fulfi
 
 const offApp = (url: URL) => url.port !== '5173'
 
+/** The GET /users/count body for these rows. */
+export const countsBody = (rows: UserRow[]) => {
+  const tally = (role?: UserRole) => {
+    const own = rows.filter((r) => !role || r.role === role)
+    return { active: own.filter((r) => r.isActive).length, inactive: own.filter((r) => !r.isActive).length }
+  }
+  return { all: tally(), customer: tally('customer'), staff: tally('staff'), admin: tally('admin'), superadmin: tally('superadmin') }
+}
+
 export async function stubUsersApi(page: Page, rows: UserRow[] = SAMPLE_USERS): Promise<UsersStub> {
   const stub: UsersStub = { rows: rows.map((r) => ({ ...r })), gets: [], counts: [], invites: [], deactivations: [], activations: [], recoveries: [] }
 
   await page.route(
-    (url) => offApp(url) && (url.pathname === '/users' || url.pathname === '/users/staff/invite'),
+    (url) => offApp(url) && (url.pathname === '/users' || url.pathname === '/users/count' || url.pathname === '/users/staff/invite'),
     async (route) => {
       const request = route.request()
       const url = new URL(request.url())
       if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
 
       if (request.method() === 'GET') {
-        const counting = url.searchParams.get('limit') === '1'
+        const counting = url.pathname === '/users/count'
         ;(counting ? stub.counts : stub.gets).push(url)
         if (await (counting ? stub.onCount : stub.onGet)?.(route, url)) return
+        if (counting) return json(route, 200, countsBody(stub.rows))
         const q = url.searchParams
         const search = (q.get('search') ?? '').toLowerCase()
         const limit = Number(q.get('limit') ?? 20)

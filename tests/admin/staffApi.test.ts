@@ -138,32 +138,57 @@ describe('listing customers', () => {
   })
 })
 
-describe('counting accounts with limit=1', () => {
-  const totals = (byQuery: Record<string, number>) =>
-    fetchMock.mockImplementation((url: string) => {
-      const q = new URL(url, 'http://api.test').searchParams
-      return Promise.resolve(new Response(JSON.stringify({ data: [], meta: { ...META, total: byQuery[`${q.get('role')}:${q.get('isActive')}`] ?? 0 } }), { status: 200 }))
-    })
+describe('counting accounts from GET /users/count', () => {
+  const COUNTS = {
+    all: { active: 0, inactive: 0 },
+    customer: { active: 120, inactive: 7 },
+    staff: { active: 4, inactive: 1 },
+    admin: { active: 3, inactive: 0 },
+    superadmin: { active: 1, inactive: 0 },
+  }
 
-  it('reads meta.total of one row per role and active flag', async () => {
-    totals({ 'customer:true': 120, 'customer:false': 7 })
-    expect(await Promise.all([countAccounts('customer', true), countAccounts('customer', false)])).toEqual([120, 7])
-    expect(fetchMock.mock.calls.map(([url]) => Object.fromEntries(new URL(String(url), 'http://api.test').searchParams))).toEqual([
-      expect.objectContaining({ role: 'customer', isActive: 'true', limit: '1' }),
-      expect.objectContaining({ role: 'customer', isActive: 'false', limit: '1' }),
-    ])
+  // The 30 second reuse outlives a test, so a change (which forgets it) starts each one clean.
+  beforeEach(async () => {
+    reply(ITEM)
+    await deactivateAccountApi('u1')
+    fetchMock.mockReset()
   })
 
-  it('shares one request between identical calls in flight, reuses the answer for 30 seconds, then asks again', async () => {
+  it('reads every role from one request', async () => {
+    reply(COUNTS)
+    expect(await Promise.all([countAccounts('customer'), countAccounts('staff'), countAccounts('admin'), countAccounts('superadmin')])).toEqual([
+      { active: 120, inactive: 7 },
+      { active: 4, inactive: 1 },
+      { active: 3, inactive: 0 },
+      { active: 1, inactive: 0 },
+    ])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(requested().pathname).toBe('/users/count')
+    expect(requested().search).toBe('')
+  })
+
+  it('rejects a malformed entry for its role only', async () => {
+    reply({ ...COUNTS, staff: { active: 'many', inactive: 1 } })
+    const [staff, customer] = await Promise.all([failure(countAccounts('staff')), countAccounts('customer')])
+    expect(staff.kind).toBe('server')
+    expect(customer).toEqual({ active: 120, inactive: 7 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    // The bad answer is not kept: the next call asks again.
+    reply(COUNTS)
+    expect(await countAccounts('staff')).toEqual({ active: 4, inactive: 1 })
+  })
+
+  it('shares one request between calls in flight, reuses the answer for 30 seconds, then asks again', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout'] })
     try {
-      totals({ 'staff:true': 4 })
-      await Promise.all([countAccounts('staff', true), countAccounts('staff', true)])
+      reply(COUNTS)
+      await Promise.all([countAccounts('staff'), countAccounts('staff')])
       expect(fetchMock).toHaveBeenCalledTimes(1)
-      await countAccounts('staff', true)
+      await countAccounts('staff')
       expect(fetchMock).toHaveBeenCalledTimes(1)
+      reply(COUNTS)
       await vi.advanceTimersByTimeAsync(30_000)
-      await countAccounts('staff', true)
+      await countAccounts('staff')
       expect(fetchMock).toHaveBeenCalledTimes(2)
     } finally {
       vi.useRealTimers()
@@ -172,9 +197,23 @@ describe('counting accounts with limit=1', () => {
 
   it('does not keep a failure: the next call asks again', async () => {
     reply({}, 500)
-    expect((await failure(countAccounts('admin', true))).kind).toBe('server')
-    totals({ 'admin:true': 3 })
-    expect(await countAccounts('admin', true)).toBe(3)
+    expect((await failure(countAccounts('admin'))).kind).toBe('server')
+    reply(COUNTS)
+    expect(await countAccounts('admin')).toEqual({ active: 3, inactive: 0 })
+  })
+
+  it.each([
+    ['an invite', () => inviteStaffAccountApi({ email: 'a@b.co', firstName: 'A', lastName: 'B' }), { user: ITEM, invited: true, message: 'ok' }],
+    ['a deactivate', () => deactivateAccountApi('u1'), ITEM],
+    ['an activate', () => activateAccountApi('u1'), ITEM],
+  ] as const)('asks again after %s', async (_name, change, answer) => {
+    reply(COUNTS)
+    await countAccounts('staff')
+    reply(answer, 201)
+    await change()
+    reply(COUNTS)
+    await countAccounts('staff')
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/users/count'))).toHaveLength(2)
   })
 
   it('tells subscribers after an invite, a deactivate and an activate succeed, not after one fails, and stops when unsubscribed', async () => {
@@ -199,14 +238,14 @@ describe('counting accounts with limit=1', () => {
   it('does not hand a count that was in flight before a change to a call made after it', async () => {
     let staff = 4
     fetchMock.mockImplementation((url: string) => {
-      const body = String(url).includes('/deactivate') ? ITEM : { data: [], meta: { ...META, total: staff } }
+      const body = String(url).includes('/deactivate') ? ITEM : { ...COUNTS, staff: { active: staff, inactive: 0 } }
       return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
     })
-    const before = countAccounts('staff', true)
+    const before = countAccounts('staff')
     await deactivateAccountApi('u1')
     staff = 3
-    expect(await countAccounts('staff', true)).toBe(3)
-    expect(await before).toBe(4)
+    expect(await countAccounts('staff')).toEqual({ active: 3, inactive: 0 })
+    expect(await before).toEqual({ active: 4, inactive: 0 })
   })
 })
 
