@@ -30,7 +30,7 @@ export function ShopSkeleton() {
   )
 }
 
-export function CardSkeletons({ list = false, count, tone }: { list?: boolean; count: number; tone?: 'kral' }) {
+export function CardSkeletons({ list = false, count, tone, dated = false }: { list?: boolean; count: number; tone?: 'kral'; dated?: boolean }) {
   const kral = tone === 'kral'
   return (
     <div
@@ -43,13 +43,14 @@ export function CardSkeletons({ list = false, count, tone }: { list?: boolean; c
           <div className={`aspect-3/4 shrink-0 ${kral ? KRAL_BLOCK : 'rounded-xl bg-line-strong'} ${list ? 'w-28 sm:w-44' : ''}`} />
           <div className={`min-w-0 flex-1 ${list ? '' : 'mt-3'}`}>
             {kral ? (
-              // Name (up to two lines), rating, price and stock line, at the card's own text sizes.
-              <div className="h-[8.5rem]">
+              // Name, rating, price (and the saved date on the wishlist) of the common card, at its own text sizes. The height is that card's, measured per width:
+              // the name wraps and the swatches drop onto their own line only on the narrowest phones; the stock line shows on few cards, so it is not held.
+              <div className={`${list ? 'h-[8.5rem]' : 'h-[8.375rem] min-[360px]:h-[5.875rem] min-[400px]:h-[4.875rem] sm:h-[5.0625rem] md:h-[4.875rem] xl:h-[5rem]'} ${dated ? 'box-content pb-5' : ''}`}>
                 <Bar kral className="w-5/6 text-sm leading-tight" />
-                <Bar kral className="mt-1 w-2/3 text-sm leading-tight" />
+                <Bar kral className="mt-1 w-2/3 text-sm leading-tight min-[360px]:hidden" />
                 <Bar kral className="mt-1 w-1/3 text-xs" />
+                {dated && <Bar kral className="mt-1 w-1/2 text-xs" />}
                 <Bar kral className="mt-3 ml-auto w-1/2 text-base" />
-                <Bar kral className="mt-1 w-full text-xs" />
               </div>
             ) : (
               <div className={list ? 'min-[360px]:max-sm:min-h-[6.95rem] max-[359px]:min-h-[7.9rem]' : 'h-[6.6rem] min-[480px]:max-sm:h-[6.4rem] min-[360px]:max-[479px]:h-[7.7rem] max-[359px]:h-[9.2rem]'}>
@@ -78,7 +79,7 @@ export function WishlistGridSkeleton() {
       <div className="-mx-6 h-[165px] border-b border-kral-rule px-6 py-2 sm:h-[113px] md:h-[61px]">
         <div className={`h-11 w-56 max-w-full ${KRAL_BLOCK}`} />
       </div>
-      <CardSkeletons tone="kral" count={4} />
+      <CardSkeletons tone="kral" count={4} dated />
     </div>
   )
 }
