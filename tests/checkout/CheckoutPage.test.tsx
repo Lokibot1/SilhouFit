@@ -196,7 +196,7 @@ describe('CheckoutPage options and totals', () => {
     addressApi.loadAddresses.mockResolvedValue([ADDRESS])
     renderCheckout()
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Too many fee checks in a minute. Wait a minute, then try again.')
+    expect(alert).toHaveTextContent('Too many fee checks in a minute. Try again shortly.')
     expect(screen.getByRole('complementary')).toHaveTextContent('Unavailable')
     expect(placeButton()).toBeDisabled()
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))

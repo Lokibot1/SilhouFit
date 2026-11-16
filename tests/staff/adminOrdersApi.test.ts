@@ -181,7 +181,7 @@ describe('failure copy', () => {
 
   it('says so on a rate limit, not that Lalamove was silent, and offers a retry', () => {
     expect(dispatchFailure(new ProductListError('rate-limit', undefined, 429))).toEqual({
-      message: 'Too many requests right now, so no rider was booked. Wait a minute, then try again.',
+      message: 'Too many requests right now, so no rider was booked. Try again shortly.',
       retry: true,
     })
   })
@@ -199,6 +199,6 @@ describe('failure copy', () => {
   it('uses the server sentence for a refused change and plain copy for the rest', () => {
     expect(explainFailure(fail('validation', 'Order SHF-1 is in terminal status "DELIVERED".'))).toBe('Order SHF-1 is in terminal status "DELIVERED".')
     expect(explainFailure(fail('server'))).toMatch(/our side/)
-    expect(explainFailure(fail('rate-limit'))).toBe('Too many requests right now. Wait a minute, then try again.')
+    expect(explainFailure(fail('rate-limit'))).toBe('Too many requests right now. Try again shortly.')
   })
 })

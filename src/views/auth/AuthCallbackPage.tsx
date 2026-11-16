@@ -45,7 +45,7 @@ const ERROR_COPY: Record<FailKind, { title: string; body: string }> = {
   },
   'rate-limit': {
     title: "We couldn't finish signing you in.",
-    body: 'Our servers are limiting requests right now. Wait a minute, then try again.',
+    body: 'Our servers are limiting requests right now. Try again shortly.',
   },
   server: {
     title: "We couldn't finish signing you in.",

@@ -5,7 +5,7 @@ import { cancelOrder, OrdersError, type CustomerOrder } from '../service/ordersA
 
 const FAILURE: Partial<Record<OrdersError['kind'], string>> = {
   network: "The order wasn't cancelled because the connection dropped. Check your connection, then try again.",
-  'rate-limit': "The order wasn't cancelled because our servers are limiting requests. Wait a minute, then try again.",
+  'rate-limit': "The order wasn't cancelled because our servers are limiting requests. Try again shortly.",
 }
 
 /**

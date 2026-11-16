@@ -45,7 +45,7 @@ function inviteFailure({ kind, status, detail }: StaffApiError, noun: string, em
   }
   if (kind === 'conflict') return { title: 'That email already has an account.', body: `${email} is already registered, so no invitation was sent. Use a different email, or find the account in the lists.` }
   if (kind === 'validation') return { title: 'The server rejected the details.', body: `${(detail && sentences(detail)) || 'They are not in a form it accepts.'} No invitation was sent. Fix the details, then try again.` }
-  if (kind === 'rate-limit') return { title: 'Too many requests.', body: 'The server is limiting requests right now, so no invitation was sent. Wait a minute, then try again.' }
+  if (kind === 'rate-limit') return { title: 'Too many requests.', body: 'The server is limiting requests right now, so no invitation was sent. Try again shortly.' }
   if (kind === 'network') return { title: 'No invitation was sent.', body: 'The connection dropped before the server answered. Check your connection, then try again.' }
   return { title: 'No invitation was sent.', body: 'Something went wrong on our side. Try again in a moment; if it keeps happening, contact the developer.' }
 }

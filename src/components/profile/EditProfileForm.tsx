@@ -26,14 +26,14 @@ const EMOJI_ERROR = "Emoji aren't allowed in this field."
 
 const FAILURE_COPY: Record<Exclude<UpdateMeErrorKind, 'unauthorized' | 'invalid'>, string> = {
   network: "We couldn't save your profile. The connection dropped before we got a response. Check your connection and try again.",
-  'rate-limit': "We couldn't save your profile. Our servers are limiting requests right now. Wait a minute, then try again.",
+  'rate-limit': "We couldn't save your profile. Our servers are limiting requests right now. Try again shortly.",
   server: "We couldn't save your profile. Something went wrong on our side. Try again in a moment.",
   'not-found': "We couldn't save your profile. No profile is saved for this account. Sign out and sign in again.",
 }
 
 const UPLOAD_FAILURE_COPY: Record<Exclude<AvatarUploadErrorKind, 'unauthorized'>, string> = {
   network: "We couldn't upload your photo. The connection dropped before it finished. Check your connection and try again.",
-  'rate-limit': "We couldn't upload your photo. Our servers are limiting requests right now. Wait a minute, then try again.",
+  'rate-limit': "We couldn't upload your photo. Our servers are limiting requests right now. Try again shortly.",
   server: "We couldn't upload your photo. Something went wrong on our side. Try again in a moment.",
   invalid: "We couldn't upload your photo. The server didn't accept this file. Choose a JPG, PNG or WebP photo under 5 MB, then save again.",
 }

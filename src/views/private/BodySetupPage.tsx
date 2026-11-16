@@ -51,7 +51,7 @@ const TEXT_ENTRY = 'textarea, input:not([type="radio"], [type="checkbox"], [type
 
 const SAVE_ERROR: Record<BodyProfileErrorKind, string> = {
   network: "We couldn't save your measurements. The connection dropped before the server replied. Your answers are kept on this page, so check your connection and retry.",
-  'rate-limit': "We couldn't save your measurements. Our servers are limiting requests right now. Your answers are kept, so wait a minute and retry.",
+  'rate-limit': "We couldn't save your measurements. Our servers are limiting requests right now. Your answers are kept, so retry shortly.",
   invalid: "We couldn't save your measurements. The server did not accept one of the values. Check each measurement on the review screen, then retry.",
   unauthorized: "We couldn't save your measurements. Your session has ended, so nothing was sent. Sign in again, then come back to this page; your answers are kept in this tab.",
   server: "We couldn't save your measurements. Something went wrong on our side. Your answers are kept, so retry in a moment.",
@@ -157,7 +157,7 @@ export function BodySetupPage() {
               {load.kind === 'network'
                 ? 'The connection dropped before we got a response. Check your connection and try again.'
                 : load.kind === 'rate-limit'
-                  ? 'Our servers are limiting requests right now. Wait a minute, then try again.'
+                  ? 'Our servers are limiting requests right now. Try again shortly.'
                   : 'Something went wrong on our side. Try again in a moment.'}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">

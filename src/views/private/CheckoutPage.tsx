@@ -178,7 +178,7 @@ function describeFailure(error: OrdersError): { title: string; body: string; aga
     case 'forbidden':
       return { title, body: 'Your session ended, so no order was made. Sign in again, then check out.', again: false }
     case 'rate-limit':
-      return { title, body: 'Our servers are limiting requests right now, so no order was made. Wait a minute, then try again.', again: true }
+      return { title, body: 'Our servers are limiting requests right now, so no order was made. Try again shortly.', again: true }
     case 'network':
       return { title, body: 'The connection dropped before we got a reply, and no new order shows on your account. Your details are kept: check your connection, then try again.', again: true }
     default:
@@ -436,7 +436,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const quoteError = current?.error
   const quoteErrorCopy =
     quoteError?.kind === 'rate-limit'
-      ? 'Too many fee checks in a minute. Wait a minute, then try again.'
+      ? 'Too many fee checks in a minute. Try again shortly.'
       : quoteError?.kind === 'network'
         ? "We couldn't get the delivery fee because the connection dropped. Check your connection, then try again."
         : quoteError?.kind === 'no-coordinates'

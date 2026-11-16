@@ -451,7 +451,7 @@ describe('AddressForm', () => {
 
     it.each([
       ['network', /connection dropped.*try Save address again/i],
-      ['rate-limit', /limiting requests.*Wait a minute.*try Save address again/i],
+      ['rate-limit', /limiting requests.*try Save address again shortly/i],
       ['server', /went wrong on our side.*try Save address again/i],
     ] as const)('explains a %s failure and lets the user try again', async (kind, text) => {
       const { user, onSaved, onPendingChange } = await submitWith(new AddressError(kind))

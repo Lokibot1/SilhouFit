@@ -776,14 +776,14 @@ test.describe('actions', () => {
       await expect(drawer.getByText('This order is closed.')).toBeVisible()
     })
 
-    test('a 429 says to wait a minute, with Retry', async ({ page }) => {
+    test('a 429 says to try again shortly, with Retry', async ({ page }) => {
       const api = await setup(page, [paidOrder(1)])
       await open(page)
       const drawer = await openDrawer(page, 1)
       api.on.patch = () => fail(429, 'Too Many Requests')
       await start(drawer).click()
 
-      const failed = toast(page, 'The order was not moved to Preparing. Too many requests right now. Wait a minute, then try again.')
+      const failed = toast(page, 'The order was not moved to Preparing. Too many requests right now. Try again shortly.')
       await expect(failed).toBeVisible()
       await expect(failed.getByRole('button', { name: 'Retry' })).toBeVisible()
     })
@@ -882,14 +882,14 @@ test.describe('actions', () => {
       })
     }
 
-    test('a 429 says to wait a minute', async ({ page }) => {
+    test('a 429 says to try again shortly', async ({ page }) => {
       const api = await setup(page, [paidOrder(1)])
       api.on.dispatch = () => fail(429, 'Too Many Requests')
       await open(page)
       const drawer = await openDrawer(page, 1)
 
       await drawer.getByRole('button', { name: 'Book rider' }).click()
-      const failed = toast(page, 'Too many requests right now, so no rider was booked. Wait a minute, then try again.')
+      const failed = toast(page, 'Too many requests right now, so no rider was booked. Try again shortly.')
       await expect(failed).toBeVisible()
       await expect(failed.getByRole('button', { name: 'Retry' })).toBeVisible()
     })

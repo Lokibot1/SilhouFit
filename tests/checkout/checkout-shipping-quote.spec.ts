@@ -136,7 +136,7 @@ test('a failed quote says "Unavailable", disables Place order, and Try again rec
 })
 
 const FAILURES: { name: string; reply: OrderReply | 'abort'; copy: string; pin?: boolean }[] = [
-  { name: 'too many requests (429)', reply: { status: 429, json: { statusCode: 429, message: 'ThrottlerException: Too Many Requests' } }, copy: 'Too many fee checks in a minute. Wait a minute, then try again.' },
+  { name: 'too many requests (429)', reply: { status: 429, json: { statusCode: 429, message: 'ThrottlerException: Too Many Requests' } }, copy: 'Too many fee checks in a minute. Try again shortly.' },
   { name: 'a dropped connection', reply: 'abort', copy: "We couldn't get the delivery fee because the connection dropped. Check your connection, then try again." },
   {
     name: 'an address the server has no coordinates for',

@@ -39,7 +39,7 @@ export const SIGN_UP_ERROR_COPY: Record<SignUpErrorKind, { title: string; body: 
   },
   'rate-limit': {
     title: 'Too many sign-up attempts.',
-    body: 'Our servers are limiting requests right now. Nothing was saved. Wait a minute, then try again.',
+    body: 'Our servers are limiting requests right now. Nothing was saved. Try again shortly.',
   },
   'weak-password': {
     title: 'That password was rejected.',

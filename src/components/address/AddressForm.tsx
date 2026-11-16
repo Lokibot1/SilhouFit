@@ -93,7 +93,7 @@ const LIST_ERRORS = {
 
 const FAILURE_COPY: Record<Exclude<AddressErrorKind, 'unauthorized' | 'invalid'>, string> = {
   network: "We couldn't save your address. The connection dropped before we got a response. Check your connection, then try Save address again.",
-  'rate-limit': "We couldn't save your address. Our servers are limiting requests right now. Wait a minute, then try Save address again.",
+  'rate-limit': "We couldn't save your address. Our servers are limiting requests right now. Try Save address again shortly.",
   server: "We couldn't save your address. Something went wrong on our side. Try Save address again in a moment.",
   'not-found': "We couldn't save your address. It was deleted from another device. Close this window to see your current addresses.",
 }

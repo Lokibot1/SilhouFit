@@ -63,7 +63,7 @@ export type SectionErrorKind = 'network' | 'rate-limit' | 'not-found' | 'server'
 
 const WHY: Record<SectionErrorKind, string> = {
   network: 'The connection dropped before we got a response. Check your connection, then try again.',
-  'rate-limit': 'Our servers are limiting requests right now. Wait a minute, then try again.',
+  'rate-limit': 'Our servers are limiting requests right now. Try again shortly.',
   'not-found': 'The server could not find what was asked for. Try again.',
   server: 'Something went wrong on our side. Try again in a moment.',
   forbidden: 'Your account is not allowed to see this. Sign in again, or ask an admin for access.',

@@ -674,7 +674,7 @@ test.describe('errors', () => {
     await open(page)
 
     const problem = alertAbout(page, 'the transactions')
-    await expect(problem).toContainText('Our servers are limiting requests right now. Wait a minute, then try again.')
+    await expect(problem).toContainText('Our servers are limiting requests right now. Try again shortly.')
     await expect(problem.getByRole('button', { name: /^Retry in \d+s$/ })).toBeDisabled()
   })
 

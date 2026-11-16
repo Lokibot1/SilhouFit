@@ -110,7 +110,7 @@ export async function setSizeMeasurementActive(id: string, isActive: boolean, { 
 
 const WHY: Record<string, string> = {
   network: 'The connection dropped before the server answered. Check your connection, then try again.',
-  'rate-limit': 'The server is limiting requests right now. Wait a minute, then try again.',
+  'rate-limit': 'The server is limiting requests right now. Try again shortly.',
   forbidden: 'Your account is not allowed to change base measurements. Sign in again, or ask an admin for access.',
   'not-found': "That size no longer exists, or the measurements service isn't available yet. Reload the list to see what is there now.",
   server: 'Something went wrong on our side. Try again in a moment.',

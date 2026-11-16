@@ -140,7 +140,7 @@ describe('ProfilePage', () => {
   it.each([
     ['network', /connection dropped/i],
     ['server', /went wrong on our side/i],
-    ['rate-limit', /wait a minute/i],
+    ['rate-limit', /try again shortly/i],
   ] as const)('shows an alert for %s and refetches on Try again', async (kind, body) => {
     const user = userEvent.setup()
     load.mockRejectedValueOnce(new MeError(kind)).mockResolvedValueOnce(ME)

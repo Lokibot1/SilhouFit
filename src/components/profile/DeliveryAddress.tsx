@@ -25,7 +25,7 @@ type State =
 
 const LOAD_ERROR: Record<Exclude<AddressErrorKind, 'unauthorized'>, string> = {
   network: 'The connection dropped before we got a response. Check your connection, then try again.',
-  'rate-limit': 'Our servers are limiting requests right now. Wait a minute, then try again.',
+  'rate-limit': 'Our servers are limiting requests right now. Try again shortly.',
   server: 'Something went wrong on our side. Try again in a moment.',
   invalid: 'The server did not accept the request. Try again in a moment.',
   'not-found': 'No profile is saved for this account. Sign out and sign in again.',
@@ -33,7 +33,7 @@ const LOAD_ERROR: Record<Exclude<AddressErrorKind, 'unauthorized'>, string> = {
 
 const DELETE_ERROR = {
   network: 'The connection dropped before we got a response. Check your connection, then try Delete Address again.',
-  'rate-limit': 'Our servers are limiting requests right now. Wait a minute, then try Delete Address again.',
+  'rate-limit': 'Our servers are limiting requests right now. Try Delete Address again shortly.',
   server: 'Something went wrong on our side. Try Delete Address again in a moment.',
   invalid: 'The server did not accept the request. Try Delete Address again in a moment.',
 }

@@ -29,7 +29,7 @@ export const SIGN_IN_ERROR_COPY: Record<SignInErrorKind, { title: string; body: 
   },
   'rate-limit': {
     title: 'Too many sign-in attempts.',
-    body: 'Our servers are limiting requests right now. Wait a minute, then try again.',
+    body: 'Our servers are limiting requests right now. Try again shortly.',
   },
   profile: {
     title: "We signed you in but couldn't load your profile.",

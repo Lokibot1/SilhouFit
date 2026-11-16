@@ -254,7 +254,7 @@ export function explainFailure(error: unknown): string {
   const { kind, detail } = failureOf(error) ?? {}
   if ((kind === 'validation' || kind === 'conflict') && detail) return detail
   if (kind === 'network') return 'The connection dropped before we got a response. Check your connection, then try again.'
-  if (kind === 'rate-limit') return 'Too many requests right now. Wait a minute, then try again.'
+  if (kind === 'rate-limit') return 'Too many requests right now. Try again shortly.'
   if (kind === 'forbidden') return 'Your session ended or your account is not allowed to do this. Sign in again, or ask an admin for access.'
   return 'Something went wrong on our side. Try again in a moment.'
 }
@@ -262,7 +262,7 @@ export function explainFailure(error: unknown): string {
 /** The toast for a failed Book rider. `retry` is false when trying again cannot help. */
 export function dispatchFailure(error: unknown): { message: string; retry: boolean } {
   const { kind, detail } = failureOf(error) ?? {}
-  if (kind === 'rate-limit') return { message: 'Too many requests right now, so no rider was booked. Wait a minute, then try again.', retry: true }
+  if (kind === 'rate-limit') return { message: 'Too many requests right now, so no rider was booked. Try again shortly.', retry: true }
   if (kind === 'conflict') return { message: 'This order is already being dispatched.', retry: false }
   if (kind === 'validation') return { message: detail ?? 'The server did not accept this booking.', retry: false }
   if (kind === 'forbidden') return { message: explainFailure(error), retry: false }

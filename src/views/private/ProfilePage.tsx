@@ -35,7 +35,7 @@ const ERROR_COPY: Record<Exclude<MeErrorKind, 'unauthorized'>, { title: string; 
   },
   'rate-limit': {
     title: "We couldn't load your profile.",
-    body: 'Our servers are limiting requests right now. Wait a minute, then try again.',
+    body: 'Our servers are limiting requests right now. Try again shortly.',
   },
   server: {
     title: "We couldn't load your profile.",

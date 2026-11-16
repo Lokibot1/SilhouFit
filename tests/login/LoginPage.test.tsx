@@ -385,7 +385,7 @@ describe('LoginPage network failure', () => {
   })
 
   it.each([
-    ['rate-limit', /too many sign-in attempts.*wait a minute/i],
+    ['rate-limit', /too many sign-in attempts.*try again shortly/i],
     ['profile', /signed you in but couldn't load your profile.*contact support/i],
     ['server', /something went wrong on our side/i],
   ] as const)('shows %s copy in the banner and the toast, not the connection message', async (kind, copy) => {

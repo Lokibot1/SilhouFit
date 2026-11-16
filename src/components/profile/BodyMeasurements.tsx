@@ -35,7 +35,7 @@ type State =
 
 const ERROR_COPY: Record<BodyProfileError['kind'], string> = {
   network: 'The connection dropped before we got a response. Check your connection and try again.',
-  'rate-limit': 'Our servers are limiting requests right now. Wait a minute, then try again.',
+  'rate-limit': 'Our servers are limiting requests right now. Try again shortly.',
   unauthorized: 'Your session has ended. Sign out and sign in again, then try again.',
   invalid: 'The server did not accept the request. Try again in a moment.',
   server: 'Something went wrong on our side. Try again in a moment.',

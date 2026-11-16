@@ -29,7 +29,7 @@ const ERROR_COPY: Record<'network' | 'rate-limit' | 'server' | 'not-found', { ti
   },
   'rate-limit': {
     title: "We couldn't load your account.",
-    body: 'Our servers are limiting requests right now. Wait a minute, then try again.',
+    body: 'Our servers are limiting requests right now. Try again shortly.',
   },
   server: {
     title: "We couldn't load your account.",

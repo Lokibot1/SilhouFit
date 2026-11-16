@@ -36,7 +36,7 @@ export const saveStocks = (productId: string, changes: StockChange[], options: R
 
 const WHY: Record<string, string> = {
   network: 'The connection dropped before the server answered. Check your connection, then try again.',
-  'rate-limit': 'The server is limiting requests right now. Wait a minute, then try again.',
+  'rate-limit': 'The server is limiting requests right now. Try again shortly.',
   validation: 'The server rejected the value. Stock must be a whole number from 0 to 99,999, so check it and try again.',
   conflict: 'Someone else changed this product at the same time. Reload the list, then try again.',
   forbidden: 'Your account is not allowed to change inventory. Sign in again, or ask an admin for access.',
