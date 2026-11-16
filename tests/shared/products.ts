@@ -55,6 +55,9 @@ export interface MockProduct {
   createdAt: string
   images: MockImage[]
   variants: MockVariant[]
+  /** What the API sends on a list item and a detail; defaults to no reviews and nothing sold. */
+  ratingSummary?: { averageRating: number; reviewCount: number }
+  soldCount?: number
 }
 
 let counter = 0
@@ -128,6 +131,8 @@ const priceRange = (p: MockProduct) => {
   return prices.length ? { minPrice: Math.min(...prices), maxPrice: Math.max(...prices) } : { minPrice: 0, maxPrice: 0 }
 }
 
+const reviewed = (p: MockProduct) => ({ ratingSummary: p.ratingSummary ?? { averageRating: 0, reviewCount: 0 }, soldCount: p.soldCount ?? 0 })
+
 const listItem = (p: MockProduct) => {
   const seen = new Set<string>()
   const colors = p.variants.flatMap((v) => {
@@ -153,6 +158,7 @@ const listItem = (p: MockProduct) => {
     sizes: [...new Set(p.variants.flatMap((v) => (v.size ? [v.size] : [])))],
     variantCount: p.variants.length,
     outOfStockVariants: p.variants.filter((v) => v.stock <= 0).length,
+    ...reviewed(p),
   }
 }
 
@@ -174,7 +180,7 @@ function filtersBody(rows: MockProduct[]) {
   }
 }
 
-const detail = (p: MockProduct) => ({ ...p, ...priceRange(p) })
+const detail = (p: MockProduct) => ({ ...p, ...priceRange(p), ...reviewed(p) })
 
 const LIST_KEYS = ['search', 'category', 'gender', 'brand', 'sizes', 'colors', 'minPrice', 'maxPrice', 'page', 'stockLevel', 'sortBy', 'sortOrder', 'limit', 'status', 'isArReady']
 

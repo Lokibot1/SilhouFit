@@ -210,14 +210,18 @@ export function ProductCard({ product, index, list = false, saved, onToggleSaved
               {name}
             </Link>
           </h3>
-          {product.reviews > 0 && (
-            <p className={`flex items-center gap-1 text-xs tabular-nums sm:text-sm ${kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted'}`}>
-              <StarIcon className={kral ? 'text-kral-fg' : 'text-fg'} />
-              <span aria-hidden="true">
-                {product.rating.toFixed(1)} ({product.reviews.toLocaleString('en-PH')})
+          {(product.reviews > 0 || !!product.sold) && (
+            <p className={`flex items-start gap-1 text-xs tabular-nums sm:text-sm ${kral ? 'font-kral-mono text-kral-muted' : 'text-fg-muted'}`}>
+              {product.reviews > 0 && <StarIcon className={`shrink-0 ${kral ? 'text-kral-fg' : 'text-fg'}`} />}
+              <span aria-hidden="true" className="min-w-0">
+                {product.reviews > 0 && `${product.rating.toFixed(1)} (${product.reviews.toLocaleString('en-PH')})`}
+                {product.reviews > 0 && product.sold ? ' · ' : ''}
+                {product.sold ? `${product.sold.toLocaleString('en-PH')} sold` : ''}
               </span>
               <span className="sr-only">
-                Rated {product.rating.toFixed(1)} out of 5 from {product.reviews.toLocaleString('en-PH')} reviews
+                {product.reviews > 0 && `Rated ${product.rating.toFixed(1)} out of 5 from ${product.reviews.toLocaleString('en-PH')} reviews`}
+                {product.reviews > 0 && product.sold ? ', ' : ''}
+                {product.sold ? `${product.sold.toLocaleString('en-PH')} sold` : ''}
               </span>
             </p>
           )}

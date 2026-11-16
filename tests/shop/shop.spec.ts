@@ -467,6 +467,94 @@ test.describe('the product page', () => {
   })
 })
 
+test.describe('rating and sold line', () => {
+  // Linen Shirt: 4.5 stars from 12 reviews, 34 sold. Wool Trousers: nothing yet. Cotton Tee: sold only. Linen Vest: 1,234 sold, no reviews.
+  const rated = () => {
+    const [shirt, trousers, tee, vest] = seedCatalogue()
+    return [
+      { ...shirt, ratingSummary: { averageRating: 4.5, reviewCount: 12 }, soldCount: 34 },
+      { ...trousers, ratingSummary: { averageRating: 0, reviewCount: 0 }, soldCount: 0 },
+      { ...tee, soldCount: 34 },
+      { ...vest, soldCount: 1234 },
+    ]
+  }
+  const card = (page: Page, name: string) => cards(page).filter({ hasText: name })
+
+  test.beforeEach(async ({ page }) => {
+    await start(page, rated())
+  })
+
+  test('a card shows rating, reviews and sold with an accessible sentence, and only what exists', async ({ page }) => {
+    await openShop(page)
+    const shirt = card(page, 'Linen Shirt')
+    await expect(shirt.getByText('4.5 (12) · 34 sold', { exact: true })).toBeVisible()
+    await expect(shirt.getByText('Rated 4.5 out of 5 from 12 reviews, 34 sold', { exact: true })).toHaveCount(1)
+
+    // Nothing reviewed or sold: no line at all, never "0 sold".
+    const trousers = card(page, 'Wool Trousers')
+    await expect(trousers).toBeVisible()
+    await expect(trousers.getByText(/sold|Rated|\(\d/)).toHaveCount(0)
+
+    // Sold only: no rating and no separator.
+    const tee = card(page, 'Cotton Tee')
+    await expect(tee.getByText('34 sold', { exact: true }).first()).toBeVisible()
+    await expect(tee.getByText(/·|Rated/)).toHaveCount(0)
+
+    await expect(card(page, 'Linen Vest').getByText('1,234 sold', { exact: true }).first()).toBeVisible()
+  })
+
+  test('no horizontal scroll at 320px with the longest line', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 800 })
+    await openShop(page)
+    await expect(card(page, 'Linen Shirt').getByText('4.5 (12) · 34 sold', { exact: true })).toBeVisible()
+    expect(await overflows(page)).toBe(false)
+  })
+
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`the line reads clearly in ${scheme} mode`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem('silhoufit-theme', value), scheme)
+      await openShop(page)
+      if (scheme === 'dark') await expect(page.locator('html')).toHaveClass(/dark/)
+      const line = card(page, 'Linen Shirt').getByText('4.5 (12) · 34 sold', { exact: true })
+      await expect(line).toBeVisible()
+      // Colours can come back in any CSS format, so a canvas turns them into plain channels first.
+      const ratio = await line.evaluate((el) => {
+        const rgb = (css: string) => {
+          const ctx = document.createElement('canvas').getContext('2d')!
+          ctx.fillStyle = css
+          ctx.fillRect(0, 0, 1, 1)
+          return [...ctx.getImageData(0, 0, 1, 1).data]
+        }
+        let node: Element | null = el
+        let bg = rgb('#00000000')
+        while (node && bg[3] === 0) {
+          bg = rgb(getComputedStyle(node).backgroundColor)
+          node = node.parentElement
+        }
+        const lum = (channels: number[]) => {
+          const [r, g, b] = channels.slice(0, 3).map((c) => (c / 255 <= 0.03928 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4))
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b
+        }
+        const [hi, lo] = [lum(rgb(getComputedStyle(el).color)), lum(bg)].sort((a, b) => b - a)
+        return (hi + 0.05) / (lo + 0.05)
+      })
+      expect(ratio).toBeGreaterThanOrEqual(4.5)
+    })
+  }
+
+  test('the product page says rating, reviews and sold, and shows nothing at zero', async ({ page }) => {
+    const [shirt, trousers] = api.rows
+    await page.goto(`/shop/${shirt.slug}`)
+    await expect(page.getByText('4.5 · 12 reviews · 34 sold', { exact: true })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Rated 4.5 out of 5 from 12 reviews, 34 sold', { exact: true })).toHaveCount(1)
+    expect(await overflows(page)).toBe(false)
+
+    await page.goto(`/shop/${trousers.slug}`)
+    await expect(page.getByRole('heading', { level: 1, name: 'Wool Trousers' })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/sold|reviews?$/)).toHaveCount(0)
+  })
+})
+
 test.describe('dark mode', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('silhoufit-theme', 'dark'))

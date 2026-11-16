@@ -108,6 +108,25 @@ describe('ProductPage states', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('linen-shirt')
   })
 
+  it.each<[Partial<Product>, string, string]>([
+    [{ rating: 4.5, reviews: 12, sold: 34 }, '4.5 · 12 reviews · 34 sold', 'Rated 4.5 out of 5 from 12 reviews, 34 sold'],
+    [{ sold: 1234 }, '1,234 sold', '1,234 sold'],
+  ])('shows units sold beside the rating, hiding the separator without one (%o)', async (extra, visible, spoken) => {
+    fetchMock.mockResolvedValueOnce(piece(extra))
+    renderPage()
+    const line = (await screen.findByText(visible, { selector: '[aria-hidden="true"]' })).closest('p')!
+    expect(line).toHaveClass('tabular-nums')
+    expect(line).toHaveTextContent(spoken)
+    if (!extra.rating) expect(line).not.toHaveTextContent('·')
+  })
+
+  it('shows no sold line when nothing has sold', async () => {
+    fetchMock.mockResolvedValueOnce(piece({ sold: 0 }))
+    renderPage()
+    await screen.findByRole('heading', { level: 2, name: 'Linen Shirt' })
+    expect(screen.queryByText(/sold$/)).toBeNull()
+  })
+
   it('says so when the API has no such piece, or it is archived', async () => {
     fetchMock.mockRejectedValue(new ProductListError('not-found'))
     renderPage('archived-cardigan')

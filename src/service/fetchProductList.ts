@@ -26,6 +26,8 @@ export interface ProductListItem {
   /** From the API's `ratingSummary`; hidden in the UI while they are missing. */
   rating?: number
   reviewCount?: number
+  /** The API's `soldCount`; hidden in the UI while it is missing. */
+  soldCount?: number
 }
 
 export interface PaginatedProducts {
@@ -170,6 +172,7 @@ function toListItem(value: unknown): ProductListItem {
     ...(isCount(value.outOfStockVariants) && { outOfStockVariants: value.outOfStockVariants as number }),
     ...(isCount(value.variantCount) && { variantCount: value.variantCount as number }),
     ...(isRecord(summary) && isCount(summary.averageRating) && isCount(summary.reviewCount) && { rating: summary.averageRating as number, reviewCount: summary.reviewCount as number }),
+    ...(Number.isInteger(value.soldCount) && (value.soldCount as number) >= 0 && { soldCount: value.soldCount as number }),
     ...(Array.isArray(value.colors) && { colors: value.colors.filter(isColour) }),
     ...(Array.isArray(value.sizes) && { sizes: value.sizes.filter((size): size is string => typeof size === 'string' && size !== '') }),
   }

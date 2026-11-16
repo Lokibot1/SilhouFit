@@ -79,3 +79,26 @@ describe('ProductCard colours from the list', () => {
     expect(screen.queryByText(/^Available in/)).not.toBeInTheDocument()
   })
 })
+
+describe('ProductCard rating and sold line', () => {
+  const line = (text: string) => screen.getByText(text, { selector: '[aria-hidden="true"]' }).closest('p')!
+
+  it('shows the rating, review count and units sold on one line, with the screen reader wording', () => {
+    setup({ ...blazer, rating: 4.5, reviews: 12, sold: 34 })
+    expect(line('4.5 (12) · 34 sold')).toHaveClass('tabular-nums')
+    expect(screen.getByText('Rated 4.5 out of 5 from 12 reviews, 34 sold')).toHaveClass('sr-only')
+  })
+
+  it('shows no line at all with no reviews and nothing sold', () => {
+    setup({ ...blazer, rating: 0, reviews: 0, sold: 0 })
+    expect(screen.queryByText(/sold|Rated/)).not.toBeInTheDocument()
+    expect(screen.queryByText('0')).not.toBeInTheDocument()
+  })
+
+  it('shows only the sold count, with no separator, when there are no reviews', () => {
+    setup({ ...blazer, rating: 0, reviews: 0, sold: 34 })
+    expect(line('34 sold')).toHaveClass('tabular-nums')
+    expect(screen.queryByText(/·/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Rated/)).not.toBeInTheDocument()
+  })
+})

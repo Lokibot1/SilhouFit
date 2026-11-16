@@ -43,6 +43,8 @@ export interface Product {
   description?: string
   rating: number
   reviews: number
+  /** Units sold, when the API sends it. */
+  sold?: number
   /** Only on products from the API: every variant, once the product's detail has loaded. Sizes, colours, prices and stock come from these. */
   variants?: ProductVariant[]
 }

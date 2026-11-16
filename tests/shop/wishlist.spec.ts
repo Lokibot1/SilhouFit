@@ -533,3 +533,27 @@ test.describe('Wishlist – Saved list', () => {
     await expect(page.getByText('Your wishlist did not load')).toHaveCount(0)
   })
 })
+
+test.describe('Wishlist – rating and sold line', () => {
+  test('a saved card shows rating, reviews and sold, and nothing for a piece with neither', async ({ page }) => {
+    const [a, b, c] = seedCatalogue()
+    const rated = { ...a, ratingSummary: { averageRating: 4.5, reviewCount: 12 }, soldCount: 34 }
+    const fresh = { ...b, ratingSummary: { averageRating: 0, reviewCount: 0 }, soldCount: 0 }
+    const soldOnly = { ...c, soldCount: 1234 }
+    // Registered after the beforeEach mock, so this catalogue answers.
+    const own = await mockProducts(page, [rated, fresh, soldOnly])
+    await mockCart(page, own)
+    await signedIn(page)
+    await mockWishlist(page, own.rows.map((row) => row.id))
+    await page.goto('/wishlist')
+    await expect(page.getByText('3 pieces saved')).toBeVisible()
+
+    const card = (name: string) => page.getByRole('listitem').filter({ has: page.getByRole('checkbox') }).filter({ hasText: name })
+    await expect(card('Linen Shirt').getByText('4.5 (12) · 34 sold', { exact: true })).toBeVisible()
+    await expect(card('Linen Shirt').getByText('Rated 4.5 out of 5 from 12 reviews, 34 sold', { exact: true })).toHaveCount(1)
+    await expect(card('Wool Trousers')).toBeVisible()
+    await expect(card('Wool Trousers').getByText(/sold|Rated/)).toHaveCount(0)
+    await expect(card('Cotton Tee').getByText('1,234 sold', { exact: true }).first()).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false)
+  })
+})

@@ -138,14 +138,18 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy, onTryOn }:
             </span>
           </p>
         </div>
-        {product.reviews > 0 && (
-          <p className="font-kral-mono flex items-center gap-1 text-base text-kral-muted tabular-nums md:text-sm">
-            <StarIcon className="text-kral-fg" />
-            <span aria-hidden="true">
-              {product.rating.toFixed(1)} · {product.reviews.toLocaleString('en-PH')} reviews
+        {(product.reviews > 0 || !!product.sold) && (
+          <p className="font-kral-mono flex items-start gap-1 text-base text-kral-muted tabular-nums md:text-sm">
+            {product.reviews > 0 && <StarIcon className="shrink-0 text-kral-fg" />}
+            <span aria-hidden="true" className="min-w-0">
+              {product.reviews > 0 && `${product.rating.toFixed(1)} · ${product.reviews.toLocaleString('en-PH')} reviews`}
+              {product.reviews > 0 && product.sold ? ' · ' : ''}
+              {product.sold ? `${product.sold.toLocaleString('en-PH')} sold` : ''}
             </span>
             <span className="sr-only">
-              Rated {product.rating.toFixed(1)} out of 5 from {product.reviews.toLocaleString('en-PH')} reviews
+              {product.reviews > 0 && `Rated ${product.rating.toFixed(1)} out of 5 from ${product.reviews.toLocaleString('en-PH')} reviews`}
+              {product.reviews > 0 && product.sold ? ', ' : ''}
+              {product.sold ? `${product.sold.toLocaleString('en-PH')} sold` : ''}
             </span>
           </p>
         )}

@@ -336,3 +336,19 @@ describe('fetchProductFilters', () => {
     expect(await kindOf(fetchProductFilters())).toBe('network')
   })
 })
+
+describe('fetchProductList rating and sold count', () => {
+  const META = { total: 1, page: 1, limit: 10, totalPages: 1, hasNextPage: false, hasPreviousPage: false }
+  const first = async (item: object) => {
+    reply({ data: [{ ...ITEM, ...item }], meta: META })
+    return (await fetchProductList({})).data[0]
+  }
+
+  it('maps ratingSummary and soldCount', async () => {
+    expect(await first({ ratingSummary: { averageRating: 4.5, reviewCount: 12 }, soldCount: 34 })).toMatchObject({ rating: 4.5, reviewCount: 12, soldCount: 34 })
+  })
+
+  it.each([[undefined], ['34'], [Number.NaN], [null], [-5], [1.5]])('leaves soldCount off when it is %s', async (soldCount) => {
+    expect(await first({ soldCount })).not.toHaveProperty('soldCount')
+  })
+})

@@ -35,6 +35,7 @@ function toShopProduct(item: ProductListItem): Product {
     addedAt: item.createdAt,
     rating: item.rating ?? 0,
     reviews: item.reviewCount ?? 0,
+    sold: item.soldCount,
   }
 }
 
