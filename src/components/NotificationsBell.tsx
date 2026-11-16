@@ -1,13 +1,13 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { DURATION, EASE_OUT } from '../motion/tokens'
-import { useLivePoll } from '../hooks/useLivePoll'
-import { getCachedOrders, loadAllOrders, onOrdersChanged, onOrdersMerged, pollOrders, type CustomerOrder } from '../service/ordersApi'
-import { buildNotifications, isUnread, loadSeen, markSeen, onSeenChanged, relativeTime, saveSeen, unreadCount, type Notification, type Seen } from '../utils/notifications'
+import { useNotifications } from '../hooks/useNotifications'
+import { notificationHref, type ServerNotification } from '../service/notificationsApi'
+import { failureCopy, relativeTime } from '../utils/notifications'
 import { BellIcon } from './form/icons'
-import { PhotoImg } from './ui/PhotoImg'
+import { RetryButton } from './notifications/RetryButton'
 import { computePlace } from './ui/listbox'
 import { KRAL_ICON_BUTTON, KRAL_ICON_COUNT } from './ui/kralIconButton'
 import { Tooltip } from './ui/Tooltip'
@@ -20,73 +20,24 @@ const FOCUSABLE = 'a, button:not(:disabled)'
 const ROW = 'flex min-h-18 w-full items-start gap-3 px-3 py-3 text-kral-fg transition-colors duration-150 ease-out hover:bg-kral-fg/10 focus-visible:bg-kral-fg/10 motion-reduce:transition-none'
 const TEXT_BUTTON = 'kral-focus font-kral-mono relative flex min-h-9 cursor-pointer after:absolute after:-inset-y-1 after:inset-x-0 after:content-[""] items-center justify-center border border-kral-fg px-3 text-xs tracking-[0.08em] uppercase text-kral-fg transition-colors duration-150 ease-out hover:bg-kral-fg hover:text-kral-bg disabled:cursor-not-allowed disabled:border-kral-rule disabled:text-kral-muted disabled:hover:bg-transparent disabled:hover:text-kral-muted motion-reduce:transition-none'
 
-/** The customer navbar's bell: order updates built from their own orders, unread until the panel is closed. Mount it with `key={email}` so each account reads its own seen list. */
-export function NotificationsBell({ email }: { email?: string }) {
+/** The customer navbar's bell: the server's notifications, unread until the panel is closed. Mount it with `key={email}` so each account starts from its own state. */
+export function NotificationsBell() {
   const panelId = useId()
   const reduced = useReducedMotion()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  const controller = useRef<AbortController | null>(null)
   const [open, setOpen] = useState(false)
   const [place, setPlace] = useState<ReturnType<typeof computePlace>>()
-  const [orders, setOrders] = useState<CustomerOrder[] | null>(getCachedOrders)
-  const [failed, setFailed] = useState(false)
-  const [seen, setSeen] = useState<Seen>(() => loadSeen(email))
-  const entries = useMemo(() => buildNotifications(orders ?? []), [orders])
-  const unread = unreadCount(entries, seen)
-  const latest = useRef(entries)
-  useEffect(() => {
-    latest.current = entries
-  })
+  // The badge only needs the count; the list is read while the panel is open.
+  const { count, items, status, error, retry, markAllRead } = useNotifications({ list: open })
+  const unread = count ?? 0
 
-  const load = useCallback((force: boolean) => {
-    controller.current?.abort()
-    const abort = new AbortController()
-    controller.current = abort
-    loadAllOrders({ signal: abort.signal, force }).then(
-      (list) => {
-        setOrders(list)
-        setFailed(false)
-      },
-      (failure: unknown) => {
-        if (!(failure instanceof DOMException && failure.name === 'AbortError')) setFailed(true)
-      },
-    )
-  }, [])
-
-  // The badge needs the orders before the panel opens; the shared cache means this is usually no request at all.
-  useEffect(() => {
-    load(false)
-    const unsubscribe = onOrdersChanged(() => load(true))
-    // A change found by polling lands in the shared cache; the badge and list follow it.
-    const unmerge = onOrdersMerged(setOrders)
-    return () => {
-      unsubscribe()
-      unmerge()
-      controller.current?.abort()
-    }
-  }, [load])
-  useLivePoll(pollOrders, { enabled: orders !== null })
-
-  // The notifications page saves to the same list; follow it.
-  useEffect(() => onSeenChanged(() => setSeen(loadSeen(email))), [email])
-
-  const markAllRead = useCallback(() => {
-    const next = markSeen(latest.current)
-    setSeen(next)
-    saveSeen(email, next)
-  }, [email])
-
+  // Closing, however it happens, marks what was shown as read.
   function close(refocus: boolean) {
     setOpen(false)
+    void markAllRead()
     if (refocus) buttonRef.current?.focus()
   }
-
-  // Closing, however it happens, marks what was shown as seen.
-  useEffect(() => {
-    if (!open) return
-    return markAllRead
-  }, [open, markAllRead])
 
   useEffect(() => {
     if (!open) return
@@ -138,16 +89,9 @@ export function NotificationsBell({ email }: { email?: string }) {
   function toggle() {
     if (open) return close(false)
     setOpen(true)
-    // A look at the server's copy on every open, unless the first read is still on its way.
-    if (orders || failed) load(true)
   }
 
-  function retry() {
-    setFailed(false)
-    load(true)
-  }
-
-  const state = orders ? (entries.length ? 'list' : 'empty') : failed ? 'error' : 'loading'
+  const state = status === 'error' && items.length === 0 ? 'error' : status === 'loading' ? 'loading' : items.length ? 'list' : 'empty'
   const top = place?.top
   const maxHeight = top === undefined ? `calc(100dvh - ${place?.bottom ?? 0}px - 0.5rem)` : `min(${window.innerWidth < 768 ? 55 : 70}dvh, calc(100dvh - ${top}px - 0.5rem))`
 
@@ -161,10 +105,10 @@ export function NotificationsBell({ email }: { email?: string }) {
           aria-controls={open ? panelId : undefined}
           aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
           onClick={toggle}
-          className={KRAL_ICON_BUTTON}
+          className={`${KRAL_ICON_BUTTON} min-w-11 shrink-0`}
         >
           <BellIcon />
-          {unread > 0 && (
+          {count !== null && unread > 0 && (
             <span aria-hidden="true" className={KRAL_ICON_COUNT}>
               {unread > 99 ? '99+' : unread}
             </span>
@@ -191,7 +135,7 @@ export function NotificationsBell({ email }: { email?: string }) {
                   <h2 className="text-sm font-semibold">Notifications</h2>
                   <p className="font-kral-mono text-xs text-kral-muted tabular-nums">{unread} unread</p>
                 </div>
-                <button type="button" onClick={markAllRead} disabled={unread === 0} className={TEXT_BUTTON}>
+                <button type="button" onClick={() => void markAllRead()} disabled={unread === 0} className={TEXT_BUTTON}>
                   Mark all read
                 </button>
               </div>
@@ -199,17 +143,15 @@ export function NotificationsBell({ email }: { email?: string }) {
                 {state === 'loading' && <Skeleton />}
                 {state === 'error' && (
                   <div className="flex flex-col items-start gap-3 px-3 py-4">
-                    <p className="text-sm">We couldn&apos;t load your orders. Check your connection, then try again.</p>
-                    <button type="button" onClick={retry} className={TEXT_BUTTON}>
-                      Try again
-                    </button>
+                    <p className="text-sm">{failureCopy(error)}</p>
+                    <RetryButton error={error} onRetry={retry} className={TEXT_BUTTON} />
                   </div>
                 )}
                 {state === 'empty' && (
                   <div className="flex flex-col items-start gap-3 px-3 py-4">
                     <div>
                       <p className="text-sm font-semibold">No notifications yet</p>
-                      <p className="text-sm text-kral-muted">Updates on your orders show up here once you place one.</p>
+                      <p className="text-sm text-kral-muted">Order, payment and delivery updates show here.</p>
                     </div>
                     <Link to="/shop" onClick={() => close(false)} className={TEXT_BUTTON}>
                       Continue shopping
@@ -218,9 +160,9 @@ export function NotificationsBell({ email }: { email?: string }) {
                 )}
                 {state === 'list' && (
                   <ul>
-                    {entries.map((entry) => (
+                    {items.map((entry) => (
                       <li key={entry.id} className="border-b border-kral-rule last:border-b-0">
-                        <Row entry={entry} unread={isUnread(entry, seen)} onDone={() => close(false)} />
+                        <Row entry={entry} onDone={() => close(false)} />
                       </li>
                     ))}
                   </ul>
@@ -242,23 +184,32 @@ export function NotificationsBell({ email }: { email?: string }) {
   )
 }
 
-function Row({ entry, unread, onDone }: { entry: Notification; unread: boolean; onDone: () => void }) {
-  return (
-    <Link to={`/orders/${entry.id}`} onClick={onDone} className={`kral-focus ${ROW}`}>
+function Row({ entry, onDone }: { entry: ServerNotification; onDone: () => void }) {
+  const unread = !entry.readAt
+  const href = notificationHref(entry)
+  const content = (
+    <>
       {/* A square dot, not colour alone: present only while unread, with the same room kept when read. */}
       <span aria-hidden="true" className={`mt-2 size-2 shrink-0 ${unread ? 'bg-kral-fg' : ''}`} />
-      <PhotoImg tone="kral" src={entry.imageUrl} alt={entry.itemName} loading="lazy" className="h-14 w-11 shrink-0 object-cover" />
       <span className="min-w-0 flex-1">
         {unread && <span className="sr-only">Unread. </span>}
         <span className="flex items-baseline justify-between gap-3">
-          <span className="font-kral-mono min-w-0 truncate text-sm tabular-nums">{entry.orderNumber}</span>
-          <time dateTime={entry.at} className="font-kral-mono shrink-0 text-xs text-kral-muted tabular-nums">
-            {relativeTime(entry.at)}
+          <span className={`min-w-0 text-sm ${unread ? 'font-semibold' : 'text-kral-muted'}`}>{entry.title}</span>
+          <time dateTime={entry.createdAt} className="font-kral-mono shrink-0 text-xs text-kral-muted tabular-nums">
+            {relativeTime(entry.createdAt)}
           </time>
         </span>
-        <span className={`block text-sm ${unread ? 'font-semibold' : 'text-kral-muted'}`}>{entry.sentence}</span>
+        {entry.body && <span className="block text-sm text-kral-muted">{entry.body}</span>}
       </span>
+    </>
+  )
+  // A notification that names no order has nowhere to go: a plain row, closed with the panel.
+  return href ? (
+    <Link to={href} onClick={onDone} className={`kral-focus ${ROW}`}>
+      {content}
     </Link>
+  ) : (
+    <div className={ROW}>{content}</div>
   )
 }
 

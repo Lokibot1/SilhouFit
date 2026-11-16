@@ -3,7 +3,7 @@ import { OrdersBreadcrumb } from '../orders/OrdersBreadcrumb'
 // Same paddings and row heights as the loaded page, so nothing shifts when it swaps in.
 const BLOCK = 'bg-kral-porcelain dark:bg-kral-graphite'
 
-/** The filters and rows while the orders load. */
+/** The filters and rows while the notifications load. */
 export function NotificationsListSkeleton() {
   return (
     <div role="status" aria-label="Loading notifications" className="animate-pulse motion-reduce:animate-none">
@@ -15,7 +15,6 @@ export function NotificationsListSkeleton() {
         {Array.from({ length: 5 }, (_, i) => (
           <li key={i} className="flex min-h-18 items-start gap-3 border-b border-kral-rule px-4 py-3 last:border-b-0">
             <span className={`mt-2 size-2 shrink-0 ${BLOCK}`} />
-            <span className={`h-20 w-16 shrink-0 ${BLOCK}`} />
             <span className="min-w-0 flex-1">
               <span className="flex h-6 items-center">
                 <span className={`h-3 w-1/3 ${BLOCK}`} />
@@ -27,6 +26,10 @@ export function NotificationsListSkeleton() {
           </li>
         ))}
       </ul>
+      {/* The "Showing X of Y" line, so the page does not grow when it loads. */}
+      <div className="mt-4 flex h-6 items-center md:h-5">
+        <span className={`h-3 w-32 ${BLOCK}`} />
+      </div>
     </div>
   )
 }

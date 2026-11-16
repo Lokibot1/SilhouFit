@@ -40,6 +40,15 @@ export async function mockAuth(page: Page, { brandNew = false }: { brandNew?: bo
       headers: CORS,
     })
   })
+  // No notifications by default, so a signed-in page's bell never reaches the real API; mockNotifications registers a later route that wins.
+  await page.route(
+    (url) => url.origin !== 'http://localhost:5173' && /^\/notifications(\/|$)/.test(url.pathname),
+    (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+      const empty = { data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0, hasNextPage: false, hasPreviousPage: false } }
+      return route.fulfill({ json: route.request().url().endsWith('/unread-count') ? { count: 0 } : empty, headers: CORS })
+    },
+  )
   // No saved addresses by default; a test that needs some registers mockAddresses, which wins as the later route.
   await page.route('**/users/me/addresses', (route) => route.fulfill({ json: [], headers: CORS }))
   await page.route('**/users/me', (route) =>

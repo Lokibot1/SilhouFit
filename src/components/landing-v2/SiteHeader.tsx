@@ -177,7 +177,7 @@ function ShopControls({ user, logo }: { user: CurrentUser | null; logo: ReactNod
         )}
         {user ? (
           <>
-            {!user.role || user.role === 'customer' ? <NotificationsBell key={user.email} email={user.email} /> : null}
+            {!user.role || user.role === 'customer' ? <NotificationsBell key={user.email} /> : null}
             {/* A customer is already on the website; the link is for staff. */}
             {user.role && user.role !== 'customer' && <VisitWebsiteLink tone="kral" />}
             <AccountMenu user={user} tone="kral" messages={!user.role || user.role === 'customer'} />
