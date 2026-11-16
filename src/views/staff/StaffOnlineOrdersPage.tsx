@@ -153,13 +153,13 @@ export function StaffOnlineOrdersPage() {
 
         {state.status === 'error' && result && (
           <div className="mb-3 rounded-xl border border-line bg-canvas-sub p-3">
-            <SectionError what="the latest orders" kind={state.kind} onRetry={retry} />
+            <SectionError what="the latest orders" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
             <p className="mt-3 text-sm text-fg-muted">The list below is from before your last change.</p>
           </div>
         )}
 
         {state.status === 'error' && !result ? (
-          <SectionError what="the orders" kind={state.kind} onRetry={retry} />
+          <SectionError what="the orders" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
         ) : result && result.data.length === 0 ? (
           <div>
             {result.meta.total > 0 ? (

@@ -12,7 +12,7 @@ const LIMIT = 10
 type State =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'error'; kind: SectionErrorKind }
+  | { status: 'error'; kind: SectionErrorKind; retryAfterMs?: number }
   | { status: 'success'; items: ProductListItem[]; total: number }
 
 export function ProductLookup() {
@@ -42,7 +42,7 @@ export function ProductLookup() {
     found.then(
       (result) => setState({ status: 'success', ...result }),
       (error: unknown) => {
-        if (!controller.signal.aborted) setState({ status: 'error', kind: errorKind(error) })
+        if (!controller.signal.aborted) setState({ status: 'error', kind: errorKind(error), retryAfterMs: (error as { retryAfterMs?: number } | null)?.retryAfterMs })
       },
     )
     return () => controller.abort()
@@ -86,7 +86,7 @@ export function ProductLookup() {
 
       <div className="mt-4" aria-live="polite">
         {view.status === 'loading' && <ProductRowsSkeleton count={3} label="Searching products" />}
-        {view.status === 'error' && <SectionError what="the search results" kind={view.kind} onRetry={() => setAttempt((n) => n + 1)} />}
+        {view.status === 'error' && <SectionError what="the search results" kind={view.kind} retryAfterMs={view.retryAfterMs} onRetry={() => setAttempt((n) => n + 1)} />}
         {view.status === 'success' &&
           (view.items.length === 0 ? (
             <div>

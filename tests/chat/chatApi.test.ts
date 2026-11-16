@@ -38,6 +38,15 @@ const conversation = {
   updatedAt: '2026-11-04T01:00:00Z',
 }
 
+describe('a rate limit', () => {
+  it('keeps the Retry-After wait on the ChatError', async () => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 429, headers: { 'Retry-After': '7' } }))
+    const error = await fetchMessages('c1').catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ChatError)
+    expect((error as ChatError).retryAfterMs).toBe(7000)
+  })
+})
+
 describe('fetchMessages', () => {
   it('asks for 50 before the cursor and keeps the API order, oldest first', async () => {
     reply({ data: [message('m1', '2026-11-04T01:00:00Z'), message('m2', '2026-11-04T02:00:00Z')], meta: { total: 9, limit: 50, hasMore: true } })

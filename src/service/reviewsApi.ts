@@ -76,12 +76,14 @@ export class ReviewsError extends Error {
   /** Copy the screen can show as it is (what happened, why, what to do), when the server's answer allows one. */
   detail?: string
   status?: number
+  retryAfterMs?: number
 
-  constructor(kind: ReviewsErrorKind, detail?: string, status?: number) {
+  constructor(kind: ReviewsErrorKind, detail?: string, status?: number, retryAfterMs?: number) {
     super(`The reviews request failed (${kind}).`)
     this.kind = kind
     this.detail = detail
     this.status = status
+    this.retryAfterMs = retryAfterMs
   }
 }
 
@@ -90,7 +92,7 @@ type Operation = 'read' | 'create' | 'update' | 'moderate'
 /** Turns the API's failure into one the screen can explain; an abort passes through untouched. */
 function toReviewsError(failure: unknown, operation: Operation): unknown {
   if (!(failure instanceof ProductListError)) return failure
-  const { kind, detail, status } = failure
+  const { kind, detail, status, retryAfterMs } = failure
   const told = detail ?? ''
   if (operation === 'create' && kind === 'conflict') {
     return new ReviewsError('already-reviewed', 'You already reviewed this product on this order, possibly from another tab or device. Reload the page to see your review, then edit it if you want to change it.', status)
@@ -102,7 +104,7 @@ function toReviewsError(failure: unknown, operation: Operation): unknown {
     return new ReviewsError('edit-window', `Reviews can only be edited within ${REVIEW_EDIT_WINDOW_DAYS} days of posting, and this one is past that. Your review stays as it is.`, status)
   }
   if (kind === 'forbidden') return new ReviewsError('forbidden', 'Your session ended. Sign in again, then try again.', status)
-  return new ReviewsError(kind, told || undefined, status)
+  return new ReviewsError(kind, told || undefined, status, retryAfterMs)
 }
 
 async function call(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, body: unknown, signal: AbortSignal | undefined, operation: Operation) {

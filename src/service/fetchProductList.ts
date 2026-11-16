@@ -75,14 +75,23 @@ export class ProductListError extends Error {
   status?: number
   /** The server's machine-readable `code` (`staff_not_found`, `weak_password`), when it sent one. */
   code?: string
+  /** On a 429: how long the server asked us to wait (its `Retry-After`), 15 s when it did not say, at most 120 s. */
+  retryAfterMs?: number
 
-  constructor(kind: ProductListErrorKind, detail?: string, status?: number, code?: string) {
+  constructor(kind: ProductListErrorKind, detail?: string, status?: number, code?: string, retryAfterMs?: number) {
     super(`Loading products failed (${kind}).`)
     this.kind = kind
     this.detail = detail
     this.status = status
     this.code = code
+    this.retryAfterMs = retryAfterMs
   }
+}
+
+const retryAfterMs = (response: Response) => {
+  if (response.status !== 429) return undefined
+  const seconds = Number(response.headers?.get('Retry-After'))
+  return Math.min(seconds > 0 ? seconds : 15, 120) * 1000
 }
 
 const STATUS_KIND: Record<number, ProductListErrorKind> = { 400: 'validation', 401: 'forbidden', 403: 'forbidden', 404: 'not-found', 409: 'conflict', 429: 'rate-limit' }
@@ -123,7 +132,7 @@ export async function request(method: 'GET' | 'PATCH' | 'POST' | 'DELETE', path:
   }
   if (!response.ok) {
     const { detail, code } = await errorBody(response)
-    throw new ProductListError(STATUS_KIND[response.status] ?? 'server', detail, response.status, code)
+    throw new ProductListError(STATUS_KIND[response.status] ?? 'server', detail, response.status, code, retryAfterMs(response))
   }
   try {
     return await response.json()

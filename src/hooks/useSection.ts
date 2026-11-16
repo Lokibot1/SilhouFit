@@ -4,7 +4,7 @@ import type { RequestOptions } from '../service/simulateRequest'
 
 export type SectionState<T> =
   | { status: 'loading' }
-  | { status: 'error'; kind: SectionErrorKind }
+  | { status: 'error'; kind: SectionErrorKind; retryAfterMs?: number }
   | { status: 'success'; data: T }
 
 const LOADING: SectionState<never> = { status: 'loading' }
@@ -24,7 +24,7 @@ export function useSection<T>(fetcher: (options: RequestOptions) => Promise<T>) 
         if (!controller.signal.aborted) setAnswer({ for: fetcher, state: { status: 'success', data }, last: data })
       },
       (error: unknown) => {
-        if (!controller.signal.aborted) setAnswer((old) => ({ for: fetcher, state: { status: 'error', kind: errorKind(error) }, last: old.last }))
+        if (!controller.signal.aborted) setAnswer((old) => ({ for: fetcher, state: { status: 'error', kind: errorKind(error), retryAfterMs: (error as { retryAfterMs?: number } | null)?.retryAfterMs }, last: old.last }))
       },
     )
     return () => controller.abort()

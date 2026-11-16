@@ -72,11 +72,11 @@ const WHY: Record<SectionErrorKind, string> = {
   simulated: 'Chat needs a real signed-in account. Saved dev accounts have no session with the server, so sign out and sign in with a real account.',
 }
 
-/** How long Retry waits after the API said it is limiting requests: asking again at once only spends the budget that ran out. */
+/** How long Retry waits after the API said it is limiting requests, when it did not say how long (its Retry-After): asking again at once only spends the budget that ran out. */
 const RATE_LIMIT_WAIT_S = 15
 
-export function SectionError({ what, kind, onRetry }: { what: string; kind: SectionErrorKind; onRetry: () => void }) {
-  const [wait, setWait] = useState(kind === 'rate-limit' ? RATE_LIMIT_WAIT_S : 0)
+export function SectionError({ what, kind, retryAfterMs, onRetry }: { what: string; kind: SectionErrorKind; retryAfterMs?: number; onRetry: () => void }) {
+  const [wait, setWait] = useState(kind === 'rate-limit' ? (retryAfterMs ? Math.ceil(retryAfterMs / 1000) : RATE_LIMIT_WAIT_S) : 0)
 
   useEffect(() => {
     if (wait <= 0) return
@@ -123,7 +123,7 @@ export function SectionBody<T>({
   const { state, retry } = section
   if (state.status === 'loading') return skeleton
   if (state.status === 'error') {
-    const error = <SectionError what={what} kind={state.kind} onRetry={retry} />
+    const error = <SectionError what={what} kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
     return errorClassName ? <div className={errorClassName}>{error}</div> : error
   }
   return children(state.data)

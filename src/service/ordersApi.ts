@@ -85,12 +85,14 @@ export class OrdersError extends Error {
   /** Copy the screen can show as it is (what happened, why, what to do), when the server's answer allows one. */
   detail?: string
   status?: number
+  retryAfterMs?: number
 
-  constructor(kind: OrdersErrorKind, detail?: string, status?: number) {
+  constructor(kind: OrdersErrorKind, detail?: string, status?: number, retryAfterMs?: number) {
     super(`The orders request failed (${kind}).`)
     this.kind = kind
     this.detail = detail
     this.status = status
+    this.retryAfterMs = retryAfterMs
   }
 }
 
@@ -176,7 +178,7 @@ const STOCK_WORDS = /stock|unavailable|no longer available|invalid quantity/i
 /** Turns the API's failure into one the screen can explain; an abort passes through untouched. */
 function toOrdersError(failure: unknown, operation: Operation): unknown {
   if (!(failure instanceof ProductListError)) return failure
-  const { kind, detail, status } = failure
+  const { kind, detail, status, retryAfterMs } = failure
   const told = detail ?? ''
   if (kind === 'validation') {
     if (operation === 'cancel') return new OrdersError('not-cancellable', undefined, status)
@@ -191,7 +193,7 @@ function toOrdersError(failure: unknown, operation: Operation): unknown {
   }
   if (kind === 'not-found' && (operation === 'create' || operation === 'quote')) return new OrdersError('not-found', 'That address is gone. Pick another delivery address.', status)
   if (kind === 'forbidden') return new OrdersError('forbidden', 'Your session ended. Sign in again.', status)
-  return new OrdersError(kind, told || undefined, status)
+  return new OrdersError(kind, told || undefined, status, retryAfterMs)
 }
 
 async function call(method: 'GET' | 'POST', path: string, body: unknown, signal: AbortSignal | undefined, operation: Operation) {

@@ -1,6 +1,8 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, render, renderHook, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { SectionError } from '../../src/components/staff/StaffSection'
 import { useSection } from '../../src/hooks/useSection'
+import { ProductListError } from '../../src/service/fetchProductList'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -8,7 +10,24 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
+describe('SectionError', () => {
+  it('counts down from the server Retry-After, or 15 s without one', () => {
+    const { unmount } = render(<SectionError what="the orders" kind="rate-limit" retryAfterMs={7000} onRetry={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Retry in 7s' })).toBeDisabled()
+    unmount()
+    render(<SectionError what="the orders" kind="rate-limit" onRetry={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Retry in 15s' })).toBeDisabled()
+  })
+})
+
 describe('useSection', () => {
+  it('carries the rate limit wait into the error state', async () => {
+    const fetcher = () => Promise.reject(new ProductListError('rate-limit', undefined, 429, undefined, 7000))
+    const { result } = renderHook(() => useSection(fetcher))
+    await act(async () => {})
+    expect(result.current.state).toEqual({ status: 'error', kind: 'rate-limit', retryAfterMs: 7000 })
+  })
+
   it('shows loading on the same render a new fetcher arrives, then its data', async () => {
     const first = deferred<string>()
     const second = deferred<string>()

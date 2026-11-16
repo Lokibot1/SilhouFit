@@ -34,8 +34,9 @@ export function useLivePoll(refresh: (signal: AbortSignal) => Promise<unknown>, 
     let running = false
     const canRun = () => !document.hidden && navigator.onLine
 
+    let retryAfterMs = 0
     const schedule = () => {
-      const wait = Math.min(intervalMs * 2 ** failures, MAX_POLL_MS)
+      const wait = Math.min(Math.max(intervalMs * 2 ** failures, retryAfterMs), MAX_POLL_MS)
       timer = window.setTimeout(run, wait * (1 - JITTER + 2 * JITTER * Math.random()))
     }
     async function run() {
@@ -46,9 +47,11 @@ export function useLivePoll(refresh: (signal: AbortSignal) => Promise<unknown>, 
       try {
         await latest.current(abort.signal)
         failures = 0
-      } catch {
+        retryAfterMs = 0
+      } catch (error) {
         if (abort.signal.aborted) return
         failures += 1
+        retryAfterMs = (error as { retryAfterMs?: number } | null)?.retryAfterMs ?? 0
       } finally {
         running = false
       }

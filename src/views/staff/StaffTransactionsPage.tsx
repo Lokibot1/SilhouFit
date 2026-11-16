@@ -280,6 +280,7 @@ export function StaffTransactionsPage() {
           <SectionError
             what="the totals"
             kind={totals.state.kind}
+            retryAfterMs={totals.state.retryAfterMs}
             onRetry={totals.retry}
           />
         </div>
@@ -326,6 +327,7 @@ export function StaffTransactionsPage() {
             <SectionError
               what="the latest transactions"
               kind={state.kind}
+              retryAfterMs={state.retryAfterMs}
               onRetry={retry}
             />
             <p className="mt-3 text-sm text-fg-muted">
@@ -338,6 +340,7 @@ export function StaffTransactionsPage() {
           <SectionError
             what="the transactions"
             kind={state.kind}
+            retryAfterMs={state.retryAfterMs}
             onRetry={retry}
           />
         ) : result && result.data.length === 0 ? (

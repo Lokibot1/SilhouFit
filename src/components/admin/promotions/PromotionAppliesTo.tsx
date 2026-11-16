@@ -32,7 +32,7 @@ function CategoryPicker({ category, onChange }: { category: string; onChange: (c
   if (state.status === 'error') {
     return (
       <div className="grid gap-2 rounded-xl border border-line p-3">
-        <SectionError what="the categories" kind={state.kind} onRetry={retry} />
+        <SectionError what="the categories" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
         <p className="text-xs text-fg-muted">{category ? `Still selected: ${category}. ` : ''}You can still choose All products.</p>
       </div>
     )
@@ -130,7 +130,7 @@ function ProductPicker({ products, onChange, disabled }: { products: PromoProduc
             ))}
           </div>
         ) : state.status === 'error' ? (
-          <SectionError what="the products" kind={state.kind} onRetry={retry} />
+          <SectionError what="the products" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
         ) : state.data.products.length === 0 ? (
           <div>
             <p className="text-base font-semibold text-fg">{search ? `No products match "${search}"` : 'No products yet'}</p>

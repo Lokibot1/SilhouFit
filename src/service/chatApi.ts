@@ -84,11 +84,13 @@ export type ChatErrorKind = ProductListErrorKind | 'simulated'
 export class ChatError extends Error {
   kind: ChatErrorKind
   detail?: string
+  retryAfterMs?: number
 
-  constructor(kind: ChatErrorKind, detail?: string) {
+  constructor(kind: ChatErrorKind, detail?: string, retryAfterMs?: number) {
     super(`Chat request failed (${kind}).`)
     this.kind = kind
     this.detail = detail
+    this.retryAfterMs = retryAfterMs
   }
 }
 
@@ -120,7 +122,7 @@ async function call(method: 'GET' | 'POST', path: string, body?: unknown, signal
   try {
     return await request(method, path, body, signal)
   } catch (failure) {
-    if (failure instanceof ProductListError) throw new ChatError(failure.kind, failure.detail)
+    if (failure instanceof ProductListError) throw new ChatError(failure.kind, failure.detail, failure.retryAfterMs)
     throw failure
   }
 }

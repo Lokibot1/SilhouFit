@@ -267,7 +267,7 @@ function Body({ order, onChanged }: BodyProps) {
       <Header order={order} detail={detail} />
       {state.status === 'error' && (
         <div className="rounded-xl border border-line bg-canvas-sub p-4">
-          <SectionError what={detail ? 'the latest order details' : 'the order details'} kind={state.kind} onRetry={retry} />
+          <SectionError what={detail ? 'the latest order details' : 'the order details'} kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
           {detail && <p className="mt-3 text-base text-fg-muted md:text-sm">What shows below is from before your last change.</p>}
         </div>
       )}

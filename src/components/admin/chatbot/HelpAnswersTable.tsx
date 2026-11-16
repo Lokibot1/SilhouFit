@@ -62,7 +62,7 @@ export function HelpAnswersTable({ list, onCreate, onEdit, onDelete, onMove }: H
   const { state, result, stale, retry, page, setPage, per, filtered, clear } = list
   const rows = result?.data ?? null
 
-  if (state.status === 'error' && !result) return <SectionError what="the help answers" kind={state.kind} onRetry={retry} />
+  if (state.status === 'error' && !result) return <SectionError what="the help answers" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
 
   if (result && result.data.length === 0) {
     return (
@@ -113,7 +113,7 @@ export function HelpAnswersTable({ list, onCreate, onEdit, onDelete, onMove }: H
     <>
       {state.status === 'error' && result && (
         <div className="mb-3 rounded-xl border border-line bg-canvas-sub p-3">
-          <SectionError what="the latest answers" kind={state.kind} onRetry={retry} />
+          <SectionError what="the latest answers" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
           <p className="mt-3 text-sm text-fg-muted">The list below is from before your last change.</p>
         </div>
       )}

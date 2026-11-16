@@ -66,7 +66,7 @@ export function RefundsTable({ list, selecting, selected, onToggle, onToggleAll,
   // An empty answer to an earlier view is not shown while the next one loads (it would read as "none yet" after Clear filters).
   const rows = result && !(stale && result.data.length === 0) ? result.data : null
 
-  if (state.status === 'error' && !result) return <SectionError what="the refund requests" kind={state.kind} onRetry={retry} />
+  if (state.status === 'error' && !result) return <SectionError what="the refund requests" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
 
   if (result && result.data.length === 0 && !stale) {
     return (
@@ -113,7 +113,7 @@ export function RefundsTable({ list, selecting, selected, onToggle, onToggleAll,
     <>
       {state.status === 'error' && result && (
         <div className="mb-3 rounded-xl border border-line bg-canvas-sub p-3">
-          <SectionError what="the latest refund requests" kind={state.kind} onRetry={retry} />
+          <SectionError what="the latest refund requests" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
           <p className="mt-3 text-sm text-fg-muted">The list below is from before your last change.</p>
         </div>
       )}

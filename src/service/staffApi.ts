@@ -9,13 +9,15 @@ export class StaffApiError extends Error {
   detail?: string
   status?: number
   code?: string
+  retryAfterMs?: number
 
-  constructor(kind: ProductListErrorKind, detail?: string, status?: number, code?: string) {
+  constructor(kind: ProductListErrorKind, detail?: string, status?: number, code?: string, retryAfterMs?: number) {
     super(`Accounts request failed (${kind}).`)
     this.kind = kind
     this.detail = detail
     this.status = status
     this.code = code
+    this.retryAfterMs = retryAfterMs
   }
 }
 
@@ -27,7 +29,7 @@ async function call(method: 'GET' | 'POST', path: string, body: unknown, signal?
   try {
     return await request(method, path, body, signal)
   } catch (failure) {
-    if (failure instanceof ProductListError) throw new StaffApiError(failure.kind, failure.detail, failure.status, failure.code)
+    if (failure instanceof ProductListError) throw new StaffApiError(failure.kind, failure.detail, failure.status, failure.code, failure.retryAfterMs)
     throw failure
   }
 }

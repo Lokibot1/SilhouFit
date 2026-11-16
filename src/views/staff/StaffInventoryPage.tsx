@@ -506,6 +506,7 @@ export function StaffInventoryPage() {
             <SectionError
               what="the latest products"
               kind={state.kind}
+              retryAfterMs={state.retryAfterMs}
               onRetry={retry}
             />
             <p className="mt-3 text-sm text-fg-muted">
@@ -515,7 +516,7 @@ export function StaffInventoryPage() {
         )}
 
         {badRange ? null : state.status === "error" && !result ? (
-          <SectionError what="the products" kind={state.kind} onRetry={retry} />
+          <SectionError what="the products" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
         ) : result && result.data.length === 0 ? (
           <div>
             {result.meta.total > 0 ? (

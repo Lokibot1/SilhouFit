@@ -55,7 +55,7 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
   const heading = columns.find((column) => column.title) ?? columns[0]
   const sortChoices = columns.flatMap((column) => (column.sort ? [{ value: column.sort, label: column.sort === 'name' ? 'Name' : column.header }] : []))
 
-  if (state.status === 'error' && !result) return <SectionError what={`the ${noun}`} kind={state.kind} onRetry={retry} />
+  if (state.status === 'error' && !result) return <SectionError what={`the ${noun}`} kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
 
   if (result && result.data.length === 0) {
     return (
@@ -90,7 +90,7 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
     <>
       {state.status === 'error' && result && (
         <div className="mb-3 rounded-xl border border-line bg-canvas-sub p-3">
-          <SectionError what={`the latest ${noun}`} kind={state.kind} onRetry={retry} />
+          <SectionError what={`the latest ${noun}`} kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
           <p className="mt-3 text-sm text-fg-muted">The list below is from before your last change.</p>
         </div>
       )}

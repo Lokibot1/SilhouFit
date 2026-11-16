@@ -40,6 +40,13 @@ const failure = async (call: Promise<unknown>) => {
   return error as StaffApiError
 }
 
+describe('a rate limit', () => {
+  it('keeps the Retry-After wait on the StaffApiError', async () => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 429, headers: { 'Retry-After': '7' } }))
+    expect((await failure(listStaffAccounts({}))).retryAfterMs).toBe(7000)
+  })
+})
+
 describe('listing accounts from GET /users', () => {
   it('sends role, search, sortBy, sortOrder and paging with the bearer token, and maps the accounts', async () => {
     reply({ data: [ITEM], meta: { ...META, total: 11, page: 2, totalPages: 2 } })

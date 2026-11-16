@@ -118,7 +118,7 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
   const { state, result, stale, retry, sorted, sortBy, page, setPage, per, filtered, clear } = list
   const rows = result?.data ?? null
 
-  if (state.status === 'error' && !result) return <SectionError what="the promotions" kind={state.kind} onRetry={retry} />
+  if (state.status === 'error' && !result) return <SectionError what="the promotions" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
 
   if (result && result.data.length === 0) {
     return (
@@ -172,7 +172,7 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
     <>
       {state.status === 'error' && result && (
         <div className="mb-3 rounded-xl border border-line bg-canvas-sub p-3">
-          <SectionError what="the latest promotions" kind={state.kind} onRetry={retry} />
+          <SectionError what="the latest promotions" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
           <p className="mt-3 text-sm text-fg-muted">The list below is from before your last change.</p>
         </div>
       )}

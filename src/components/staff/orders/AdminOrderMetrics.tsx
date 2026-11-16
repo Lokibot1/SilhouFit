@@ -48,7 +48,7 @@ export function AdminOrderMetrics({ version }: { version: number }) {
     <div className={TOTALS_WRAP}>
       {state.status === 'error' && (
         <div className="mb-3 rounded-xl border border-line bg-canvas-sub p-3">
-          <SectionError what="the order counts" kind={state.kind} onRetry={retry} />
+          <SectionError what="the order counts" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
         </div>
       )}
       {metrics ? (

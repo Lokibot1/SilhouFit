@@ -124,6 +124,26 @@ describe('fetchProductList', () => {
     fetchMock.mockRejectedValue(new TypeError('offline'))
     expect(await kindOf(fetchProductList({}))).toBe('network')
   })
+
+  it.each([
+    ['7', 7000],
+    [undefined, 15000],
+    ['', 15000],
+    ['0', 15000],
+    ['-3', 15000],
+    ['abc', 15000],
+    ['9999', 120000],
+  ])('turns a 429 Retry-After of %s into %s ms', async (header, expected) => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 429, headers: header === undefined ? {} : { 'Retry-After': header } }))
+    const error = await fetchProductList({}).catch((e: unknown) => e)
+    expect((error as ProductListError).retryAfterMs).toBe(expected)
+  })
+
+  it('leaves retryAfterMs out of an error that is not a 429', async () => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 500, headers: { 'Retry-After': '7' } }))
+    const error = await fetchProductList({}).catch((e: unknown) => e)
+    expect((error as ProductListError).retryAfterMs).toBeUndefined()
+  })
 })
 
 describe('fetchProductDetail', () => {

@@ -256,7 +256,7 @@ export function StaffMeasurementsPage() {
             </div>
           </div>
         ) : state.status === 'error' ? (
-          <SectionError what={`the ${category} sizes`} kind={state.kind} onRetry={retry} />
+          <SectionError what={`the ${category} sizes`} kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
         ) : rows && rows.length === 0 ? (
           archivedView ? (
             <div>

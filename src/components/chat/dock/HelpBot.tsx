@@ -157,7 +157,7 @@ export function HelpBot() {
   if (state.status === 'error') {
     return (
       <div className="grid content-start gap-4 p-3">
-        <SectionError what="the help answers" kind={state.kind} onRetry={retry} />
+        <SectionError what="the help answers" kind={state.kind} retryAfterMs={state.retryAfterMs} onRetry={retry} />
         {handoff}
       </div>
     )

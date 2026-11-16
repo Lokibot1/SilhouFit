@@ -97,6 +97,25 @@ describe('useLivePoll', () => {
     expect(refresh).toHaveBeenCalledTimes(7)
   })
 
+  it('waits for the Retry-After a rejection carries when it is longer than the backoff, and ignores a shorter one', async () => {
+    const refresh = vi.fn().mockRejectedValue(Object.assign(new Error('limited'), { retryAfterMs: 90_000 }))
+    renderHook(() => useLivePoll(refresh))
+    await vi.advanceTimersByTimeAsync(POLL_MS)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    // The normal backoff is 40s; the server asked for 90s.
+    await vi.advanceTimersByTimeAsync(POLL_MS * 2)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(90_000 - POLL_MS * 2)
+    expect(refresh).toHaveBeenCalledTimes(2)
+
+    const quick = vi.fn().mockRejectedValue(Object.assign(new Error('limited'), { retryAfterMs: 5000 }))
+    renderHook(() => useLivePoll(quick))
+    await vi.advanceTimersByTimeAsync(POLL_MS)
+    expect(quick).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(POLL_MS * 2)
+    expect(quick).toHaveBeenCalledTimes(2)
+  })
+
   it('stops for good once the data is final, and when disabled', async () => {
     const refresh = vi.fn().mockResolvedValue(undefined)
     const { rerender } = renderHook(({ done }) => useLivePoll(refresh, { done }), { initialProps: { done: false } })
