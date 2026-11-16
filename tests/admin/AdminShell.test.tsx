@@ -7,7 +7,6 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { getPermissions, resetPermissions, setRolePermissions } from '../../src/service/permissionStore'
 import { fetchMe } from '../../src/service/fetchMe'
-import { fetchStaffNotifications } from '../../src/service/fetchStaffNotifications'
 import { clearSession, getSession, setSession } from '../../src/service/session'
 import { AdminDashboardPage } from '../../src/views/admin/AdminDashboardPage'
 import { StaffLayout } from '../../src/views/staff/StaffLayout'
@@ -16,9 +15,10 @@ import { ADMIN_ME, resetAdminAccounts, setUpAdminDom, Where } from '../shared/ad
 vi.mock('../../src/service/simulateRequest', () => ({ simulateRequest: () => Promise.resolve({ ok: true }) }))
 vi.mock('../../src/service/fetchMe', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../src/service/fetchMe')>()), fetchMe: vi.fn() }))
 vi.mock('../../src/service/supabase', () => ({ getSupabase: async () => ({ auth: { signOut: vi.fn().mockResolvedValue({ error: null }) } }) }))
-vi.mock('../../src/service/fetchStaffNotifications', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../src/service/fetchStaffNotifications')>()),
-  fetchStaffNotifications: vi.fn(),
+vi.mock('../../src/service/notificationsApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/notificationsApi')>()),
+  fetchUnreadCount: vi.fn().mockResolvedValue(0),
+  fetchNotifications: vi.fn().mockResolvedValue({ items: [], total: 0, hasNextPage: false }),
 }))
 // The dashboard's sales widgets are covered by their own tests; here only the admin part is under test.
 vi.mock('../../src/views/staff/StaffDashboardPage', () => ({
@@ -37,7 +37,6 @@ beforeEach(() => {
   resetPermissions()
   resetAdminAccounts()
   sessionStorage.clear()
-  vi.mocked(fetchStaffNotifications).mockResolvedValue([])
 })
 afterEach(() => {
   vi.clearAllMocks()

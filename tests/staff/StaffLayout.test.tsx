@@ -6,7 +6,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { fetchMe, type Me } from '../../src/service/fetchMe'
-import { fetchStaffNotifications } from '../../src/service/fetchStaffNotifications'
 import { setLoginNotice, takeLoginNotice } from '../../src/service/loginNotice'
 import { clearSession, getSession, setSession } from '../../src/service/session'
 import { ProfilePage } from '../../src/views/private/ProfilePage'
@@ -19,9 +18,10 @@ vi.mock('../../src/service/fetchMe', async (importOriginal) => ({
 vi.mock('../../src/service/supabase', () => ({
   getSupabase: async () => ({ auth: { signOut: vi.fn().mockResolvedValue({ error: null }) } }),
 }))
-vi.mock('../../src/service/fetchStaffNotifications', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../src/service/fetchStaffNotifications')>()),
-  fetchStaffNotifications: vi.fn(),
+vi.mock('../../src/service/notificationsApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/notificationsApi')>()),
+  fetchUnreadCount: vi.fn().mockResolvedValue(0),
+  fetchNotifications: vi.fn().mockResolvedValue({ items: [], total: 0, hasNextPage: false }),
 }))
 const load = vi.mocked(fetchMe)
 // jsdom has no layout: this decides whether the `lg` query (the sidebar is on screen) matches.
@@ -88,7 +88,6 @@ describe('StaffLayout', () => {
   describe('signed in', () => {
     beforeEach(() => {
       act(() => setSession({ name: 'Sam Reyes', email: ME.email }))
-      vi.mocked(fetchStaffNotifications).mockResolvedValue([])
     })
 
     it('sends a customer to the profile with a notice', async () => {

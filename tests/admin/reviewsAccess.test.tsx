@@ -6,16 +6,16 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { canView, DEFAULT_PERMISSIONS, PAGE_GROUPS, pageKeyFor } from '../../src/config/pagePermissions'
 import { ThemeProvider } from '../../src/contexts/ThemeContext'
 import { fetchMe, type Me } from '../../src/service/fetchMe'
-import { fetchStaffNotifications } from '../../src/service/fetchStaffNotifications'
 import { resetPermissions } from '../../src/service/permissionStore'
 import { clearSession, setSession } from '../../src/service/session'
 import { StaffLayout } from '../../src/views/staff/StaffLayout'
 import type { Area } from '../../src/utils/staffRole'
 
 vi.mock('../../src/service/fetchMe', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../src/service/fetchMe')>()), fetchMe: vi.fn() }))
-vi.mock('../../src/service/fetchStaffNotifications', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../src/service/fetchStaffNotifications')>()),
-  fetchStaffNotifications: vi.fn(),
+vi.mock('../../src/service/notificationsApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/notificationsApi')>()),
+  fetchUnreadCount: vi.fn().mockResolvedValue(0),
+  fetchNotifications: vi.fn().mockResolvedValue({ items: [], total: 0, hasNextPage: false }),
 }))
 vi.mock('../../src/service/supabase', () => ({ getSupabase: async () => ({ auth: { signOut: vi.fn().mockResolvedValue({ error: null }) } }) }))
 
@@ -42,7 +42,6 @@ beforeAll(() => {
 beforeEach(() => {
   localStorage.clear()
   resetPermissions()
-  vi.mocked(fetchStaffNotifications).mockResolvedValue([])
 })
 afterEach(() => {
   vi.clearAllMocks()

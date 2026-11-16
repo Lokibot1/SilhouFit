@@ -1,20 +1,25 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useSection } from '../../hooks/useSection'
+import { Link } from 'react-router-dom'
+import { useNotifications } from '../../hooks/useNotifications'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
-import { fetchStaffNotifications, NOTIFICATIONS_SAMPLE_DATA, type NotificationKind, type StaffNotification } from '../../service/fetchStaffNotifications'
+import type { ServerNotification } from '../../service/notificationsApi'
 import { formatOrderTime } from '../../utils/format'
+import type { Area } from '../../utils/staffRole'
 import { AlertIcon, BagIcon, BellIcon } from '../form/icons'
 import { useToast } from '../toast/useToast'
 import { computePlace, LISTBOX_LIST, LISTBOX_PANEL } from '../ui/listbox'
 import { Tooltip } from '../ui/Tooltip'
-import { SectionBody } from './StaffSection'
+import { errorKind, SectionError } from './StaffSection'
 
 const PANEL_WIDTH = 320
 // One row's height, shared by the list and its skeleton so the panel does not resize when the data arrives.
 const ROW = 'flex h-[4.5rem] items-center gap-3 px-3'
 const SKELETON_ROWS = 5
+
+type NotificationKind = 'order' | 'low' | 'out'
+const KINDS: Record<string, NotificationKind> = { STOCK_LOW: 'low', STOCK_OUT: 'out' }
 
 // Same colours as the inventory table's stock badge: sold out is a filled red mark, low stock an amber ring and tint.
 const ICON_CHIP: Record<NotificationKind, string> = {
@@ -36,6 +41,38 @@ function NotificationIcon({ kind, unread }: { kind: NotificationKind; unread: bo
   )
 }
 
+function NotificationRow({ item, area, onOpen }: { item: ServerNotification; area: Area; onOpen: () => void }) {
+  const unread = !item.readAt
+  const orderNumber = typeof item.data?.orderId === 'string' && typeof item.data.orderNumber === 'string' ? item.data.orderNumber : null
+  const content = (
+    <>
+      <NotificationIcon kind={KINDS[item.type] ?? 'order'} unread={unread} />
+      <div className="min-w-0 flex-1">
+        <p className={`line-clamp-1 text-sm leading-5 ${unread ? 'font-semibold text-fg' : 'text-fg-muted'}`}>{item.title}</p>
+        {item.body && <p className="line-clamp-1 text-sm leading-5 text-fg-muted">{item.body}</p>}
+        <p className="mt-1 text-xs leading-4 text-fg-muted">
+          <time dateTime={item.createdAt} className="tabular-nums">
+            {formatOrderTime(item.createdAt)}
+          </time>
+          {unread && <span className="ml-2 font-semibold text-fg">New</span>}
+        </p>
+      </div>
+    </>
+  )
+  // Order notifications open the Online Orders page filtered to that order; others are plain rows.
+  return (
+    <li>
+      {orderNumber ? (
+        <Link to={`/${area}/online-orders?q=${encodeURIComponent(orderNumber)}`} onClick={onOpen} className={`${ROW} hover:bg-fg/10`}>
+          {content}
+        </Link>
+      ) : (
+        <div className={ROW}>{content}</div>
+      )}
+    </li>
+  )
+}
+
 function NotificationsSkeleton() {
   return (
     <ul role="status" aria-label="Loading notifications" className="animate-pulse divide-y divide-line">
@@ -52,23 +89,17 @@ function NotificationsSkeleton() {
   )
 }
 
-/**
- * The bell in the staff top bar: a button with an unread badge that opens a panel of notifications.
- * Marking all as read is kept in this component until the API has an endpoint for it.
- */
-export function NotificationMenu() {
+/** The bell in the staff top bar: a button with an unread badge that opens a panel of the server's notifications. `area` is where an order's notification leads. */
+export function NotificationMenu({ area }: { area: Area }) {
   const toast = useToast()
-  const section = useSection(fetchStaffNotifications)
   const panelId = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [place, setPlace] = useState<ReturnType<typeof computePlace>>()
-  const [allRead, setAllRead] = useState(false)
-
-  const items = section.state.status === 'success' ? section.state.data : undefined
-  const isUnread = (item: StaffNotification) => !allRead && !item.read
-  const unread = items?.filter(isUnread).length ?? 0
+  // The badge only needs the count; the list is read while the panel is open.
+  const { count, items, status, error, retry, markRead, markAllRead } = useNotifications({ list: open })
+  const unread = count ?? 0
 
   function close(refocus: boolean) {
     setOpen(false)
@@ -85,7 +116,7 @@ export function NotificationMenu() {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Tab') {
         // Tab walks the panel's buttons; past the last (or before the first) it returns to the bell instead of dropping focus.
-        const buttons = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button') ?? [])
+        const buttons = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('a, button') ?? [])
         const at = buttons.indexOf(document.activeElement as HTMLElement)
         if (at >= 0 && at !== (event.shiftKey ? 0 : buttons.length - 1)) return
         event.preventDefault()
@@ -114,14 +145,15 @@ export function NotificationMenu() {
   // The panel mounts once its place is known, so focus moves in then (to the panel itself while it has no buttons).
   const placed = place !== undefined
   useEffect(() => {
-    if (open && placed) (panelRef.current?.querySelector<HTMLElement>('button') ?? panelRef.current)?.focus()
+    if (open && placed) (panelRef.current?.querySelector<HTMLElement>('a, button') ?? panelRef.current)?.focus()
   }, [open, placed])
 
-  function markAllRead() {
+  async function onMarkAll() {
     if (unread === 0) return
-    setAllRead(true)
-    toast.show({ kind: 'success', message: 'All notifications marked as read' })
+    if (await markAllRead()) toast.show({ kind: 'success', message: 'All notifications marked as read' })
   }
+
+  const state = status === 'error' && items.length === 0 ? 'error' : status === 'loading' ? 'loading' : items.length ? 'list' : 'empty'
 
   return (
     <>
@@ -164,11 +196,11 @@ export function NotificationMenu() {
             >
               <div className="flex min-h-11 shrink-0 items-center justify-between gap-2 border-b border-line-strong px-3">
                 <p className="text-base font-semibold text-fg">Notifications</p>
-                {items && items.length > 0 && (
+                {items.length > 0 && (
                   <button
                     type="button"
                     aria-disabled={unread === 0}
-                    onClick={markAllRead}
+                    onClick={() => void onMarkAll()}
                     className="font-ui -mr-2 min-h-9 cursor-pointer rounded-xl px-2 text-sm font-semibold text-fg hover:bg-fg/10 pointer-coarse:min-h-11 aria-disabled:cursor-default aria-disabled:text-fg-muted aria-disabled:hover:bg-transparent"
                   >
                     Mark all as read
@@ -176,35 +208,34 @@ export function NotificationMenu() {
                 )}
               </div>
               <div className={LISTBOX_LIST}>
-                <SectionBody section={section} what="notifications" skeleton={<NotificationsSkeleton />} errorClassName="px-3 py-3">
-                  {(list) =>
-                    list.length === 0 ? (
-                      <div className="px-3 py-4">
-                        <p className="text-base font-semibold text-fg">You&apos;re all caught up</p>
-                        <p className="mt-1 text-sm text-fg-muted">Low stock alerts and new orders show here as they happen.</p>
-                      </div>
-                    ) : (
-                      <ul className="divide-y divide-line">
-                        {list.map((item) => (
-                          <li key={item.id} className={ROW}>
-                            <NotificationIcon kind={item.kind} unread={isUnread(item)} />
-                            <div className="min-w-0 flex-1">
-                              <p className={`line-clamp-2 text-sm leading-5 ${isUnread(item) ? 'font-semibold text-fg' : 'text-fg-muted'}`}>{item.message}</p>
-                              <p className="mt-1 text-xs leading-4 text-fg-muted">
-                                <time dateTime={item.createdAt} className="tabular-nums">
-                                  {formatOrderTime(item.createdAt)}
-                                </time>
-                                {isUnread(item) && <span className="ml-2 font-semibold text-fg">New</span>}
-                              </p>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )
-                  }
-                </SectionBody>
+                {state === 'loading' && <NotificationsSkeleton />}
+                {state === 'error' && (
+                  <div className="px-3 py-3">
+                    <SectionError what="notifications" kind={errorKind(error)} retryAfterMs={error?.retryAfterMs} onRetry={retry} />
+                  </div>
+                )}
+                {state === 'empty' && (
+                  <div className="px-3 py-4">
+                    <p className="text-base font-semibold text-fg">You&apos;re all caught up</p>
+                    <p className="mt-1 text-sm text-fg-muted">New orders show here as they are placed.</p>
+                  </div>
+                )}
+                {state === 'list' && (
+                  <ul className="divide-y divide-line">
+                    {items.map((item) => (
+                      <NotificationRow
+                        key={item.id}
+                        item={item}
+                        area={area}
+                        onOpen={() => {
+                          void markRead(item.id)
+                          close(false)
+                        }}
+                      />
+                    ))}
+                  </ul>
+                )}
               </div>
-              {NOTIFICATIONS_SAMPLE_DATA && <p className="shrink-0 border-t border-line-strong px-3 py-2 text-xs text-fg-muted">Sample data</p>}
             </motion.div>
           )}
         </AnimatePresence>,

@@ -44,7 +44,7 @@ export function StaffTopbar({ area, user, wide, collapsed, onToggleSidebar, onMe
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <VisitWebsiteLink />
-        <NotificationMenu />
+        <NotificationMenu area={area} />
         <MessagesButton area={area} />
         <AccountMenu user={user} profileTo={`/${area}/profile`} ordersTo={null} onSignOut={onSignOut} themeSwitch />
       </div>
