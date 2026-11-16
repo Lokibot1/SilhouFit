@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEV_SUPERADMIN } from '../../src/data/mockAccounts'
-import { DEFAULT_PERMISSIONS, canView, pageKeyFor } from '../../src/config/pagePermissions'
+import { DEFAULT_PERMISSIONS, PAGE_GROUPS, canView, pageKeyFor } from '../../src/config/pagePermissions'
 import { resetAccounts } from '../../src/service/accountStore'
 import { getPermissions, PERMISSIONS_KEY, resetPermissions, setRolePermissions } from '../../src/service/permissionStore'
 import { clearSession } from '../../src/service/session'
@@ -43,6 +43,7 @@ describe('page permissions', () => {
     expect(canView('staff', 'inventory', DEFAULT_PERMISSIONS)).toBe(true)
     expect(canView('staff', 'user-management', DEFAULT_PERMISSIONS)).toBe(false)
     expect(canView('admin', 'user-management', DEFAULT_PERMISSIONS)).toBe(true)
+    expect(canView('staff', 'user-management', { ...DEFAULT_PERMISSIONS, staff: [...DEFAULT_PERMISSIONS.staff, 'user-management'] })).toBe(false)
     expect(canView(undefined, 'shop', DEFAULT_PERMISSIONS)).toBe(true)
     expect(canView('customer', 'inventory', DEFAULT_PERMISSIONS)).toBe(false)
   })
@@ -53,6 +54,14 @@ describe('page permissions', () => {
     expect(canView('superadmin', 'shop', none)).toBe(true)
     expect(canView('staff', 'shop', none)).toBe(true)
     expect(canView(undefined, 'shop', none)).toBe(false)
+  })
+
+  it('never offers user management to staff, and ignores it in what staff had saved', () => {
+    expect(PAGE_GROUPS.filter((group) => group.roles.includes('staff')).flatMap((group) => group.pages.map((page) => page.key))).not.toContain('user-management')
+    expect(PAGE_GROUPS.filter((group) => group.roles.includes('admin')).flatMap((group) => group.pages.map((page) => page.key))).toContain('user-management')
+    localStorage.setItem(PERMISSIONS_KEY, JSON.stringify({ staff: ['inventory', 'user-management'] }))
+    window.dispatchEvent(new StorageEvent('storage', { key: PERMISSIONS_KEY }))
+    expect(getPermissions().staff).toEqual(['inventory'])
   })
 
   it('saves a role and keeps it after a reload', () => {

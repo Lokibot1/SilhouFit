@@ -138,6 +138,7 @@ describe('StaffLayout for a simulated account', () => {
             <Routes>
               <Route path="admin" element={<StaffLayout area="admin" />}>
                 <Route path="users" element={<p>users page</p>} />
+                <Route path="activity-logs" element={<p>logs page</p>} />
               </Route>
               <Route path="staff" element={<p>staff dashboard</p>} />
               <Route path="login" element={<p>login page</p>} />
@@ -159,9 +160,18 @@ describe('StaffLayout for a simulated account', () => {
   it('lets staff open an admin page once a superadmin turns it on', async () => {
     act(() => setSession({ name: 'Sam Reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff' }))
     load.mockResolvedValue({ ...ADMIN_ME, role: 'staff' })
+    setRolePermissions('staff', [...getPermissions().staff, 'activity-logs'])
+    renderLayout('/admin/activity-logs')
+    expect(await screen.findByText('logs page')).toBeInTheDocument()
+  })
+
+  it('keeps staff out of /admin/users even when user-management is in their saved permissions', async () => {
+    act(() => setSession({ name: 'Sam Reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff' }))
+    load.mockResolvedValue({ ...ADMIN_ME, role: 'staff' })
     setRolePermissions('staff', [...getPermissions().staff, 'user-management'])
     renderLayout('/admin/users')
-    expect(await screen.findByText('users page')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/staff'))
+    expect(screen.queryByText('users page')).not.toBeInTheDocument()
   })
 
   it('sends staff who open /admin itself to their own dashboard', async () => {

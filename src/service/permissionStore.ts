@@ -1,18 +1,16 @@
 // The page permissions per role, kept in localStorage like the saved accounts. Stands in for the permissions API until the backend has it.
-import { DEFAULT_PERMISSIONS, PERMISSION_ROLES, type PageKey, type PermissionRole, type Permissions } from '../config/pagePermissions'
+import { DEFAULT_PERMISSIONS, GRANTABLE, PERMISSION_ROLES, type PageKey, type PermissionRole, type Permissions } from '../config/pagePermissions'
 
 export const PERMISSIONS_KEY = 'silhoufit.permissions.v1'
-
-const ALL_KEYS = new Set<string>(Object.values(DEFAULT_PERMISSIONS).flat())
 
 function load(): Permissions {
   try {
     const parsed = JSON.parse(localStorage.getItem(PERMISSIONS_KEY) ?? 'null') as Partial<Record<PermissionRole, unknown>> | null
-    // Keys that no longer exist are dropped; a role with no saved list keeps its default.
+    // Keys that no longer exist, or that the role cannot be given, are dropped; a role with no saved list keeps its default.
     return Object.fromEntries(
       PERMISSION_ROLES.map(({ role }) => {
         const saved = parsed?.[role]
-        return [role, Array.isArray(saved) ? saved.filter((key): key is PageKey => ALL_KEYS.has(key)) : [...DEFAULT_PERMISSIONS[role]]]
+        return [role, Array.isArray(saved) ? saved.filter((key): key is PageKey => GRANTABLE[role].has(key)) : [...DEFAULT_PERMISSIONS[role]]]
       }),
     ) as Permissions
   } catch {

@@ -68,13 +68,19 @@ export const PAGE_GROUPS: ReadonlyArray<PageGroup> = [
     label: 'Admin tools',
     roles: ['staff', 'admin'],
     pages: [
-      { key: 'user-management', label: 'User Management' },
       { key: 'activity-logs', label: 'Activity Logs' },
       { key: 'ar-insights', label: 'AR Insights' },
       { key: 'promotions', label: 'Pricing & Promotions' },
       { key: 'refunds', label: 'Returns & Refunds' },
       { key: 'chatbot', label: 'Help Chatbot' },
     ],
+  },
+  // Admin only: the API refuses staff on every /users call, so it is never offered to them.
+  {
+    id: 'user-management',
+    label: 'User management',
+    roles: ['admin'],
+    pages: [{ key: 'user-management', label: 'User Management' }],
   },
 ]
 
@@ -85,7 +91,14 @@ const keysOf = (...ids: string[]) => PAGE_GROUPS.filter((group) => ids.includes(
 export const DEFAULT_PERMISSIONS: Permissions = {
   customer: keysOf('storefront'),
   staff: keysOf('operations'),
-  admin: keysOf('operations', 'admin-tools'),
+  admin: keysOf('operations', 'admin-tools', 'user-management'),
+}
+
+/** The pages a superadmin can give each role; anything else stored for a role is ignored. */
+export const GRANTABLE: Record<PermissionRole, Set<PageKey>> = {
+  customer: new Set(keysOf('storefront')),
+  staff: new Set(PAGE_GROUPS.filter((group) => group.roles.includes('staff')).flatMap((group) => group.pages.map((page) => page.key))),
+  admin: new Set(PAGE_GROUPS.filter((group) => group.roles.includes('admin')).flatMap((group) => group.pages.map((page) => page.key))),
 }
 
 const STOREFRONT = new Set<PageKey>(keysOf('storefront'))
@@ -119,5 +132,5 @@ export function pageKeyFor(pathname: string): PageKey | null {
 export function canView(role: 'superadmin' | 'admin' | 'staff' | 'customer' | undefined, key: PageKey, permissions: Permissions): boolean {
   if (role === 'superadmin') return true
   if (STOREFRONT.has(key)) return role === 'staff' || role === 'admin' || permissions.customer.includes(key)
-  return (role === 'staff' || role === 'admin') && permissions[role].includes(key)
+  return (role === 'staff' || role === 'admin') && GRANTABLE[role].has(key) && permissions[role].includes(key)
 }
