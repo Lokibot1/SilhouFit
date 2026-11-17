@@ -235,7 +235,7 @@ describe('adding', () => {
     await u.type(dialog.getByLabelText('Region'), 'NCR')
     await u.type(dialog.getByLabelText('City or municipality'), 'City of Manila')
     await u.type(dialog.getByLabelText('Barangay'), 'Barangay 176')
-    await u.type(dialog.getByLabelText('Street address'), '12 Rizal Avenue')
+    await u.type(dialog.getByLabelText('House No., Street Name'), '12 Rizal Avenue')
     await u.type(dialog.getByLabelText('Postal code'), '1000')
   }
 
@@ -316,10 +316,10 @@ describe('editing', () => {
     expect(api.getAddressById).toHaveBeenCalledWith(ADDRESS.id)
     const dialog = within(await screen.findByRole('dialog', { name: 'Edit your delivery address' }))
     expect(await dialog.findByRole('button', { name: /^City or municipality/ })).toHaveTextContent('City of Manila')
-    expect(dialog.getByLabelText('Street address')).toHaveValue('12 Rizal Avenue')
+    expect(dialog.getByLabelText('House No., Street Name')).toHaveValue('12 Rizal Avenue')
 
-    await u.clear(dialog.getByLabelText('Street address'))
-    await u.type(dialog.getByLabelText('Street address'), '99 Quezon Avenue')
+    await u.clear(dialog.getByLabelText('House No., Street Name'))
+    await u.type(dialog.getByLabelText('House No., Street Name'), '99 Quezon Avenue')
     await u.click(dialog.getByRole('button', { name: 'Save address' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -394,8 +394,8 @@ describe('editing', () => {
     await u.click(screen.getByRole('button', { name: 'Edit address Home' }))
     dialog = within(await screen.findByRole('dialog', { name: 'Edit your delivery address' }))
     await dialog.findByDisplayValue('Not applicable')
-    await u.clear(dialog.getByLabelText('Street address'))
-    await u.type(dialog.getByLabelText('Street address'), '99 Quezon Avenue')
+    await u.clear(dialog.getByLabelText('House No., Street Name'))
+    await u.type(dialog.getByLabelText('House No., Street Name'), '99 Quezon Avenue')
     await u.click(dialog.getByRole('button', { name: 'Save address' }))
     await waitFor(() => expect(api.updateAddress).toHaveBeenCalledWith(ADDRESS.id, { streetAddress: '99 Quezon Avenue' }))
   })

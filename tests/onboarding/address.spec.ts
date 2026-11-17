@@ -104,7 +104,7 @@ async function fillFromLists(page: Page) {
   await pick(page, /^City or municipality/, 'City of Manila')
   await pick(page, /^Barangay/, 'Barangay 176')
   await addressDialog(page).getByLabel('Phone number', { exact: true }).fill('917 123 4567')
-  await addressDialog(page).getByLabel('Street address', { exact: true }).fill('12 Rizal Avenue')
+  await addressDialog(page).getByLabel('House No., Street Name', { exact: true }).fill('12 Rizal Avenue')
   await addressDialog(page).getByLabel('Postal code', { exact: true }).fill('1000')
 }
 
@@ -247,7 +247,7 @@ test.describe('address step', () => {
     await dialog.getByLabel('Region', { exact: true }).fill('Central Visayas')
     await dialog.getByLabel('City or municipality', { exact: true }).fill('Mandaue City')
     await dialog.getByLabel('Barangay', { exact: true }).fill('Subangdaku')
-    await dialog.getByLabel('Street address', { exact: true }).fill('5 Seaside Drive')
+    await dialog.getByLabel('House No., Street Name', { exact: true }).fill('5 Seaside Drive')
     await dialog.getByLabel('Postal code', { exact: true }).fill('6014')
     await dialog.getByRole('button', { name: 'Save address' }).click()
     await expect(completion(page)).toBeVisible()
@@ -285,7 +285,7 @@ test.describe('pin on a map', () => {
     expect(lookups).toBe(1)
     await expect(dialog.getByRole('button', { name: /^Region/ })).toContainText('NCR')
     await expect(dialog.getByRole('button', { name: /^City or municipality/ })).toContainText('City of Manila')
-    await expect(dialog.getByLabel('Street address', { exact: true })).toHaveValue('718 P. Paterno Street')
+    await expect(dialog.getByLabel('House No., Street Name', { exact: true })).toHaveValue('718 P. Paterno Street')
     await expect(dialog.getByLabel('Postal code', { exact: true })).toHaveValue('1001')
   })
 
@@ -358,7 +358,7 @@ test.describe('pin on a map', () => {
     await expect(addressDialog(page).getByText(/The map pictures didn't load/)).toBeVisible({ timeout: 15_000 })
     await addressDialog(page).getByRole('button', { name: 'Auto-pin location' }).click()
     await expect(addressDialog(page).getByText('Filled in from your pin. Check each field, then save.')).toBeVisible()
-    await expect(addressDialog(page).getByLabel('Street address', { exact: true })).toHaveValue('718 P. Paterno Street')
+    await expect(addressDialog(page).getByLabel('House No., Street Name', { exact: true })).toHaveValue('718 P. Paterno Street')
   })
 
   test('a name that is not in the list is left for the user to pick', async ({ page }) => {

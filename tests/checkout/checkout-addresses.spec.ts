@@ -44,11 +44,11 @@ test('the default saved address fills the delivery form, and there is no picker 
   await openCheckout(page)
   await expect(card(page)).toContainText('12 Rizal Avenue')
   await expect(card(page)).toContainText('+63 9171234567')
-  await expect(page.getByLabel('Street address')).toHaveCount(0)
+  await expect(page.getByLabel('House No., Street Name')).toHaveCount(0)
   await openSheet(page)
   await expect(page.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Anne Santos')
   await expect(page.getByRole('textbox', { name: 'Phone number', exact: true })).toHaveValue('9171234567')
-  await expect(page.getByRole('textbox', { name: 'Street address', exact: true })).toHaveValue(/^12 Rizal Avenue/)
+  await expect(page.getByRole('textbox', { name: 'House No., Street Name', exact: true })).toHaveValue(/^12 Rizal Avenue/)
   await expect(page.getByRole('textbox', { name: 'City', exact: true })).toHaveValue(/Manila/)
   await expect(page.getByRole('textbox', { name: 'Postal code', exact: true })).toHaveValue('1000')
   await expect(picker(page)).toHaveCount(0)
@@ -66,7 +66,7 @@ test('with several addresses a Deliver to picker lists them, defaults first, and
   await page.getByRole('option', { name: 'Office' }).click()
   await expect(picker(page)).toContainText('Office')
   await expect(page.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Ben Reyes')
-  await expect(page.getByRole('textbox', { name: 'Street address', exact: true })).toHaveValue(/^9 Ayala Avenue/)
+  await expect(page.getByRole('textbox', { name: 'House No., Street Name', exact: true })).toHaveValue(/^9 Ayala Avenue/)
   await expect(page.getByRole('textbox', { name: 'Postal code', exact: true })).toHaveValue('1226')
 })
 
@@ -88,7 +88,7 @@ test('with nothing saved the form starts empty except the account name', async (
   await openSheet(page)
   await expect(page.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Demo Shopper')
   await expect(page.getByRole('textbox', { name: 'Phone number', exact: true })).toHaveValue('')
-  await expect(page.getByRole('textbox', { name: 'Street address', exact: true })).toHaveValue('')
+  await expect(page.getByRole('textbox', { name: 'House No., Street Name', exact: true })).toHaveValue('')
   await expect(picker(page)).toHaveCount(0)
 })
 
@@ -113,11 +113,11 @@ test('Try again after a failed read fills the form from the saved address, never
   await openCheckout(page)
   await expect(page.getByText("We couldn't load your saved addresses, so type your delivery address below.")).toBeVisible()
   await openSheet(page)
-  await page.getByRole('textbox', { name: 'Street address', exact: true }).fill('My own street')
+  await page.getByRole('textbox', { name: 'House No., Street Name', exact: true }).fill('My own street')
   failing = false
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByRole('textbox', { name: 'Postal code', exact: true })).toHaveValue('1000')
-  await expect(page.getByRole('textbox', { name: 'Street address', exact: true })).toHaveValue('My own street')
+  await expect(page.getByRole('textbox', { name: 'House No., Street Name', exact: true })).toHaveValue('My own street')
   await expect(page.getByText("We couldn't load your saved addresses")).toHaveCount(0)
 })
 
@@ -131,7 +131,7 @@ test('the fields do not move when the Deliver to picker arrives', async ({ page 
   })
   await openCheckout(page)
   await openSheet(page)
-  const street = page.getByRole('textbox', { name: 'Street address', exact: true })
+  const street = page.getByRole('textbox', { name: 'House No., Street Name', exact: true })
   await expect(page.getByText('Deliver to')).toBeVisible()
   const before = (await street.boundingBox())!.y
   release()
@@ -157,10 +157,10 @@ test('what the shopper has typed is not overwritten by a late saved address', as
   })
   await openCheckout(page)
   await openSheet(page)
-  await page.getByRole('textbox', { name: 'Street address', exact: true }).fill('My own street')
+  await page.getByRole('textbox', { name: 'House No., Street Name', exact: true }).fill('My own street')
   release()
   await expect(page.getByRole('textbox', { name: 'Postal code', exact: true })).toHaveValue('1000')
-  await expect(page.getByRole('textbox', { name: 'Street address', exact: true })).toHaveValue('My own street')
+  await expect(page.getByRole('textbox', { name: 'House No., Street Name', exact: true })).toHaveValue('My own street')
 })
 
 test('has no horizontal scroll at 320px with the picker showing', async ({ page }) => {

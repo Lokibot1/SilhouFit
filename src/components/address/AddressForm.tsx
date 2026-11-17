@@ -792,7 +792,7 @@ function AddressFormBody({
         <FloatingField
           tone={tone}
           id={fieldId('street')}
-          label="Street address"
+          label="House No., Street Name"
           value={street}
           onChange={(v) => setStreet(filterStreet(v))}
           onBlur={touch('street')}

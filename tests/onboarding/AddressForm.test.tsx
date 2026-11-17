@@ -137,7 +137,7 @@ async function fillNew(user: User) {
   await pin(user)
   await user.type(screen.getByLabelText('Phone number'), '917 123 4567')
   await pickManila(user)
-  await user.type(screen.getByLabelText('Street address'), '12 Rizal Avenue')
+  await user.type(screen.getByLabelText('House No., Street Name'), '12 Rizal Avenue')
   await user.type(screen.getByLabelText('Postal code'), '1000')
 }
 const save = () => screen.getByRole('button', { name: 'Save address' })
@@ -189,7 +189,7 @@ describe('AddressForm', () => {
 
   it('shows counters and keeps digits only in the postal code', async () => {
     const { user } = setup()
-    expect(screen.getByLabelText('Street address').closest('.field')).toHaveTextContent('0/120')
+    expect(screen.getByLabelText('House No., Street Name').closest('.field')).toHaveTextContent('0/120')
     await user.type(screen.getByLabelText('Postal code'), '12ab34567')
     expect(screen.getByLabelText('Postal code')).toHaveValue('1234')
     expect(screen.getByLabelText('Postal code').closest('.field')).toHaveTextContent('4/4')
@@ -207,7 +207,7 @@ describe('AddressForm', () => {
 
   it('lists the fields in the order they are validated, with the pin button after the phone', () => {
     setup()
-    const order = ['Label (optional)', 'Recipient name', 'Phone number', 'Pin on a map', 'Street address', 'Unit, floor or landmark (optional)', 'Postal code']
+    const order = ['Label (optional)', 'Recipient name', 'Phone number', 'Pin on a map', 'House No., Street Name', 'Unit, floor or landmark (optional)', 'Postal code']
     const nodes = order.map((name) => (name === 'Pin on a map' ? screen.getByRole('button', { name }) : screen.getByLabelText(name)))
     nodes.slice(1).forEach((node, i) => expect(nodes[i].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy())
   })
@@ -246,7 +246,7 @@ describe('AddressForm', () => {
   it.each([
     ['Label (optional)', 'Label', 'W'.repeat(31)],
     ['Recipient name', 'Recipient name', 'W'.repeat(31)],
-    ['Street address', 'Street address', `12 ${'W'.repeat(31)}`],
+    ['House No., Street Name', 'Street address', `12 ${'W'.repeat(31)}`],
     ['Unit, floor or landmark (optional)', 'Unit, floor or landmark', 'W'.repeat(31)],
   ])('refuses a single word over 30 characters in %s, inline and on save', async (field, name, word) => {
     const { user } = setup()
@@ -278,7 +278,7 @@ describe('AddressForm', () => {
 
   it('shows an inline error after a field is left, and on every missing field at submit, focusing the first one on screen', async () => {
     const { user } = setup()
-    await user.type(screen.getByLabelText('Street address'), 'ab')
+    await user.type(screen.getByLabelText('House No., Street Name'), 'ab')
     await user.tab()
     expect(await screen.findByText('Enter the house number, street and barangay, at least 5 characters.')).toBeInTheDocument()
 
@@ -304,7 +304,7 @@ describe('AddressForm', () => {
     const { user } = setup()
     await user.type(screen.getByLabelText('Phone number'), '917 123 4567')
     await pickManila(user)
-    await user.type(screen.getByLabelText('Street address'), '12 Rizal Avenue')
+    await user.type(screen.getByLabelText('House No., Street Name'), '12 Rizal Avenue')
     await user.type(screen.getByLabelText('Postal code'), '1000')
     await user.click(save())
     expect(await screen.findByText('Pin your address on the map so we can deliver.')).toBeInTheDocument()
@@ -334,7 +334,7 @@ describe('AddressForm', () => {
     await pick(user, /^Region/, /CALABARZON/)
     await pick(user, /^City or municipality/, 'Batangas City')
     await pick(user, /^Barangay/, 'Alangilan')
-    await user.type(screen.getByLabelText('Street address'), '5 Seaside Drive')
+    await user.type(screen.getByLabelText('House No., Street Name'), '5 Seaside Drive')
     await user.type(screen.getByLabelText('Unit, floor or landmark (optional)'), 'Unit 4B')
     await user.type(screen.getByLabelText('Postal code'), '4200')
     await waitFor(() => expect(screen.getByLabelText('Province')).toHaveValue('Batangas'))
@@ -365,7 +365,7 @@ describe('AddressForm', () => {
     await user.type(screen.getByLabelText('Region'), 'Region 7 (Central Visayas)')
     await user.type(screen.getByLabelText('City or municipality'), 'Mandaue City')
     await user.type(screen.getByLabelText('Barangay'), 'Subangdaku')
-    await user.type(screen.getByLabelText('Street address'), '5 Seaside Drive')
+    await user.type(screen.getByLabelText('House No., Street Name'), '5 Seaside Drive')
     await user.type(screen.getByLabelText('Postal code'), '6014')
     await user.click(save())
 
@@ -402,7 +402,7 @@ describe('AddressForm', () => {
 
     it('is checked, locked and explained when editing the current default', async () => {
       setup({ initial: ADDRESS, existingCount: 2 })
-      await screen.findByLabelText('Street address')
+      await screen.findByLabelText('House No., Street Name')
       expect(box()).toBeChecked()
       expect(box()).toBeDisabled()
       expect(screen.getByText('To change your default, set another address as default.')).toBeInTheDocument()
@@ -410,7 +410,7 @@ describe('AddressForm', () => {
 
     it('is unchecked and free when editing a non-default address', async () => {
       const { user } = setup({ initial: address({ isDefault: false }), existingCount: 2 })
-      await screen.findByLabelText('Street address')
+      await screen.findByLabelText('House No., Street Name')
       expect(box()).not.toBeChecked()
       expect(box()).toBeEnabled()
       await user.click(box())
@@ -557,7 +557,7 @@ describe('AddressForm', () => {
       expect(screen.getByRole('button', { name: /^Region/ })).toHaveTextContent('NCR')
       expect(screen.getByRole('button', { name: /^City or municipality/ })).toHaveTextContent('City of Manila')
       expect(screen.getByRole('button', { name: /^Barangay/ })).toHaveTextContent('Barangay 307')
-      expect(screen.getByLabelText('Street address')).toHaveValue('718 P. Paterno Street')
+      expect(screen.getByLabelText('House No., Street Name')).toHaveValue('718 P. Paterno Street')
       expect(screen.getByLabelText('Postal code')).toHaveValue('1001')
       expect(api.reverseGeocode).toHaveBeenCalledWith(14.5995, 120.9842, expect.anything())
     })
@@ -614,15 +614,15 @@ describe('AddressForm', () => {
       expect(alert).toHaveTextContent('outside the Philippines')
       expect(within(alert).queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Back to form' })).toBeInTheDocument()
-      expect(screen.queryByLabelText('Street address')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('House No., Street Name')).not.toBeInTheDocument()
     })
 
     it('returns to the form with Back to form and keeps what was typed', async () => {
       const { user } = setup()
-      await user.type(screen.getByLabelText('Street address'), '12 Rizal Avenue')
+      await user.type(screen.getByLabelText('House No., Street Name'), '12 Rizal Avenue')
       await user.click(screen.getByRole('button', { name: 'Pin on a map' }))
       await user.click(await screen.findByRole('button', { name: 'Back to form' }))
-      expect(screen.getByLabelText('Street address')).toHaveValue('12 Rizal Avenue')
+      expect(screen.getByLabelText('House No., Street Name')).toHaveValue('12 Rizal Avenue')
       expect(api.reverseGeocode).not.toHaveBeenCalled()
     })
   })
@@ -633,13 +633,13 @@ describe('AddressForm', () => {
       api.getRegions.mockReturnValue(new Promise((resolve) => (release = resolve)))
       setup({ initial: ADDRESS, existingCount: 2 })
       expect(screen.getByRole('status', { name: 'Loading your address' })).toBeInTheDocument()
-      expect(screen.queryByLabelText('Street address')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('House No., Street Name')).not.toBeInTheDocument()
       release(regions)
 
       expect(await screen.findByRole('button', { name: /^City or municipality/ })).toHaveTextContent('City of Manila')
       expect(screen.getByRole('button', { name: /^Region/ })).toHaveTextContent('NCR')
       expect(screen.getByRole('button', { name: /^Barangay/ })).toHaveTextContent('Barangay 176')
-      expect(screen.getByLabelText('Street address')).toHaveValue('12 Rizal Avenue')
+      expect(screen.getByLabelText('House No., Street Name')).toHaveValue('12 Rizal Avenue')
       expect(screen.getByLabelText('Label (optional)')).toHaveValue('Home')
       expect(screen.getByLabelText('Recipient name')).toHaveValue('Anne Santos')
       expect(screen.getByLabelText('Phone number')).toHaveValue('9171234567')
@@ -681,8 +681,8 @@ describe('AddressForm', () => {
     it('sends only what changed, and nulls for what was cleared', async () => {
       const { user, onSaved } = setup({ initial: address({ addressLine2: 'Unit 4B' }), existingCount: 1 })
       await screen.findByRole('button', { name: /^Region/ })
-      await user.clear(screen.getByLabelText('Street address'))
-      await user.type(screen.getByLabelText('Street address'), '99 Quezon Avenue')
+      await user.clear(screen.getByLabelText('House No., Street Name'))
+      await user.type(screen.getByLabelText('House No., Street Name'), '99 Quezon Avenue')
       await user.clear(screen.getByLabelText('Label (optional)'))
       await user.clear(screen.getByLabelText('Unit, floor or landmark (optional)'))
       await user.click(save())
@@ -708,8 +708,8 @@ describe('AddressForm', () => {
       const { user, onSaved } = setup({ initial: address({ phone: '09171234567' }), existingCount: 1 })
       await screen.findByRole('button', { name: /^Region/ })
       await screen.findByDisplayValue('Not applicable')
-      await user.clear(screen.getByLabelText('Street address'))
-      await user.type(screen.getByLabelText('Street address'), '99 Quezon Avenue')
+      await user.clear(screen.getByLabelText('House No., Street Name'))
+      await user.type(screen.getByLabelText('House No., Street Name'), '99 Quezon Avenue')
       await user.click(save())
       await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
       expect(api.updateAddress).toHaveBeenCalledWith(ADDRESS.id, { streetAddress: '99 Quezon Avenue' })

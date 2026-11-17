@@ -71,7 +71,7 @@ function renderCheckout() {
   )
 }
 
-const street = () => screen.findByLabelText('Street address')
+const street = () => screen.findByLabelText('House No., Street Name')
 const fullName = () => screen.getByLabelText('Full name')
 const card = () => screen.getByRole('heading', { name: 'Delivery address' }).closest('section')!
 async function openSheet(user: ReturnType<typeof userEvent.setup>) {
@@ -84,7 +84,7 @@ describe('Checkout fills in the saved address', () => {
     await waitFor(() => expect(card()).toHaveTextContent('12 Rizal Avenue, Barangay 176, City of Manila 1000'))
     expect(card()).toHaveTextContent('Anne Santos')
     expect(card()).toHaveTextContent('+63 9171234567')
-    expect(screen.queryByLabelText('Street address')).toBeNull()
+    expect(screen.queryByLabelText('House No., Street Name')).toBeNull()
     expect(api.loadAddresses).toHaveBeenCalled()
     await openSheet(userEvent.setup({ delay: null }))
     expect(await street()).toHaveValue('12 Rizal Avenue, Barangay 176')
@@ -120,7 +120,7 @@ describe('Checkout fills in the saved address', () => {
     await user.type(fullName(), 'Carlo Reyes')
     act(() => arrive([ADDRESS]))
     await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue('City of Manila'))
-    expect(screen.getByLabelText('Street address')).toHaveValue('99 Mabini Street')
+    expect(screen.getByLabelText('House No., Street Name')).toHaveValue('99 Mabini Street')
     expect(fullName()).toHaveValue('Carlo Reyes')
   })
 
@@ -140,11 +140,11 @@ describe('Checkout fills in the saved address', () => {
     renderCheckout()
     await screen.findByText("We couldn't load your saved addresses, so type your delivery address below.")
     await openSheet(user)
-    await user.type(screen.getByLabelText('Street address'), '99 Mabini Street')
+    await user.type(screen.getByLabelText('House No., Street Name'), '99 Mabini Street')
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue('City of Manila'))
     expect(api.loadAddresses).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }))
-    expect(screen.getByLabelText('Street address')).toHaveValue('99 Mabini Street')
+    expect(screen.getByLabelText('House No., Street Name')).toHaveValue('99 Mabini Street')
     expect(screen.getByLabelText('Postal code')).toHaveValue('1000')
     expect(screen.queryByText(/couldn't load your saved addresses/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
@@ -206,7 +206,7 @@ describe('Checkout fills in the saved address', () => {
     await act(async () => changed.forEach((run) => run()))
     await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue('City of Manila'))
     expect(screen.getByLabelText('Postal code')).toHaveValue('1000')
-    expect(screen.getByLabelText('Street address')).toHaveValue('99 Mabini Street')
+    expect(screen.getByLabelText('House No., Street Name')).toHaveValue('99 Mabini Street')
     expect(api.loadAddresses).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }))
   })
 

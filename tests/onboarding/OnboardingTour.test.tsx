@@ -272,7 +272,7 @@ describe('OnboardingTour', () => {
       await user.type(dialog.getByLabelText('Region'), 'NCR')
       await user.type(dialog.getByLabelText('City or municipality'), 'City of Manila')
       await user.type(dialog.getByLabelText('Barangay'), 'Barangay 176')
-      await user.type(dialog.getByLabelText('Street address'), '12 Rizal Avenue')
+      await user.type(dialog.getByLabelText('House No., Street Name'), '12 Rizal Avenue')
       await user.type(dialog.getByLabelText('Postal code'), '1000')
       await user.click(dialog.getByRole('button', { name: 'Save address' }))
 

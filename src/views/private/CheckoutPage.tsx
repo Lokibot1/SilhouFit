@@ -834,7 +834,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                 <FloatingField
                   tone="kral"
                   {...field('street')}
-                  label="Street address"
+                  label="House No., Street Name"
                   autoComplete="street-address"
                   enterKeyHint="next"
                   counter={{ current: values.street.length, max: ADDRESS_LIMITS.street }}
