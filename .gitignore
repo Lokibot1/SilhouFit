@@ -51,3 +51,7 @@ keystore.properties
 
 # Source archive for src/assets/t-shirt.glb
 src/assets/t-shirt.zip
+
+# AI assistant context files
+.github/copilot-instructions.md
+.windsurf/
