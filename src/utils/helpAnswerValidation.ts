@@ -1,4 +1,5 @@
 import { HELP_CATEGORIES, HELP_LINK_PATHS, type HelpCategory, type PublicPath } from '../service/helpAnswers'
+import { hasProfanity, PROFANITY_ERROR } from './profanity'
 
 /** What the answer form holds. Keywords stay one comma separated text while they are typed. */
 export interface HelpFormValues {
@@ -29,6 +30,7 @@ const HTML_TAG = /<\/?[a-z!][^>]*>?/i
 
 /** Why a text may not be shown to customers, or null. Digits split by spaces, dashes or dots still count as one run. */
 export function confidentialityProblem(text: string): string | null {
+  if (hasProfanity(text)) return PROFANITY_ERROR
   if (CONTROL.test(text)) return 'Remove the hidden control characters.'
   if (HTML_TAG.test(text)) return 'Use plain text only; remove anything inside < >.'
   if (EMAIL.test(text)) return 'Remove the email address. Customers can reach us through the Contact page instead.'

@@ -9,6 +9,7 @@ const MUST_BLOCK = [
   'f u c k', 'f.u.c.k', 'a s s h o l e', 's h i t',
   'gago', 'g4go', 'gagu', 'tangina', 't4ngina', 'tanginamo', 'putang ina mo', 'putangina', 'puta', 'ulol', 'tarantado',
   'yawa ka', 'pisting yawa', 'pisti', 'bilat', 'kantot', 'kupal', 'hayop ka', 'buang',
+  'putanginamo', 'putang inang', 'putangna', 'putang na', 'ptangina', 'ptngina', 'puta ng ina', 'puta ina', 'putaina', 'putamina', 'potang ina', 'pota ina', 'potaena', 'PUTANGINA', 'P U T A N G I N A', 'p0t4ngin4', 'putaaangina', 'putangina mo', 'tangna', 'tngina', 'kingina', 'kinangina', 'potangina', 'putragis', 'amputa', 'lecheng', 'letse', 'peste', 'pesteng', 'gagong', 'tangang', 'bobong', 'ulul', 'abnoy', 'pakyew', 'pak you', 'kantutan', 'jakol', 'salsal', 'supsop', 'chupa', 'puday', 'tamod', 'pisti ka', 'atay ka', 'wtf', 'stfu', 'gtfo', 'dumbass', 'bullshit', 'dipshit', 'shithead', 'douchebag', 'wanker', 'twat', 'fking', 'biatch', 'blowjob', 'T A N G I N A', 'T4NG1N4', 'G.A.G.O',
   'papatayin kita', 'patayin kita', 'ipapapatay', 'bubugbugin kita', 'patyon tika', 'ipatay tika', 'kill you', 'kill u', 'I will kill you',
 ]
 
@@ -17,7 +18,7 @@ const MUST_PASS = [
   'assistant', 'class', 'classic', 'glass', 'bogo', 'buy one get one', 'taehyung', 'Scunthorpe', 'Essex', 'Dickson',
   'cockpit', 'grape', 'title', 'kitchen', 'therapist', 'Cassandra', 'assess', 'bass', 'hello', 'basement', 'shiitake',
   'analysis', 'Penistone',
-  'salamat po', 'magkano po ito', 'available pa ba', 'size medium', 'saan ang tindahan niyo', 'unsa ang presyo', 'palihug',
+  'Atayde', 'Pepe', 'Kiki', 'BJ', 'putik', 'tira tira', 'wala', 'bubuyog', 'salamat po', 'magkano po ito', 'available pa ba', 'size medium', 'saan ang tindahan niyo', 'unsa ang presyo', 'palihug',
   'naa pa ba', 'gwapa', 'hayop sa ganda', 'tae in taehyung',
   'kill the lag', 'killer fit', 'this dress kills it', 'to kill time',
   'I a m here', 'u r a g r e a t', 'computation', 'reputation', 'Putatan', 'Bilar', 'Paete', 'Pitogo', 'Titay',

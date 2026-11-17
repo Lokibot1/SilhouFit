@@ -46,6 +46,15 @@ describe('validateHelpAnswer', () => {
   })
 })
 
+describe('profanity', () => {
+  it('blocks a curse word in the question, answer, keywords and link text', () => {
+    expect(validateHelpAnswer({ ...valid, answer: 'TANGINA MO NAMAN' }).answer).toMatch(/isn't allowed/)
+    expect(validateHelpAnswer({ ...valid, question: 'Which fucking payment methods?' }).question).toMatch(/isn't allowed/)
+    expect(validateHelpAnswer({ ...valid, keywords: 'pay, gago' }).keywords).toMatch(/isn't allowed/)
+    expect(validateHelpAnswer({ ...valid, linkTo: '/shop', linkLabel: 'puta ka' }).linkLabel).toMatch(/isn't allowed/)
+  })
+})
+
 describe('confidentialityProblem', () => {
   it('flags emails, long digit runs, web addresses, staff paths, tags and control characters', () => {
     expect(confidentialityProblem('mail a@b.co')).toMatch(/email/)
