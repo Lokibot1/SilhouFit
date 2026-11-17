@@ -653,7 +653,7 @@ a.sv2-logo:hover {
     position: absolute;
     z-index: 6;
     top: calc(100% + 0.25rem);
-    left: 1rem;
+    right: 1rem;
     width: min(20rem, calc(100vw - 2rem));
     background: var(--sv2-page-bg);
     border: 1px solid var(--sv2-line);
@@ -699,7 +699,7 @@ a.sv2-logo:hover {
     position: absolute;
     z-index: 6;
     top: calc(100% + 0.25rem);
-    left: 1rem;
+    right: 1rem;
     width: min(20rem, calc(100vw - 2rem));
     background: var(--sv2-page-bg);
     border: 1px solid var(--sv2-line);
