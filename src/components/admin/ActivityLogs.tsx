@@ -1,22 +1,18 @@
 import type { ComponentType } from 'react'
 import { useSection } from '../../hooks/useSection'
-import { getActivityLogs } from '../../service/activityLogs'
-import type { ActivityAction, ActivityCategory } from '../../types/activityLogs'
+import { fetchActivityLogs } from '../../service/activityLogs'
+import type { RequestOptions } from '../../service/simulateRequest'
+import type { ActivityAction, ActivityCategory, ActivityLog } from '../../types/activityLogs'
 import {
   ArchiveIcon,
-  ArIcon,
   BagIcon,
   BanknoteIcon,
   BoxIcon,
   CheckIcon,
-  DownloadIcon,
-  EyeIcon,
-  LockIcon,
   PencilIcon,
   PlusIcon,
   RestoreIcon,
   RulerIcon,
-  SettingsIcon,
   XIcon,
 } from '../form/icons'
 import { EmptyNote, SectionBody, StaffSection } from '../staff/StaffSection'
@@ -33,28 +29,48 @@ export const CATEGORIES: Record<ActivityCategory, { label: string; tint: string 
 }
 
 export const ACTIONS: Record<ActivityAction, { label: string; icon: Icon }> = {
-  'staff-created': { label: 'Staff invited', icon: PlusIcon },
-  'admin-created': { label: 'Admin invited', icon: SettingsIcon },
-  'superadmin-created': { label: 'Superadmin invited', icon: SettingsIcon },
-  'password-reset': { label: 'Password reset email sent', icon: LockIcon },
-  archived: { label: 'Account deactivated', icon: ArchiveIcon },
-  restored: { label: 'Account activated', icon: RestoreIcon },
-  'order-placed': { label: 'Order placed', icon: BagIcon },
-  'order-confirmed': { label: 'Order confirmed', icon: CheckIcon },
-  'order-shipped': { label: 'Order shipped', icon: BoxIcon },
-  'order-cancelled': { label: 'Order cancelled', icon: XIcon },
-  'payment-recorded': { label: 'Payment recorded', icon: BanknoteIcon },
-  'refund-issued': { label: 'Refund issued', icon: RestoreIcon },
-  'refund-approved': { label: 'Refund approved', icon: CheckIcon },
-  'invoice-viewed': { label: 'Invoice viewed', icon: EyeIcon },
-  'invoice-exported': { label: 'Invoice exported', icon: DownloadIcon },
-  'product-created': { label: 'Product created', icon: PlusIcon },
-  'product-edited': { label: 'Product edited', icon: PencilIcon },
-  'product-archived': { label: 'Product archived', icon: ArchiveIcon },
-  'product-restocked': { label: 'Product restocked', icon: BoxIcon },
-  'size-measurements-updated': { label: 'Size measurements updated', icon: RulerIcon },
-  'ar-model-added': { label: 'AR model added', icon: ArIcon },
+  USER_REGISTERED: { label: 'Customer signed up', icon: PlusIcon },
+  USER_INVITED: { label: 'Account invited', icon: PlusIcon },
+  USER_ACTIVATED: { label: 'Account activated', icon: RestoreIcon },
+  USER_DEACTIVATED: { label: 'Account deactivated', icon: ArchiveIcon },
+  BODY_PROFILE_CREATED: { label: 'Body profile created', icon: RulerIcon },
+  ORDER_CREATED: { label: 'Order placed', icon: BagIcon },
+  ORDER_STATUS_CHANGED: { label: 'Order status changed', icon: PencilIcon },
+  ORDER_CANCELLED: { label: 'Order cancelled', icon: XIcon },
+  SHIPMENT_DISPATCHED: { label: 'Rider booked', icon: BoxIcon },
+  SHIPMENT_DRIVER_ASSIGNED: { label: 'Driver assigned', icon: CheckIcon },
+  SHIPMENT_STATUS_CHANGED: { label: 'Delivery status changed', icon: BoxIcon },
+  SHIPMENT_CANCELLED: { label: 'Delivery cancelled', icon: XIcon },
+  ORDER_PAID: { label: 'Order paid', icon: BanknoteIcon },
+  PAYMENT_SUCCEEDED: { label: 'Payment received', icon: BanknoteIcon },
+  PAYMENT_FAILED: { label: 'Payment failed', icon: XIcon },
+  PRODUCT_CREATED: { label: 'Product created', icon: PlusIcon },
+  PRODUCT_UPDATED: { label: 'Product edited', icon: PencilIcon },
+  PRODUCT_STOCK_UPDATED: { label: 'Stock updated', icon: BoxIcon },
+  PRODUCT_DELETED: { label: 'Product archived', icon: ArchiveIcon },
+  PRODUCT_RESTORED: { label: 'Product restored', icon: RestoreIcon },
+  REVIEW_REPLIED: { label: 'Review replied to', icon: PencilIcon },
+  REVIEW_DELETED: { label: 'Review removed', icon: ArchiveIcon },
+  REVIEW_RESTORED: { label: 'Review restored', icon: RestoreIcon },
+  SIZE_MEASUREMENT_CREATED: { label: 'Size measurement added', icon: RulerIcon },
+  SIZE_MEASUREMENT_UPDATED: { label: 'Size measurement updated', icon: RulerIcon },
+  SIZE_MEASUREMENT_DELETED: { label: 'Size measurement archived', icon: ArchiveIcon },
+  SIZE_MEASUREMENT_RESTORED: { label: 'Size measurement restored', icon: RestoreIcon },
 }
+
+/** An action the API added after this list was written reads as its own words ("Some action"), with a generic icon. */
+export function actionOf(action: string): { label: string; icon: Icon } {
+  const known = (ACTIONS as Record<string, { label: string; icon: Icon }>)[action]
+  if (known) return known
+  const words = action.toLowerCase().replaceAll('_', ' ')
+  return { label: words.charAt(0).toUpperCase() + words.slice(1), icon: PencilIcon }
+}
+
+/** "Staff"; null for the system and webhooks. */
+export const roleLabel = (log: ActivityLog) => (log.actorRole ? log.actorRole.charAt(0).toUpperCase() + log.actorRole.slice(1) : null)
+
+/** "by Liza Cruz · Staff". */
+export const byline = (log: ActivityLog) => `by ${log.actor}${roleLabel(log) ? ` · ${roleLabel(log)}` : ''}`
 
 const ZONE = 'Asia/Manila'
 const day = (date: Date) => date.toLocaleDateString('en-CA', { timeZone: ZONE })
@@ -93,18 +109,20 @@ function LogSkeleton({ window }: { window: string }) {
   )
 }
 
+const fetchLatest = (options: RequestOptions) => fetchActivityLogs({ limit: 20 }, options)
+
 /** What admins, staff and customers did across accounts, orders, transactions and products, newest first. */
 export function ActivityLogs() {
-  const section = useSection(getActivityLogs)
+  const section = useSection(fetchLatest)
   return (
     <StaffSection
       id="activity-logs"
       title="Activity Logs"
-      description={section.state.status === 'success' ? count(section.state.data.length) : 'Recent actions across the shop'}
+      description={section.state.status === 'success' ? count(section.state.data.meta.total) : 'Recent actions across the shop'}
       action={<ViewAllLink to="/admin/activity-logs" what="activity logs" />}
     >
       <SectionBody section={section} what="the activity logs" skeleton={<LogSkeleton window={DASHBOARD_WINDOW} />}>
-        {(logs) => {
+        {({ data: logs }) => {
           return logs.length === 0 ? (
             <div className={DASHBOARD_WINDOW}>
               <EmptyNote>No activity yet. Orders, payments, product changes and account changes are logged here.</EmptyNote>
@@ -113,7 +131,7 @@ export function ActivityLogs() {
             // A scrolling list needs to be reachable by keyboard.
             <ul tabIndex={0} aria-labelledby="activity-logs" className={`${DASHBOARD_WINDOW} divide-y divide-line overflow-y-auto`}>
               {logs.map((log) => {
-                const { label, icon: Icon } = ACTIONS[log.action]
+                const { label, icon: Icon } = actionOf(log.action)
                 return (
                   <li key={log.id} className={`${ROW} flex items-center gap-3`}>
                     <span aria-hidden="true" className={`flex size-8 shrink-0 items-center justify-center rounded-xl text-fg ${CATEGORIES[log.category].tint}`}>
@@ -124,7 +142,7 @@ export function ActivityLogs() {
                         {label}: {log.target}
                       </p>
                       <p className="text-xs text-fg-muted">
-                        {CATEGORIES[log.category].label} · by {log.actor} ·{' '}
+                        {CATEGORIES[log.category].label} · {byline(log)} ·{' '}
                         <time dateTime={log.createdAt} className="tabular-nums">
                           {when(log.createdAt)}
                         </time>

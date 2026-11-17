@@ -2,7 +2,6 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { SampleDataBadge } from '../../src/components/ui/SampleDataBadge'
-import { ActivityLogsPage } from '../../src/views/admin/ActivityLogsPage'
 import { ArInsightsPage } from '../../src/views/admin/ArInsightsPage'
 import { PromotionsPage } from '../../src/views/admin/PromotionsPage'
 import { RefundsPage } from '../../src/views/admin/RefundsPage'
@@ -23,7 +22,6 @@ describe('SampleDataBadge', () => {
 
 // Pages that read placeholder data until their backend exists; each shows the badge in its header, next to the title.
 describe.each([
-  ['/admin/activity-logs', 'Activity logs', ActivityLogsPage],
   ['/admin/ar-insights', 'AR Fitting Insights', ArInsightsPage],
   ['/admin/refunds', 'Returns & Refunds', RefundsPage],
   ['/admin/promotions', 'Pricing & Promotions', PromotionsPage],

@@ -1,9 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
 import { manyAdminOrders, mockAdminOrders } from '../shared/adminOrders'
+import { manyAuditLogs, mockAuditLogs } from '../shared/auditLogs'
 import { stubUsersApi, SAMPLE_USERS } from './usersApiStub'
 
 // Every page that still reads placeholder data says "Sample data" next to its title; the pages that are connected to the backend (the User
-// Management tabs, the Messages dropdown, Online orders) must not. Sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
+// Management tabs, the Messages dropdown, Online orders, Activity logs) must not. Sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
 
 const STAFF = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -28,7 +29,6 @@ const BADGED = [
   [STAFF, /\/staff$/, '/staff', 'Hello'],
   [STAFF, /\/staff$/, '/staff/transactions', 'Transactions'],
   [ADMIN, /\/admin$/, '/admin', 'Hello'],
-  [ADMIN, /\/admin$/, '/admin/activity-logs', 'Activity logs'],
   [ADMIN, /\/admin$/, '/admin/ar-insights', 'AR Fitting Insights'],
   [ADMIN, /\/admin$/, '/admin/refunds', 'Returns & Refunds'],
   [ADMIN, /\/admin$/, '/admin/promotions', 'Pricing & Promotions'],
@@ -59,7 +59,7 @@ test('the custom sizings section, not the base sizes, says Sample data', async (
 test('stays inside a 320px screen', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 })
   await signIn(page, ADMIN, /\/admin$/)
-  for (const path of ['/admin/activity-logs', '/admin/refunds']) {
+  for (const path of ['/admin/refunds']) {
     await page.goto(path)
     await expect(badge(page)).toBeVisible({ timeout: 20_000 })
     expect(await overflow(page)).toBe(0)
@@ -83,6 +83,15 @@ test.describe('connected pages have no badge', () => {
     await page.goto('/staff/online-orders')
     await expect(page.getByRole('heading', { level: 1, name: 'Online orders' })).toBeVisible({ timeout: 20_000 })
     await expect(page.getByRole('button', { name: manyAdminOrders(2)[1].orderNumber })).toBeVisible()
+    await expect(badge(page)).toHaveCount(0)
+  })
+
+  test('Activity logs', async ({ page }) => {
+    await mockAuditLogs(page, manyAuditLogs(2))
+    await signIn(page, ADMIN, /\/admin$/)
+    await page.goto('/admin/activity-logs')
+    await expect(page.getByRole('heading', { level: 1, name: 'Activity logs' })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('list', { name: 'Logged actions' }).getByRole('listitem')).toHaveCount(2)
     await expect(badge(page)).toHaveCount(0)
   })
 

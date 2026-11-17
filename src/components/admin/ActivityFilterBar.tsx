@@ -32,14 +32,14 @@ export function sinceOf(range: string) {
   return range === 'today' ? today : range === 'week' ? addDays(today, -6) : range === 'month' ? `${today.slice(0, 7)}-01` : ''
 }
 
-const SEGMENT = 'w-full shrink-0 sm:w-40 lg:border-l lg:border-line'
+const SEGMENT = 'w-full shrink-0 sm:w-36'
 
-/** Filter by action, user and date. `users` is whoever appears in the loaded entries. */
-export function ActivityFilterBar({ filters, users, onChange }: { filters: ActivityFilters; users: string[]; onChange: (filters: ActivityFilters) => void }) {
+/** Filter by action, user and date. `users` is whoever appears in the loaded entries (value is the account id the API filters by). */
+export function ActivityFilterBar({ filters, users, onChange }: { filters: ActivityFilters; users: { value: string; label: string }[]; onChange: (filters: ActivityFilters) => void }) {
   const filtering = filters.action !== 'all' || filters.user !== 'all' || filters.range !== 'all'
-  const userOptions = [{ value: 'all', label: 'All users' }, ...users.map((user) => ({ value: user, label: user }))]
+  const userOptions = [{ value: 'all', label: 'All users' }, ...users]
   return (
-    <div role="group" aria-label="Filter activity logs" className="flex max-w-full shrink-0 flex-wrap items-center gap-2 rounded-xl border border-line bg-canvas-sub p-2 lg:flex-nowrap lg:gap-0 lg:p-1">
+    <div role="group" aria-label="Filter activity logs" className="flex max-w-full shrink-0 flex-wrap items-center gap-3 xl:flex-nowrap">
       <span className="font-ui flex items-center shrink-0 gap-2 px-3 text-sm font-semibold tracking-wide text-fg-muted uppercase">
         <FilterIcon size={16} />
         Filter by
@@ -57,7 +57,7 @@ export function ActivityFilterBar({ filters, users, onChange }: { filters: Activ
         type="button"
         aria-disabled={!filtering}
         onClick={() => filtering && onChange(NO_FILTERS)}
-        className={`${SECONDARY_BUTTON_SM} w-full shrink-0 sm:w-auto lg:ml-1`}
+        className={`${SECONDARY_BUTTON_SM} w-full shrink-0 sm:w-auto`}
       >
         <RestoreIcon size={16} />
         Reset filter

@@ -20,6 +20,12 @@ vi.mock('../../src/service/notificationsApi', async (importOriginal) => ({
   fetchUnreadCount: vi.fn().mockResolvedValue(0),
   fetchNotifications: vi.fn().mockResolvedValue({ items: [], total: 0, hasNextPage: false }),
 }))
+vi.mock('../../src/service/activityLogs', () => ({
+  fetchActivityLogs: vi.fn().mockResolvedValue({
+    data: [{ id: 'a1', category: 'order', action: 'ORDER_CREATED', actor: 'Anne Santos', actorId: 'c1', actorRole: 'customer', target: 'SF-10231', createdAt: '2026-11-10T02:30:00.000Z' }],
+    meta: { total: 1, page: 1, limit: 20, totalPages: 1 },
+  }),
+}))
 // The dashboard's sales widgets are covered by their own tests; here only the admin part is under test.
 vi.mock('../../src/views/staff/StaffDashboardPage', () => ({
   StaffDashboardWidgets: ({ asideTop }: { asideTop?: ReactNode }) => (
@@ -120,7 +126,7 @@ describe('admin dashboard', () => {
     expect(screen.getByText('sales widgets')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Manage users' })).toHaveAttribute('href', '/admin/users')
     expect(await screen.findByRole('heading', { name: 'Activity Logs' })).toBeInTheDocument()
-    // Sample orders, transactions and product changes are listed next to the account changes.
+    // The logged actions come from the API.
     expect(await screen.findByText('Order placed: SF-10231')).toBeInTheDocument()
     expect(screen.queryByText('Recent activity')).toBeNull()
     // Every section reads sample data, so the page says so once, next to the greeting.
@@ -139,6 +145,7 @@ describe('StaffLayout for a simulated account', () => {
               <Route path="admin" element={<StaffLayout area="admin" />}>
                 <Route path="users" element={<p>users page</p>} />
                 <Route path="activity-logs" element={<p>logs page</p>} />
+                <Route path="ar-insights" element={<p>insights page</p>} />
               </Route>
               <Route path="staff" element={<p>staff dashboard</p>} />
               <Route path="login" element={<p>login page</p>} />
@@ -160,9 +167,18 @@ describe('StaffLayout for a simulated account', () => {
   it('lets staff open an admin page once a superadmin turns it on', async () => {
     act(() => setSession({ name: 'Sam Reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff' }))
     load.mockResolvedValue({ ...ADMIN_ME, role: 'staff' })
+    setRolePermissions('staff', [...getPermissions().staff, 'ar-insights'])
+    renderLayout('/admin/ar-insights')
+    expect(await screen.findByText('insights page')).toBeInTheDocument()
+  })
+
+  it('keeps staff out of /admin/activity-logs even when activity-logs is in their saved permissions', async () => {
+    act(() => setSession({ name: 'Sam Reyes', email: 'sam.reyes@silhoufit.dev', role: 'staff' }))
+    load.mockResolvedValue({ ...ADMIN_ME, role: 'staff' })
     setRolePermissions('staff', [...getPermissions().staff, 'activity-logs'])
     renderLayout('/admin/activity-logs')
-    expect(await screen.findByText('logs page')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/staff'))
+    expect(screen.queryByText('logs page')).not.toBeInTheDocument()
   })
 
   it('keeps staff out of /admin/users even when user-management is in their saved permissions', async () => {

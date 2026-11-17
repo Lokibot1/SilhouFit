@@ -1,35 +1,51 @@
-import type { ActivityKind } from './accounts'
-
 export type ActivityCategory = 'account' | 'order' | 'transaction' | 'product'
 
-export type ActivityAction =
-  | ActivityKind
-  | 'order-placed'
-  | 'order-confirmed'
-  | 'order-shipped'
-  | 'order-cancelled'
-  | 'payment-recorded'
-  | 'refund-issued'
-  | 'refund-approved'
-  | 'invoice-viewed'
-  | 'invoice-exported'
-  | 'product-created'
-  | 'product-edited'
-  | 'product-archived'
-  | 'product-restocked'
-  | 'size-measurements-updated'
-  | 'ar-model-added'
+/** The actions the API records (GET /admin/audit-logs). */
+export const AUDIT_ACTIONS = [
+  'USER_REGISTERED',
+  'USER_INVITED',
+  'USER_ACTIVATED',
+  'USER_DEACTIVATED',
+  'BODY_PROFILE_CREATED',
+  'ORDER_CREATED',
+  'ORDER_STATUS_CHANGED',
+  'ORDER_CANCELLED',
+  'SHIPMENT_DISPATCHED',
+  'SHIPMENT_DRIVER_ASSIGNED',
+  'SHIPMENT_STATUS_CHANGED',
+  'SHIPMENT_CANCELLED',
+  'ORDER_PAID',
+  'PAYMENT_SUCCEEDED',
+  'PAYMENT_FAILED',
+  'PRODUCT_CREATED',
+  'PRODUCT_UPDATED',
+  'PRODUCT_STOCK_UPDATED',
+  'PRODUCT_DELETED',
+  'PRODUCT_RESTORED',
+  'REVIEW_REPLIED',
+  'REVIEW_DELETED',
+  'REVIEW_RESTORED',
+  'SIZE_MEASUREMENT_CREATED',
+  'SIZE_MEASUREMENT_UPDATED',
+  'SIZE_MEASUREMENT_DELETED',
+  'SIZE_MEASUREMENT_RESTORED',
+] as const
+export type ActivityAction = (typeof AUDIT_ACTIONS)[number]
 
 /** One line of the admin Activity Logs. */
 export interface ActivityLog {
   id: string
   category: ActivityCategory
-  action: ActivityAction
-  /** Who did it, by name. */
+  /** An action this app does not know yet is kept as the API's word. */
+  action: ActivityAction | string
+  /** Who did it, by name, or "System", "Payment gateway" or "Courier". */
   actor: string
+  actorId: string | null
+  /** The actor's role, e.g. "staff"; null for the system and webhooks. */
+  actorRole: string | null
   /** What it was done to: a person, an order number or a product. */
   target: string
-  /** A short extra line, e.g. the amount or the change. */
+  /** The API's sentence about what happened. */
   detail?: string
   /** ISO time. */
   createdAt: string

@@ -30,7 +30,7 @@ export function AdminDashboardPage() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="display text-2xl text-fg sm:text-3xl">Hello, {me.firstName}</h1>
-            {SAMPLE_DATA && <SampleDataBadge reason="These figures and log entries are placeholders until the orders and activity backends exist." />}
+            {SAMPLE_DATA && <SampleDataBadge reason="These figures and log entries are placeholders until the orders backend exists." />}
           </div>
           <p className="mt-1 text-xs text-fg-muted">
             <time dateTime={today.toISOString()}>{longDate(today)}</time>

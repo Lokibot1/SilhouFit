@@ -68,19 +68,24 @@ export const PAGE_GROUPS: ReadonlyArray<PageGroup> = [
     label: 'Admin tools',
     roles: ['staff', 'admin'],
     pages: [
-      { key: 'activity-logs', label: 'Activity Logs' },
       { key: 'ar-insights', label: 'AR Insights' },
       { key: 'promotions', label: 'Pricing & Promotions' },
       { key: 'refunds', label: 'Returns & Refunds' },
       { key: 'chatbot', label: 'Help Chatbot' },
     ],
   },
-  // Admin only: the API refuses staff on every /users call, so it is never offered to them.
+  // Admin only: the API refuses staff on every /users and /admin/audit-logs call, so these are never offered to them.
   {
     id: 'user-management',
     label: 'User management',
     roles: ['admin'],
     pages: [{ key: 'user-management', label: 'User Management' }],
+  },
+  {
+    id: 'activity-logs',
+    label: 'Activity logs',
+    roles: ['admin'],
+    pages: [{ key: 'activity-logs', label: 'Activity Logs' }],
   },
 ]
 
@@ -91,7 +96,7 @@ const keysOf = (...ids: string[]) => PAGE_GROUPS.filter((group) => ids.includes(
 export const DEFAULT_PERMISSIONS: Permissions = {
   customer: keysOf('storefront'),
   staff: keysOf('operations'),
-  admin: keysOf('operations', 'admin-tools', 'user-management'),
+  admin: keysOf('operations', 'admin-tools', 'user-management', 'activity-logs'),
 }
 
 /** The pages a superadmin can give each role; anything else stored for a role is ignored. */
