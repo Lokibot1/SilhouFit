@@ -16,7 +16,11 @@ export interface Place {
  * anchor unless there is more room above; `inset` shifts the left edge out from the anchor.
  */
 export function computePlace(anchor: HTMLElement, preferredWidth: number, inset = 0): Place {
-  const rect = anchor.getBoundingClientRect()
+  const box = anchor.getBoundingClientRect()
+  // The press feedback scales the button about its centre and is still springing back when the click opens the list, so measure it unscaled.
+  const dx = (box.width - anchor.offsetWidth) / 2
+  const dy = (box.height - anchor.offsetHeight) / 2
+  const rect = { left: box.left + dx, top: box.top + dy, bottom: box.bottom - dy }
   const width = Math.min(preferredWidth, window.innerWidth - EDGE * 2)
   const left = Math.min(Math.max(EDGE, rect.left - inset), window.innerWidth - width - EDGE)
   const below = window.innerHeight - rect.bottom - EDGE - 4
