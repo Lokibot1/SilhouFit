@@ -31,9 +31,9 @@ afterEach(() => {
   act(() => clearSession())
 })
 
-function renderPage() {
+function renderPage(state?: { recovery: boolean }) {
   return render(
-    <MemoryRouter initialEntries={['/auth/set-password']}>
+    <MemoryRouter initialEntries={[{ pathname: '/auth/set-password', state }]}>
       <ToastProvider>
         <Routes>
           <Route path="/auth/set-password" element={<SetPasswordPage />} />
@@ -98,6 +98,15 @@ describe('SetPasswordPage', () => {
     expect(await screen.findByText('staff home')).toBeInTheDocument()
     expect(updateUser).toHaveBeenCalledWith({ password: 'Sup3r$ecret1' })
     expect(getSession()).toMatchObject({ name: 'Sam Reyes', email: 'sam@example.com', role: 'staff' })
+  })
+
+  it('after a password reset, signs out and sends the person to log in with a message', async () => {
+    renderPage({ recovery: true })
+    await fill('Sup3r$ecret1', 'Sup3r$ecret1')
+    expect(await screen.findByText('login page')).toBeInTheDocument()
+    expect(await screen.findByText('Password updated. Sign in with your new password.')).toBeInTheDocument()
+    expect(me).not.toHaveBeenCalled()
+    expect(getSession()).toBeNull()
   })
 
   it("shows Supabase's own message for a weak password and keeps the form", async () => {

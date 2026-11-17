@@ -59,7 +59,8 @@ for (const type of ['invite', 'recovery'] as const) {
     await page.getByLabel('New password', { exact: true }).fill('Sup3r$ecret1')
     await page.getByLabel('Confirm password', { exact: true }).fill('Sup3r$ecret1')
     await page.getByRole('button', { name: 'Set password', exact: true }).click()
-    await expect(page).toHaveURL(/\/staff$/)
+    // A reset ends in a fresh sign-in; an invitation signs the person in and lands on their home.
+    await expect(page).toHaveURL(type === 'recovery' ? /\/login$/ : /\/staff$/)
     expect(supabase.updates).toMatchObject([{ password: 'Sup3r$ecret1' }])
   })
 }

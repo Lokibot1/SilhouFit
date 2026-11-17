@@ -69,6 +69,8 @@ function readParams() {
     refreshToken: hash.get('refresh_token'),
     // An emailed invitation or password recovery link carries its kind here; those sessions go on to choose a password.
     setPassword: ['invite', 'recovery'].includes(hash.get('type') ?? search.get('type') ?? ''),
+    // A forgot-password link: after choosing a password the person signs in again instead of being signed in.
+    recovery: (hash.get('type') ?? search.get('type')) === 'recovery',
     error: error ? error.toLowerCase() : null,
     // An expired or reused invitation or recovery link also arrives as `access_denied`; only its code tells it from a cancelled Google sign-in.
     linkExpired: Boolean(errorCode && /otp|expired|flow_state|invalid|not_found|used/i.test(errorCode)),
@@ -232,7 +234,7 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
         if (!found) {
           // An invited or recovering person has a session but no password of their own yet.
           unfinished.current = false
-          navigate('/auth/set-password', { replace: true })
+          navigate('/auth/set-password', { replace: true, state: { recovery: params.recovery } })
           return
         }
         const { me, birthday, save } = found

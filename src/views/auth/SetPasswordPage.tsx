@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AuthHeading, AuthSplit } from '../../components/auth/AuthSplit'
 import { CALLBACK_BLOCK, CallbackSkeleton } from '../../components/form/CallbackSkeleton'
 import { FloatingField } from '../../components/form/FloatingField'
@@ -40,6 +40,7 @@ export function SetPasswordPage() {
   useMetaDescription(META_DESCRIPTION)
 
   const navigate = useNavigate()
+  const recovery = Boolean((useLocation().state as { recovery?: boolean } | null)?.recovery)
   const toast = useToast()
   const [view, setView] = useState<View>('checking')
   const [password, setPassword] = useState('')
@@ -101,6 +102,13 @@ export function SetPasswordPage() {
         )
         if (code === 'weak_password') setDetail(message)
         if (code === 'same_password') document.getElementById('sp-password')?.focus()
+        return
+      }
+      if (recovery) {
+        // A password reset ends the recovery session: sign in again with the new password.
+        signOut()
+        toast.show({ kind: 'success', message: 'Password updated. Sign in with your new password.' })
+        navigate('/login', { replace: true })
         return
       }
       const me = await fetchMe()
