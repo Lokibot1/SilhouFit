@@ -187,17 +187,21 @@ describe('Checkout fills in the saved address', () => {
     await waitFor(() => expect(screen.queryByText('Filling in your saved address…')).not.toBeInTheDocument())
   })
 
-  it('leaves the form empty when nothing is saved', async () => {
+  it('opens straight on the address form with the map pin when nothing is saved', async () => {
     api.loadAddresses.mockResolvedValue([])
     renderCheckout()
     await openSheet(userEvent.setup({ delay: null }))
     expect(await street()).toHaveValue('')
-    expect(screen.getByLabelText('City')).toHaveValue('')
+    expect(screen.getByText('Pin on a map')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add a new address with a map pin' })).not.toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'Deliver to' })).not.toBeInTheDocument()
   })
 
   it('re-applies when the addresses change while checkout is open, never over typing', async () => {
-    api.loadAddresses.mockResolvedValue([])
+    // A failed read, so the sheet shows the plain fields to type into; with none saved it opens on the pin form.
+    api.loadAddresses.mockRejectedValue(new Error('offline'))
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await openSheet(user)

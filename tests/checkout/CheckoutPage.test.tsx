@@ -315,6 +315,8 @@ describe('CheckoutPage options and totals', () => {
 
 describe('CheckoutPage address and note', () => {
   it('prefills the full name from the signed-in user', async () => {
+    // With saved addresses failing to load the sheet shows the plain fields; with none saved it opens on the pin form.
+    addressApi.loadAddresses.mockRejectedValue(new Error('offline'))
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
@@ -323,6 +325,8 @@ describe('CheckoutPage address and note', () => {
   })
 
   it('validates inline after a field is left, with specific messages, then live', async () => {
+    // With saved addresses failing to load the sheet shows the plain fields; with none saved it opens on the pin form.
+    addressApi.loadAddresses.mockRejectedValue(new Error('offline'))
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
@@ -346,6 +350,8 @@ describe('CheckoutPage address and note', () => {
   })
 
   it('keeps only letters in the name and city, digits in the postal code and phone, with a cap', async () => {
+    // With saved addresses failing to load the sheet shows the plain fields; with none saved it opens on the pin form.
+    addressApi.loadAddresses.mockRejectedValue(new Error('offline'))
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
@@ -545,6 +551,8 @@ describe('CheckoutPage delivery address card', () => {
   })
 
   it('keeps the fields out of the page until Change is clicked, and closes the sheet with Cancel', async () => {
+    // With saved addresses failing to load the sheet shows the plain fields; with none saved it opens on the pin form.
+    addressApi.loadAddresses.mockRejectedValue(new Error('offline'))
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })
@@ -565,6 +573,8 @@ describe('CheckoutPage delivery address card', () => {
   })
 
   it('keeps the sheet open on Save address with an error, and closes it and updates the summary when valid', async () => {
+    // With saved addresses failing to load the sheet shows the plain fields; with none saved it opens on the pin form.
+    addressApi.loadAddresses.mockRejectedValue(new Error('offline'))
     const user = userEvent.setup({ delay: null })
     renderCheckout()
     await screen.findByRole('heading', { name: 'Heritage Polo' })

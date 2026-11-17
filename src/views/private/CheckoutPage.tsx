@@ -545,6 +545,12 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     setEditing(true)
   }
 
+  // With no saved address there is nothing to pick and the plain fields cannot place an order, so the sheet opens on the form with the map pin.
+  function openAddress() {
+    if (saved === 'none') setAdding(true)
+    setEditing(true)
+  }
+
   function closeSheet() {
     setEditing(false)
     setAdding(false)
@@ -684,7 +690,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
             </h2>
             <button
               type="button"
-              onClick={() => setEditing(true)}
+              onClick={openAddress}
               aria-label={usable ? 'Change delivery address' : undefined}
               className={`${KRAL_SECONDARY} shrink-0`}
             >
@@ -758,8 +764,8 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                 }}
                 footer={(save) => (
                   <div className="flex flex-wrap justify-end gap-3">
-                    <button type="button" onClick={() => (pinNeeded ? closeSheet() : setAdding(false))} className={KRAL_SECONDARY}>
-                      {pinNeeded ? 'Cancel' : 'Back'}
+                    <button type="button" onClick={() => (pinNeeded || saved === 'none' ? closeSheet() : setAdding(false))} className={KRAL_SECONDARY}>
+                      {pinNeeded || saved === 'none' ? 'Cancel' : 'Back'}
                     </button>
                     {save}
                   </div>

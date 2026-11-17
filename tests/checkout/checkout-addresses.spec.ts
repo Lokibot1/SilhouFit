@@ -81,14 +81,14 @@ test('a prefilled address goes through to the success page as the order address'
   expect(orders.posts[0].addressId).toBe(ADDRESS.id)
 })
 
-test('with nothing saved the form starts empty except the account name', async ({ page }) => {
+test('with nothing saved the sheet opens straight on the address form with the map pin', async ({ page }) => {
   await mockAddresses(page, [])
   await openCheckout(page)
   await expect(card(page)).toContainText('Add where we should deliver your order.')
   await openSheet(page)
-  await expect(page.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Demo Shopper')
-  await expect(page.getByRole('textbox', { name: 'Phone number', exact: true })).toHaveValue('')
+  await expect(page.getByText('Pin on a map')).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'House No., Street Name', exact: true })).toHaveValue('')
+  await expect(page.getByRole('button', { name: 'Add a new address with a map pin' })).toHaveCount(0)
   await expect(picker(page)).toHaveCount(0)
 })
 
