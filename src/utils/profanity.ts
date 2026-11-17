@@ -46,6 +46,9 @@ const words = new DataSet<{ originalWord: string }>()
   .addPhrase((phrase) => phrase.setMetadata({ originalWord: 'yawa' }).addPattern(pattern`|yawa`).addPattern(pattern`|yawaa`).addPattern(pattern`|pisting`).addPattern(pattern`|pisti`).addPattern(pattern`|piste|`).addPattern(pattern`|atay|`).addPattern(pattern`|atay ka`).addPattern(pattern`|giatay`).addPattern(pattern`|buang|`).addPattern(pattern`|boang|`).addPattern(pattern`|bilat`).addPattern(pattern`|otin|`).addPattern(pattern`|utin|`).addPattern(pattern`|pisat|`).addPattern(pattern`|buktot|`).addPattern(pattern`|animal ka`))
   // More English: acronyms, spellings and compounds the dataset can miss.
   .addPhrase((phrase) => phrase.setMetadata({ originalWord: 'wtf' }).addPattern(pattern`|wtf|`).addPattern(pattern`|stfu|`).addPattern(pattern`|gtfo|`).addPattern(pattern`|kys|`).addPattern(pattern`|mofo|`).addPattern(pattern`|bitchass`).addPattern(pattern`|dumbass`).addPattern(pattern`|jackass`).addPattern(pattern`|dipshit`).addPattern(pattern`|douchebag`).addPattern(pattern`|bullshit`).addPattern(pattern`|horseshit`).addPattern(pattern`|shithead`).addPattern(pattern`|fckn`).addPattern(pattern`|fcking`).addPattern(pattern`|fkn`).addPattern(pattern`|fking`).addPattern(pattern`|fck|`).addPattern(pattern`|fk|`).addPattern(pattern`|biatch`).addPattern(pattern`|b1tch`).addPattern(pattern`|sh1t`).addPattern(pattern`|a55`).addPattern(pattern`|pussy`).addPattern(pattern`|wanker`).addPattern(pattern`|twat|`).addPattern(pattern`|cunt`).addPattern(pattern`|cnt|`).addPattern(pattern`|prick|`).addPattern(pattern`|jerk off`).addPattern(pattern`|jerkoff`).addPattern(pattern`|blowjob`).addPattern(pattern`|handjob`).addPattern(pattern`|cumshot`))
+  // Insults and rude phrases that are not curse words. Anchored, so "dumbbell" and "idiom" stay clear.
+  .addPhrase((phrase) => phrase.setMetadata({ originalWord: 'stupid' }).addPattern(pattern`|stupid`).addPattern(pattern`|stoopid`).addPattern(pattern`|stupd|`).addPattern(pattern`|idiot`).addPattern(pattern`|idiots|`).addPattern(pattern`|moron`).addPattern(pattern`|imbecile`).addPattern(pattern`|dumb|`).addPattern(pattern`|dummy ka`).addPattern(pattern`|loser|`).addPattern(pattern`|losers|`).addPattern(pattern`|scumbag`).addPattern(pattern`|trash ka`).addPattern(pattern`|basura ka`).addPattern(pattern`|pangit ka`).addPattern(pattern`|bobo ka`).addPattern(pattern`|tanga ka`))
+  .addPhrase((phrase) => phrase.setMetadata({ originalWord: 'shut up' }).addPattern(pattern`|shut up`).addPattern(pattern`|shutup`).addPattern(pattern`|tumahimik ka`).addPattern(pattern`|manahimik ka`).addPattern(pattern`|go to hell`).addPattern(pattern`|rot in hell`).addPattern(pattern`|go die`).addPattern(pattern`|drop dead`).addPattern(pattern`|kill yourself`).addPattern(pattern`|kill urself`).addPattern(pattern`|mamatay ka`).addPattern(pattern`|sana mamatay`).addPattern(pattern`|bwisit ka`))
   // Threats. Anchored so "kill the lag", "killer fit" and "this dress kills it" pass.
   .addPhrase((phrase) => phrase.setMetadata({ originalWord: 'threat' }).addPattern(pattern`|papatayin kita`).addPattern(pattern`|patayin kita`).addPattern(pattern`|ipapapatay`).addPattern(pattern`|bubugbugin kita`).addPattern(pattern`|patyon tika`).addPattern(pattern`|ipatay tika`).addPattern(pattern`|kill you`).addPattern(pattern`|kill u|`))
 
@@ -67,9 +70,18 @@ export const PROFANITY_ERROR = "This contains language that isn't allowed. Remov
 const SPACED = /(?<![\p{L}\p{N}])(?:\p{L}[\s.\-_*]){2,}\p{L}(?![\p{L}\p{N}])/gu
 const collapse = (text: string) => text.replace(SPACED, (run) => run.replace(/[\s.\-_*]/g, ''))
 
-/** True when the text holds a curse word, slur or sexual term, in English or Filipino. */
+// Ways to slip a word past a filter without changing how it reads: full-width and styled letters ("ｆｕｃｋ", "𝐟𝐮𝐜𝐤"), invisible characters
+// between letters, and accents ("fúck", "tangiña"). `clean` is the text to keep; `fold` has the same length with accents removed, for matching.
+const INVISIBLE = /[­͏؜ᅟᅠ឴឵᠋-᠏​-‏‪-‮⁠-⁯ㅤ︀-️﻿ﾠ]/gu
+const prepare = (text: string) => {
+  const clean = text.normalize('NFKC').replace(INVISIBLE, '')
+  return { clean, fold: clean.replace(/[À-ɏ]/g, (letter) => (letter === 'ı' ? 'i' : letter.normalize('NFD')[0])) }
+}
+
+/** True when the text holds a curse word, slur, insult or sexual term, in English or Filipino. */
 export function hasProfanity(text: string): boolean {
-  return matcher.hasMatch(text) || matcher.hasMatch(collapse(text))
+  const { fold } = prepare(text)
+  return matcher.hasMatch(fold) || matcher.hasMatch(collapse(fold))
 }
 
 /** Swaps every letter in `text` for an asterisk and keeps spaces and dots, so "f u c k" becomes "* * * *" and the length never changes. */
@@ -77,11 +89,19 @@ const star = (text: string) => text.replace(/[^\s.\-_*]/gu, '*')
 
 /** The text with each flagged word (including spaced-out ones) replaced by asterisks of the same length, and whether anything was replaced. */
 export function maskProfanity(text: string): { text: string; offended: boolean } {
-  const spacedMasked = text.replace(SPACED, (run) => (matcher.hasMatch(run.replace(/[\s.\-_*]/g, '')) ? star(run) : run))
+  const { clean, fold } = prepare(text)
+  // The same spans are starred in both strings, so the matcher sees the folded text and the person keeps their own letters.
+  const spaced: [number, number][] = []
+  const spacedFold = fold.replace(SPACED, (run, offset: number) => {
+    if (!matcher.hasMatch(run.replace(/[\s.\-_*]/g, ''))) return run
+    spaced.push([offset, offset + run.length])
+    return star(run)
+  })
   // Match indexes count UTF-16 units, so mask on the string itself rather than on code points.
-  let out = spacedMasked
-  for (const { startIndex, endIndex } of matcher.getAllMatches(spacedMasked, true).reverse()) {
+  let out = clean
+  for (const [from, to] of spaced) out = out.slice(0, from) + star(out.slice(from, to)) + out.slice(to)
+  for (const { startIndex, endIndex } of matcher.getAllMatches(spacedFold, true).reverse()) {
     out = out.slice(0, startIndex) + '*'.repeat(endIndex - startIndex + 1) + out.slice(endIndex + 1)
   }
-  return { text: out, offended: out !== text }
+  return { text: out, offended: out !== clean }
 }

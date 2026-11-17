@@ -70,6 +70,25 @@ describe('Composer', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('warns while the person types offensive language, and hides it when sent', async () => {
+    const user = userEvent.setup()
+    const onSend = vi.fn()
+    render(<Composer onSend={onSend} sending={false} />)
+    const field = screen.getByRole('textbox', { name: 'Message' })
+    await user.type(field, 'you are stupid')
+    expect(screen.getByRole('status')).toHaveTextContent("Please don't use profanity or offensive language")
+    expect(field).toHaveAccessibleDescription(/profanity/)
+    await user.type(field, '{Enter}')
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('you are ******')
+  })
+
+  it('shows no warning while the message is clean', async () => {
+    const user = userEvent.setup()
+    render(<Composer onSend={vi.fn()} sending={false} />)
+    await user.type(screen.getByRole('textbox', { name: 'Message' }), 'Is it in stock?')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('does not report or note a clean message', async () => {
     const user = userEvent.setup()
     const onMasked = vi.fn()

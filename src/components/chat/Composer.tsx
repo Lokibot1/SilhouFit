@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { MAX_MESSAGE_LENGTH } from '../../service/chatApi'
-import { maskProfanity } from '../../utils/profanity'
+import { hasProfanity, maskProfanity } from '../../utils/profanity'
 import { SendIcon } from '../form/icons'
 import { Tooltip } from '../ui/Tooltip'
 
@@ -29,6 +29,7 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
   const [masked, setMasked] = useState(false)
   const body = text.trim()
   const blocked = sending || !body || !!disabledReason
+  const flagged = !disabledReason && hasProfanity(body)
 
   useEffect(() => {
     if (focusOnMount) field.current?.focus()
@@ -86,7 +87,7 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
           rows={1}
           aria-label="Message"
           disabled={!!disabledReason}
-          aria-describedby={disabledReason || masked ? 'chat-composer-count chat-composer-note' : 'chat-composer-count'}
+          aria-describedby={disabledReason || masked || flagged ? 'chat-composer-count chat-composer-note' : 'chat-composer-count'}
           placeholder="Write a message"
           className="font-ui field-sizing-content max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-line-strong bg-canvas px-3 py-2.5 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted"
         />
@@ -101,9 +102,12 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
           </button>
         </Tooltip>
       </div>
-      {(disabledReason || masked) && (
-        <p id="chat-composer-note" role={disabledReason ? undefined : 'status'} className="font-ui mt-1 text-xs text-fg-muted">
-          {disabledReason ?? 'Some words were hidden. Repeated use of this language can lead to your messaging being blocked or your account banned.'}
+      {(disabledReason || masked || flagged) && (
+        <p id="chat-composer-note" role={disabledReason ? undefined : 'status'} className={`font-ui mt-1 text-xs ${flagged ? 'font-semibold text-danger' : 'text-fg-muted'}`}>
+          {disabledReason ??
+            (flagged
+              ? "Please don't use profanity or offensive language. These words will be hidden when you send, and repeated use can get your messaging blocked or your account banned."
+              : 'Some words were hidden. Repeated use of this language can lead to your messaging being blocked or your account banned.')}
         </p>
       )}
       <p id="chat-composer-count" className="font-ui mt-1 text-right text-xs text-fg-muted tabular-nums">
