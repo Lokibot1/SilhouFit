@@ -45,6 +45,7 @@ import {
   filterPhone,
   filterPostal,
   filterStreet,
+  NATIONAL_PHONE_MAX,
   toNationalPhone,
   validateCity,
   validateFullName,
@@ -57,7 +58,7 @@ import {
 import { formatPeso, variantLabel } from '../../utils/format'
 import { adaptOrderToReceipt } from '../../utils/orders'
 import { hasProfanity, PROFANITY_ERROR } from '../../utils/profanity'
-import { LIMITS, sanitizePhoneDigits, validatePhone } from '../../utils/signUpValidation'
+import { sanitizePhoneDigits, validatePhone } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
   'Review your SilhouFit order, pick a saved delivery address and add a note for the seller. You pay on a secure payment page right after placing your order.'
@@ -515,7 +516,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
     // A pasted international number loses its dial code instead of overflowing the national number.
     onChange: (value: string) => {
       edited.current.phone = true
-      setValues((current) => ({ ...current, phone: filterPhone(value, dial) }))
+      setValues((current) => ({ ...current, phone: filterPhone(value, dial, NATIONAL_PHONE_MAX) }))
     },
   }
 
@@ -827,7 +828,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                   autoComplete="tel-national"
                   inputMode="tel"
                   enterKeyHint="next"
-                  counter={{ current: values.phone.length, max: LIMITS.phoneMaxDigits }}
+                  counter={{ current: values.phone.length, max: NATIONAL_PHONE_MAX }}
                 />
               </div>
               <div className="sm:col-span-2">

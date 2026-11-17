@@ -358,7 +358,17 @@ describe('CheckoutPage address and note', () => {
     await user.type(screen.getByLabelText('Postal code'), '18a00999')
     expect(screen.getByLabelText('Postal code')).toHaveValue('1800')
     await user.type(screen.getByLabelText('Phone number'), '+63 (917) 123-4567-8999')
-    expect(screen.getByLabelText('Phone number')).toHaveValue('91712345678') // the +63 is dropped, digits only, 11 at most
+    expect(screen.getByLabelText('Phone number')).toHaveValue('9171234567') // the +63 is dropped, digits only, 10 at most
+  })
+
+  it('counts the phone out of 10 and stops there, so a typed 0 does not leave room for an extra digit', async () => {
+    const user = userEvent.setup({ delay: null })
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await openAddress(user)
+    await user.type(screen.getByLabelText('Phone number'), '09171234567')
+    expect(screen.getByLabelText('Phone number')).toHaveValue('9171234567')
+    expect(screen.getByText('10/10')).toBeInTheDocument()
   })
 
   it('drops the dial code from a pasted international number, and keeps the national number', async () => {
