@@ -677,7 +677,7 @@ describe.each([
       const long = run(mesh, { sleeve: 80 })
       const short = run(mesh, { sleeve: 45 })
       expect(reach(long.out).lowest).toBeLessThan(reach(rest.out).lowest - 0.02 * h)
-      expect(reach(short.out).lowest).toBeGreaterThan(reach(rest.out).lowest + 0.02 * h)
+      expect(reach(short.out).lowest).toBeGreaterThan(reach(rest.out).lowest + 0.015 * h)
 
       // The sleeve tape runs from the shoulder down the arm, nearly straight, and a longer sleeve lengthens it.
       for (const r of [rest, long, short]) {
@@ -687,6 +687,19 @@ describe.each([
       }
       expect(long.deformed.regions.sleeve!.line!.to[1]).toBeLessThan(rest.deformed.regions.sleeve!.line!.to[1])
       expect(wide.deformed.regions.shoulders!.line!.to[0]).toBeGreaterThan(rest.deformed.regions.shoulders!.line!.to[0])
+    })
+
+    it('keeps the hand and fingers the same length however long or short the sleeve is', () => {
+      const h = mesh.height
+      const rest = run(mesh, {})
+      // The vertices of the hand: the lowest slice of the arm in the untouched scan.
+      let lowest = Infinity
+      for (let i = 0; i < mesh.base.length; i += 3) if (mesh.base[i] > armX * h && mesh.base[i + 1] > mesh.bounds.minY + 0.35 * h) lowest = Math.min(lowest, mesh.base[i + 1])
+      const hand: number[] = []
+      for (let i = 0; i < mesh.base.length; i += 3) if (mesh.base[i] > armX * h && mesh.base[i + 1] > mesh.bounds.minY + 0.35 * h && mesh.base[i + 1] < lowest + 0.07 * h) hand.push(i / 3)
+      const span = (out: Float32Array) => Math.max(...hand.map((v) => out[v * 3 + 1])) - Math.min(...hand.map((v) => out[v * 3 + 1]))
+      expect(hand.length).toBeGreaterThan(50)
+      for (const sleeve of [100, 80, 45]) expect(span(run(mesh, { sleeve }).out) / span(rest.out)).toBeCloseTo(1, 1)
     })
 
     describe('chest only', () => {

@@ -498,7 +498,8 @@ export function applyMeasurements(
       x += side * (hipsRatio - 1) * hipsEdge * arm * (1 - smoothstep(by, rig.hips.y, rig.jointY))
       const reach = (ax - rig.shoulderHalf) * dirX + (by - rig.jointY) * dirY
       const spread = shoulderDelta * (1 - SPREAD_FADE * clamp(reach / (rig.armLength || 1), 0, 1))
-      const along = Math.max(reach, 0) * (sleeveRatio - 1)
+      // The sleeve lengthens the arm up to the wrist only; past it the hand moves as one piece, or the fingers stretch with the sleeve.
+      const along = clamp(reach, 0, rig.armLength * WRIST_SHARE) * (sleeveRatio - 1)
       x += side * (spread + along * dirX) * arm
       y += along * dirY * arm
     }
