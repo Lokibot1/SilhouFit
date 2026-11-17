@@ -153,7 +153,7 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
         className="grid gap-4 pb-5"
       >
         <Field id={fieldId('question')} label="Question" count={{ value: values.question.length, max: HELP_LIMITS.questionMax }} error={errors.question}>
-          <input {...input('question')} type="text" />
+          <input {...input('question')} type="text" className={FIELD_INPUT} />
         </Field>
         <Field id={fieldId('answer')} label="Answer" count={{ value: values.answer.length, max: HELP_LIMITS.answerMax }} error={errors.answer}>
           <textarea {...input('answer', true)} rows={5} className={TEXTAREA} />
@@ -181,7 +181,7 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
         </SelectField>
         {values.linkTo && (
           <Field id={fieldId('linkLabel')} label="Link text" count={{ value: values.linkLabel.length, max: HELP_LIMITS.linkLabelMax }} error={errors.linkLabel}>
-            <input {...input('linkLabel')} type="text" />
+            <input {...input('linkLabel')} type="text" className={FIELD_INPUT} />
           </Field>
         )}
         <div>
