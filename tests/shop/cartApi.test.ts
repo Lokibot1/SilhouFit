@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { addCartItem, fetchCart, removeCartItem, setCartItemQuantity } from '../../src/service/cartApi'
+import { addCartItem, fetchCart, removeCartItem, removeCartItems, setCartItemQuantity } from '../../src/service/cartApi'
 import { ProductListError, request } from '../../src/service/fetchProductList'
 
 vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
@@ -77,6 +77,12 @@ describe('cartApi', () => {
     send.mockResolvedValue({ success: true })
     await removeCartItem('item-1')
     expect(send).toHaveBeenLastCalledWith('DELETE', '/cart/items/item-1', undefined, undefined)
+  })
+
+  it('removes many lines in one DELETE and reads the answer as the whole cart', async () => {
+    send.mockResolvedValue(cart())
+    expect(await removeCartItems(['a', 'b'])).toMatchObject({ totalItems: 2 })
+    expect(send).toHaveBeenLastCalledWith('DELETE', '/cart/items', { itemIds: ['a', 'b'] }, undefined)
   })
 
   it("lets the API's refusal through with its reason", async () => {

@@ -126,6 +126,7 @@ export function CartPage() {
   const [confirming, setConfirming] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [clearPending, setClearPending] = useState(false)
+  const [removePending, setRemovePending] = useState(false)
   const [leaving, setLeaving] = useState<Leaving>('slide')
   // The row being edited is kept after the drawer closes so its content stays put while it slides out.
   const [editing, setEditing] = useState<{ row: Row; product: Product; id: number } | null>(null)
@@ -173,16 +174,20 @@ export function CartPage() {
     })
   }
 
-  function removeChosen() {
+  async function removeChosen() {
     setLeaving('slide')
-    const keys = chosen.map((row) => lineKey(row.line))
-    void cart.removeLines(keys)
-    setSelected([])
+    setRemovePending(true)
+    const removed = await cart.removeLines(chosen.map((row) => lineKey(row.line)))
+    setRemovePending(false)
     setConfirming(false)
+    if (!removed) return // the cart has already said why, and shows what it still holds
+    setSelected([])
     headingRef.current?.focus()
+    if (removed.length === 0) return // all of them were already gone elsewhere
     toast.show({
       kind: 'info',
-      message: `Removed ${plural(keys.length)} from cart`,
+      message: removed.length === 1 ? `Removed ${removed[0].name} from cart` : `Removed ${plural(removed.length)} from cart`,
+      action: { label: 'Undo', onClick: () => void putBack(removed) },
     })
   }
 
@@ -552,22 +557,19 @@ export function CartPage() {
           Every piece in your cart is removed, including any that are sold out or no longer in the shop. You can undo this right after.
         </ConfirmDialog>
 
-        <Modal open={confirming} onClose={() => setConfirming(false)} title="Are you sure?" tone="kral">
-          <p className="font-kral-mono pb-5 text-base leading-relaxed text-kral-muted">
-            {chosen.length === 1
-              ? 'This removes the selected piece from your cart.'
-              : `This removes the ${chosen.length} selected pieces from your cart.`}
-          </p>
-          <div className="flex flex-col-reverse gap-2 pb-5 sm:flex-row sm:justify-end">
-            <button type="button" onClick={() => setConfirming(false)} className={KRAL_PRIMARY}>
-              Cancel
-            </button>
-            <button type="button" onClick={removeChosen} className={KRAL_DANGER}>
-              <TrashIcon />
-              Remove {plural(chosen.length)}
-            </button>
-          </div>
-        </Modal>
+        <ConfirmDialog
+          tone="kral"
+          open={confirming}
+          title="Remove selected pieces?"
+          confirmLabel={`Remove ${plural(chosen.length)}`}
+          pending={removePending}
+          onConfirm={() => void removeChosen()}
+          onClose={() => setConfirming(false)}
+        >
+          {chosen.length === 1
+            ? 'This removes the selected piece from your cart. You can undo this right after.'
+            : `This removes the ${chosen.length} selected pieces from your cart. You can undo this right after.`}
+        </ConfirmDialog>
       </div>
     </MotionConfig>
   )

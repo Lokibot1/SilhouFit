@@ -20,7 +20,8 @@ Status: **Connected** (a UI calls it), **Connected this round**, **Service only*
 | Cart – Get | `GET /cart` | `src/service/cartApi.ts` (`fetchCart`) | Cart page; navbar count | Connected |
 | Cart – Add item | `POST /cart/items` | `src/service/cartApi.ts` (`addCartItem`) | Product page, Add to cart | Connected |
 | Cart – Change quantity | `PATCH /cart/items/:itemId` | `src/service/cartApi.ts` (`setCartItemQuantity`) | Cart page, quantity stepper | Connected |
-| Cart – Remove item | `DELETE /cart/items/:itemId` | `src/service/cartApi.ts` (`removeCartItem`) | Cart page, Remove | Connected |
+| Cart – Remove items | `DELETE /cart/items` | `src/service/cartApi.ts` (`removeCartItems`) | Cart page, Remove and Remove selected, with Undo in the toast; checkout cleanup | Connected this round |
+| Cart – Remove item | `DELETE /cart/items/:itemId` | `src/service/cartApi.ts` (`removeCartItem`) | Buy now cleanup fallback only, when the bulk call answers 404 | Connected |
 | Cart – Clear cart | `DELETE /cart` | `src/service/cartApi.ts` (`clearCart`) | Cart page (signed in), Clear cart > confirm, with Undo in the toast | Connected this round |
 | Orders – Place order | `POST /orders` | `src/service/ordersApi.ts` (`createOrder`) | Checkout, Place order: sends only `addressId`, `cartItemIds`, `shippingFee`, `customerNotes`; the order is created as `PENDING_PAYMENT` (online payment is not live) | Connected this round |
 | Orders – List orders | `GET /orders?page&limit&status` | `src/service/ordersApi.ts` (`fetchOrdersPage`, `loadAllOrders`) | My orders: reads every page (100 per page, five at most), then tabs, search and paging run on the client | Connected this round |

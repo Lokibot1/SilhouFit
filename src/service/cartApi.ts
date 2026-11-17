@@ -91,7 +91,15 @@ export async function clearCart({ signal }: RequestOptions = {}) {
   await request('DELETE', '/cart', undefined, signal)
 }
 
-/** DELETE /cart/items/:itemId. The API answers `{ success: true }` only, so the caller reloads the cart. */
+/**
+ * DELETE /cart/items. Removes lines by cart item id (1 to 100). Answers with the whole cart; one unknown id is a 404 for the whole batch and nothing is deleted.
+ */
+export async function removeCartItems(itemIds: string[], { signal }: RequestOptions = {}) {
+  // shortcut: no batching, the API takes at most 100 ids and a cart that large is unrealistic
+  return toCart(await request('DELETE', '/cart/items', { itemIds }, signal))
+}
+
+/** DELETE /cart/items/:itemId. The API answers `{ success: true }` only. Now only the Buy now cleanup fallback. */
 export async function removeCartItem(itemId: string, { signal }: RequestOptions = {}) {
   await request('DELETE', `/cart/items/${encodeURIComponent(itemId)}`, undefined, signal)
 }

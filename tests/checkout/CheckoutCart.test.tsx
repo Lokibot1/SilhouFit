@@ -6,6 +6,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { clearCartCache } from '../../src/hooks/useCart'
 import { clearProductCache } from '../../src/hooks/useProducts'
+import { addCartItem, removeCartItem, removeCartItems } from '../../src/service/cartApi'
+import { ProductListError } from '../../src/service/fetchProductList'
 import { createOrder, OrdersError, quoteShipping } from '../../src/service/ordersApi'
 import { clearSession, setSession } from '../../src/service/session'
 import { CheckoutPage } from '../../src/views/private/CheckoutPage'
@@ -255,6 +257,45 @@ describe('CheckoutPage from the cart', () => {
     await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
     expect(server.items).toHaveLength(1)
     expect(server.items[0].quantity).toBe(2)
+  })
+
+  it('takes two Buy now pieces back out of the cart with one bulk call', async () => {
+    const u = user()
+    renderCheckout(`/checkout?item=p01&variant=${NAVY}&qty=1&item=p17&variant=${SHIRT_L}&qty=1`)
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await fillAddress(u)
+    await u.click(placeButton())
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
+    expect(addCartItem).toHaveBeenCalledTimes(2)
+    expect(removeCartItems).toHaveBeenCalledTimes(1)
+    expect(removeCartItems).toHaveBeenCalledWith(['item-1', 'item-2'])
+    expect(removeCartItem).not.toHaveBeenCalled()
+    expect(server.items).toEqual([])
+  })
+
+  it('falls back to one call per piece when the bulk cleanup answers 404', async () => {
+    const u = user()
+    vi.mocked(removeCartItems).mockRejectedValueOnce(new ProductListError('not-found'))
+    renderCheckout(`/checkout?item=p01&variant=${NAVY}&qty=1&item=p17&variant=${SHIRT_L}&qty=1`)
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await fillAddress(u)
+    await u.click(placeButton())
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
+    expect(removeCartItem).toHaveBeenCalledTimes(2)
+    expect(server.items).toEqual([])
+  })
+
+  it('sends one bulk call for a cart checkout, with the ordered lines, and none for temporary lines', async () => {
+    const u = user()
+    seedTwoAyala()
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await fillAddress(u)
+    await u.click(placeButton())
+    await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
+    expect(removeCartItems).toHaveBeenCalledTimes(1)
+    expect(removeCartItems).toHaveBeenCalledWith(['item-1', 'item-2'])
+    expect(removeCartItem).not.toHaveBeenCalled()
   })
 
   it('keeps its items on screen once the cart is emptied by the order, with no flash of "Nothing to check out"', async () => {

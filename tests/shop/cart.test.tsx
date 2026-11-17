@@ -5,7 +5,7 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { clearCartCache, useCart, useCartCount } from '../../src/hooks/useCart'
 import { clearProductCache } from '../../src/hooks/useProducts'
 import { ProductListError } from '../../src/service/fetchProductList'
-import { addCartItem, fetchCart } from '../../src/service/cartApi'
+import { addCartItem, fetchCart, removeCartItem, removeCartItems } from '../../src/service/cartApi'
 import { fetchShopProduct } from '../../src/service/fetchShopProducts'
 import { clearSession, setSession } from '../../src/service/session'
 import { createCartStore, type CartStore, type StoreProduct } from '../fixtures/cartStore'
@@ -249,6 +249,69 @@ describe('signed-in cart', () => {
     await act(async () => void (await result.current.cart.removeLines([NAVY])))
     expect(server.items.map((i) => i.variantId)).toEqual([BLACK])
     expect(result.current.cart.lines.map((l) => l.variantId)).toEqual([BLACK])
+  })
+
+  it('removes several lines with one bulk call of their item ids, and returns them', async () => {
+    server.seed(NAVY, 1)
+    server.seed(BLACK, 2)
+    server.seed('p01-s-white', 1)
+    const { result } = await setup()
+    const ids = server.items.slice(0, 2).map((i) => i.id)
+    let removed: unknown
+    await act(async () => void (removed = await result.current.cart.removeLines([NAVY, BLACK])))
+    expect(removeCartItems).toHaveBeenCalledTimes(1)
+    expect(removeCartItems).toHaveBeenCalledWith(ids)
+    expect(removeCartItem).not.toHaveBeenCalled()
+    expect((removed as { variantId: string }[]).map((l) => l.variantId)).toEqual([NAVY, BLACK])
+    expect(result.current.cart.lines.map((l) => l.variantId)).toEqual(['p01-s-white'])
+    expect(result.current.count).toBe(1)
+  })
+
+  it('after a 404, looks at the cart again and removes the lines still there', async () => {
+    server.seed(NAVY, 1)
+    server.seed(BLACK, 1)
+    const { result } = await setup()
+    const [navy, black] = server.items.map((i) => i.id)
+    vi.mocked(removeCartItems).mockRejectedValueOnce(new ProductListError('not-found'))
+    server.remove(navy) // gone in another tab
+    let removed: unknown
+    await act(async () => void (removed = await result.current.cart.removeLines([NAVY, BLACK])))
+    expect((removed as { variantId: string }[]).map((l) => l.variantId)).toEqual([BLACK]) // only what this call removed
+    expect(removeCartItems).toHaveBeenCalledTimes(2)
+    expect(removeCartItems).toHaveBeenLastCalledWith([black])
+    expect(server.items).toEqual([])
+    expect(result.current.cart.lines).toEqual([])
+  })
+
+  it('after a 404 with nothing left, just shows the fresh cart and sends no second call', async () => {
+    server.seed(NAVY, 1)
+    const { result } = await setup()
+    vi.mocked(removeCartItems).mockRejectedValueOnce(new ProductListError('not-found'))
+    server.clear()
+    let removed: unknown
+    await act(async () => void (removed = await result.current.cart.removeLines([NAVY])))
+    expect(removed).toEqual([])
+    expect(removeCartItems).toHaveBeenCalledTimes(1)
+    expect(result.current.cart.lines).toEqual([])
+  })
+
+  it('answers null, keeps the lines and says why when the connection drops', async () => {
+    server.seed(NAVY, 1)
+    const { result } = await setup()
+    vi.mocked(removeCartItems).mockRejectedValueOnce(new ProductListError('network'))
+    let removed: unknown
+    await act(async () => void (removed = await result.current.cart.removeLines([NAVY])))
+    expect(removed).toBeNull()
+    expect(result.current.cart.lines.map((l) => l.variantId)).toEqual([NAVY])
+    expect(await screen.findByText(/The request failed, most likely because the connection dropped/)).toBeInTheDocument()
+  })
+
+  it('sends nothing for an empty list or for lines that are not in the cart', async () => {
+    server.seed(NAVY, 1)
+    const { result } = await setup()
+    await act(async () => void (await result.current.cart.removeLines([])))
+    await act(async () => void (await result.current.cart.removeLines(['nope'])))
+    expect(removeCartItems).not.toHaveBeenCalled()
   })
 
   it('moves a line to another variant with an add and a delete', async () => {

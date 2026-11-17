@@ -6,7 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { clearCartCache } from '../../src/hooks/useCart'
 import { clearProductCache } from '../../src/hooks/useProducts'
-import { addCartItem, clearCart, fetchCart, setCartItemQuantity } from '../../src/service/cartApi'
+import { addCartItem, clearCart, fetchCart, removeCartItems, setCartItemQuantity } from '../../src/service/cartApi'
 import { ProductListError } from '../../src/service/fetchProductList'
 import { fetchShopProduct } from '../../src/service/fetchShopProducts'
 import { clearSession, setSession } from '../../src/service/session'
@@ -195,21 +195,6 @@ describe('CartPage as a guest', () => {
     await waitFor(() => expect(stored()).toEqual([{ variantId: WHITE_S, productId: 'p01', qty: 3 }]))
   })
 
-  it('removes a line at once and offers Undo in a toast, which puts it back', async () => {
-    seed([{ variantId: NAVY, productId: 'p01', qty: 2 }])
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: 'More actions for Heritage Polo' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Remove' }))
-    await waitFor(() => expect(stored()).toEqual([]))
-    expect(screen.getByText('Removed Heritage Polo from cart')).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: 'Your cart is currently empty' })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /Undo/ }))
-    await waitFor(() => expect(stored()).toEqual([{ variantId: NAVY, productId: 'p01', qty: 2 }]))
-    expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
-  })
-
   it('shows the empty state for a guest, with a Log in link that returns to the cart', async () => {
     renderPage()
     expect(await screen.findByText('Add items to place an order or log in to retrieve your cart.')).toBeInTheDocument()
@@ -229,24 +214,6 @@ describe('CartPage as a guest', () => {
     expect(all).not.toBeChecked()
     await user.click(all)
     await user.click(all)
-    expect(screen.getByText('0 selected')).toBeInTheDocument()
-  })
-
-  it('asks before removing the selected lines, and Cancel keeps them', async () => {
-    seed([{ variantId: NAVY, productId: 'p01', qty: 1 }, { variantId: TROUSER, productId: 'p03', qty: 1 }])
-    const user = userEvent.setup()
-    renderPage()
-    expect(await screen.findByRole('button', { name: 'Remove selected' })).toBeDisabled()
-    await user.click(screen.getByRole('checkbox', { name: 'Select Heritage Polo' }))
-    await user.click(screen.getByRole('button', { name: 'Remove selected' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Are you sure?' })
-    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(stored()).toHaveLength(2)
-
-    await user.click(screen.getByRole('button', { name: 'Remove selected' }))
-    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove 1 item' }))
-    await waitFor(() => expect(stored()).toEqual([{ variantId: TROUSER, productId: 'p03', qty: 1 }]))
     expect(screen.getByText('0 selected')).toBeInTheDocument()
   })
 
@@ -360,6 +327,122 @@ describe('CartPage signed in', () => {
     await user.click(screen.getByRole('button', { name: 'Increase quantity of Heritage Polo' }))
     expect(await screen.findByText(/Couldn't update your cart: Only 2 in stock/)).toBeInTheDocument()
     expect(addCartItem).not.toHaveBeenCalled()
+  })
+
+  it('removes a line at once and offers Undo in a toast, which puts it back', async () => {
+    server.seed(NAVY, 2)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'More actions for Heritage Polo' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Remove' }))
+    expect(await screen.findByText('Removed Heritage Polo from cart')).toBeInTheDocument()
+    expect(removeCartItems).toHaveBeenCalledTimes(1)
+    expect(server.items).toEqual([])
+    expect(await screen.findByRole('heading', { name: 'Your cart is currently empty' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Undo/ }))
+    await waitFor(() => expect(server.items.map((i) => [i.variantId, i.quantity])).toEqual([[NAVY, 2]]))
+    expect(await screen.findByRole('heading', { name: 'Heritage Polo' })).toBeInTheDocument()
+  })
+
+  describe('Remove selected', () => {
+    const askToRemove = async (user: ReturnType<typeof userEvent.setup>) => {
+      server.seed(NAVY, 2)
+      server.seed(BLACK, 1)
+      server.seed(TROUSER, 1)
+      renderPage()
+      await user.click(await screen.findByRole('checkbox', { name: 'Select Heritage Polo' }))
+      await user.click(screen.getByRole('checkbox', { name: 'Select Fence-Line Blazer' }))
+      await user.click(screen.getByRole('button', { name: 'Remove selected' }))
+      return screen.findByRole('dialog', { name: 'Remove selected pieces?' })
+    }
+
+    it('is disabled until a line is ticked', async () => {
+      server.seed(NAVY, 1)
+      renderPage()
+      expect(await screen.findByRole('button', { name: 'Remove selected' })).toBeDisabled()
+    })
+
+    it('asks first, and Cancel sends nothing', async () => {
+      const user = userEvent.setup()
+      const dialog = await askToRemove(user)
+      expect(within(dialog).getByText(/This removes the 2 selected pieces from your cart\. You can undo this right after\./)).toBeInTheDocument()
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      expect(removeCartItems).not.toHaveBeenCalled()
+      expect(server.items).toHaveLength(3)
+      expect(screen.getByText('2 selected')).toBeInTheDocument()
+    })
+
+    it('removes the ticked lines with one call, says so, and Undo puts them back', async () => {
+      const user = userEvent.setup()
+      const dialog = await askToRemove(user)
+      await user.click(within(dialog).getByRole('button', { name: 'Remove 2 items' }))
+      expect(await screen.findByText('Removed 2 items from cart')).toBeInTheDocument()
+      expect(removeCartItems).toHaveBeenCalledTimes(1)
+      expect(server.items.map((i) => i.variantId)).toEqual([TROUSER])
+      expect(screen.getByText('0 selected')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Undo' }))
+      expect(await screen.findByText('Put your cart back')).toBeInTheDocument()
+      expect(server.items.map((i) => [i.variantId, i.quantity]).sort()).toEqual([[NAVY, 2], [BLACK, 1], [TROUSER, 1]])
+    })
+
+    it('names the piece when only one was removed', async () => {
+      server.seed(NAVY, 1)
+      server.seed(TROUSER, 1)
+      const user = userEvent.setup()
+      renderPage()
+      await user.click(await screen.findByRole('checkbox', { name: 'Select Heritage Polo' }))
+      await user.click(screen.getByRole('button', { name: 'Remove selected' }))
+      await user.click(within(await screen.findByRole('dialog', { name: 'Remove selected pieces?' })).getByRole('button', { name: 'Remove 1 item' }))
+      expect(await screen.findByText('Removed Heritage Polo from cart')).toBeInTheDocument()
+    })
+
+    it('after a 404 counts only the lines removed here, and Undo puts back only those', async () => {
+      server.seed(NAVY, 2)
+      server.seed(BLACK, 1)
+      server.seed(TROUSER, 1)
+      const user = userEvent.setup()
+      renderPage()
+      await user.click(await screen.findByRole('checkbox', { name: 'Select all items' }))
+      await user.click(screen.getByRole('button', { name: 'Remove selected' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Remove selected pieces?' })
+      vi.mocked(removeCartItems).mockRejectedValueOnce(new ProductListError('not-found'))
+      server.remove(server.items[0].id) // the polo went in another tab
+      await user.click(within(dialog).getByRole('button', { name: 'Remove 3 items' }))
+      expect(await screen.findByText('Removed 2 items from cart')).toBeInTheDocument()
+      expect(server.items).toEqual([])
+
+      await user.click(screen.getByRole('button', { name: 'Undo' }))
+      expect(await screen.findByText('Put your cart back')).toBeInTheDocument()
+      expect(server.items.map((i) => [i.variantId, i.quantity]).sort()).toEqual([[BLACK, 1], [TROUSER, 1]])
+    })
+
+    it('disables both buttons while the request is pending', async () => {
+      const user = userEvent.setup()
+      const dialog = await askToRemove(user)
+      let finish!: () => void
+      const real = vi.mocked(removeCartItems).getMockImplementation()!
+      vi.mocked(removeCartItems).mockImplementationOnce((ids, options) => new Promise((resolve) => (finish = () => resolve(real(ids, options)))))
+      await user.click(within(dialog).getByRole('button', { name: 'Remove 2 items' }))
+      await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Remove 2 items' })).toBeDisabled())
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+      await act(async () => finish())
+      expect(await screen.findByText('Removed 2 items from cart')).toBeInTheDocument()
+    })
+
+    it('keeps the lines and the selection and says why when the request fails', async () => {
+      const user = userEvent.setup()
+      const dialog = await askToRemove(user)
+      vi.mocked(removeCartItems).mockRejectedValueOnce(new ProductListError('network'))
+      await user.click(within(dialog).getByRole('button', { name: 'Remove 2 items' }))
+      expect(await screen.findByText(/Couldn't update your cart\. The request failed/)).toBeInTheDocument()
+      expect(screen.queryByText(/^Removed /)).toBeNull()
+      expect(server.items).toHaveLength(3)
+      expect(screen.getByText('2 selected')).toBeInTheDocument()
+      expect(await screen.findByRole('checkbox', { name: 'Select Heritage Polo' })).toBeChecked()
+    })
   })
 
   describe('Clear cart', () => {

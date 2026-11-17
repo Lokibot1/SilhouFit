@@ -1,6 +1,7 @@
 // An in-memory cart that follows the API's rules, shared by the unit tests (through `wireCartApi`) and the Playwright mock (`mockCart`):
 // the cart belongs to one signed-in user; POST adds to an item that is already there; 400 when the quantity would pass the variant's
-// stock or the product is inactive; 404 for an unknown variant or item; DELETE answers { success: true }.
+// stock or the product is inactive; 404 for an unknown variant or item; DELETE of one item answers { success: true }; DELETE of
+// many (`removeMany`) is 400 for none or over 100, 404 with nothing deleted if any id is not in the cart, else the whole cart.
 
 export interface StoreVariant {
   id: string
@@ -121,6 +122,13 @@ export function createCartStore(products: () => StoreProduct[]) {
       if (!items.some((i) => i.id === itemId)) return no(404, 'Cart item not found')
       items = items.filter((i) => i.id !== itemId)
       return { status: 200, json: { success: true } }
+    },
+    removeMany(itemIds: unknown): CartReply {
+      if (!Array.isArray(itemIds) || itemIds.length < 1 || itemIds.length > 100) return no(400, 'itemIds must contain between 1 and 100 elements')
+      const ids = new Set(itemIds)
+      if ([...ids].some((id) => !items.some((i) => i.id === id))) return no(404, 'Cart item not found')
+      items = items.filter((i) => !ids.has(i.id))
+      return ok()
     },
     clear(): CartReply {
       items = []

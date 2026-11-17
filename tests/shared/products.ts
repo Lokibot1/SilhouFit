@@ -406,7 +406,7 @@ export interface CartMock extends CartStore {
 }
 
 /**
- * Stands in for the cart API (GET /cart, POST /cart/items, PATCH/DELETE /cart/items/:itemId, DELETE /cart) over the products
+ * Stands in for the cart API (GET /cart, POST /cart/items, PATCH/DELETE /cart/items/:itemId, DELETE /cart/items with { itemIds }, DELETE /cart) over the products
  * mock's rows, with the API's rules: 400 past a variant's stock or for an inactive product, 404 for an unknown variant or item.
  * Register it after mockAuth. `cart.seed(variantId, qty)` puts a piece in the server cart before the page loads.
  */
@@ -418,12 +418,13 @@ export async function mockCart(page: Page, products: ProductsMock): Promise<Cart
     const method = request.method()
     if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
     const [, , section = null, itemId = null] = new URL(request.url()).pathname.split('/')
-    const body = (['POST', 'PATCH'].includes(method) ? request.postDataJSON() : null) as Record<string, unknown> | null
+    const body = (['POST', 'PATCH', 'DELETE'].includes(method) ? request.postDataJSON() : null) as Record<string, unknown> | null
     cart.calls.push({ method, itemId, body })
     const answer = (r: { status: number; json: unknown }) => route.fulfill({ status: r.status, json: r.json, headers: CORS })
     if (!section) return answer(method === 'DELETE' ? store.clear() : store.get())
     if (method === 'POST') return answer(store.add(body?.variantId as string, body?.quantity))
     if (method === 'PATCH' && itemId) return answer(store.patch(itemId, body?.quantity))
+    if (method === 'DELETE' && section === 'items' && !itemId) return answer(store.removeMany(body?.itemIds))
     if (method === 'DELETE' && itemId) return answer(store.remove(itemId))
     return route.fulfill({ status: 405, json: {}, headers: CORS })
   })

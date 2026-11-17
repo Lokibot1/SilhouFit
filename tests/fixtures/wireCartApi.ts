@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import { addCartItem, clearCart, fetchCart, removeCartItem, setCartItemQuantity } from '../../src/service/cartApi'
+import { addCartItem, clearCart, fetchCart, removeCartItem, removeCartItems, setCartItemQuantity } from '../../src/service/cartApi'
 import type { Product } from '../../src/data/products'
 import { ProductListError, type ProductListErrorKind } from '../../src/service/fetchProductList'
 import { fetchShopProduct } from '../../src/service/fetchShopProducts'
@@ -25,6 +25,7 @@ export function wireCartApi(store: CartStore) {
   vi.mocked(setCartItemQuantity).mockImplementation(async (itemId, quantity) => answer(store.patch(itemId, quantity)) as never)
   vi.mocked(clearCart).mockImplementation(async () => void answer(store.clear()))
   vi.mocked(removeCartItem).mockImplementation(async (itemId) => void answer(store.remove(itemId)))
+  vi.mocked(removeCartItems).mockImplementation(async (itemIds) => answer(store.removeMany(itemIds)) as never)
 }
 
 /** The store's view of shop fixtures; `isActive` can be flipped on the result to archive a piece. */

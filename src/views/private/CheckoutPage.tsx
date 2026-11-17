@@ -23,7 +23,8 @@ import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProductsByIds } from '../../hooks/useProducts'
 import { useWishlist } from '../../hooks/useWishlist'
 import { getDefaultAddress, loadAddresses, onAddressesChanged, type Address } from '../../service/addresses'
-import { addCartItem, removeCartItem } from '../../service/cartApi'
+import { addCartItem, removeCartItem, removeCartItems } from '../../service/cartApi'
+import { ProductListError } from '../../service/fetchProductList'
 import { createCheckoutSession, createOrder, loadAllOrders, OrdersError, quoteShipping, usesSampleOrders, type CustomerOrder, type ShippingQuote } from '../../service/ordersApi'
 import {
   computeTotals,
@@ -201,9 +202,14 @@ async function findJustPlaced(total: number): Promise<CustomerOrder | null> {
   }
 }
 
-/** Takes the Buy now lines out of the cart again; a line that is already gone is fine. */
+/** Takes the Buy now lines out of the cart again with one call; a line that is already gone is fine (a 404 falls back to one call per line). */
 async function dropLines(itemIds: string[]) {
-  await Promise.allSettled(itemIds.map((id) => removeCartItem(id)))
+  if (itemIds.length === 0) return // a cart checkout has none
+  try {
+    await removeCartItems(itemIds)
+  } catch (failure) {
+    if (failure instanceof ProductListError && failure.kind === 'not-found') await Promise.allSettled(itemIds.map((id) => removeCartItem(id)))
+  }
 }
 
 /**

@@ -1,7 +1,7 @@
 import { useContext, useEffect, useSyncExternalStore } from 'react'
 import { ToastContext, type ToastOptions } from '../components/toast/useToast'
 import type { Product } from '../data/products'
-import { addCartItem, clearCart, fetchCart, removeCartItem, setCartItemQuantity, type ApiCart } from '../service/cartApi'
+import { addCartItem, clearCart, fetchCart, removeCartItems, setCartItemQuantity, type ApiCart } from '../service/cartApi'
 import { ProductListError } from '../service/fetchProductList'
 import { getSession, subscribe as subscribeSession } from '../service/session'
 import { getCachedProduct, loadProduct } from './useProducts'
@@ -198,22 +198,31 @@ function setLineQty(key: string, qty: number) {
   })
 }
 
+/** Removes lines with one bulk call and commits the cart it answers. A 404 means one is already gone: look at the cart again and remove what is left. Resolves to the lines this call removed. */
 async function dropFromServer(dropped: Line[]) {
-  for (const line of dropped) await removeCartItem(line.itemId!)
-  const gone = new Set(dropped.map((line) => line.itemId))
-  const items = serverCart!.items.filter((item) => !gone.has(item.id))
-  commitServer({ items, totalItems: items.reduce((sum, item) => sum + item.quantity, 0), subtotal: items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) })
+  if (dropped.length === 0) return dropped
+  const ids = dropped.map((line) => line.itemId!)
+  try {
+    commitServer(await removeCartItems(ids))
+    return dropped
+  } catch (error) {
+    if (!(error instanceof ProductListError && error.kind === 'not-found')) throw error
+    const fresh = await fetchCart()
+    const left = ids.filter((id) => fresh.items.some((item) => item.id === id))
+    commitServer(left.length > 0 ? await removeCartItems(left) : fresh)
+    return dropped.filter((line) => left.includes(line.itemId!))
+  }
 }
 
-/** Drops whole lines (after an order, or Remove); lines added elsewhere in the meantime stay. */
+/** Drops whole lines (after an order, or Remove); lines added elsewhere in the meantime stay. Resolves to the lines removed (for Undo), or null when the cart said no: a toast says why and the cart is reloaded. */
 function removeLines(keys: string[]) {
   return enqueue(async () => {
     const dropped = state.lines.filter((line) => keys.includes(lineKey(line)))
-    if (dropped.length === 0) return
     try {
-      await dropFromServer(dropped)
+      return await dropFromServer(dropped)
     } catch (error) {
       fail(error)
+      return null
     }
   })
 }
