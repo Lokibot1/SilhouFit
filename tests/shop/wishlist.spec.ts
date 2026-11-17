@@ -134,11 +134,14 @@ test.describe('shop heart', () => {
     expect(server.ids).toEqual([shirt])
   })
 
-  test('a guest who taps the heart is asked to sign in and nothing is sent', async ({ page }) => {
+  test('a guest who taps the heart is asked to sign in over the shop and nothing is sent', async ({ page }) => {
     const server = await mockWishlist(page)
     await page.goto('/shop')
     await heart(page, 'Linen Shirt').click()
-    await expect(page).toHaveURL(/\/login/)
+    await expect(page.getByText('Sign in to save to your wishlist.')).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Sign in' })).toBeVisible()
+    await expect(page).toHaveURL(/\/shop$/) // the modal opens over the page: no trip to /login
+    await expect(heart(page, 'Linen Shirt')).toHaveAttribute('aria-pressed', 'false')
     expect(server.writes).toEqual([])
   })
 })
