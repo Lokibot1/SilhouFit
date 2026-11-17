@@ -2,7 +2,7 @@ import { expect, test, type Page, type Request } from '@playwright/test'
 import { DEMO, mockAuth, signedIn } from '../shared/session'
 import { mockCart, mockProducts, seedCatalogue, type ProductsMock } from '../shared/products'
 
-// The wishlist on the API: GET /wishlist/ids, POST /wishlist { productId }, DELETE /wishlist/:productId, answered by a small in-memory
+// The wishlist on the API: GET /wishlist/ids, POST /wishlist { productId }, POST /wishlist/bulk { productIds }, DELETE /wishlist/:productId, answered by a small in-memory
 // server below. Signed in is the seeded session (signedIn) or a real sign-in through the mocked Supabase (DEMO only).
 // Guests keep their list in localStorage 'silhoufit-wishlist'. Products come from seedCatalogue(): Linen Shirt, Wool Trousers, Cotton Tee.
 
@@ -31,6 +31,10 @@ interface Wishlist {
   savedAt: Record<string, string>
   /** Answers GET /wishlist with this status instead of the list. */
   listFailWith: number | null
+  /** Ids the API no longer knows (or are archived): a POST for one is a 404, and a bulk POST holding one is refused whole, as the API does today. */
+  unavailable: string[]
+  /** The status a bulk POST holding an unavailable id is refused with: 404 (unknown/archived) today, or 400 (validation). */
+  bulkRefusal: 404 | 400
 }
 
 /** A gate a test opens later: `await` it in the mock, call `open()` from the test. */
@@ -41,7 +45,7 @@ function gate() {
 }
 
 async function mockWishlist(page: Page, ids: string[] = []): Promise<Wishlist> {
-  const server: Wishlist = { ids, writes: [], failWith: null, postDelayMs: 0, writeGate: null, idsGate: null, idsFailWith: null, idsCalls: 0, savedAt: {}, listFailWith: null }
+  const server: Wishlist = { ids, writes: [], failWith: null, postDelayMs: 0, writeGate: null, idsGate: null, idsFailWith: null, idsCalls: 0, savedAt: {}, listFailWith: null, unavailable: [], bulkRefusal: 404 }
   await page.route((url) => url.origin !== API && /^\/wishlist(\/|$)/.test(url.pathname), async (route) => {
     const request: Request = route.request()
     const method = request.method()
@@ -60,12 +64,24 @@ async function mockWishlist(page: Page, ids: string[] = []): Promise<Wishlist> {
       const items = server.ids.map((productId) => ({ productId, createdAt: at(productId) })).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       return route.fulfill({ json: { items }, headers: CORS })
     }
+    // POST /wishlist/bulk { productIds } is recorded as "BULK a,b,c".
+    if (method === 'POST' && rest[0] === 'bulk') {
+      const productIds = (request.postDataJSON() as { productIds: string[] }).productIds
+      server.writes.push(`BULK ${productIds.join(',')}`)
+      if (server.writeGate) await server.writeGate
+      if (server.failWith === 'abort') return route.abort('failed')
+      if (server.failWith) return route.fulfill({ status: server.failWith, json: { message: 'Internal server error' }, headers: CORS })
+      if (productIds.some((id) => server.unavailable.includes(id))) return route.fulfill({ status: server.bulkRefusal, json: { message: 'Product(s) not found' }, headers: CORS })
+      for (const id of productIds) if (!server.ids.includes(id)) server.ids.push(id)
+      return route.fulfill({ json: { items: [] }, headers: CORS })
+    }
     // DELETE /wishlist with no id empties the list; it is recorded as "DELETE all", apart from "DELETE <id>".
     const id = method === 'DELETE' && rest.length === 0 ? 'all' : method === 'POST' ? (request.postDataJSON() as { productId: string }).productId : decodeURIComponent(rest[0])
     server.writes.push(`${method} ${id}`)
     if (server.writeGate) await server.writeGate
     if (server.failWith === 'abort') return route.abort('failed')
     if (server.failWith) return route.fulfill({ status: server.failWith, json: { message: 'Internal server error' }, headers: CORS })
+    if (method === 'POST' && server.unavailable.includes(id)) return route.fulfill({ status: 404, json: { message: 'Product not found' }, headers: CORS })
     if (method === 'POST') {
       if (server.postDelayMs) await new Promise((resolve) => setTimeout(resolve, server.postDelayMs))
       if (!server.ids.includes(id)) server.ids.push(id)
@@ -173,13 +189,124 @@ async function signIn(page: Page) {
 }
 
 test.describe('guest to signed in', () => {
-  test('saved pieces are sent to the account on sign-in and the local copy is removed', async ({ page }) => {
-    await page.addInitScript(([key, ids]) => !localStorage.getItem('silhoufit-session') && localStorage.setItem(key, JSON.stringify(ids)), [KEY, ['x', 'y']] as const)
+  const seedGuest = (page: Page, ids: string[]) =>
+    page.addInitScript(([key, saved]) => !localStorage.getItem('silhoufit-session') && localStorage.setItem(key, JSON.stringify(saved)), [KEY, ids] as const)
+  const guestCopy = (page: Page) => page.evaluate((key) => localStorage.getItem(key), KEY)
+
+  test('saved pieces are sent to the account in one request on sign-in and the local copy is removed', async ({ page }) => {
+    await seedGuest(page, [shirt, tee, 'p01'])
+    const server = await mockWishlist(page, [shirt])
+    await signIn(page)
+
+    await expect.poll(() => server.writes).toEqual([`BULK ${shirt},${tee}`])
+    await expect.poll(() => [...server.ids].sort()).toEqual([shirt, tee].sort())
+    await expect.poll(() => guestCopy(page)).toBeNull()
+    // The copy is removed only after the merge, so nothing else (a per-piece POST, a second bulk) may have followed.
+    expect(server.writes).toEqual([`BULK ${shirt},${tee}`])
+  })
+
+  test('more than 50 saved pieces go in batches of 50', async ({ page }) => {
+    const ids = Array.from({ length: 60 }, (_, n) => `11111111-0000-4000-8000-${String(n + 1).padStart(12, '0')}`)
+    await seedGuest(page, ids)
     const server = await mockWishlist(page)
     await signIn(page)
 
-    await expect.poll(() => server.writes.sort()).toEqual(['POST x', 'POST y'])
-    await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), KEY)).toBeNull()
+    await expect.poll(() => server.writes).toEqual([`BULK ${ids.slice(0, 50).join(',')}`, `BULK ${ids.slice(50).join(',')}`])
+    await expect.poll(() => server.ids.length).toBe(60)
+    await expect.poll(() => guestCopy(page)).toBeNull()
+    expect(server.writes).toHaveLength(2)
+  })
+
+  for (const bulkRefusal of [404, 400] as const) {
+    test(`when the API refuses a batch with ${bulkRefusal} for an archived piece, the rest are saved one by one and the archived one is dropped`, async ({ page }) => {
+      const gone = '22222222-0000-4000-8000-000000000001'
+      await seedGuest(page, [shirt, gone])
+      const server = await mockWishlist(page)
+      server.unavailable = [gone]
+      server.bulkRefusal = bulkRefusal
+      await signIn(page)
+
+      await expect.poll(() => [...server.writes].sort()).toEqual([`BULK ${shirt},${gone}`, `POST ${gone}`, `POST ${shirt}`].sort())
+      await expect.poll(() => server.ids).toEqual([shirt])
+      await expect.poll(() => guestCopy(page)).toBeNull()
+      expect(server.writes[0]).toBe(`BULK ${shirt},${gone}`) // the bulk is tried first
+      expect(server.writes).toHaveLength(3)
+    })
+  }
+
+  for (const failWith of [401, 500, 'abort'] as const) {
+    test(`${failWith === 'abort' ? 'a dropped connection' : `a ${failWith}`} on the bulk request keeps the guest copy, shows "did not load" with Try again, sends no per-piece POST, and Try again merges`, async ({ page }) => {
+      await seedGuest(page, [shirt])
+      const server = await mockWishlist(page)
+      server.failWith = failWith
+      await signIn(page)
+      await page.goto('/wishlist')
+
+      const block = page.getByRole('alert').filter({ hasText: 'Your wishlist did not load' })
+      await expect(block).toBeVisible()
+      expect(await guestCopy(page)).toBe(JSON.stringify([shirt]))
+      expect(server.writes.length).toBeGreaterThan(0)
+      expect(server.writes.every((w) => w === `BULK ${shirt}`)).toBe(true)
+      expect(server.ids).toEqual([])
+
+      server.failWith = null
+      server.writes.length = 0
+      await block.getByRole('button', { name: 'Try again' }).click()
+      await expect(page.getByText('1 piece saved')).toBeVisible()
+      await expect(block).toHaveCount(0)
+      await expect.poll(() => guestCopy(page)).toBeNull()
+      expect(server.ids).toEqual([shirt])
+      expect(server.writes).toEqual([`BULK ${shirt}`])
+    })
+  }
+
+  test('a guest list of only junk ids sends no bulk request, and the key is removed', async ({ page }) => {
+    await seedGuest(page, ['p01', 'not-an-id'])
+    const server = await mockWishlist(page)
+    await signIn(page)
+
+    await expect.poll(() => guestCopy(page)).toBeNull() // removed after the merge step, before the ids are read
+    await page.goto('/wishlist')
+    await expect(page.getByRole('heading', { name: 'Nothing saved yet' })).toBeVisible()
+    expect(server.idsCalls).toBeGreaterThan(0)
+    expect(server.writes).toEqual([])
+  })
+
+  test('an empty guest list sends no bulk request', async ({ page }) => {
+    await seedGuest(page, [])
+    const server = await mockWishlist(page, [tee])
+    await signIn(page)
+    await page.goto('/wishlist')
+
+    await expect(page.getByText('1 piece saved')).toBeVisible()
+    expect(server.writes).toEqual([])
+    expect([null, '[]']).toContain(await guestCopy(page))
+  })
+
+  test('merging is idempotent across sign-ins: the same guest ids again cause no error and no duplicates', async ({ page }) => {
+    await seedGuest(page, [shirt, tee])
+    const server = await mockWishlist(page)
+    await signIn(page)
+    await expect.poll(() => guestCopy(page)).toBeNull()
+    await page.goto('/shop')
+    await expect(navbarCount(page, 2)).toBeVisible()
+
+    await page.getByRole('button', { name: /^Account, / }).click()
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await expect(page).toHaveURL(/\/login/)
+
+    // Signed out, the init script puts the same guest ids back (it seeds only while there is no session).
+    await signIn(page)
+    await expect.poll(() => guestCopy(page)).toBeNull()
+    await page.goto('/shop')
+    await expect(navbarCount(page, 2)).toBeVisible()
+    await expect(heart(page, 'Linen Shirt')).toHaveAttribute('aria-pressed', 'true')
+    await expect(heart(page, 'Cotton Tee')).toHaveAttribute('aria-pressed', 'true')
+    await expect(heart(page, 'Wool Trousers')).toHaveAttribute('aria-pressed', 'false')
+    await expect(errorToast(page)).toHaveCount(0)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    expect(server.writes).toEqual([`BULK ${shirt},${tee}`, `BULK ${shirt},${tee}`])
+    expect([...server.ids].sort()).toEqual([shirt, tee].sort())
   })
 })
 

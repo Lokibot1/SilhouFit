@@ -1,11 +1,13 @@
 import { useContext, useEffect, useSyncExternalStore } from 'react'
 import { ToastContext, type ToastOptions } from '../components/toast/useToast'
-import { ProductListError } from '../service/fetchProductList'
+import { ProductListError, UUID } from '../service/fetchProductList'
 import { getSession, subscribe as subscribeSession } from '../service/session'
-import { addWishlistItem, clearWishlist, fetchWishlistIds, removeWishlistItem } from '../service/wishlistApi'
+import { addWishlistItem, addWishlistItems, clearWishlist, fetchWishlistIds, removeWishlistItem } from '../service/wishlistApi'
 import { useProductsByIds } from './useProducts'
 
 const KEY = 'silhoufit-wishlist'
+/** The most pieces POST /wishlist/bulk takes in one request; matches the API's limit. */
+const BULK_MAX = 50
 
 function loadGuest(): string[] {
   try {
@@ -60,14 +62,33 @@ function messageFor(error: unknown) {
   return "Couldn't update your wishlist. The request failed, most likely because the connection dropped. Check your connection, then try again."
 }
 
+/**
+ * Sends a guest's pieces to the account, one request per 50; anything that is not an id (old saved lists) is skipped. If the API refuses a batch
+ * (a piece may have been archived since it was saved), that batch goes piece by piece and only the pieces the API refuses are dropped.
+ * A connection or session failure is thrown, so the caller keeps the local copy.
+ */
+async function mergeGuest(ids: string[]) {
+  const valid = ids.filter((id) => UUID.test(id))
+  for (let i = 0; i < valid.length; i += BULK_MAX) {
+    const batch = valid.slice(i, i + BULK_MAX)
+    try {
+      await addWishlistItems(batch)
+    } catch (error) {
+      // shortcut: per-item fallback because /wishlist/bulk refuses the whole batch for one unknown/archived id; remove once the API skips them
+      if (!(error instanceof ProductListError && (error.kind === 'validation' || error.kind === 'not-found'))) throw error
+      await Promise.allSettled(batch.map((id) => addWishlistItem(id)))
+    }
+  }
+}
+
 /** Brings the screen back in line with the server's list; changes still waiting to be sent stay on top of it. */
 function loadServer() {
   const current = generation
   return enqueue(async () => {
-    // Pieces a guest saved before signing in join the account's list; any that fail are dropped.
+    // Pieces a guest saved before signing in join the account's list; a piece is only dropped when the API refuses it. On a connection or session failure the local copy is kept for the next load.
     const guest = loadGuest()
     if (guest.length > 0) {
-      await Promise.allSettled(guest.map((id) => addWishlistItem(id)))
+      await mergeGuest(guest)
       try {
         localStorage.removeItem(KEY)
       } catch {

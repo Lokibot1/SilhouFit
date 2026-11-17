@@ -25,6 +25,11 @@ export async function addWishlistItem(productId: string, { signal }: RequestOpti
   await request('POST', '/wishlist', { productId }, signal)
 }
 
+/** POST /wishlist/bulk. Saves up to 50 pieces at once (every id must be a UUID); pieces already saved are skipped. Today the API refuses the whole batch if one piece is unknown or archived. */
+export async function addWishlistItems(productIds: string[], { signal }: RequestOptions = {}) {
+  await request('POST', '/wishlist/bulk', { productIds }, signal)
+}
+
 /** DELETE /wishlist. Empties the whole list, including pieces hidden because they were archived. */
 export async function clearWishlist({ signal }: RequestOptions = {}) {
   await request('DELETE', '/wishlist', undefined, signal)
