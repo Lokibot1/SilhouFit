@@ -36,6 +36,7 @@ let TryOnStage = lazy(loadStage)
 const META_DESCRIPTION =
   'Try this piece on in AR with SilhouFit: see how each size fits your saved measurements, switch colours and preview the shirt over your camera on this device.'
 const NO_VARIANTS: ProductVariant[] = []
+const CREDIT_LINK = 'kral-focus underline underline-offset-2 hover:text-kral-fg'
 const LEGEND = 'font-kral-mono text-base font-medium text-kral-fg uppercase md:text-xs md:tracking-[0.08em]'
 const LEVEL: Record<FitLevel, string> = { 'too-tight': 'Too tight', fitted: 'Fitted', regular: 'Regular fit', loose: 'Loose fit', oversized: 'Oversized' }
 const REGION: Record<FitRegion, string> = { chest: 'Chest', waist: 'Waist', shoulders: 'Shoulders', sleeve: 'Sleeve' }
@@ -381,6 +382,23 @@ export function TryOnPage() {
         <Link to={back} className={`${KRAL_SECONDARY} w-fit`}>
           Back to product
         </Link>
+
+        {/* Required by the CC BY 4.0 licence of the shirt model; the shop pages have no site footer. */}
+        <p className={`${KRAL_LABEL} leading-relaxed`}>
+          3D shirt: &ldquo;
+          <a href="https://skfb.ly/ozHJJ" target="_blank" rel="noopener noreferrer" className={CREDIT_LINK}>
+            T Shirt
+          </a>
+          &rdquo; by{' '}
+          <a href="https://sketchfab.com/funlab117" target="_blank" rel="noopener noreferrer" className={CREDIT_LINK}>
+            funlab117
+          </a>
+          , licensed under{' '}
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" className={CREDIT_LINK}>
+            CC BY 4.0
+          </a>
+          , converted and rigged.
+        </p>
       </div>
     )
   }
