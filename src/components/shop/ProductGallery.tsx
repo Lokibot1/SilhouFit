@@ -135,7 +135,7 @@ export function ProductGallery({ product, saved, onToggleSaved }: ProductGallery
         onPointerLeave={(e) => e.pointerType === 'mouse' && setZoom((z) => ({ ...z, active: false }))}
         onContextMenu={(e) => press.current && e.preventDefault()}
         ref={photo}
-        className="group/img relative aspect-4/5 h-full w-auto max-w-full touch-pan-y max-lg:h-auto max-lg:w-full overflow-hidden bg-kral-porcelain select-none [-webkit-touch-callout:none] pointer-fine:cursor-zoom-in dark:bg-kral-graphite"
+        className="group/img relative aspect-4/5 h-full w-auto max-w-full touch-pan-y touch-pinch-zoom max-lg:h-auto max-lg:w-full overflow-hidden bg-kral-porcelain select-none [-webkit-touch-callout:none] pointer-fine:cursor-zoom-in dark:bg-kral-graphite"
       >
         {/* Same sliding track as the shop cards. */}
         <div
