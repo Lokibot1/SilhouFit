@@ -331,7 +331,7 @@ test.describe('wishlist page', () => {
     server.writes.length = 0
     await page.getByRole('checkbox', { name: 'Select Linen Shirt' }).check({ force: true })
     await page.getByRole('checkbox', { name: 'Select Cotton Tee' }).check({ force: true })
-    await expect(page.getByRole('button', { name: 'Clear all' })).toHaveCount(0) // some selected: Remove, not Clear all
+    await expect(page.getByRole('button', { name: 'Clear all' })).toHaveCount(1) // the one by the count; the toolbar shows Remove for some
     await page.getByRole('button', { name: 'Remove', exact: true }).click()
     await expect(page.getByText('Removed 2 pieces from wishlist')).toBeVisible()
     await expect(page.getByText('1 piece saved')).toBeVisible()

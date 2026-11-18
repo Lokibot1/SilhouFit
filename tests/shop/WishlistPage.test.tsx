@@ -192,19 +192,33 @@ describe('WishlistPage', () => {
     expect(screen.getByText('0 selected')).toBeInTheDocument()
   })
 
-  it('offers Remove for some pieces and Clear all only when every piece is selected', async () => {
+  it('offers Remove for some pieces and the toolbar Clear all only when every piece is selected', async () => {
     seed('wishlist', ['p01', 'p02', 'p03'])
     const user = userEvent.setup()
     renderPage()
     await screen.findAllByRole('article')
-    expect(screen.queryByRole('button', { name: 'Clear all' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Select all' })).toBeNull() // hidden until a piece is picked
     await user.click(screen.getByRole('checkbox', { name: 'Select Heritage Polo' }))
     expect(screen.getByRole('button', { name: 'Remove' })).toBeEnabled()
-    expect(screen.queryByRole('button', { name: 'Clear all' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Select all' }))
     expect(screen.getByRole('button', { name: 'Clear all' })).toBeEnabled()
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+  })
+
+  it('has a Clear all by the count without selecting anything, which asks first, and only one Clear all is ever on screen', async () => {
+    seed('wishlist', ['p01', 'p02', 'p03'])
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findAllByRole('article')
+    expect(screen.getAllByRole('button', { name: 'Clear all' })).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(screen.getByRole('dialog', { name: 'Clear your wishlist?' })).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(3) // nothing is removed until confirmed
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Select Heritage Polo' }))
+    await user.click(screen.getByRole('button', { name: 'Select all' }))
+    expect(screen.getAllByRole('button', { name: 'Clear all' })).toHaveLength(1) // the toolbar one has taken over
   })
 
   it('selects and clears everything with one control', async () => {

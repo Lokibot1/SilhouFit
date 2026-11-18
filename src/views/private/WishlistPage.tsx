@@ -179,7 +179,16 @@ export function WishlistPage() {
         backToShop
         summary={
           idsReady && products.status === 'success' ? (
-            <p className="font-kral-mono text-sm text-kral-muted tabular-nums">{plural(saved.length)} saved</p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p className="font-kral-mono text-sm text-kral-muted tabular-nums">{plural(saved.length)} saved</p>
+              {/* Always within reach without selecting anything. With every piece selected the toolbar's own Clear all takes over, so only one is on screen. */}
+              {saved.length > 0 && !clearsAll && (
+                <button type="button" onClick={() => setClearing(true)} className={`${KRAL_DANGER} ${COMPACT}`}>
+                  <TrashIcon size={16} />
+                  Clear all
+                </button>
+              )}
+            </div>
           ) : undefined
         }
       />
