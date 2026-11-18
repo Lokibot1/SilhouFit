@@ -10,7 +10,7 @@ import { AccountLink } from '../AccountLink'
 import { AccountMenu } from '../AccountMenu'
 import { CustomerMessagesButton } from '../chat/dock/CustomerMessagesButton'
 import { NotificationsBell } from '../NotificationsBell'
-import { CartIcon, HeartIcon, MenuIcon, SearchIcon, UserIcon, XIcon } from '../form/icons'
+import { CartIcon, HeartIcon, MenuIcon, SearchIcon, StoreIcon, UserIcon, XIcon } from '../form/icons'
 import { ThemeToggle } from '../ThemeToggle'
 import { homeFor, isStaffRole } from '../../utils/staffRole'
 import { KRAL_ICON_BUTTON, KRAL_ICON_COUNT } from '../ui/kralIconButton'
@@ -144,6 +144,13 @@ function ShopControls({ user, logo }: { user: CurrentUser | null; logo: ReactNod
             >
               {searchOpen ? <XIcon /> : <SearchIcon />}
             </button>
+          </Tooltip>
+        )}
+        {!onShop && (
+          <Tooltip label="Shop">
+            <Link to="/shop" aria-label="Shop" className={KRAL_ICON_BUTTON}>
+              <StoreIcon />
+            </Link>
           </Tooltip>
         )}
         <Tooltip label={savedCount === null ? 'Wishlist' : `Wishlist (${savedCount} saved)`}>

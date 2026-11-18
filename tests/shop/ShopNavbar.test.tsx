@@ -141,6 +141,16 @@ describe('route selects the navbar', () => {
     expect(screen.queryByRole('link', { name: 'Sign Up now!' })).toBeNull()
   })
 
+  it('links back to the shop from every shop-bar page except the shop itself', () => {
+    renderLayout('/cart')
+    expect(within(screen.getByRole('banner')).getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '/shop')
+  })
+
+  it('has no Shop link in the bar on /shop, where the customer already is', () => {
+    renderLayout('/shop')
+    expect(within(screen.getByRole('banner')).queryByRole('link', { name: 'Shop' })).toBeNull()
+  })
+
   it('keeps the regular navbar elsewhere', () => {
     renderLayout('/about')
     expect(screen.getAllByRole('link', { name: 'Login!' }).length).toBeGreaterThan(0)
