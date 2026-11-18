@@ -8,7 +8,7 @@ vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
 }))
 const send = vi.mocked(request)
 
-const { cancelDelivery, cancelDeliveryFailure, dispatchFailure, dispatchOrder, explainFailure, fetchAdminOrder, fetchAdminOrderMetrics, fetchAdminOrders, updateAdminOrder } = await import('../../src/service/adminOrdersApi')
+const { cancelDelivery, cancelDeliveryFailure, dispatchFailure, dispatchOrder, explainFailure, fetchAdminOrder, fetchAdminOrderMetrics, fetchAdminOrders, fetchUserOrders, fetchUserOrderSummary, updateAdminOrder } = await import('../../src/service/adminOrdersApi')
 
 const customer = { id: 'u1', email: 'anne@example.com', firstName: 'Anne', lastName: 'Santos', fullName: 'Anne Santos', avatarUrl: null }
 const apiRow = (over: Record<string, unknown> = {}) => ({
@@ -88,6 +88,32 @@ describe('listing orders', () => {
     const abort = new DOMException('Aborted', 'AbortError')
     send.mockRejectedValue(abort)
     await expect(fetchAdminOrders({})).rejects.toBe(abort)
+  })
+})
+
+describe('a customer\'s purchases', () => {
+  it('lists from the user path with the id encoded, the same keys and the same row mapping', async () => {
+    send.mockResolvedValue(page([apiRow()]))
+    const { data } = await fetchUserOrders('a/b c', { page: 2, limit: 500, status: 'PAID', from: '2026-10-01' })
+    const path = send.mock.calls[0][1]
+    expect(path.startsWith('/users/a%2Fb%20c/orders?')).toBe(true)
+    const query = new URL(`http://x${path}`).searchParams
+    expect([...query.keys()]).toEqual(['page', 'limit', 'status', 'startDate'])
+    expect(query.get('limit')).toBe('100')
+    expect(data[0]).toMatchObject({ id: ORDER_ID, total: 3879, status: 'PAID', placedAt: '2026-10-26T02:30:00.000Z' })
+  })
+
+  it('reads the total spent and the order count, and ignores the status counts', async () => {
+    send.mockResolvedValue({ userId: 'u1', orders: { totalSpent: 1234.5, totalOrders: 3, statusCounts: { PAID: 3 } } })
+    expect(await fetchUserOrderSummary('u 1')).toEqual({ totalSpent: 1234.5, totalOrders: 3 })
+    expect(send).toHaveBeenCalledWith('GET', '/users/u%201/summary', undefined, undefined)
+  })
+
+  it('rejects a malformed summary as a server error', async () => {
+    for (const body of [null, { orders: null }, { orders: { totalSpent: '5', totalOrders: 1 } }, { orders: { totalSpent: 5 } }]) {
+      send.mockResolvedValueOnce(body)
+      await expect(fetchUserOrderSummary('u1')).rejects.toMatchObject({ kind: 'server' })
+    }
   })
 })
 

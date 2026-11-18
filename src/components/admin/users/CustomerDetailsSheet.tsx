@@ -10,6 +10,7 @@ import { useToast } from '../../toast/useToast'
 import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { ConfirmDialog } from './ConfirmDialog'
+import { CustomerPurchases } from './CustomerPurchases'
 import { StatusBadge } from './StatusBadge'
 
 const REASON_MAX = 200
@@ -115,6 +116,8 @@ export function CustomerDetailsSheet({ account, onClose }: CustomerDetailsSheetP
                 </dd>
               </div>
             </dl>
+
+            {account && <CustomerPurchases id={account.id} />}
 
             <section aria-labelledby="offenses-heading" className="grid gap-3">
               <div className="flex items-center justify-between gap-3">

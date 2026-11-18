@@ -186,7 +186,7 @@ export const bookedOrder = (n: number, over: Record<string, unknown> = {}) =>
   })
 
 /** The list row of an order (AdminOrderSummaryDto). */
-const summary = (o: AdminOrderDto) => ({
+export const summary = (o: AdminOrderDto) => ({
   id: o.id,
   orderNumber: o.orderNumber,
   userId: o.userId,

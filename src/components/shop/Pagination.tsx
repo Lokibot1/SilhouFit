@@ -9,6 +9,8 @@ interface PaginationProps {
   onPage: (page: number) => void
   /** 'kral' sets square mono buttons with the current page filled; unset leaves the skeuomorphic ones. */
   tone?: 'kral'
+  /** Keeps every button 44px tall at all widths (the default is 36px with a mouse). */
+  large?: boolean
 }
 
 /** Page numbers to show: first, last and the current page's neighbours, with 0 marking a gap. */
@@ -21,15 +23,16 @@ function pageWindow(page: number, count: number) {
 const STEP = `${SHOP_SECONDARY} min-w-9 pointer-coarse:min-w-11 max-md:min-h-11 max-md:min-w-11 px-4 disabled:pointer-events-none`
 const KRAL_STEP = `${KRAL_CHIP} min-w-11 px-4 disabled:pointer-events-none`
 
-export function Pagination({ page, pageCount, from, to, total, onPage, tone }: PaginationProps) {
+export function Pagination({ page, pageCount, from, to, total, onPage, tone, large }: PaginationProps) {
   const kral = tone === 'kral'
+  const big = large ? ' min-h-11 min-w-11' : ''
   return (
     <div className="mt-12 flex flex-col items-end gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-6">
       <p className={`${kral ? 'font-kral-mono text-kral-muted' : 'font-ui text-fg-muted'} text-sm tabular-nums`}>
         Displaying {from}–{to} of {total}
       </p>
       <nav aria-label="Pagination" className="flex items-center gap-2">
-        <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)} className={kral ? KRAL_STEP : STEP}>
+        <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)} className={(kral ? KRAL_STEP : STEP) + big}>
           Prev
         </button>
         <p className={`${kral ? 'font-kral-mono text-kral-muted' : 'font-ui text-fg-muted'} px-2 text-sm tabular-nums sm:sr-only`}>
@@ -48,7 +51,7 @@ export function Pagination({ page, pageCount, from, to, total, onPage, tone }: P
                   aria-current={n === page ? 'page' : undefined}
                   aria-label={`Page ${n}`}
                   onClick={() => onPage(n)}
-                  className={kral ? `${KRAL_CHIP} min-w-11 px-0 tabular-nums` : `${SHOP_SECONDARY} min-w-9 pointer-coarse:min-w-11 max-md:min-h-11 max-md:min-w-11 tabular-nums`}
+                  className={kral ? `${KRAL_CHIP} min-w-11 px-0 tabular-nums` : `${SHOP_SECONDARY} min-w-9 pointer-coarse:min-w-11 max-md:min-h-11 max-md:min-w-11 tabular-nums${big}`}
                 >
                   {n}
                 </button>
@@ -56,7 +59,7 @@ export function Pagination({ page, pageCount, from, to, total, onPage, tone }: P
             </li>
           ))}
         </ol>
-        <button type="button" disabled={page >= pageCount} onClick={() => onPage(page + 1)} className={kral ? KRAL_STEP : STEP}>
+        <button type="button" disabled={page >= pageCount} onClick={() => onPage(page + 1)} className={(kral ? KRAL_STEP : STEP) + big}>
           Next
         </button>
       </nav>

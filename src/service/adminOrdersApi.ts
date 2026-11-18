@@ -166,11 +166,10 @@ function toDetail(body: unknown): AdminOrderDetail {
 
 const base = (id: string) => `/admin/orders/${encodeURIComponent(id)}`
 
-/** Feature: Staff orders – List orders */
-/** GET /admin/orders, newest first. The dates become Manila day bounds, because the API reads a date-only end as midnight UTC. */
-export async function fetchAdminOrders(
+async function listOrders(
+  path: string,
   { page = 1, limit = 25, status, paymentStatus, from, to, search }: AdminOrdersParams,
-  { signal }: RequestOptions = {},
+  signal?: AbortSignal,
 ): Promise<AdminOrdersPage> {
   const query = new URLSearchParams({ page: String(page), limit: String(Math.min(limit, 100)) })
   if (status) query.set('status', status)
@@ -178,13 +177,34 @@ export async function fetchAdminOrders(
   if (from) query.set('startDate', `${from}T00:00:00+08:00`)
   if (to) query.set('endDate', `${to}T23:59:59.999+08:00`)
   if (search) query.set('search', search)
-  const body = await request('GET', `/admin/orders?${query}`, undefined, signal)
+  const body = await request('GET', `${path}?${query}`, undefined, signal)
   const meta = isRecord(body) ? body.meta : null
   if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(meta) || !isMoney(meta.total)) throw bad()
   return {
     data: body.data.map(toRow),
     meta: { total: meta.total, page: Number(meta.page) || page, limit: Number(meta.limit) || limit, totalPages: Number(meta.totalPages) || 0, hasNextPage: meta.hasNextPage === true },
   }
+}
+
+/** Feature: Staff orders – List orders */
+/** GET /admin/orders, newest first. The dates become Manila day bounds, because the API reads a date-only end as midnight UTC. */
+export function fetchAdminOrders(params: AdminOrdersParams, { signal }: RequestOptions = {}): Promise<AdminOrdersPage> {
+  return listOrders('/admin/orders', params, signal)
+}
+
+/** Feature: Admin users – Customer purchases */
+/** GET /users/:id/orders, the same list and rows as the staff orders list, for one customer. */
+export function fetchUserOrders(userId: string, params: AdminOrdersParams, { signal }: RequestOptions = {}): Promise<AdminOrdersPage> {
+  return listOrders(`/users/${encodeURIComponent(userId)}/orders`, params, signal)
+}
+
+/** Feature: Admin users – Customer purchases */
+/** GET /users/:id/summary. totalSpent counts paid orders only, not cancelled or refunded ones. */
+export async function fetchUserOrderSummary(userId: string, { signal }: RequestOptions = {}): Promise<{ totalSpent: number; totalOrders: number }> {
+  const body = await request('GET', `/users/${encodeURIComponent(userId)}/summary`, undefined, signal)
+  const orders = isRecord(body) ? body.orders : null
+  if (!isRecord(orders) || !isMoney(orders.totalSpent) || !isMoney(orders.totalOrders)) throw bad()
+  return { totalSpent: orders.totalSpent, totalOrders: orders.totalOrders }
 }
 
 /** Feature: Staff orders – Metrics */
