@@ -63,6 +63,8 @@ export interface BodyFit {
   torsoPx: number | null
   /** Stage y of the hip midpoint (px, down), null unless the hips are seen. */
   hipY: number | null
+  /** Stage x of the hip midpoint (px), null unless the hips are seen. */
+  hipX: number | null
 }
 
 /** What one frame measured; a field left out is not measured and eases to neutral. */

@@ -84,7 +84,7 @@ describe('lean', () => {
 
 describe('the follower fit', () => {
   it('is neutral without hips, so the shoulders-only fit is the fallback', () => {
-    expect(fitOf({})).toEqual({ vy: 1, hip: 1, pitch: 0, hips: 'missing', torsoPx: null, hipY: null })
+    expect(fitOf({})).toEqual({ vy: 1, hip: 1, pitch: 0, hips: 'missing', torsoPx: null, hipY: null, hipX: null })
   })
   it('measures an average torso as 1, a long one longer and a short one shorter, with the torso length in px', () => {
     expect(fitOf({ down: at(TORSO_TO_SPAN) })).toMatchObject({ hips: 'tracked', vy: expect.closeTo(1, 2), hip: expect.closeTo(1, 2), pitch: 0 })

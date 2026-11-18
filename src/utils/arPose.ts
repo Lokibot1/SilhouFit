@@ -2,7 +2,7 @@ import { sleeveAngle, SleeveTracker, type Side } from './arArms'
 import { BodyFitter, FRONT_ON_ENTER, FRONT_ON_LEAVE, hipFactor, leanOf, torsoFactor, type BodyFit, type BodyMeasure } from './arFitBody'
 import { garmentScale, GARMENT_BASE, SEAM_HEIGHT } from './arGarment'
 import { OneEuro, OneEuroPoint } from './oneEuro'
-import { faceEllipse, forearmCapsule, forearmInFront, FRAME_MARGIN, WRIST_SEEN, wristTrusted, type Ellipse, type ForearmCall } from './arOcclude'
+import { faceEllipse, forearmCapsule, forearmGap, forearmInFront, FRAME_MARGIN, torsoPlaneZ, WRIST_SEEN, wristTrusted, type Ellipse, type ForearmCall } from './arOcclude'
 import { TurnDetector, type FlipReason } from './arTurn'
 
 // From pose landmarks to where the shirt goes on the stage, for the AR try-on. Pure TypeScript with no rendering. The camera feed is shown
@@ -278,6 +278,8 @@ export class PoseFollower {
   /** How much the hips bend the roll (0 or 1, eased), so the roll does not step when they appear or go; `hipMid` is the last smoothed hip midpoint it uses meanwhile. */
   private readonly hipWeight = new OneEuro({ minCutoff: 0.4, beta: 0 })
   private hipMid: Point | null = null
+  /** Whether each forearm (left of the screen first) was judged behind the body last time; see forearmInFront. */
+  private readonly behind = [false, false]
   /** Whether each landmark (by index plus the threshold it is judged by) is on; see HYSTERESIS. */
   private readonly on = new Map<number, boolean>()
   private readonly body = new BodyFitter()
@@ -310,6 +312,7 @@ export class PoseFollower {
     for (const f of [this.left, this.right, this.hipLeft, this.hipRight, this.elbowLeft, this.elbowRight, this.wristLeft, this.wristRight, this.armLeft, this.armRight, this.scale, this.hipWeight, this.turn, this.body, ...this.facePoints]) f.reset()
     this.on.clear()
     this.hipMid = null
+    this.behind.fill(false)
     this.frontOn = false
     this.last = null
     this.good = null
@@ -421,21 +424,27 @@ export class PoseFollower {
     // The wrist goes with its own elbow (13 with 15, 14 with 16), so each arm keeps its side.
     const arm = pair.map((e) => {
       const wrist = e === elbowIn[0] ? LEFT_WRIST : RIGHT_WRIST
-      return { elbow: e, wrist: frame.image[wrist], wristAt: wrist, wristZ: frame.world[wrist]?.z }
+      return { elbow: e, wrist: frame.image[wrist], wristAt: wrist, wristWorld: frame.world[wrist], elbowZ: frame.world[e === elbowIn[0] ? LEFT_ELBOW : RIGHT_ELBOW]?.z }
     })
     const elbows = [this.elbowLeft, this.elbowRight].map((f, i) => (arm[i].elbow ? f.filter(toStage(arm[i].elbow, view), tMs) : null))
     const sleeves: [number, number] = [
       this.sleeve(elbows[0], l, roll, -1, this.armLeft, tMs, reduceMotion),
       this.sleeve(elbows[1], r, roll, 1, this.armRight, tMs, reduceMotion),
     ]
-    const shoulderZ = frame.world[rawL] && frame.world[rawR] ? (frame.world[rawL].z + frame.world[rawR].z) / 2 : undefined
+    const torso = [frame.world[rawL], frame.world[rawR]]
+    const hipWorld = hips ? [frame.world[LEFT_HIP], frame.world[RIGHT_HIP]] : null
     const forearms = [this.wristLeft, this.wristRight].map((f, i) => {
       const wrist = arm[i].wrist
       const capsule = elbows[i] && wrist && this.seenAt(frame, arm[i].wristAt) ? forearmCapsule(elbows[i], f.filter(toStage(wrist, view), tMs), pxPerCm) : null
-      if (!capsule) return null
-      const gapM = arm[i].wristZ !== undefined && shoulderZ !== undefined ? arm[i].wristZ - shoulderZ : undefined
+      if (!capsule) {
+        this.behind[i] = false
+        return null
+      }
+      const gapM = forearmGap(arm[i].wristWorld?.z, arm[i].elbowZ, torsoPlaneZ(torso, hipWorld, arm[i].wristWorld?.y))
       if (!wristTrusted({ ...wrist!, visibility: this.seenAt(frame, arm[i].wristAt, WRIST_SEEN) ? 1 : 0 })) return { capsule, cut: false, why: 'unsure wrist', gapM }
-      return forearmInFront(arm[i].wristZ, shoulderZ, this.facing) ? { capsule, cut: true, gapM } : { capsule, cut: false, why: 'behind', gapM }
+      const inFront = forearmInFront(gapM, this.behind[i], this.facing)
+      this.behind[i] = !inFront
+      return inFront ? { capsule, cut: true, gapM } : { capsule, cut: false, why: 'behind', gapM }
     }) as [ForearmCall | null, ForearmCall | null]
     const face = faceEllipse(
       Array.from({ length: 11 }, (_, i) => ((FACE_GATED.includes(i) ? this.seenAt(frame, i) : finitePoint(frame.image[i])) ? { ...this.facePoints[i].filter(toStage(frame.image[i], view), tMs), visibility: 1 } : undefined)),
@@ -501,6 +510,7 @@ export class PoseFollower {
       hips: measuring ? 'tracked' : trusted ? 'side-on' : 'missing',
       torsoPx,
       hipY: hips && (hips[0].y + hips[1].y) / 2,
+      hipX: hips && (hips[0].x + hips[1].x) / 2,
     }
   }
 

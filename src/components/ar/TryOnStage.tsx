@@ -5,7 +5,7 @@ import { sleeveRotation, sleevesOnBones } from '../../utils/arArms'
 import { GARMENT_BASE, NECK_PLUG, SEAM_HEIGHT, UNDERARM_Y } from '../../utils/arGarment'
 import type { Ellipse, ForearmCall } from '../../utils/arOcclude'
 import { jitterPx, lagMs, speedPxS, type Sample } from '../../utils/arMeter'
-import { keyLightX, LIGHT, lightGain, LightMeter, Sway, trackedCamera } from '../../utils/arLook'
+import { contactShade, darkLift, EDGE_FEATHER, foldShade, grainStrength, keyLightX, LIGHT, lightGain, LightMeter, roomTint, SHADE, sheenStrength, sheenTint, SleeveSway, Sway, trackedCamera, WEAVE, weaveTexels } from '../../utils/arLook'
 import { garmentTransform, LANDMARK_FILTER, maskTransform, PoseFollower, RateHealth, type MaskFrame, type Pose, type TrackStatus } from '../../utils/arPose'
 import { FlipIcon, SpinnerIcon, TrackIcon } from '../form/icons'
 import { addStudio, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
@@ -31,13 +31,14 @@ const OCCLUDER_GAP = 0.02
 const OCCLUDER_NEAREST = 0.85
 /** The cloth look. LIGHTS are the intensities at the reference room brightness (see arLook.ts for how the video scales them); tune by eye on a white and a black shirt. */
 const LIGHTS = { env: 0.6, hemisphere: 0.45, key: 1.7, studio: [0.8, 0.7], exposure: 0.6 }
-const FABRIC = { roughness: 0.9, sheenRoughness: 0.6, sheen: 0.4 }
-const WHITE = new THREE.Color(1, 1, 1)
-/** Soft occlusion on the colour, from the rest-pose position (cm above the hem, x from the centre): strength 0..1 and the size of each patch. */
+const FABRIC = { roughness: 0.9, sheenRoughness: 0.85, sheen: 0.35 }
+/** How many times the weave tile repeats across the shirt's UVs. The UV scale of the model is not known: tune by eye on a phone (?debug=ar), too high shimmers, too low looks like a coarse net. */
+const WEAVE_REPEAT = 16
+/** Soft occlusion on the colour, from the rest-pose position (cm above the hem, x from the centre): the size of each patch. The strengths come from contactShade (arLook.ts). */
 const AMBIENT_OCCLUSION = {
-  underarm: { x: 17.5, y: UNDERARM_Y, rx: 4, ry: 5.5, strength: 0.3 },
-  collar: { reach: 1.9, strength: 0.25 },
-  hem: { height: 4, strength: 0.2 },
+  underarm: { x: 17.5, y: UNDERARM_Y, rx: 4, ry: 5.5 },
+  collar: { reach: 1.9 },
+  hem: { height: 4 },
 }
 /** Fold normals: how far the shading normal tilts (about 0.08 is 5 degrees), and the pattern: three octaves of sines, mostly vertical folds. No texture. */
 const FOLD_STRENGTH = 0.08
@@ -46,6 +47,24 @@ const FOLD_GLSL = `vec3 foldGradient(vec3 p) {
     + 0.5 * cos(dot(p, vec3(1.15, -0.30, 0.80)) + 2.1) * vec3(1.15, -0.30, 0.80)
     + 0.25 * cos(dot(p, vec3(2.30, 0.45, -1.30)) + 4.2) * vec3(2.30, 0.45, -1.30);
   return g / 1.86;
+}
+`
+/** Where the low-frequency creases sit and how hard they bend the shading normal (screen-space bump of the crease height, in cm of the rest pose). Untuned: check on camera. */
+const CREASE_BUMP = 3
+/** A per-pixel hash that changes with the video time (uSeed): film grain and the dithered silhouette edge, so a replayed feed draws the same pixels. */
+const HASH_GLSL = `float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+float formHeight(vec3 p) {
+  vec2 side = vec2(p.x < 0.0 ? uFoldArm.x : uFoldArm.y, p.x < 0.0 ? -1.0 : 1.0);
+  vec2 d = p.xy - vec2(side.y * ${AMBIENT_OCCLUSION.underarm.x.toFixed(2)}, ${AMBIENT_OCCLUSION.underarm.y.toFixed(2)});
+  float r = length(d);
+  float arm = side.x * sin(atan(d.y, d.x) * 6.0) * smoothstep(0.0, 3.0, r) * exp(-r / 8.0);
+  float chest = uFold.x * sin(p.y * 0.45 + p.x * 0.3) * (1.0 - smoothstep(10.0, 22.0, abs(p.x)));
+  float drape = uFold.y * (0.6 * sin(p.x * 0.7 + 1.3) + 0.4 * sin(p.y * 0.12 + 0.5));
+  return arm + chest + drape;
 }
 `
 /** How often the room's brightness is read from the video while the shirt follows a person (ms). */
@@ -176,19 +195,55 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     const tracked = new THREE.PerspectiveCamera(FOV, 1, 1, 10000)
     let cameraDistance = 1
     let cameraVideoW = 0
-    // Cloth: rough, with a soft sheen (fuzz at grazing angles) whose colour follows the shirt's, so black keeps its folds and white does not glare.
-    const material = new THREE.MeshPhysicalMaterial({ color: latest.current.colorHex, roughness: FABRIC.roughness, metalness: 0, sheen: 1, sheenRoughness: FABRIC.sheenRoughness, side: THREE.DoubleSide })
+    // Cloth: rough, with a soft sheen (fuzz at grazing angles) whose colour follows the shirt's and the room's, so black keeps its folds and white does not glare.
+    // A tiled weave in the normal and roughness maps gives the surface a grain (generated, see weaveTexels).
+    const weave = (kind: 'normal' | 'roughness') => {
+      const texture = new THREE.DataTexture(weaveTexels(kind), WEAVE.size, WEAVE.size, THREE.RGBAFormat)
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+      texture.repeat.set(WEAVE_REPEAT, WEAVE_REPEAT)
+      texture.minFilter = THREE.LinearMipmapLinearFilter
+      texture.magFilter = THREE.LinearFilter
+      texture.generateMipmaps = true
+      texture.needsUpdate = true
+      return texture
+    }
+    const weaveNormal = weave('normal')
+    const weaveRoughness = weave('roughness')
+    const material = new THREE.MeshPhysicalMaterial({
+      color: latest.current.colorHex,
+      roughness: FABRIC.roughness,
+      roughnessMap: weaveRoughness,
+      normalMap: weaveNormal,
+      metalness: 0,
+      sheen: FABRIC.sheen,
+      sheenRoughness: FABRIC.sheenRoughness,
+      side: THREE.DoubleSide,
+    })
     // The person mask cuts the shirt away outside the silhouette. A 1 x 1 texture stands in until the first mask; uMaskOn stays 0 till then.
     const maskUniforms = { uMask: { value: new THREE.DataTexture(new Uint8Array(1), 1, 1, THREE.RedFormat) }, uMaskMap: { value: new THREE.Vector4() }, uMaskOn: { value: 0 } }
     // The hem width factor (see arFitBody.ts): the body below the underarm is widened or narrowed, easing from 1 at the underarm to this at the hem.
     const hemUniforms = { uHip: { value: 1 } }
     // How far the hem and cuffs lag the body, in the shirt's own units (cm), see arLook.ts.
     const swayUniforms = { uSway: { value: new THREE.Vector2() } }
+    // The contact shading strengths (see contactShade in arLook.ts): under each sleeve joint (the -x side, then +x), and at the collar and the hem.
+    const shadeUniforms = { uPit: { value: new THREE.Vector2() }, uRim: { value: new THREE.Vector2() } }
+    function setShade(underarm: [number, number], collar: number, hem: number) {
+      shadeUniforms.uPit.value.set(...underarm)
+      shadeUniforms.uRim.value.set(collar, hem)
+    }
+    // Form on the cloth (see foldShade, darkLift, grainStrength in arLook.ts): crease strengths, a light lift for dark colours tinted by the room, film grain and its seed.
+    const lookUniforms = { uFoldArm: { value: new THREE.Vector2() }, uFold: { value: new THREE.Vector2() }, uLift: { value: 0 }, uRoom: { value: new THREE.Vector3(1, 1, 1) }, uGrain: { value: 0 }, uSeed: { value: 0 } }
+    const restShade = () => {
+      setShade([SHADE.underarm, SHADE.underarm], SHADE.collar, SHADE.hem)
+      lookUniforms.uFoldArm.value.set(0, 0)
+      lookUniforms.uFold.value.set(0, 0)
+    }
+    restShade()
     const f = (n: number) => n.toFixed(2)
     const underarm = f(UNDERARM_Y)
     const ao = AMBIENT_OCCLUSION
     material.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, maskUniforms, hemUniforms, swayUniforms)
+      Object.assign(shader.uniforms, maskUniforms, hemUniforms, swayUniforms, shadeUniforms, lookUniforms)
       // After skinning, so the sleeves (which are above the underarm in the rest pose) keep following their bones. Everything here is a function of the
       // REST position, so a moving sleeve does not drag the folds or the occlusion with it, and a vertex shared by two triangles moves as one (nothing tears).
       shader.vertexShader =
@@ -212,14 +267,23 @@ ${FOLD_GLSL}` +
         `uniform sampler2D uMask;
 uniform vec4 uMaskMap;
 uniform float uMaskOn;
+uniform vec2 uPit;
+uniform vec2 uRim;
+uniform vec2 uFoldArm;
+uniform vec2 uFold;
+uniform float uLift;
+uniform vec3 uRoom;
+uniform float uGrain;
+uniform float uSeed;
 varying vec3 vRest;
 varying vec3 vFold;
-` +
+${HASH_GLSL}` +
         shader.fragmentShader
           .replace(
             '#include <clipping_planes_fragment>',
             `#include <clipping_planes_fragment>
-  if (uMaskOn > 0.5 && texture2D(uMask, uMaskMap.xy * gl_FragCoord.xy + uMaskMap.zw).r < ${MASK_THRESHOLD.toFixed(2)}) discard;`,
+  // The edge of the person mask dithers over a narrow band instead of cutting, like the soft, grainy edge of the video.
+  if (uMaskOn > 0.5 && smoothstep(${(MASK_THRESHOLD - EDGE_FEATHER).toFixed(2)}, ${(MASK_THRESHOLD + EDGE_FEATHER).toFixed(2)}, texture2D(uMask, uMaskMap.xy * gl_FragCoord.xy + uMaskMap.zw).r) < hash21(gl_FragCoord.xy + uSeed * vec2(17.0, 31.0))) discard;`,
           )
           // Soft occlusion on the colour: under the sleeve joints, just inside and around the collar, and a thin band at the hem.
           .replace(
@@ -227,14 +291,20 @@ varying vec3 vFold;
             `#include <color_fragment>
   vec2 pit = vec2(abs(vRest.x) - ${f(ao.underarm.x)}, vRest.y - ${f(ao.underarm.y)}) / vec2(${f(ao.underarm.rx)}, ${f(ao.underarm.ry)});
   vec2 rim = vec2(vRest.x / ${f(NECK_PLUG.rx)}, (vRest.y - ${f(NECK_PLUG.y)}) / ${f(NECK_PLUG.ry)});
-  float occlusion = (1.0 - ${f(ao.underarm.strength)} * exp(-dot(pit, pit)))
-    * (1.0 - ${f(ao.collar.strength)} * (1.0 - smoothstep(1.0, ${f(ao.collar.reach)}, length(rim))))
-    * (1.0 - ${f(ao.hem.strength)} * (1.0 - smoothstep(0.0, ${f(ao.hem.height)}, vRest.y)));
-  diffuseColor.rgb *= occlusion;`,
+  float occlusion = (1.0 - (vRest.x < 0.0 ? uPit.x : uPit.y) * exp(-dot(pit, pit)))
+    * (1.0 - uRim.x * (1.0 - smoothstep(1.0, ${f(ao.collar.reach)}, length(rim))))
+    * (1.0 - uRim.y * (1.0 - smoothstep(0.0, ${f(ao.hem.height)}, vRest.y)));
+  diffuseColor.rgb *= occlusion;
+  float form = clamp(formHeight(vRest), -1.0, 1.0);`,
           )
           // A little procedural fold in the shading normal.
           .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-  normal = normalize(normal + vFold);`)
+  normal = normalize(normal + vFold - vec3(dFdx(form), dFdy(form), 0.0) * ${CREASE_BUMP.toFixed(1)});`)
+          // Dark cloth takes almost no light, so a faint lift follows the creases to show the form; grain goes on last, in display space, like the camera's.
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  totalEmissiveRadiance += uRoom * uLift * (0.5 + 0.5 * form);`)
+          .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+  gl_FragColor.rgb += uGrain * (hash21(gl_FragCoord.xy + uSeed * vec2(61.0, 7.0)) - 0.5) * 2.0;`)
     }
     // Depth-only occluders: they write depth before the shirt (renderOrder -1) and no colour, so a forearm or the chin in front hides the shirt behind it.
     const occluderMaterial = new THREE.MeshBasicMaterial({ colorWrite: false })
@@ -285,6 +355,8 @@ varying vec3 vFold;
     const meter = new LightMeter()
     let lightTimer = 0
     const sway = new Sway()
+    // One angular spring for each sleeve bone (-x then +x), added to the arm's own angle; see arLook.ts.
+    const sleeveSway = [new SleeveSway(-1), new SleeveSway(1)]
     const swayVector = new THREE.Vector3()
     // The person mask: 'waiting' for the first one, 'on' while clipping, 'off' once the device was too busy to read it. Bytes live only in the texture.
     let maskState: 'waiting' | 'on' | 'off' = 'waiting'
@@ -336,22 +408,36 @@ varying vec3 vFold;
     /** The hem and cuffs lag the body (arLook.ts Sway), turned from stage pixels into the shirt's own cm. None with reduced motion. */
     function updateSway(p: Pose, tMs: number) {
       if (!mesh) return
-      if (reduceMotion.matches) sway.reset()
-      else {
+      if (reduceMotion.matches) {
+        sway.reset()
+        sleeveSway.forEach((s) => s.reset())
+      } else {
         const t = garmentTransform(p, latest.current.scale)
-        sway.update({ x: t.x, y: t.y, roll: t.rotationZ }, tMs, SEAM_HEIGHT * t.scale.y, t.widthPx)
+        sway.update({ x: t.x, y: t.y, roll: t.rotationZ, yaw: p.yaw, hipX: p.fit.hipX }, tMs, SEAM_HEIGHT * t.scale.y, t.widthPx)
+        sleeveSway.forEach((s) => s.update(t.y, p.yaw, tMs, t.widthPx))
       }
       swayVector.set(sway.x, sway.y, 0).applyQuaternion(mesh.quaternion.clone().invert())
       swayUniforms.uSway.value.set(swayVector.x / mesh.scale.x, swayVector.y / mesh.scale.y)
       if (exposeAttributes) host.dataset.sway = sway.magnitude.toFixed(1)
     }
 
+    /** The sheen (colour: the shirt's, lifted toward white and toward the room's colour cast; strength: more on dark colours), the lift and the grain. Neutral until a reading, no grain off camera. */
+    function setLook() {
+      const hex = latest.current.colorHex
+      material.sheenColor.setRGB(...sheenTint(hex, meter), THREE.SRGBColorSpace)
+      material.sheen = sheenStrength(hex, FABRIC.sheen)
+      lookUniforms.uLift.value = darkLift(hex)
+      lookUniforms.uRoom.value.set(...roomTint(meter))
+      lookUniforms.uGrain.value = follow ? grainStrength(meter.lum) : 0
+    }
+
     function readLight() {
       if (!follow || !pose || !video.current) return
       const reading = sampleLight(video.current)
       if (!reading) return
-      meter.push(reading.lum, reading.balance)
+      meter.push(reading.lum, reading.balance, reading)
       setLight(lightGain(meter.lum), keyLightX(meter.balance))
+      setLook()
       if (exposeAttributes) host.dataset.light = `${meter.lum.toFixed(2)},${meter.balance.toFixed(2)}`
     }
 
@@ -433,9 +519,14 @@ varying vec3 vFold;
       hemUniforms.uHip.value = pose.fit.hip
       mesh.scale.set(t.scale.x, t.scale.y, t.scale.z)
       neck.visible = true
-      const [onLeft, onRight] = sleevesOnBones(pose.sleeves, pose.facing === 'back')
-      bones[1].rotation.z = sleeveRotation(onLeft, -1)
-      bones[2].rotation.z = sleeveRotation(onRight, 1)
+      const onBones = sleevesOnBones(pose.sleeves, pose.facing === 'back')
+      bones[1].rotation.z = sleeveRotation(onBones[0], -1) + sleeveSway[0].angle
+      bones[2].rotation.z = sleeveRotation(onBones[1], 1) + sleeveSway[1].angle
+      const shade = contactShade(onBones, pose.yaw)
+      setShade(shade.underarm, shade.collar, shade.hem)
+      const folds = foldShade(onBones, pose.yaw, pose.fit.pitch)
+      lookUniforms.uFoldArm.value.set(...folds.arm)
+      lookUniforms.uFold.value.set(folds.chest, folds.drape)
       placeOccluders(pose.occluders.forearms, pose.occluders.face, Math.max(t.widthPx, GARMENT_BASE.length * t.scale.y) / 2)
       if (exposeAttributes) {
         const deg = (rad: number) => ((rad * 180) / Math.PI).toFixed(1)
@@ -453,13 +544,14 @@ varying vec3 vFold;
       if (!mesh) return
       const { colorHex: hex, scale: s } = latest.current
       material.color.set(hex)
-      material.sheenColor.set(hex).lerp(WHITE, 0.25).multiplyScalar(FABRIC.sheen)
+      setLook()
       if (follow) place()
       else {
         mesh.rotation.set(0, 0, 0)
         mesh.scale.set(s.x, s.y, s.z)
         mesh.position.set(0, -top * s.y, 0)
         for (const bone of bones) bone.rotation.z = 0
+        restShade()
       }
       invalidate()
     }
@@ -472,6 +564,7 @@ varying vec3 vFold;
       meter.reset()
       setLight(1, LIGHT.keyX)
       sway.reset()
+      sleeveSway.forEach((s) => s.reset())
       swayUniforms.uSway.value.set(0, 0)
       drawn = null
       painter?.clear()
@@ -546,6 +639,7 @@ varying vec3 vFold;
           let placed: Pose | null = null
           delegate = d.delegate
           follow = true
+          setLook()
           pose = null
           lightTimer = window.setInterval(readLight, LIGHT_MS)
           setMaskState('waiting')
@@ -593,6 +687,7 @@ varying vec3 vFold;
                 }
                 place()
                 updateSway(out.pose, tMs)
+                lookUniforms.uSeed.value = tMs % 1000
                 if (painter && result) {
                   const t = garmentTransform(out.pose, latest.current.scale)
                   drawn = { frame: result, pose: out.pose, view, seamHalf: (GARMENT_BASE.shoulder / 2) * latest.current.scale.x * out.pose.pxPerCm, hem: { x: t.x, y: -t.y, half: (GARMENT_BASE.chest / 2) * t.scale.x * out.pose.fit.hip } }
@@ -736,6 +831,8 @@ varying vec3 vFold;
       mesh?.geometry.dispose()
       skeleton?.dispose()
       material.dispose()
+      weaveNormal.dispose()
+      weaveRoughness.dispose()
       maskTexture.dispose()
       occluderMaterial.dispose()
       planeGeometry.dispose()
