@@ -1,4 +1,5 @@
 import type { Product } from '../data/products'
+import type { Entered } from '../components/body-setup/measurements'
 import type { GarmentValues } from './arFit'
 
 // Sizing the t-shirt model for the AR try-on. Pure TypeScript with no rendering.
@@ -41,4 +42,10 @@ export function garmentScale(values: GarmentValues) {
   const ratio = (value: number | null | undefined, base: number) => (value ? value / base : undefined)
   const width = ratio(values.chestWidthCm, GARMENT_BASE.chest) ?? ratio(values.shoulderWidthCm, GARMENT_BASE.shoulder) ?? 1
   return { x: width, y: ratio(values.totalLengthCm, GARMENT_BASE.length) ?? 1, z: width }
+}
+
+/** The waist's width over the chest's: the size chart's own (a flat garment's widths) or, without them, the customer's (girths); 1 when neither is known. */
+export function waistOverChest(garment: GarmentValues, body?: Entered | null) {
+  const ratio = (waist: number | null | undefined, chest: number | null | undefined) => (waist && chest ? waist / chest : undefined)
+  return ratio(garment.waistWidthCm, garment.chestWidthCm) ?? ratio(body?.waist, body?.chest) ?? 1
 }

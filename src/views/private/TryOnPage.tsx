@@ -25,7 +25,7 @@ import { BodyProfileError, getBodyProfile } from '../../service/bodyProfile'
 import { useProductSizing } from '../../service/customSizings'
 import type { ProductVariant } from '../../service/fetchProductList'
 import { compareFit, recommendSize, type FitLevel, type FitRegion } from '../../utils/arFit'
-import { canTryOn, garmentScale } from '../../utils/arGarment'
+import { canTryOn, garmentScale, waistOverChest } from '../../utils/arGarment'
 import type { TrackStatus } from '../../utils/arPose'
 
 // Three.js stays out of every other chunk: the stage loads here, and its import starts as soon as the page mounts.
@@ -139,6 +139,7 @@ export function TryOnPage() {
   const reference = sizes.find((r) => r.size === recommended) ?? sizes[Math.floor(sizes.length / 2)]
   const refScaleX = useMemo(() => garmentScale(reference?.values ?? {}).x, [reference])
   const scale = useMemo(() => garmentScale(row?.values ?? {}), [row])
+  const waistRatio = useMemo(() => waistOverChest(row?.values ?? {}, entered), [row, entered])
   const largest = useMemo(() => {
     const all = sizes.map((r) => garmentScale(r.values))
     return { x: Math.max(1, ...all.map((s) => s.x)), y: Math.max(1, ...all.map((s) => s.y)), z: Math.max(1, ...all.map((s) => s.z)) }
@@ -194,6 +195,7 @@ export function TryOnPage() {
                   live={camera.state === 'live'}
                   refSize={reference?.size ?? ''}
                   refScaleX={refScaleX}
+                  waistRatio={waistRatio}
                   trackKey={trackKey}
                   onStatus={setTrackStatus}
                 />
