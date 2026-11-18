@@ -458,6 +458,11 @@ export function CartPage() {
                             {formatPeso(unit * qty)}
                           </p>
                         </div>
+                        {qty < line.qty && (
+                          <p role="status" className="font-kral-mono mt-1 text-base text-kral-muted md:text-sm">
+                            Quantity lowered from {line.qty} to {qty}: only {qty} {qty === 1 ? 'is' : 'are'} in stock now.
+                          </p>
+                        )}
                       </div>
                       </SwipeRow>
                     </motion.li>

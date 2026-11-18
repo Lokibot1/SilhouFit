@@ -306,6 +306,15 @@ describe('CartPage signed in', () => {
     expect(screen.queryByText("You'll sign in before you pay.")).toBeNull()
   })
 
+  it('says why a quantity was lowered when staff cut the stock below what the cart holds, and says nothing otherwise', async () => {
+    server.seed(BLACK, 4)
+    server.seed(NAVY, 2)
+    rows.flatMap((row) => row.variants).find((v) => v.id === BLACK)!.stock = 3 // staff lowered it from 4
+    renderPage()
+    expect(await screen.findByText('Quantity lowered from 4 to 3: only 3 are in stock now.')).toBeInTheDocument()
+    expect(screen.getAllByText(/Quantity lowered/)).toHaveLength(1)
+  })
+
   it('shows "No longer available" for an archived piece and does not let it be checked out', async () => {
     server.seed(NAVY, 1)
     rows[0].isActive = false
