@@ -42,6 +42,8 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy, onTryOn }:
   const [size, setSize] = useState('')
   // Once size and colour are chosen, stock and price are those of that variant.
   const { variant, stock, price: unit } = choiceOf(product, size, color)
+  // Once one of size and colour is picked, the other's options that have none left in that pair cannot be chosen.
+  const pairSoldOut = (s: string, c: string) => !!product.variants && !!s && !!c && choiceOf(product, s, c).stock === 0
   const left = stock - inCart(variant?.id)
   const soldOut = left <= 0
   const [wanted, setWanted] = useState(1)
@@ -197,7 +199,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy, onTryOn }:
         </legend>
         <div className="clear-both flex flex-wrap gap-2 pt-3">
           {product.colors.map((c) => {
-            const out = optionSoldOut(product, 'color', c.name)
+            const out = optionSoldOut(product, 'color', c.name) || pairSoldOut(size, c.name)
             return (
               <label key={c.name} className="relative">
                 <input
@@ -208,8 +210,6 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy, onTryOn }:
                   disabled={out}
                   onChange={() => {
                     setColor(c.name)
-                    // A size this colour has none of is let go, so the pick never leaves a sold-out pair.
-                    if (size && choiceOf(product, size, c.name).stock === 0) setSize('')
                     setError('')
                   }}
                   className="peer sr-only"
@@ -241,7 +241,7 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy, onTryOn }:
         </legend>
         <div className="clear-both flex flex-wrap gap-2 pt-3 max-lg:grid max-lg:grid-cols-[repeat(auto-fit,minmax(2.75rem,1fr))]">
           {sizes.map((s) => {
-            const out = optionSoldOut(product, 'size', s)
+            const out = optionSoldOut(product, 'size', s) || pairSoldOut(s, color)
             return (
               <label key={s} className="relative">
                 <input
@@ -252,8 +252,6 @@ export function ProductPurchasePanel({ product, inCart, onAdd, onBuy, onTryOn }:
                   disabled={out}
                   onChange={() => {
                     setSize(s)
-                    // A colour this size is sold out in is let go, so the pick never leaves a sold-out pair.
-                    if (color && product.colors.length > 1 && choiceOf(product, s, color).stock === 0) setColor('')
                     setError('')
                   }}
                   className="peer sr-only"

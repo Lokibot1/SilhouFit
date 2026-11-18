@@ -78,7 +78,7 @@ describe('SpecSheet', () => {
     expect(within(sheet).getByRole('radio', { name: /^S \(sold out\)$/ })).not.toBeChecked()
   })
 
-  it('lets go of the size when a colour has none of it, so no sold-out pair is left chosen', async () => {
+  it('makes the other option unselectable when the pair is sold out, so no pick is ever unselected', async () => {
     const user = userEvent.setup()
     const piece = shopProduct('p91', 'Pair Tee', [variant('s-white', 'S', 'White', { stock: 2 }), variant('m-navy', 'M', 'Navy', { stock: 4 })])
     render(<Harness product={piece} />)
@@ -86,9 +86,10 @@ describe('SpecSheet', () => {
     await user.click(within(sheet).getByRole('radio', { name: 'White' }))
     await user.click(within(sheet).getByRole('radio', { name: 'S' }))
     expect(within(sheet).getByRole('radio', { name: 'S' })).toBeChecked()
-    await user.click(within(sheet).getByRole('radio', { name: 'Navy' }))
-    expect(within(sheet).getByRole('radio', { name: 'Navy' })).toBeChecked()
-    expect(within(sheet).getByRole('radio', { name: 'S' })).not.toBeChecked()
+    // White and S are picked; Navy comes in M only, so it can no longer be chosen.
+    expect(within(sheet).getByRole('radio', { name: /^Navy \(sold out\)$/ })).toBeDisabled()
+    expect(within(sheet).getByRole('radio', { name: 'White' })).toBeChecked()
+    expect(within(sheet).getByRole('radio', { name: 'S' })).toBeChecked()
   })
 
   it('requires a size, says so inline and puts focus back on the sizes', async () => {

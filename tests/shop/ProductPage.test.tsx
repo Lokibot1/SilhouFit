@@ -189,6 +189,31 @@ describe('ProductPage purchase', () => {
     expect(screen.getByRole('radio', { name: 'Black' })).toBeEnabled()
   })
 
+  it('makes a size unselectable once the chosen colour has none of it, and keeps the colour', async () => {
+    // Matte Black comes in M only; Sage in S and M.
+    fetchMock.mockResolvedValue(piece({ variants: [variant('v1', 'Sage', 'S', 1500, 5), variant('v2', 'Sage', 'M', 1500, 5), variant('v3', 'Matte Black', 'M', 1500, 5)], colors: [{ name: 'Sage', hex: '#8a9a80' }, { name: 'Matte Black', hex: '#111111' }] }))
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('heading', { level: 2, name: 'Linen Shirt' })
+    expect(screen.getByRole('radio', { name: 'S' })).toBeEnabled() // no colour picked yet
+    await user.click(screen.getByRole('radio', { name: 'Matte Black' }))
+    expect(screen.getByRole('radio', { name: /^S \(sold out\)$/ })).toBeDisabled()
+    expect(screen.getByRole('radio', { name: 'M' })).toBeEnabled()
+    await user.click(screen.getByRole('radio', { name: /^S \(sold out\)$/ }))
+    expect(screen.getByRole('radio', { name: 'Matte Black' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: /^S \(sold out\)$/ })).not.toBeChecked()
+  })
+
+  it('makes a colour unselectable once the chosen size is not made in it', async () => {
+    fetchMock.mockResolvedValue(piece({ variants: [variant('v1', 'Sage', 'S', 1500, 5), variant('v2', 'Sage', 'M', 1500, 5), variant('v3', 'Matte Black', 'M', 1500, 5)], colors: [{ name: 'Sage', hex: '#8a9a80' }, { name: 'Matte Black', hex: '#111111' }] }))
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('heading', { level: 2, name: 'Linen Shirt' })
+    await user.click(screen.getByRole('radio', { name: 'S' }))
+    expect(screen.getByRole('radio', { name: /^Matte Black \(sold out\)$/ })).toBeDisabled()
+    expect(screen.getByRole('radio', { name: 'Sage' })).toBeEnabled()
+  })
+
   it('toggles the wishlist with an Undo', async () => {
     const user = userEvent.setup()
     renderPage()

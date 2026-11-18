@@ -53,6 +53,8 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
   const [color, setColor] = useState(product.colors.length === 1 ? product.colors[0].name : '')
   const [size, setSize] = useState('')
   const { variant, stock, price: unit } = choiceOf(product, size, color)
+  // Once one of size and colour is picked, the other's options that have none left in that pair cannot be chosen.
+  const pairSoldOut = (s: string, c: string) => !!product.variants && !!s && !!c && choiceOf(product, s, c).stock === 0
   const left = action === 'cart' ? stock - inCart(variant?.id) : stock
   const [qty, setQty] = useState(1)
   const [error, setError] = useState('')
@@ -152,7 +154,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
           </legend>
           <div className="mt-3 flex flex-wrap gap-2">
             {product.colors.map((c) => {
-              const out = optionSoldOut(product, 'color', c.name)
+              const out = optionSoldOut(product, 'color', c.name) || pairSoldOut(size, c.name)
               return (
                 <label key={c.name} className="relative">
                   <input
@@ -163,8 +165,6 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
                     disabled={out}
                     onChange={() => {
                       setColor(c.name)
-                      // A size this colour has none of is let go, so the pick never leaves a sold-out pair.
-                      if (size && choiceOf(product, size, c.name).stock === 0) setSize('')
                       setError('')
                     }}
                     className="peer sr-only"
@@ -196,7 +196,7 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
           </legend>
           <div className="mt-3 flex flex-wrap gap-2">
             {sizes.map((s) => {
-              const out = optionSoldOut(product, 'size', s)
+              const out = optionSoldOut(product, 'size', s) || pairSoldOut(s, color)
               return (
                 <label key={s} className="relative">
                   <input
@@ -207,8 +207,6 @@ export function SpecSheet({ open, onClose, product, action, inCart, onConfirm, g
                     disabled={out}
                     onChange={() => {
                       setSize(s)
-                      // A colour this size is sold out in is let go, so the pick never leaves a sold-out pair.
-                      if (color && product.colors.length > 1 && choiceOf(product, s, color).stock === 0) setColor('')
                       setError('')
                     }}
                     className="peer sr-only"
