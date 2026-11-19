@@ -25,13 +25,8 @@ export const FRAME_MARGIN = 0.04
 /** `p` is the raw landmark: x and y over the video frame, 0..1. */
 export const wristTrusted = (p: { x: number; y: number; visibility?: number }) =>
   (p.visibility ?? 1) >= WRIST_SEEN && p.x >= FRAME_MARGIN && p.x <= 1 - FRAME_MARGIN && p.y >= FRAME_MARGIN && p.y <= 1 - FRAME_MARGIN
-/**
- * An arm this far behind the torso (metres of MediaPipe world z, which grows away from the camera) is behind the body: the boundary, with a band of
- * HYSTERESIS_M each side of it so an arm near it does not flicker. It counts as behind above BEHIND_M + HYSTERESIS_M and as in front again below
- * BEHIND_M - HYSTERESIS_M.
- */
+/** A wrist this far behind the shoulder midpoint (metres of MediaPipe world z, which grows away from the camera) is behind the body. */
 export const BEHIND_M = 0.1
-export const HYSTERESIS_M = 0.03
 /** The chin sits this far below the mouth, as a share of the eye-to-mouth distance. */
 export const CHIN_BELOW_MOUTH = 0.9
 
@@ -41,7 +36,7 @@ export interface Capsule {
   radius: number
 }
 
-/** One forearm as the stage sees it: its capsule, whether it cuts the shirt, why not (if it does not), and how far behind the torso plane it is (m, the deeper of wrist and elbow). */
+/** One forearm as the stage sees it: its capsule, whether it cuts the shirt, why not (if it does not), and the wrist's world z minus the shoulder midpoint's (m). */
 export interface ForearmCall {
   capsule: Capsule
   cut: boolean
@@ -56,37 +51,13 @@ export function forearmCapsule(elbow: StagePoint | null | undefined, wrist: Stag
   return { a: { x: elbow.x, y: elbow.y }, b, radius: FOREARM_RADIUS_CM * pxPerCm }
 }
 
-/** A world landmark's height and depth (m). */
-export interface WorldPoint {
-  y: number
-  z: number
-}
-
 /**
- * The depth of the torso at height `atY` (the wrist's): the shoulder midpoint's z, blended toward the hip midpoint's by how far down (world y) `atY`
- * is between them, held at either end. Shoulders only when the hips are not seen or there is no height. Undefined without both shoulders.
+ * Whether a forearm counts as in front of the body. 2D cannot tell, so the world z decides: a wrist more than BEHIND_M behind the shoulder
+ * midpoint is behind (hide the occluder). No z means in front. Facing away there is no veto: the labels and depth are front-like then, so
+ * the world z cannot be trusted, and a forearm is taken as in front.
  */
-export function torsoPlaneZ(shoulders: (WorldPoint | undefined)[], hips: (WorldPoint | undefined)[] | null, atY: number | undefined) {
-  const [l, r] = shoulders
-  if (!l || !r) return undefined
-  const [shoulderY, shoulderZ] = [(l.y + r.y) / 2, (l.z + r.z) / 2]
-  const [hl, hr] = hips ?? []
-  if (!hl || !hr || atY === undefined || hl.y + hr.y === 2 * shoulderY) return shoulderZ
-  const t = (atY - shoulderY) / ((hl.y + hr.y) / 2 - shoulderY)
-  return shoulderZ + Math.min(1, Math.max(0, t)) * ((hl.z + hr.z) / 2 - shoulderZ)
-}
-
-/** How far behind the torso plane the forearm is: the deeper of the wrist and the elbow (m). Undefined when neither has a depth or there is no plane. */
-export const forearmGap = (wristZ: number | undefined, elbowZ: number | undefined, planeZ: number | undefined) =>
-  planeZ === undefined || (wristZ === undefined && elbowZ === undefined) ? undefined : Math.max(wristZ ?? -Infinity, elbowZ ?? -Infinity) - planeZ
-
-/**
- * Whether a forearm counts as in front of the body. 2D cannot tell, so the depth gap decides: behind above BEHIND_M + HYSTERESIS_M, and an arm that
- * was behind (`wasBehind`) is back in front only below BEHIND_M - HYSTERESIS_M. No gap means in front. Facing away there is no veto: the labels and
- * depth are front-like then, so the world z cannot be trusted, and a forearm is taken as in front.
- */
-export const forearmInFront = (gapM: number | undefined, wasBehind: boolean, facing: Facing) =>
-  facing === 'back' || gapM === undefined || (wasBehind ? gapM < BEHIND_M - HYSTERESIS_M : gapM <= BEHIND_M + HYSTERESIS_M)
+export const forearmInFront = (wristZ: number | undefined, shoulderMidZ: number | undefined, facing: Facing) =>
+  facing === 'back' || wristZ === undefined || shoulderMidZ === undefined || wristZ - shoulderMidZ <= BEHIND_M
 
 export interface Ellipse {
   x: number
