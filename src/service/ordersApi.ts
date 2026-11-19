@@ -61,7 +61,8 @@ export interface CustomerOrder {
   discount: number
   total: number
   currency: string
-  note: string | null
+  sellerNotes: string | null
+  courierNotes: string | null
   /** The address as it was when the order was placed. */
   address: { recipientName: string; phone: string; line: string; city: string; postalCode: string }
   paidAt: string | null
@@ -154,7 +155,8 @@ export function toOrder(value: unknown): CustomerOrder {
     discount: isMoney(value.discountAmount) ? value.discountAmount : 0,
     total: totalAmount,
     currency: typeof value.currency === 'string' ? value.currency : 'PHP',
-    note: text(value.customerNotes),
+    sellerNotes: text(value.sellerNotes),
+    courierNotes: text(value.courierNotes),
     address: {
       recipientName: s('recipientName'),
       phone: s('phone'),
@@ -215,7 +217,8 @@ export interface CreateOrderInput {
   cartItemIds?: string[]
   shippingFee?: number
   quotationId?: string
-  customerNotes?: string
+  sellerNotes?: string
+  courierNotes?: string
 }
 
 export interface ShippingQuote {
@@ -240,10 +243,11 @@ export async function createOrder(input: CreateOrderInput, { signal, delayMs }: 
     addressId: input.addressId,
     ...(input.cartItemIds && { cartItemIds: input.cartItemIds }),
     ...(input.quotationId && { quotationId: input.quotationId }),
-    ...(input.customerNotes && { customerNotes: input.customerNotes }),
+    ...(input.sellerNotes && { sellerNotes: input.sellerNotes }),
+    ...(input.courierNotes && { courierNotes: input.courierNotes }),
   }
   const order = usesSampleOrders()
-    ? await sample(() => addSampleOrder({ shippingFee: input.shippingFee, customerNotes: body.customerNotes }), { signal, delayMs })
+    ? await sample(() => addSampleOrder({ shippingFee: input.shippingFee, sellerNotes: body.sellerNotes, courierNotes: body.courierNotes }), { signal, delayMs })
     : toOrder(await call('POST', '/orders', body, signal, 'create'))
   invalidate()
   return order

@@ -27,7 +27,7 @@ const page = (data: unknown[]) => ({ data, meta: { total: data.length, page: 1, 
 const apiDetail = (over: Record<string, unknown> = {}) => ({
   ...apiOrder({ status: 'PAID', paymentStatus: 'PAID' }),
   customer,
-  adminNotes: 'Call first',
+  internalNotes: 'Call first',
   shipmentEvents: [],
   paymentTransactions: [],
   ...over,
@@ -145,7 +145,7 @@ describe('reading one order', () => {
     send.mockResolvedValue(body)
     const order = await fetchAdminOrder(ORDER_ID)
     expect(send).toHaveBeenCalledWith('GET', `/admin/orders/${ORDER_ID}`, undefined, undefined)
-    expect(order).toMatchObject({ customer: { name: 'Anne Santos', email: 'anne@example.com' }, adminNotes: 'Call first', total: 3879, status: 'PAID' })
+    expect(order).toMatchObject({ customer: { name: 'Anne Santos', email: 'anne@example.com' }, internalNotes: 'Call first', total: 3879, status: 'PAID' })
     expect(order.items.map((item) => item.stock)).toEqual([7, null])
     expect(order.shipment).toMatchObject({ status: 'DISPATCHING', externalOrderId: 'LLM-1' })
     expect(order.payments).toEqual([{ id: 'p1', provider: 'paymongo', method: 'GCASH', amount: 3879, fee: 100, net: 3779, status: 'PAID', at: '2026-10-26T02:40:00.000Z' }])
@@ -153,8 +153,8 @@ describe('reading one order', () => {
   })
 
   it('has no booking, customer or notes when the API has none', async () => {
-    send.mockResolvedValue(apiDetail({ customer: null, adminNotes: null }))
-    expect(await fetchAdminOrder(ORDER_ID)).toMatchObject({ customer: null, adminNotes: null, shipment: null, payments: [], events: [] })
+    send.mockResolvedValue(apiDetail({ customer: null, internalNotes: null }))
+    expect(await fetchAdminOrder(ORDER_ID)).toMatchObject({ customer: null, internalNotes: null, shipment: null, payments: [], events: [] })
   })
 
   it('rejects a body without its lists as a server error', async () => {
@@ -174,9 +174,9 @@ describe('changing an order', () => {
   it('sends notes and a cancellation reason as given', async () => {
     send.mockResolvedValue(apiDetail({ status: 'CANCELLED' }))
     await updateAdminOrder(ORDER_ID, { status: 'CANCELLED', cancellationReason: 'Out of stock' })
-    await updateAdminOrder(ORDER_ID, { adminNotes: 'Call first' })
+    await updateAdminOrder(ORDER_ID, { internalNotes: 'Call first' })
     expect(send.mock.calls[0][3]).toBeUndefined()
-    expect(send.mock.calls.map((call) => call[2])).toEqual([{ status: 'CANCELLED', cancellationReason: 'Out of stock' }, { adminNotes: 'Call first' }])
+    expect(send.mock.calls.map((call) => call[2])).toEqual([{ status: 'CANCELLED', cancellationReason: 'Out of stock' }, { internalNotes: 'Call first' }])
   })
 
   it('POSTs the booking and the delivery cancellation without a body', async () => {

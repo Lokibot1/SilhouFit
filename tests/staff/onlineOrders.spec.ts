@@ -339,7 +339,8 @@ test.describe('states', () => {
 test.describe('drawer', () => {
   const full = () =>
     paidOrder(1, {
-      customerNotes: 'Leave with the guard',
+      sellerNotes: 'Leave with the guard',
+      courierNotes: 'Ring the bell twice',
       items: [
         { ...adminOrder(1).items[0], id: 'i1', variantStock: 7 },
         { ...adminOrder(1).items[0], id: 'i2', productName: 'Linen Camp Shirt', variantSku: 'LCS-L', variantStock: null },
@@ -369,6 +370,7 @@ test.describe('drawer', () => {
     await expect(drawer.getByText('Anne Santos').first()).toBeVisible()
     await expect(drawer.getByText('anne.santos@example.com')).toBeVisible()
     await expect(drawer.getByText('Leave with the guard')).toBeVisible()
+    await expect(drawer.getByText('Ring the bell twice')).toBeVisible()
 
     await expect(drawer.getByText('In stock now: 7')).toBeVisible()
     await expect(drawer.getByText('Variant deleted')).toBeVisible()
@@ -488,6 +490,26 @@ test.describe('actions', () => {
     })
   }
 
+  test('the customer notes sit read-only under their own labels, and saving staff notes sends only internalNotes', async ({ page }) => {
+    const api = await setup(page, [paidOrder(1, { sellerNotes: 'Leave with the guard', courierNotes: 'Ring the bell twice' })])
+    await open(page)
+    const drawer = await openDrawer(page, 1)
+
+    await expect(drawer.getByText('Note to seller', { exact: true })).toBeVisible()
+    await expect(drawer.getByText('Note for rider', { exact: true })).toBeVisible()
+    await expect(drawer.getByText('Leave with the guard')).toBeVisible()
+    await expect(drawer.getByText('Ring the bell twice')).toBeVisible()
+    await expect(drawer.getByRole('textbox')).toHaveCount(1) // only Staff notes can be typed in
+    await expect(drawer.getByRole('textbox', { name: 'Staff notes' })).toBeEditable()
+
+    await drawer.getByRole('textbox', { name: 'Staff notes' }).fill('Packed')
+    await drawer.getByRole('button', { name: 'Save notes' }).click()
+    await expect(toast(page, 'Notes saved')).toBeVisible()
+    expect(api.patches).toHaveLength(1)
+    expect(api.patches[0].body).toEqual({ internalNotes: 'Packed' })
+    expect(Object.keys(api.patches[0].body)).not.toContain('adminNotes')
+  })
+
   test('Save notes sends the cleaned notes and then waits for new text', async ({ page }) => {
     const api = await setup(page, [paidOrder(1)])
     await open(page)
@@ -498,7 +520,7 @@ test.describe('actions', () => {
     await drawer.getByRole('button', { name: 'Save notes' }).click()
 
     await expect(toast(page, 'Notes saved')).toBeVisible()
-    expect(api.patches).toEqual([{ id: adminOrder(1).id, body: { adminNotes: 'Call before delivery' } }])
+    expect(api.patches).toEqual([{ id: adminOrder(1).id, body: { internalNotes: 'Call before delivery' } }])
     await expect(drawer.getByRole('textbox', { name: 'Staff notes' })).toHaveValue('Call before delivery')
     await expect(drawer.getByRole('button', { name: 'Save notes' })).toBeDisabled()
   })

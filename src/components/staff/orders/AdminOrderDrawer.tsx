@@ -25,7 +25,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex gap-3">
       <dt className="w-28 shrink-0 font-medium text-fg-muted">{label}</dt>
-      <dd className="min-w-0 text-fg">{children}</dd>
+      <dd className="min-w-0 break-words text-fg">{children}</dd>
     </div>
   )
 }
@@ -65,7 +65,8 @@ function Header({ order, detail }: { order: AdminOrderRow; detail: AdminOrderDet
 }
 
 function Customer({ detail }: { detail: AdminOrderDetail }) {
-  const { customer, address, note } = detail
+  const { customer, address, sellerNotes, courierNotes } = detail
+  const none = <span className="text-fg-muted italic">No note provided</span>
   return (
     <dl className="grid gap-3 text-base md:text-sm">
       <Row label="Customer"><span className="font-semibold">{customer ? customer.name : 'Customer account removed'}</span></Row>
@@ -75,8 +76,9 @@ function Customer({ detail }: { detail: AdminOrderDetail }) {
         <span className="tabular-nums">{address.phone || 'No phone on the address'}</span>
       </Row>
       <Row label="Address">{[address.line, `${address.city} ${address.postalCode}`.trim()].filter(Boolean).join(', ') || 'No address on the order'}</Row>
-      <div className="border-t border-dashed border-line pt-3">
-        <Row label="Customer note">{note ? note : <span className="text-fg-muted italic">No note provided</span>}</Row>
+      <div className="grid gap-3 border-t border-dashed border-line pt-3">
+        <Row label="Note to seller">{sellerNotes ? sellerNotes : none}</Row>
+        <Row label="Note for rider">{courierNotes ? courierNotes : none}</Row>
       </div>
     </dl>
   )

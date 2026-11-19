@@ -24,7 +24,8 @@ const DELIVERY: PlacedOrder = {
   recipient: 'Demo Shopper',
   address: '12 Mabini Street, Brgy. San Roque, Marikina City 1800',
   phone: '+639171234567',
-  note: 'Please gift wrap.',
+  sellerNotes: 'Please gift wrap.',
+  courierNotes: 'Gate code 1234.',
 }
 
 function renderPage() {
@@ -69,7 +70,7 @@ describe('OrderSuccessPage', () => {
   })
 
   it('shows where a delivery goes: name, address, phone, payment, ETA and the note as plain text', () => {
-    saveLastOrder({ ...DELIVERY, note: '<img src=x onerror=alert(1)> Leave at the gate' })
+    saveLastOrder({ ...DELIVERY, sellerNotes: '<img src=x onerror=alert(1)> Leave at the gate' })
     renderPage()
     expect(screen.getByRole('heading', { name: 'Delivering to' })).toBeInTheDocument()
     expect(screen.getByText('Demo Shopper')).toBeInTheDocument()
@@ -80,6 +81,8 @@ describe('OrderSuccessPage', () => {
     // The note is text, never markup.
     expect(screen.getByText('<img src=x onerror=alert(1)> Leave at the gate')).toBeInTheDocument()
     expect(document.querySelector('img')).toBeNull()
+    expect(screen.getByText('Note to seller')).toBeInTheDocument()
+    expect(screen.getByText('Gate code 1234.')).toBeInTheDocument()
   })
 
   it('has a unique title and a 150-160 character description', () => {

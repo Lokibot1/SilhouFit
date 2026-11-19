@@ -121,9 +121,9 @@ test('placing an order from the cart sends only the address, the line ids and th
   await placeOrderButton(page).click()
 
   await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
-  expect(shop.orders.posts).toEqual([{ addressId: ADDRESS.id, cartItemIds: lineIds, quotationId: 'q1', customerNotes: 'Please gift wrap.' }])
+  expect(shop.orders.posts).toEqual([{ addressId: ADDRESS.id, cartItemIds: lineIds, quotationId: 'q1', sellerNotes: 'Please gift wrap.' }])
   // The server works out the totals and takes no payment method or shipping fee: none is ever sent.
-  expect(Object.keys(shop.orders.posts[0]).sort()).toEqual(['addressId', 'cartItemIds', 'customerNotes', 'quotationId'])
+  expect(Object.keys(shop.orders.posts[0]).sort()).toEqual(['addressId', 'cartItemIds', 'quotationId', 'sellerNotes'])
 
   const placed = shop.orders.orders[0]
   await expect(page).toHaveURL(`/checkout/success?order=${placed.id}`)
@@ -145,7 +145,7 @@ test('placing an order from the cart sends only the address, the line ids and th
   await expect(page.locator('[data-status="PENDING_PAYMENT"]')).toHaveText('Awaiting payment')
 })
 
-test('without a note the order carries no customerNotes key, and My orders opens the list', async ({ page }) => {
+test('without a note the order carries no note keys, and My orders opens the list', async ({ page }) => {
   shop.cart.seed(NAVY_M.id, 1)
   await openCheckout(page, CART)
   await placeOrderButton(page).click()

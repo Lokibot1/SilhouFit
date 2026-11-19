@@ -306,7 +306,8 @@ test.describe('one order', () => {
 
   test('shows the items, the server totals, the address and the timeline of an unpaid order', async ({ page }) => {
     const unpaid = named(1, 'Pending Polo', {
-      customerNotes: 'Please gift wrap.',
+      sellerNotes: 'Please gift wrap.',
+      courierNotes: 'Gate code 1234.',
       items: [item('Pending Polo', { quantity: 2, totalPrice: 3780 })],
       subtotalAmount: 3780,
       totalAmount: 3879,
@@ -321,19 +322,20 @@ test.describe('one order', () => {
     await expect(summary).not.toContainText('Discount')
     await expect(summary).toContainText('Anne Santos')
     await expect(summary).toContainText('12 Rizal Avenue')
-    await expect(summary.getByText('Online payment is coming soon. Your order is held until then.')).toBeVisible()
+    await expect(summary.getByText('This order is waiting for payment. It is held for a while, so pay now or cancel it below.')).toBeVisible()
     await expect(page.getByRole('heading', { level: 3, name: 'Pending Polo' })).toBeVisible()
     await expect(page.getByText('₱1,890.00 × 2')).toBeVisible()
     await expect(page.getByText('Please gift wrap.')).toBeVisible()
+    await expect(page.getByText('Gate code 1234.')).toBeVisible()
     const steps = page.getByRole('list', { name: 'Order progress' }).getByRole('listitem')
     await expect(steps).toHaveCount(6)
     await expect(steps.nth(1)).toHaveAttribute('aria-current', 'step') // waiting on payment
     await expect(page).toHaveTitle('Order SHF-20261001-000001 — SilhouFit')
   })
 
-  test('Pay now does not exist yet and Cancel order is offered', async ({ page }) => {
+  test('Pay now and Cancel order are offered on an unpaid order', async ({ page }) => {
     await openOrder(page, [named(1, 'Pending Polo')], 1)
-    await expect(page.getByRole('button', { name: /Pay now/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Pay now' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Cancel order' })).toBeVisible()
   })
 

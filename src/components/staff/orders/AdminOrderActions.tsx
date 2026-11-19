@@ -47,7 +47,7 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
   const [dialog, setDialog] = useState<'order' | 'delivery' | null>(null)
   const [reason, setReason] = useState('')
   const [dialogError, setDialogError] = useState('')
-  const [notes, setNotes] = useState(detail.adminNotes ?? '')
+  const [notes, setNotes] = useState(detail.internalNotes ?? '')
   const pending = busy !== null
   const closed = isClosed(detail)
   const dispatchWhy = dispatchBlock(detail)
@@ -89,12 +89,12 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
     }
   }
 
-  const saved = detail.adminNotes ?? ''
+  const saved = detail.internalNotes ?? ''
   async function saveNotes() {
     setBusy('notes')
     try {
       const cleaned = cleanText(notes)
-      await updateAdminOrder(detail.id, { adminNotes: cleaned })
+      await updateAdminOrder(detail.id, { internalNotes: cleaned })
       setNotes(cleaned)
       toast.show({ kind: 'success', message: 'Notes saved' })
       onChanged()

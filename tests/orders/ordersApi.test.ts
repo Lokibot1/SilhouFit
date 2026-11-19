@@ -43,11 +43,19 @@ describe('reading an order', () => {
       shipping: 99,
       discount: 0,
       total: 3879,
-      note: null,
+      sellerNotes: null,
+      courierNotes: null,
       address: { recipientName: 'Anne Santos', line: '12 Rizal Avenue, Barangay 176', city: 'City of Manila', postalCode: '1000' },
       items: [{ name: 'Heritage Polo', size: 'M', color: 'Navy', unitPrice: 1890, qty: 2, total: 3780, imageUrl: null }],
       shipment: { courier: 'Lalamove', trackingUrl: 'https://t.test/1', driverPhone: null, driverPlate: 'ABC' },
     })
+  })
+
+  it('maps the seller and courier notes and ignores any other notes', async () => {
+    send.mockResolvedValue(apiOrder({ sellerNotes: 'Gift wrap', courierNotes: 'Gate code 1234', internalNotes: 'Secret' }))
+    const order = await fetchOrder(ORDER_ID)
+    expect(order).toMatchObject({ sellerNotes: 'Gift wrap', courierNotes: 'Gate code 1234' })
+    expect(order).not.toHaveProperty('internalNotes')
   })
 
   it('rejects an unknown status, a missing amount and a malformed body as a server error', async () => {
@@ -85,9 +93,9 @@ describe('reading an order', () => {
 describe('placing an order', () => {
   it('sends exactly the whitelisted keys: no total, shipping fee, payment method or label', async () => {
     send.mockResolvedValue(apiOrder())
-    const order = await createOrder({ addressId: 'a1', cartItemIds: ['c1'], shippingFee: 99, quotationId: 'q1', customerNotes: 'Leave at the gate' })
-    expect(send).toHaveBeenCalledWith('POST', '/orders', { addressId: 'a1', cartItemIds: ['c1'], quotationId: 'q1', customerNotes: 'Leave at the gate' }, undefined)
-    expect(Object.keys(send.mock.calls[0][2] as object).sort()).toEqual(['addressId', 'cartItemIds', 'customerNotes', 'quotationId'])
+    const order = await createOrder({ addressId: 'a1', cartItemIds: ['c1'], shippingFee: 99, quotationId: 'q1', sellerNotes: 'Gift wrap', courierNotes: 'Leave at the gate' })
+    expect(send).toHaveBeenCalledWith('POST', '/orders', { addressId: 'a1', cartItemIds: ['c1'], quotationId: 'q1', sellerNotes: 'Gift wrap', courierNotes: 'Leave at the gate' }, undefined)
+    expect(Object.keys(send.mock.calls[0][2] as object).sort()).toEqual(['addressId', 'cartItemIds', 'courierNotes', 'quotationId', 'sellerNotes'])
     expect(order.orderNumber).toBe('SHF-20261026-ABC123')
   })
 
@@ -97,10 +105,11 @@ describe('placing an order', () => {
     expect(send.mock.calls[0][2]).not.toHaveProperty('quotationId')
   })
 
-  it('leaves out an empty note', async () => {
+  it('leaves out empty notes', async () => {
     send.mockResolvedValue(apiOrder())
-    await createOrder({ addressId: 'a1', cartItemIds: ['c1'], shippingFee: 99, customerNotes: '' })
-    expect(send.mock.calls[0][2]).not.toHaveProperty('customerNotes')
+    await createOrder({ addressId: 'a1', cartItemIds: ['c1'], shippingFee: 99, sellerNotes: '', courierNotes: '' })
+    expect(send.mock.calls[0][2]).not.toHaveProperty('sellerNotes')
+    expect(send.mock.calls[0][2]).not.toHaveProperty('courierNotes')
   })
 
   it.each([

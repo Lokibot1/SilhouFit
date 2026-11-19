@@ -157,7 +157,7 @@ export async function mockOrders(page: Page, initial: ApiOrder[] = [], { cart, p
       mock.posts.push(body)
       if (mock.on.gate) await mock.on.gate
       if (await apply(mock.on.create?.(body))) return
-      const extra = Object.keys(body).filter((key) => !['addressId', 'cartItemIds', 'customerNotes', 'quotationId'].includes(key))
+      const extra = Object.keys(body).filter((key) => !['addressId', 'cartItemIds', 'sellerNotes', 'courierNotes', 'quotationId'].includes(key))
       if (extra.length) return reply({ status: 400, json: { statusCode: 400, message: extra.map((key) => `property ${key} should not exist`), error: 'Bad Request' } })
       const ids = (body.cartItemIds as string[] | undefined) ?? []
       const lines = ids.flatMap((itemId) => {
@@ -178,7 +178,8 @@ export async function mockOrders(page: Page, initial: ApiOrder[] = [], { cart, p
         subtotalAmount: subtotal,
         shippingAmount: shipping,
         totalAmount: subtotal + shipping,
-        customerNotes: (body.customerNotes as string | undefined) ?? null,
+        sellerNotes: (body.sellerNotes as string | undefined) ?? null,
+        courierNotes: (body.courierNotes as string | undefined) ?? null,
         items: lines.map((l, i) => ({
           id: `00000000-0000-4000-8000-${String(700000 + number * 10 + i).padStart(12, '0')}`,
           orderId: orderId(number),

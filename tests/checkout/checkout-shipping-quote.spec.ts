@@ -163,10 +163,11 @@ test('Place order sends the quote and no shipping fee, and the order is priced w
   const lineIds = shop.cart.items.map((line) => line.id)
   await openCheckout(page)
   await page.getByRole('textbox', { name: 'Note to seller' }).fill('Please gift wrap.')
+  await page.getByRole('textbox', { name: 'Delivery notes' }).fill('Gate code 1234.')
   await placeOrderButton(page).click()
   await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
 
-  expect(shop.orders.posts).toEqual([{ addressId: ADDRESS.id, cartItemIds: lineIds, quotationId: 'q-120', customerNotes: 'Please gift wrap.' }])
+  expect(shop.orders.posts).toEqual([{ addressId: ADDRESS.id, cartItemIds: lineIds, quotationId: 'q-120', sellerNotes: 'Please gift wrap.', courierNotes: 'Gate code 1234.' }])
   expect(shop.orders.quotes).toHaveLength(1) // a fee that is still good is not asked for again
   await expect(page.getByText('₱2,010.00').first()).toBeVisible() // 1,890 + 120
 })

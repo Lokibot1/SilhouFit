@@ -116,8 +116,9 @@ export function adminOrder(n: number, over: Record<string, unknown> = {}) {
     shippingAmount: 99,
     discountAmount: 0,
     totalAmount: 3879,
-    customerNotes: null as string | null,
-    adminNotes: null as string | null,
+    sellerNotes: null as string | null,
+    courierNotes: null as string | null,
+    internalNotes: null as string | null,
     shippingAddressSnapshot: {
       id: 'a1',
       recipientName: 'Anne Santos',
@@ -200,8 +201,9 @@ export const summary = (o: AdminOrderDto) => ({
   totalAmount: o.totalAmount,
   itemsCount: o.items.length,
   shipmentStatus: o.shipment?.status ?? null,
-  adminNotes: o.adminNotes,
-  customerNotes: o.customerNotes,
+  internalNotes: o.internalNotes,
+  sellerNotes: o.sellerNotes,
+  courierNotes: o.courierNotes,
   createdAt: o.createdAt,
   updatedAt: o.updatedAt,
 })
@@ -249,7 +251,7 @@ export interface AdminOrdersMock {
 }
 
 const LIST_KEYS = ['page', 'limit', 'status', 'paymentStatus', 'startDate', 'endDate', 'search']
-const PATCH_KEYS = ['status', 'adminNotes', 'cancellationReason']
+const PATCH_KEYS = ['status', 'internalNotes', 'cancellationReason']
 const CLOSED = ['DELIVERED', 'CANCELLED', 'REFUNDED']
 
 /**
@@ -366,8 +368,8 @@ export async function mockAdminOrders(page: Page, initial: AdminOrderDto[] = [])
       if (!found) return notFound()
       const unknown = Object.keys(body).filter((key) => !PATCH_KEYS.includes(key))
       if (unknown.length) return reply(fail(400, unknown.map((key) => `property ${key} should not exist`)))
-      const { status, adminNotes, cancellationReason } = body
-      if (typeof adminNotes === 'string' && adminNotes.length > 500) return reply(fail(400, 'adminNotes must be shorter than or equal to 500 characters'))
+      const { status, internalNotes, cancellationReason } = body
+      if (typeof internalNotes === 'string' && internalNotes.length > 500) return reply(fail(400, 'internalNotes must be shorter than or equal to 500 characters'))
       if (typeof cancellationReason === 'string' && cancellationReason.length > 255) return reply(fail(400, 'cancellationReason must be shorter than or equal to 255 characters'))
       if (typeof status === 'string') {
         if (CLOSED.includes(found.status)) return reply(fail(400, `Cannot change the status of a ${found.status.toLowerCase()} order`))
@@ -378,7 +380,7 @@ export async function mockAdminOrders(page: Page, initial: AdminOrderDto[] = [])
           found.cancellationReason = typeof cancellationReason === 'string' ? cancellationReason : null
         }
       }
-      if (typeof adminNotes === 'string') found.adminNotes = adminNotes
+      if (typeof internalNotes === 'string') found.internalNotes = internalNotes
       found.updatedAt = now
       return reply({ status: 200, json: found })
     }

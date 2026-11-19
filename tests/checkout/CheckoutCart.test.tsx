@@ -177,7 +177,7 @@ describe('CheckoutPage from the cart', () => {
     await u.click(placeButton())
     await waitFor(() => expect(where()).toMatch(/^\/checkout\/success/))
     expect(placeMock).toHaveBeenCalledTimes(1)
-    expect(placeMock.mock.calls[0][0]).toEqual({ addressId: ADDRESS.id, cartItemIds: ['item-1', 'item-2'], shippingFee: 99, quotationId: 'q1', customerNotes: '' })
+    expect(placeMock.mock.calls[0][0]).toEqual({ addressId: ADDRESS.id, cartItemIds: ['item-1', 'item-2'], shippingFee: 99, quotationId: 'q1', sellerNotes: '', courierNotes: '' })
   })
 
   it('empties exactly the ordered lines from the server cart after success, keeping lines that were left out', async () => {

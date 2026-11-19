@@ -606,7 +606,7 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
       }
       let order: CustomerOrder
       try {
-        order = await createOrder({ addressId: picked.id, cartItemIds, shippingFee: sent.shipping, quotationId: q?.quotationId, customerNotes: cleanText(note) }, { signal: abort.signal })
+        order = await createOrder({ addressId: picked.id, cartItemIds, shippingFee: sent.shipping, quotationId: q?.quotationId, sellerNotes: cleanText(note), courierNotes: cleanText(deliveryNote) }, { signal: abort.signal })
       } catch (problem) {
         // A dropped connection may have come after the order was made: never place a second one blindly.
         const found = problem instanceof OrdersError && problem.kind === 'network' ? await findJustPlaced(sent.total) : null

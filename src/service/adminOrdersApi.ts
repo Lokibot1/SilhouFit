@@ -86,7 +86,7 @@ export interface AdminShipmentEvent {
 
 export interface AdminOrderDetail extends CustomerOrder {
   customer: { name: string; email: string } | null
-  adminNotes: string | null
+  internalNotes: string | null
   items: AdminOrderItem[]
   shipment: AdminShipment | null
   payments: AdminPayment[]
@@ -156,7 +156,7 @@ function toDetail(body: unknown): AdminOrderDetail {
   return {
     ...order,
     customer: toCustomer(body.customer),
-    adminNotes: text(body.adminNotes),
+    internalNotes: text(body.internalNotes),
     items: order.items.map((item, i) => ({ ...item, stock: stocks[i] })),
     shipment: order.shipment && isRecord(body.shipment) ? { ...order.shipment, externalOrderId: text(body.shipment.externalOrderId) } : null,
     payments: body.paymentTransactions.map(toPayment),
@@ -251,7 +251,7 @@ export async function quietRead<T>(read: () => Promise<T>): Promise<T | undefine
 
 /** Feature: Staff orders – Update order */
 /** PATCH /admin/orders/:id/status. Moves the order to `status` and/or saves the notes. Cancelling puts the stock back and expires the payment link. */
-export async function updateAdminOrder(id: string, changes: { status?: OrderStatus; adminNotes?: string; cancellationReason?: string }): Promise<AdminOrderDetail> {
+export async function updateAdminOrder(id: string, changes: { status?: OrderStatus; internalNotes?: string; cancellationReason?: string }): Promise<AdminOrderDetail> {
   return change(async () => toDetail(await request('PATCH', `${base(id)}/status`, changes)))
 }
 

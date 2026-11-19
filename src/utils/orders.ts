@@ -194,7 +194,8 @@ export function adaptOrderToReceipt(order: CustomerOrder): PlacedOrder {
     recipient: order.address.recipientName,
     address: [order.address.line, `${order.address.city} ${order.address.postalCode}`.trim()].filter(Boolean).join(', '),
     phone: order.address.phone,
-    note: order.note ?? undefined,
+    sellerNotes: order.sellerNotes ?? undefined,
+    courierNotes: order.courierNotes ?? undefined,
   }
 }
 

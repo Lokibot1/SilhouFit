@@ -162,7 +162,8 @@ export function OrderSuccessPage() {
             </Row>
             {order.eta && <Row label="When">{order.eta}</Row>}
             <Row label="Payment">{order.payment}</Row>
-            {order.note && <Row label="Your note">{order.note}</Row>}
+            {order.sellerNotes && <Row label="Note to seller">{order.sellerNotes}</Row>}
+            {order.courierNotes && <Row label="Delivery notes">{order.courierNotes}</Row>}
           </dl>
 
           <p className={`mt-4 pt-4 text-center text-fg-muted ${RULE}`}>Thank you for shopping at KRAL.</p>

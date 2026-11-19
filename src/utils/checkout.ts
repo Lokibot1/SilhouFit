@@ -109,7 +109,8 @@ export interface PlacedOrder {
   recipient?: string
   address?: string
   phone?: string
-  note?: string
+  sellerNotes?: string
+  courierNotes?: string
 }
 
 export function clearLastOrder() {

@@ -437,7 +437,18 @@ describe('CheckoutPage address and note', () => {
     expect(note).toHaveValue('  Gift wrap please 🎁   thanks ')
     await user.click(placeButton())
     await waitFor(() => expect(placeMock).toHaveBeenCalled())
-    expect(placeMock.mock.calls[0][0].customerNotes).toBe('Gift wrap please 🎁 thanks')
+    expect(placeMock.mock.calls[0][0].sellerNotes).toBe('Gift wrap please 🎁 thanks')
+  })
+
+  it('sends the rider note as courierNotes, cleaned', async () => {
+    const user = userEvent.setup({ delay: null })
+    await useSavedAddress()
+    const rider = screen.getByRole('textbox', { name: 'Delivery notes' })
+    await user.click(rider)
+    await user.paste('  Gate code \u0007 1234 ')
+    await user.click(placeButton())
+    await waitFor(() => expect(placeMock).toHaveBeenCalled())
+    expect(placeMock.mock.calls[0][0].courierNotes).toBe('Gate code 1234')
   })
 
   it('opens the address sheet instead of placing the order when there is no saved, pinned address', async () => {
@@ -457,7 +468,7 @@ describe('CheckoutPage placing the order', () => {
     await user.click(placeButton())
 
     await waitFor(() => expect(where()).toBe(`/checkout/success?order=${PLACED.id}`))
-    expect(placeMock.mock.calls[0][0]).toEqual({ addressId: ADDRESS.id, cartItemIds: ['item-1'], shippingFee: 99, quotationId: 'q1', customerNotes: '' })
+    expect(placeMock.mock.calls[0][0]).toEqual({ addressId: ADDRESS.id, cartItemIds: ['item-1'], shippingFee: 99, quotationId: 'q1', sellerNotes: '', courierNotes: '' })
     expect(loadLastOrder()).toMatchObject({ orderId: 'SF-261011-ABCD', total: 4299, quotedTotal: 4299, fulfilment: 'Delivery' })
   })
 

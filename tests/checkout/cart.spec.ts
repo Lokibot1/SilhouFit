@@ -70,7 +70,8 @@ test('a guest who taps Buy now signs in at checkout and lands on that item', asy
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible()
 })
 
-test('a guest builds a cart, signs in at checkout, orders every line, and the badge drops', async ({ page }) => {
+test('a signed-in shopper builds a cart, orders every line, and the badge drops', async ({ page }) => {
+  await signInViaForm(page) // guests can no longer add to the cart (1c38b95), so sign in first
   await page.goto('/shop')
   await expect(page.getByRole('article').first()).toBeVisible({ timeout: 15000 })
   await addFromSheet(page, 'Heritage Polo', 'M', 'Navy')
@@ -84,12 +85,10 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
   await expect(page.getByText('Total (2 items)')).toBeVisible()
   await page.getByRole('button', { name: 'Checkout' }).click()
 
-  await expect(page).toHaveURL(/\/login\?next=%2Fcheckout%3Fsource%3Dcart%26line%3D/)
-  await signInOnLoginPage(page)
   await expect(page).toHaveURL(/\/checkout\?source=cart&line=/)
   await expect(page.getByRole('heading', { name: 'Heritage Polo' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Rail Tank Set' })).toBeVisible()
-  expect(cart.items).toHaveLength(2) // the guest's cart moved to the server on sign-in
+  expect(cart.items).toHaveLength(2)
   await expect(page.getByRole('complementary')).toContainText('Subtotal (2 items)')
   await expect(page.getByRole('link', { name: 'Edit cart' })).toBeVisible()
 
@@ -98,11 +97,11 @@ test('a guest builds a cart, signs in at checkout, orders every line, and the ba
   await placeOrderButton(page).click()
   await expect(page).toHaveURL(ORDER_URL, { timeout: 15000 })
   expect(shop.orders.posts).toHaveLength(1)
-  expect(shop.orders.posts[0]).toMatchObject({ addressId: shop.addresses.rows[0].id, quotationId: 'q1', customerNotes: 'Gift wrap, please.' })
+  expect(shop.orders.posts[0]).toMatchObject({ addressId: shop.addresses.rows[0].id, quotationId: 'q1', sellerNotes: 'Gift wrap, please.' })
 
   await expect(page.getByRole('heading', { level: 1, name: 'Order placed' })).toBeFocused()
   await expect(page.getByText('Heritage Polo')).toBeVisible()
-  await expect(page.getByText('Rail Tank Set')).toBeVisible()
+  await expect(page.getByRole('main').getByText('Rail Tank Set')).toBeVisible() // the toast still names it
   await expect(page.getByText('12 Rizal Avenue, Barangay 176, City of Manila 1000')).toBeVisible()
   await expect(page.getByText('+639171234567')).toBeVisible()
   await expect(page.getByText('Awaiting payment', { exact: true })).toBeVisible()
@@ -223,6 +222,7 @@ test.describe('narrow screens', () => {
   })
 
   test('every control in the spec sheet is at least 32px (44px on touch) at 320px', async ({ page }) => {
+    await signedIn(page) // a guest is sent to sign in instead of seeing the sheet
     await page.setViewportSize({ width: 320, height: 700 })
     await page.goto('/shop')
     await expect(page.getByRole('article').first()).toBeVisible({ timeout: 15000 })

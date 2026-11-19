@@ -174,12 +174,21 @@ function OrderBody({ order, onCancel, onRefresh }: { order: CustomerOrder; onCan
         {/* A sample account's orders have made-up ids the reviews API would reject, so it gets no review section. */}
         {order.status === 'DELIVERED' && !usesSampleOrders() && <OrderReviewSection order={order} />}
 
-        {order.note && (
-          <section aria-labelledby="order-note" className={SECTION}>
-            <h2 id="order-note" className={HEADING}>
-              Your note
+        {order.sellerNotes && (
+          <section aria-labelledby="order-seller-note" className={SECTION}>
+            <h2 id="order-seller-note" className={HEADING}>
+              Note to seller
             </h2>
-            <p className={`${MUTED} mt-3 break-words text-kral-fg`}>{order.note}</p>
+            <p className={`${MUTED} mt-3 break-words text-kral-fg`}>{order.sellerNotes}</p>
+          </section>
+        )}
+
+        {order.courierNotes && (
+          <section aria-labelledby="order-courier-note" className={SECTION}>
+            <h2 id="order-courier-note" className={HEADING}>
+              Delivery notes
+            </h2>
+            <p className={`${MUTED} mt-3 break-words text-kral-fg`}>{order.courierNotes}</p>
           </section>
         )}
       </div>

@@ -142,7 +142,7 @@ describe('the timeline', () => {
 
 describe('adaptOrderToReceipt', () => {
   it('reads an order as the receipt does, with no estimate', () => {
-    expect(adaptOrderToReceipt(customerOrder({ note: 'Gate' }))).toMatchObject({
+    expect(adaptOrderToReceipt(customerOrder({ sellerNotes: 'Gift wrap', courierNotes: 'Gate' }))).toMatchObject({
       orderId: 'SHF-20261026-ABC123',
       total: 3879,
       shipping: 99,
@@ -152,7 +152,8 @@ describe('adaptOrderToReceipt', () => {
       recipient: 'Anne Santos',
       address: '12 Rizal Avenue, Barangay 176, City of Manila 1000',
       phone: '+639171234567',
-      note: 'Gate',
+      sellerNotes: 'Gift wrap',
+      courierNotes: 'Gate',
       items: [{ name: 'Heritage Polo', size: 'M', color: 'Navy', qty: 2, price: 1890, arReady: false }],
     })
   })

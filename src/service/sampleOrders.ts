@@ -33,7 +33,8 @@ function order(n: number, day: string, over: Partial<CustomerOrder> & Pick<Custo
     discount: 0,
     total: subtotal + 99,
     currency: 'PHP',
-    note: null,
+    sellerNotes: null,
+    courierNotes: null,
     address: ADDRESS,
     paidAt: null,
     cancelledAt: null,
@@ -115,13 +116,14 @@ export const allSampleOrders = () => store
 export const findSampleOrder = (id: string) => store.find((o) => o.id === id) ?? null
 
 /** A new PENDING_PAYMENT order with one stand-in item: the sample store has no cart to read. */
-export function addSampleOrder({ shippingFee, customerNotes }: { shippingFee?: number; customerNotes?: string }): CustomerOrder {
+export function addSampleOrder({ shippingFee, sellerNotes, courierNotes }: { shippingFee?: number; sellerNotes?: string; courierNotes?: string }): CustomerOrder {
   const next = order(store.length + 1, new Date().toISOString().slice(0, 10), {
     status: 'PENDING_PAYMENT',
     paymentStatus: 'UNPAID',
     items: [line(9, 'Linen Camp Shirt', 'M', 'Sand', 1890, 1)],
     shipping: shippingFee ?? 99,
-    note: customerNotes ?? null,
+    sellerNotes: sellerNotes ?? null,
+    courierNotes: courierNotes ?? null,
   })
   next.id = crypto.randomUUID()
   next.total = next.subtotal + next.shipping

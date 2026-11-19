@@ -49,7 +49,7 @@ const answer = (data: AdminOrderRow[], total = data.length, page = 1): AdminOrde
 const detailOf = (r: AdminOrderRow, over: Partial<AdminOrderDetail> = {}): AdminOrderDetail => ({
   ...customerOrder({ id: r.id, orderNumber: r.orderNumber, status: r.status, paymentStatus: r.paymentStatus, total: r.total, createdAt: r.placedAt }),
   customer: { name: r.customerName, email: r.customerEmail ?? '' },
-  adminNotes: null,
+  internalNotes: null,
   items: [{ ...orderItem(), stock: 7 }, { ...orderItem({ id: 'i2', name: 'Camp Shirt', variantId: null }), stock: null }],
   shipment: { courier: 'Lalamove', serviceType: 'Motorcycle', status: 'PENDING_DISPATCH', trackingUrl: null, driverName: null, driverPhone: null, driverPlate: null, deliveryFee: 99, pickupTime: null, deliveredAt: null, externalOrderId: null },
   payments: [{ id: 'p1', provider: 'paymongo', method: 'GCASH', amount: 3879, fee: 100, net: 3779, status: 'PAID', at: '2026-10-26T02:40:00.000Z' }],
@@ -389,9 +389,9 @@ describe('Online orders page', () => {
     expect(save).toBeDisabled()
     await userEvent.type(within(drawer).getByRole('textbox', { name: 'Staff notes' }), '  Call first  ')
     expect(within(drawer).getByText('14/500')).toBeInTheDocument()
-    update.mockResolvedValue(detailOf(row(1), { adminNotes: 'Call first' }))
+    update.mockResolvedValue(detailOf(row(1), { internalNotes: 'Call first' }))
     await userEvent.click(save)
-    expect(update).toHaveBeenCalledWith(row(1).id, { adminNotes: 'Call first' })
+    expect(update).toHaveBeenCalledWith(row(1).id, { internalNotes: 'Call first' })
     expect(await screen.findByText('Notes saved')).toBeInTheDocument()
   })
 })
