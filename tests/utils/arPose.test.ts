@@ -17,6 +17,8 @@ import {
   MIN_DRAWN,
   nextMaskState,
   LANDMARK_TO_SEAM_CM,
+  NECK_REACH_CM,
+  NECK_TYPICAL,
   LEFT_ELBOW,
   LEFT_HIP,
   LEFT_SHOULDER,
@@ -617,6 +619,29 @@ describe('garment transform', () => {
   it('puts the seam point at the shoulder midpoint raised by 4 cm', () => {
     expect(pose.x).toBeCloseTo(320)
     expect(pose.y).toBeCloseTo(192 - LANDMARK_TO_SEAM_CM * pose.pxPerCm)
+  })
+  // Shoulders 128 px apart at y 192, so a typical neck puts the ears NECK_TYPICAL * 128 px above that line.
+  const withEars = (risePx: number, visibility = 1) => {
+    const f = frame()
+    f.image[7] = { x: 0.55, y: (192 - risePx) / 480, visibility }
+    f.image[8] = { x: 0.45, y: (192 - risePx) / 480, visibility }
+    return f
+  }
+  const seamLiftCm = (f: PoseFrame) => {
+    const p = new PoseFollower().update(f, 0, VIEW, 1).pose!
+    return (192 - p.y) / p.pxPerCm
+  }
+  it('keeps the usual seam height for a typical neck, or when the ears are not seen', () => {
+    expect(seamLiftCm(withEars(NECK_TYPICAL * 128))).toBeCloseTo(LANDMARK_TO_SEAM_CM)
+    expect(seamLiftCm(withEars(60, 0))).toBeCloseTo(LANDMARK_TO_SEAM_CM)
+  })
+  it('lifts the seam for a longer neck and lowers it for a shorter one', () => {
+    expect(seamLiftCm(withEars(NECK_TYPICAL * 128 + 12))).toBeGreaterThan(LANDMARK_TO_SEAM_CM)
+    expect(seamLiftCm(withEars(NECK_TYPICAL * 128 - 12))).toBeLessThan(LANDMARK_TO_SEAM_CM)
+  })
+  it('moves the seam by at most NECK_REACH_CM, however long or short the neck', () => {
+    expect(seamLiftCm(withEars(400))).toBeCloseTo(LANDMARK_TO_SEAM_CM + NECK_REACH_CM)
+    expect(seamLiftCm(withEars(-100))).toBeCloseTo(LANDMARK_TO_SEAM_CM - NECK_REACH_CM)
   })
   it('draws a bigger size wider at the same px per cm, by the chart ratio', () => {
     const m = garmentTransform(pose, sizeOf(52, 70))

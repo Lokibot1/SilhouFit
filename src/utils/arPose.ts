@@ -38,8 +38,19 @@ const TRACKED = [...FACE_GATED, LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_ELBOW, RIGHT
  * inside the seams, so a little over 1 puts the seams just outside the joints. Tunable: raise it if the shirt still looks too narrow, lower it if too wide.
  */
 export const FIT_EASE = 1.05
-/** The seam sits about this far above the shoulder-joint landmarks (cm). */
-export const LANDMARK_TO_SEAM_CM = 4
+/**
+ * The seam sits this far above the shoulder-joint landmarks (cm); negative is below them. Kept low: the model's front neckline is level with the seam, so a higher seam
+ * lifts it over the base of the neck and the shirt looks neckless. Move GARMENT_BASE.sleevePivot.y with it (seam height minus this).
+ */
+export const LANDMARK_TO_SEAM_CM = 1
+/**
+ * The seam height then follows the person's own neck (see PoseFollower.neckAdjust): a typical ear-to-shoulder-line height is this share of the
+ * shoulder-joint span; the seam moves by NECK_FOLLOW of the difference (a longer neck lifts it, a shorter one lowers it), at most NECK_REACH_CM either way.
+ * Tunable like FIT_EASE.
+ */
+export const NECK_TYPICAL = 0.3
+export const NECK_FOLLOW = 0.5
+export const NECK_REACH_CM = 2
 /**
  * The shoulder span only tells the scale while the body is turned less than about 60 degrees (cos above 0.5): past that it collapses, noise
  * dominates and dividing by cos would blow the shirt up. Beyond it the follower holds its last good placement and size.
@@ -278,6 +289,9 @@ export class PoseFollower {
   /** How much the hips bend the roll (0 or 1, eased), so the roll does not step when they appear or go; `hipMid` is the last smoothed hip midpoint it uses meanwhile. */
   private readonly hipWeight = new OneEuro({ minCutoff: 0.4, beta: 0 })
   private hipMid: Point | null = null
+  /** The seam's shift for this person's neck, in cm (see neckAdjust), smoothed slowly: a neck does not change length. */
+  private readonly neck = new OneEuro({ minCutoff: 0.3, beta: 0 })
+  private neckCm = 0
   /** Whether each landmark (by index plus the threshold it is judged by) is on; see HYSTERESIS. */
   private readonly on = new Map<number, boolean>()
   private readonly body = new BodyFitter()
@@ -307,7 +321,8 @@ export class PoseFollower {
   private rawYaw: number | null = null
 
   private reset() {
-    for (const f of [this.left, this.right, this.hipLeft, this.hipRight, this.elbowLeft, this.elbowRight, this.wristLeft, this.wristRight, this.armLeft, this.armRight, this.scale, this.hipWeight, this.turn, this.body, ...this.facePoints]) f.reset()
+    for (const f of [this.left, this.right, this.hipLeft, this.hipRight, this.elbowLeft, this.elbowRight, this.wristLeft, this.wristRight, this.armLeft, this.armRight, this.scale, this.hipWeight, this.neck, this.turn, this.body, ...this.facePoints]) f.reset()
+    this.neckCm = 0
     this.on.clear()
     this.hipMid = null
     this.frontOn = false
@@ -329,6 +344,20 @@ export class PoseFollower {
   }
 
   /** Whether landmark `i` is seen, with hysteresis around `min`. A missing landmark is not seen; one without a visibility is. */
+  /**
+   * How far (cm) to move the seam from its usual height for this person's neck: the ear midpoint's height over the shoulder line, as a share of the
+   * shoulder span, against NECK_TYPICAL, followed by NECK_FOLLOW and limited to NECK_REACH_CM, then smoothed. Measured only front-on with both ears
+   * seen; otherwise the last value is kept (0 before any).
+   */
+  private neckAdjust(frame: PoseFrame, view: View, mid: Point, roll: number, spanPx: number, pxPerCm: number, tMs: number) {
+    if (this.facing !== 'front' || !this.seenAt(frame, 7) || !this.seenAt(frame, 8)) return this.neckCm
+    const [a, b] = [7, 8].map((i) => toStage(frame.image[i], view))
+    const rise = ((a.x + b.x) / 2 - mid.x) * -Math.sin(roll) + ((a.y + b.y) / 2 - mid.y) * -Math.cos(roll)
+    const delta = ((rise / spanPx - NECK_TYPICAL) * spanPx * NECK_FOLLOW) / pxPerCm
+    this.neckCm = this.neck.filter(clamp(delta, -NECK_REACH_CM, NECK_REACH_CM), tMs)
+    return this.neckCm
+  }
+
   private seenAt(frame: PoseFrame, i: number, min = MIN_VISIBILITY) {
     const p = frame.image[i]
     const on = finitePoint(p) && (p.visibility ?? 1) >= (this.on.get(i + min) ? min - HYSTERESIS : min + HYSTERESIS)
@@ -401,7 +430,7 @@ export class PoseFollower {
       if (this.hipMid) roll += (hipWeight * (torsoRoll(mid, this.hipMid) - roll)) / 2
       const pxPerCm = this.scale.filter(clampPxPerCm(pxPerCmOf(span, seenYaw, refScaleX), refScaleX, view.width), tMs)
       // The seam is above the landmarks, along the (rolled) up direction of the body.
-      const lift = LANDMARK_TO_SEAM_CM * pxPerCm
+      const lift = (LANDMARK_TO_SEAM_CM + this.neckAdjust(frame, view, mid, roll, span / Math.max(Math.cos(seenYaw), RELIABLE_COS), pxPerCm, tMs)) * pxPerCm
       const [x, y] = [mid.x - lift * Math.sin(roll), mid.y - lift * Math.cos(roll)]
       this.good = { x: clamp(x, -ANCHOR_REACH * view.width, (1 + ANCHOR_REACH) * view.width), y: clamp(y, -ANCHOR_REACH * view.height, (1 + ANCHOR_REACH) * view.height), roll, pxPerCm, span: span / Math.max(Math.cos(seenYaw), RELIABLE_COS), minY: Math.min(l.y, r.y) }
     }

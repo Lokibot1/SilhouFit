@@ -195,7 +195,7 @@ describe('the shirt with the fit', () => {
       const p = pose({ down: at(ratio) })
       const hem = -garmentTransform(p, m).y
       expect(hem - p.fit.hipY!).toBeGreaterThan(15)
-      expect(hem - p.fit.hipY!).toBeLessThan(50)
+      expect(hem - p.fit.hipY!).toBeLessThan(56)
     }
   })
 })
