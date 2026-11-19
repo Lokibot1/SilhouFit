@@ -2,11 +2,11 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { manyAdminOrders, mockAdminOrders } from '../shared/adminOrders'
 import { mockAuditLogs } from '../shared/auditLogs'
 import { mockNotifications } from '../shared/notificationsApi'
-import { mockCart, mockProducts } from '../shared/products'
+import { mockCart, mockProductMetrics, mockProducts, type ProductMetricsMock } from '../shared/products'
 
 // The /staff and /admin dashboards read GET /analytics/summary, /sales, /product-mix and /trending. Those are stubbed here (deterministic, not the live API),
 // as are the other calls the dashboards make (Recent orders on /admin/orders, Activity logs on the admin page), because the dev simulated accounts have no
-// Supabase token. Only the Refunds / AR-ready / Low-stock cards are still sample data, and each carry a Sample data badge inside the card. Sign-in is the dev-only simulated one.
+// Supabase token. Low or out of stock reads GET /products/metrics (stubbed too); only the Refunds and AR-ready cards are still sample data, and each carries a Sample data badge inside the card. Sign-in is the dev-only simulated one.
 
 const STAFF = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -78,23 +78,25 @@ test.beforeEach(async ({ page }) => {
 })
 
 /** Every other call the dashboards make (the signed-in shell asks for the cart and notifications; Activity logs and Recent orders are on the dashboards). */
-async function stubRest(page: Page, orders: number) {
+async function stubRest(page: Page, orders: number): Promise<ProductMetricsMock> {
   await mockAdminOrders(page, manyAdminOrders(orders))
   await mockAuditLogs(page, [])
   await mockNotifications(page)
   await mockCart(page, await mockProducts(page))
+  // After mockProducts: the newest route wins, and mockProducts would read /products/metrics as a product id.
+  return mockProductMetrics(page, { outOfStockCount: 2, lowStockCount: 4 })
 }
 
 async function open(page: Page, target: (typeof PAGES)[number], { orders = 2 } = {}) {
   const stub = await stubAnalytics(page)
-  await stubRest(page, orders)
+  const metrics = await stubRest(page, orders)
   await page.goto('/login')
   await page.getByLabel('Email', { exact: true }).fill(target.who.email)
   await page.getByLabel('Password', { exact: true }).fill(target.who.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page).toHaveURL(target.home)
   await expect(page.getByRole('heading', { level: 1, name: /^Hello/ })).toBeVisible({ timeout: 20_000 })
-  return stub
+  return Object.assign(stub, { metrics })
 }
 
 const region = (page: Page, name: string | RegExp) => page.getByRole('region', { name })
@@ -317,16 +319,59 @@ for (const target of PAGES) {
       await expect(page.getByRole('alert')).toHaveCount(0)
     })
 
-    test('a Sample data badge inside each of the three operations cards, and nowhere else', async ({ page }) => {
+    test('a Sample data badge inside the Refunds and AR-ready cards only, and nowhere else', async ({ page }) => {
       await open(page, target)
       const operations = region(page, 'Refunds, AR and stock at a glance')
-      await expect(operations.getByText('Sample data', { exact: true })).toHaveCount(3)
-      await expect(page.getByText('Sample data', { exact: true })).toHaveCount(3)
+      const stock = operations.getByRole('link', { name: /^Low or out of stock: / })
+      await expect(stock).toBeVisible()
+      await expect(operations.getByText('Sample data', { exact: true })).toHaveCount(2)
+      await expect(page.getByText('Sample data', { exact: true })).toHaveCount(2)
+      await expect(stock.getByText('Sample data')).toHaveCount(0)
       for (const connected of [cards(page), sales(page), mix(page), trending(page), recent(page)]) {
         await expect(connected.getByText('Sample data', { exact: true })).toHaveCount(0)
       }
       // Not next to the page title any more.
       await expect(page.getByRole('heading', { level: 1 }).locator('..').getByText('Sample data')).toHaveCount(0)
+    })
+
+    test('the Low or out of stock card shows out plus low from GET /products/metrics', async ({ page }) => {
+      const { metrics } = await open(page, target)
+      const card = region(page, 'Refunds, AR and stock at a glance').getByRole('link', { name: /^Low or out of stock: / })
+      await expect(card).toContainText('6')
+      await expect(card).toContainText('2 out, 4 with 5 or fewer left')
+      await expect(card).toHaveAttribute('href', `${target.path}/inventory`)
+      expect(metrics.queries).toEqual([{ lowStockThreshold: '5' }])
+    })
+
+    test('a 403 on the stock figures shows the card its own error while the rest renders, and Retry recovers', async ({ page }) => {
+      await stubAnalytics(page)
+      const metrics = await stubRest(page, 2)
+      metrics.fail = { status: 403, times: 1 }
+      await page.goto('/login')
+      await page.getByLabel('Email', { exact: true }).fill(target.who.email)
+      await page.getByLabel('Password', { exact: true }).fill(target.who.password)
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+      await expect(page).toHaveURL(target.home)
+
+      const operations = region(page, 'Refunds, AR and stock at a glance')
+      const failed = operations.getByRole('alert')
+      await expect(failed).toHaveCount(1)
+      await expect(failed).toContainText("couldn't load the stock figures")
+      await expect(retry(operations)).toBeEnabled()
+
+      // The other cards and sections are untouched.
+      await expect(operations.getByRole('link', { name: /^Refunds: / })).toBeVisible()
+      await expect(operations.getByRole('link', { name: /^AR-ready products: / })).toBeVisible()
+      await expect(cards(page)).toContainText('₱125,000')
+      await expect(sales(page).getByRole('img', { name: /^Monthly sales/ })).toBeVisible()
+      await expect(mix(page).getByRole('button', { name: /^Polo Shirts/ })).toBeVisible()
+      await expect(trending(page).getByRole('listitem')).toHaveCount(3)
+      await expect(recent(page).getByRole('listitem')).toHaveCount(2)
+
+      await retry(operations).click()
+      await expect(operations.getByRole('link', { name: /^Low or out of stock: / })).toContainText('2 out, 4 with 5 or fewer left')
+      await expect(page.getByRole('alert')).toHaveCount(0)
+      expect(metrics.queries).toHaveLength(2)
     })
 
     for (const width of [320, 1280]) {

@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { mockProductMetrics } from '../shared/products'
 import { inactive, manyUsers, stubUsersApi, userRow, type UsersStub } from './usersApiStub'
 
 // Admin dashboard and User Management. The accounts are simulated and saved in the browser (localStorage), and the dev-only simulated
@@ -248,6 +249,7 @@ test.describe('navigation and persistence', () => {
   })
 
   test('the dashboard shows the operations figures and links to User Management', async ({ page }) => {
+    await mockProductMetrics(page)
     await signInAsAdmin(page)
     const figures = page.getByRole('region', { name: 'Refunds, AR and stock at a glance' })
     for (const label of ['Refunds', 'AR-ready products', 'Low or out of stock']) await expect(figures.getByText(label, { exact: true })).toBeVisible()
@@ -287,6 +289,7 @@ test.describe('summary card links', () => {
   ]
   for (const [name, url] of CARDS) {
     test(`the ${name.source.split(':')[0].replace('^', '')} card opens its page`, async ({ page }) => {
+      await mockProductMetrics(page)
       await signInAsAdmin(page)
       const card = page.getByRole('link', { name })
       await expect(card).toBeVisible()

@@ -393,6 +393,46 @@ export async function mockProducts(page: Page, initial: MockProduct[] = [], { st
   return mock
 }
 
+export interface ProductMetrics {
+  totalProducts: number
+  arReadyProducts: number
+  outOfStockCount: number
+  lowStockCount: number
+  lowStockThreshold: number
+}
+
+export interface ProductMetricsMock {
+  /** What GET /products/metrics answers while no failure is set. Change it between calls. */
+  body: ProductMetrics
+  /** Set to make calls fail: `times` of them (every call when omitted), answering `json` (a short message by default). Cleared once used up. */
+  fail?: { status: number; json?: unknown; times?: number }
+  /** The query string of every request that reached it, OPTIONS excluded. */
+  queries: Record<string, string>[]
+}
+
+/**
+ * Stands in for GET /products/metrics (the dashboards' Low or out of stock card asks for ?lowStockThreshold=5). IMPORTANT: Playwright tries the most recently
+ * registered route first, and mockProducts reads /products/metrics as the product id "metrics", so register this AFTER mockProducts wherever both are used.
+ */
+export async function mockProductMetrics(page: Page, body: Partial<ProductMetrics> = {}): Promise<ProductMetricsMock> {
+  const mock: ProductMetricsMock = {
+    body: { totalProducts: 20, arReadyProducts: 6, outOfStockCount: 2, lowStockCount: 4, lowStockThreshold: 5, ...body },
+    queries: [],
+  }
+  await page.route((url) => url.origin !== PAGE_ORIGIN && url.pathname === '/products/metrics', async (route) => {
+    const request = route.request()
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    mock.queries.push(Object.fromEntries(new URL(request.url()).searchParams))
+    const { fail } = mock
+    if (fail) {
+      if (fail.times !== undefined && --fail.times <= 0) mock.fail = undefined
+      return route.fulfill({ status: fail.status, json: fail.json ?? { statusCode: fail.status, message: 'Stubbed failure' }, headers: CORS })
+    }
+    return route.fulfill({ status: 200, json: mock.body, headers: CORS })
+  })
+  return mock
+}
+
 export interface CartCall {
   method: string
   /** The cart item id, for PATCH and DELETE of one item. */

@@ -56,7 +56,7 @@ function Card({ index, icon: Icon, tone, label, value, context, unit, to, action
       {...fade}
       to={to}
       aria-label={`${label}: ${value.toLocaleString('en-PH')}${unit ? ` ${unit}` : ''}, ${context}, ${action}`}
-      className={`${STAT_CARD} ${sample ? `${SAMPLE_ROOM} h-full` : ''} cursor-pointer transition-colors hover:border-line-strong hover:bg-canvas-raised focus-visible:outline-2 focus-visible:outline-offset-2`}
+      className={`${STAT_CARD} h-full ${sample ? SAMPLE_ROOM : ''} cursor-pointer transition-colors hover:border-line-strong hover:bg-canvas-raised focus-visible:outline-2 focus-visible:outline-offset-2`}
     >
       <span className={LABEL}>{label}</span>
       <span className={`${STAT_VALUE} text-fg`}>{value.toLocaleString('en-PH')}</span>
@@ -142,7 +142,7 @@ function OpsCard<T>({ index, fetcher, what, icon, tone, label, to, action, read,
 export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'; first?: number }) {
   return (
     <>
-      {/* SAMPLE_DATA: all three read the sample orders and products until the backend answers (see service/adminOverview). */}
+      {/* SAMPLE_DATA: refunds and AR-ready read the sample orders and products until the backend answers; stock is connected (see service/adminOverview). */}
       <OpsCard
         index={first}
         fetcher={getRefundFigures}
@@ -179,7 +179,6 @@ export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'
         label="Low or out of stock"
         to={`${base}/inventory`}
         action="open inventory to restock"
-        sampleReason="Stock figures are placeholders until their backend is connected."
         read={({ out, low }: StockFigures) => ({ value: out + low, context: `${out.toLocaleString('en-PH')} out, ${low.toLocaleString('en-PH')} with ${LOW_STOCK} or fewer left` })}
       />
     </>

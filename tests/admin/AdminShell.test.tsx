@@ -26,6 +26,10 @@ vi.mock('../../src/service/activityLogs', () => ({
     meta: { total: 1, page: 1, limit: 20, totalPages: 1 },
   }),
 }))
+vi.mock('../../src/service/adminOverview', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/adminOverview')>()),
+  getStockFigures: vi.fn().mockResolvedValue({ out: 1, low: 1 }),
+}))
 // The dashboard's sales widgets are covered by their own tests; here only the admin part is under test.
 vi.mock('../../src/views/staff/StaffDashboardPage', () => ({
   StaffDashboardWidgets: ({ asideTop }: { asideTop?: ReactNode }) => (
@@ -114,7 +118,7 @@ describe('admin dashboard', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Hello, Dev' })).toBeInTheDocument()
     const figures = await screen.findByRole('region', { name: 'Refunds, AR and stock at a glance' })
     for (const gone of ['Customers', 'Staff', 'Admins']) expect(within(figures).queryByText(gone)).toBeNull()
-    // The operations figures come from the sample orders and products.
+    // The refund and AR-ready figures come from the sample orders and products; the stock figures from the (mocked) metrics endpoint.
     for (const label of ['Refunds', 'AR-ready products', 'Low or out of stock']) expect(await within(figures).findByText(label)).toBeInTheDocument()
     expect(within(figures).getByText('AR-ready products').nextSibling).toHaveTextContent('8')
     expect(within(figures).getByText('Low or out of stock').nextSibling).toHaveTextContent('2')
@@ -129,9 +133,9 @@ describe('admin dashboard', () => {
     // The logged actions come from the API.
     expect(await screen.findByText('Order placed: SF-10231')).toBeInTheDocument()
     expect(screen.queryByText('Recent activity')).toBeNull()
-    // Only the refunds, AR-ready and stock cards are still sample data, so each of the three cards carries its own badge.
-    expect(screen.getAllByText('Sample data')).toHaveLength(3)
-    expect(within(figures).getAllByText('Sample data')).toHaveLength(3)
+    // Only the refunds and AR-ready cards are still sample data, so each of the two cards carries its own badge.
+    expect(screen.getAllByText('Sample data')).toHaveLength(2)
+    expect(within(figures).getAllByText('Sample data')).toHaveLength(2)
   })
 })
 
