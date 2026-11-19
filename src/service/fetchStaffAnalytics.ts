@@ -299,10 +299,12 @@ export async function fetchProductMix({ signal, filter = defaultFilter() }: Filt
   if (!query) return []
   const body = await request('GET', `/analytics/product-mix?${query}`, undefined, signal)
   if (!Array.isArray(body)) throw bad()
-  return body.map((row): ProductMixItem => {
+  const mix = body.map((row): ProductMixItem => {
     if (!isRecord(row) || typeof row.category !== 'string' || !isMoney(row.units)) throw bad()
     return { category: row.category, units: row.units }
   })
+  // The API lists every category, sold or not; the chart draws, and counts as "sold", only the ones with units.
+  return mix.filter((item) => item.units > 0)
 }
 
 /** GET /analytics/trending: the five most ordered products over the period, by the orders that contain them. */

@@ -96,6 +96,13 @@ describe('fetchProductMix', () => {
     expect([...url(1).searchParams]).toEqual([['from', '2025-10-01'], ['to', '2025-12-31']])
   })
 
+  it('drops the categories with no units, which the API lists too, so an empty period is empty', async () => {
+    send.mockResolvedValueOnce([{ category: 'Hoodie', units: 0 }, { category: 'Shirt', units: 5 }, { category: 'Pants', units: 0 }])
+    expect(await fetchProductMix()).toEqual([{ category: 'Shirt', units: 5 }])
+    send.mockResolvedValueOnce([{ category: 'Hoodie', units: 0 }, { category: 'Shirt', units: 0 }])
+    expect(await fetchProductMix()).toEqual([])
+  })
+
   it('asks nothing for a year that has not begun', async () => {
     expect(await fetchProductMix({ filter: { period: 'year', year: 2027 } })).toEqual([])
     expect(send).not.toHaveBeenCalled()
