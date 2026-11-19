@@ -1,24 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LOW_STOCK } from '../../src/data/products'
 import { stockLabel } from '../../src/components/staff/TrendingItems'
-import {
-  fetchOrderLog,
-  fetchProductMix,
-  fetchSalesSeries,
-  fetchStaffSummary,
-  fetchTrendingItems,
-  setSampleProducts,
-} from '../../src/service/fetchStaffAnalytics'
+import { ProductListError, request } from '../../src/service/fetchProductList'
 import { SAMPLE_PRODUCTS as PRODUCTS } from '../fixtures/sampleProducts'
-import type { Period } from '../../src/utils/period'
+
+vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/fetchProductList')>()),
+  request: vi.fn(),
+}))
+const send = vi.mocked(request)
+
+const { fetchOrderLog, fetchProductMix, fetchSalesSeries, fetchStaffSummary, fetchTrendingItems, setSampleProducts } = await import('../../src/service/fetchStaffAnalytics')
 
 const NO_DELAY = { delayMs: 0 }
-
-const PERIODS: Period[] = ['day', 'week', 'month', 'quarter', 'year']
-const sum = (nums: number[]) => nums.reduce((a, b) => a + b, 0)
-const forYear = (period: Period, year = 2026) => ({ ...NO_DELAY, filter: { period, year } })
+const SUMMARY = { arSessions: 0, salesTotal: 482350, orderCount: 96, unitsSold: 214, aov: 5024.48, arChange: null, salesChange: -8.7, ordersChange: 0, periodStart: '2026-10-01', periodEnd: '2026-10-22' }
+const url = (call = 0) => new URL(`http://x${send.mock.calls[call][1]}`)
 
 beforeEach(() => {
+  send.mockReset()
   setSampleProducts(PRODUCTS)
   // 3:45 PM in Manila on Oct 22, 2026. Only Date is faked, so the request timers still run.
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -29,16 +28,123 @@ afterEach(() => {
   window.history.replaceState(null, '', '/')
 })
 
-describe('fetchStaffAnalytics', () => {
-  it('gives the same figures every time for the same day', async () => {
-    expect(await fetchStaffSummary(NO_DELAY)).toEqual(await fetchStaffSummary(NO_DELAY))
-    expect(await fetchOrderLog(NO_DELAY)).toEqual(await fetchOrderLog(NO_DELAY))
+describe('fetchStaffSummary', () => {
+  it('asks GET /analytics/summary with no query and returns the figures', async () => {
+    send.mockResolvedValue({ ...SUMMARY, extra: 1 })
+    const signal = new AbortController().signal
+    expect(await fetchStaffSummary({ signal })).toEqual(SUMMARY)
+    expect(send).toHaveBeenCalledWith('GET', '/analytics/summary', undefined, signal)
   })
 
-  it('defaults to one point per month from January to the current one', async () => {
-    const series = await fetchSalesSeries(NO_DELAY)
-    expect(series.map((d) => d.date)).toEqual(['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'].map((m) => `2026-${m}-01`))
-    expect(series.every((d) => d.total >= 0)).toBe(true)
+  it('rejects a body of the wrong shape as a server error', async () => {
+    for (const body of [null, [], { ...SUMMARY, salesTotal: '482350' }, { ...SUMMARY, orderCount: Number.NaN }, { ...SUMMARY, arChange: undefined }, { ...SUMMARY, periodEnd: 5 }]) {
+      send.mockResolvedValueOnce(body)
+      await expect(fetchStaffSummary()).rejects.toMatchObject({ kind: 'server' })
+    }
+  })
+
+  it('passes a rate limit through with the wait the server asked for', async () => {
+    send.mockRejectedValue(new ProductListError('rate-limit', undefined, 429, undefined, 30_000))
+    await expect(fetchStaffSummary()).rejects.toMatchObject({ kind: 'rate-limit', retryAfterMs: 30_000 })
+  })
+})
+
+describe('fetchSalesSeries', () => {
+  it('asks for the filter period and year, the default being the month period of this year', async () => {
+    send.mockResolvedValue([{ date: '2026-01-01', total: 10 }, { date: '2026-02-01', total: 0 }])
+    expect(await fetchSalesSeries()).toEqual([{ date: '2026-01-01', total: 10 }, { date: '2026-02-01', total: 0 }])
+    expect(url().pathname).toBe('/analytics/sales')
+    expect([...url().searchParams]).toEqual([['interval', 'month'], ['year', '2026']])
+    await fetchSalesSeries({ filter: { period: 'quarter', year: 2025 } })
+    expect([...url(1).searchParams]).toEqual([['interval', 'quarter'], ['year', '2025']])
+  })
+
+  it('adds the month, and buckets it by day or by week', async () => {
+    send.mockResolvedValue([])
+    await fetchSalesSeries({ filter: { period: 'week', year: 2026, month: 3 } })
+    expect([...url(0).searchParams]).toEqual([['interval', 'week'], ['year', '2026'], ['month', '3']])
+    await fetchSalesSeries({ filter: { period: 'quarter', year: 2026, month: 3 } })
+    expect(url(1).searchParams.get('interval')).toBe('day')
+  })
+
+  it('shows the empty series the server gives for a future year', async () => {
+    send.mockResolvedValue([])
+    expect(await fetchSalesSeries({ filter: { period: 'month', year: 2027 } })).toEqual([])
+    expect(url().searchParams.get('year')).toBe('2027')
+  })
+
+  it('rejects a body of the wrong shape as a server error', async () => {
+    for (const body of [{}, [null], [{ date: '2026-01-01' }], [{ date: 20260101, total: 1 }], [{ date: '2026-01-01', total: '1' }]]) {
+      send.mockResolvedValueOnce(body)
+      await expect(fetchSalesSeries()).rejects.toMatchObject({ kind: 'server' })
+    }
+  })
+
+  it('passes a rate limit through', async () => {
+    send.mockRejectedValue(new ProductListError('rate-limit', undefined, 429, undefined, 15_000))
+    await expect(fetchSalesSeries()).rejects.toMatchObject({ kind: 'rate-limit', retryAfterMs: 15_000 })
+  })
+})
+
+describe('fetchProductMix', () => {
+  it('asks for the dates the period covers and nothing else', async () => {
+    send.mockResolvedValue([{ category: 'Tops', units: 12 }])
+    expect(await fetchProductMix()).toEqual([{ category: 'Tops', units: 12 }])
+    expect(url().pathname).toBe('/analytics/product-mix')
+    expect([...url().searchParams]).toEqual([['from', '2026-10-01'], ['to', '2026-10-22']])
+    await fetchProductMix({ filter: { period: 'quarter', year: 2025 } })
+    expect([...url(1).searchParams]).toEqual([['from', '2025-10-01'], ['to', '2025-12-31']])
+  })
+
+  it('asks nothing for a year that has not begun', async () => {
+    expect(await fetchProductMix({ filter: { period: 'year', year: 2027 } })).toEqual([])
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('rejects a body of the wrong shape as a server error', async () => {
+    for (const body of [{}, [{ category: 'Tops' }], [{ category: 3, units: 1 }]]) {
+      send.mockResolvedValueOnce(body)
+      await expect(fetchProductMix()).rejects.toMatchObject({ kind: 'server' })
+    }
+  })
+
+  it('passes a rate limit through', async () => {
+    send.mockRejectedValue(new ProductListError('rate-limit', undefined, 429, undefined, 15_000))
+    await expect(fetchProductMix()).rejects.toMatchObject({ kind: 'rate-limit', retryAfterMs: 15_000 })
+  })
+})
+
+describe('fetchTrendingItems', () => {
+  const ITEM = { productId: 'p1', name: 'Tee', category: 'Tops', orders: 30, stock: 4, arConversion: null }
+
+  it('asks for the same dates with a limit of five', async () => {
+    send.mockResolvedValue([ITEM, { ...ITEM, productId: 'p2', arConversion: 42 }])
+    expect(await fetchTrendingItems({ filter: { period: 'week', year: 2026 } })).toEqual([ITEM, { ...ITEM, productId: 'p2', arConversion: 42 }])
+    expect(url().pathname).toBe('/analytics/trending')
+    expect([...url().searchParams]).toEqual([['from', '2026-10-19'], ['to', '2026-10-22'], ['limit', '5']])
+  })
+
+  it('asks nothing for a year that has not begun', async () => {
+    expect(await fetchTrendingItems({ filter: { period: 'month', year: 2027 } })).toEqual([])
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('rejects a body of the wrong shape as a server error', async () => {
+    for (const body of [{}, [null], [{ ...ITEM, orders: '3' }], [{ ...ITEM, arConversion: undefined }], [{ ...ITEM, name: 7 }]]) {
+      send.mockResolvedValueOnce(body)
+      await expect(fetchTrendingItems()).rejects.toMatchObject({ kind: 'server' })
+    }
+  })
+
+  it('passes a rate limit through', async () => {
+    send.mockRejectedValue(new ProductListError('rate-limit', undefined, 429, undefined, 15_000))
+    await expect(fetchTrendingItems()).rejects.toMatchObject({ kind: 'rate-limit', retryAfterMs: 15_000 })
+  })
+})
+
+describe('fetchOrderLog', () => {
+  it('gives the same orders every time for the same day', async () => {
+    expect(await fetchOrderLog(NO_DELAY)).toEqual(await fetchOrderLog(NO_DELAY))
   })
 
   it('lists orders newest first without placing any in the future', async () => {
@@ -50,164 +156,17 @@ describe('fetchStaffAnalytics', () => {
     expect(new Set(log.map((o) => o.orderId)).size).toBe(log.length)
   })
 
-  it('adds up the same across the summary, series and mix', async () => {
-    const [summary, series, mix] = await Promise.all([fetchStaffSummary(NO_DELAY), fetchSalesSeries(forYear('day')), fetchProductMix(NO_DELAY)])
-    expect(series.reduce((sum, d) => sum + d.total, 0)).toBe(summary.salesTotal)
-    expect(mix.reduce((sum, m) => sum + m.units, 0)).toBe(summary.unitsSold)
-    expect(summary.periodStart).toBe('2026-10-01')
-    expect(summary.periodEnd).toBe('2026-10-22')
-  })
-
-  it('ranks the five most ordered products with stock and AR Fitting use', async () => {
-    const [trending, summary] = await Promise.all([fetchTrendingItems(NO_DELAY), fetchStaffSummary(NO_DELAY)])
-    expect(trending).toHaveLength(5)
-    const orders = trending.map((t) => t.orders)
-    expect(orders).toEqual([...orders].sort((a, b) => b - a))
-    for (const t of trending) {
-      const product = PRODUCTS.find((p) => p.id === t.productId)!
-      expect(Number.isInteger(t.stock) && t.stock >= 0).toBe(true)
-      expect(t.stock).toBe(product.stock)
-      expect(t.orders).toBeLessThanOrEqual(summary.orderCount)
-      if (product.arReady) expect(Number.isInteger(t.arConversion) && t.arConversion! >= 0 && t.arConversion! <= 100).toBe(true)
-      else expect(t.arConversion).toBeNull()
-    }
-    expect(await fetchTrendingItems(NO_DELAY)).toEqual(trending)
-  })
-
-  it('reports the real stock, never a made-up low or sold-out one', async () => {
-    const trending = await fetchTrendingItems({ ...NO_DELAY, filter: { period: 'year', year: 2026 } })
-    for (const t of trending) expect(t.stock).toBe(PRODUCTS.find((p) => p.id === t.productId)!.stock)
-  })
-
-  it('has no orders, and so empty figures, while the shop has no products', async () => {
+  it('has no orders while the shop has no products, or on ?fail=empty', async () => {
     setSampleProducts([])
     expect(await fetchOrderLog(NO_DELAY)).toEqual([])
-    expect(await fetchTrendingItems(NO_DELAY)).toEqual([])
-    expect(await fetchProductMix(NO_DELAY)).toEqual([])
-    expect(await fetchStaffSummary(NO_DELAY)).toMatchObject({ orderCount: 0, salesTotal: 0, unitsSold: 0 })
-  })
-
-  it('rejects with a network error on a ?fail hook, and only for that section', async () => {
-    window.history.replaceState(null, '', '/?fail=sales')
-    await expect(fetchSalesSeries(NO_DELAY)).rejects.toMatchObject({ kind: 'network' })
-    await expect(fetchStaffSummary(NO_DELAY)).resolves.toBeDefined()
-  })
-
-  it('returns empty data on ?fail=empty', async () => {
+    setSampleProducts(PRODUCTS)
     window.history.replaceState(null, '', '/?fail=empty')
     expect(await fetchOrderLog(NO_DELAY)).toEqual([])
-    expect(await fetchTrendingItems(NO_DELAY)).toEqual([])
-    expect(await fetchProductMix(NO_DELAY)).toEqual([])
-    expect(await fetchStaffSummary(NO_DELAY)).toMatchObject({ arSessions: 0, salesTotal: 0, orderCount: 0, unitsSold: 0 })
-    expect((await fetchSalesSeries(NO_DELAY)).every((d) => d.total === 0)).toBe(true)
-  })
-})
-
-
-describe('fetchStaffAnalytics with a period filter', () => {
-  it('month of the current year is the default', async () => {
-    const filter = { period: 'month', year: 2026 } as const
-    expect(await fetchSalesSeries({ ...NO_DELAY, filter })).toEqual(await fetchSalesSeries(NO_DELAY))
-    expect(await fetchProductMix({ ...NO_DELAY, filter })).toEqual(await fetchProductMix(NO_DELAY))
-    expect(await fetchTrendingItems({ ...NO_DELAY, filter })).toEqual(await fetchTrendingItems(NO_DELAY))
   })
 
-  it('adds up the same as the stat cards for the month', async () => {
-    const [summary, series, mix] = await Promise.all([fetchStaffSummary(NO_DELAY), fetchSalesSeries(forYear('day')), fetchProductMix(forYear('month'))])
-    expect(sum(series.map((d) => d.total))).toBe(summary.salesTotal)
-    expect(sum(mix.map((m) => m.units))).toBe(summary.unitsSold)
-  })
-
-  it('day is one point per day from the 1st of the latest month to today', async () => {
-    const today = (await fetchSalesSeries(forYear('day'))).map((b) => b.date)
-    expect(today).toHaveLength(22)
-    expect(today[0]).toBe('2026-10-01')
-    expect(today.at(-1)).toBe('2026-10-22')
-    const past = (await fetchSalesSeries(forYear('day', 2025))).map((b) => b.date)
-    expect(past).toHaveLength(31)
-    expect([past[0], past.at(-1)]).toEqual(['2025-12-01', '2025-12-31'])
-  })
-
-  it('week is one point per Monday-start week of the year, the first clipped to Jan 1', async () => {
-    const weeks = (await fetchSalesSeries(forYear('week'))).map((b) => b.date)
-    expect(weeks.slice(0, 3)).toEqual(['2026-01-01', '2026-01-05', '2026-01-12'])
-    expect(weeks.at(-1)).toBe('2026-10-19')
-    expect(weeks).toHaveLength(43)
-    weeks.slice(1).forEach((date) => expect(new Date(`${date}T00:00:00Z`).getUTCDay()).toBe(1))
-    const past = (await fetchSalesSeries(forYear('week', 2025))).map((b) => b.date)
-    expect(past.slice(0, 2)).toEqual(['2025-01-01', '2025-01-06'])
-    expect(past.at(-1)).toBe('2025-12-29')
-  })
-
-  it('month is one point per month, partial for the current year and twelve for a past one', async () => {
-    expect(await fetchSalesSeries(forYear('month', 2025))).toHaveLength(12)
-    expect((await fetchSalesSeries(forYear('month', 2025)))[11].date).toBe('2025-12-01')
-  })
-
-  it('quarter is one point per quarter, dated by its first day', async () => {
-    expect((await fetchSalesSeries(forYear('quarter'))).map((b) => b.date)).toEqual(['2026-01-01', '2026-04-01', '2026-07-01', '2026-10-01'])
-    expect((await fetchSalesSeries(forYear('quarter', 2025))).map((b) => b.date)).toEqual(['2025-01-01', '2025-04-01', '2025-07-01', '2025-10-01'])
-    vi.setSystemTime(new Date('2026-03-31T04:00:00Z'))
-    expect((await fetchSalesSeries(forYear('quarter'))).map((b) => b.date)).toEqual(['2026-01-01'])
-    vi.setSystemTime(new Date('2026-04-01T04:00:00Z'))
-    expect((await fetchSalesSeries(forYear('quarter'))).map((b) => b.date)).toEqual(['2026-01-01', '2026-04-01'])
-  })
-
-  it('year is one point for the chosen year and the two before it', async () => {
-    expect((await fetchSalesSeries(forYear('year'))).map((b) => b.date)).toEqual(['2024-01-01', '2025-01-01', '2026-01-01'])
-    expect((await fetchSalesSeries(forYear('year', 2025))).map((b) => b.date)).toEqual(['2023-01-01', '2024-01-01', '2025-01-01'])
-  })
-
-  it('adds up the same whatever the bucket size', async () => {
-    for (const year of [2026, 2025]) {
-      const totals = await Promise.all(['week', 'month', 'quarter'].map(async (p) => sum((await fetchSalesSeries(forYear(p as Period, year))).map((b) => b.total))))
-      expect(totals[0]).toBeGreaterThan(0)
-      expect(totals).toEqual([totals[0], totals[0], totals[0]])
-      const years = await fetchSalesSeries(forYear('year', year))
-      expect(years.at(-1)!.total).toBe(totals[0])
-    }
-  })
-
-  it('agrees across sales, mix and trending for every period', async () => {
-    for (const year of [2026, 2025])
-      for (const period of PERIODS) {
-        const options = forYear(period, year)
-        const [series, mix, trending] = await Promise.all([fetchSalesSeries(options), fetchProductMix(options), fetchTrendingItems(options)])
-        expect(sum(series.map((b) => b.total)) > 0, `${period} ${year}`).toBe(true)
-        expect(sum(mix.map((m) => m.units)) > 0).toBe(true)
-        expect(trending.length).toBeGreaterThan(0)
-        // Every sold piece of the top items is a unit in the mix.
-        expect(sum(trending.map((t) => t.orders))).toBeLessThanOrEqual(sum(mix.map((m) => m.units)))
-      }
-  })
-
-  it('counts an item once per order across months, without undercounting', async () => {
-    // Order ids restart each month, so counting ids alone would merge orders from different months.
-    const top = (await fetchTrendingItems(forYear('year', 2025)))[0]
-    const quarter = (await fetchTrendingItems(forYear('quarter', 2025))).find((t) => t.productId === top.productId)
-    expect(top.orders).toBeGreaterThan((quarter?.orders ?? 0) * 2)
-  })
-
-  it('gives a past period the same numbers every time', async () => {
-    for (const period of PERIODS) {
-      expect(await fetchSalesSeries(forYear(period, 2025))).toEqual(await fetchSalesSeries(forYear(period, 2025)))
-      expect(await fetchTrendingItems(forYear(period, 2025))).toEqual(await fetchTrendingItems(forYear(period, 2025)))
-    }
-  })
-
-  it('returns no orders on ?fail=empty for every period', async () => {
-    window.history.replaceState(null, '', '/?fail=empty')
-    for (const period of PERIODS) {
-      expect((await fetchSalesSeries(forYear(period))).every((b) => b.total === 0)).toBe(true)
-      expect(await fetchProductMix(forYear(period))).toEqual([])
-      expect(await fetchTrendingItems(forYear(period))).toEqual([])
-    }
-  })
-
-  it('shows current stock whatever the period', async () => {
-    for (const t of await fetchTrendingItems(forYear('year', 2025))) {
-      expect(t.stock).toBe(PRODUCTS.find((p) => p.id === t.productId)!.stock)
-    }
+  it('rejects with a network error on ?fail=log', async () => {
+    window.history.replaceState(null, '', '/?fail=log')
+    await expect(fetchOrderLog(NO_DELAY)).rejects.toMatchObject({ kind: 'network' })
   })
 })
 

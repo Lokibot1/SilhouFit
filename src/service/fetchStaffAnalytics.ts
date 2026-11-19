@@ -1,23 +1,17 @@
-import { addDays, defaultFilter, manilaToday, mondayOf, resolvePeriod, resolveSalesWindow, type Granularity, type PeriodFilterValue } from '../utils/period'
+import { defaultFilter, manilaToday, mondayOf, resolvePeriod, resolveSalesWindow, type Granularity, type PeriodFilterValue } from '../utils/period'
 import type { VatClass } from '../utils/invoiceTax'
+import { ProductListError, request } from './fetchProductList'
 import { PAYMENT_METHODS, type Buyer, type PaymentMethod } from './fetchTransactions'
+import { isMoney, isRecord } from './ordersApi'
 import { simulateRequest, type RequestOptions } from './simulateRequest'
 
-// Stand-in for the analytics endpoints behind the staff dashboard. Nothing on the backend can answer these yet:
-// it has no Order, OrderItem or AR fitting event models. Swap each function for its call when they exist
-// (month is YYYY-MM, in Asia/Manila):
-//   fetchStaffSummary  -> GET /analytics/summary?month=YYYY-MM
-//   fetchSalesSeries   -> GET /analytics/sales?interval=day|week|month|quarter|year&year=YYYY
-//     (the server returns the buckets inside the year; interval=year returns that year and the two before it)
-//   fetchProductMix    -> GET /analytics/product-mix?period=&year=&from=&to=
-//   fetchTrendingItems -> GET /analytics/trending?period=&year=&from=&to=&limit=5 (per item: category, orders, stock, arConversion)
-//   fetchOrderLog      -> no longer read by the dashboard: its Recent orders tile reads GET /admin/orders (service/adminOrdersApi)
-// The three charts take a per-card filter. On Products sold and Trendy items, from and to are inclusive dates in Asia/Manila, resolved from period and
-// year by the shared client helper (utils/period).
-// Until then the figures are generated from the month, so a given month always shows the same numbers. The orders are drawn from a
-// built-in list of mock products (MOCK_PRODUCTS), so the dashboard never calls the API.
+// The staff dashboard's figures. fetchStaffSummary, fetchSalesSeries, fetchProductMix and fetchTrendingItems call the API's
+// /analytics endpoints (staff role or above). The API rejects query keys it does not know, so only the keys below are sent.
+// The rest of this file is the sample-order generator, still read by Transactions, Refunds, Promotions, AR Insights and the
+// admin overview, which the backend cannot answer yet. fetchOrderLog is no longer read by the dashboard: its Recent orders
+// tile reads GET /admin/orders (service/adminOrdersApi).
 
-/** True while the figures are placeholders; the dashboard says so. Set to false when the real endpoints are wired. */
+/** True while some pages still show placeholder figures (AR Insights); the dashboard marks its own placeholder tiles instead. */
 export const SAMPLE_DATA = true
 
 export interface StaffSummary {
@@ -66,9 +60,9 @@ export interface LoggedOrder {
   total: number
 }
 
-type Section = 'summary' | 'sales' | 'mix' | 'trending' | 'log'
+type Section = 'log'
 
-// Dev-only hooks for the error and empty states: /staff?fail=sales (or summary, mix, trending, log), /staff?fail=empty.
+// Dev-only hooks for the error and empty states of the sample generator: /staff?fail=log, /staff?fail=empty.
 export const failParam = () => (import.meta.env.DEV ? new URLSearchParams(location.search).get('fail') : null)
 
 async function respond(section: Section, signal: AbortSignal | undefined, delayMs: number) {
@@ -223,7 +217,6 @@ function buildMonth(): Month {
   return { today, start: `${monthKey}-01`, days, orders: empty ? [] : orders, arUsers: empty ? 0 : Math.round(arUsers * 0.75) }
 }
 
-const sampleGain = (value: number | null) => (SAMPLE_DATA && value !== null ? Math.abs(value) : value)
 const previousMonth = (key: string) => (key.endsWith('-01') ? `${Number(key.slice(0, 4)) - 1}-12` : `${key.slice(0, 5)}${pad(Number(key.slice(5)) - 1)}`)
 const nextMonth = (key: string) => (key.endsWith('-12') ? `${Number(key.slice(0, 4)) + 1}-01` : `${key.slice(0, 5)}${pad(Number(key.slice(5)) + 1)}`)
 
@@ -248,31 +241,17 @@ function ordersFor(period: { start: string; end: string }): MonthOrder[] {
   return found
 }
 
-export async function fetchStaffSummary({ signal, delayMs = 600 }: RequestOptions = {}): Promise<StaffSummary> {
-  await respond('summary', signal, delayMs)
-  await loadSampleProducts()
-  const month = buildMonth()
-  const salesTotal = month.orders.reduce((sum, o) => sum + o.total, 0)
-  // Last month, cut at the same day of the month, so the comparison is like for like.
-  const prevKey = previousMonth(month.today.slice(0, 7))
-  const prevDays = new Date(Date.UTC(Number(prevKey.slice(0, 4)), Number(prevKey.slice(5)), 0)).getUTCDate()
-  const prev = buildMonthOrders(prevKey, Math.min(Number(month.today.slice(8)), prevDays), null)
-  const prevSales = prev.orders.reduce((sum, o) => sum + o.total, 0)
-  const change = (now: number, before: number) => (month.orders.length > 0 && before > 0 ? Math.round(((now - before) / before) * 1000) / 10 : null)
-  return {
-    arSessions: month.arUsers,
-    salesTotal,
-    aov: month.orders.length ? Math.round((salesTotal / month.orders.length) * 100) / 100 : 0,
-    // Sample only: the generated months can all land below last month, so AR and sales are shown as gains to make
-    // the up and down pills both visible. Orders keep their real sign. Real data needs no such step.
-    arChange: sampleGain(change(month.arUsers, Math.round(prev.arUsers * 0.75))),
-    salesChange: sampleGain(change(salesTotal, prevSales)),
-    ordersChange: change(month.orders.length, prev.orders.length),
-    orderCount: month.orders.length,
-    unitsSold: month.orders.reduce((sum, o) => sum + o.itemCount, 0),
-    periodStart: month.start,
-    periodEnd: month.today,
-  }
+const bad = () => new ProductListError('server')
+const isChange = (value: unknown) => value === null || isMoney(value)
+
+/** GET /analytics/summary: this month so far, in Asia/Manila. The server picks the month, so no query is sent. */
+export async function fetchStaffSummary({ signal }: RequestOptions = {}): Promise<StaffSummary> {
+  const body = await request('GET', '/analytics/summary', undefined, signal)
+  if (!isRecord(body)) throw bad()
+  const { arSessions, salesTotal, orderCount, unitsSold, aov, arChange, salesChange, ordersChange, periodStart, periodEnd } = body
+  if (![arSessions, salesTotal, orderCount, unitsSold, aov].every(isMoney) || ![arChange, salesChange, ordersChange].every(isChange)) throw bad()
+  if (typeof periodStart !== 'string' || typeof periodEnd !== 'string') throw bad()
+  return { arSessions, salesTotal, orderCount, unitsSold, aov, arChange, salesChange, ordersChange, periodStart, periodEnd } as StaffSummary
 }
 
 type FilterOptions = RequestOptions & { filter?: PeriodFilterValue }
@@ -296,58 +275,50 @@ export function bucketOf(date: string, granularity: Granularity, start: string, 
   }
 }
 
-/** Sales per day, week, month, quarter or year, as the filter says; zero where nothing sold. Each entry is dated by its bucket's start. */
-export async function fetchSalesSeries({ signal, delayMs = 900, filter = defaultFilter() }: FilterOptions = {}): Promise<SalesDay[]> {
-  await respond('sales', signal, delayMs)
-  await loadSampleProducts()
-  const span = resolveSalesWindow(filter)
-  // Every bucket of the span, in order, so quiet ones show as zero.
-  const totals = new Map<string, number>()
-  for (let date = span.start; date <= span.end; date = addDays(date, 1)) totals.set(bucketOf(date, span.granularity, span.start, span.inMonth), 0)
-  for (const order of ordersFor(span)) {
-    const bucket = bucketOf(order.date, span.granularity, span.start, span.inMonth)
-    totals.set(bucket, totals.get(bucket)! + order.total)
-  }
-  return [...totals].map(([date, total]) => ({ date, total }))
+/** GET /analytics/sales: one bucket per day, week, month, quarter or year, dated by its start; the server fills quiet buckets with zero and a future year gives none. */
+export async function fetchSalesSeries({ signal, filter = defaultFilter() }: FilterOptions = {}): Promise<SalesDay[]> {
+  const query = new URLSearchParams({ interval: resolveSalesWindow(filter).granularity, year: String(filter.year) })
+  if (filter.month) query.set('month', String(filter.month))
+  const body = await request('GET', `/analytics/sales?${query}`, undefined, signal)
+  if (!Array.isArray(body)) throw bad()
+  return body.map((row): SalesDay => {
+    if (!isRecord(row) || typeof row.date !== 'string' || !isMoney(row.total)) throw bad()
+    return { date: row.date, total: row.total }
+  })
 }
 
-/** Units per category over the period, largest first. */
-export async function fetchProductMix({ signal, delayMs = 750, filter = defaultFilter() }: FilterOptions = {}): Promise<ProductMixItem[]> {
-  await respond('mix', signal, delayMs)
-  await loadSampleProducts()
-  const units = new Map<string, number>()
-  for (const order of ordersFor(resolvePeriod(filter))) for (const line of order.lines) units.set(line.category, (units.get(line.category) ?? 0) + line.units)
-  return [...units].map(([category, count]) => ({ category, units: count })).sort((a, b) => b.units - a.units)
+/** The inclusive Manila dates the period covers; null when it has not begun (a future year), so nothing is asked. */
+function rangeQuery(filter: PeriodFilterValue) {
+  const { start, end } = resolvePeriod(filter)
+  return end < start ? null : new URLSearchParams({ from: start, to: end })
 }
 
-/** The five most ordered products over the period, by the orders that contain them. */
-export async function fetchTrendingItems({ signal, delayMs = 850, filter = defaultFilter() }: FilterOptions = {}): Promise<TrendingItem[]> {
-  await respond('trending', signal, delayMs)
-  await loadSampleProducts()
-  const tally = new Map<string, { name: string; category: string; orders: Set<string>; arOrders: Set<string> }>()
-  for (const order of ordersFor(resolvePeriod(filter))) {
-    for (const line of order.lines) {
-      const entry = tally.get(line.productId) ?? { name: line.name, category: line.category, orders: new Set<string>(), arOrders: new Set<string>() }
-      entry.orders.add(order.key)
-      if (line.usedAr) entry.arOrders.add(order.key)
-      tally.set(line.productId, entry)
-    }
-  }
-  const top = [...tally]
-    .map(([productId, t]): TrendingItem => {
-      const product = sampleProducts.find((p) => p.id === productId)
-      return {
-        productId,
-        name: t.name,
-        category: t.category,
-        orders: t.orders.size,
-        stock: product?.stock ?? 0,
-        arConversion: product?.arReady ? Math.round((100 * t.arOrders.size) / t.orders.size) : null,
-      }
-    })
-    .sort((a, b) => b.orders - a.orders || a.name.localeCompare(b.name))
-    .slice(0, 5)
-  return top
+/** GET /analytics/product-mix: units per category over the period, largest first. */
+export async function fetchProductMix({ signal, filter = defaultFilter() }: FilterOptions = {}): Promise<ProductMixItem[]> {
+  const query = rangeQuery(filter)
+  if (!query) return []
+  const body = await request('GET', `/analytics/product-mix?${query}`, undefined, signal)
+  if (!Array.isArray(body)) throw bad()
+  return body.map((row): ProductMixItem => {
+    if (!isRecord(row) || typeof row.category !== 'string' || !isMoney(row.units)) throw bad()
+    return { category: row.category, units: row.units }
+  })
+}
+
+/** GET /analytics/trending: the five most ordered products over the period, by the orders that contain them. */
+export async function fetchTrendingItems({ signal, filter = defaultFilter() }: FilterOptions = {}): Promise<TrendingItem[]> {
+  const query = rangeQuery(filter)
+  if (!query) return []
+  query.set('limit', '5')
+  const body = await request('GET', `/analytics/trending?${query}`, undefined, signal)
+  if (!Array.isArray(body)) throw bad()
+  return body.map((row): TrendingItem => {
+    if (!isRecord(row)) throw bad()
+    const { productId, name, category, orders, stock, arConversion } = row
+    if (typeof productId !== 'string' || typeof name !== 'string' || typeof category !== 'string' || !isMoney(orders) || !isMoney(stock)) throw bad()
+    if (arConversion !== null && !isMoney(arConversion)) throw bad()
+    return { productId, name, category, orders, stock, arConversion }
+  })
 }
 
 /** The latest orders, newest first. The order is the API's; callers show it as it comes. */

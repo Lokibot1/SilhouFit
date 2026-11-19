@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
@@ -17,7 +17,7 @@ vi.mock('../../src/service/fetchStaffAnalytics', async (importOriginal) => ({
   fetchTrendingItems: vi.fn(),
 }))
 
-// The Recent orders tile reads the real orders endpoint; everything else on the dashboard is still sample data.
+// The Recent orders tile reads the real orders endpoint; the analytics functions are stubbed; only the refunds, AR-ready and stock cards are still sample data.
 vi.mock('../../src/service/adminOrdersApi', () => ({ fetchAdminOrders: vi.fn() }))
 
 const ME = { firstName: 'Sam' } as Me
@@ -81,10 +81,11 @@ function renderPage() {
 }
 
 describe('StaffDashboardPage', () => {
-  it('shows the three figures, the charts and the sample data pill', async () => {
+  it('shows the figures and the charts, with the sample data pill on the operations cards only', async () => {
     renderPage()
     expect(await screen.findByText('Hello, Sam')).toBeInTheDocument()
-    expect(screen.getByText('Sample data')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getAllByText('Sample data')).toHaveLength(3))
+    expect(within(screen.getByRole('region', { name: 'Refunds, AR and stock at a glance' })).getAllByText('Sample data')).toHaveLength(3)
     expect(await screen.findByText('AR Fitting Sessions')).toBeInTheDocument()
     expect(await screen.findByText('37', { selector: '.sr-only' })).toBeInTheDocument()
     expect(await screen.findByText('₱482,350', { selector: '.sr-only' })).toBeInTheDocument()

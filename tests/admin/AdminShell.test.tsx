@@ -129,8 +129,9 @@ describe('admin dashboard', () => {
     // The logged actions come from the API.
     expect(await screen.findByText('Order placed: SF-10231')).toBeInTheDocument()
     expect(screen.queryByText('Recent activity')).toBeNull()
-    // Every section reads sample data, so the page says so once, next to the greeting.
-    expect(screen.getAllByText('Sample data')).toHaveLength(1)
+    // Only the refunds, AR-ready and stock cards are still sample data, so each of the three cards carries its own badge.
+    expect(screen.getAllByText('Sample data')).toHaveLength(3)
+    expect(within(figures).getAllByText('Sample data')).toHaveLength(3)
   })
 })
 

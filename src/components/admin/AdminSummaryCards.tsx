@@ -10,6 +10,7 @@ import type { ManagedRole } from '../../service/staffApi'
 import type { RequestOptions } from '../../service/simulateRequest'
 import { ArIcon, BoxIcon, LockIcon, RestoreIcon, SettingsIcon, UserIcon, UsersIcon } from '../form/icons'
 import { SectionBody } from '../staff/StaffSection'
+import { SampleDataBadge } from '../ui/SampleDataBadge'
 import { STAFF_SECTION, STAT_CARD, STAT_CONTEXT, STAT_LABEL, STAT_VALUE, statIcon, type StatTone } from '../staff/StaffSkeleton'
 
 // Wrap instead of truncating (the shared classes cut a long label off with an ellipsis).
@@ -18,8 +19,11 @@ const CONTEXT = STAT_CONTEXT.replace('truncate ', '')
 const MotionLink = motion.create(Link)
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`}>&nbsp;</div>
 
-const CardSkeleton = ({ label }: { label: string }) => (
-  <div role="status" aria-label={label} className={`${STAT_CARD} animate-pulse`}>
+// A card that shows placeholder data keeps a footer row for its Sample badge, loading or loaded, so nothing shifts.
+const SAMPLE_ROOM = 'pb-14'
+
+const CardSkeleton = ({ label, sample }: { label: string; sample?: boolean }) => (
+  <div role="status" aria-label={label} className={`${STAT_CARD} animate-pulse ${sample ? SAMPLE_ROOM : ''}`}>
     <Bar className="col-start-1 row-start-1 w-24 text-sm" />
     <Bar className="col-start-1 row-start-2 mt-0.5 w-20 text-xs" />
     <div className="col-start-2 row-span-2 row-start-1 size-8 rounded-xl bg-line" />
@@ -39,10 +43,12 @@ interface CardProps {
   /** The page the card opens, and what that does in words (for the link's name). */
   to: string
   action: string
+  /** Leaves room under the figures for a Sample badge the caller places over the card. */
+  sample?: boolean
 }
 
 // The whole card is one link, so there is no nested anchor.
-function Card({ index, icon: Icon, tone, label, value, context, unit, to, action }: CardProps) {
+function Card({ index, icon: Icon, tone, label, value, context, unit, to, action, sample }: CardProps) {
   const { ref, fade } = useReveal<HTMLAnchorElement>(index)
   return (
     <MotionLink
@@ -50,7 +56,7 @@ function Card({ index, icon: Icon, tone, label, value, context, unit, to, action
       {...fade}
       to={to}
       aria-label={`${label}: ${value.toLocaleString('en-PH')}${unit ? ` ${unit}` : ''}, ${context}, ${action}`}
-      className={`${STAT_CARD} cursor-pointer transition-colors hover:border-line-strong hover:bg-canvas-raised focus-visible:outline-2 focus-visible:outline-offset-2`}
+      className={`${STAT_CARD} ${sample ? `${SAMPLE_ROOM} h-full` : ''} cursor-pointer transition-colors hover:border-line-strong hover:bg-canvas-raised focus-visible:outline-2 focus-visible:outline-offset-2`}
     >
       <span className={LABEL}>{label}</span>
       <span className={`${STAT_VALUE} text-fg`}>{value.toLocaleString('en-PH')}</span>
@@ -107,15 +113,27 @@ export function AccountSummaryCards({ base, superadmins }: { base: '/admin' | '/
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString('en-PH')} ${n === 1 ? one : many}`
 
 /** Each operations card loads, fails and retries on its own. */
-function OpsCard<T>({ index, fetcher, what, icon, tone, label, to, action, read }: Pick<CardProps, 'index' | 'icon' | 'tone' | 'label' | 'to' | 'action'> & {
+function OpsCard<T>({ index, fetcher, what, icon, tone, label, to, action, read, sampleReason }: Pick<CardProps, 'index' | 'icon' | 'tone' | 'label' | 'to' | 'action'> & {
   fetcher: (options: RequestOptions) => Promise<T>
   what: string
   read: (data: T) => { value: number; context: string }
+  /** Set while the card's figures are placeholders: the badge inside the card says what is. */
+  sampleReason?: string
 }) {
   const section = useSection(fetcher)
   return (
-    <SectionBody section={section} what={what} skeleton={<CardSkeleton label={`Loading ${label.toLowerCase()}`} />} errorClassName={STAFF_SECTION}>
-      {(data) => <Card index={index} icon={icon} tone={tone} label={label} to={to} action={action} {...read(data)} />}
+    <SectionBody section={section} what={what} skeleton={<CardSkeleton label={`Loading ${label.toLowerCase()}`} sample={!!sampleReason} />} errorClassName={STAFF_SECTION}>
+      {(data) => (
+        // The badge sits over the card beside the link, not inside it, so no focusable element is nested in the anchor.
+        <div className="relative">
+          <Card index={index} icon={icon} tone={tone} label={label} to={to} action={action} sample={!!sampleReason} {...read(data)} />
+          {sampleReason && (
+            <div className="absolute bottom-3 left-4">
+              <SampleDataBadge reason={sampleReason} />
+            </div>
+          )}
+        </div>
+      )}
     </SectionBody>
   )
 }
@@ -134,6 +152,7 @@ export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'
         label="Refunds"
         to={`${base}/transactions?status=returned`}
         action="open returned transactions"
+        sampleReason="Refund figures are placeholders until their backend is connected."
         read={({ returned, orders }: RefundFigures) => ({
           value: returned,
           context: `${orders > 0 ? ((returned / orders) * 100).toFixed(1) : '0.0'}% of ${orders.toLocaleString('en-PH')} orders returned`,
@@ -148,6 +167,7 @@ export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'
         label="AR-ready products"
         to={`${base}/inventory?ar=yes`}
         action="open AR-ready products in inventory"
+        sampleReason="AR-ready figures are placeholders until their backend is connected."
         read={({ ready, products }: ArFigures) => ({ value: ready, context: `of ${plural(products, 'product', 'products')} can be tried on` })}
       />
       <OpsCard
@@ -159,6 +179,7 @@ export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'
         label="Low or out of stock"
         to={`${base}/inventory`}
         action="open inventory to restock"
+        sampleReason="Stock figures are placeholders until their backend is connected."
         read={({ out, low }: StockFigures) => ({ value: out + low, context: `${out.toLocaleString('en-PH')} out, ${low.toLocaleString('en-PH')} with ${LOW_STOCK} or fewer left` })}
       />
     </>

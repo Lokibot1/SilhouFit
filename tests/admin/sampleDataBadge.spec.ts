@@ -3,7 +3,8 @@ import { manyAdminOrders, mockAdminOrders } from '../shared/adminOrders'
 import { manyAuditLogs, mockAuditLogs } from '../shared/auditLogs'
 import { stubUsersApi, SAMPLE_USERS } from './usersApiStub'
 
-// Every page that still reads placeholder data says "Sample data" next to its title; the pages that are connected to the backend (the User
+// Every page that still reads placeholder data says "Sample data" next to its title (the /staff and /admin dashboards are connected apart from their
+// Refunds / AR-ready / Low-stock cards, so they carry one badge in that region instead); the pages that are connected to the backend (the User
 // Management tabs, the Messages dropdown, Online orders, Activity logs) must not. Sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
 
 const STAFF = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
@@ -26,9 +27,7 @@ const overflow = (page: Page) => page.evaluate(() => document.documentElement.sc
 const badge = (page: Page) => page.getByText('Sample data', { exact: true })
 
 const BADGED = [
-  [STAFF, /\/staff$/, '/staff', 'Hello'],
   [STAFF, /\/staff$/, '/staff/transactions', 'Transactions'],
-  [ADMIN, /\/admin$/, '/admin', 'Hello'],
   [ADMIN, /\/admin$/, '/admin/ar-insights', 'AR Fitting Insights'],
   [ADMIN, /\/admin$/, '/admin/refunds', 'Returns & Refunds'],
   [ADMIN, /\/admin$/, '/admin/promotions', 'Pricing & Promotions'],
@@ -44,6 +43,34 @@ for (const [who, home, path, title] of BADGED) {
     await expect(heading).toBeVisible({ timeout: 20_000 })
     await expect(badge(page)).toHaveCount(1)
     await expect(badge(page)).toBeVisible()
+    expect(await overflow(page)).toBe(0)
+  })
+}
+
+for (const [who, home, path] of [
+  [STAFF, /\/staff$/, '/staff'],
+  [ADMIN, /\/admin$/, '/admin'],
+] as const) {
+  test(`${path} says Sample data inside each of its refunds, AR and stock cards, not next to the title`, async ({ page }) => {
+    // The dashboards' connected sections call the API, which the dev accounts have no token for, so they are stubbed.
+    await mockAdminOrders(page, manyAdminOrders(1))
+    await mockAuditLogs(page, [])
+    await page.route(
+      (url) => url.origin !== 'http://localhost:5173' && url.pathname.startsWith('/analytics/'),
+      (route) => {
+        const { pathname } = new URL(route.request().url())
+        const json = pathname.endsWith('/summary')
+          ? { arSessions: 0, salesTotal: 0, orderCount: 0, unitsSold: 0, aov: 0, arChange: null, salesChange: null, ordersChange: null, periodStart: '2026-11-01', periodEnd: '2026-11-19' }
+          : []
+        return route.fulfill({ json, headers: { 'access-control-allow-origin': '*' } })
+      },
+    )
+    await signIn(page, who, home)
+    await page.goto(path)
+    await expect(page.getByRole('heading', { level: 1, name: 'Hello' })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('region', { name: 'Refunds, AR and stock at a glance' }).getByText('Sample data', { exact: true })).toHaveCount(3)
+    await expect(badge(page)).toHaveCount(3)
+    await expect(page.getByRole('heading', { level: 1 }).locator('..').getByText('Sample data')).toHaveCount(0)
     expect(await overflow(page)).toBe(0)
   })
 }
