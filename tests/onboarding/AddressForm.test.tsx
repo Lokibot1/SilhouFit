@@ -5,7 +5,7 @@ import { MotionGlobalConfig } from 'motion/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AddressForm } from '../../src/components/address/AddressForm'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { AddressError, type Address } from '../../src/service/addresses'
+import { AddressError, type Address, type AddressInput } from '../../src/service/addresses'
 import { PsgcError } from '../../src/service/psgc'
 import { ReverseGeocodeError } from '../../src/service/reverseGeocode'
 import { clearSession, setSession } from '../../src/service/session'
@@ -88,7 +88,7 @@ afterEach(() => {
   act(() => clearSession())
 })
 
-function setup(props: { initial?: Address | null; existingCount?: number; hideDefault?: boolean } = {}) {
+function setup(props: { initial?: Address | null; existingCount?: number; hideDefault?: boolean; save?: (input: AddressInput) => Promise<Address | null> } = {}) {
   const onSaved = vi.fn<(a: Address) => void>()
   const onUnauthorized = vi.fn()
   const onGone = vi.fn()
@@ -100,6 +100,7 @@ function setup(props: { initial?: Address | null; existingCount?: number; hideDe
         initial={props.initial ?? null}
         existingCount={props.existingCount}
         hideDefault={props.hideDefault}
+        save={props.save}
         onSaved={onSaved}
         onUnauthorized={onUnauthorized}
         onGone={onGone}
@@ -742,6 +743,31 @@ describe('AddressForm', () => {
       expect(onSaved.mock.calls[0][0]).toBe(ADDRESS)
       expect(api.updateAddress).not.toHaveBeenCalled()
       expect(api.createAddress).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('with a save callback', () => {
+    it('hands the full input, +63 phone and pin included, to it instead of the addresses API', async () => {
+      const onSave = vi.fn(async (input: AddressInput) => ({ ...ADDRESS, ...input }))
+      const { user, onSaved } = setup({ save: onSave })
+      await fillNew(user)
+      await user.type(screen.getByLabelText('Recipient name'), 'Anne Santos')
+      await user.click(save())
+      await waitFor(() => expect(onSaved).toHaveBeenCalled())
+      expect(onSave).toHaveBeenCalledWith(NEW_BODY)
+      expect(api.createAddress).not.toHaveBeenCalled()
+    })
+
+    it('treats null as cancelled: nothing is saved and Save is available again', async () => {
+      const onSave = vi.fn(async () => null)
+      const { user, onSaved, onPendingChange } = setup({ save: onSave })
+      await fillNew(user)
+      await user.type(screen.getByLabelText('Recipient name'), 'Anne Santos')
+      await user.click(save())
+      await waitFor(() => expect(onPendingChange).toHaveBeenLastCalledWith(false))
+      expect(onSaved).not.toHaveBeenCalled()
+      expect(save()).toBeEnabled()
+      expect(screen.getByLabelText('Postal code')).toHaveValue('1000')
     })
   })
 })

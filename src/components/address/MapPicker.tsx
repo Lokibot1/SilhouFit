@@ -40,10 +40,12 @@ interface MapPickerProps {
   onUse: (lat: number, lon: number) => Promise<string | null>
   /** 'kral' restyles the chrome around the map flat and square for the KRAL pages. */
   tone?: 'kral'
+  /** Replaces the line about what happens to the location, for a caller that does keep it. */
+  note?: string
 }
 
 /** A Leaflet map the user taps, drags or Auto-pins. Nothing of Leaflet loads until this is on screen. */
-export default function MapPicker({ onBack, onUse, tone }: MapPickerProps) {
+export default function MapPicker({ onBack, onUse, tone, note }: MapPickerProps) {
   const kral = tone === 'kral'
   const primary = kral ? KRAL_PRIMARY : PRIMARY_BUTTON
   const secondary = kral ? KRAL_SECONDARY : SECONDARY_BUTTON
@@ -260,7 +262,7 @@ export default function MapPicker({ onBack, onUse, tone }: MapPickerProps) {
       </div>
       {unsupported && <p className={`mt-2 text-base leading-snug ${muted}`}>{unsupported}</p>}
       <p className={`mt-2 leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-sm text-fg-muted'}`}>
-        Your location is sent to OpenStreetMap only to fill these fields. We don&apos;t save it.
+        {note ?? "Your location is sent to OpenStreetMap only to fill these fields. We don't save it."}
       </p>
 
       {locationError && (

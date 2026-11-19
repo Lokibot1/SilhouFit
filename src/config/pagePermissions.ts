@@ -15,6 +15,7 @@ export type PageKey =
   | 'reviews'
   | 'user-management'
   | 'activity-logs'
+  | 'pickup-location'
   | 'ar-insights'
   | 'promotions'
   | 'refunds'
@@ -26,7 +27,7 @@ export type PermissionRole = 'customer' | 'staff' | 'admin'
 export const PERMISSION_ROLES: ReadonlyArray<{ role: PermissionRole; label: string; description: string }> = [
   { role: 'customer', label: 'Customer', description: 'Shoppers, and visitors who are not signed in. Access to the storefront and AR fitting.' },
   { role: 'staff', label: 'Staff', description: 'Boutique staff. Access to the operations pages, and to admin tools when you turn them on.' },
-  { role: 'admin', label: 'Admin', description: 'Store admins. Access to operations and admin tools, and to user management unless you turn it off.' },
+  { role: 'admin', label: 'Admin', description: 'Store admins. Access to operations and admin tools (including the pickup location), and to user management unless you turn it off.' },
 ]
 
 export interface PageGroup {
@@ -87,6 +88,13 @@ export const PAGE_GROUPS: ReadonlyArray<PageGroup> = [
     roles: ['admin'],
     pages: [{ key: 'activity-logs', label: 'Activity Logs' }],
   },
+  // Admin only: staff are never offered it, whatever a superadmin sets.
+  {
+    id: 'pickup-location',
+    label: 'Pickup location',
+    roles: ['admin'],
+    pages: [{ key: 'pickup-location', label: 'Pickup Location' }],
+  },
 ]
 
 export type Permissions = Record<PermissionRole, PageKey[]>
@@ -96,7 +104,7 @@ const keysOf = (...ids: string[]) => PAGE_GROUPS.filter((group) => ids.includes(
 export const DEFAULT_PERMISSIONS: Permissions = {
   customer: keysOf('storefront'),
   staff: keysOf('operations'),
-  admin: keysOf('operations', 'admin-tools', 'user-management', 'activity-logs'),
+  admin: keysOf('operations', 'admin-tools', 'user-management', 'activity-logs', 'pickup-location'),
 }
 
 /** The pages a superadmin can give each role; anything else stored for a role is ignored. */
@@ -117,6 +125,7 @@ const DASHBOARD_PAGE: Record<string, PageKey> = {
   reviews: 'reviews',
   users: 'user-management',
   'activity-logs': 'activity-logs',
+  'pickup-location': 'pickup-location',
   'ar-insights': 'ar-insights',
   promotions: 'promotions',
   refunds: 'refunds',

@@ -209,6 +209,14 @@ interface AddressFormProps {
   footer: (submit: ReactNode) => ReactNode
   /** 'kral' restyles the form flat and square for the KRAL pages. */
   tone?: 'kral'
+  /** Saves the full create-style input in place of createAddress and updateAddress. Resolves to null when the save was cancelled: nothing is saved and the form stays open. */
+  save?: (input: AddressInput) => Promise<Address | null>
+  /** What the name field is called when it is not the recipient's ("Contact name"). */
+  nameLabel?: string
+  /** For a pin that is not a delivery address: the line under Pin on a map, the error when it is missing, and the note on the map. */
+  pinCopy?: { hint: string; missing: string; mapNote: string }
+  /** Words the save button and its failure messages for something other than a shopper's address (the pickup location). */
+  saveLabel?: string
 }
 
 /** Puts a saved address's places back on the lists first (the form is a skeleton meanwhile); a new address needs no lookup. */
@@ -258,8 +266,13 @@ function AddressFormBody({
   onPendingChange,
   footer,
   tone,
+  save,
+  nameLabel = 'Recipient name',
+  pinCopy,
+  saveLabel = 'Save address',
 }: AddressFormProps & { resolved: ResolvedAddress | null }) {
   const kral = tone === 'kral'
+  const reword = (message: string) => (saveLabel === 'Save address' ? message : message.replace('your address', 'the pickup location').replace('Save address', saveLabel))
   const user = useCurrentUser()
   const base = useId()
   const fieldId = (name: string) => `${base}-${name}`
@@ -269,7 +282,7 @@ function AddressFormBody({
   const [barangay, setBarangay] = useState<Place>(resolved?.barangay ?? NONE)
   const [note, setNote] = useState(resolved?.note ?? null)
   const [label, setLabel] = useState(initial?.label ?? '')
-  const [recipient, setRecipient] = useState(initial?.recipientName ?? filterFullName(user?.name ?? ''))
+  const [recipient, setRecipient] = useState(initial?.recipientName ?? (save ? '' : filterFullName(user?.name ?? '')))
   const [phone, setPhone] = useState(initial ? toNationalPhone(initial.phone) : '')
   const [street, setStreet] = useState(initial?.streetAddress ?? '')
   const [line2, setLine2] = useState(initial?.addressLine2 ?? '')
@@ -326,7 +339,7 @@ function AddressFormBody({
   const errors: Partial<Record<Field, string>> = {}
   const labelError = validateLabel(label)
   // The validator names the field "Full name"; this one is the recipient's.
-  const recipientError = validateFullName(recipient)?.replace('Full name', 'Recipient name')
+  const recipientError = validateFullName(recipient)?.replace('Full name', nameLabel)
   const phoneError = validateAddressPhone(phone)
   if (labelError) errors.label = labelError
   if (recipientError) errors.recipientName = recipientError
@@ -520,7 +533,7 @@ function AddressFormBody({
     else if (initial && next.region === initial.region && next.cityMunicipality === initial.cityMunicipality) next.province = initial.province ?? ''
     try {
       let saved: Address
-      if (!initial) {
+      if (save || !initial) {
         const input: AddressInput = {
           latitude: pin!.lat,
           longitude: pin!.lon,
@@ -536,7 +549,16 @@ function AddressFormBody({
         if (next.province) input.province = next.province
         if (next.addressLine2) input.addressLine2 = next.addressLine2
         if (makeDefault) input.isDefault = true
-        saved = await createAddress(input)
+        if (save) {
+          const result = await save(input)
+          if (!result) {
+            // Cancelled by the caller: the form stays as it is.
+            setPending(false)
+            onPendingChange?.(false)
+            return
+          }
+          saved = result
+        } else saved = await createAddress(input)
       } else {
         const patch: AddressPatch = {}
         // A phone saved as 09181234567 is the same number as +639181234567: only a different number is a change.
@@ -563,12 +585,14 @@ function AddressFormBody({
       if (kind === 'unauthorized') onUnauthorized?.()
       else if (kind === 'invalid') {
         setFailure(
-          detail
-            ? `We couldn't save your address. The server said: ${detail}. Fix it, then try Save address again.`
-            : "We couldn't save your address. The server didn't accept these details. Check each field, then try Save address again.",
+          reword(
+            detail
+              ? `We couldn't save your address. The server said: ${detail}. Fix it, then try Save address again.`
+              : "We couldn't save your address. The server didn't accept these details. Check each field, then try Save address again.",
+          ),
         )
       } else {
-        setFailure(FAILURE_COPY[kind ?? 'server'])
+        setFailure(reword(FAILURE_COPY[kind ?? 'server']))
         if (kind === 'not-found') onGone?.()
       }
     } finally {
@@ -588,7 +612,7 @@ function AddressFormBody({
             </div>
           }
         >
-          <MapPicker onBack={() => setMapOpen(false)} onUse={fillFrom} tone={tone} />
+          <MapPicker onBack={() => setMapOpen(false)} onUse={fillFrom} tone={tone} note={pinCopy?.mapNote} />
         </Suspense>
       </MapBoundary>
     )
@@ -597,7 +621,7 @@ function AddressFormBody({
   const submitButton = (
     <button type="submit" disabled={pending} className={`${kral ? KRAL_PRIMARY : PRIMARY_BUTTON} w-full sm:w-auto`}>
       {pending && <SpinnerIcon />}
-      Save address
+      {saveLabel}
     </button>
   )
 
@@ -619,7 +643,7 @@ function AddressFormBody({
         <FloatingField
           tone={tone}
           id={fieldId('recipientName')}
-          label="Recipient name"
+          label={nameLabel}
           value={recipient}
           onChange={(v) => setRecipient(filterFullName(v))}
           onBlur={touch('recipientName')}
@@ -652,12 +676,12 @@ function AddressFormBody({
         Pin on a map
       </button>
       <p className={`mt-2 leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-xs text-fg-muted'}`}>
-        {pin ? 'Pin placed. Pin on a map again to move it.' : 'Drop a pin and we will fill in the fields below. We need it to deliver.'}
+        {pin ? 'Pin placed. Pin on a map again to move it.' : (pinCopy?.hint ?? 'Drop a pin and we will fill in the fields below. We need it to deliver.')}
       </p>
       {pinMissing && (
         <p role="alert" className={`mt-2 flex items-start gap-2 text-base leading-snug text-danger ${kral ? 'font-kral-mono' : ''}`}>
           <AlertIcon className="mt-1 shrink-0" />
-          <span>Pin your address on the map so we can deliver.</span>
+          <span>{pinCopy?.missing ?? 'Pin your address on the map so we can deliver.'}</span>
         </p>
       )}
 

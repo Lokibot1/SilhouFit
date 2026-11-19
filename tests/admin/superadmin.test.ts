@@ -56,6 +56,18 @@ describe('page permissions', () => {
     expect(canView(undefined, 'shop', none)).toBe(false)
   })
 
+  it('gives the pickup location to admins by default and never to staff, even with every staff key on', () => {
+    expect(pageKeyFor('/admin/pickup-location')).toBe('pickup-location')
+    expect(pageKeyFor('/superadmin/pickup-location')).toBe('pickup-location')
+    expect(canView('admin', 'pickup-location', DEFAULT_PERMISSIONS)).toBe(true)
+    expect(canView('superadmin', 'pickup-location', { customer: [], staff: [], admin: [] })).toBe(true)
+    expect(canView('admin', 'pickup-location', { ...DEFAULT_PERMISSIONS, admin: [] })).toBe(false)
+    const everyKey = PAGE_GROUPS.flatMap((group) => group.pages.map((page) => page.key))
+    expect(canView('staff', 'pickup-location', { ...DEFAULT_PERMISSIONS, staff: everyKey })).toBe(false)
+    expect(canView('staff', 'pickup-location', DEFAULT_PERMISSIONS)).toBe(false)
+    expect(PAGE_GROUPS.find((group) => group.pages.some((page) => page.key === 'pickup-location'))?.roles).toEqual(['admin'])
+  })
+
   it('never offers user management to staff, and ignores it in what staff had saved', () => {
     expect(PAGE_GROUPS.filter((group) => group.roles.includes('staff')).flatMap((group) => group.pages.map((page) => page.key))).not.toContain('user-management')
     expect(PAGE_GROUPS.filter((group) => group.roles.includes('admin')).flatMap((group) => group.pages.map((page) => page.key))).toContain('user-management')

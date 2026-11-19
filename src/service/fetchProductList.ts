@@ -110,7 +110,7 @@ async function errorBody(response: Response): Promise<{ detail?: string; code?: 
 }
 
 // Same request shape as fetchMe: the Supabase token rides along, and an abort rejects with the AbortError itself.
-export async function request(method: 'GET' | 'PATCH' | 'POST' | 'DELETE', path: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
+export async function request(method: 'GET' | 'PATCH' | 'POST' | 'PUT' | 'DELETE', path: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
   let token: string | undefined
   try {
     const supabase = await getSupabase()

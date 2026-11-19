@@ -67,7 +67,7 @@ describe('admin navigation', () => {
     nav('admin')
     // The headings are presentation only, so the list still reads as the ten pages. Profile is in the account menu, not the sidebar.
     expect(within(screen.getByRole('list')).getAllByRole('listitem').map((li) => li.textContent?.replace('Soon', '').trim())).toEqual([
-      'Dashboard', 'Inventory', 'Measurements', 'Transactions', 'Online Orders', 'Messages', 'Reviews', 'User Management', 'Activity Logs', 'AR Insights', 'Pricing & Promotions', 'Returns & Refunds', 'Help Chatbot',
+      'Dashboard', 'Inventory', 'Measurements', 'Transactions', 'Online Orders', 'Messages', 'Reviews', 'User Management', 'Activity Logs', 'Pickup Location', 'AR Insights', 'Pricing & Promotions', 'Returns & Refunds', 'Help Chatbot',
     ])
     const order = [...document.querySelectorAll('li')].map((li) => li.textContent?.replace('Soon', '').trim())
     expect(order.indexOf('Operations')).toBe(0)
@@ -77,6 +77,7 @@ describe('admin navigation', () => {
     expect(screen.getByRole('link', { name: 'Online Orders' })).toHaveAttribute('href', '/admin/online-orders')
     expect(screen.getByRole('link', { name: 'Reviews' })).toHaveAttribute('href', '/admin/reviews')
     expect(screen.getByRole('link', { name: 'Activity Logs' })).toHaveAttribute('href', '/admin/activity-logs')
+    expect(screen.getByRole('link', { name: 'Pickup Location' })).toHaveAttribute('href', '/admin/pickup-location')
     expect(screen.getByRole('link', { name: 'AR Insights' })).toHaveAttribute('href', '/admin/ar-insights')
     expect(screen.getByRole('link', { name: 'Pricing & Promotions' })).toHaveAttribute('href', '/admin/promotions')
     expect(screen.getByRole('link', { name: 'Returns & Refunds' })).toHaveAttribute('href', '/admin/refunds')
@@ -93,7 +94,7 @@ describe('admin navigation', () => {
     nav('admin', true)
     expect(screen.queryByText('Operations')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'User Management' })).toHaveAttribute('href', '/admin/users')
-    expect(screen.getAllByRole('link')).toHaveLength(13)
+    expect(screen.getAllByRole('link')).toHaveLength(14)
     expect(screen.queryByRole('link', { name: 'Profile' })).not.toBeInTheDocument()
     expect(document.querySelectorAll('li[aria-hidden="true"]')).toHaveLength(1)
   })

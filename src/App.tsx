@@ -17,6 +17,7 @@ import { MeasurementsPageSkeleton } from './components/staff/MeasurementsSkeleto
 import { TransactionsPageSkeleton } from './components/staff/TransactionsSkeleton'
 import { ArInsightsPageSkeleton } from './components/admin/ar/ArInsightsSkeleton'
 import { HelpAnswersPageSkeleton } from './components/admin/chatbot/HelpAnswersSkeleton'
+import { PickupLocationPageSkeleton } from './components/admin/pickup/PickupLocationSkeleton'
 import { PromotionsPageSkeleton } from './components/admin/promotions/PromotionsSkeleton'
 import { RefundsPageSkeleton } from './components/admin/refunds/RefundsSkeleton'
 import { ReviewsPageSkeleton } from './components/admin/reviews/ReviewsSkeleton'
@@ -127,6 +128,9 @@ const ArInsightsPage = lazy(() =>
 const PromotionsPage = lazy(() =>
   import('./views/admin/PromotionsPage').then((m) => ({ default: m.PromotionsPage })),
 )
+const PickupLocationPage = lazy(() =>
+  import('./views/admin/PickupLocationPage').then((m) => ({ default: m.PickupLocationPage })),
+)
 const ChatbotPage = lazy(() =>
   import('./views/admin/ChatbotPage').then((m) => ({ default: m.ChatbotPage })),
 )
@@ -227,6 +231,14 @@ const adminToolRoutes = (
       element={
         <Suspense fallback={<OrderLogSkeleton />}>
           <ActivityLogsPage />
+        </Suspense>
+      }
+    />
+    <Route
+      path="pickup-location"
+      element={
+        <Suspense fallback={<PickupLocationPageSkeleton />}>
+          <PickupLocationPage />
         </Suspense>
       }
     />
