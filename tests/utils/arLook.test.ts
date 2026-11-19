@@ -1,8 +1,7 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { SLEEVE_MAX, SLEEVE_MIN } from '../../src/utils/arArms'
-import { waistOverChest } from '../../src/utils/arGarment'
-import { contactShade, darkLift, GATHER, hemGather, skinShadow, SKIN_SHADOW, taperFactor, TAPER, DARK, foldShade, grainStrength, GRAIN, keyLightX, LIGHT, lightGain, LightMeter, lumaStats, roomTint, SHADE, sheenStrength, sheenTint, SLEEVE_SWAY_MAX, SleeveSway, Sway, WEAVE, weaveTexels, SWAY, trackedCamera, WEBCAM_HFOV_DEG } from '../../src/utils/arLook'
+import { contactShade, darkLift, DARK, foldShade, grainStrength, GRAIN, keyLightX, LIGHT, lightGain, LightMeter, lumaStats, roomTint, SHADE, sheenStrength, sheenTint, SLEEVE_SWAY_MAX, SleeveSway, Sway, WEAVE, weaveTexels, SWAY, trackedCamera, WEBCAM_HFOV_DEG } from '../../src/utils/arLook'
 
 const tan = (deg: number) => Math.tan((deg * Math.PI) / 180)
 const rgba = (width: number, height: number, at: (x: number, y: number) => number) =>
@@ -185,52 +184,6 @@ describe('matching the camera and showing form on dark cloth', () => {
     expect(foldShade([SLEEVE_MIN, SLEEVE_MIN], 0, 0.3).chest).toBeGreaterThan(0)
     expect(foldShade([9, 9], 9, 9).arm.every((a) => a <= 1)).toBe(true)
     expect(foldShade([9, 9], 1.5, 1.5).chest).toBeLessThanOrEqual(1)
-  })
-})
-
-describe('body-shaped silhouette', () => {
-  it('tapers by the waist over the chest: identity at 1, narrower as the ratio drops, always within bounds', () => {
-    expect(taperFactor(1)).toBe(1)
-    const ratios = [0, 0.5, 0.7, 0.8, 0.9, 1, 1.1, 1.5, 9]
-    const factors = ratios.map(taperFactor)
-    for (let i = 1; i < factors.length; i++) expect(factors[i]).toBeGreaterThanOrEqual(factors[i - 1])
-    expect(taperFactor(0.88)).toBeCloseTo(1 - TAPER.strength * 0.12)
-    expect(taperFactor(0)).toBe(TAPER.min)
-    expect(taperFactor(9)).toBe(TAPER.max)
-    expect(taperFactor(NaN)).toBe(1)
-  })
-
-  it('reads the ratio from the size chart, else the customer, else is neutral; a bigger size keeps the ratio and the wider scale', () => {
-    expect(waistOverChest({ waistWidthCm: 44, chestWidthCm: 50 }, { chest: 100, waist: 60 })).toBeCloseTo(0.88)
-    expect(waistOverChest({ chestWidthCm: 50 }, { chest: 100, waist: 80 })).toBeCloseTo(0.8)
-    expect(waistOverChest({}, null)).toBe(1)
-    expect(waistOverChest({ waistWidthCm: 0, chestWidthCm: 50 })).toBe(1)
-    expect(waistOverChest({ waistWidthCm: 48, chestWidthCm: 54 })).toBeCloseTo(waistOverChest({ waistWidthCm: 44, chestWidthCm: 50 }), 1)
-  })
-
-  it('gathers the hem more with a turn or a lean, none upright, within 0..1', () => {
-    expect(hemGather(0, 0)).toBe(0)
-    expect(hemGather(0.8, 0)).toBeGreaterThan(0)
-    expect(hemGather(0.8, 0)).toBe(hemGather(-0.8, 0))
-    expect(hemGather(0, 0.3)).toBeGreaterThan(hemGather(0, 0.1))
-    expect(hemGather(9, 9)).toBeLessThanOrEqual(1)
-    expect(GATHER.lean).toBeGreaterThan(GATHER.turn)
-  })
-})
-
-describe('skinShadow', () => {
-  it('feathers a few percent of the garment width and follows contactShade, open under a raised arm, capped', () => {
-    const down = skinShadow(contactShade([SLEEVE_MIN, SLEEVE_MIN], 0), 60)
-    const raised = skinShadow(contactShade([SLEEVE_MAX, SLEEVE_MIN], 0), 60)
-    expect(down.spreadCm).toBeCloseTo(60 * SKIN_SHADOW.spread)
-    expect(raised.underarm[0]).toBeLessThan(down.underarm[0])
-    expect(raised.underarm[1]).toBe(down.underarm[1])
-    expect(skinShadow(contactShade([0, 0], 1.5), 60).hem).toBeGreaterThan(down.hem)
-    for (const v of [...down.underarm, down.collar, down.hem]) {
-      expect(v).toBeGreaterThan(0)
-      expect(v).toBeLessThanOrEqual(SKIN_SHADOW.max)
-    }
-    expect(skinShadow({ underarm: [9, 9], collar: 9, hem: 9 }).collar).toBe(SKIN_SHADOW.max)
   })
 })
 

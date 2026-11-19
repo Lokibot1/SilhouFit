@@ -1,5 +1,4 @@
 import { SLEEVE_MAX, SLEEVE_MIN, type Side } from './arArms'
-import { GARMENT_BASE } from './arGarment'
 import { coverMap, type View } from './arPose'
 
 // How the AR try-on shirt is lit, how its hem and cuffs lag, and the camera it is seen through. Pure TypeScript with no rendering.
@@ -249,27 +248,6 @@ export class Sway {
   get magnitude() {
     return Math.hypot(this.x, this.y)
   }
-}
-
-/**
- * The shirt's shape below the chest. `waistOverChest` (arGarment.ts) is the waist's width over the chest's. The shirt narrows to `strength` of the way to that ratio at the
- * waist (it is not skin-tight), within [min, max], so a bigger size, which is wider in every part, is still looser than a smaller one.
- */
-export const TAPER = { strength: 0.5, min: 0.8, max: 1.05 }
-export const taperFactor = (waistOverChest: number) => (Number.isFinite(waistOverChest) ? clamp(1 - TAPER.strength * (1 - waistOverChest), TAPER.min, TAPER.max) : 1)
-
-/** How much the hem gathers (0..1): with the turn (|sin yaw|) and the lean (|sin pitch|, which is at most 20 degrees, so it counts for more). */
-export const GATHER = { turn: 0.6, lean: 2.5 }
-export const hemGather = (yaw: number, pitch: number) => clamp(GATHER.turn * Math.abs(Math.sin(yaw)) + GATHER.lean * Math.abs(Math.sin(pitch)), 0, 1)
-
-/**
- * The shadow the shirt casts on the person where it meets the body, drawn on the video outside the shirt: it feathers out `spread` of the garment's
- * width (`widthCm`), and its darkness is each contactShade strength times `gain`, never over `max`, so it opens under a raised arm like the shading on the cloth.
- */
-export const SKIN_SHADOW = { spread: 0.04, gain: 1.2, max: 0.5 }
-export function skinShadow(shade: ReturnType<typeof contactShade>, widthCm = GARMENT_BASE.drawnWidth) {
-  const dark = (strength: number) => Math.min(SKIN_SHADOW.max, SKIN_SHADOW.gain * strength)
-  return { spreadCm: SKIN_SHADOW.spread * widthCm, underarm: shade.underarm.map(dark) as [number, number], collar: dark(shade.collar), hem: dark(shade.hem) }
 }
 
 /** How far a sleeve swings at the width limit (radians). */

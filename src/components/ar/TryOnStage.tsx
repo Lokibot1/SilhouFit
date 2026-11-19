@@ -5,7 +5,7 @@ import { sleeveRotation, sleevesOnBones } from '../../utils/arArms'
 import { GARMENT_BASE, NECK_PLUG, SEAM_HEIGHT, UNDERARM_Y } from '../../utils/arGarment'
 import type { Ellipse, ForearmCall } from '../../utils/arOcclude'
 import { jitterPx, lagMs, speedPxS, type Sample } from '../../utils/arMeter'
-import { contactShade, darkLift, EDGE_FEATHER, foldShade, grainStrength, hemGather, keyLightX, LIGHT, lightGain, LightMeter, roomTint, SHADE, sheenStrength, sheenTint, skinShadow, SleeveSway, Sway, taperFactor, trackedCamera, WEAVE, weaveTexels } from '../../utils/arLook'
+import { contactShade, darkLift, EDGE_FEATHER, foldShade, grainStrength, keyLightX, LIGHT, lightGain, LightMeter, roomTint, SHADE, sheenStrength, sheenTint, SleeveSway, Sway, trackedCamera, WEAVE, weaveTexels } from '../../utils/arLook'
 import { garmentTransform, LANDMARK_FILTER, maskTransform, PoseFollower, RateHealth, type MaskFrame, type Pose, type TrackStatus } from '../../utils/arPose'
 import { FlipIcon, SpinnerIcon, TrackIcon } from '../form/icons'
 import { addStudio, loadBodyGeometry, releaseRenderer, webglSupported } from '../landing/chromeBody'
@@ -67,13 +67,6 @@ float formHeight(vec3 p) {
   return arm + chest + drape;
 }
 `
-/** The waist's height above the hem and how wide the taper is (cm of the rest pose); the hem gathers over its lowest GATHER_BAND, pinching in by GATHER_PINCH (share of the width) and rippling by GATHER_RIPPLE (cm). Untuned: check on camera. */
-const WAIST = { y: 20, spread: 9 }
-const GATHER_BAND = 7
-const GATHER_PINCH = 0.04
-const GATHER_RIPPLE = 0.8
-/** How the shadow on the person looks: the shell is the shirt pushed out by the spread; it fades to nothing at its grazing outer edge, and its patches are as wide as the shirt's own contact shading, scaled up. */
-const SKIN_PATCH = { underarmScale: 2, collarReach: 2.8, hemFrom: 2.5, hemTo: 8 }
 /** How often the room's brightness is read from the video while the shirt follows a person (ms). */
 const LIGHT_MS = 500
 /** Forearm: a plane for the shaft and a circle at each end (a scaled capsule would squash its ends). Face: one circle, scaled. */
@@ -117,8 +110,6 @@ interface TryOnStageProps {
   /** The reference size the drawing is sized by (the recommended one, else the middle one) and its scale x: that size's seams meet the shoulders. */
   refSize: string
   refScaleX: number
-  /** The selected size's waist over its chest (see waistOverChest in arLook.ts): the shirt narrows toward the waist by it. 1 is straight. */
-  waistRatio: number
   /** Changed by the page to try body tracking again after it failed or was too slow. */
   trackKey: number
   /** Called when the tracking status changes, not on every frame. */
@@ -131,7 +122,7 @@ interface TryOnStageProps {
  * follows the customer's shoulders instead: one render per new pose from the pose loop (no animation loop of its own), in a perspective
  * camera whose z = 0 plane is the stage in pixels. The photo takes over if WebGL is unavailable, lost, or the model fails to load.
  */
-export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, refSize, refScaleX, waistRatio, trackKey, onStatus }: TryOnStageProps) {
+export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, refSize, refScaleX, trackKey, onStatus }: TryOnStageProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const debugText = useRef<HTMLPreElement>(null)
   const debugBar = useRef<HTMLDivElement>(null)
@@ -139,7 +130,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
   /** ?debug=ar "Draw tracking": mirrored into a ref so the pose loop reads it without a re-render per frame. */
   const drawOn = useRef(false)
   const redraw = useRef<() => void>(() => {})
-  const latest = useRef({ colorHex, scale, largest, refSize, refScaleX, waistRatio, onStatus })
+  const latest = useRef({ colorHex, scale, largest, refSize, refScaleX, onStatus })
   const apply = useRef<() => void>(() => {})
   const tracking = useRef<{ start: () => void; stop: () => void }>({ start: () => {}, stop: () => {} })
   /** The manual correction of the front/back facing: the running follower's flip, nothing while there is none. */
@@ -153,9 +144,9 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
   const [drawing, setDrawing] = useState(false)
 
   useEffect(() => {
-    latest.current = { colorHex, scale, largest, refSize, refScaleX, waistRatio, onStatus }
+    latest.current = { colorHex, scale, largest, refSize, refScaleX, onStatus }
     apply.current()
-  }, [colorHex, scale, largest, refSize, refScaleX, waistRatio, onStatus])
+  }, [colorHex, scale, largest, refSize, refScaleX, onStatus])
 
   useEffect(() => {
     const found = hostRef.current
@@ -231,7 +222,7 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
     // The person mask cuts the shirt away outside the silhouette. A 1 x 1 texture stands in until the first mask; uMaskOn stays 0 till then.
     const maskUniforms = { uMask: { value: new THREE.DataTexture(new Uint8Array(1), 1, 1, THREE.RedFormat) }, uMaskMap: { value: new THREE.Vector4() }, uMaskOn: { value: 0 } }
     // The hem width factor (see arFitBody.ts): the body below the underarm is widened or narrowed, easing from 1 at the underarm to this at the hem.
-    const hemUniforms = { uHip: { value: 1 }, uWaist: { value: 1 }, uGather: { value: 0 } }
+    const hemUniforms = { uHip: { value: 1 } }
     // How far the hem and cuffs lag the body, in the shirt's own units (cm), see arLook.ts.
     const swayUniforms = { uSway: { value: new THREE.Vector2() } }
     // The contact shading strengths (see contactShade in arLook.ts): under each sleeve joint (the -x side, then +x), and at the collar and the hem.
@@ -246,42 +237,28 @@ export function TryOnStage({ colorHex, scale, largest, image, alt, video, live, 
       setShade([SHADE.underarm, SHADE.underarm], SHADE.collar, SHADE.hem)
       lookUniforms.uFoldArm.value.set(0, 0)
       lookUniforms.uFold.value.set(0, 0)
-      hemUniforms.uGather.value = 0
     }
     restShade()
-    // The shadow the shirt casts on the person (see skinShadow in arLook.ts): how far it feathers out (cm of the shirt) and its strength under each sleeve joint, at the collar and at the hem.
-    const skinUniforms = { uSpread: { value: 0 }, uSkinPit: { value: new THREE.Vector2() }, uSkinRim: { value: new THREE.Vector2() } }
     const f = (n: number) => n.toFixed(2)
     const underarm = f(UNDERARM_Y)
     const ao = AMBIENT_OCCLUSION
-    // The shape of the shirt after skinning, shared by the shirt and its shadow so the shadow follows it exactly: the hem width, the taper to the waist, the gather
-    // at the hem, and the lag of the hem and cuffs. A function of the REST position (cm), so nothing tears.
-    const DEFORM_UNIFORMS = `uniform float uHip;
-uniform float uWaist;
-uniform float uGather;
-uniform vec2 uSway;
-`
-    const deform = `  float hemW = smoothstep(0.0, 1.0, clamp((${underarm} - position.y) / ${underarm}, 0.0, 1.0));
-  transformed.x *= 1.0 + (uHip - 1.0) * hemW;
-  float waistBell = exp(-pow((position.y - ${f(WAIST.y)}) / ${f(WAIST.spread)}, 2.0)) * clamp((${underarm} - position.y) / 6.0, 0.0, 1.0);
-  transformed.x *= 1.0 + (uWaist - 1.0) * waistBell;
-  float hemB = 1.0 - smoothstep(0.0, ${f(GATHER_BAND)}, position.y);
-  transformed.x *= 1.0 - uGather * ${f(GATHER_PINCH)} * hemB;
-  transformed.yz += uGather * hemB * ${f(GATHER_RIPPLE)} * vec2(sin(position.x * 1.1 + position.z * 0.9), 0.6 * sin(position.x * 1.7 + 1.0));
-  float cuffW = smoothstep(0.0, 1.0, clamp((abs(position.x) - ${f(GARMENT_BASE.sleevePivot.x - 0.6)}) / ${f(GARMENT_BASE.sleeve * 0.67)}, 0.0, 1.0));
-  transformed.xy += uSway * (hemW + cuffW);`
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, maskUniforms, hemUniforms, swayUniforms, shadeUniforms, lookUniforms)
       // After skinning, so the sleeves (which are above the underarm in the rest pose) keep following their bones. Everything here is a function of the
       // REST position, so a moving sleeve does not drag the folds or the occlusion with it, and a vertex shared by two triangles moves as one (nothing tears).
       shader.vertexShader =
-        `${DEFORM_UNIFORMS}varying vec3 vRest;
+        `uniform float uHip;
+uniform vec2 uSway;
+varying vec3 vRest;
 varying vec3 vFold;
 ${FOLD_GLSL}` +
         shader.vertexShader.replace(
           '#include <skinning_vertex>',
           `#include <skinning_vertex>
-${deform}
+  float hemW = smoothstep(0.0, 1.0, clamp((${underarm} - position.y) / ${underarm}, 0.0, 1.0));
+  transformed.x *= 1.0 + (uHip - 1.0) * hemW;
+  float cuffW = smoothstep(0.0, 1.0, clamp((abs(position.x) - ${f(GARMENT_BASE.sleevePivot.x - 0.6)}) / ${f(GARMENT_BASE.sleeve * 0.67)}, 0.0, 1.0));
+  transformed.xy += uSway * (hemW + cuffW);
   vRest = position;
   vec3 fold = foldGradient(position);
   vFold = normalize(normalMatrix * fold) * length(fold) * ${f(FOLD_STRENGTH)};`,
@@ -329,65 +306,6 @@ ${HASH_GLSL}` +
           .replace('#include <dithering_fragment>', `#include <dithering_fragment>
   gl_FragColor.rgb += uGrain * (hash21(gl_FragCoord.xy + uSeed * vec2(61.0, 7.0)) - 0.5) * 2.0;`)
     }
-    // The shadow on the person: a copy of the shirt pushed out along its normals (and down at the hem), drawn BEFORE the shirt with no depth write, so the shirt
-    // paints over all of it and only the feathered band outside the shirt's edge is left. Black with an alpha that is strongest at the collar, under the arms
-    // and below the hem (the contactShade strengths), fades at the band's grazing outer edge, and follows the person mask. Custom blending with transparent off keeps
-    // it in the opaque list, so renderOrder puts it behind the shirt but after the depth-only occluders, which hide it where a forearm or the chin is in front.
-    const shadowMaterial = new THREE.MeshBasicMaterial({
-      color: 0x000000,
-      blending: THREE.CustomBlending,
-      blendEquation: THREE.AddEquation,
-      blendSrc: THREE.SrcAlphaFactor,
-      blendDst: THREE.OneMinusSrcAlphaFactor,
-      blendSrcAlpha: THREE.OneFactor,
-      blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
-      depthWrite: false,
-    })
-    shadowMaterial.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, maskUniforms, hemUniforms, swayUniforms, skinUniforms)
-      shader.vertexShader =
-        `${DEFORM_UNIFORMS}uniform float uSpread;
-varying vec3 vRest;
-varying vec3 vNormalV;
-varying vec3 vViewV;
-` +
-        shader.vertexShader
-          .replace(
-            '#include <skinning_vertex>',
-            `#include <skinning_vertex>
-${deform}
-  vRest = position;
-  transformed += normalize(objectNormal) * uSpread;
-  transformed.y -= uSpread * hemB;`,
-          )
-          .replace(
-            '#include <project_vertex>',
-            `#include <project_vertex>
-  vNormalV = normalize(transformedNormal);
-  vViewV = -mvPosition.xyz;`,
-          )
-      shader.fragmentShader =
-        `uniform sampler2D uMask;
-uniform vec4 uMaskMap;
-uniform float uMaskOn;
-uniform vec2 uSkinPit;
-uniform vec2 uSkinRim;
-varying vec3 vRest;
-varying vec3 vNormalV;
-varying vec3 vViewV;
-` +
-        shader.fragmentShader.replace(
-          '#include <opaque_fragment>',
-          `vec2 skinPit = vec2(abs(vRest.x) - ${f(ao.underarm.x)}, vRest.y - ${f(ao.underarm.y)}) / (vec2(${f(ao.underarm.rx)}, ${f(ao.underarm.ry)}) * ${f(SKIN_PATCH.underarmScale)});
-  vec2 skinRim = vec2(vRest.x / ${f(NECK_PLUG.rx)}, (vRest.y - ${f(NECK_PLUG.y)}) / ${f(NECK_PLUG.ry)});
-  float spot = (vRest.x < 0.0 ? uSkinPit.x : uSkinPit.y) * exp(-dot(skinPit, skinPit))
-    + uSkinRim.x * (1.0 - smoothstep(1.0, ${f(SKIN_PATCH.collarReach)}, length(skinRim)))
-    + uSkinRim.y * smoothstep(0.0, ${f(SKIN_PATCH.hemFrom)}, vRest.y) * (1.0 - smoothstep(${f(SKIN_PATCH.hemFrom)}, ${f(SKIN_PATCH.hemTo)}, vRest.y));
-  float outward = smoothstep(0.0, 0.5, abs(dot(normalize(vNormalV), normalize(vViewV))));
-  float person = uMaskOn > 0.5 ? smoothstep(${(MASK_THRESHOLD - EDGE_FEATHER).toFixed(2)}, ${(MASK_THRESHOLD + EDGE_FEATHER).toFixed(2)}, texture2D(uMask, uMaskMap.xy * gl_FragCoord.xy + uMaskMap.zw).r) : 1.0;
-  gl_FragColor = vec4(0.0, 0.0, 0.0, min(spot, 1.0) * outward * person);`,
-        )
-    }
     // Depth-only occluders: they write depth before the shirt (renderOrder -1) and no colour, so a forearm or the chin in front hides the shirt behind it.
     const occluderMaterial = new THREE.MeshBasicMaterial({ colorWrite: false })
     const planeGeometry = new THREE.PlaneGeometry(1, 1)
@@ -404,7 +322,6 @@ varying vec3 vViewV;
       return part
     })
     let mesh: THREE.Mesh | undefined
-    let shadow: THREE.Mesh | undefined
     // The neck plug: a depth-only ellipse on the shirt itself, so the real neck shows through the opening instead of the inside of the back panel.
     // Single-sided, so it drops out by itself once the shirt is turned to its back (the plane faces away).
     const neck = new THREE.Mesh(circleGeometry, occluderMaterial)
@@ -602,17 +519,11 @@ varying vec3 vViewV;
       hemUniforms.uHip.value = pose.fit.hip
       mesh.scale.set(t.scale.x, t.scale.y, t.scale.z)
       neck.visible = true
-      if (shadow) shadow.visible = true
       const onBones = sleevesOnBones(pose.sleeves, pose.facing === 'back')
       bones[1].rotation.z = sleeveRotation(onBones[0], -1) + sleeveSway[0].angle
       bones[2].rotation.z = sleeveRotation(onBones[1], 1) + sleeveSway[1].angle
       const shade = contactShade(onBones, pose.yaw)
       setShade(shade.underarm, shade.collar, shade.hem)
-      const skin = skinShadow(shade)
-      skinUniforms.uSpread.value = skin.spreadCm
-      skinUniforms.uSkinPit.value.set(...skin.underarm)
-      skinUniforms.uSkinRim.value.set(skin.collar, skin.hem)
-      hemUniforms.uGather.value = hemGather(pose.yaw, pose.fit.pitch)
       const folds = foldShade(onBones, pose.yaw, pose.fit.pitch)
       lookUniforms.uFoldArm.value.set(...folds.arm)
       lookUniforms.uFold.value.set(folds.chest, folds.drape)
@@ -633,7 +544,6 @@ varying vec3 vViewV;
       if (!mesh) return
       const { colorHex: hex, scale: s } = latest.current
       material.color.set(hex)
-      hemUniforms.uWaist.value = taperFactor(latest.current.waistRatio)
       setLook()
       if (follow) place()
       else {
@@ -661,7 +571,6 @@ varying vec3 vViewV;
       flipFacing.current = () => {}
       for (const part of occluders) part.visible = false
       neck.visible = false
-      if (shadow) shadow.visible = false
       setMaskState('waiting')
       renderer.domElement.style.opacity = ''
       if (exposeAttributes) {
@@ -881,14 +790,6 @@ varying vec3 vViewV;
           bones = [root, left, right]
           skeleton = new THREE.Skeleton(bones)
           skinned.bind(skeleton)
-          // Its own SkinnedMesh on the same skeleton, a child of the shirt so it keeps the shirt's transform.
-          const cast = new THREE.SkinnedMesh(geometry, shadowMaterial)
-          cast.bind(skeleton, skinned.bindMatrix)
-          cast.renderOrder = -0.5
-          cast.frustumCulled = false
-          cast.visible = false
-          skinned.add(cast)
-          shadow = cast
         } catch {
           skeleton?.dispose()
           skeleton = undefined
@@ -930,7 +831,6 @@ varying vec3 vViewV;
       mesh?.geometry.dispose()
       skeleton?.dispose()
       material.dispose()
-      shadowMaterial.dispose()
       weaveNormal.dispose()
       weaveRoughness.dispose()
       maskTexture.dispose()
