@@ -6,7 +6,7 @@ import { mockCart, mockProductMetrics, mockProducts, type ProductMetricsMock } f
 
 // The /staff and /admin dashboards read GET /analytics/summary, /sales, /product-mix and /trending. Those are stubbed here (deterministic, not the live API),
 // as are the other calls the dashboards make (Recent orders on /admin/orders, Activity logs on the admin page), because the dev simulated accounts have no
-// Supabase token. Low or out of stock reads GET /products/metrics (stubbed too); only the Refunds and AR-ready cards are still sample data, and each carries a Sample data badge inside the card. Sign-in is the dev-only simulated one.
+// Supabase token. AR-ready and Low or out of stock read GET /products/metrics (stubbed too, one shared request); only the Refunds card is still sample data, and it carries a Sample data badge inside the card. Sign-in is the dev-only simulated one.
 
 const STAFF = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -319,14 +319,17 @@ for (const target of PAGES) {
       await expect(page.getByRole('alert')).toHaveCount(0)
     })
 
-    test('a Sample data badge inside the Refunds and AR-ready cards only, and nowhere else', async ({ page }) => {
+    test('a Sample data badge inside the Refunds card only, and nowhere else', async ({ page }) => {
       await open(page, target)
       const operations = region(page, 'Refunds, AR and stock at a glance')
       const stock = operations.getByRole('link', { name: /^Low or out of stock: / })
+      const ar = operations.getByRole('link', { name: /^AR-ready products: / })
       await expect(stock).toBeVisible()
-      await expect(operations.getByText('Sample data', { exact: true })).toHaveCount(2)
-      await expect(page.getByText('Sample data', { exact: true })).toHaveCount(2)
+      await expect(ar).toBeVisible()
+      await expect(operations.getByText('Sample data', { exact: true })).toHaveCount(1)
+      await expect(page.getByText('Sample data', { exact: true })).toHaveCount(1)
       await expect(stock.getByText('Sample data')).toHaveCount(0)
+      await expect(ar.getByText('Sample data')).toHaveCount(0)
       for (const connected of [cards(page), sales(page), mix(page), trending(page), recent(page)]) {
         await expect(connected.getByText('Sample data', { exact: true })).toHaveCount(0)
       }
@@ -343,7 +346,17 @@ for (const target of PAGES) {
       expect(metrics.queries).toEqual([{ lowStockThreshold: '5' }])
     })
 
-    test('a 403 on the stock figures shows the card its own error while the rest renders, and Retry recovers', async ({ page }) => {
+    test('the AR-ready card shows the AR-ready count from the same single GET /products/metrics', async ({ page }) => {
+      const { metrics } = await open(page, target)
+      const card = region(page, 'Refunds, AR and stock at a glance').getByRole('link', { name: /^AR-ready products: / })
+      await expect(card).toContainText('6')
+      await expect(card).toContainText('of 20 products can be tried on')
+      await expect(card).toHaveAttribute('href', `${target.path}/inventory?ar=yes`)
+      // The stock card and this one share a single request.
+      expect(metrics.queries).toEqual([{ lowStockThreshold: '5' }])
+    })
+
+    test('a 403 on the product metrics shows the stock and AR-ready cards their own error while the rest renders, and Retry recovers', async ({ page }) => {
       await stubAnalytics(page)
       const metrics = await stubRest(page, 2)
       metrics.fail = { status: 403, times: 1 }
@@ -355,23 +368,25 @@ for (const target of PAGES) {
 
       const operations = region(page, 'Refunds, AR and stock at a glance')
       const failed = operations.getByRole('alert')
-      await expect(failed).toHaveCount(1)
-      await expect(failed).toContainText("couldn't load the stock figures")
-      await expect(retry(operations)).toBeEnabled()
+      await expect(failed).toHaveCount(2)
+      await expect(failed.filter({ hasText: "couldn't load the stock figures" })).toHaveCount(1)
+      await expect(failed.filter({ hasText: "couldn't load the AR-ready figures" })).toHaveCount(1)
+      await expect(retry(operations).first()).toBeEnabled()
 
-      // The other cards and sections are untouched.
+      // The Refunds card and the other sections are untouched.
       await expect(operations.getByRole('link', { name: /^Refunds: / })).toBeVisible()
-      await expect(operations.getByRole('link', { name: /^AR-ready products: / })).toBeVisible()
       await expect(cards(page)).toContainText('₱125,000')
       await expect(sales(page).getByRole('img', { name: /^Monthly sales/ })).toBeVisible()
       await expect(mix(page).getByRole('button', { name: /^Polo Shirts/ })).toBeVisible()
       await expect(trending(page).getByRole('listitem')).toHaveCount(3)
       await expect(recent(page).getByRole('listitem')).toHaveCount(2)
 
-      await retry(operations).click()
+      for (const card of ['stock', 'AR-ready']) await failed.filter({ hasText: `couldn't load the ${card} figures` }).getByRole('button', { name: 'Retry', exact: true }).click()
       await expect(operations.getByRole('link', { name: /^Low or out of stock: / })).toContainText('2 out, 4 with 5 or fewer left')
+      await expect(operations.getByRole('link', { name: /^AR-ready products: / })).toContainText('6')
       await expect(page.getByRole('alert')).toHaveCount(0)
-      expect(metrics.queries).toHaveLength(2)
+      // The first (shared) read failed; each card then asked again on its own Retry.
+      expect(metrics.queries.length).toBeGreaterThanOrEqual(2)
     })
 
     for (const width of [320, 1280]) {

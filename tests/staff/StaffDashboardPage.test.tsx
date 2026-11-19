@@ -17,11 +17,12 @@ vi.mock('../../src/service/fetchStaffAnalytics', async (importOriginal) => ({
   fetchTrendingItems: vi.fn(),
 }))
 
-// The Recent orders tile reads the real orders endpoint and the stock card the real metrics endpoint; the analytics functions are stubbed; only the refunds and AR-ready cards are still sample data.
+// The Recent orders tile reads the real orders endpoint and the stock and AR-ready cards the real metrics endpoint; the analytics functions are stubbed; only the refunds card is still sample data.
 vi.mock('../../src/service/adminOrdersApi', () => ({ fetchAdminOrders: vi.fn() }))
 vi.mock('../../src/service/adminOverview', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/adminOverview')>()),
   getStockFigures: vi.fn().mockResolvedValue({ out: 1, low: 2 }),
+  getArFigures: vi.fn().mockResolvedValue({ ready: 8, products: 12 }),
 }))
 
 const ME = { firstName: 'Sam' } as Me
@@ -88,8 +89,8 @@ describe('StaffDashboardPage', () => {
   it('shows the figures and the charts, with the sample data pill on the operations cards only', async () => {
     renderPage()
     expect(await screen.findByText('Hello, Sam')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getAllByText('Sample data')).toHaveLength(2))
-    expect(within(screen.getByRole('region', { name: 'Refunds, AR and stock at a glance' })).getAllByText('Sample data')).toHaveLength(2)
+    await waitFor(() => expect(screen.getAllByText('Sample data')).toHaveLength(1))
+    expect(within(screen.getByRole('region', { name: 'Refunds, AR and stock at a glance' })).getAllByText('Sample data')).toHaveLength(1)
     expect(await screen.findByText('AR Fitting Sessions')).toBeInTheDocument()
     expect(await screen.findByText('37', { selector: '.sr-only' })).toBeInTheDocument()
     expect(await screen.findByText('₱482,350', { selector: '.sr-only' })).toBeInTheDocument()
