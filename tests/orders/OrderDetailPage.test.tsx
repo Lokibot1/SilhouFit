@@ -131,7 +131,7 @@ describe('OrderDetailPage', () => {
     expect(summary).toHaveTextContent('₱3,780.00')
     expect(summary).toHaveTextContent('₱3,879.00')
     expect(summary).toHaveTextContent('12 Rizal Avenue')
-    expect(summary).toHaveTextContent('Online payment is coming soon')
+    expect(summary).toHaveTextContent('This order is waiting for payment')
     expect(document.title).toBe('Order SHF-20261026-ABC123 — SilhouFit')
     const description = document.querySelector<HTMLMetaElement>('meta[name="description"]')!.content
     expect(description.length).toBeGreaterThanOrEqual(150)

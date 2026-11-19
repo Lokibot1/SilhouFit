@@ -51,7 +51,7 @@ describe('OrderSuccessPage', () => {
     saveLastOrder(DELIVERY)
     renderPage()
     expect(screen.getByRole('heading', { level: 1, name: 'Order placed' })).toHaveFocus()
-    expect(screen.getByText(/waiting for payment/)).toBeInTheDocument()
+    expect(screen.getByText(/confirming your payment/)).toBeInTheDocument()
     expect(screen.getByText('SF-261011-ABCD')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to shop' })).toHaveAttribute('href', '/shop')
     expect(screen.queryByText('Sample data')).toBeNull() // a real account's order is real
