@@ -6,9 +6,9 @@ import { AlertIcon, SpinnerIcon } from '../../form/icons'
 import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../../staff/inventory/FormField'
 import { useToast } from '../../toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
-import { Checkbox } from '../../ui/Checkbox'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
+import { Switch } from '../../ui/Switch'
 import { Tooltip } from '../../ui/Tooltip'
 
 const FORM_ID = 'help-answer-form'
@@ -195,9 +195,10 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
         </div>
         <div>
           <Tooltip label="A draft is saved here but customers do not see it. Publish it when the answer is ready." wrap>
-            <Checkbox label="Published" checked={values.published} onChange={(checked) => set('published', checked)} disabled={pending}>
+            <label className="font-ui flex min-h-11 cursor-pointer items-center justify-between gap-3 text-base text-fg md:text-sm">
               Published
-            </Checkbox>
+              <Switch success checked={values.published} onChange={(checked) => set('published', checked)} disabled={pending} />
+            </label>
           </Tooltip>
           <p className="text-xs text-fg-muted">{values.published ? 'Customers see this answer in the Help chat right away.' : 'Saved as a draft. Customers do not see it yet.'}</p>
         </div>

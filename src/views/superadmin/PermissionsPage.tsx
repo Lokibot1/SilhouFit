@@ -4,6 +4,7 @@ import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
 import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
+import { Switch } from '../../components/ui/Switch'
 import { ACCOUNTS_SAMPLE_DATA } from '../../config/accountPolicy'
 import { PAGE_GROUPS, PERMISSION_ROLES, type PageKey, type PermissionRole } from '../../config/pagePermissions'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
@@ -14,16 +15,6 @@ import { resetPermissions, setRolePermissions } from '../../service/permissionSt
 const META_DESCRIPTION =
   'Choose which SilhouFit pages customers, staff and admins can open. Turn pages on or off per role, select every page at once, and save the changes for that role.'
 
-/** A native checkbox drawn as a switch, so keyboard and screen readers work as for any checkbox. */
-function Switch({ checked, onChange, label }: { checked: boolean; onChange: (on: boolean) => void; label?: string }) {
-  return (
-    <span className="relative inline-flex h-5 w-9 shrink-0">
-      <input type="checkbox" role="switch" aria-label={label} checked={checked} onChange={(event) => onChange(event.target.checked)} className="peer absolute inset-0 z-10 size-full cursor-pointer opacity-0" />
-      <span aria-hidden="true" className="absolute inset-0 rounded-full bg-line-strong transition-colors peer-checked:bg-chrome-strong peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-fg motion-reduce:transition-none" />
-      <span aria-hidden="true" className="absolute top-0.5 left-0.5 size-4 rounded-full bg-canvas shadow-sm transition-transform peer-checked:translate-x-4 motion-reduce:transition-none" />
-    </span>
-  )
-}
 const ROW = 'font-ui flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg px-2 text-sm text-fg hover:bg-fg/10'
 
 const sameSet = (a: PageKey[], b: PageKey[]) => a.length === b.length && a.every((key) => b.includes(key))

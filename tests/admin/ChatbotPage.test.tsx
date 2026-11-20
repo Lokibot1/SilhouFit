@@ -142,7 +142,7 @@ describe('the question sheet', () => {
     expect(within(row).getByText('Draft')).toBeInTheDocument()
     await userEvent.click(within(row).getByRole('button', { name: 'Edit Do you gift wrap orders?' }))
     const edit = await screen.findByRole('dialog', { name: 'Edit question' })
-    await userEvent.click(within(edit).getByRole('checkbox', { name: 'Published' }))
+    await userEvent.click(within(edit).getByRole('switch', { name: 'Published' }))
     await userEvent.click(within(edit).getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => expect(within(rowOf('Do you gift wrap orders?')).getByText('Published')).toBeInTheDocument())
