@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CATEGORIES, SIZES_BY_CATEGORY } from '../../../data/products'
 import { createSizeMeasurement, fetchSizeMeasurement, sizeFailureReason, updateSizeMeasurement, type SizeMeasurement } from '../../../service/sizeMeasurements'
 import { describedBy, filterMeasurement, MEASUREMENT_FIELDS } from '../../../utils/productValidation'
-import { COLUMNS_BY_CATEGORY, buildSizeInput, buildSizePatch, filterSizeLabel, SIZE_MAX, sizeFormValues, validateSizeForm, type SizeFormValues } from '../../../utils/sizeMeasurementValidation'
+import { COLUMNS_BY_CATEGORY, buildSizeInput, buildSizePatch, sizeFormValues, validateSizeForm, type SizeFormValues } from '../../../utils/sizeMeasurementValidation'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
@@ -199,6 +199,13 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
     </div>
   )
 
+  const known = SIZES_BY_CATEGORY[values.category] ?? []
+  // A size the row already has stays pickable even when it is not one of the usual ones.
+  const sizeOptions = [
+    ...(values.size === '' ? [{ value: '', label: 'Choose a size' }] : []),
+    ...(values.size !== '' && !known.includes(values.size) ? [{ value: values.size, label: values.size }] : []),
+    ...known.map((size) => ({ value: size as string, label: size })),
+  ]
   const sizeError = error('size')
   const noneError = error('measurements')
   return (
@@ -268,26 +275,16 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
             </SelectField>
           )}
 
-          <Field id="ss-size" label="Size" count={{ value: values.size.length, max: SIZE_MAX }} error={sizeError}>
-            <input
-              id="ss-size"
-              type="text"
-              autoComplete="off"
-              list="ss-size-options"
-              placeholder={`e.g. ${SIZES_BY_CATEGORY[values.category]?.[0] ?? 'M'}`}
-              value={values.size}
-              aria-invalid={Boolean(sizeError)}
-              aria-describedby={describedBy('ss-size', sizeError, true)}
-              onChange={(event) => set({ size: filterSizeLabel(event.target.value) })}
-              onBlur={() => touch('size')}
-              className={FIELD_INPUT}
-            />
-            <datalist id="ss-size-options">
-              {(SIZES_BY_CATEGORY[values.category] ?? []).map((size) => (
-                <option key={size} value={size} />
-              ))}
-            </datalist>
-          </Field>
+          <div>
+            <SelectField label="Size">
+              <Select label="Size" value={values.size} options={sizeOptions} onChange={(size) => set({ size })} className={SELECT_FLAT} />
+            </SelectField>
+            {sizeError && (
+              <p id="ss-size-error" role="alert" className="px-1 pt-1 text-xs text-danger">
+                {sizeError}
+              </p>
+            )}
+          </div>
 
           <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
             <legend className="text-sm font-semibold text-fg">Measurements (cm)</legend>
