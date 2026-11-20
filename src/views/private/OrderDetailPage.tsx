@@ -37,6 +37,41 @@ function Row({ label, children, strong = false }: { label: string; children: Rea
   )
 }
 
+const UPDATES_SHOWN = 3
+
+/** The courier's updates, latest first. Only the latest few show until the customer asks for the rest. */
+function DeliveryUpdates({ events }: { events: CustomerOrder['shipmentEvents'] }) {
+  const [expanded, setExpanded] = useState(false)
+  const shown = expanded ? events : events.slice(0, UPDATES_SHOWN)
+  const hidden = events.length - UPDATES_SHOWN
+  return (
+    <>
+      <h3 className="font-kral-mono mt-4 text-base font-medium text-kral-fg uppercase md:text-sm">Delivery updates</h3>
+      <ol id="delivery-updates" className="font-kral-mono mt-2 space-y-2 border-l border-kral-rule pl-4 text-base md:text-sm">
+        {shown.map((event, index) => (
+          <li key={event.id} className={index === 0 ? 'text-kral-fg' : 'text-kral-muted'}>
+            <p className={index === 0 ? 'font-medium' : ''}>{shipmentEventLabel(event.status)}</p>
+            <time dateTime={event.at} className="tabular-nums">
+              {formatOrderTime(event.at)}
+            </time>
+          </li>
+        ))}
+      </ol>
+      {hidden > 0 && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls="delivery-updates"
+          onClick={() => setExpanded((open) => !open)}
+          className="kral-focus font-kral-mono mt-1 inline-flex min-h-11 items-center text-base font-medium text-kral-fg uppercase underline underline-offset-4 hover:text-kral-red-ink md:text-sm"
+        >
+          {expanded ? 'View less' : `View more (${hidden})`}
+        </button>
+      )}
+    </>
+  )
+}
+
 function OrderBody({ order, onCancel, onRefresh }: { order: CustomerOrder; onCancel: (order: CustomerOrder) => void; onRefresh: () => void }) {
   const toast = useToast()
   const { busy, buyAgain } = useBuyAgain()
@@ -118,21 +153,7 @@ function OrderBody({ order, onCancel, onRefresh }: { order: CustomerOrder; onCan
                 </Row>
               )}
             </dl>
-            {order.shipmentEvents.length > 0 && (
-              <>
-                <h3 className="font-kral-mono mt-4 text-base font-medium text-kral-fg uppercase md:text-sm">Delivery updates</h3>
-                <ol className="font-kral-mono mt-2 space-y-2 border-l border-kral-rule pl-4 text-base md:text-sm">
-                  {order.shipmentEvents.map((event, index) => (
-                    <li key={event.id} className={index === 0 ? 'text-kral-fg' : 'text-kral-muted'}>
-                      <p className={index === 0 ? 'font-medium' : ''}>{shipmentEventLabel(event.status)}</p>
-                      <time dateTime={event.at} className="tabular-nums">
-                        {formatOrderTime(event.at)}
-                      </time>
-                    </li>
-                  ))}
-                </ol>
-              </>
-            )}
+            {order.shipmentEvents.length > 0 && <DeliveryUpdates events={order.shipmentEvents} />}
             {track && (
               <>
                 {/* The courier's own tracking page, shown in place. The block behind it holds the space while it loads. */}

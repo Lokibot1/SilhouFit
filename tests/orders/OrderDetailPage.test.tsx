@@ -215,6 +215,29 @@ describe('OrderDetailPage', () => {
     expect(screen.getAllByRole('listitem').map((li) => li.textContent).filter((t) => /Finding a driver|Driver assigned/.test(t ?? ''))).toEqual([expect.stringContaining('Finding a driver'), expect.stringContaining('Driver assigned')])
   })
 
+  it('shows only the latest three updates until View more is pressed, then View less folds them again', async () => {
+    const user = userEvent.setup()
+    const shipmentEvents = Array.from({ length: 5 }, (_, i) => ({ id: `e${i}`, status: 'ON_GOING', at: `2026-10-27T0${i}:00:00.000Z` }))
+    api.fetchOrder.mockResolvedValue(customerOrder({ status: 'DISPATCHED', paymentStatus: 'PAID', shipment: shipment(), shipmentEvents }))
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })
+    const updates = () => screen.getAllByText('Driver on the way')
+    expect(updates()).toHaveLength(3)
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }))
+    expect(updates()).toHaveLength(5)
+    expect(screen.getByRole('button', { name: 'View less' })).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('button', { name: 'View less' }))
+    expect(updates()).toHaveLength(3)
+  })
+
+  it('offers no View more when there are three updates or fewer', async () => {
+    const shipmentEvents = [{ id: 'e1', status: 'ON_GOING', at: '2026-10-27T01:00:00.000Z' }]
+    api.fetchOrder.mockResolvedValue(customerOrder({ status: 'DISPATCHED', paymentStatus: 'PAID', shipment: shipment(), shipmentEvents }))
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })
+    expect(screen.queryByRole('button', { name: /View more/ })).toBeNull()
+  })
+
   it('hides the driver phone before the last leg', async () => {
     api.fetchOrder.mockResolvedValue(customerOrder({ status: 'DISPATCHED', paymentStatus: 'PAID', shipment: shipment() }))
     renderPage()
