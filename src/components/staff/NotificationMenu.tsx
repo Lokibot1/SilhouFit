@@ -223,7 +223,7 @@ export function NotificationMenu({ area }: { area: Area }) {
                 {state === 'empty' && (
                   <div className="px-3 py-4">
                     <p className="text-base font-semibold text-fg">You&apos;re all caught up</p>
-                    <p className="mt-1 text-sm text-fg-muted">New orders show here as they are placed.</p>
+                    <p className="mt-1 text-sm text-fg-muted">New orders and stock alerts show here as they happen.</p>
                   </div>
                 )}
                 {state === 'list' && (
