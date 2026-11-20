@@ -4,6 +4,8 @@ import { withCommas } from './format'
 import type { Gender, MeasurementKey, ProductDetailFields, ProductListItem, ProductVariant } from '../service/fetchProductList'
 import type { NewProductInput, ProductPatch, VariantInput, VariantPatch } from '../service/productAdmin'
 import { cleanText } from './checkoutValidation'
+import type { SizeMeasurement } from '../service/sizeMeasurements'
+import { baseMeasurementsFor } from './sizeGuide'
 import { stripEmoji } from './signUpValidation'
 import { MAX_STOCK, parseStock, STOCK_ERROR } from './stockEdit'
 
@@ -181,10 +183,12 @@ export interface ValidationOptions {
   existingSkus?: ReadonlySet<string>
   /** A SKU the server said is taken. */
   conflictSku?: string
+  /** Create mode with the base sizing: the category's base rows, so a ticked size with no measurements can be refused. Omitted skips the check. */
+  base?: { rows: SizeMeasurement[]; status: 'loading' | 'failed' | 'ready' }
 }
 
 /** Every problem in the form, by field key, in on-screen order. An empty object means it can be sent. */
-export function validateProductForm(v: ProductFormValues, { existingSkus = new Set(), conflictSku, mode = 'create' }: ValidationOptions = {}): Record<string, string> {
+export function validateProductForm(v: ProductFormValues, { existingSkus = new Set(), conflictSku, mode = 'create', base }: ValidationOptions = {}): Record<string, string> {
   const errors: Record<string, string> = {}
   const name = cleanText(stripEmoji(v.name))
   if (name.length < PRODUCT_LIMITS.nameMin || name.length > PRODUCT_LIMITS.nameMax) errors.name = 'Enter a product name of 2 to 100 characters.'
@@ -197,6 +201,13 @@ export function validateProductForm(v: ProductFormValues, { existingSkus = new S
   if (mode === 'edit') return errors
 
   if (v.sizes.length === 0) errors.sizes = 'Select at least one size.'
+  else if (v.sizingMode === 'base' && base) {
+    const missing = sizeChips(v).filter((size) => v.sizes.includes(size) && !baseMeasurementsFor(v.category, size, base.rows))
+    if (base.status === 'loading') errors.sizes = 'Checking base measurements…'
+    else if (base.status === 'failed') errors.sizes = "Base measurements couldn't load. Close this sheet and try again."
+    else if (missing.length > 0)
+      errors.sizes = `No size guide measurements for ${missing.join(', ')}. Untick ${missing.length === 1 ? 'it' : 'them'}, add them in Base measurements, or switch to Custom sizing.`
+  }
   if (v.colors.length === 0) errors.colors = 'Add at least one colour.'
   const names = new Set<string>()
   for (const color of v.colors) {

@@ -193,6 +193,36 @@ describe('checkImageFile', () => {
   })
 })
 
+describe('validateProductForm base measurements', () => {
+  const row = (size: string, chestWidthCm: number | null = 55) => ({
+    id: size, category: 'Hoodie', size, chestWidthCm, waistWidthCm: null, hipWidthCm: null, totalLengthCm: null, inseamCm: null,
+    shoulderWidthCm: null, sleeveLengthCm: null, neckCm: null, thighCm: null, isActive: true, createdAt: '', updatedAt: '',
+  })
+  const check = (over: Partial<ProductFormValues>, base: { rows: ReturnType<typeof row>[]; status: 'loading' | 'failed' | 'ready' }, mode?: 'edit') =>
+    validateProductForm(valid(over), { base, mode }).sizes
+
+  it('lists the ticked sizes that have no base row, in chip order', () => {
+    expect(check({ sizes: ['M', 'XL', 'S'] }, { rows: [row('S')], status: 'ready' })).toBe(
+      'No size guide measurements for M, XL. Untick them, add them in Base measurements, or switch to Custom sizing.',
+    )
+    expect(check({ sizes: ['S', 'M'] }, { rows: [row('S')], status: 'ready' })).toMatch(/for M\. Untick it,/)
+  })
+  it('passes when every ticked size has a row, and counts a row with no numbers as missing', () => {
+    expect(check({}, { rows: [row('S'), row('M')], status: 'ready' })).toBeUndefined()
+    expect(check({}, { rows: [row('S'), row('M', null)], status: 'ready' })).toMatch(/for M\./)
+  })
+  it('says so while loading or when loading failed', () => {
+    expect(check({}, { rows: [], status: 'loading' })).toBe('Checking base measurements…')
+    expect(check({}, { rows: [], status: 'failed' })).toBe("Base measurements couldn't load. Close this sheet and try again.")
+  })
+  it('keeps the no-size message first, and skips custom sizing, edit mode and no base', () => {
+    expect(check({ sizes: [] }, { rows: [], status: 'ready' })).toBe('Select at least one size.')
+    expect(check({ sizingMode: 'custom' }, { rows: [], status: 'ready' })).toBeUndefined()
+    expect(check({}, { rows: [], status: 'ready' }, 'edit')).toBeUndefined()
+    expect(validateProductForm(valid()).sizes).toBeUndefined()
+  })
+})
+
 describe('validateProductForm in edit mode', () => {
   it('needs no base price, sizes, colours or SKUs, but still a name and an image', () => {
     const edit = valid({ basePrice: '', sizes: [], colors: [] })

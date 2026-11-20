@@ -4,6 +4,7 @@ import type { Gender } from '../../../service/fetchProductList'
 import { addCustomSizing, getCustomSizings, getProductSizingId, linkProductSizing, useCustomSizings } from '../../../service/customSizings'
 import { addProduct, createFailureReason, manageFailureReason, saveProduct, uploadImage } from '../../../service/inventoryActions'
 import { buildCustomSizing, draftSizes, newSizingDraft, validateSizingDraft } from '../../../utils/customSizing'
+import { useBaseMeasurements } from '../../../hooks/useBaseMeasurements'
 import { GENDERS } from '../../../utils/inventoryQuery'
 import {
   buildProductInput,
@@ -138,9 +139,11 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
   const customSizing = values.sizingMode === 'custom'
   const newSizing = customSizing && !values.sizingId
   const takenNames = useCustomSizings(values.category).map((s) => s.name)
+  const base = useBaseMeasurements(values.category)
   const { sizes: sizesError, ...formErrors }: Record<string, string> = validateProductForm(values, {
     conflictSku,
     mode: editing ? 'edit' : 'create',
+    base,
   })
   const sizingErrors = newSizing
     ? Object.fromEntries(Object.entries(validateSizingDraft(values.sizingDraft, values.category, takenNames)).map(([key, message]) => [`sizing:${key}`, message]))

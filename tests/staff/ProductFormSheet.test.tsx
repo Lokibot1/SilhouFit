@@ -27,6 +27,24 @@ vi.mock('../../src/service/sizeMeasurements', async (importOriginal) => ({
   fetchCategoryMeasurements: vi.fn(),
 }))
 
+const baseRow = (size: string) => ({
+  id: `base-${size}`,
+  category: 'Hoodie',
+  size,
+  chestWidthCm: 55,
+  waistWidthCm: null,
+  hipWidthCm: null,
+  totalLengthCm: 70,
+  inseamCm: null,
+  shoulderWidthCm: 48,
+  sleeveLengthCm: 62,
+  neckCm: 38,
+  thighCm: null,
+  isActive: true,
+  createdAt: '',
+  updatedAt: '',
+})
+
 const POLO = {
   id: '00000000-0000-4000-8000-000000000001',
   name: 'Heritage Polo',
@@ -71,7 +89,7 @@ beforeAll(() => {
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(fetchProductList).mockResolvedValue(page([POLO]))
-  vi.mocked(fetchCategoryMeasurements).mockResolvedValue([])
+  vi.mocked(fetchCategoryMeasurements).mockResolvedValue(['XS', 'S', 'M', 'L', 'XL'].map(baseRow))
   vi.mocked(uploadImage).mockResolvedValue('https://images.silhoufit.test/front.jpg')
   vi.mocked(fetchProductDetail).mockResolvedValue({
     variants: [{ id: 'v1', sku: 'P01-S-WHITE', size: 'S', color: 'White', colorHex: '#ffffff', price: 1890, stock: 20, name: null, imageUrl: null, measurements: null }],
@@ -179,7 +197,22 @@ describe('Add product sheet', () => {
     expect(screen.getByTestId('where').textContent).toContain('q=Linen+Shirt')
   })
 
-  it('asks the API to inherit the base measurements on base sizes, without fetching or copying them', async () => {
+  it('blocks Create product with an inline message while a ticked size has no base measurements, and saves once only sized rows are ticked', async () => {
+    const user = userEvent.setup()
+    vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })
+    vi.mocked(fetchCategoryMeasurements).mockResolvedValue(['S', 'M'].map(baseRow))
+    const dialog = await openSheet(user)
+    await fillValid(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
+    expect(await within(dialog).findAllByText(/No size guide measurements for XS, L, XL\./)).not.toHaveLength(0)
+    expect(addProduct).not.toHaveBeenCalled()
+    for (const size of ['XS', 'L', 'XL']) await user.click(within(dialog).getByRole('checkbox', { name: size }))
+    expect(within(dialog).queryByText(/No size guide measurements/)).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
+    await waitFor(() => expect(addProduct).toHaveBeenCalledTimes(1))
+  })
+
+  it('asks the API to inherit the base measurements on base sizes, without copying them', async () => {
     const user = userEvent.setup()
     vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })
     const dialog = await openSheet(user)
@@ -189,7 +222,6 @@ describe('Add product sheet', () => {
     const input = vi.mocked(addProduct).mock.calls[0][0]
     expect(input.inheritBaseMeasurements).toBe(true)
     expect(input.variants.every((v) => v.measurements === undefined)).toBe(true)
-    expect(fetchCategoryMeasurements).not.toHaveBeenCalled()
   })
 
   it('does not ask the API to inherit base measurements on a custom sizing', async () => {

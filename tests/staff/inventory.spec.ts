@@ -823,7 +823,7 @@ test.describe('AR Fitting flag', () => {
   for (const ticked of [true, false]) {
     test(`Add product sends isArReady: ${ticked}`, async ({ page }) => {
       await page.route(/\/storage\/v1\/object\/products\//, (route) => route.fulfill({ status: 200, json: { Key: 'products/x.png' } }))
-      const api = await start(page)
+      const api = await start(page, undefined, ['XS', 'S', 'M', 'L', 'XL'].map((size) => sizeRow({ category: 'Hoodie', size })))
       await page.getByRole('button', { name: 'Add product', exact: true }).first().click()
       const dialog = page.getByRole('dialog', { name: 'Add product', exact: true })
       await dialog.getByRole('textbox', { name: /^Name/ }).fill('Canvas Tote')
