@@ -82,6 +82,23 @@ describe('NotificationMenu', () => {
     expect(await screen.findByRole('button', { name: 'Notifications, 2 unread' })).toBeInTheDocument()
   })
 
+  it('opens a sold-out alert on Inventory for that product and marks it read', async () => {
+    const id = orderId(9)
+    const alert = apiNotification(5, {
+      type: 'PRODUCT_SOLD_OUT',
+      title: 'Product sold out',
+      data: { productId: id, productName: 'X', previousStock: 1, currentStock: 0, threshold: 5, occurredAt: '2026-11-20T00:00:00.000Z' },
+    })
+    server = fakeNotifications([alert])
+    renderBell()
+    await userEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }))
+    const link = await screen.findByRole('link', { name: /Product sold out/ })
+    expect(link).toHaveAttribute('href', `/admin/inventory?q=${id}`)
+    await userEvent.click(link)
+    expect(screen.getByTestId('where')).toHaveTextContent(`/admin/inventory?q=${id}`)
+    expect(server.calls).toContain(`POST /notifications/${alert.id}/read`)
+  })
+
   it('shows a notification with no order as a plain row', async () => {
     renderBell()
     await userEvent.click(await screen.findByRole('button', { name: /^Notifications/ }))

@@ -19,7 +19,7 @@ const ROW = 'flex h-[4.5rem] items-center gap-3 px-3'
 const SKELETON_ROWS = 5
 
 type NotificationKind = 'order' | 'low' | 'out'
-const KINDS: Record<string, NotificationKind> = { STOCK_LOW: 'low', STOCK_OUT: 'out' }
+const KINDS: Record<string, NotificationKind> = { PRODUCT_LOW_STOCK: 'low', PRODUCT_SOLD_OUT: 'out' }
 
 // Same colours as the inventory table's stock badge: sold out is a filled red mark, low stock an amber ring and tint.
 const ICON_CHIP: Record<NotificationKind, string> = {
@@ -43,7 +43,13 @@ function NotificationIcon({ kind, unread }: { kind: NotificationKind; unread: bo
 
 function NotificationRow({ item, area, onOpen }: { item: ServerNotification; area: Area; onOpen: () => void }) {
   const unread = !item.readAt
-  const orderNumber = typeof item.data?.orderId === 'string' && typeof item.data.orderNumber === 'string' ? item.data.orderNumber : null
+  const { orderId, orderNumber, productId } = item.data ?? {}
+  const href =
+    typeof orderId === 'string' && typeof orderNumber === 'string'
+      ? `/${area}/online-orders?q=${encodeURIComponent(orderNumber)}`
+      : typeof productId === 'string' && productId
+        ? `/${area}/inventory?q=${encodeURIComponent(productId)}`
+        : null
   const content = (
     <>
       <NotificationIcon kind={KINDS[item.type] ?? 'order'} unread={unread} />
@@ -59,11 +65,11 @@ function NotificationRow({ item, area, onOpen }: { item: ServerNotification; are
       </div>
     </>
   )
-  // Order notifications open the Online Orders page filtered to that order; others are plain rows.
+  // Order notifications open Online Orders filtered to the order; stock alerts open Inventory on that product; others are plain rows.
   return (
     <li>
-      {orderNumber ? (
-        <Link to={`/${area}/online-orders?q=${encodeURIComponent(orderNumber)}`} onClick={onOpen} className={`${ROW} hover:bg-fg/10`}>
+      {href ? (
+        <Link to={href} onClick={onOpen} className={`${ROW} hover:bg-fg/10`}>
           {content}
         </Link>
       ) : (
