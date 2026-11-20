@@ -329,7 +329,7 @@ test.describe('one order', () => {
     await expect(page.getByText('Gate code 1234.')).toBeVisible()
     const steps = page.getByRole('list', { name: 'Order progress' }).getByRole('listitem')
     await expect(steps).toHaveCount(6)
-    await expect(steps.nth(1)).toHaveAttribute('aria-current', 'step') // waiting on payment
+    await expect(steps.nth(4)).toHaveAttribute('aria-current', 'step') // waiting on payment; the latest step is listed first
     await expect(page).toHaveTitle('Order SHF-20261001-000001 — SilhouFit')
   })
 

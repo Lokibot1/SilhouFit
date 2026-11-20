@@ -12,19 +12,25 @@ function Marker({ state }: { state: StepState }) {
   return <span aria-hidden="true" className={`${base} border-kral-muted`} />
 }
 
-/** An order's journey: a list down the page, across it only when its own column is wide enough for six steps. Each step says its state in words for screen readers. */
+/**
+ * An order's journey with the latest step first: a list down the page, across it (oldest on the left) only when its own column is wide enough for six steps.
+ * Steps already behind the order are dimmed so the current one stands out. Each step says its state in words for screen readers.
+ */
 export function OrderTimeline({ steps }: { steps: TimelineStep[] }) {
+  const latestFirst = [...steps].reverse()
   return (
     <div className="@container">
-      <ol aria-label="Order progress" className="@4xl:flex">
-        {steps.map((step, i) => {
-          const last = i === steps.length - 1
-          const muted = step.state === 'upcoming'
+      <ol aria-label="Order progress" className="@4xl:flex @4xl:flex-row-reverse">
+        {latestFirst.map((step, i) => {
+          const last = i === latestFirst.length - 1
+          const muted = step.state === 'upcoming' || step.state === 'done'
           return (
             <li key={step.key} aria-current={step.state === 'current' ? 'step' : undefined} className="grid grid-cols-[1rem_1fr] gap-x-3 @4xl:flex-1 @4xl:grid-cols-1 @4xl:gap-y-2">
-              <span className="flex flex-col items-center @4xl:flex-row">
-                <Marker state={step.state} />
-                {!last && <span aria-hidden="true" className={`my-1 w-px flex-1 @4xl:mx-1 @4xl:my-0 @4xl:h-px @4xl:w-auto ${step.state === 'done' ? 'bg-kral-fg' : 'bg-kral-muted/50'}`} />}
+              <span className="flex flex-col items-center @4xl:flex-row-reverse">
+                <span className={step.state === 'done' ? 'opacity-50' : undefined}>
+                  <Marker state={step.state} />
+                </span>
+                {!last && <span aria-hidden="true" className={`my-1 w-px flex-1 @4xl:mx-1 @4xl:my-0 @4xl:h-px @4xl:w-auto ${step.state === 'done' || step.state === 'current' ? 'bg-kral-muted' : 'bg-kral-muted/50'}`} />}
               </span>
               <div className={`min-w-0 ${last ? '' : 'pb-5 @4xl:pb-0 @4xl:pr-3'} font-kral-mono`}>
                 <p className={`text-base leading-tight font-medium uppercase md:text-sm ${muted ? 'text-kral-muted' : 'text-kral-fg'}`}>
