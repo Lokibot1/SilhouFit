@@ -64,6 +64,19 @@ const SHIPMENT_LABEL: Record<ShipmentStatus, string> = {
 }
 export const shipmentStatusLabel = (status: ShipmentStatus) => SHIPMENT_LABEL[status]
 
+// What the courier's other statuses and the kinds of event mean to a customer.
+const EVENT_LABEL: Record<string, string> = {
+  ...SHIPMENT_LABEL,
+  ORDER_STATUS_CHANGED: 'Delivery status updated',
+  DRIVER_ASSIGNED: 'Driver assigned',
+  ORDER_REPLACED: 'New rider booked',
+  REJECTED: 'Rider declined',
+  EXPIRED: 'Booking expired',
+}
+
+/** A readable line for one delivery update; an unknown status is spelled out rather than hidden. */
+export const shipmentEventLabel = (status: string) => EVENT_LABEL[status] ?? status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, ' ')
+
 const BOOKABLE: ShipmentStatus[] = ['QUOTED', 'PENDING_DISPATCH', 'CANCELLED', 'FAILED']
 
 /** Why Book rider is off, or null when a rider can be booked. */

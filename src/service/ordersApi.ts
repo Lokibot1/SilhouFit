@@ -50,6 +50,13 @@ export interface CustomerShipment {
   deliveredAt: string | null
 }
 
+/** One update from the courier about the delivery. `status` is the courier's status, or the kind of event when it sent none. */
+export interface ShipmentEvent {
+  id: string
+  status: string
+  at: string
+}
+
 export interface CustomerOrder {
   id: string
   /** SHF-YYYYMMDD-XXXXXX */
@@ -71,6 +78,8 @@ export interface CustomerOrder {
   createdAt: string
   items: CustomerOrderItem[]
   shipment: CustomerShipment | null
+  /** Newest first. Empty when the server sends none. */
+  shipmentEvents: ShipmentEvent[]
 }
 
 export interface OrdersPage {
@@ -137,6 +146,19 @@ function toShipment(value: unknown): CustomerShipment | null {
   }
 }
 
+/** Reads GET /orders/:id's `shipmentEvents`, newest first. An entry that cannot be read is skipped, so one bad row never hides the order. */
+function toShipmentEvents(value: unknown): ShipmentEvent[] {
+  if (!Array.isArray(value)) return []
+  const events: ShipmentEvent[] = []
+  for (const entry of value) {
+    if (!isRecord(entry)) continue
+    const status = text(entry.courierStatus) ?? text(entry.eventType)
+    const at = text(entry.eventTimestamp) ?? text(entry.createdAt)
+    if (typeof entry.id === 'string' && status && at && !Number.isNaN(Date.parse(at))) events.push({ id: entry.id, status, at })
+  }
+  return events.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+}
+
 export function toOrder(value: unknown): CustomerOrder {
   if (!isRecord(value) || !isRecord(value.shippingAddressSnapshot) || !Array.isArray(value.items)) throw new OrdersError('server')
   const { id, orderNumber, status, paymentStatus, subtotalAmount, shippingAmount, totalAmount, createdAt } = value
@@ -170,6 +192,7 @@ export function toOrder(value: unknown): CustomerOrder {
     createdAt,
     items: value.items.map(toItem),
     shipment: toShipment(value.shipment),
+    shipmentEvents: toShipmentEvents(value.shipmentEvents),
   }
 }
 

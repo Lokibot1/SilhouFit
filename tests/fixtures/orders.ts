@@ -37,6 +37,7 @@ export const customerOrder = (over: Partial<CustomerOrder> = {}): CustomerOrder 
   createdAt: '2026-10-26T02:30:00.000Z',
   items: [orderItem()],
   shipment: null,
+  shipmentEvents: [],
   ...over,
 })
 

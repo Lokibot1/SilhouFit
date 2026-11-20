@@ -203,6 +203,18 @@ describe('OrderDetailPage', () => {
     expect(delivery.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it('lists the delivery updates newest first, and shows no list when there are none', async () => {
+    const shipmentEvents = [
+      { id: 'e1', status: 'ASSIGNING_DRIVER', at: '2026-10-27T01:00:00.000Z' },
+      { id: 'e2', status: 'DRIVER_ASSIGNED', at: '2026-10-27T02:00:00.000Z' },
+    ]
+    api.fetchOrder.mockResolvedValue(customerOrder({ status: 'DISPATCHED', paymentStatus: 'PAID', shipment: shipment(), shipmentEvents }))
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'SHF-20261026-ABC123' })
+    expect(screen.getByRole('heading', { level: 3, name: 'Delivery updates' })).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent).filter((t) => /Finding a driver|Driver assigned/.test(t ?? ''))).toEqual([expect.stringContaining('Finding a driver'), expect.stringContaining('Driver assigned')])
+  })
+
   it('hides the driver phone before the last leg', async () => {
     api.fetchOrder.mockResolvedValue(customerOrder({ status: 'DISPATCHED', paymentStatus: 'PAID', shipment: shipment() }))
     renderPage()

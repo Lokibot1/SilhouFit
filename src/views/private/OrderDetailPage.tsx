@@ -20,7 +20,7 @@ import { useOrder } from '../../hooks/useOrders'
 import { createCheckoutSession, OrdersError, usesSampleOrders, type CustomerOrder } from '../../service/ordersApi'
 import { formatOrderTime, formatPeso, variantLabel } from '../../utils/format'
 import { notificationSentence } from '../../utils/notifications'
-import { adaptOrderToReceipt, buildTimeline, canBuyAgain, canCancel, canPay, hasShipped, paymentStatusLabel, trackingLink } from '../../utils/orders'
+import { adaptOrderToReceipt, buildTimeline, canBuyAgain, canCancel, canPay, hasShipped, paymentStatusLabel, shipmentEventLabel, trackingLink } from '../../utils/orders'
 
 const DESCRIPTION = 'Follow one SilhouFit order: where it is now, what is in it, what you paid, where it is going, and what you can do next, such as cancelling or buying again.'
 
@@ -118,6 +118,21 @@ function OrderBody({ order, onCancel, onRefresh }: { order: CustomerOrder; onCan
                 </Row>
               )}
             </dl>
+            {order.shipmentEvents.length > 0 && (
+              <>
+                <h3 className="font-kral-mono mt-4 text-base font-medium text-kral-fg uppercase md:text-sm">Delivery updates</h3>
+                <ol className="font-kral-mono mt-2 space-y-2 border-l border-kral-rule pl-4 text-base md:text-sm">
+                  {order.shipmentEvents.map((event, index) => (
+                    <li key={event.id} className={index === 0 ? 'text-kral-fg' : 'text-kral-muted'}>
+                      <p className={index === 0 ? 'font-medium' : ''}>{shipmentEventLabel(event.status)}</p>
+                      <time dateTime={event.at} className="tabular-nums">
+                        {formatOrderTime(event.at)}
+                      </time>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
             {track && (
               <>
                 {/* The courier's own tracking page, shown in place. The block behind it holds the space while it loads. */}

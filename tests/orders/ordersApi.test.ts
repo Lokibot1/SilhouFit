@@ -23,6 +23,26 @@ beforeEach(() => {
 })
 
 describe('reading an order', () => {
+  it('reads shipmentEvents newest first, skips unreadable entries and tolerates a missing list', async () => {
+    send.mockResolvedValue(
+      apiOrder({
+        shipmentEvents: [
+          { id: 'e1', eventType: 'ORDER_STATUS_CHANGED', courierStatus: 'ASSIGNING_DRIVER', eventTimestamp: '2026-10-27T01:00:00.000Z', createdAt: '2026-10-27T01:00:01.000Z' },
+          { id: 'e2', eventType: 'DRIVER_ASSIGNED', courierStatus: null, eventTimestamp: '2026-10-27T02:00:00.000Z', createdAt: '2026-10-27T02:00:01.000Z' },
+          { id: 'bad', eventType: 'DRIVER_ASSIGNED', eventTimestamp: 'not a date' },
+          'junk',
+        ],
+      }),
+    )
+    expect((await fetchOrder(ORDER_ID)).shipmentEvents).toEqual([
+      { id: 'e2', status: 'DRIVER_ASSIGNED', at: '2026-10-27T02:00:00.000Z' },
+      { id: 'e1', status: 'ASSIGNING_DRIVER', at: '2026-10-27T01:00:00.000Z' },
+    ])
+    clearOrdersCache()
+    send.mockResolvedValue(apiOrder())
+    expect((await fetchOrder(ORDER_ID)).shipmentEvents).toEqual([])
+  })
+
   it('maps the API order: amounts, address snapshot, items and shipment', async () => {
     send.mockResolvedValue(
       apiOrder({

@@ -41,6 +41,7 @@ function order(n: number, day: string, over: Partial<CustomerOrder> & Pick<Custo
     cancellationReason: null,
     createdAt: `${day}T02:30:00.000Z`,
     shipment: null,
+    shipmentEvents: [],
     ...over,
   }
 }
