@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, type MouseEvent } from 'react'
 import { SiteHeader } from './SiteHeader'
-import { WORDMARK } from './wordmarkOriginal'
+import { WORDMARK } from './wordmark'
 
 const HeroShader = lazy(() => import('./HeroShader'))
 
@@ -125,7 +125,7 @@ export function Hero() {
               <HeroShader />
             </Suspense>
           </div>
-          <svg className="sv2-mark" viewBox={`${-PAD} ${-PAD} ${W + 2 * PAD} ${H + 2 * PAD}`} preserveAspectRatio="none" role="img" aria-label="KRAL">
+          <svg className="sv2-mark" viewBox={`${-PAD} ${-PAD} ${W + 2 * PAD} ${H + 2 * PAD}`} role="img" aria-label="KRAL">
             <defs>
               <clipPath id="sv2-letters">
                 {letters.map((l) => (

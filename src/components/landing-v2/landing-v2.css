@@ -227,7 +227,8 @@
 }
 .sv2-hero {
   --hero-h: max(calc(100svh - var(--sv2-bar-h)), 30rem);
-  --mark-h: 11.46vw; /* the wordmark band's height */
+  --mark-w: 70vw; /* the official wordmark's width: it keeps its own proportions, so its height follows */
+  --mark-h: calc(0.2394 * var(--mark-w)); /* the wordmark band's height: (1120 + 2 x 60) / (5060 + 2 x 60) of its width */
   --letters-b: calc(0.954 * var(--mark-h)); /* where the glyphs end inside the band */
   --copy-h: max(10rem, calc(190 * var(--u))); /* the overlay copy at the bottom (its type scales with --u) */
   --fig-k: 1; /* how much wider than the viewport the figures may grow (phones crop the walkers to keep the man large) */
@@ -305,20 +306,19 @@
 
 .sv2-band {
   position: absolute;
-  inset: 0 0 auto 0;
+  inset: 0 auto auto 50%; /* exactly as wide as the wordmark, centred, so the shader and the cut-out line up */
+  width: var(--mark-w);
+  transform: translateX(-50%);
   z-index: 3; /* behind .sv2-stage */
   touch-action: pan-y; /* horizontal drags reach the shader as pointer moves; vertical drags still scroll the page */
 }
 .sv2-glyph {
   position: absolute;
-  inset: 0 0 2px; /* stops short of the band's fractional bottom row, where it would show as a hairline */
+  inset: 0 2px 2px; /* stops short of the band's fractional bottom row and side columns, where it would show as a hairline */
   background: var(--sv2-page-fg); /* Paper letters on Obsidian, Obsidian on Paper: the no-WebGL and loading state */
 }
 /* Phones: the intro loader's KRAL, plain red at its natural ratio, no shader. */
 @media (max-width: 559.98px) {
-  .sv2-band .sv2-mark {
-    height: 18vw; /* natural ratio is about 11vw; the letters already span the full width, so only height can grow */
-  }
   .sv2-glyph {
     background: var(--sv2-red);
   }
@@ -514,8 +514,9 @@ a.sv2-logo:hover {
 .sv2-mark {
   position: relative; /* above .sv2-glyph */
   display: block;
-  width: 100%;
+  width: var(--mark-w);
   height: auto;
+  margin-inline: auto;
 }
 .sv2-mark-band {
   fill: var(--sv2-page-bg);
@@ -739,7 +740,7 @@ a.sv2-logo:hover {
     --u: min(100vw / 400, 100svh / 760);
   }
   section.sv2-hero {
-    --mark-h: 18vw; /* beats the tablet value below */
+    --mark-w: 100vw; /* beats the tablet value below */
     --copy-h: 8rem;
   }
   .sv2-bar {
@@ -791,12 +792,8 @@ a.sv2-logo:hover {
 
 /* Phones and small tablets: header text is body/link text, so 16px minimum (the bar wraps rather than clips if it must). */
 @media (max-width: 767.98px) {
-  /* The wordmark is taller than its natural ratio (stretched vertically) so KRAL reads big while still fitting 320px. */
-  .sv2-mark {
-    height: 34vw;
-  }
   .sv2-hero {
-    --mark-h: 34vw;
+    --mark-w: 100vw; /* the official wordmark at its own proportions, edge to edge */
   }
   .sv2-header .sv2-btn,
   .sv2-menu-btn,
