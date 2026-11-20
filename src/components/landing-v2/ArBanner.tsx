@@ -20,7 +20,7 @@ export function ArBanner() {
               <Link to={{ pathname: '/about', hash: '#how-it-works' }} className="sv2-btn sv2-btn--paper">
                 See how AR fitting works
               </Link>
-              <button type="button" onClick={() => openChat(HELP_BOX, { name: 'KRAL Help' })} className="sv2-btn sv2-btn--line">
+              <button type="button" onClick={() => openChat(HELP_BOX, { name: 'SilhouFit Bot' })} className="sv2-btn sv2-btn--line">
                 Ask about sizing
               </button>
             </div>

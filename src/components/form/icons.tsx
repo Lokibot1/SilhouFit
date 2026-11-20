@@ -436,6 +436,18 @@ export const ReceiptIcon = ({ size = 20, className }: IconProps) => (
 )
 
 /** A circled "i": more information is on offer. */
+export const BotIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <rect x="4" y="8" width="16" height="12" rx="3" />
+    <path d="M12 8V5" />
+    <circle cx="12" cy="4" r="1" />
+    <path d="M9 13v1.5" />
+    <path d="M15 13v1.5" />
+    <path d="M2 13v3" />
+    <path d="M22 13v3" />
+  </Icon>
+)
+
 export const InfoIcon = ({ size = 16, className }: IconProps) => (
   <Icon size={size} className={className}>
     <circle cx="12" cy="12" r="9" />

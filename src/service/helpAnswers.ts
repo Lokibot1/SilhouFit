@@ -1,4 +1,4 @@
-// The saved answers behind the "KRAL Help" chatbot: the types, then the service over the FAQ API (GET, POST, PATCH and DELETE /faqs).
+// The saved answers behind the "SilhouFit Bot" chatbot: the types, then the service over the FAQ API (GET, POST, PATCH and DELETE /faqs).
 import type { HelpField } from '../utils/helpAnswerValidation'
 import { ProductListError, request } from './fetchProductList'
 import type { RequestOptions } from './simulateRequest'

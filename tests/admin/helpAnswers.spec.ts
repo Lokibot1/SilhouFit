@@ -46,8 +46,8 @@ test('an admin adds and publishes a question, and a visitor gets the new answer 
 
   await signOut(page)
   await page.goto('/shop')
-  await page.getByRole('button', { name: 'Ask KRAL Help' }).click()
-  const help = page.getByRole('region', { name: 'Chat with KRAL Help' })
+  await page.getByRole('button', { name: 'Ask SilhouFit Bot' }).click()
+  const help = page.getByRole('region', { name: 'Chat with SilhouFit Bot' })
   await help.getByRole('textbox', { name: 'Message' }).fill('gift wrapping')
   await help.getByRole('textbox', { name: 'Message' }).press('Enter')
   await expect(help.getByText(/every order arrives neatly packed/)).toBeVisible()
@@ -67,8 +67,8 @@ test('a draft is not shown to visitors', async ({ page }) => {
 
   await signOut(page)
   await page.goto('/shop')
-  await page.getByRole('button', { name: 'Ask KRAL Help' }).click()
-  const help = page.getByRole('region', { name: 'Chat with KRAL Help' })
+  await page.getByRole('button', { name: 'Ask SilhouFit Bot' }).click()
+  const help = page.getByRole('region', { name: 'Chat with SilhouFit Bot' })
   await help.getByRole('textbox', { name: 'Message' }).fill('voucher')
   await help.getByRole('textbox', { name: 'Message' }).press('Enter')
   await expect(help.getByText("I don't have an answer for that yet.")).toBeVisible()

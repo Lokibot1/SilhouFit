@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { contrastRatio } from '../shared/contrast'
 import { FAQS, mockFaqs } from '../shared/faqs'
 
-// The "KRAL Help" chat for a visitor who is not signed in, on the landing page: opening it, tapping and typing, the keyboard, and the phone sheet.
+// The "SilhouFit Bot" chat for a visitor who is not signed in, on the landing page: opening it, tapping and typing, the keyboard, and the phone sheet.
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
@@ -11,8 +11,8 @@ test.beforeEach(async ({ page }) => {
   await mockFaqs(page, FAQS)
 })
 
-const launcher = (page: Page) => page.getByRole('button', { name: 'Ask KRAL Help' })
-const box = (page: Page) => page.getByRole('region', { name: 'Chat with KRAL Help' })
+const launcher = (page: Page) => page.getByRole('button', { name: 'Ask SilhouFit Bot' })
+const box = (page: Page) => page.getByRole('region', { name: 'Chat with SilhouFit Bot' })
 const chip = (page: Page, name: string) => box(page).getByRole('button', { name, exact: true })
 const message = (page: Page) => box(page).getByRole('textbox', { name: 'Message' })
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
@@ -119,7 +119,7 @@ for (const scheme of ['light', 'dark'] as const) {
     await expect(box(page).getByText('hello there').first()).toBeVisible()
 
     await page.mouse.move(0, 0) // a hovered chip is tinted
-    const welcome = box(page).getByText(/I'm KRAL Help/)
+    const welcome = box(page).getByText(/I'm SilhouFit Bot/)
     const answer = box(page).getByText(/It is guidance, not a guarantee/)
     const mine = box(page).getByText('hello there').first()
     const reply = box(page).getByRole('group', { name: 'Suggested replies' }).getByRole('button').first()

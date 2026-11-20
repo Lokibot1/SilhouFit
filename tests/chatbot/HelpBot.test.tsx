@@ -49,7 +49,7 @@ describe('HelpBot answers', () => {
   it('welcomes with suggested questions, answers a tapped one with its link and related questions', async () => {
     const user = userEvent.setup()
     setup()
-    expect(await screen.findByText(/I'm KRAL Help/)).toBeInTheDocument()
+    expect(await screen.findByText(/I'm SilhouFit Bot/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'How do I enter my measurements?' }))
     expect(screen.getByText(/Enter your measurements in centimetres or inches/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open body setup' })).toHaveAttribute('href', '/profile/measurements')
@@ -142,7 +142,7 @@ describe('HelpBot states', () => {
     expect(await screen.findByText(/couldn.t load the help answers/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Talk to a person' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(await screen.findByText(/I'm KRAL Help/)).toBeInTheDocument()
+    expect(await screen.findByText(/I'm SilhouFit Bot/)).toBeInTheDocument()
   })
 
   it('says so when nothing is published, and offers a person', async () => {
@@ -156,7 +156,7 @@ describe('HelpBot states', () => {
 describe('the transcript', () => {
   it('is cleared on sign-out', async () => {
     const user = userEvent.setup()
-    openChat('help', { name: 'KRAL Help' })
+    openChat('help', { name: 'SilhouFit Bot' })
     setup()
     await user.click(await screen.findByRole('button', { name: 'How accurate is the sizing?' }))
     expect(getHelpSession().messages).toHaveLength(2)
@@ -166,7 +166,7 @@ describe('the transcript', () => {
 
   it('closing the help box drops the transcript', async () => {
     const user = userEvent.setup()
-    openChat('help', { name: 'KRAL Help' })
+    openChat('help', { name: 'SilhouFit Bot' })
     setup()
     await user.click(await screen.findByRole('button', { name: 'How accurate is the sizing?' }))
     close('help')

@@ -41,7 +41,7 @@ function CustomerHeads({ boxes }: { boxes: DockBox[] }) {
 /**
  * The Messenger-style chat dock: one open box and a column of heads (minimized chats) at the bottom right. Mounted outside the routes so it
  * survives navigation, and each route change minimizes the open box. Customers get it in the storefront layout, staff in theirs.
- * The storefront dock also carries the "KRAL Help" bot, for visitors who are not signed in too; the staff dock never shows it.
+ * The storefront dock also carries the "SilhouFit Bot", for visitors who are not signed in too; the staff dock never shows it.
  */
 export function ChatDock({ staff = false }: { staff?: boolean }) {
   const user = useCurrentUser()

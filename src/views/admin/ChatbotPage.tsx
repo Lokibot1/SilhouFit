@@ -5,7 +5,7 @@ import { useMetaDescription } from '../../hooks/useMetaDescription'
 const META_DESCRIPTION =
   'Manage the answers behind the SilhouFit Help chat: add a question, write the answer customers see, set its topic and link, publish it or keep a draft.'
 
-/** The questions and answers the "KRAL Help" chat on the storefront can give. Customers only ever see the published ones. */
+/** The questions and answers the "SilhouFit Bot" chat on the storefront can give. Customers only ever see the published ones. */
 export function ChatbotPage() {
   useDocumentTitle('Help Chatbot — SilhouFit')
   useMetaDescription(META_DESCRIPTION)

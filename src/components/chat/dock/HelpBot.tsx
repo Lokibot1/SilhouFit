@@ -110,10 +110,10 @@ function Conversation({ answers }: { answers: PublicHelpAnswer[] }) {
 
   return (
     <div ref={root} className="flex min-h-0 flex-1 flex-col">
-      <div ref={log} role="log" tabIndex={0} aria-label="KRAL Help conversation" className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+      <div ref={log} role="log" tabIndex={0} aria-label="SilhouFit Bot conversation" className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         <ul className="grid gap-3">
           <li className="flex justify-start">
-            <p className={BOT_BUBBLE}>Hi, I&apos;m KRAL Help. I can answer common questions about orders, shipping, returns and sizing. Pick one below or type your question.</p>
+            <p className={BOT_BUBBLE}>Hi, I&apos;m SilhouFit Bot. I can answer common questions about orders, shipping, returns and sizing. Pick one below or type your question.</p>
           </li>
           {messages.map((message) => (
             <Bubble key={message.id} message={message} />
@@ -121,7 +121,7 @@ function Conversation({ answers }: { answers: PublicHelpAnswer[] }) {
           {typing && (
             <li className="flex justify-start">
               <p role="status" className={`${BOT_BUBBLE} text-fg-muted`}>
-                KRAL Help is typing…
+                SilhouFit Bot is typing…
               </p>
             </li>
           )}
@@ -141,7 +141,7 @@ function Conversation({ answers }: { answers: PublicHelpAnswer[] }) {
   )
 }
 
-/** The "KRAL Help" box: answers from the saved list only, by chips or typed questions. Loads the published answers itself, with its own loading, error and empty states. */
+/** The "SilhouFit Bot" box: answers from the saved list only, by chips or typed questions. Loads the published answers itself, with its own loading, error and empty states. */
 export function HelpBot() {
   const section = useSection(listPublicAnswers)
   const { offered, talk } = useTalkToAPerson()

@@ -1,9 +1,11 @@
 import { motion } from 'motion/react'
 import { DURATION, EASE_OUT } from '../../../motion/tokens'
+import { HELP_BOX } from '../../../service/chatDock'
 import { XIcon } from '../../form/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Tooltip } from '../../ui/Tooltip'
 import { UnreadBadge } from '../InboxList'
+import { BotAvatar } from './BotAvatar'
 
 interface ChatHeadProps {
   id: string
@@ -32,7 +34,7 @@ export function ChatHead({ id, name, avatarUrl, unread, onOpen, onClose }: ChatH
           aria-label={`Open chat with ${name}${unread ? ', 1 unread' : ''}`}
           className="flex size-12 cursor-pointer items-center justify-center rounded-full border border-line-strong bg-canvas-raised shadow-popover"
         >
-          <Avatar name={name} src={avatarUrl} size="md" />
+          {id === HELP_BOX ? <BotAvatar size="md" /> : <Avatar name={name} src={avatarUrl} size="md" />}
         </button>
       </Tooltip>
       {unread && (

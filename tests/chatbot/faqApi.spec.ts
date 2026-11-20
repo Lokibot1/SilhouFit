@@ -51,11 +51,11 @@ async function openAdminPage(page: Page) {
 /** Ends the dev session the way a closed tab would: the next page load is a guest. */
 const becomeGuest = (page: Page) => page.evaluate(() => localStorage.removeItem('silhoufit-session'))
 
-const box = (page: Page) => page.getByRole('region', { name: 'Chat with KRAL Help' })
+const box = (page: Page) => page.getByRole('region', { name: 'Chat with SilhouFit Bot' })
 
 async function openBot(page: Page) {
   await page.goto('/shop')
-  await page.getByRole('button', { name: 'Ask KRAL Help' }).click()
+  await page.getByRole('button', { name: 'Ask SilhouFit Bot' }).click()
   await expect(box(page)).toBeVisible()
 }
 
@@ -201,7 +201,7 @@ test('GET /faqs failing with 500 shows the error state in the bot, and Retry rec
   await mockFaqs(page, FAQS)
   await failReads(page, 1)
   await page.goto('/shop')
-  await page.getByRole('button', { name: 'Ask KRAL Help' }).click()
+  await page.getByRole('button', { name: 'Ask SilhouFit Bot' }).click()
   await expect(box(page).getByText("We couldn't load the help answers.")).toBeVisible()
   await box(page).getByRole('button', { name: 'Retry' }).click()
   await expect(box(page).getByRole('button', { name: 'Browse topics' })).toBeVisible()

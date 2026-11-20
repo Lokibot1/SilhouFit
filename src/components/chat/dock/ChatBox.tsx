@@ -5,6 +5,7 @@ import { useSection } from '../../../hooks/useSection'
 import { DURATION, EASE_OUT } from '../../../motion/tokens'
 import { fetchMyConversation } from '../../../service/chatApi'
 import { HELP_BOX, type DockBox } from '../../../service/chatDock'
+import { BotAvatar } from './BotAvatar'
 import { MinusIcon, XIcon } from '../../form/icons'
 import { SectionBody } from '../../staff/StaffSection'
 import { Avatar } from '../../ui/Avatar'
@@ -67,7 +68,7 @@ export function ChatBox({ box, staff, onMinimize, onClose }: ChatBoxProps) {
       className="fixed inset-x-0 bottom-0 flex h-[min(32rem,80svh)] flex-col overflow-hidden rounded-t-xl border border-line-strong bg-canvas-sub text-fg shadow-popover sm:static sm:h-[30rem] sm:max-h-[calc(100svh-6rem)] sm:w-[22rem] sm:rounded-xl"
     >
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line pr-1 pl-3">
-        <Avatar name={box.name} src={box.avatarUrl} size="sm" />
+        {box.id === HELP_BOX ? <BotAvatar size="sm" /> : <Avatar name={box.name} src={box.avatarUrl} size="sm" />}
         <h2 className="display min-w-0 flex-1 truncate text-lg text-fg">{box.name}</h2>
         <Tooltip label="Minimize">
           <button type="button" onClick={onMinimize} aria-label={`Minimize chat with ${box.name}`} className={HEADER_BUTTON}>

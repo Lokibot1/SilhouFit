@@ -16,7 +16,7 @@ export interface DockState {
 
 export const MAX_BOXES = 4
 
-/** The id of the "KRAL Help" box: a bot with no conversation behind it. */
+/** The id of the "SilhouFit Bot" box: a bot with no conversation behind it. */
 export const HELP_BOX = 'help'
 
 /** A quick reply under the bot's last message. */
