@@ -320,7 +320,7 @@ export function StaffMeasurementsPage() {
         />
       )}
 
-      {sheet && <SizeSheet key={sheet.key} row={sheet.row} category={category} onSaved={onSaved} onClose={() => setSheet(null)} />}
+      {sheet && <SizeSheet key={sheet.key} row={sheet.row} category={category} taken={status === 'active' ? (rows ?? []) : []} onSaved={onSaved} onClose={() => setSheet(null)} />}
 
       <Modal
         open={archivingSizing !== null}

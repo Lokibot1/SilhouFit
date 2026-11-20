@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CATEGORIES, SIZES_BY_CATEGORY } from '../../../data/products'
 import { createSizeMeasurement, fetchSizeMeasurement, sizeFailureReason, updateSizeMeasurement, type SizeMeasurement } from '../../../service/sizeMeasurements'
 import { describedBy, filterMeasurement, MEASUREMENT_FIELDS } from '../../../utils/productValidation'
-import { COLUMNS_BY_CATEGORY, buildSizeInput, buildSizePatch, sizeFormValues, validateSizeForm, type SizeFormValues } from '../../../utils/sizeMeasurementValidation'
+import { COLUMNS_BY_CATEGORY, buildSizeInput, buildSizePatch, filterSizeLabel, SIZE_MAX, sizeFormValues, validateSizeForm, type SizeFormValues } from '../../../utils/sizeMeasurementValidation'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
@@ -21,6 +21,8 @@ interface SizeSheetProps {
   row?: SizeMeasurement
   /** The category the page is showing, which a new size starts in. */
   category: string
+  /** The active sizes already in `category`, so a size with the same name is caught before saving. */
+  taken?: SizeMeasurement[]
   /** The row was saved. The page closes the sheet, refreshes and shows the toast. */
   onSaved: (saved: SizeMeasurement) => void
   onClose: () => void
@@ -30,7 +32,7 @@ interface SizeSheetProps {
  * Add a size to a category, or edit one: the size label and the measurements in cm that apply to its category. Mount it fresh for each row.
  * An edit first reads the row again (GET /size-measurements/:id), so a row changed since the list loaded is not saved over from a stale copy.
  */
-export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheetProps) {
+export function SizeSheet({ row: listed, category, taken = [], onSaved, onClose }: SizeSheetProps) {
   const [row, setRow] = useState(listed)
   const editing = row !== undefined
   const [values, setValues] = useState(() => sizeFormValues(category, listed))
@@ -83,6 +85,10 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
 
   const label = `${values.category} ${values.size.trim()}`
   const errors = validateSizeForm(values)
+  const typed = values.size.trim().toLowerCase()
+  if (!errors.size && taken.some((t) => t.id !== row?.id && values.category === t.category && t.size.trim().toLowerCase() === typed)) {
+    errors.size = `${label} already exists. Edit that one, or use a different size.`
+  }
   if (conflict && conflict === label) errors.size = `An active ${label} already exists. Edit that one, or use a different size.`
   const error = (key: string) => (attempted || touched.has(key) ? errors[key] : undefined)
   const touch = (key: string) => setTouched((old) => new Set(old).add(key))
@@ -202,7 +208,6 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
   const known = SIZES_BY_CATEGORY[values.category] ?? []
   // A size the row already has stays pickable even when it is not one of the usual ones.
   const sizeOptions = [
-    ...(values.size === '' ? [{ value: '', label: 'Choose a size' }] : []),
     ...(values.size !== '' && !known.includes(values.size) ? [{ value: values.size, label: values.size }] : []),
     ...known.map((size) => ({ value: size as string, label: size })),
   ]
@@ -275,16 +280,33 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
             </SelectField>
           )}
 
-          <div>
-            <SelectField label="Size">
-              <Select label="Size" value={values.size} options={sizeOptions} onChange={(size) => set({ size })} className={SELECT_FLAT} />
-            </SelectField>
-            {sizeError && (
-              <p id="ss-size-error" role="alert" className="px-1 pt-1 text-xs text-danger">
-                {sizeError}
-              </p>
-            )}
-          </div>
+          {editing ? (
+            <div>
+              <SelectField label="Size">
+                <Select label="Size" value={values.size} options={sizeOptions} onChange={(size) => set({ size })} className={SELECT_FLAT} />
+              </SelectField>
+              {sizeError && (
+                <p id="ss-size-error" role="alert" className="px-1 pt-1 text-xs text-danger">
+                  {sizeError}
+                </p>
+              )}
+            </div>
+          ) : (
+            <Field id="ss-size" label="Size" count={{ value: values.size.length, max: SIZE_MAX }} error={sizeError}>
+              <input
+                id="ss-size"
+                type="text"
+                autoComplete="off"
+                placeholder={`e.g. ${SIZES_BY_CATEGORY[values.category]?.[0] ?? 'M'}`}
+                value={values.size}
+                aria-invalid={Boolean(sizeError)}
+                aria-describedby={describedBy('ss-size', sizeError, true)}
+                onChange={(event) => set({ size: filterSizeLabel(event.target.value) })}
+                onBlur={() => touch('size')}
+                className={FIELD_INPUT}
+              />
+            </Field>
+          )}
 
           <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
             <legend className="text-sm font-semibold text-fg">Measurements (cm)</legend>
