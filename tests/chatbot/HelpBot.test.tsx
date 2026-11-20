@@ -5,16 +5,21 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { HelpBot } from '../../src/components/chat/dock/HelpBot'
 import { close, getDock, getHelpSession, openChat, replyAfter, reset } from '../../src/service/chatDock'
 import { clearSession, setSession } from '../../src/service/session'
+import { request } from '../../src/service/fetchProductList'
 import * as service from '../../src/service/helpAnswers'
 import { Where } from '../shared/adminSession'
+import { FAQS, faqStore } from '../shared/faqs'
 
 vi.mock('../../src/service/simulateRequest', () => ({ simulateRequest: () => Promise.resolve({ ok: true }) }))
+vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/fetchProductList')>()),
+  request: vi.fn(),
+}))
 vi.mock('../../src/service/helpAnswers', async (importOriginal) => {
   const real = await importOriginal<typeof import('../../src/service/helpAnswers')>()
   return { ...real, listPublicAnswers: vi.fn(real.listPublicAnswers) }
 })
 
-const original = service.getHelpAnswers()
 const network = () => Object.assign(new Error('network'), { kind: 'network' })
 
 beforeAll(() => {
@@ -25,7 +30,8 @@ beforeAll(() => {
 beforeEach(() => {
   clearSession()
   reset()
-  service.setHelpAnswers(original)
+  const store = faqStore(FAQS)
+  vi.mocked(request).mockImplementation(async (m, p, b) => store.handle(m, p, b).json)
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -85,7 +91,8 @@ describe('HelpBot answers', () => {
 
   it('never answers from a draft', async () => {
     const user = userEvent.setup()
-    service.setHelpAnswers(original.map((a) => (a.question === 'How do I reset my password?' ? { ...a, published: false } : a)))
+    const store = faqStore(FAQS.map((a) => (a.question === 'How do I reset my password?' ? { ...a, isActive: false } : a)))
+    vi.mocked(request).mockImplementation(async (m, p, b) => store.handle(m, p, b).json)
     setup()
     await user.type(await field(), 'how do i reset my password{Enter}')
     expect(await screen.findByText("I don't have an answer for that yet.")).toBeInTheDocument()
@@ -139,7 +146,7 @@ describe('HelpBot states', () => {
   })
 
   it('says so when nothing is published, and offers a person', async () => {
-    service.setHelpAnswers(original.map((a) => ({ ...a, published: false })))
+    vi.mocked(request).mockResolvedValueOnce({ data: [], meta: { total: 0, page: 1, limit: 100, totalPages: 0, hasNextPage: false, hasPreviousPage: false } })
     setup()
     expect(await screen.findByText('No saved answers yet')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Talk to a person' })).toBeInTheDocument()

@@ -9,16 +9,15 @@ export interface HelpFormValues {
   category: HelpCategory
   /** '' for no link. */
   linkTo: PublicPath | ''
-  linkLabel: string
   published: boolean
 }
 export type HelpField = keyof HelpFormValues
 export type HelpErrors = Partial<Record<HelpField, string>>
 
 /** Every field in on-screen order; validation and first-invalid focus both follow it. */
-export const HELP_FIELD_ORDER: HelpField[] = ['question', 'answer', 'category', 'keywords', 'linkTo', 'linkLabel', 'published']
+export const HELP_FIELD_ORDER: HelpField[] = ['question', 'answer', 'category', 'keywords', 'linkTo', 'published']
 
-export const HELP_LIMITS = { questionMin: 8, questionMax: 120, answerMin: 10, answerMax: 600, keywordsMax: 10, keywordMax: 24, linkLabelMax: 40 } as const
+export const HELP_LIMITS = { questionMin: 8, questionMax: 120, answerMin: 10, answerMax: 600, keywordsMax: 10, keywordMax: 24 } as const
 
 // Customers can read every published answer, so none may carry contact details or point into the dashboards.
 const EMAIL = /[^\s@]+@[^\s@]+/
@@ -44,7 +43,7 @@ export const parseKeywords = (text: string): string[] => [...new Set(text.split(
 
 export function validateHelpAnswer(values: HelpFormValues): HelpErrors {
   const errors: HelpErrors = {}
-  const { questionMin, questionMax, answerMin, answerMax, keywordsMax, keywordMax, linkLabelMax } = HELP_LIMITS
+  const { questionMin, questionMax, answerMin, answerMax, keywordsMax, keywordMax } = HELP_LIMITS
 
   const question = values.question.trim()
   if (!question) errors.question = 'Enter the question customers ask.'
@@ -67,10 +66,6 @@ export function validateHelpAnswer(values: HelpFormValues): HelpErrors {
   else errors.keywords = confidentialityProblem(keywords.join(' ')) ?? undefined
 
   if (values.linkTo && !HELP_LINK_PATHS.includes(values.linkTo as PublicPath)) errors.linkTo = 'Choose one of the listed pages.'
-  const label = values.linkLabel.trim()
-  if (values.linkTo && !label) errors.linkLabel = 'Enter the text customers tap to open the page.'
-  else if (label.length > linkLabelMax) errors.linkLabel = `The link text can be at most ${linkLabelMax} characters.`
-  else if (label) errors.linkLabel = confidentialityProblem(label) ?? undefined
 
   for (const key of Object.keys(errors) as HelpField[]) if (!errors[key]) delete errors[key]
   return errors

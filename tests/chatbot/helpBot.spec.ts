@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { contrastRatio } from '../shared/contrast'
+import { FAQS, mockFaqs } from '../shared/faqs'
 
 // The "KRAL Help" chat for a visitor who is not signed in, on the landing page: opening it, tapping and typing, the keyboard, and the phone sheet.
 
@@ -7,6 +8,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
   // Reduced motion skips the intro loader and the bot's typing pause.
   await page.emulateMedia({ reducedMotion: 'reduce' })
+  await mockFaqs(page, FAQS)
 })
 
 const launcher = (page: Page) => page.getByRole('button', { name: 'Ask KRAL Help' })

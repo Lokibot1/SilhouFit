@@ -170,7 +170,6 @@ export function HelpAnswersTable({ list, onCreate, onEdit, onDelete, onMove }: H
                 </td>
                 <td className={`${TD} text-sm text-fg`}>
                   <p className="truncate tabular-nums">{formatPlacedAt(row.updatedAt)}</p>
-                  <p className="truncate text-fg-muted">{row.updatedBy}</p>
                 </td>
                 <td className={TD}>
                   <div className="flex justify-end">{actions(row)}</div>
@@ -196,7 +195,7 @@ export function HelpAnswersTable({ list, onCreate, onEdit, onDelete, onMove }: H
                 <HelpStatusBadge published={row.published} />
               </div>
               <p className="h-6 truncate text-base text-fg-muted tabular-nums">
-                {formatPlacedAt(row.updatedAt)} by {row.updatedBy}
+                {formatPlacedAt(row.updatedAt)}
               </p>
               <div className="flex h-11 items-center justify-end">{actions(row)}</div>
             </li>

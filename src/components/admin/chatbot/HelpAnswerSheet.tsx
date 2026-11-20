@@ -1,6 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { useCurrentUser } from '../../../hooks/useCurrentUser'
-import { createHelpAnswer, HELP_CATEGORIES, HELP_CATEGORY_LABELS, HELP_LINK_PATHS, updateHelpAnswer, type HelpAnswer, type HelpAnswerInput, type HelpCategory, type PublicPath } from '../../../service/helpAnswers'
+import { createHelpAnswer, HELP_CATEGORIES, HELP_CATEGORY_LABELS, HELP_LINK_PATHS, HELP_LINK_TEXT, updateHelpAnswer, type HelpAnswer, type HelpAnswerInput, type HelpCategory, type PublicPath } from '../../../service/helpAnswers'
 import { HELP_FIELD_ORDER, HELP_LIMITS, parseKeywords, validateHelpAnswer, type HelpErrors, type HelpField, type HelpFormValues } from '../../../utils/helpAnswerValidation'
 import { stripEmoji } from '../../../utils/signUpValidation'
 import { AlertIcon, SpinnerIcon } from '../../form/icons'
@@ -19,6 +18,9 @@ const TEXTAREA = `${FIELD_INPUT} resize-none`
 const TOPIC_OPTIONS = HELP_CATEGORIES.map((value) => ({ value, label: HELP_CATEGORY_LABELS[value] }))
 const LINK_LABELS: Record<PublicPath, string> = {
   '/shop': 'Shop',
+  '/cart': 'Cart',
+  '/wishlist': 'Wishlist',
+  '/login': 'Sign in',
   '/about': 'About',
   '/contact': 'Contact',
   '/signup': 'Sign up',
@@ -34,14 +36,13 @@ const LINK_OPTIONS: { value: PublicPath | 'none'; label: string }[] = [{ value: 
 const without = (errors: HelpErrors, name: HelpField): HelpErrors => Object.fromEntries(Object.entries(errors).filter(([key]) => key !== name))
 
 function initial(answer: HelpAnswer | null): HelpFormValues {
-  if (!answer) return { question: '', answer: '', keywords: '', category: 'orders', linkTo: '', linkLabel: '', published: false }
+  if (!answer) return { question: '', answer: '', keywords: '', category: 'orders', linkTo: '', published: false }
   return {
     question: answer.question,
     answer: answer.answer,
     keywords: answer.keywords.join(', '),
     category: answer.category,
     linkTo: answer.link?.to ?? '',
-    linkLabel: answer.link?.label ?? '',
     published: answer.published,
   }
 }
@@ -56,7 +57,6 @@ interface HelpAnswerSheetProps {
 /** Adds or edits a help answer. Give it a new `key` for every open so it starts from the answer (or empty). */
 export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps) {
   const toast = useToast()
-  const by = useCurrentUser()?.name ?? 'Admin'
   const editing = answer !== null
   const [values, setValues] = useState(() => initial(answer))
   const [touched, setTouched] = useState<Partial<Record<HelpField, boolean>>>({})
@@ -87,15 +87,15 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
       answer: values.answer.trim(),
       keywords: parseKeywords(values.keywords),
       category: values.category,
-      link: values.linkTo ? { to: values.linkTo, label: values.linkLabel.trim() } : null,
+      link: values.linkTo ? { to: values.linkTo, label: HELP_LINK_TEXT[values.linkTo] } : null,
       published: values.published,
     }
     inFlight.current = true
     setPending(true)
     setFailure(null)
     try {
-      if (answer) await updateHelpAnswer(answer.id, input, by)
-      else await createHelpAnswer(input, by)
+      if (answer) await updateHelpAnswer(answer.id, input)
+      else await createHelpAnswer(input)
       toast.show({ kind: 'success', message: `Question "${input.question}" ${editing ? 'saved' : 'added'}${input.published ? '' : ' as a draft'}` })
       onClose()
     } catch (error) {
@@ -103,6 +103,8 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
       if (kind === 'validation' && field) {
         setServerErrors({ [field]: message })
         document.getElementById(fieldId(field))?.focus()
+      } else if (kind === 'validation') {
+        setFailure(message)
       } else {
         setFailure(`The request failed before anything was saved, so ${editing ? 'the question is unchanged' : 'no question was added'}. Check your connection, then try again. What you typed is still here.`)
       }
@@ -112,7 +114,7 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
     }
   }
 
-  const input = (name: 'question' | 'answer' | 'keywords' | 'linkLabel', hint = false) => ({
+  const input = (name: 'question' | 'answer' | 'keywords', hint = false) => ({
     id: fieldId(name),
     value: values[name],
     readOnly: pending,
@@ -155,35 +157,42 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
         <Field id={fieldId('question')} label="Question" count={{ value: values.question.length, max: HELP_LIMITS.questionMax }} error={errors.question}>
           <input {...input('question')} type="text" className={FIELD_INPUT} />
         </Field>
-        <Field id={fieldId('answer')} label="Answer" count={{ value: values.answer.length, max: HELP_LIMITS.answerMax }} error={errors.answer}>
+        <Field
+          id={fieldId('answer')}
+          label="Answer"
+          count={{ value: values.answer.length, max: HELP_LIMITS.answerMax }}
+          error={errors.answer}
+          hint="Plain text only. No emails, phone numbers or web addresses; use Link page to point customers somewhere."
+        >
           <textarea {...input('answer', true)} rows={5} className={TEXTAREA} />
-          <p id={`${fieldId('answer')}-hint`} className="text-xs text-fg-muted">
-            Plain text. No emails, phone numbers or web addresses: point customers to the Contact page with the link below.
-          </p>
         </Field>
         <SelectField label="Topic">
           <Select label="Topic" value={values.category} options={TOPIC_OPTIONS} onChange={(value: HelpCategory) => set('category', value)} className={SELECT_FLAT} />
         </SelectField>
-        <Field id={fieldId('keywords')} label="Keywords" optional count={{ value: parseKeywords(values.keywords).length, max: HELP_LIMITS.keywordsMax }} error={errors.keywords}>
+        <Field
+          id={fieldId('keywords')}
+          label="Keywords"
+          optional
+          count={{ value: parseKeywords(values.keywords).length, max: HELP_LIMITS.keywordsMax }}
+          error={errors.keywords}
+          hint="Words customers might type, separated by commas."
+        >
           <input {...input('keywords', true)} type="text" className={FIELD_INPUT} />
-          <p id={`${fieldId('keywords')}-hint`} className="text-xs text-fg-muted">
-            Words customers might type, separated by commas. They help the chat find this answer.
-          </p>
         </Field>
-        <SelectField label="Link page">
-          <Select
-            label="Link page"
-            value={values.linkTo || 'none'}
-            options={LINK_OPTIONS}
-            onChange={(value) => set('linkTo', value === 'none' ? '' : value)}
-            className={SELECT_FLAT}
-          />
-        </SelectField>
-        {values.linkTo && (
-          <Field id={fieldId('linkLabel')} label="Link text" count={{ value: values.linkLabel.length, max: HELP_LIMITS.linkLabelMax }} error={errors.linkLabel}>
-            <input {...input('linkLabel')} type="text" className={FIELD_INPUT} />
-          </Field>
-        )}
+        <div>
+          <SelectField label="Link page">
+            <Select
+              label="Link page"
+              value={values.linkTo || 'none'}
+              options={LINK_OPTIONS}
+              onChange={(value) => set('linkTo', value === 'none' ? '' : value)}
+              className={SELECT_FLAT}
+            />
+          </SelectField>
+          <p id="help-linkTo-hint" className="px-1 pt-1 text-xs text-fg-muted">
+            {values.linkTo ? `Button shown to customers: "${HELP_LINK_TEXT[values.linkTo]}"` : 'Customers see no button under this answer.'}
+          </p>
+        </div>
         <div>
           <Tooltip label="A draft is saved here but customers do not see it. Publish it when the answer is ready." wrap>
             <Checkbox label="Published" checked={values.published} onChange={(checked) => set('published', checked)} disabled={pending}>

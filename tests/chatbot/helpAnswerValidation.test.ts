@@ -7,7 +7,6 @@ const valid: HelpFormValues = {
   keywords: 'return, exchange',
   category: 'returns',
   linkTo: '/refund-policy',
-  linkLabel: 'Read the refund policy',
   published: true,
 }
 const errorsOf = (over: Partial<HelpFormValues>) => validateHelpAnswer({ ...valid, ...over })
@@ -15,7 +14,7 @@ const errorsOf = (over: Partial<HelpFormValues>) => validateHelpAnswer({ ...vali
 describe('validateHelpAnswer', () => {
   it('accepts a complete answer, with or without a link', () => {
     expect(errorsOf({})).toEqual({})
-    expect(errorsOf({ linkTo: '', linkLabel: '' })).toEqual({})
+    expect(errorsOf({ linkTo: '' })).toEqual({})
   })
 
   it('holds the question to 8 to 120 characters and the answer to 10 to 600', () => {
@@ -34,24 +33,22 @@ describe('validateHelpAnswer', () => {
     expect(errorsOf({ keywords: '' }).keywords).toBeUndefined()
   })
 
-  it('needs link text when a page is chosen, and only takes listed pages', () => {
-    expect(errorsOf({ linkLabel: '' }).linkLabel).toMatch(/Enter the text/)
+  it('only takes listed pages', () => {
     expect(errorsOf({ linkTo: '/admin/users' as never }).linkTo).toMatch(/listed pages/)
   })
 
   it('rejects contact details in any text field', () => {
     expect(errorsOf({ answer: 'Write to help@kral.ph for more.' }).answer).toMatch(/email/)
     expect(errorsOf({ question: 'Call 0917 123 4567 to ask' }).question).toMatch(/phone/)
-    expect(errorsOf({ linkLabel: 'Visit www.kral.ph' }).linkLabel).toMatch(/web address/)
+    expect(errorsOf({ question: 'Visit www.kral.ph today' }).question).toMatch(/web address/)
   })
 })
 
 describe('profanity', () => {
-  it('blocks a curse word in the question, answer, keywords and link text', () => {
+  it('blocks a curse word in the question, answer and keywords', () => {
     expect(validateHelpAnswer({ ...valid, answer: 'TANGINA MO NAMAN' }).answer).toMatch(/isn't allowed/)
     expect(validateHelpAnswer({ ...valid, question: 'Which fucking payment methods?' }).question).toMatch(/isn't allowed/)
     expect(validateHelpAnswer({ ...valid, keywords: 'pay, gago' }).keywords).toMatch(/isn't allowed/)
-    expect(validateHelpAnswer({ ...valid, linkTo: '/shop', linkLabel: 'puta ka' }).linkLabel).toMatch(/isn't allowed/)
   })
 })
 

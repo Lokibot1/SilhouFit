@@ -21,6 +21,7 @@ export function Field({
   optional,
   count,
   error,
+  hint,
   suffix,
   children,
 }: {
@@ -30,6 +31,8 @@ export function Field({
   /** Shown as "typed/max". */
   count?: { value: number; max: number }
   error?: string
+  /** Helper text (`${id}-hint`) on the same row as the counter; an error takes its place while one shows. */
+  hint?: ReactNode
   /** A unit (like "cm") shown inside the box at the right edge, outside the label. */
   suffix?: string
   children: ReactNode
@@ -59,11 +62,15 @@ export function Field({
         )}
       </div>
       {nodes.filter((node) => !isControl(node))}
-      {(error || count) && (
+      {(error || count || hint) && (
         <div className="flex items-start justify-between gap-2 px-1 pt-1">
           {error ? (
             <p id={`${id}-error`} className="text-xs text-danger">
               {error}
+            </p>
+          ) : hint ? (
+            <p id={`${id}-hint`} className="text-xs text-fg-muted">
+              {hint}
             </p>
           ) : (
             <span />

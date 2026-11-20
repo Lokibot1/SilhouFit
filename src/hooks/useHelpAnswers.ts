@@ -44,7 +44,7 @@ export function useHelpAnswers() {
       setPage(1)
     },
     /** As many placeholder rows as the first page will have, so the rows do not jump when they arrive. */
-    skeletonRows: Math.min(per, getHelpAnswers().length),
+    skeletonRows: Math.min(per, getHelpAnswers().length || per),
     page,
     setPage,
     per,

@@ -1,5 +1,4 @@
 import { HelpAnswersList } from '../../components/admin/chatbot/HelpAnswersList'
-import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 
@@ -18,7 +17,6 @@ export function ChatbotPage() {
           <h1 className="display text-2xl text-fg sm:text-3xl">Help Chatbot</h1>
           <p className="mt-1 text-xs text-fg-muted">Questions and answers the Help chat gives customers</p>
         </div>
-        <SampleDataBadge reason="Answers are saved in this browser until the help backend is connected." />
       </header>
       <HelpAnswersList />
     </div>

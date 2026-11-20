@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
+import { FAQS, mockFaqs } from '../shared/faqs'
 
-// The Help Chatbot admin page and what customers get from it. Sign-in is the dev-only simulated one, and the answers and permissions live in
-// this browser's localStorage, so one browser context plays every role in turn. Runs in the desktop and mobile projects.
+// The Help Chatbot admin page and what customers get from it. Sign-in is the dev-only simulated one and the permissions live in this browser's
+// localStorage, so one browser context plays every role in turn; the answers come from a stubbed FAQ API. Runs in the desktop and mobile projects.
 
 const STAFF = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -10,6 +11,7 @@ const SUPERADMIN = { email: 'superadmin@silhoufit.dev', password: 'Super@12345' 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))
   await page.emulateMedia({ reducedMotion: 'reduce' })
+  await mockFaqs(page, FAQS)
 })
 
 async function signIn(page: Page, { email, password }: { email: string; password: string }, home: RegExp) {
@@ -98,6 +100,6 @@ test('stays inside a 320px screen', async ({ page }) => {
   await signIn(page, ADMIN, /\/admin$/)
   await page.goto('/admin/chatbot')
   await expect(page.getByRole('heading', { level: 1, name: 'Help Chatbot' })).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByText('Sample data', { exact: true })).toBeVisible()
+  await expect(page.getByText(FAQS[0].question).filter({ visible: true }).first()).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
 })

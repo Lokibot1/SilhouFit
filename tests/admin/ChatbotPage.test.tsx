@@ -1,12 +1,17 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { request } from '../../src/service/fetchProductList'
 import * as service from '../../src/service/helpAnswers'
-import { getHelpAnswers, setHelpAnswers } from '../../src/service/helpAnswers'
 import { ChatbotPage } from '../../src/views/admin/ChatbotPage'
 import { renderAdmin, setUpAdminDom } from '../shared/adminSession'
+import { apiFaq, FAQS, faqStore, type ApiFaq } from '../shared/faqs'
 
 vi.mock('../../src/service/simulateRequest', () => ({ simulateRequest: () => Promise.resolve({ ok: true }) }))
+vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/fetchProductList')>()),
+  request: vi.fn(),
+}))
 vi.mock('../../src/service/helpAnswers', async (importOriginal) => {
   const real = await importOriginal<typeof import('../../src/service/helpAnswers')>()
   return {
@@ -20,14 +25,15 @@ vi.mock('../../src/service/helpAnswers', async (importOriginal) => {
 })
 
 const PATH = '/admin/chatbot'
-const original = getHelpAnswers()
+const serve = (rows: ApiFaq[]) => {
+  const store = faqStore(rows)
+  vi.mocked(request).mockImplementation(async (m, p, b) => store.handle(m, p, b).json)
+}
 const network = () => Object.assign(new Error('network'), { kind: 'network' })
 
 beforeAll(setUpAdminDom)
-afterEach(() => {
-  vi.clearAllMocks()
-  setHelpAnswers(original)
-})
+beforeEach(() => serve(FAQS))
+afterEach(() => vi.clearAllMocks())
 
 // jsdom loads no CSS, so the table and the card list are both on screen: these look in the table.
 const table = () => screen.getByRole('table')
@@ -38,7 +44,7 @@ const rowOf = (question: string) => {
   return row
 }
 const searchBox = () => screen.getByRole('textbox', { name: 'Search questions' })
-const FIRST = original[0].question
+const FIRST = FAQS[0].question
 
 async function renderPage() {
   renderAdmin(<ChatbotPage />, PATH)
@@ -51,14 +57,14 @@ async function openAdd() {
 }
 
 describe('Help Chatbot page', () => {
-  it('shows the title, a sample-data badge and the first page of questions', async () => {
+  it('shows the title, no sample-data badge and the first page of questions', async () => {
     await renderPage()
     expect(screen.getByRole('heading', { level: 1, name: 'Help Chatbot' })).toBeInTheDocument()
     expect(document.title).toBe('Help Chatbot — SilhouFit')
     const meta = document.querySelector<HTMLMetaElement>('meta[name="description"]')!.content
     expect(meta.length).toBeGreaterThanOrEqual(150)
     expect(meta.length).toBeLessThanOrEqual(160)
-    expect(screen.getByText('Sample data')).toBeInTheDocument()
+    expect(screen.queryByText('Sample data')).toBeNull()
     expect(bodyRows()).toHaveLength(10)
     expect(screen.getByText('Displaying 1–10 of 15')).toBeInTheDocument()
     expect(within(rowOf(FIRST)).getByText('Published')).toBeInTheDocument()
@@ -80,7 +86,7 @@ describe('Help Chatbot page', () => {
   })
 
   it('says so when there are no questions, with a way to add one', async () => {
-    setHelpAnswers([])
+    serve([apiFaq(1, { isDeleted: true })])
     renderAdmin(<ChatbotPage />, PATH)
     expect(await screen.findByText('No questions yet')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Add question' }).length).toBeGreaterThan(1)
@@ -100,6 +106,7 @@ describe('the question sheet', () => {
   it('shows what is wrong in each field and counts characters', async () => {
     await renderPage()
     const dialog = await openAdd()
+    expect(within(dialog).getByText('Customers see no button under this answer.')).toBeInTheDocument()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Add question' }))
     expect(await within(dialog).findByText('Enter the question customers ask.')).toBeInTheDocument()
     expect(within(dialog).getByText('Enter the answer customers should see.')).toBeInTheDocument()
@@ -127,7 +134,7 @@ describe('the question sheet', () => {
 
     expect(await screen.findByText('Question "Do you gift wrap orders?" added as a draft')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(service.createHelpAnswer).toHaveBeenCalledWith(expect.objectContaining({ question: 'Do you gift wrap orders?', published: false }), expect.any(String))
+    expect(service.createHelpAnswer).toHaveBeenCalledWith(expect.objectContaining({ question: 'Do you gift wrap orders?', published: false }))
     expect((await service.listPublicAnswers()).some((a) => a.question === 'Do you gift wrap orders?')).toBe(false)
 
     await userEvent.type(searchBox(), 'gift wrap')
@@ -158,7 +165,8 @@ describe('deleting', () => {
     await userEvent.click(within(rowOf(FIRST)).getByRole('button', { name: `Delete ${FIRST}` }))
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete question' }))
     expect(await screen.findByText(`"${FIRST}" deleted`)).toBeInTheDocument()
-    expect(getHelpAnswers().some((a) => a.question === FIRST)).toBe(false)
+    expect(request).toHaveBeenCalledWith('DELETE', `/faqs/${FAQS[0].id}`, undefined, undefined)
+    await waitFor(() => expect(within(table()).queryByText(FIRST)).toBeNull())
   })
 })
 
@@ -167,7 +175,8 @@ describe('reordering', () => {
     await renderPage()
     await userEvent.click(within(rowOf(FIRST)).getByRole('button', { name: `Move down: ${FIRST}` }))
     expect(await screen.findByText('Moved to position 2')).toBeInTheDocument()
-    expect(getHelpAnswers()[1].question).toBe(FIRST)
+    expect(request).toHaveBeenCalledWith('PATCH', `/faqs/${FAQS[0].id}`, { order: 2 }, undefined)
+    await waitFor(() => expect(within(bodyRows()[1]).getByText(FIRST)).toBeInTheDocument())
   })
 
   it('cannot move the first question up', async () => {

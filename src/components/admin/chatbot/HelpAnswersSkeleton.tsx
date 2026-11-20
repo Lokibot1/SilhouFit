@@ -49,7 +49,6 @@ export function HelpAnswersPageSkeleton() {
     <div role="status" aria-label="Loading Help Chatbot" className="grid animate-pulse gap-3">
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         <Bar className="h-8 w-56 max-w-full sm:h-9" />
-        <Bar className="h-8 w-28" />
       </div>
       <section className={STAFF_SECTION}>
         <Bar className="mb-3 h-11 w-full" />
