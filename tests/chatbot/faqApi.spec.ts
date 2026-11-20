@@ -65,7 +65,7 @@ async function askBot(page: Page, text: string) {
   await message.press('Enter')
 }
 
-async function addQuestion(page: Page, { question, answer, keywords, topic, link, publish }: { question: string; answer: string; keywords: string; topic?: string; link?: string; publish: boolean }) {
+async function addQuestion(page: Page, { question, answer, keywords, topic, link, publish, position }: { question: string; answer: string; keywords: string; topic?: string; link?: string; publish: boolean; position?: string }) {
   await page.getByRole('button', { name: 'Add question' }).first().click()
   const sheet = page.getByRole('dialog', { name: 'Add question' })
   await sheet.getByRole('textbox', { name: 'Question', exact: true }).fill(question)
@@ -79,9 +79,14 @@ async function addQuestion(page: Page, { question, answer, keywords, topic, link
     await sheet.getByRole('combobox', { name: 'Link page' }).click()
     await page.getByRole('option', { name: link, exact: true }).click()
   }
+  if (position) await sheet.getByRole('textbox', { name: /^Position/ }).fill(position)
   if (publish) await sheet.locator('label', { hasText: 'Published' }).click()
   return sheet
 }
+
+/** The listed questions, each starting with its position. Table and list render the same rows; the list is what shows at the default widths. */
+const listed = (page: Page) => page.getByRole('list', { name: 'Help questions' }).getByRole('listitem')
+const startsWith = (position: number, question: string) => new RegExp(String.raw`^${position}\s*${question.replace(/[?.]/g, String.raw`\$&`)}`)
 
 test('creating a question sends the API its fields, and the bot shows the link button worded from the page', async ({ page }) => {
   await mockFaqs(page, FAQS)
@@ -165,6 +170,79 @@ test('moving a row down sends PATCH with the position of the row below it', asyn
   await page.getByRole('button', { name: `Move down: ${FAQS[0].question}` }).filter({ visible: true }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Moved to position 2' })).toBeAttached()
   expect(writes).toEqual([{ method: 'PATCH', path: `/faqs/${FAQS[0].id}`, body: { order: 2 } }])
+})
+
+test.describe('Position', () => {
+  const NEW = { question: 'Do you offer gift wrapping?', answer: 'Gift wrapping is not offered yet.', keywords: 'gift', publish: true }
+
+  test('adding with Position 1 sends order 1 and the new row is listed first, pushing the old first row to 2', async ({ page }) => {
+    await mockFaqs(page, FAQS)
+    const writes = recordWrites(page)
+    await openAdminPage(page)
+
+    const sheet = await addQuestion(page, { ...NEW, position: '1' })
+    await sheet.getByRole('button', { name: 'Add question', exact: true }).click()
+    await expect(page.getByText(`Question "${NEW.question}" added`)).toBeVisible()
+
+    expect(writes).toHaveLength(1)
+    expect(writes[0]).toMatchObject({ method: 'POST', path: '/faqs', body: { question: NEW.question, order: 1 } })
+    await expect(listed(page).nth(0)).toHaveText(startsWith(1, NEW.question))
+    await expect(listed(page).nth(1)).toHaveText(startsWith(2, FAQS[0].question))
+  })
+
+  test('adding with Position blank sends no order and the row is listed last', async ({ page }) => {
+    await mockFaqs(page, FAQS)
+    const writes = recordWrites(page)
+    await openAdminPage(page)
+
+    const sheet = await addQuestion(page, NEW)
+    await sheet.getByRole('button', { name: 'Add question', exact: true }).click()
+    await expect(page.getByText(`Question "${NEW.question}" added`)).toBeVisible()
+
+    expect(writes).toHaveLength(1)
+    expect(Object.keys(writes[0].body as object)).not.toContain('order')
+    await expect(listed(page).nth(0)).toHaveText(startsWith(1, FAQS[0].question))
+    await page.getByRole('textbox', { name: 'Search questions' }).fill('gift wrapping')
+    await expect(listed(page)).toHaveCount(1)
+    await expect(listed(page).first()).toHaveText(startsWith(FAQS.length + 1, NEW.question))
+  })
+
+  test('the Edit drawer is prefilled with the current position, and a new one is sent as order and reorders the list', async ({ page }) => {
+    await mockFaqs(page, FAQS)
+    const writes = recordWrites(page)
+    await openAdminPage(page)
+
+    await page.getByRole('button', { name: `Edit ${FAQS[0].question}` }).filter({ visible: true }).click()
+    const sheet = page.getByRole('dialog', { name: 'Edit question' })
+    const position = sheet.getByRole('textbox', { name: /^Position/ })
+    await expect(position).toHaveValue('1')
+    await position.fill('3')
+    await sheet.getByRole('button', { name: 'Save changes', exact: true }).click()
+    await expect(page.getByText(`Question "${FAQS[0].question}" saved`)).toBeVisible()
+
+    expect(writes).toHaveLength(1)
+    expect(writes[0]).toMatchObject({ method: 'PATCH', path: `/faqs/${FAQS[0].id}`, body: { order: 3 } })
+    await expect(listed(page).nth(0)).toHaveText(startsWith(1, FAQS[1].question))
+    await expect(listed(page).nth(2)).toHaveText(startsWith(3, FAQS[0].question))
+  })
+
+  test('Position takes digits only, and 0 shows an inline error without sending anything', async ({ page }) => {
+    await mockFaqs(page, FAQS)
+    const writes = recordWrites(page)
+    await openAdminPage(page)
+
+    const sheet = await addQuestion(page, NEW)
+    const position = sheet.getByRole('textbox', { name: /^Position/ })
+    await position.pressSequentially('a1b2-c')
+    await expect(position).toHaveValue('12')
+
+    await position.fill('0')
+    await sheet.getByRole('button', { name: 'Add question', exact: true }).click()
+    await expect(sheet.getByText('Enter a whole number from 1, or leave it blank to place it last.')).toBeVisible()
+    await expect(position).toHaveAttribute('aria-invalid', 'true')
+    await expect(position).toBeFocused()
+    expect(writes).toHaveLength(0)
+  })
 })
 
 for (const link of ['/admin/users', 'https://x.test']) {

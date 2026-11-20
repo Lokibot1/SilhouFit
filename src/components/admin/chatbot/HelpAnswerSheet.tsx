@@ -36,13 +36,14 @@ const LINK_OPTIONS: { value: PublicPath | 'none'; label: string }[] = [{ value: 
 const without = (errors: HelpErrors, name: HelpField): HelpErrors => Object.fromEntries(Object.entries(errors).filter(([key]) => key !== name))
 
 function initial(answer: HelpAnswer | null): HelpFormValues {
-  if (!answer) return { question: '', answer: '', keywords: '', category: 'orders', linkTo: '', published: false }
+  if (!answer) return { question: '', answer: '', keywords: '', category: 'orders', linkTo: '', position: '', published: false }
   return {
     question: answer.question,
     answer: answer.answer,
     keywords: answer.keywords.join(', '),
     category: answer.category,
     linkTo: answer.link?.to ?? '',
+    position: String(answer.order),
     published: answer.published,
   }
 }
@@ -89,6 +90,7 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
       category: values.category,
       link: values.linkTo ? { to: values.linkTo, label: HELP_LINK_TEXT[values.linkTo] } : null,
       published: values.published,
+      order: values.position ? Number(values.position) : undefined,
     }
     inFlight.current = true
     setPending(true)
@@ -114,7 +116,7 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
     }
   }
 
-  const input = (name: 'question' | 'answer' | 'keywords', hint = false) => ({
+  const input = (name: 'question' | 'answer' | 'keywords' | 'position', hint = false) => ({
     id: fieldId(name),
     value: values[name],
     readOnly: pending,
@@ -193,6 +195,17 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
             {values.linkTo ? `Button shown to customers: "${HELP_LINK_TEXT[values.linkTo]}"` : 'Customers see no button under this answer.'}
           </p>
         </div>
+        <Tooltip label="Where this question is listed, counting from 1. Others move down to make room." wrap className="*:w-full">
+          <Field
+            id={fieldId('position')}
+            label="Position"
+            optional
+            error={errors.position}
+            hint={editing ? '1 is shown first. Leave blank to keep its place. A number past the end places it last.' : '1 is shown first. Leave blank to place it last. A number past the end places it last.'}
+          >
+            <input {...input('position', true)} onChange={(event) => set('position', event.target.value.replace(/\D/g, ''))} type="text" inputMode="numeric" className={`${FIELD_INPUT} tabular-nums`} />
+          </Field>
+        </Tooltip>
         <div>
           <Tooltip label="A draft is saved here but customers do not see it. Publish it when the answer is ready." wrap>
             <label className="font-ui flex min-h-11 cursor-pointer items-center justify-between gap-3 text-base text-fg md:text-sm">

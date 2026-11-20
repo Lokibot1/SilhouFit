@@ -148,6 +148,38 @@ describe('the question sheet', () => {
     await waitFor(() => expect(within(rowOf('Do you gift wrap orders?')).getByText('Published')).toBeInTheDocument())
     expect((await service.listPublicAnswers()).some((a) => a.question === 'Do you gift wrap orders?')).toBe(true)
   })
+
+  it('adds a question at the position typed, which puts it first', async () => {
+    await renderPage()
+    const dialog = await openAdd()
+    await userEvent.type(within(dialog).getByLabelText('Question'), 'Do you gift wrap orders?')
+    await userEvent.type(within(dialog).getByLabelText('Answer'), 'Gift wrapping is not offered yet.')
+    await userEvent.type(within(dialog).getByLabelText(/^Position/), '1')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add question' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(service.createHelpAnswer).toHaveBeenCalledWith(expect.objectContaining({ order: 1 }))
+    await waitFor(() => expect(within(bodyRows()[0]).getByText('Do you gift wrap orders?')).toBeInTheDocument())
+  })
+
+  it('shows an error for a position of 0 and sends nothing', async () => {
+    await renderPage()
+    const dialog = await openAdd()
+    await userEvent.type(within(dialog).getByLabelText('Question'), 'Do you gift wrap orders?')
+    await userEvent.type(within(dialog).getByLabelText('Answer'), 'Gift wrapping is not offered yet.')
+    await userEvent.type(within(dialog).getByLabelText(/^Position/), '0')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add question' }))
+
+    expect(await within(dialog).findByText('Enter a whole number from 1, or leave it blank to place it last.')).toBeInTheDocument()
+    expect(service.createHelpAnswer).not.toHaveBeenCalled()
+  })
+
+  it('opens Edit with the current position filled in', async () => {
+    await renderPage()
+    await userEvent.click(within(rowOf(FAQS[2].question)).getByRole('button', { name: `Edit ${FAQS[2].question}` }))
+    const edit = await screen.findByRole('dialog', { name: 'Edit question' })
+    expect(within(edit).getByLabelText(/^Position/)).toHaveValue('3')
+  })
 })
 
 describe('deleting', () => {

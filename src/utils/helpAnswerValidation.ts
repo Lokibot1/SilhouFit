@@ -9,13 +9,15 @@ export interface HelpFormValues {
   category: HelpCategory
   /** '' for no link. */
   linkTo: PublicPath | ''
+  /** Digits only; '' to place it last (new) or leave it where it is (edit). */
+  position: string
   published: boolean
 }
 export type HelpField = keyof HelpFormValues
 export type HelpErrors = Partial<Record<HelpField, string>>
 
 /** Every field in on-screen order; validation and first-invalid focus both follow it. */
-export const HELP_FIELD_ORDER: HelpField[] = ['question', 'answer', 'category', 'keywords', 'linkTo', 'published']
+export const HELP_FIELD_ORDER: HelpField[] = ['question', 'answer', 'category', 'keywords', 'linkTo', 'position', 'published']
 
 export const HELP_LIMITS = { questionMin: 8, questionMax: 120, answerMin: 10, answerMax: 600, keywordsMax: 10, keywordMax: 24 } as const
 
@@ -66,6 +68,8 @@ export function validateHelpAnswer(values: HelpFormValues): HelpErrors {
   else errors.keywords = confidentialityProblem(keywords.join(' ')) ?? undefined
 
   if (values.linkTo && !HELP_LINK_PATHS.includes(values.linkTo as PublicPath)) errors.linkTo = 'Choose one of the listed pages.'
+
+  if (values.position && !(/^\d+$/.test(values.position) && Number(values.position) >= 1)) errors.position = 'Enter a whole number from 1, or leave it blank to place it last.'
 
   for (const key of Object.keys(errors) as HelpField[]) if (!errors[key]) delete errors[key]
   return errors

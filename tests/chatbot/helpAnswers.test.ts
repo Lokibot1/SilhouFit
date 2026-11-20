@@ -112,6 +112,21 @@ describe('saving', () => {
     await expect(service.createHelpAnswer(input())).rejects.toMatchObject({ kind: 'validation', field: 'category' })
   })
 
+  it('sends the position only when one is given, on create and on update', async () => {
+    serve([apiFaq(1)])
+    await service.createHelpAnswer(input({ order: 2 }))
+    expect(send).toHaveBeenLastCalledWith('POST', '/faqs', { ...body, order: 2 }, undefined)
+    await service.updateHelpAnswer('faq-1', input({ order: 3 }))
+    expect(send).toHaveBeenLastCalledWith('PATCH', '/faqs/faq-1', { ...body, order: 3 }, undefined)
+    await service.createHelpAnswer(input({ order: undefined }))
+    expect(send).toHaveBeenLastCalledWith('POST', '/faqs', body, undefined)
+  })
+
+  it('names the position field when the server rejects the order', async () => {
+    send.mockRejectedValueOnce(new ProductListError('validation', 'order must not be less than 1', 400))
+    await expect(service.createHelpAnswer(input({ order: 1 }))).rejects.toMatchObject({ kind: 'validation', field: 'position' })
+  })
+
   it('lets any other failure through', async () => {
     send.mockRejectedValueOnce(new ProductListError('server'))
     await expect(service.createHelpAnswer(input())).rejects.toMatchObject({ kind: 'server' })

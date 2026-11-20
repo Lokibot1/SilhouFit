@@ -151,8 +151,12 @@ export function faqStore(initial: ApiFaq[]) {
         return { status: 200, json: { data, meta: { total: data.length, page: 1, limit: 100, totalPages: 1, hasNextPage: false, hasPreviousPage: false } } }
       }
       if (method === 'POST') {
-        const row = apiFaq(100 + ++created, { ...patch, order: live(rows).length + 1 })
+        const { order, ...fields } = patch
+        const row = apiFaq(100 + ++created, fields)
+        const others = notDeleted()
+        others.splice(typeof order === 'number' ? Math.min(order, others.length + 1) - 1 : others.length, 0, row)
         rows.push(row)
+        renumber(others)
         return { status: 201, json: row }
       }
       const row = rows.find((r) => r.id === id)
@@ -162,11 +166,13 @@ export function faqStore(initial: ApiFaq[]) {
         renumber(ordered())
         return { status: 200, json: row }
       }
-      if (typeof patch.order === 'number') {
+      const { order, ...fields } = patch
+      Object.assign(row, fields, { updatedAt: new Date().toISOString() })
+      if (typeof order === 'number') {
         const others = notDeleted().filter((r) => r !== row)
-        others.splice(patch.order - 1, 0, row)
+        others.splice(Math.min(order, others.length + 1) - 1, 0, row)
         renumber(others)
-      } else Object.assign(row, patch, { updatedAt: new Date().toISOString() })
+      }
       return { status: 200, json: row }
     },
   }

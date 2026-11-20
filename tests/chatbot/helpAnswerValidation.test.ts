@@ -7,6 +7,7 @@ const valid: HelpFormValues = {
   keywords: 'return, exchange',
   category: 'returns',
   linkTo: '/refund-policy',
+  position: '',
   published: true,
 }
 const errorsOf = (over: Partial<HelpFormValues>) => validateHelpAnswer({ ...valid, ...over })
@@ -35,6 +36,12 @@ describe('validateHelpAnswer', () => {
 
   it('only takes listed pages', () => {
     expect(errorsOf({ linkTo: '/admin/users' as never }).linkTo).toMatch(/listed pages/)
+  })
+
+  it('takes a blank position or a whole number from 1', () => {
+    expect(errorsOf({ position: '' }).position).toBeUndefined()
+    expect(errorsOf({ position: '3' }).position).toBeUndefined()
+    for (const position of ['0', '-1', '1.5', 'abc']) expect(errorsOf({ position }).position).toMatch(/whole number from 1/)
   })
 
   it('rejects contact details in any text field', () => {

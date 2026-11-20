@@ -59,7 +59,10 @@ export interface HelpAnswer {
 /** All the chatbot ever sees of an answer: a published one, without who changed it or when. */
 export type PublicHelpAnswer = Pick<HelpAnswer, 'id' | 'question' | 'answer' | 'keywords' | 'category' | 'link'>
 
-export type HelpAnswerInput = Pick<HelpAnswer, 'question' | 'answer' | 'keywords' | 'category' | 'link' | 'published'>
+export type HelpAnswerInput = Pick<HelpAnswer, 'question' | 'answer' | 'keywords' | 'category' | 'link' | 'published'> & {
+  /** The position to put it at, from 1; the API shifts the others. Left out, a new answer goes last and an edited one stays put. */
+  order?: number
+}
 
 export interface HelpPage {
   data: HelpAnswer[]
@@ -138,6 +141,7 @@ const FIELD_WORDS: [RegExp, HelpField][] = [
   [/^topic\b/i, 'category'],
   [/^keywords?\b/i, 'keywords'],
   [/^link\b/i, 'linkTo'],
+  [/^order\b/i, 'position'],
 ]
 
 /** Rewords a rule the server says was broken so the form can show it next to its field; any other failure passes through. */
@@ -159,6 +163,7 @@ const toBody = (input: HelpAnswerInput) => ({
   keywords: input.keywords,
   link: input.link?.to ?? null,
   isActive: input.published,
+  ...(input.order ? { order: input.order } : {}),
 })
 
 const one = (body: unknown): HelpAnswer => {
@@ -179,7 +184,7 @@ export async function listHelpAnswers({ signal, search, category, page = 1, limi
   return { data: matched.slice((page - 1) * limit, page * limit), meta: { total: matched.length, page, limit, totalPages: Math.ceil(matched.length / limit) } }
 }
 
-/** POST /faqs: the answer is added last. */
+/** POST /faqs: the answer is added last, unless a position is given. */
 export async function createHelpAnswer(input: HelpAnswerInput, { signal }: RequestOptions = {}): Promise<HelpAnswer> {
   const created = one(await save(() => request('POST', '/faqs', toBody(input), signal)))
   notify()
