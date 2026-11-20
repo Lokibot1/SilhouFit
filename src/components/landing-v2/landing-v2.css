@@ -227,7 +227,7 @@
 }
 .sv2-hero {
   --hero-h: max(calc(100svh - var(--sv2-bar-h)), 30rem);
-  --mark-w: 70vw; /* the official wordmark's width: it keeps its own proportions, so its height follows */
+  --mark-w: 84vw; /* the official wordmark's width: it keeps its own proportions, so its height follows */
   --mark-h: calc(0.2394 * var(--mark-w)); /* the wordmark band's height: (1120 + 2 x 60) / (5060 + 2 x 60) of its width */
   --letters-b: calc(0.954 * var(--mark-h)); /* where the glyphs end inside the band */
   --copy-h: max(10rem, calc(190 * var(--u))); /* the overlay copy at the bottom (its type scales with --u) */
