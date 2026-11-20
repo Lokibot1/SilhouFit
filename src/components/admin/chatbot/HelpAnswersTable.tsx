@@ -77,7 +77,7 @@ export function HelpAnswersTable({ list, onCreate, onEdit, onDelete, onMove }: H
         ) : filtered ? (
           <>
             <p className="text-base font-semibold text-fg">No questions match</p>
-            <p className="mt-1 text-base text-fg-muted">Check the spelling, or clear the search and topic filter and try again.</p>
+            <p className="mt-1 text-base text-fg-muted">Check the spelling, or clear the search, topic and status filters and try again.</p>
             <button type="button" onClick={clear} className={`${SECONDARY_BUTTON} mt-3`}>
               Clear filters
             </button>
@@ -98,7 +98,7 @@ export function HelpAnswersTable({ list, onCreate, onEdit, onDelete, onMove }: H
   const total = result?.meta.total ?? 0
   /** Why a row cannot move that way, or null. The order only makes sense on the full list. */
   const blockedFor = (row: HelpAnswer, direction: Direction) =>
-    filtered ? 'Clear the search to reorder' : direction === 'up' && row.order === 1 ? 'Already first' : direction === 'down' && row.order === total ? 'Already last' : null
+    filtered ? 'Clear the filters to reorder' : direction === 'up' && row.order === 1 ? 'Already first' : direction === 'down' && row.order === total ? 'Already last' : null
 
   const actions = (row: HelpAnswer): ReactNode => (
     <>

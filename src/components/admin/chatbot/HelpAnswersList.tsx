@@ -73,7 +73,7 @@ export function HelpAnswersList() {
       <h2 id="help-answers-list" className="sr-only">
         Help questions
       </h2>
-      <HelpAnswersToolbar text={list.text} onText={list.setText} category={list.category} onCategory={list.setCategory} per={list.per} onPer={list.setPer} onCreate={() => openSheet(null)} />
+      <HelpAnswersToolbar text={list.text} onText={list.setText} category={list.category} onCategory={list.setCategory} status={list.status} onStatus={list.setStatus} per={list.per} onPer={list.setPer} onCreate={() => openSheet(null)} />
       <p role="status" className="sr-only">
         {moved}
       </p>

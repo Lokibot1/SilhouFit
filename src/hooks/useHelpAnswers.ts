@@ -4,10 +4,13 @@ import type { RequestOptions } from '../service/simulateRequest'
 import { useDebouncedValue } from './useDebouncedValue'
 import { useSection } from './useSection'
 
-/** The help answers list: search (debounced), topic filter and page, loaded as its own section. The list loads again when the answers change. */
+export type HelpStatus = 'all' | 'published' | 'drafts'
+
+/** The help answers list: search (debounced), topic and status filters and page, loaded as its own section. The list loads again when the answers change. */
 export function useHelpAnswers() {
   const [text, setText] = useState('')
   const [category, setCategory] = useState<HelpCategory | ''>('')
+  const [status, setStatus] = useState<HelpStatus>('all')
   const [page, setPage] = useState(1)
   const [per, setPer] = useState<number>(HELP_PER_PAGE)
   const [version, setVersion] = useState(0)
@@ -19,10 +22,10 @@ export function useHelpAnswers() {
   }, [])
 
   const load = useCallback(
-    (options: RequestOptions) => listHelpAnswers({ search: search || undefined, category: category || undefined, page, limit: per, ...options }),
+    (options: RequestOptions) => listHelpAnswers({ search: search || undefined, category: category || undefined, published: status === 'all' ? undefined : status === 'published', page, limit: per, ...options }),
     // A new version is a new request, though it is not read inside.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [search, category, page, per, version],
+    [search, category, status, page, per, version],
   )
   const { state, previous, retry } = useSection(load)
   const result = state.status === 'success' ? state.data : previous
@@ -43,6 +46,11 @@ export function useHelpAnswers() {
       setCategory(value)
       setPage(1)
     },
+    status,
+    setStatus: (value: HelpStatus) => {
+      setStatus(value)
+      setPage(1)
+    },
     /** As many placeholder rows as the first page will have, so the rows do not jump when they arrive. */
     skeletonRows: Math.min(per, getHelpAnswers().length || per),
     page,
@@ -52,10 +60,11 @@ export function useHelpAnswers() {
       setPer(value)
       setPage(1)
     },
-    filtered: Boolean(search || category),
+    filtered: Boolean(search || category || status !== 'all'),
     clear: () => {
       setText('')
       setCategory('')
+      setStatus('all')
       setPage(1)
     },
   }

@@ -127,7 +127,12 @@ const SEEDS: Seed[] = [
 /** The 15 starter answers, as the API sends them. */
 export const FAQS: ApiFaq[] = SEEDS.map(([topic, question, answer, keywords, link], n) => apiFaq(n + 1, { topic, question, answer, keywords, link }))
 
-const live = (rows: ApiFaq[]) => rows.filter((r) => r.isActive && !r.isDeleted)
+/** Like the API: no status (or active) is published and not deleted, inactive is drafts not deleted, deleted is deleted only, all is everything. */
+const byStatus = (rows: ApiFaq[], status: string | null) => {
+  if (status === 'all') return rows
+  if (status === 'deleted') return rows.filter((r) => r.isDeleted)
+  return rows.filter((r) => !r.isDeleted && r.isActive === (status !== 'inactive'))
+}
 const renumber = (rows: ApiFaq[]) => {
   let n = 0
   for (const row of rows) row.order = row.isDeleted ? 0 : ++n
@@ -147,7 +152,7 @@ export function faqStore(initial: ApiFaq[]) {
       const id = url.pathname.split('/')[2]
       const patch = (body ?? {}) as Record<string, unknown>
       if (method === 'GET') {
-        const data = url.searchParams.get('status') === 'all' ? ordered() : live(ordered())
+        const data = byStatus(ordered(), url.searchParams.get('status'))
         return { status: 200, json: { data, meta: { total: data.length, page: 1, limit: 100, totalPages: 1, hasNextPage: false, hasPreviousPage: false } } }
       }
       if (method === 'POST') {

@@ -72,6 +72,8 @@ export interface HelpPage {
 export interface HelpQuery {
   search?: string
   category?: HelpCategory
+  /** Only published answers (true) or only drafts (false). */
+  published?: boolean
   page?: number
   limit?: number
 }
@@ -107,9 +109,9 @@ function toAnswer(value: unknown): HelpAnswer | null {
   }
 }
 
-function toAnswers(body: unknown, keep: (row: Record<string, unknown>) => boolean = () => true): HelpAnswer[] {
+function toAnswers(body: unknown): HelpAnswer[] {
   if (!isRecord(body) || !Array.isArray(body.data)) throw new ProductListError('server')
-  return body.data.filter((row) => isRecord(row) && keep(row)).flatMap((row) => toAnswer(row) ?? [])
+  return body.data.flatMap((row) => toAnswer(row) ?? [])
 }
 
 // The API caps a page at 100 and the list is small, so one request reads every answer.
@@ -121,8 +123,10 @@ export const getHelpAnswers = () => cache
 
 /** Every answer, drafts included, deleted ones left out, in order. */
 async function readAll(signal?: AbortSignal): Promise<HelpAnswer[]> {
-  // `status=all` also lists soft-deleted answers, which the API marks `isDeleted`.
-  cache = toAnswers(await request('GET', `/faqs?status=all&${ALL}`, undefined, signal), (row) => row.isDeleted !== true)
+  // `status=all` would also list soft-deleted answers, which sort first and can fill the page. `active` and `inactive` never include them.
+  const [published, drafts] = await Promise.all((['active', 'inactive'] as const).map((status) => request('GET', `/faqs?status=${status}&${ALL}`, undefined, signal)))
+  // Each list is already in the server's order; this only interleaves the two.
+  cache = [...toAnswers(published), ...toAnswers(drafts)].sort((a, b) => a.order - b.order)
   return cache
 }
 
@@ -177,10 +181,10 @@ export async function listPublicAnswers({ signal }: RequestOptions = {}): Promis
   return toAnswers(await request('GET', `/faqs?${ALL}`, undefined, signal)).map(({ id, question, answer, keywords, category, link }) => ({ id, question, answer, keywords, category, link }))
 }
 
-/** Every answer for the admin list, then the search (question text, ignoring case), topic filter and page, all applied here. */
-export async function listHelpAnswers({ signal, search, category, page = 1, limit = HELP_PER_PAGE }: HelpQuery & RequestOptions = {}): Promise<HelpPage> {
+/** Every answer for the admin list, then the search (question text, ignoring case), topic and status filters and page, all applied here. */
+export async function listHelpAnswers({ signal, search, category, published, page = 1, limit = HELP_PER_PAGE }: HelpQuery & RequestOptions = {}): Promise<HelpPage> {
   const needle = search?.trim().toLowerCase().slice(0, MAX_HELP_SEARCH)
-  const matched = (await readAll(signal)).filter((a) => (!category || a.category === category) && (!needle || a.question.toLowerCase().includes(needle)))
+  const matched = (await readAll(signal)).filter((a) => (!category || a.category === category) && (published === undefined || a.published === published) && (!needle || a.question.toLowerCase().includes(needle)))
   return { data: matched.slice((page - 1) * limit, page * limit), meta: { total: matched.length, page, limit, totalPages: Math.ceil(matched.length / limit) } }
 }
 

@@ -154,13 +154,40 @@ test('a soft-deleted row never appears in the admin list', async ({ page }) => {
   await openAdminPage(page)
   await expect(page.getByText(FAQS[0].question).filter({ visible: true }).first()).toBeVisible()
 
-  // The admin asks for every row, so the API did send the deleted one; the page leaves it out.
-  expect(reads.some((search) => search.includes('status=all'))).toBe(true)
+  // The admin asks for published and drafts separately, never status=all, so a deleted row is never sent.
+  expect(reads.sort()).toEqual(['?status=active&limit=100&sortBy=order&sortOrder=asc', '?status=inactive&limit=100&sortBy=order&sortOrder=asc'])
   await expect(page.getByText('Displaying 1–10 of 15')).toBeVisible()
   await page.getByRole('textbox', { name: 'Search questions' }).fill('zebra')
   await expect(page.getByText('No questions match')).toBeVisible()
   await expect(page.getByText('Removed question zebra?')).toHaveCount(0)
 })
+
+for (const [name, size] of [['desktop', { width: 1280, height: 800 }], ['mobile', { width: 390, height: 844 }]] as const) {
+  test(`the Status filter shows only Published or only Drafts on ${name}, and Clear filters resets it`, async ({ page }) => {
+    await mockFaqs(page, [...FAQS.slice(0, 3), apiFaq(20, { question: 'A draft about gloves?', isActive: false, order: 4 })])
+    await page.setViewportSize(size)
+    await openAdminPage(page)
+    const status = page.getByRole('combobox', { name: 'Status' })
+    const draft = page.getByText('A draft about gloves?').filter({ visible: true })
+
+    await status.click()
+    await page.getByRole('option', { name: 'Drafts', exact: true }).click()
+    await expect(page.getByText('Displaying 1–1 of 1')).toBeVisible()
+    await expect(draft).toHaveCount(1)
+    await expect(page.getByRole('button', { name: /^Move down/ }).filter({ visible: true }).first()).toHaveAttribute('aria-disabled', 'true')
+
+    await status.click()
+    await page.getByRole('option', { name: 'Published', exact: true }).click()
+    await expect(page.getByText('Displaying 1–3 of 3')).toBeVisible()
+    await expect(draft).toHaveCount(0)
+
+    await page.getByRole('textbox', { name: 'Search questions' }).fill('gloves')
+    await expect(page.getByText('No questions match')).toBeVisible()
+    await page.getByRole('button', { name: 'Clear filters' }).click()
+    await expect(page.getByText('Displaying 1–4 of 4')).toBeVisible()
+    await expect(status).toHaveText(/All statuses/)
+  })
+}
 
 test('moving a row down sends PATCH with the position of the row below it', async ({ page }) => {
   await mockFaqs(page, FAQS)

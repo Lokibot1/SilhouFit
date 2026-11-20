@@ -1,3 +1,4 @@
+import type { HelpStatus } from '../../../hooks/useHelpAnswers'
 import { HELP_CATEGORIES, HELP_CATEGORY_LABELS, HELP_PER_PAGE_OPTIONS, MAX_HELP_SEARCH, type HelpCategory } from '../../../service/helpAnswers'
 import { PlusIcon, SearchIcon, XIcon } from '../../form/icons'
 import { PRIMARY_BUTTON } from '../../ui/buttonStyles'
@@ -6,17 +7,25 @@ import { Select } from '../../ui/Select'
 const PER_PAGE_CHOICES = HELP_PER_PAGE_OPTIONS.map((n) => ({ value: n, label: `${n} per page` }))
 const TOPIC_CHOICES: { value: HelpCategory | 'all'; label: string }[] = [{ value: 'all', label: 'All topics' }, ...HELP_CATEGORIES.map((value) => ({ value, label: HELP_CATEGORY_LABELS[value] }))]
 
+const STATUS_CHOICES: { value: HelpStatus; label: string }[] = [
+  { value: 'all', label: 'All statuses' },
+  { value: 'published', label: 'Published' },
+  { value: 'drafts', label: 'Drafts' },
+]
+
 interface HelpAnswersToolbarProps {
   text: string
   onText: (text: string) => void
   category: HelpCategory | ''
   onCategory: (category: HelpCategory | '') => void
+  status: HelpStatus
+  onStatus: (status: HelpStatus) => void
   per: number
   onPer: (per: number) => void
   onCreate: () => void
 }
 
-export function HelpAnswersToolbar({ text, onText, category, onCategory, per, onPer, onCreate }: HelpAnswersToolbarProps) {
+export function HelpAnswersToolbar({ text, onText, category, onCategory, status, onStatus, per, onPer, onCreate }: HelpAnswersToolbarProps) {
   return (
     <div className="mb-3 grid gap-3">
       <div className="relative">
@@ -46,6 +55,9 @@ export function HelpAnswersToolbar({ text, onText, category, onCategory, per, on
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-full @sm:w-44">
           <Select label="Topic" value={category || 'all'} options={TOPIC_CHOICES} onChange={(value) => onCategory(value === 'all' ? '' : value)} />
+        </div>
+        <div className="w-full @sm:w-44">
+          <Select label="Status" value={status} options={STATUS_CHOICES} onChange={onStatus} />
         </div>
         <div className="w-full @sm:w-44">
           <Select label="Rows per page" value={per} options={PER_PAGE_CHOICES} onChange={onPer} />

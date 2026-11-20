@@ -100,6 +100,30 @@ describe('Help Chatbot page', () => {
     expect(await screen.findByText('Displaying 1–10 of 15')).toBeInTheDocument()
     expect(searchBox()).toHaveValue('')
   })
+
+  const pick = async (option: string) => {
+    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
+    await userEvent.click(screen.getByRole('option', { name: option }))
+  }
+
+  it('filters to only Published or only Drafts, and Clear filters resets it', async () => {
+    serve([...FAQS.slice(0, 3), apiFaq(20, { question: 'A draft about gloves?', isActive: false, order: 4 })])
+    await renderPage()
+    await pick('Drafts')
+    expect(await screen.findByText('Displaying 1–1 of 1')).toBeInTheDocument()
+    expect(within(bodyRows()[0]).getByText('A draft about gloves?')).toBeInTheDocument()
+
+    await pick('Published')
+    expect(await screen.findByText('Displaying 1–3 of 3')).toBeInTheDocument()
+    expect(bodyRows().every((r) => within(r).queryByText('Draft') === null)).toBe(true)
+
+    await userEvent.type(searchBox(), 'gloves')
+    expect(await screen.findByText('No questions match')).toBeInTheDocument()
+    expect(screen.getByText(/clear the search, topic and status filters/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(await screen.findByText('Displaying 1–4 of 4')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent('All statuses')
+  })
 })
 
 describe('the question sheet', () => {
@@ -224,6 +248,17 @@ describe('reordering', () => {
     await userEvent.type(searchBox(), 'sizing')
     await screen.findByText('Displaying 1–1 of 1')
     const down = within(bodyRows()[0]).getByRole('button', { name: /^Move down/ })
+    expect(down).toHaveAttribute('aria-disabled', 'true')
+    await userEvent.click(down)
+    expect(service.moveHelpAnswer).not.toHaveBeenCalled()
+  })
+
+  it('is switched off while the status filter is on', async () => {
+    await renderPage()
+    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Published' }))
+    await screen.findByText('Displaying 1–10 of 15')
+    const down = within(rowOf(FIRST)).getByRole('button', { name: `Move down: ${FIRST}` })
     expect(down).toHaveAttribute('aria-disabled', 'true')
     await userEvent.click(down)
     expect(service.moveHelpAnswer).not.toHaveBeenCalled()

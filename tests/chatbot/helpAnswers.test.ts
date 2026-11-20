@@ -57,10 +57,11 @@ describe('listPublicAnswers', () => {
 describe('listHelpAnswers', () => {
   const rows = () => [apiFaq(1, { question: 'How do I pay?', topic: 'payments' }), apiFaq(2, { question: 'A draft question', isActive: false }), apiFaq(3, { question: 'Gone question', isDeleted: true }), apiFaq(4, { question: 'Where is my parcel?' })]
 
-  it('asks for every answer with status=all, keeps drafts and drops deleted ones', async () => {
+  it('reads published and drafts in two requests, never status=all, merges them by order and drops deleted ones', async () => {
     serve(rows())
     const { data, meta } = await service.listHelpAnswers()
-    expect(send.mock.calls[0][1]).toBe('/faqs?status=all&limit=100&sortBy=order&sortOrder=asc')
+    expect(send.mock.calls.map((c) => c[1]).sort()).toEqual(['/faqs?status=active&limit=100&sortBy=order&sortOrder=asc', '/faqs?status=inactive&limit=100&sortBy=order&sortOrder=asc'])
+    expect(send.mock.calls.some((c) => String(c[1]).includes('status=all'))).toBe(false)
     expect(data.map((a) => [a.question, a.published])).toEqual([
       ['How do I pay?', true],
       ['A draft question', false],
@@ -73,6 +74,27 @@ describe('listHelpAnswers', () => {
     serve(rows())
     expect((await service.listHelpAnswers({ search: 'PARCEL' })).data.map((a) => a.question)).toEqual(['Where is my parcel?'])
     expect((await service.listHelpAnswers({ category: 'payments' })).data.map((a) => a.question)).toEqual(['How do I pay?'])
+  })
+
+  it('keeps only published answers or only drafts when asked', async () => {
+    serve(rows())
+    expect((await service.listHelpAnswers({ published: true })).data.map((a) => a.question)).toEqual(['How do I pay?', 'Where is my parcel?'])
+    expect((await service.listHelpAnswers({ published: false })).data.map((a) => a.question)).toEqual(['A draft question'])
+  })
+
+  it('still lists every live answer when more than a page of deleted ones has order 0', async () => {
+    const deleted = Array.from({ length: 120 }, (_, i) => apiFaq(1000 + i, { isDeleted: true, order: 0 }))
+    const live = Array.from({ length: 105 }, (_, i) => apiFaq(i + 1, { isActive: i % 2 === 0 }))
+    serve([...deleted, ...live])
+    // The stub, like the API, never sends deleted rows for active or inactive, so none can crowd out a live one.
+    const { data, meta } = await service.listHelpAnswers({ limit: 200 })
+    expect(meta.total).toBe(105)
+    expect(data.map((a) => a.order)).toEqual(live.map((a) => a.order))
+  })
+
+  it('fails like before when either read fails', async () => {
+    send.mockResolvedValueOnce({ data: [] }).mockRejectedValueOnce(new ProductListError('server'))
+    await expect(service.listHelpAnswers()).rejects.toMatchObject({ kind: 'server' })
   })
 
   it('pages the result', async () => {
@@ -155,9 +177,11 @@ describe('moveHelpAnswer', () => {
   it('does nothing at either end', async () => {
     serve(rows())
     expect(await service.moveHelpAnswer('a', 'up')).toBe(1)
-    expect(send).toHaveBeenCalledTimes(1)
-    expect(await service.moveHelpAnswer('c', 'down')).toBe(3)
+    // Each read is two requests (published, drafts); no PATCH goes out.
     expect(send).toHaveBeenCalledTimes(2)
+    expect(await service.moveHelpAnswer('c', 'down')).toBe(3)
+    expect(send).toHaveBeenCalledTimes(4)
+    expect(send.mock.calls.every((c) => c[0] === 'GET')).toBe(true)
   })
 
   it('rejects an answer that is not there', async () => {
