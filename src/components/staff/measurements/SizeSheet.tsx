@@ -302,9 +302,7 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
                 const id = `ss-m-${key}`
                 const problem = error(`m:${key}`)
                 return (
-                  <Field key={key} id={id} label={name} error={problem}>
-                    {/* The unit sits inside the field, outside the label, so the field's name stays the same. */}
-                    <div className="relative">
+                  <Field key={key} id={id} label={name} error={problem} suffix="cm">
                     <input
                       id={id}
                       type="text"
@@ -318,10 +316,6 @@ export function SizeSheet({ row: listed, category, onSaved, onClose }: SizeSheet
                       onBlur={() => touch(`m:${key}`)}
                       className={`${FIELD_INPUT} pr-10 text-right tabular-nums`}
                     />
-                    <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-fg-muted">
-                      cm
-                    </span>
-                    </div>
                   </Field>
                 )
               })}

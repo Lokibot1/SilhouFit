@@ -21,6 +21,7 @@ export function Field({
   optional,
   count,
   error,
+  suffix,
   children,
 }: {
   id: string
@@ -29,6 +30,8 @@ export function Field({
   /** Shown as "typed/max". */
   count?: { value: number; max: number }
   error?: string
+  /** A unit (like "cm") shown inside the box at the right edge, outside the label. */
+  suffix?: string
   children: ReactNode
 }) {
   const shown = optional ? `${label} (optional)` : label
@@ -49,6 +52,11 @@ export function Field({
             <span>{shown}</span>
           </legend>
         </fieldset>
+        {suffix && (
+          <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-fg-muted">
+            {suffix}
+          </span>
+        )}
       </div>
       {nodes.filter((node) => !isControl(node))}
       {(error || count) && (
