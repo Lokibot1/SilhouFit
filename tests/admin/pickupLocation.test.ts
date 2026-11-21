@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProductListError } from '../../src/service/fetchProductList'
-import { PICKUP_KEY, PICKUP_SAMPLE_DATA, readPickupLocation, writePickupLocation, type PickupInput } from '../../src/service/pickupLocation'
-import { clearSession, setSession } from '../../src/service/session'
+import { fetchPickupLocation, savePickupLocation, type PickupInput } from '../../src/service/pickupLocation'
 
 const api = vi.hoisted(() => ({ request: vi.fn() }))
 vi.mock('../../src/service/fetchProductList', async (original) => ({
@@ -23,79 +22,75 @@ const INPUT: PickupInput = {
   latitude: 14.5995,
   longitude: 120.9842,
 }
-const ROW = { ...INPUT, updatedAt: '2026-11-19T07:05:00.000Z', updatedBy: { id: 'u1', fullName: 'Ben Cruz' } }
+const ID = '7d1f6c0e-1b7a-4c53-9a0e-5f1c2d3e4a5b'
+const LOCATION = { id: ID, ...INPUT, updatedAt: '2026-11-19T07:05:00.000Z' }
+// What the API sends: extra keys the app ignores.
+const ROW = { ...LOCATION, country: 'Philippines', isDefault: true, createdAt: '2026-11-18T07:05:00.000Z' }
 
-beforeEach(() => {
-  localStorage.clear()
-  api.request.mockReset()
-  clearSession()
-})
+beforeEach(() => api.request.mockReset())
 
-it('ships with the sample store on until the backend exists', () => {
-  expect(PICKUP_SAMPLE_DATA).toBe(true)
-})
-
-describe('sample store', () => {
-  it('reads nothing before a save, then round-trips a save through localStorage', async () => {
-    expect(await readPickupLocation(true)).toBeNull()
-    setSession({ name: 'Ben Cruz', email: 'ben@example.com' })
-    const saved = await writePickupLocation(true, INPUT)
-    expect(saved).toMatchObject({ ...INPUT, updatedBy: { id: 'sample', fullName: 'Ben Cruz' } })
-    expect(Number.isNaN(Date.parse(saved.updatedAt))).toBe(false)
-    expect(localStorage.getItem(PICKUP_KEY)).not.toBeNull()
-    expect(await readPickupLocation(true)).toEqual(saved)
-    expect(api.request).not.toHaveBeenCalled()
-  })
-
-  it('replaces the whole saved location, clearing the optional fields it no longer has', async () => {
-    await writePickupLocation(true, { ...INPUT, addressLine2: 'Unit 4B' })
-    await writePickupLocation(true, INPUT)
-    expect((await readPickupLocation(true))?.addressLine2).toBeNull()
-  })
-
-  it.each(['{not json', '{"contactName":1}', '[]'])('treats corrupt storage (%s) as nothing saved', async (raw) => {
-    localStorage.setItem(PICKUP_KEY, raw)
-    expect(await readPickupLocation(true)).toBeNull()
-  })
-})
-
-describe('API', () => {
-  it('reads GET /admin/settings/pickup-location: a row, or null when nothing is saved', async () => {
-    api.request.mockResolvedValueOnce(ROW)
-    expect(await readPickupLocation(false)).toEqual(ROW)
-    expect(api.request).toHaveBeenCalledWith('GET', '/admin/settings/pickup-location', undefined, undefined)
-    api.request.mockResolvedValueOnce(null)
-    expect(await readPickupLocation(false)).toBeNull()
+describe('fetchPickupLocation', () => {
+  it('reads GET /pickup-locations: the first row, or null when the list is empty', async () => {
+    api.request.mockResolvedValueOnce([ROW])
+    expect(await fetchPickupLocation()).toEqual(LOCATION)
+    expect(api.request).toHaveBeenCalledWith('GET', '/pickup-locations', undefined, undefined)
+    api.request.mockResolvedValueOnce([])
+    expect(await fetchPickupLocation()).toBeNull()
   })
 
   it.each([
-    ['not an object', 'nope'],
-    ['a missing field', { ...ROW, barangay: undefined }],
-    ['a non-finite coordinate', { ...ROW, latitude: Number.NaN }],
-    ['a string coordinate', { ...ROW, longitude: '120.9' }],
-    ['a bad time', { ...ROW, updatedAt: 'yesterday' }],
+    ['not a list', ROW],
+    ['a row that is not an object', ['nope']],
+    ['a missing id', [{ ...ROW, id: undefined }]],
+    ['a missing field', [{ ...ROW, barangay: undefined }]],
+    ['a non-finite coordinate', [{ ...ROW, latitude: Number.NaN }]],
+    ['a string coordinate', [{ ...ROW, longitude: '120.9' }]],
+    ['a bad time', [{ ...ROW, updatedAt: 'yesterday' }]],
   ])('throws a server error for a bad body: %s', async (_name, body) => {
     api.request.mockResolvedValueOnce(body)
-    await expect(readPickupLocation(false)).rejects.toMatchObject({ kind: 'server' })
+    await expect(fetchPickupLocation()).rejects.toMatchObject({ kind: 'server' })
   })
 
-  it('sends the whole input with PUT and returns the saved row', async () => {
-    api.request.mockResolvedValueOnce(ROW)
-    expect(await writePickupLocation(false, INPUT)).toEqual(ROW)
-    expect(api.request).toHaveBeenCalledWith('PUT', '/admin/settings/pickup-location', INPUT, undefined)
-  })
-
-  it('lets the request errors through: a 400 detail, 403 and 429', async () => {
-    api.request.mockRejectedValueOnce(new ProductListError('validation', 'postalCode must be 4 digits', 400))
-    await expect(writePickupLocation(false, INPUT)).rejects.toMatchObject({ kind: 'validation', detail: 'postalCode must be 4 digits' })
+  it('lets request errors through', async () => {
     api.request.mockRejectedValueOnce(new ProductListError('forbidden', undefined, 403))
-    await expect(writePickupLocation(false, INPUT)).rejects.toMatchObject({ kind: 'forbidden' })
-    api.request.mockRejectedValueOnce(new ProductListError('rate-limit', undefined, 429, undefined, 15000))
-    await expect(readPickupLocation(false)).rejects.toMatchObject({ kind: 'rate-limit' })
+    await expect(fetchPickupLocation()).rejects.toMatchObject({ kind: 'forbidden' })
+  })
+})
+
+describe('savePickupLocation', () => {
+  it('POSTs the input when there is no id, and returns the saved row', async () => {
+    api.request.mockResolvedValueOnce(ROW)
+    expect(await savePickupLocation(INPUT)).toEqual(LOCATION)
+    expect(api.request).toHaveBeenCalledWith('POST', '/pickup-locations', INPUT, undefined)
   })
 
-  it('throws a server error when the PUT answers with a bad row', async () => {
+  it('PATCHes /pickup-locations/:id when there is one', async () => {
+    api.request.mockResolvedValueOnce(ROW)
+    expect(await savePickupLocation(INPUT, ID)).toEqual(LOCATION)
+    expect(api.request).toHaveBeenCalledWith('PATCH', `/pickup-locations/${ID}`, INPUT, undefined)
+  })
+
+  it('never sends a key the API would reject', async () => {
+    api.request.mockResolvedValue(ROW)
+    await savePickupLocation(INPUT)
+    await savePickupLocation(INPUT, ID)
+    for (const [, , body] of api.request.mock.calls) {
+      expect(Object.keys(body as object).sort()).toEqual(Object.keys(INPUT).sort())
+      for (const key of ['id', 'country', 'isDefault', 'createdAt', 'updatedAt', 'updatedBy']) expect(body).not.toHaveProperty(key)
+    }
+  })
+
+  it('lets request errors through with their detail: 400, 404, 409', async () => {
+    api.request.mockRejectedValueOnce(new ProductListError('validation', 'postalCode must be 4 digits', 400))
+    await expect(savePickupLocation(INPUT, ID)).rejects.toMatchObject({ kind: 'validation', detail: 'postalCode must be 4 digits' })
+    api.request.mockRejectedValueOnce(new ProductListError('not-found', `Pickup location with ID "${ID}" not found`, 404))
+    await expect(savePickupLocation(INPUT, ID)).rejects.toMatchObject({ kind: 'not-found' })
+    api.request.mockRejectedValueOnce(new ProductListError('conflict', 'Only one pickup location is currently supported.', 409))
+    await expect(savePickupLocation(INPUT)).rejects.toMatchObject({ kind: 'conflict', detail: 'Only one pickup location is currently supported.' })
+  })
+
+  it('throws a server error when the answer is a bad row', async () => {
     api.request.mockResolvedValueOnce({ ...ROW, latitude: null })
-    await expect(writePickupLocation(false, INPUT)).rejects.toMatchObject({ kind: 'server' })
+    await expect(savePickupLocation(INPUT)).rejects.toMatchObject({ kind: 'server' })
   })
 })

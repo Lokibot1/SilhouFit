@@ -3,12 +3,13 @@ import { manyAdminOrders, mockAdminOrders } from '../shared/adminOrders'
 import { adminRefund, manyAdminRefunds, mockAdminRefunds } from '../shared/adminRefunds'
 import { manyAuditLogs, mockAuditLogs } from '../shared/auditLogs'
 import { FAQS, mockFaqs } from '../shared/faqs'
+import { apiPickupLocation, mockPickupLocations } from '../shared/pickupLocations'
 import { mockProductMetrics } from '../shared/products'
 import { stubUsersApi, SAMPLE_USERS } from './usersApiStub'
 
 // Every page that still reads placeholder data says "Sample data" next to its title (the /staff and /admin dashboards are connected apart from their
 // Refunds card, so it carries the badge instead; AR-ready and Low or out of stock read the backend); the pages that are connected to the backend (the User
-// Management tabs, the Messages dropdown, Online orders, Refunds, Activity logs, Help Chatbot) must not. Sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
+// Management tabs, the Messages dropdown, Online orders, Refunds, Activity logs, Help Chatbot, Pickup location) must not. Sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
 
 const STAFF = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -33,7 +34,6 @@ const BADGED = [
   [STAFF, /\/staff$/, '/staff/transactions', 'Transactions'],
   [ADMIN, /\/admin$/, '/admin/ar-insights', 'AR Fitting Insights'],
   [ADMIN, /\/admin$/, '/admin/promotions', 'Pricing & Promotions'],
-  [ADMIN, /\/admin$/, '/admin/pickup-location', 'Pickup location'],
   [SUPERADMIN, /\/superadmin$/, '/superadmin/permissions', 'Permissions'],
 ] as const
 
@@ -141,6 +141,15 @@ test.describe('connected pages have no badge', () => {
     await signIn(page, ADMIN, /\/admin$/)
     await page.goto('/admin/chatbot')
     await expect(page.getByText(FAQS[0].question).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
+    await expect(badge(page)).toHaveCount(0)
+  })
+
+  test('Pickup location', async ({ page }) => {
+    await mockPickupLocations(page, apiPickupLocation())
+    await signIn(page, ADMIN, /\/admin$/)
+    await page.goto('/admin/pickup-location')
+    await expect(page.getByRole('heading', { level: 1, name: 'Pickup location' })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('button', { name: 'Change pickup location' })).toBeVisible()
     await expect(badge(page)).toHaveCount(0)
   })
 

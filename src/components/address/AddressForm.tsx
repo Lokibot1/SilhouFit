@@ -272,7 +272,13 @@ function AddressFormBody({
   saveLabel = 'Save address',
 }: AddressFormProps & { resolved: ResolvedAddress | null }) {
   const kral = tone === 'kral'
-  const reword = (message: string) => (saveLabel === 'Save address' ? message : message.replace('your address', 'the pickup location').replace('Save address', saveLabel))
+  const reword = (message: string) =>
+    saveLabel === 'Save address'
+      ? message
+      : message
+          .replace('It was deleted from another device. Close this window to see your current addresses.', 'It was removed from another device. Save again to set it, or Cancel to see what is saved.')
+          .replace('your address', 'the pickup location')
+          .replace('Save address', saveLabel)
   const user = useCurrentUser()
   const base = useId()
   const fieldId = (name: string) => `${base}-${name}`
@@ -587,7 +593,7 @@ function AddressFormBody({
         setFailure(
           reword(
             detail
-              ? `We couldn't save your address. The server said: ${detail}. Fix it, then try Save address again.`
+              ? `We couldn't save your address. The server said: ${detail.replace(/[.\s]+$/, '')}. Fix it, then try Save address again.`
               : "We couldn't save your address. The server didn't accept these details. Check each field, then try Save address again.",
           ),
         )

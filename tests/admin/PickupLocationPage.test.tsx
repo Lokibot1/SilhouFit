@@ -61,6 +61,7 @@ vi.mock('../../src/components/address/MapPicker', () => ({
 }))
 
 const SAVED: PickupLocation = {
+  id: '7d1f6c0e-1b7a-4c53-9a0e-5f1c2d3e4a5b',
   label: 'Main store',
   contactName: 'Anne Santos',
   contactPhone: '+639171234567',
@@ -74,7 +75,6 @@ const SAVED: PickupLocation = {
   latitude: 14.5995,
   longitude: 120.9842,
   updatedAt: '2026-11-19T07:05:00.000Z',
-  updatedBy: { id: 'u1', fullName: 'Ben Cruz' },
 }
 
 const sorted = (list: { name: string }[]) => [...list].sort((a, b) => a.name.localeCompare(b.name))
@@ -89,7 +89,7 @@ beforeEach(() => {
   localStorage.clear()
   act(() => setSession({ name: 'Ben Cruz', email: 'ben@example.com' }))
   api.fetchPickupLocation.mockResolvedValue(null)
-  api.savePickupLocation.mockImplementation(async (input: object) => ({ ...input, updatedAt: '2026-11-19T07:05:00.000Z', updatedBy: { id: 'u1', fullName: 'Ben Cruz' } }))
+  api.savePickupLocation.mockImplementation(async (input: object, id?: string) => ({ ...input, id: id ?? 'new-id', updatedAt: '2026-11-19T07:05:00.000Z' }))
   api.lookupPostal.mockResolvedValue('')
   api.reverseGeocode.mockResolvedValue({ street: '', postal: '', region: '', city: '', barangays: [] })
   api.getRegions.mockResolvedValue(regions)
@@ -143,7 +143,7 @@ describe('PickupLocationPage', () => {
     expect(description.length).toBeLessThanOrEqual(160)
     expect(screen.getByRole('heading', { level: 1, name: 'Pickup location' })).toBeInTheDocument()
     expect(screen.getByText('Where Lalamove riders collect orders.')).toBeInTheDocument()
-    expect(screen.getByText('Sample data')).toBeInTheDocument()
+    expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
   })
 
   it('shows a skeleton, then the empty state with a way to set the location', async () => {
@@ -153,7 +153,7 @@ describe('PickupLocationPage', () => {
     expect(screen.getByRole('status', { name: 'Loading the pickup location' })).toBeInTheDocument()
     await act(async () => finish(null))
     expect(screen.queryByRole('status', { name: 'Loading the pickup location' })).not.toBeInTheDocument()
-    expect(screen.getByText(/No pickup location is saved here yet\. Until you save one, riders go to the address in the server settings\./)).toBeInTheDocument()
+    expect(screen.getByText(/No pickup location is set\. Checkout can't quote delivery and riders can't be booked until you set one\./)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Set pickup location' })).toBeInTheDocument()
   })
 
@@ -173,7 +173,8 @@ describe('PickupLocationPage', () => {
     expect(within(list).getByText('12 Rizal Avenue, Barangay 176, City of Manila, NCR, 1000')).toBeInTheDocument()
     expect(within(list).getByText('14.599500, 120.984200')).toHaveClass('tabular-nums')
     expect(within(list).getByText('+639171234567')).toBeInTheDocument()
-    expect(within(list).getByText(/Nov 19, 2026, 3:05 PM by Ben Cruz/)).toBeInTheDocument()
+    expect(within(list).getByText('Updated')).toBeInTheDocument()
+    expect(within(list).getByText(/Nov 19, 2026, 3:05 PM/)).toBeInTheDocument()
   })
 
   it('saves a first location without a confirmation, then toasts, updates the summary and focuses the heading', async () => {
@@ -187,20 +188,23 @@ describe('PickupLocationPage', () => {
 
     expect(await screen.findByText('Pickup location saved')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(api.savePickupLocation).toHaveBeenCalledWith({
-      label: null,
-      contactName: 'Anne Santos',
-      contactPhone: '+639171234567',
-      region: 'NCR',
-      province: null,
-      cityMunicipality: 'City of Manila',
-      barangay: 'Barangay 176',
-      streetAddress: '12 Rizal Avenue',
-      addressLine2: null,
-      postalCode: '1000',
-      latitude: 14.5995,
-      longitude: 120.9842,
-    })
+    expect(api.savePickupLocation).toHaveBeenCalledWith(
+      {
+        label: null,
+        contactName: 'Anne Santos',
+        contactPhone: '+639171234567',
+        region: 'NCR',
+        province: null,
+        cityMunicipality: 'City of Manila',
+        barangay: 'Barangay 176',
+        streetAddress: '12 Rizal Avenue',
+        addressLine2: null,
+        postalCode: '1000',
+        latitude: 14.5995,
+        longitude: 120.9842,
+      },
+      undefined,
+    )
     expect(await screen.findByRole('button', { name: 'Change pickup location' })).toBeInTheDocument()
     expect(screen.getByText('14.599500, 120.984200')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Pickup address' })).toHaveFocus()
@@ -244,6 +248,7 @@ describe('PickupLocationPage', () => {
     await user.click(within(await screen.findByRole('dialog', { name: 'Replace the pickup location?' })).getByRole('button', { name: 'Replace pickup location' }))
     expect(await screen.findByText('Pickup location saved')).toBeInTheDocument()
     expect(api.savePickupLocation).toHaveBeenCalledTimes(1)
+    expect(api.savePickupLocation).toHaveBeenCalledWith(expect.objectContaining({ streetAddress: '99 Taft Avenue' }), SAVED.id)
     expect(await screen.findByText(/99 Taft Avenue/)).toBeInTheDocument()
   })
 
@@ -286,6 +291,21 @@ describe('PickupLocationPage', () => {
     expect(await screen.findByText(message)).toBeInTheDocument()
     expect(screen.getByLabelText('Postal code')).toHaveValue('1000')
     expect(saveButton()).toBeEnabled()
+  })
+
+  it('shows the server sentence on a 409 and reloads, so the next save becomes a replace', async () => {
+    api.savePickupLocation.mockRejectedValueOnce(new ProductListError('conflict', 'Only one pickup location is currently supported. Please update the existing pickup location.', 409))
+    const user = setup()
+    await user.click(await screen.findByRole('button', { name: 'Set pickup location' }))
+    await fillNew(user)
+    api.fetchPickupLocation.mockResolvedValue(SAVED)
+    await user.click(saveButton())
+    expect(await screen.findByText(/The server said: Only one pickup location is currently supported/)).toBeInTheDocument()
+    await waitFor(() => expect(api.fetchPickupLocation).toHaveBeenCalledTimes(2))
+    await user.click(saveButton())
+    await user.click(within(await screen.findByRole('dialog', { name: 'Replace the pickup location?' })).getByRole('button', { name: 'Replace pickup location' }))
+    expect(await screen.findByText('Pickup location saved')).toBeInTheDocument()
+    expect(api.savePickupLocation).toHaveBeenLastCalledWith(expect.any(Object), SAVED.id)
   })
 
   it('ends the session when the save is refused with 403', async () => {

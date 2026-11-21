@@ -6,13 +6,12 @@ import { EmptyNote, SectionBody } from '../../components/staff/StaffSection'
 import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { useToast } from '../../components/toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
-import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useSection } from '../../hooks/useSection'
 import { AddressError, type Address, type AddressErrorKind, type AddressInput } from '../../service/addresses'
 import { ProductListError } from '../../service/fetchProductList'
-import { PICKUP_SAMPLE_DATA, fetchPickupLocation, savePickupLocation, type PickupInput, type PickupLocation } from '../../service/pickupLocation'
+import { fetchPickupLocation, savePickupLocation, type PickupInput, type PickupLocation } from '../../service/pickupLocation'
 import { signOut } from '../../service/signOut'
 import { formatPlacedAt } from '../../utils/format'
 
@@ -61,7 +60,7 @@ const toPickup = (input: AddressInput): PickupInput => ({
   longitude: input.longitude,
 })
 
-const ADDRESS_KIND: Record<string, AddressErrorKind> = { forbidden: 'unauthorized', validation: 'invalid', 'rate-limit': 'rate-limit', network: 'network' }
+const ADDRESS_KIND: Record<string, AddressErrorKind> = { forbidden: 'unauthorized', validation: 'invalid', conflict: 'invalid', 'not-found': 'not-found', 'rate-limit': 'rate-limit', network: 'network' }
 
 /** The form words failures by AddressError kind; 401 and 403 both end the session. */
 function asAddressError(error: unknown) {
@@ -94,10 +93,7 @@ function Summary({ location }: { location: PickupLocation }) {
       <Row term="Coordinates">
         <span className="tabular-nums">{coordinatesOf(location)}</span>
       </Row>
-      <Row term="Updated">
-        {formatPlacedAt(location.updatedAt)}
-        {location.updatedBy && ` by ${location.updatedBy.fullName}`}
-      </Row>
+      <Row term="Updated">{formatPlacedAt(location.updatedAt)}</Row>
     </dl>
   )
 }
@@ -162,10 +158,12 @@ export function PickupLocationPage() {
 
   async function write(input: PickupInput): Promise<Address> {
     try {
-      const location = await savePickupLocation(input)
+      const location = await savePickupLocation(input, saved?.id)
       section.swap(location)
       return toAddress(location)
     } catch (error) {
+      // Someone else set one first: load it, so the next Save goes through Replace.
+      if (error instanceof ProductListError && error.kind === 'conflict') fetchPickupLocation().then(section.swap, () => {})
       throw asAddressError(error)
     }
   }
@@ -208,7 +206,6 @@ export function PickupLocationPage() {
           <h1 className="display text-2xl text-fg sm:text-3xl">Pickup location</h1>
           <p className="mt-1 text-xs text-fg-muted">Where Lalamove riders collect orders.</p>
         </div>
-        {PICKUP_SAMPLE_DATA && <SampleDataBadge reason="Saved in this browser only. Riders still go to the server's pickup address until the backend is connected." />}
       </header>
       <section aria-labelledby="pickup-heading" className={STAFF_SECTION}>
         <h2 id="pickup-heading" ref={headingRef} tabIndex={-1} className="display mb-3 text-xl text-fg outline-none">
@@ -228,6 +225,8 @@ export function PickupLocationPage() {
                   save={save}
                   onSaved={finishSave}
                   onUnauthorized={signOut}
+                  // Reload behind the form, which stays open with its message and the edit; the next Save sets it again.
+                  onGone={() => void fetchPickupLocation().then(section.swap, () => {})}
                   onPendingChange={setSaving}
                   footer={(submit) => (
                     <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -248,7 +247,7 @@ export function PickupLocationPage() {
               </>
             ) : (
               <>
-                <EmptyNote>No pickup location is saved here yet. Until you save one, riders go to the address in the server settings.</EmptyNote>
+                <EmptyNote>No pickup location is set. Checkout can't quote delivery and riders can't be booked until you set one.</EmptyNote>
                 <button ref={openRef} type="button" onClick={open} className={`${PRIMARY_BUTTON} mt-4 w-full sm:w-auto`}>
                   Set pickup location
                 </button>
