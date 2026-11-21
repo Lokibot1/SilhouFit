@@ -1,302 +1,342 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
-import { approveRefund, REFUND_REASON_LABELS, rejectRefund, type RefundDecision, type RefundRequest } from '../../../service/refunds'
-import { filterPriceInput, formatPeso, formatPlacedAt, withCommas } from '../../../utils/format'
-import { REFUND_LIMITS, sanitizeText, validateApproval, validateRejection } from '../../../utils/refundValidation'
-import { AlertIcon, SpinnerIcon } from '../../form/icons'
+import { useSection } from '../../../hooks/useSection'
+import { explainFailure } from '../../../service/adminOrdersApi'
+import { redactPayload } from '../../../service/adminTransactionsApi'
+import { getRefund, REFUND_REASON_LABELS, MAX_AUTO_ATTEMPTS, REFUND_STATUS_LABELS, REFUND_TRIGGER_LABELS, resolveRefundManually, retryRefund, syncRefund, type Refund, type RefundDetail, type RefundStatus } from '../../../service/refunds'
+import type { RequestOptions } from '../../../service/simulateRequest'
+import { formatMessageTime, formatPeso, formatPlacedAt } from '../../../utils/format'
+import { REFUND_LIMITS, sanitizeText, validateResolution } from '../../../utils/refundValidation'
+import { providerLabel } from '../../../utils/transactionQuery'
+import { AlertIcon, ChevronDownIcon, SpinnerIcon } from '../../form/icons'
 import { Field, FIELD_INPUT } from '../../staff/inventory/FormField'
+import { CopyId } from '../../staff/inventory/ProductDetail'
+import { EmptyNote, SectionBody } from '../../staff/StaffSection'
 import { useToast } from '../../toast/useToast'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { RefundStatusBadge } from './RefundsTable'
 
-/** Placeholders sit clearly dimmer than typed text yet stay above 4.5:1 on the page colour in both themes. */
-const FORM_ID = 'refund-form'
-const TEXTAREA = `${FIELD_INPUT} resize-none`
+type Action = 'retry' | 'sync' | 'resolve'
+type Touched = { manualReference?: boolean; notes?: boolean }
 
-type Mode = 'view' | 'approve' | 'reject'
-type FormField = 'amount' | 'note' | 'reason'
+const FORM_ID = 'refund-resolve-form'
 
-const LINE_ROW = 'h-[4.5rem]'
-const TH = 'sticky top-0 z-10 h-11 border-b border-line bg-canvas-sub px-3 text-left font-semibold text-fg'
+const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex gap-3">
-      <dt className="w-28 shrink-0 text-fg-muted">{label}</dt>
-      <dd className="min-w-0 break-words text-fg">{children}</dd>
-    </div>
-  )
+/** What the status means, in plain words: a refund is made by the API itself, and an admin steps in only where it says so. */
+function explain(refund: Refund, canAct: boolean) {
+  const spent = refund.attempts >= MAX_AUTO_ATTEMPTS
+  const text: Record<RefundStatus, string> = {
+    REQUESTED: 'Waiting to be sent to the gateway.',
+    PROCESSING: `Sent to the gateway and settling.${canAct ? ' Use Check with gateway to see where it stands.' : ''}`,
+    FAILED: spent ? 'The gateway did not take it, and the automatic attempts are used up.' : 'The gateway did not take it. It is retried automatically.',
+    REQUIRES_MANUAL_ACTION: 'Needs an admin: the automatic attempts could not finish it.',
+    SUCCEEDED: 'The money was sent back to the customer.',
+    CANCELLED: 'This refund was cancelled, so no money was sent.',
+  }
+  return text[refund.status]
 }
 
-function Details({ request }: { request: RefundRequest }) {
+/** The refund as the list row has it, shown at once while the detail loads. */
+function Header({ refund, canAct }: { refund: Refund; canAct: boolean }) {
   return (
-    <dl className="grid gap-2 rounded-xl border border-line bg-canvas-sub p-3 text-sm">
-      <Fact label="Customer">{request.customerName}</Fact>
-      <Fact label="Order">
-        <Link to={`/admin/transactions?q=${encodeURIComponent(request.orderNo)}`} className="inline-flex min-h-11 items-center font-mono underline underline-offset-2 hover:text-chrome-strong">
-          {request.orderNo}
-        </Link>
-      </Fact>
-      <Fact label="Order date">
-        <time dateTime={request.orderPlacedAt}>{formatPlacedAt(request.orderPlacedAt)}</time>
-      </Fact>
-      <Fact label="Requested by">{request.requestedBy}</Fact>
-      <Fact label="Requested at">
-        <time dateTime={request.requestedAt}>{formatPlacedAt(request.requestedAt)}</time>
-      </Fact>
-      <Fact label="Reason">
-        <span className="font-semibold">{REFUND_REASON_LABELS[request.reason]}</span>
-        <span className="mt-1 block text-fg-muted">{request.reasonText}</span>
-      </Fact>
-      <Fact label="Requested">
-        <span className="font-semibold tabular-nums">{formatPeso(request.amount)}</span>
-      </Fact>
-      <Fact label="Order total">
-        <span className="tabular-nums">{formatPeso(request.orderTotal)}</span>
-      </Fact>
-    </dl>
-  )
-}
-
-function Items({ request }: { request: RefundRequest }) {
-  return (
-    <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
-      <caption className="sr-only">Items in the order with category, units, unit price and line total</caption>
-      <colgroup>
-        <col />
-        <col className="w-28" />
-      </colgroup>
-      <thead>
-        <tr>
-          <th scope="col" className={TH}>
-            Item
-          </th>
-          <th scope="col" className={`${TH} text-right`}>
-            Total
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {request.items.map((item, index) => (
-          <tr key={`${item.name}-${index}`} className={LINE_ROW}>
-            <td className="border-b border-line px-3 py-2">
-              <span className="block truncate font-semibold text-fg">{item.name}</span>
-              <span className="flex gap-x-3 text-fg-muted">
-                <span className="truncate">{item.category}</span>
-                <span className="shrink-0 whitespace-nowrap tabular-nums">
-                  {item.units} × {formatPeso(item.unitPrice)}
-                </span>
-              </span>
-            </td>
-            <td className="border-b border-line px-3 text-right whitespace-nowrap text-fg tabular-nums">{formatPeso(item.units * item.unitPrice)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
-/** What was decided, who decided it and when. Read only: a decision is final. */
-function Decision({ request }: { request: RefundRequest }) {
-  const approved = request.status === 'approved'
-  return (
-    <div id="refund-decision" tabIndex={-1} className="grid gap-1 rounded-xl border border-line bg-canvas-sub p-3 text-sm outline-none">
-      <RefundStatusBadge status={request.status} />
-      <p className="mt-1 font-semibold text-fg">
-        {approved ? 'Approved' : 'Rejected'} by {request.decidedBy}
-        {request.decidedAt && (
-          <>
-            {' '}
-            on <time dateTime={request.decidedAt}>{formatPlacedAt(request.decidedAt)}</time>
-          </>
-        )}
-      </p>
-      {approved && <p className="text-fg tabular-nums">Refunded: {formatPeso(request.approvedAmount ?? request.amount)}</p>}
-      {request.decisionNote && (
-        <p className="text-fg-muted">
-          {approved ? 'Note' : 'Reason'}: {request.decisionNote}
+    <div>
+      <p className="text-base font-semibold text-fg">{refund.customerName}</p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <p className="font-mono text-2xl font-semibold text-fg tabular-nums">{formatPeso(refund.amount)}</p>
+        <RefundStatusBadge status={refund.status} />
+      </div>
+      <p className="mt-2 text-base text-fg-muted md:text-sm">{explain(refund, canAct)}</p>
+      {refund.status === 'FAILED' && refund.nextRetryAt && (
+        <p className="mt-1 text-base text-fg md:text-sm">
+          Next automatic retry at <time dateTime={refund.nextRetryAt}>{formatMessageTime(refund.nextRetryAt)}</time>
         </p>
       )}
     </div>
   )
 }
 
-function Choice({ id, name, checked, onChange, children }: { id: string; name: string; checked: boolean; onChange: () => void; children: ReactNode }) {
+function Fact({ label, number, children }: { label: string; number?: boolean; children: ReactNode }) {
   return (
-    <label className="flex min-h-11 cursor-pointer items-center gap-3 text-base text-fg">
-      <input type="radio" id={id} name={name} checked={checked} onChange={onChange} className="peer sr-only" />
-      <span
-        aria-hidden="true"
-        className="flex size-6 shrink-0 items-center justify-center rounded-full border-2 border-fg bg-canvas peer-checked:[&>span]:scale-100 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-chrome-strong"
-      >
-        <span className="size-3 scale-0 rounded-full bg-fg" />
-      </span>
-      {children}
-    </label>
+    <div className="flex gap-3">
+      <dt className="w-28 shrink-0 font-medium text-fg-muted">{label}</dt>
+      <dd className={`min-w-0 flex-1 break-words text-fg ${number ? 'text-right tabular-nums' : ''}`}>{children}</dd>
+    </div>
   )
 }
 
-interface RefundDetailSheetProps {
-  /** The request to show. Give the sheet a new `key` for every open so it starts from the request, with no form open. */
-  request: RefundRequest
-  open: boolean
-  onClose: () => void
+const When = ({ iso }: { iso: string }) => <time dateTime={iso}>{formatPlacedAt(iso)}</time>
+
+/** Same blocks as the loaded detail, at about the same heights, so nothing jumps when it arrives. */
+function DetailSkeleton() {
+  return (
+    <div role="status" aria-label="Loading refund details" className="grid animate-pulse gap-6">
+      <Bar className="h-96 w-full" />
+      <Bar className="h-11 w-full" />
+    </div>
+  )
 }
 
-/** One request: its facts and items, and for a pending one the approve and reject forms, each confirmed before it is sent. */
-export function RefundDetailSheet({ request: initial, open, onClose }: RefundDetailSheetProps) {
+/** The gateway's own answer. Collapsed, shown as plain text (never markup), with secret-looking values hidden. */
+function GatewayResponse({ response }: { response: Record<string, unknown> | null }) {
+  return (
+    <details className="group rounded-xl border border-line">
+      <summary className="font-ui flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-base font-semibold text-fg md:text-sm [&::-webkit-details-marker]:hidden">
+        Gateway response (JSON)
+        <ChevronDownIcon className="transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-line p-3">
+        {response === null ? <EmptyNote>No response recorded</EmptyNote> : <pre className="max-h-80 overflow-auto font-mono text-xs break-all whitespace-pre-wrap text-fg">{JSON.stringify(redactPayload(response), null, 2)}</pre>}
+      </div>
+    </details>
+  )
+}
+
+function Detail({ refund }: { refund: RefundDetail }) {
+  return (
+    <div className="grid gap-6">
+      {(refund.status === 'FAILED' || refund.status === 'REQUIRES_MANUAL_ACTION') && (refund.failureCode || refund.failureMessage) && (
+        <div className="flex items-start gap-3 rounded-xl border border-danger p-3">
+          <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-fg md:text-sm">Why it failed</p>
+            {refund.failureMessage && <p className="mt-1 text-base break-words text-fg-muted md:text-sm">{refund.failureMessage}</p>}
+            {refund.failureCode && <p className="mt-1 font-mono text-xs break-all text-fg-muted">{refund.failureCode}</p>}
+          </div>
+        </div>
+      )}
+      <dl className="grid gap-3 text-base md:text-sm">
+        <Fact label="Order">
+          {refund.orderNumber ? (
+            <Link to={`/admin/transactions?q=${encodeURIComponent(refund.orderNumber)}`} className="inline-flex min-h-11 items-center font-mono underline underline-offset-2 hover:text-chrome-strong">
+              {refund.orderNumber}
+            </Link>
+          ) : (
+            <span className="text-fg-muted">No order</span>
+          )}
+        </Fact>
+        <Fact label="Customer">
+          {refund.customerName}
+          {refund.customerEmail && <span className="block break-all text-fg-muted">{refund.customerEmail}</span>}
+        </Fact>
+        <Fact label="Reason">
+          <span className="font-semibold">{REFUND_REASON_LABELS[refund.reason]}</span>
+          {refund.reasonNotes && <span className="mt-1 block text-fg-muted">{refund.reasonNotes}</span>}
+        </Fact>
+        <Fact label="Triggered by">{REFUND_TRIGGER_LABELS[refund.trigger]}</Fact>
+        <Fact label="Started by">{refund.startedBy ?? 'System'}</Fact>
+        <Fact label="Created">
+          <When iso={refund.createdAt} />
+        </Fact>
+        <Fact label="Attempts" number>
+          {refund.attempts} of {MAX_AUTO_ATTEMPTS}
+        </Fact>
+        <Fact label="Gateway">{providerLabel(refund.provider)}</Fact>
+        <Fact label="Payment ref">
+          <span className="flex items-center justify-between gap-2">
+            <span className="min-w-0 font-mono break-all">{refund.paymentReference}</span>
+            <CopyId id={refund.paymentReference} what="payment reference" />
+          </span>
+        </Fact>
+        <Fact label="Refund ref">
+          {refund.refundReference ? (
+            <span className="flex items-center justify-between gap-2">
+              <span className="min-w-0 font-mono break-all">{refund.refundReference}</span>
+              <CopyId id={refund.refundReference} what="refund reference" />
+            </span>
+          ) : (
+            <span className="text-fg-muted">Not sent to the gateway yet</span>
+          )}
+        </Fact>
+        {refund.manualReference && (
+          <Fact label="Manual ref">
+            <span className="font-mono break-all">{refund.manualReference}</span>
+          </Fact>
+        )}
+        {refund.resolvedBy && <Fact label="Resolved by">{refund.resolvedBy}</Fact>}
+      </dl>
+      <GatewayResponse response={refund.gatewayResponse} />
+    </div>
+  )
+}
+
+const NEXT_STEP = {
+  FAILED: 'You can retry the refund once the cause is fixed.',
+  REQUIRES_MANUAL_ACTION: 'This refund needs manual handling. Check the gateway, then retry if the cause is fixed.',
+} as const
+
+const FAILED_TITLE: Record<Action, string> = {
+  retry: "The gateway didn't accept the retry.",
+  sync: 'The gateway reports the refund did not go through.',
+  resolve: "The refund wasn't marked as refunded.",
+}
+const ERROR_TITLE: Record<Action, string> = {
+  retry: "We couldn't retry the refund.",
+  sync: "We couldn't check with the gateway.",
+  resolve: "We couldn't mark the refund as refunded.",
+}
+
+interface RefundDetailSheetProps {
+  /** The list row to show first. Give the sheet a new `key` for every open so it loads the detail again. */
+  refund: Refund
+  open: boolean
+  onClose: () => void
+  /** The refund no longer exists on the server (a 404): the list should load again. */
+  onGone: () => void
+}
+
+/** One refund: its facts from the API, and for an admin Retry refund, Check with gateway and Mark as refunded. */
+export function RefundDetailSheet({ refund: row, open, onClose, onGone }: RefundDetailSheetProps) {
   const toast = useToast()
-  const admin = useCurrentUser()?.name ?? 'Admin'
-  const [request, setRequest] = useState(initial)
-  const [mode, setMode] = useState<Mode>('view')
-  const [full, setFull] = useState(true)
-  const [partial, setPartial] = useState('')
-  const [note, setNote] = useState('')
-  const [reason, setReason] = useState('')
-  const [touched, setTouched] = useState<Partial<Record<FormField, boolean>>>({})
-  const [serverErrors, setServerErrors] = useState<Partial<Record<FormField, string>>>({})
-  const [confirming, setConfirming] = useState<RefundDecision | null>(null)
-  const [pending, setPending] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
+  const role = useCurrentUser()?.role
+  const canAct = role === 'admin' || role === 'superadmin'
+  const fetcher = useCallback((options: RequestOptions) => getRefund(row.id, options), [row.id])
+  const section = useSection(fetcher)
+  const [resolving, setResolving] = useState(false)
+  const [reference, setReference] = useState('')
+  const [notes, setNotes] = useState('')
+  const [touched, setTouched] = useState<Touched>({})
+  const [confirming, setConfirming] = useState<'retry' | 'resolve' | null>(null)
+  const [pending, setPending] = useState<Action | null>(null)
+  const [notice, setNotice] = useState<{ title: string; message: string } | null>(null)
   const inFlight = useRef(false)
-  // The control to focus once the next step is on screen (the one that held focus may be gone).
-  const focusNext = useRef<string | null>(null)
+  // The ids to focus once the next step is on screen, first one found (the control that held focus may be gone).
+  const focusNext = useRef<string[]>([])
   useEffect(() => {
-    if (focusNext.current) document.getElementById(focusNext.current)?.focus()
-    focusNext.current = null
+    const id = focusNext.current.find((candidate) => document.getElementById(candidate))
+    // A finished refund has no button left, so focus stays inside the sheet instead of dropping to the page.
+    if (focusNext.current.length) (id ? document.getElementById(id) : document.querySelector<HTMLElement>('[role="dialog"]'))?.focus()
+    focusNext.current = []
   })
 
-  const amount = full ? String(request.amount) : partial
-  const approval = validateApproval({ amount, note }, request.orderTotal)
-  const rejection = validateRejection({ reason })
-  const all: Partial<Record<FormField, string>> = { ...approval, ...rejection }
-  const errors = { ...Object.fromEntries(Object.entries(all).filter(([name]) => touched[name as FormField])), ...serverErrors } as Partial<Record<FormField, string>>
+  const loaded = section.state.status === 'success' ? section.state.data : null
+  const shown = loaded ?? row
+  // A refund that has not finished and is not with the gateway: the three states an admin can still act on.
+  const unfinished = loaded !== null && (shown.status === 'REQUESTED' || shown.status === 'FAILED' || shown.status === 'REQUIRES_MANUAL_ACTION')
+  const canSync = loaded !== null && shown.refundReference !== null && shown.status !== 'SUCCEEDED' && shown.status !== 'CANCELLED'
+  const orderName = shown.orderNumber ?? 'this order'
+  const errors = validateResolution({ manualReference: reference, notes })
+  const shownErrors = { manualReference: touched.manualReference ? errors.manualReference : undefined, notes: touched.notes ? errors.notes : undefined }
 
-  const touch = (name: FormField) => setTouched((current) => ({ ...current, [name]: true }))
-  function change(name: FormField, set: (value: string) => void, value: string) {
-    set(value)
-    setServerErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== name)))
-    setFailure(null)
-  }
-
-  function go(next: Mode, focus: string) {
-    setMode(next)
-    setTouched({})
-    setServerErrors({})
-    setFailure(null)
-    focusNext.current = focus
-  }
-
-  function review(event: FormEvent) {
-    event.preventDefault()
-    const fields: FormField[] = mode === 'approve' ? ['amount', 'note'] : ['reason']
-    setTouched(Object.fromEntries(fields.map((name) => [name, true])))
-    const first = fields.find((name) => all[name])
-    if (first) {
-      document.getElementById(`refund-${first}`)?.focus()
-      return
-    }
-    setConfirming(mode === 'approve' ? { kind: 'approve', amount: Number(amount), note: note.trim() || undefined } : { kind: 'reject', reason: reason.trim() })
-    focusNext.current = 'refund-confirm-cancel'
-  }
-
-  function back() {
-    setConfirming(null)
-    focusNext.current = 'refund-review'
-  }
-
-  async function decide(decision: RefundDecision) {
+  async function run(action: Action) {
     if (inFlight.current) return
     inFlight.current = true
-    setPending(true)
-    setFailure(null)
+    setPending(action)
+    setNotice(null)
     try {
-      const decided =
-        decision.kind === 'approve'
-          ? await approveRefund(request.id, { amount: decision.amount, note: decision.note, decidedBy: admin })
-          : await rejectRefund(request.id, { reason: decision.reason, decidedBy: admin })
-      setRequest(decided)
-      setConfirming(null)
-      setMode('view')
-      focusNext.current = 'refund-decision'
-      toast.show({ kind: 'success', message: decision.kind === 'approve' ? `Refund ${request.requestNo} approved: ${formatPeso(decision.amount)}` : `Refund ${request.requestNo} rejected` })
-    } catch (error) {
-      const { kind, field, message } = error as { kind?: string; field?: FormField; message: string }
-      if (kind === 'conflict') {
-        onClose()
-        toast.show({ kind: 'error', message: `Refund ${request.requestNo} was already decided by someone else, so nothing was changed. The list now shows its latest status.` })
-      } else if (kind === 'validation' && field) {
-        setConfirming(null)
-        setServerErrors({ [field]: message })
-        focusNext.current = `refund-${field}`
-      } else {
-        // The confirm button was disabled while sending, which dropped focus: it comes back to the button that was pressed.
-        focusNext.current = 'refund-confirm-decide'
-        setFailure(`The request failed before anything was changed, so refund ${request.requestNo} is still pending. Check your connection, then try again. What you typed is still here.`)
+      // The API answers 200 even when the gateway refused, so the returned status says what happened.
+      const result = await (action === 'retry' ? retryRefund(row.id) : action === 'sync' ? syncRefund(row.id) : resolveRefundManually(row.id, { manualReference: reference.trim(), notes: notes.trim() || undefined }))
+      section.swap(result)
+      if (action === 'resolve') {
+        setResolving(false)
+        setReference('')
+        setNotes('')
+        setTouched({})
       }
+      if (result.status === 'SUCCEEDED') {
+        toast.show({ kind: 'success', message: action === 'resolve' ? `Refund for order ${orderName} marked as refunded.` : `Refund for order ${orderName} is complete: ${formatPeso(result.amount)}` })
+      } else if (result.status === 'FAILED' || result.status === 'REQUIRES_MANUAL_ACTION') {
+        setNotice({ title: FAILED_TITLE[action], message: `${result.failureMessage ?? 'The gateway gave no reason.'} ${NEXT_STEP[result.status]}` })
+      } else {
+        toast.show({ kind: 'info', message: result.status === 'PROCESSING' ? 'Sent to the gateway; it will update when it settles.' : `The refund is now ${REFUND_STATUS_LABELS[result.status].toLowerCase()}.` })
+      }
+    } catch (error) {
+      if ((error as { kind?: string }).kind === 'not-found') {
+        onGone()
+        return
+      }
+      setNotice({ title: ERROR_TITLE[action], message: explainFailure(error) })
     } finally {
+      // Set once the request is over: the render that starts it would use up the ids before the outcome is on screen.
+      focusNext.current = ['refund-outcome', 'refund-retry-open', 'refund-sync-open']
+      setConfirming(null)
       inFlight.current = false
-      setPending(false)
+      setPending(null)
     }
   }
 
-  const decideable = request.status === 'pending'
-  const title = confirming
-    ? confirming.kind === 'approve'
-      ? `Approve ${formatPeso(confirming.amount)} refund for ${request.orderNo}?`
-      : `Reject refund ${request.requestNo}?`
-    : request.requestNo
-  const closeOne = () => (pending ? undefined : confirming ? back() : onClose())
+  const askRetry = () => {
+    setNotice(null)
+    setConfirming('retry')
+    focusNext.current = ['refund-confirm-cancel']
+  }
+  const openResolve = () => {
+    setNotice(null)
+    setResolving(true)
+    focusNext.current = ['refund-reference']
+  }
+  const reviewResolve = (event: FormEvent) => {
+    event.preventDefault()
+    setTouched({ manualReference: true, notes: true })
+    const first = errors.manualReference ? 'refund-reference' : errors.notes ? 'refund-notes' : null
+    if (first) {
+      document.getElementById(first)?.focus()
+      return
+    }
+    setConfirming('resolve')
+    focusNext.current = ['refund-confirm-cancel']
+  }
+  const closeOne = () => {
+    if (pending) return
+    if (confirming) {
+      focusNext.current = [confirming === 'retry' ? 'refund-retry-open' : 'refund-resolve-review']
+      setConfirming(null)
+    } else if (resolving) {
+      setResolving(false)
+      focusNext.current = ['refund-resolve-open']
+    } else onClose()
+  }
 
-  const input = (name: 'amount' | 'note' | 'reason') => ({
-    id: `refund-${name}`,
-    readOnly: pending,
-    onBlur: () => touch(name),
-    'aria-invalid': Boolean(errors[name]),
-    'aria-describedby': errors[name] ? `refund-${name}-error` : undefined,
-    autoComplete: 'off',
-    spellCheck: name !== 'amount',
-  })
-
-  // Each footer has its own key: a reused button would turn into the submit button mid-click, and the same click would submit the form.
   let footer: ReactNode
   if (confirming) {
     footer = (
       <div key="confirm" className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button id="refund-confirm-cancel" type="button" onClick={back} disabled={pending} className={`${SECONDARY_BUTTON} disabled:opacity-60`}>
+        <button id="refund-confirm-cancel" type="button" onClick={closeOne} disabled={pending !== null} className={`${SECONDARY_BUTTON} disabled:opacity-60`}>
           Cancel
         </button>
-        <button id="refund-confirm-decide" type="button" onClick={() => void decide(confirming)} disabled={pending} aria-busy={pending} className={`${SECONDARY_BUTTON} disabled:cursor-progress disabled:opacity-70`}>
-          {pending && <SpinnerIcon className="mr-2" />}
-          {confirming.kind === 'approve' ? 'Approve refund' : 'Reject refund'}
+        <button id="refund-confirm-go" type="button" onClick={() => void run(confirming)} disabled={pending !== null} aria-busy={pending === confirming} className={`${SECONDARY_BUTTON} disabled:cursor-progress disabled:opacity-70`}>
+          {pending === confirming && <SpinnerIcon className="mr-2" />}
+          {confirming === 'retry' ? 'Retry refund' : 'Mark as refunded'}
         </button>
       </div>
     )
-  } else if (decideable && mode === 'view') {
-    footer = (
-      <div key="view" className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button id="refund-reject-open" type="button" onClick={() => go('reject', 'refund-reason')} className={SECONDARY_BUTTON}>
-          Reject refund
-        </button>
-        <button id="refund-approve-open" type="button" onClick={() => go('approve', 'refund-full')} className={PRIMARY_BUTTON}>
-          Approve refund
-        </button>
-      </div>
-    )
-  } else if (decideable) {
+  } else if (resolving) {
     footer = (
       <div key="form" className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button type="button" onClick={() => go('view', `refund-${mode}-open`)} className={SECONDARY_BUTTON}>
+        <button type="button" onClick={closeOne} className={SECONDARY_BUTTON}>
           Cancel
         </button>
-        <button id="refund-review" type="submit" form={FORM_ID} className={PRIMARY_BUTTON}>
-          {mode === 'approve' ? 'Review approval' : 'Review rejection'}
+        <button id="refund-resolve-review" type="submit" form={FORM_ID} className={PRIMARY_BUTTON}>
+          Review
         </button>
+      </div>
+    )
+  } else if (canAct && (unfinished || canSync)) {
+    footer = (
+      <div key="actions" className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        {canSync && (
+          <button id="refund-sync-open" type="button" onClick={() => void run('sync')} disabled={pending !== null} aria-busy={pending === 'sync'} className={`${SECONDARY_BUTTON} disabled:cursor-progress disabled:opacity-70`}>
+            {pending === 'sync' && <SpinnerIcon className="mr-2" />}
+            Check with gateway
+          </button>
+        )}
+        {unfinished && (
+          <>
+            <button id="refund-resolve-open" type="button" onClick={openResolve} disabled={pending !== null} className={`${SECONDARY_BUTTON} disabled:opacity-60`}>
+              Mark as refunded
+            </button>
+            <button id="refund-retry-open" type="button" onClick={askRetry} disabled={pending !== null} className={PRIMARY_BUTTON}>
+              Retry refund
+            </button>
+          </>
+        )}
       </div>
     )
   }
+
+  const title = confirming === 'retry' ? `Retry refund for ${orderName}?` : confirming === 'resolve' ? `Mark refund for ${orderName} as refunded?` : (shown.orderNumber ?? 'Refund')
 
   return (
     <Modal variant="sheet" open={open} onClose={closeOne} title={title} footer={footer}>
@@ -304,88 +344,69 @@ export function RefundDetailSheet({ request: initial, open, onClose }: RefundDet
         <div className="pb-5">
           <p className="text-base font-semibold text-fg">Are you sure?</p>
           <p className="mt-2 text-base text-fg-muted">
-            {confirming.kind === 'approve'
-              ? `${request.customerName} is refunded ${formatPeso(confirming.amount)} for order ${request.orderNo}. This can't be changed afterwards.`
-              : `${request.customerName} is told the request was rejected and sees your reason. This can't be changed afterwards.`}
+            {confirming === 'retry'
+              ? `This asks the gateway to send ${formatPeso(shown.amount)} to ${shown.customerName} again for order ${orderName}. The result shows here once the gateway answers.`
+              : "Use this only after the money was returned outside SilhouFit. This can't be undone."}
           </p>
-          {failure && <Failure what={confirming.kind === 'approve' ? 'approve' : 'reject'} message={failure} />}
         </div>
       ) : (
         <div className="grid gap-6 pb-5">
-          {!decideable && <Decision request={request} />}
-          <section aria-label="Request details">
-            <Details request={request} />
-          </section>
-          <section>
-            <h3 className="mb-2 text-sm font-semibold text-fg">Items</h3>
-            <Items request={request} />
-          </section>
-          {decideable && mode === 'approve' && (
-            <form id={FORM_ID} noValidate onSubmit={review} aria-busy={pending} className="grid gap-4">
-              <fieldset className="grid gap-1">
-                <legend className="text-sm font-semibold text-fg">Refund amount</legend>
-                <Choice id="refund-full" name="refund-kind" checked={full} onChange={() => setFull(true)}>
-                  {request.amount === request.orderTotal ? 'Full refund' : 'Requested amount'} ({formatPeso(request.amount)})
-                </Choice>
-                <Choice id="refund-partial" name="refund-kind" checked={!full} onChange={() => setFull(false)}>
-                  Partial refund
-                </Choice>
-              </fieldset>
-              {!full && (
-                <Field id="refund-amount" label="Amount to refund" error={errors.amount}>
-                  <input
-                    {...input('amount')}
-                    type="text"
-                    value={withCommas(partial)}
-                    onChange={(event) => change('amount', setPartial, filterPriceInput(event.target.value) ?? partial)}
-                    inputMode="decimal"
-                    placeholder={String(Math.floor(request.orderTotal / 2))}
-                    className={`${FIELD_INPUT} tabular-nums`}
-                  />
-                </Field>
-              )}
-              <Field id="refund-note" label="Note" optional count={{ value: note.length, max: REFUND_LIMITS.noteMax }} error={errors.note}>
-                <textarea
-                  {...input('note')}
-                  rows={3}
-                  value={note}
-                  onChange={(event) => change('note', setNote, sanitizeText(event.target.value, REFUND_LIMITS.noteMax))}
-                  placeholder="Anything to remember about this refund"
-                  className={TEXTAREA}
+          <Header refund={shown} canAct={canAct} />
+          {notice && (
+            <div id="refund-outcome" tabIndex={-1} role="alert" className="flex items-start gap-3 rounded-xl border border-danger p-3 outline-none">
+              <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-fg md:text-sm">{notice.title}</p>
+                <p className="mt-1 text-base break-words text-fg-muted md:text-sm">{notice.message}</p>
+              </div>
+            </div>
+          )}
+          {resolving && (
+            <form id={FORM_ID} noValidate onSubmit={reviewResolve} className="grid gap-4">
+              <Field id="refund-reference" label="Reference" count={{ value: reference.length, max: REFUND_LIMITS.referenceMax }} error={shownErrors.manualReference} hint="The reference of the payment that returned the money, such as a bank transfer number.">
+                <input
+                  id="refund-reference"
+                  type="text"
+                  value={reference}
+                  onChange={(event) => setReference(sanitizeText(event.target.value, REFUND_LIMITS.referenceMax))}
+                  onBlur={() => setTouched((old) => ({ ...old, manualReference: true }))}
+                  aria-invalid={Boolean(shownErrors.manualReference)}
+                  aria-describedby={shownErrors.manualReference ? 'refund-reference-error' : 'refund-reference-hint'}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className={FIELD_INPUT}
                 />
               </Field>
-              {failure && <Failure what="approve" message={failure} />}
+              <Field id="refund-notes" label="Notes" optional count={{ value: notes.length, max: REFUND_LIMITS.notesMax }} error={shownErrors.notes}>
+                <textarea
+                  id="refund-notes"
+                  rows={3}
+                  value={notes}
+                  onChange={(event) => setNotes(sanitizeText(event.target.value, REFUND_LIMITS.notesMax))}
+                  onBlur={() => setTouched((old) => ({ ...old, notes: true }))}
+                  aria-invalid={Boolean(shownErrors.notes)}
+                  aria-describedby={shownErrors.notes ? 'refund-notes-error' : undefined}
+                  autoComplete="off"
+                  className={`${FIELD_INPUT} resize-none`}
+                />
+              </Field>
             </form>
           )}
-          {decideable && mode === 'reject' && (
-            <form id={FORM_ID} noValidate onSubmit={review} aria-busy={pending} className="grid gap-4">
-              <Field id="refund-reason" label="Reason for rejecting" count={{ value: reason.length, max: REFUND_LIMITS.reasonMax }} error={errors.reason}>
-                <textarea
-                  {...input('reason')}
-                  rows={4}
-                  value={reason}
-                  onChange={(event) => change('reason', setReason, sanitizeText(event.target.value, REFUND_LIMITS.reasonMax))}
-                  placeholder="Tell the customer why the refund can't be given"
-                  className={TEXTAREA}
-                />
-              </Field>
-              {failure && <Failure what="reject" message={failure} />}
-            </form>
+          {section.state.status === 'error' && section.state.kind === 'not-found' ? (
+            <div role="alert">
+              <p className="text-base font-semibold text-fg md:text-sm">This refund no longer exists.</p>
+              <p className="mt-1 text-base text-fg-muted md:text-sm">It may have been removed. Close this panel and refresh the list.</p>
+              <button type="button" onClick={onGone} className={`${SECONDARY_BUTTON} mt-4`}>
+                Refresh the list
+              </button>
+            </div>
+          ) : (
+            <SectionBody section={section} what="the refund details" skeleton={<DetailSkeleton />}>
+              {(data) => <Detail refund={data} />}
+            </SectionBody>
           )}
         </div>
       )}
     </Modal>
-  )
-}
-
-function Failure({ what, message }: { what: 'approve' | 'reject'; message: string }) {
-  return (
-    <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl border border-danger p-3">
-      <AlertIcon size={20} className="mt-0.5 shrink-0 text-danger" />
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-fg">{`We couldn't ${what} the refund.`}</p>
-        <p className="mt-1 text-sm text-fg-muted">{message}</p>
-      </div>
-    </div>
   )
 }

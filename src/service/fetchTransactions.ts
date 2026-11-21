@@ -1,6 +1,6 @@
 import type { VatClass } from '../utils/invoiceTax'
 
-// The sample order shapes behind the Invoice, the dashboard figures and Returns & Refunds. The Transactions list itself reads
+// The sample order shapes behind the Invoice and the dashboard figures. The Transactions list itself reads
 // /admin/transactions (adminTransactionsApi.ts).
 
 export const PAYMENT_METHODS = ['gcash', 'maya', 'cod'] as const

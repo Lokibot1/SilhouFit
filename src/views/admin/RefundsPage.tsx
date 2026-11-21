@@ -1,25 +1,23 @@
 import { RefundSummaryCards } from '../../components/admin/refunds/RefundSummaryCards'
 import { RefundsList } from '../../components/admin/refunds/RefundsList'
-import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 
 const META_DESCRIPTION =
-  'Review refund and return requests from customers and staff, see the order and items, then approve a full or partial refund or reject it with a clear reason.'
+  'See every customer refund, whether it is waiting, with the payment gateway, paid or failed, and let an admin retry a refund or check it with the gateway.'
 
-/** The refund and return requests waiting for an admin: how many wait and were decided, and a list to open, approve and reject them. */
+/** The refunds log: how many need action or are in progress, the pesos given back and still owed, and a list to open each refund (an admin can retry it or check it with the gateway). */
 export function RefundsPage() {
-  useDocumentTitle('Returns & Refunds — SilhouFit')
+  useDocumentTitle('Refunds — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
 
   return (
     <div className="grid gap-3">
       <header className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="display text-2xl text-fg sm:text-3xl">Returns &amp; Refunds</h1>
-          <p className="mt-1 text-xs text-fg-muted">Refund and return requests waiting for an admin decision</p>
+          <h1 className="display text-2xl text-fg sm:text-3xl">Refunds</h1>
+          <p className="mt-1 text-xs text-fg-muted">Every refund and where it stands with the payment gateway</p>
         </div>
-        <SampleDataBadge reason="Requests and decisions are kept in this browser's session only until the orders backend is connected." />
       </header>
       <RefundSummaryCards />
       <RefundsList />

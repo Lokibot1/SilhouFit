@@ -77,6 +77,11 @@ describe('listing orders', () => {
     expect(meta).toEqual({ total: 2, page: 1, limit: 25, totalPages: 1, hasNextPage: false })
   })
 
+  it('reads a partly refunded payment status', async () => {
+    send.mockResolvedValue(page([apiRow({ paymentStatus: 'PARTIALLY_REFUNDED' })]))
+    expect((await fetchAdminOrders({})).data[0].paymentStatus).toBe('PARTIALLY_REFUNDED')
+  })
+
   it('rejects an unknown status, a missing amount and a malformed body as a server error', async () => {
     for (const bad of [page([apiRow({ status: 'TELEPORTED' })]), page([apiRow({ totalAmount: '12' })]), page([apiRow({ shipmentStatus: 'LOST' })]), { data: null }, null]) {
       send.mockResolvedValueOnce(bad)
@@ -150,6 +155,18 @@ describe('reading one order', () => {
     expect(order.shipment).toMatchObject({ status: 'DISPATCHING', externalOrderId: 'LLM-1' })
     expect(order.payments).toEqual([{ id: 'p1', provider: 'paymongo', method: 'GCASH', amount: 3879, fee: 100, net: 3779, status: 'PAID', at: '2026-10-26T02:40:00.000Z' }])
     expect(order.events.map((event) => [event.label, event.reason])).toEqual([['DRIVER_ASSIGNED', null], ['ON_GOING', 'Driver left']])
+  })
+
+  it('reads the refunds and the refunded total, and nothing refunded when an older API sends neither', async () => {
+    send.mockResolvedValueOnce(apiDetail({ refundedAmount: 1000, refunds: [{ id: 'r1', paymentTransactionId: 'p1', provider: 'paymongo', externalRefundId: 'ref_1', amount: 1000, currency: 'PHP', status: 'SUCCEEDED', reason: 'LATE_PAYMENT_ON_CANCELLED_ORDER', resolutionType: 'PROVIDER_API', manualReference: null, failureCode: null, succeededAt: '2026-10-27T03:00:00.000Z', createdAt: '2026-10-27T02:30:00.000Z' }] }))
+    expect(await fetchAdminOrder(ORDER_ID)).toMatchObject({
+      refundedAmount: 1000,
+      refunds: [{ id: 'r1', amount: 1000, status: 'SUCCEEDED', reason: 'LATE_PAYMENT_ON_CANCELLED_ORDER', refundReference: 'ref_1', manualReference: null, failureCode: null, succeededAt: '2026-10-27T03:00:00.000Z', createdAt: '2026-10-27T02:30:00.000Z' }],
+    })
+    send.mockResolvedValueOnce(apiDetail())
+    expect(await fetchAdminOrder(ORDER_ID)).toMatchObject({ refundedAmount: 0, refunds: [] })
+    send.mockResolvedValueOnce(apiDetail({ refunds: [{ id: 'r1', amount: 5, status: 'TELEPORTED', reason: 'OTHER', createdAt: '2026-10-27T02:30:00.000Z' }] }))
+    await expect(fetchAdminOrder(ORDER_ID)).rejects.toMatchObject({ kind: 'server' })
   })
 
   it('has no booking, customer or notes when the API has none', async () => {

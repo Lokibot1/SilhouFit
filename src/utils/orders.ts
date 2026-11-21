@@ -182,6 +182,7 @@ const PAYMENT_LABEL: Record<PaymentStatus, string> = {
   PENDING: 'Payment pending',
   PAID: 'Paid',
   FAILED: 'Payment failed',
+  PARTIALLY_REFUNDED: 'Partly refunded',
   REFUNDED: 'Refunded',
 }
 export const paymentStatusLabel = (status: PaymentStatus) => PAYMENT_LABEL[status]

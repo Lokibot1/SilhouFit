@@ -15,6 +15,7 @@ import {
   type PaymentStatus,
   type ShipmentStatus,
 } from './ordersApi'
+import { toRefundSummary, type RefundEntry } from './refundEntries'
 import type { RequestOptions } from './simulateRequest'
 
 // Staff order management: the API's /admin/orders endpoints (staff role or above). The API rejects query keys it does not know,
@@ -90,6 +91,9 @@ export interface AdminOrderDetail extends CustomerOrder {
   items: AdminOrderItem[]
   shipment: AdminShipment | null
   payments: AdminPayment[]
+  /** Pesos refunded so far (the refunds that succeeded); left out by an older API. */
+  refundedAmount?: number
+  refunds?: RefundEntry[]
   /** Oldest first. */
   events: AdminShipmentEvent[]
 }
@@ -160,6 +164,7 @@ function toDetail(body: unknown): AdminOrderDetail {
     items: order.items.map((item, i) => ({ ...item, stock: stocks[i] })),
     shipment: order.shipment && isRecord(body.shipment) ? { ...order.shipment, externalOrderId: text(body.shipment.externalOrderId) } : null,
     payments: body.paymentTransactions.map(toPayment),
+    ...toRefundSummary(body),
     events: body.shipmentEvents.map(toEvent).sort((a, b) => Date.parse(a.at) - Date.parse(b.at)),
   }
 }

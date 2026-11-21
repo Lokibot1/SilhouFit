@@ -71,7 +71,7 @@ export const PAGE_GROUPS: ReadonlyArray<PageGroup> = [
     pages: [
       { key: 'ar-insights', label: 'AR Insights' },
       { key: 'promotions', label: 'Pricing & Promotions' },
-      { key: 'refunds', label: 'Returns & Refunds' },
+      { key: 'refunds', label: 'Refunds' },
       { key: 'chatbot', label: 'Help Chatbot' },
     ],
   },

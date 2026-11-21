@@ -17,7 +17,7 @@ export const ORDER_STATUSES = [
 ] as const
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 
-export const PAYMENT_STATUSES = ['UNPAID', 'PENDING', 'PAID', 'FAILED', 'REFUNDED'] as const
+export const PAYMENT_STATUSES = ['UNPAID', 'PENDING', 'PAID', 'FAILED', 'PARTIALLY_REFUNDED', 'REFUNDED'] as const
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
 
 export const SHIPMENT_STATUSES = ['QUOTED', 'PENDING_DISPATCH', 'DISPATCHING', 'ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP', 'COMPLETED', 'CANCELLED', 'FAILED'] as const

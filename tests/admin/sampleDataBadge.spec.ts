@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { manyAdminOrders, mockAdminOrders } from '../shared/adminOrders'
+import { adminRefund, manyAdminRefunds, mockAdminRefunds } from '../shared/adminRefunds'
 import { manyAuditLogs, mockAuditLogs } from '../shared/auditLogs'
 import { FAQS, mockFaqs } from '../shared/faqs'
 import { mockProductMetrics } from '../shared/products'
@@ -7,7 +8,7 @@ import { stubUsersApi, SAMPLE_USERS } from './usersApiStub'
 
 // Every page that still reads placeholder data says "Sample data" next to its title (the /staff and /admin dashboards are connected apart from their
 // Refunds card, so it carries the badge instead; AR-ready and Low or out of stock read the backend); the pages that are connected to the backend (the User
-// Management tabs, the Messages dropdown, Online orders, Activity logs, Help Chatbot) must not. Sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
+// Management tabs, the Messages dropdown, Online orders, Refunds, Activity logs, Help Chatbot) must not. Sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
 
 const STAFF = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -31,7 +32,6 @@ const badge = (page: Page) => page.getByText('Sample data', { exact: true })
 const BADGED = [
   [STAFF, /\/staff$/, '/staff/transactions', 'Transactions'],
   [ADMIN, /\/admin$/, '/admin/ar-insights', 'AR Fitting Insights'],
-  [ADMIN, /\/admin$/, '/admin/refunds', 'Returns & Refunds'],
   [ADMIN, /\/admin$/, '/admin/promotions', 'Pricing & Promotions'],
   [ADMIN, /\/admin$/, '/admin/pickup-location', 'Pickup location'],
   [SUPERADMIN, /\/superadmin$/, '/superadmin/permissions', 'Permissions'],
@@ -89,7 +89,7 @@ test('the custom sizings section, not the base sizes, says Sample data', async (
 test('stays inside a 320px screen', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 })
   await signIn(page, ADMIN, /\/admin$/)
-  for (const path of ['/admin/refunds']) {
+  for (const path of ['/admin/ar-insights']) {
     await page.goto(path)
     await expect(badge(page)).toBeVisible({ timeout: 20_000 })
     expect(await overflow(page)).toBe(0)
@@ -114,6 +114,17 @@ test.describe('connected pages have no badge', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Online orders' })).toBeVisible({ timeout: 20_000 })
     await expect(page.getByRole('button', { name: manyAdminOrders(2)[1].orderNumber })).toBeVisible()
     await expect(badge(page)).toHaveCount(0)
+  })
+
+  test('Refunds', async ({ page }) => {
+    await mockAdminRefunds(page, manyAdminRefunds(2))
+    await signIn(page, ADMIN, /\/admin$/)
+    await page.goto('/admin/refunds')
+    await expect(page.getByRole('heading', { level: 1, name: 'Refunds' })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('button', { name: adminRefund(1).order.orderNumber }).filter({ visible: true })).toBeVisible()
+    await expect(badge(page)).toHaveCount(0)
+    await page.setViewportSize({ width: 320, height: 640 })
+    expect(await overflow(page)).toBe(0)
   })
 
   test('Activity logs', async ({ page }) => {

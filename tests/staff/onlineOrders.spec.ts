@@ -1257,3 +1257,49 @@ test.describe('start preparing layout', () => {
     for (const n of [1, 2, 3, 4]) await expect(page.getByRole('button', { name: new RegExp(`^${num(n)}`) })).toHaveCount(1)
   })
 })
+
+test.describe('refunds', () => {
+  const entry = (n: number, over: Record<string, unknown> = {}) => ({
+    id: `refund-${n}`,
+    amount: 1000,
+    status: 'SUCCEEDED',
+    reason: 'ORDER_CANCELLED',
+    externalRefundId: `ref_${n}`,
+    manualReference: null,
+    failureCode: null,
+    succeededAt: '2026-10-01T05:00:00.000Z',
+    createdAt: '2026-10-01T04:00:00.000Z',
+    ...over,
+  })
+
+  test('a cancelled order with a refunded payment reads as one pill, and the drawer lists what was refunded', async ({ page }) => {
+    await setup(page, [
+      adminOrder(1, { status: 'CANCELLED', paymentStatus: 'REFUNDED', refundedAmount: 1500, refunds: [entry(1), entry(2, { amount: 500, status: 'PROCESSING', succeededAt: null })] }),
+      adminOrder(2, { status: 'CANCELLED', paymentStatus: 'PARTIALLY_REFUNDED', refundedAmount: 1000, refunds: [entry(3)] }),
+    ])
+    await page.setViewportSize({ width: 1920, height: 1080 })
+    await open(page)
+
+    await expect(rowOf(page, 1).first()).toContainText('Cancelled, payment refunded')
+    await expect(rowOf(page, 2).first()).toContainText('Cancelled, payment partly refunded')
+
+    const drawer = await openDrawer(page, 1)
+    await expect(drawer.getByRole('heading', { name: 'Refunds' })).toBeVisible()
+    await expect(drawer.getByText('Refunded ₱1,500.00')).toBeVisible()
+    const rows = drawer.getByRole('list', { name: 'Refunds' }).getByRole('listitem')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.first()).toContainText('₱1,000.00')
+    await expect(rows.first()).toContainText('Order cancelled')
+    await expect(rows.nth(1)).toContainText('₱500.00')
+  })
+
+  test('an order with no refunds says so, and a partly refunded payment does not break the list', async ({ page }) => {
+    await setup(page, [adminOrder(1), paidOrder(2, { paymentStatus: 'PARTIALLY_REFUNDED', refundedAmount: 1000, refunds: [entry(1)] })])
+    await open(page)
+    await expect(orderButton(page, 2)).toBeVisible()
+    await expect(rowOf(page, 2).first()).toContainText('Partly refunded')
+
+    const plain = await openDrawer(page, 1)
+    await expect(plain.getByText('No refunds yet.')).toBeVisible()
+  })
+})

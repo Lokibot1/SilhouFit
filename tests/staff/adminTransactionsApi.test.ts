@@ -94,6 +94,11 @@ describe('listing transactions', () => {
     expect(meta).toEqual({ total: 2, page: 1, limit: 25, totalPages: 1 })
   })
 
+  it('reads a partly refunded payment', async () => {
+    send.mockResolvedValue(page([apiRow({ status: 'PARTIALLY_REFUNDED' })]))
+    expect((await fetchAdminTransactions({})).data[0].status).toBe('PARTIALLY_REFUNDED')
+  })
+
   it('keeps a fee and net the gateway has not reported as null', async () => {
     send.mockResolvedValue(page([apiRow({ fee: null, netAmount: null }), apiRow({ fee: '5', netAmount: undefined })]))
     const { data } = await fetchAdminTransactions({})
@@ -139,6 +144,15 @@ describe('reading one transaction', () => {
     expect(detail).toMatchObject({ id: ID, orderTotal: 3879, updatedAt: '2026-10-26T02:31:00.000Z', payload: { data: { id: 'pay_abc123' } } })
   })
 
+  it('reads the refunds and the refunded total, and nothing refunded when an older API sends neither', async () => {
+    send.mockResolvedValueOnce({ ...apiRow(), rawPayload: {}, refundedAmount: 1000, refunds: [{ id: 'r1', paymentTransactionId: 'p1', provider: 'paymongo', externalRefundId: 'ref_1', amount: 1000, currency: 'PHP', status: 'SUCCEEDED', reason: 'LATE_PAYMENT_ON_CANCELLED_ORDER', resolutionType: 'PROVIDER_API', manualReference: null, failureCode: null, succeededAt: '2026-10-27T03:00:00.000Z', createdAt: '2026-10-27T02:30:00.000Z' }] })
+    expect(await fetchAdminTransaction(ID)).toMatchObject({ refundedAmount: 1000, refunds: [{ id: 'r1', amount: 1000, status: 'SUCCEEDED', refundReference: 'ref_1' }] })
+    send.mockResolvedValueOnce({ ...apiRow(), rawPayload: {} })
+    expect(await fetchAdminTransaction(ID)).toMatchObject({ refundedAmount: 0, refunds: [] })
+    send.mockResolvedValueOnce({ ...apiRow(), refunds: [{ id: 'r1', amount: '5', status: 'SUCCEEDED', reason: 'OTHER', createdAt: '2026-10-27T02:30:00.000Z' }] })
+    await expect(fetchAdminTransaction(ID)).rejects.toMatchObject({ kind: 'server' })
+  })
+
   it('has an empty payload when the API sends none', async () => {
     send.mockResolvedValue({ ...apiRow(), rawPayload: null })
     expect((await fetchAdminTransaction(ID)).payload).toEqual({})
@@ -159,6 +173,12 @@ describe('metrics', () => {
     send.mockResolvedValue({ ...metrics, currency: 'PHP' })
     expect(await fetchAdminTransactionMetrics()).toEqual(metrics)
     expect(send).toHaveBeenCalledWith('GET', '/admin/transactions/metrics', undefined, undefined)
+  })
+
+  it('reads the refund counts when the API sends them', async () => {
+    const refundCounts = { partiallyRefundedCount: 2, pendingRefundCount: 1, manualActionRefundCount: 3 }
+    send.mockResolvedValue({ ...metrics, ...refundCounts })
+    expect(await fetchAdminTransactionMetrics()).toEqual({ ...metrics, ...refundCounts })
   })
 
   it('rejects a missing or non-number figure as a server error', async () => {

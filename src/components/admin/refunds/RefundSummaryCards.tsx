@@ -2,10 +2,10 @@ import { motion } from 'motion/react'
 import { useCallback, useEffect, useState, type ComponentType } from 'react'
 import { useReveal } from '../../../hooks/useReveal'
 import { useSection } from '../../../hooks/useSection'
-import { getRefundSummary, subscribeRefunds, type RefundSummary } from '../../../service/refunds'
+import { getRefundMetrics, subscribeRefunds, type RefundMetrics } from '../../../service/refunds'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { formatPeso } from '../../../utils/format'
-import { BanknoteIcon, CheckIcon, ClockIcon, XIcon } from '../../form/icons'
+import { AlertIcon, BanknoteIcon, CheckIcon, ClockIcon } from '../../form/icons'
 import { SectionBody } from '../../staff/StaffSection'
 import { STAFF_SECTION, STAT_CARD, STAT_CONTEXT, STAT_LABEL, STAT_VALUE, statIcon, type StatTone } from '../../staff/StaffSkeleton'
 
@@ -28,10 +28,10 @@ const CardSkeleton = ({ label }: { label: string }) => (
 /** The four cards' placeholders. */
 export const RefundCardsSkeleton = () => (
   <>
-    <CardSkeleton label="Loading pending requests" />
-    <CardSkeleton label="Loading approved requests" />
-    <CardSkeleton label="Loading rejected requests" />
+    <CardSkeleton label="Loading refunds that need action" />
+    <CardSkeleton label="Loading refunds in progress" />
     <CardSkeleton label="Loading total refunded" />
+    <CardSkeleton label="Loading amount still owed" />
   </>
 )
 
@@ -58,7 +58,7 @@ function Card({ index, icon: Icon, tone, label, value, context }: CardProps) {
   )
 }
 
-/** How many requests wait, were approved and rejected, and the pesos given back. One request, one retry; it loads again when a request is decided. */
+/** How many refunds need action or are in progress, the pesos given back and the pesos still owed. One request, one retry; it loads again after a retry or a check with the gateway. */
 export function RefundSummaryCards() {
   const [version, setVersion] = useState(0)
   useEffect(() => {
@@ -67,22 +67,22 @@ export function RefundSummaryCards() {
   }, [])
   // A new version is a new request, though it is not read inside.
   // oxlint-disable-next-line react-hooks/exhaustive-deps
-  const fetcher = useCallback((options: RequestOptions) => getRefundSummary(options), [version])
+  const fetcher = useCallback((options: RequestOptions) => getRefundMetrics(options), [version])
   const section = useSection(fetcher)
 
   return (
     <section aria-labelledby="refund-figures" className="@container">
       <h2 id="refund-figures" className="sr-only">
-        Refund requests at a glance
+        Refunds at a glance
       </h2>
       <div className={REFUND_GRID}>
         <SectionBody section={section} what="the refund figures" skeleton={<RefundCardsSkeleton />} errorClassName={`${STAFF_SECTION} col-span-full`}>
-          {({ pending, approved, rejected, refundedTotal }: RefundSummary) => (
+          {({ requestedCount, processingCount, succeededCount, failedCount, requiresManualActionCount, totalRefundedVolume, pendingRefundLiabilityVolume }: RefundMetrics) => (
             <>
-              <Card index={0} icon={ClockIcon} tone="info" label="Pending" value={pending.toLocaleString('en-PH')} context="Waiting for a decision" />
-              <Card index={1} icon={CheckIcon} tone="success" label="Approved" value={approved.toLocaleString('en-PH')} context="Refunded to customers" />
-              <Card index={2} icon={XIcon} tone="rose" label="Rejected" value={rejected.toLocaleString('en-PH')} context="Turned down" />
-              <Card index={3} icon={BanknoteIcon} tone="teal" label="Total refunded" value={formatPeso(refundedTotal)} context={`${approved.toLocaleString('en-PH')} approved ${approved === 1 ? 'request' : 'requests'}`} />
+              <Card index={0} icon={AlertIcon} tone="danger" label="Needs action" value={(requiresManualActionCount + failedCount).toLocaleString('en-PH')} context="Failed or needing manual action" />
+              <Card index={1} icon={ClockIcon} tone="info" label="In progress" value={(requestedCount + processingCount).toLocaleString('en-PH')} context="Requested or with the gateway" />
+              <Card index={2} icon={CheckIcon} tone="success" label="Refunded" value={formatPeso(totalRefundedVolume)} context={`${succeededCount.toLocaleString('en-PH')} ${succeededCount === 1 ? 'refund' : 'refunds'} sent`} />
+              <Card index={3} icon={BanknoteIcon} tone="teal" label="Still owed" value={formatPeso(pendingRefundLiabilityVolume)} context="Not yet back with customers" />
             </>
           )}
         </SectionBody>

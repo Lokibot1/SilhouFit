@@ -2,14 +2,14 @@ import { REFUND_PER_PAGE } from '../../../service/refunds'
 import { PAGER_CONTROL, PAGER_FOOTER, PAGER_PAGINATION, TABLE_ROW, TD, TH } from '../../staff/inventory/layout'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { PAGER_ROWS, PAGER_SKELETON_ROWS } from '../../staff/transactions/layout'
-import { refundColumns, wideCell, type RefundColumnKey } from './refundColumns'
+import { REFUND_COLUMNS, wideCell, type RefundColumnKey } from './refundColumns'
 import { REFUND_GRID, RefundCardsSkeleton } from './RefundSummaryCards'
 
 /**
  * The mobile card's height and the height of each line in it: the loaded card and its placeholder share these, so nothing jumps when the rows arrive.
- * Top line 44px (request number, status), customer, reason and time, requested by and decision 24px each, bottom line 44px (order, amount) and 16px of padding.
+ * Top line 44px (order number, status), customer, reason and time 24px each, bottom line 44px (attempts, amount) and 16px of padding.
  */
-export const REFUND_CARD_ROW = 'h-50'
+export const REFUND_CARD_ROW = 'h-44'
 export const REFUND_CARD_LINE = 'h-6'
 export const REFUND_CARD_TALL = 'h-11'
 
@@ -18,24 +18,21 @@ const Bar = ({ className }: { className: string }) => <div className={`rounded-x
 /** How wide each column's placeholder is, about the width of its content, so the columns size themselves as they will once the rows arrive. */
 const BAR_WIDTH: Record<RefundColumnKey, string> = {
   num: 'w-4',
-  select: 'size-6',
-  request: 'w-14',
-  order: 'w-16',
+  order: 'w-36',
   customer: 'w-32',
-  by: 'w-24',
-  reason: 'w-28',
+  reason: 'w-40',
   amount: 'w-20',
-  at: 'w-28',
   status: 'w-24',
-  decided: 'w-24',
+  at: 'w-28',
+  attempts: 'w-4',
 }
 
-export function RefundTableSkeletonRows({ count, selecting = false }: { count: number; selecting?: boolean }) {
+export function RefundTableSkeletonRows({ count }: { count: number }) {
   return Array.from({ length: count }, (_, n) => (
     <tr key={n} className={`${TABLE_ROW} animate-pulse`}>
-      {refundColumns(selecting).map(({ key }) => (
+      {REFUND_COLUMNS.map(({ key }) => (
         <td key={key} className={`${TD} ${wideCell(key)}`}>
-          <Bar className={`${key === 'select' ? '' : 'h-5'} ${BAR_WIDTH[key]} ${key === 'num' || key === 'amount' ? 'ml-auto' : ''}`} />
+          <Bar className={`h-5 ${BAR_WIDTH[key]} ${key === 'num' || key === 'amount' || key === 'attempts' ? 'ml-auto' : ''}`} />
         </td>
       ))}
     </tr>
@@ -57,9 +54,6 @@ export function RefundCardSkeletonRows({ count }: { count: number }) {
       </div>
       <div className={`flex ${REFUND_CARD_LINE} items-center`}>
         <Bar className="h-5 w-1/2" />
-      </div>
-      <div className={`flex ${REFUND_CARD_LINE} items-center`}>
-        <Bar className="h-5 w-3/4" />
       </div>
       <div className={`flex ${REFUND_CARD_TALL} items-center justify-between gap-3`}>
         <Bar className="h-5 w-24" />
@@ -83,21 +77,20 @@ export function RefundPagerSkeleton() {
   )
 }
 
-const TAB_LABELS = ['All', 'Pending', 'Approved', 'Rejected']
+const TAB_LABELS = ['All', 'Requested', 'Processing', 'Needs action', 'Failed', 'Refunded', 'Cancelled']
 
-/** The route fallback for Returns & Refunds: the page as it loads (header, four cards, tabs, toolbar, list and pager) with the same sizes, so nothing jumps when it arrives. */
+/** The route fallback for Refunds: the page as it loads (header, four cards, tabs, toolbar, list and pager) with the same sizes, so nothing jumps when it arrives. */
 export function RefundsPageSkeleton() {
   return (
-    <div role="status" aria-label="Loading Returns & Refunds" className="grid animate-pulse gap-3">
+    <div role="status" aria-label="Loading Refunds" className="grid animate-pulse gap-3">
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         {/* The real title and line, hidden, so they wrap and measure the same. */}
         <div aria-hidden="true" className="min-w-0">
-          <div className="display w-fit rounded-xl bg-line text-2xl text-transparent sm:text-3xl">Returns &amp; Refunds</div>
+          <div className="display w-fit rounded-xl bg-line text-2xl text-transparent sm:text-3xl">Refunds</div>
           <div className="mt-1 text-xs text-transparent">
-            <span className="rounded-xl bg-line">Refund and return requests waiting for an admin decision</span>
+            <span className="rounded-xl bg-line">Every refund and where it stands with the payment gateway</span>
           </div>
         </div>
-        <Bar className="h-8 w-28" />
       </div>
       <div className="@container">
         <div className={REFUND_GRID}>
@@ -122,13 +115,13 @@ export function RefundsPageSkeleton() {
         </div>
         <table className="hidden w-full border-separate border-spacing-0 whitespace-nowrap @4xl:table">
           <colgroup>
-            {refundColumns(false).map((column) => (
+            {REFUND_COLUMNS.map((column) => (
               <col key={column.key} className={'wide' in column ? 'hidden @7xl:table-column' : ''} />
             ))}
           </colgroup>
           <thead>
             <tr>
-              {refundColumns(false).map(({ key }) => (
+              {REFUND_COLUMNS.map(({ key }) => (
                 <th key={key} className={`${TH} ${wideCell(key)}`}>
                   <div className="h-11" />
                 </th>

@@ -5,12 +5,13 @@ import { fetchAdminOrder, quietRead, type AdminOrderDetail, type AdminOrderItem,
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { formatPeso, variantLabel } from '../../../utils/format'
 import { humanize, methodLabel, shipmentStatusLabel } from '../../../utils/orders'
-import { BagIcon, BoxIcon, UserIcon, WalletIcon } from '../../form/icons'
+import { BagIcon, BoxIcon, RestoreIcon, UserIcon, WalletIcon } from '../../form/icons'
 import { PRIMARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { PhotoImg } from '../../ui/PhotoImg'
 import { Modal } from '../../ui/Modal'
 import { CopyId } from '../inventory/ProductDetail'
 import { EmptyNote, SectionError } from '../StaffSection'
+import { RefundEntries } from '../RefundEntries'
 import { PlacedAt } from '../transactions/TransactionParts'
 import { AdminOrderActions } from './AdminOrderActions'
 import { CARD_LABEL, OrderCard } from './OrderCard'
@@ -299,6 +300,9 @@ function Body({ order, onChanged }: BodyProps) {
                 ))}
               </ul>
             )}
+          </OrderCard>
+          <OrderCard icon={<RestoreIcon size={16} />} title="Refunds">
+            <RefundEntries refunds={detail.refunds ?? []} refundedAmount={detail.refundedAmount ?? 0} />
           </OrderCard>
           <OrderCard icon={<BoxIcon size={16} />} title="Delivery">
             <Delivery detail={detail} />

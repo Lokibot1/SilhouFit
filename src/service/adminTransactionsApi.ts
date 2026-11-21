@@ -2,6 +2,7 @@ import { isTime, REMOVED, toCustomer, type AdminOrderDetail } from './adminOrder
 import type { TransactionDetail, TransactionLine } from './fetchTransactions'
 import { ProductListError, request } from './fetchProductList'
 import { isMoney, isRecord, ORDER_STATUSES, oneOf, PAYMENT_STATUSES, type OrderStatus, type PaymentStatus } from './ordersApi'
+import { toRefundSummary, type RefundEntry } from './refundEntries'
 import type { RequestOptions } from './simulateRequest'
 
 // Staff payment records: the API's /admin/transactions endpoints (staff role or above). The API rejects query keys it does not know,
@@ -37,6 +38,9 @@ export interface AdminTransactionDetail extends AdminTransactionRow {
   updatedAt: string
   /** The gateway's record, as received. Show it through `redactPayload`. */
   payload: Record<string, unknown>
+  /** Pesos refunded so far (the refunds that succeeded); left out by an older API. */
+  refundedAmount?: number
+  refunds?: RefundEntry[]
 }
 
 export interface AdminTransactionsPage {
@@ -74,6 +78,10 @@ export interface AdminTransactionMetrics {
   totalGrossVolume: number
   totalFeeVolume: number
   totalNetVolume: number
+  /** Refund counts, left out by an older API. */
+  partiallyRefundedCount?: number
+  pendingRefundCount?: number
+  manualActionRefundCount?: number
 }
 
 const bad = () => new ProductListError('server')
@@ -108,7 +116,7 @@ function toDetail(body: unknown): AdminTransactionDetail {
   const { updatedAt, rawPayload, order } = body as Record<string, unknown>
   const { totalAmount } = order as Record<string, unknown>
   if (!isTime(updatedAt) || !isMoney(totalAmount)) throw bad()
-  return { ...row, orderTotal: totalAmount, updatedAt, payload: isRecord(rawPayload) ? rawPayload : {} }
+  return { ...row, orderTotal: totalAmount, updatedAt, payload: isRecord(rawPayload) ? rawPayload : {}, ...toRefundSummary(body as Record<string, unknown>) }
 }
 
 const SECRET_KEY = /secret|token|key|signature|password|authorization/i
@@ -190,5 +198,18 @@ export async function fetchAdminTransactionMetrics({ signal }: RequestOptions = 
   if (!isRecord(body)) throw bad()
   const { totalTransactions, paidCount, refundedCount, failedCount, pendingCount, totalGrossVolume, totalFeeVolume, totalNetVolume } = body
   if (![totalTransactions, paidCount, refundedCount, failedCount, pendingCount, totalGrossVolume, totalFeeVolume, totalNetVolume].every(isMoney)) throw bad()
-  return { totalTransactions, paidCount, refundedCount, failedCount, pendingCount, totalGrossVolume, totalFeeVolume, totalNetVolume } as AdminTransactionMetrics
+  const { partiallyRefundedCount, pendingRefundCount, manualActionRefundCount } = body
+  return {
+    totalTransactions,
+    paidCount,
+    refundedCount,
+    failedCount,
+    pendingCount,
+    totalGrossVolume,
+    totalFeeVolume,
+    totalNetVolume,
+    ...(isMoney(partiallyRefundedCount) && { partiallyRefundedCount }),
+    ...(isMoney(pendingRefundCount) && { pendingRefundCount }),
+    ...(isMoney(manualActionRefundCount) && { manualActionRefundCount }),
+  } as AdminTransactionMetrics
 }

@@ -67,7 +67,7 @@ describe('admin navigation', () => {
     nav('admin')
     // The headings are presentation only, so the list still reads as the ten pages. Profile is in the account menu, not the sidebar.
     expect(within(screen.getByRole('list')).getAllByRole('listitem').map((li) => li.textContent?.replace('Soon', '').trim())).toEqual([
-      'Dashboard', 'Inventory', 'Measurements', 'Transactions', 'Online Orders', 'Messages', 'Reviews', 'User Management', 'Activity Logs', 'Pickup Location', 'AR Insights', 'Pricing & Promotions', 'Returns & Refunds', 'Help Chatbot',
+      'Dashboard', 'Inventory', 'Measurements', 'Transactions', 'Online Orders', 'Messages', 'Reviews', 'User Management', 'Activity Logs', 'Pickup Location', 'AR Insights', 'Pricing & Promotions', 'Refunds', 'Help Chatbot',
     ])
     const order = [...document.querySelectorAll('li')].map((li) => li.textContent?.replace('Soon', '').trim())
     expect(order.indexOf('Operations')).toBe(0)
@@ -80,7 +80,7 @@ describe('admin navigation', () => {
     expect(screen.getByRole('link', { name: 'Pickup Location' })).toHaveAttribute('href', '/admin/pickup-location')
     expect(screen.getByRole('link', { name: 'AR Insights' })).toHaveAttribute('href', '/admin/ar-insights')
     expect(screen.getByRole('link', { name: 'Pricing & Promotions' })).toHaveAttribute('href', '/admin/promotions')
-    expect(screen.getByRole('link', { name: 'Returns & Refunds' })).toHaveAttribute('href', '/admin/refunds')
+    expect(screen.getByRole('link', { name: 'Refunds' })).toHaveAttribute('href', '/admin/refunds')
     expect(screen.getByRole('link', { name: 'Help Chatbot' })).toHaveAttribute('href', '/admin/chatbot')
   })
 

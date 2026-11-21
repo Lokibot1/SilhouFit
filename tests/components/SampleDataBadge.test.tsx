@@ -4,7 +4,6 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { SampleDataBadge } from '../../src/components/ui/SampleDataBadge'
 import { ArInsightsPage } from '../../src/views/admin/ArInsightsPage'
 import { PromotionsPage } from '../../src/views/admin/PromotionsPage'
-import { RefundsPage } from '../../src/views/admin/RefundsPage'
 import { renderAdmin, setUpAdminDom } from '../shared/adminSession'
 
 vi.mock('../../src/service/simulateRequest', () => ({ simulateRequest: () => Promise.resolve({ ok: true }) }))
@@ -23,7 +22,6 @@ describe('SampleDataBadge', () => {
 // Pages that read placeholder data until their backend exists; each shows the badge in its header, next to the title.
 describe.each([
   ['/admin/ar-insights', 'AR Fitting Insights', ArInsightsPage],
-  ['/admin/refunds', 'Returns & Refunds', RefundsPage],
   ['/admin/promotions', 'Pricing & Promotions', PromotionsPage],
 ] as const)('%s', (path, title, Page) => {
   it(`badges ${title} as sample data, once`, () => {

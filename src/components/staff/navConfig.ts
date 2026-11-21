@@ -32,7 +32,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Pickup Location', to: '/admin/pickup-location', icon: MapPinIcon, group: 'admin', page: 'pickup-location' },
   { label: 'AR Insights', to: '/admin/ar-insights', icon: ArIcon, group: 'admin', page: 'ar-insights' },
   { label: 'Pricing & Promotions', to: '/admin/promotions', icon: BanknoteIcon, group: 'admin', page: 'promotions' },
-  { label: 'Returns & Refunds', to: '/admin/refunds', icon: RestoreIcon, group: 'admin', page: 'refunds' },
+  { label: 'Refunds', to: '/admin/refunds', icon: RestoreIcon, group: 'admin', page: 'refunds' },
   { label: 'Help Chatbot', to: '/admin/chatbot', icon: InfoIcon, group: 'admin', page: 'chatbot' },
 ]
 

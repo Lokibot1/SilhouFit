@@ -373,7 +373,7 @@ describe('StaffTransactionsPage', () => {
     expect(lastParams().method).toBeUndefined()
     expect(lastParams().provider).toBeUndefined()
     await user.click(screen.getByRole('combobox', { name: 'Status' }))
-    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual(['All statuses', 'Awaiting payment', 'Payment pending', 'Paid', 'Payment failed', 'Refunded'])
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual(['All statuses', 'Awaiting payment', 'Payment pending', 'Paid', 'Payment failed', 'Partly refunded', 'Refunded'])
     await user.keyboard('{Escape}')
     await user.click(screen.getByRole('combobox', { name: 'Payment method' }))
     expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual(['All methods', 'GCash', 'Maya', 'Card', 'GrabPay', 'BillEase', 'Other'])

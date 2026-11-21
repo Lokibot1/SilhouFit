@@ -981,3 +981,47 @@ for (const scheme of ['light', 'dark'] as const) {
     })
   })
 }
+
+test.describe('refunds', () => {
+  const entry = (n: number, over: Record<string, unknown> = {}) => ({
+    id: `refund-${n}`,
+    amount: 500,
+    status: 'SUCCEEDED',
+    reason: 'CUSTOMER_REQUEST',
+    externalRefundId: `ref_${n}`,
+    manualReference: null,
+    failureCode: null,
+    succeededAt: '2026-10-01T05:00:00.000Z',
+    createdAt: '2026-10-01T04:00:00.000Z',
+    ...over,
+  })
+
+  test('a partly refunded payment reads "Partly refunded" in the list and its drawer lists the refunds', async ({ page }) => {
+    await setup(page, [
+      adminTransaction(1),
+      adminTransaction(2, { status: 'PARTIALLY_REFUNDED', refundedAmount: 500, refunds: [entry(1), entry(2, { amount: 300, status: 'FAILED', succeededAt: null })] }),
+    ])
+    await page.setViewportSize(TABLE)
+    await open(page)
+
+    await expect(orderButton(page, 1)).toBeVisible()
+    await expect(rowOf(page, 2).getByRole('cell').nth(3)).toHaveText('Partly refunded')
+    await expect(rowOf(page, 1).getByRole('cell').nth(3)).toHaveText('Paid')
+
+    const drawer = await openDrawer(page, 2)
+    await expect(drawer.getByRole('heading', { name: 'Refunds' })).toBeVisible()
+    await expect(drawer.getByText('Refunded ₱500.00')).toBeVisible()
+    const rows = drawer.getByRole('list', { name: 'Refunds' }).getByRole('listitem')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.first()).toContainText('₱500.00')
+    await expect(rows.first()).toContainText('Customer request')
+    await expect(rows.nth(1)).toContainText('₱300.00')
+  })
+
+  test('a payment with no refunds says so', async ({ page }) => {
+    await setup(page, [adminTransaction(1)])
+    await open(page)
+    const drawer = await openDrawer(page, 1)
+    await expect(drawer.getByText('No refunds yet.')).toBeVisible()
+  })
+})

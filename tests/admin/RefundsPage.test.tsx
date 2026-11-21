@@ -1,536 +1,373 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import * as service from '../../src/service/refunds'
-import { getRefunds, REFUND_REASON_LABELS, setRefunds, type RefundRequest } from '../../src/service/refunds'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ProductListError, request } from '../../src/service/fetchProductList'
 import { clearSession, setSession } from '../../src/service/session'
 import { formatOrderTime, formatPeso } from '../../src/utils/format'
 import { RefundsPage } from '../../src/views/admin/RefundsPage'
 import { renderAdmin, setUpAdminDom } from '../shared/adminSession'
 
-vi.mock('../../src/service/simulateRequest', () => ({ simulateRequest: () => Promise.resolve({ ok: true }) }))
-vi.mock('../../src/service/refunds', async (importOriginal) => {
-  const real = await importOriginal<typeof import('../../src/service/refunds')>()
-  return {
-    ...real,
-    getRefundSummary: vi.fn(real.getRefundSummary),
-    listRefunds: vi.fn(real.listRefunds),
-    approveRefund: vi.fn(real.approveRefund),
-    rejectRefund: vi.fn(real.rejectRefund),
-  }
-})
+vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/fetchProductList')>()),
+  request: vi.fn(),
+}))
+const send = vi.mocked(request)
 
 const PATH = '/admin/refunds'
-const original = getRefunds()
-const network = () => Object.assign(new Error('network'), { kind: 'network' })
+const person = { id: 'u1', email: 'anne@example.com', firstName: 'Anne', lastName: 'Santos', fullName: 'Anne Santos', avatarUrl: null }
+const refundRow = (n: number, over: Record<string, unknown> = {}) => ({
+  id: `00000000-0000-4000-8000-${String(900000 + n).padStart(12, '0')}`,
+  orderId: `o${n}`,
+  paymentTransactionId: `p${n}`,
+  provider: 'paymongo',
+  externalPaymentId: `pay_${n}`,
+  externalRefundId: `ref_${n}`,
+  amount: 1000 + n,
+  currency: 'PHP',
+  status: 'FAILED',
+  reason: 'LATE_PAYMENT_ON_CANCELLED_ORDER',
+  reasonNotes: null,
+  triggerSource: 'SYSTEM_AUTO',
+  resolutionType: 'PROVIDER_API',
+  manualReference: null,
+  failureCode: 'balance_low',
+  failureMessage: 'The gateway balance is too low.',
+  attemptCount: 1,
+  nextRetryAt: null,
+  createdAt: new Date(Date.UTC(2026, 9, 1, 2, 30) + n * 3_600_000).toISOString(),
+  updatedAt: '2026-10-26T02:41:00.000Z',
+  order: { id: `o${n}`, orderNumber: `SHF-0000${n}`, status: 'CANCELLED', paymentStatus: 'PAID', currency: 'PHP', totalAmount: 1000 + n, createdAt: '2026-10-26T02:25:00.000Z' },
+  customer: person,
+  initiatedBy: null,
+  resolvedBy: null,
+  ...over,
+})
+const rows = Array.from({ length: 12 }, (_, i) => refundRow(i + 1))
+const metrics = { totalRefunds: 12, requestedCount: 1, processingCount: 2, succeededCount: 3, failedCount: 4, requiresManualActionCount: 5, cancelledCount: 1, totalRefundedVolume: 5200.5, pendingRefundLiabilityVolume: 1800, currency: 'PHP' }
+const page = (data: unknown[], total = data.length) => ({ data, meta: { total, page: 1, limit: 10, totalPages: Math.max(1, Math.ceil(total / 10)), hasNextPage: false, hasPreviousPage: false } })
 
-/** The default view: newest request first. */
-const recent = [...original].sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
-const pendingOnes = recent.filter((r) => r.status === 'pending')
-const count = (status: RefundRequest['status']) => original.filter((r) => r.status === status).length
-const refunded = () => original.reduce((sum, r) => sum + (r.approvedAmount ?? 0), 0)
+/** What the fake API answers: reads by path, and the next answer to a POST. */
+const api = { list: page(rows.slice(0, 10), 12) as unknown, metrics: metrics as unknown, detail: { ...rows[0], rawProviderResponse: { data: { id: 'ref_1', client_key: 'secret-value' } } } as unknown, post: null as unknown }
+const listCalls = () => send.mock.calls.filter(([method, path]) => method === 'GET' && path.startsWith('/admin/refunds?')).map(([, path]) => new URL(`http://x${path}`).searchParams)
+const posts = () => send.mock.calls.filter(([method]) => method === 'POST')
 
 beforeAll(setUpAdminDom)
+beforeEach(() => {
+  api.list = page(rows.slice(0, 10), 12)
+  api.metrics = metrics
+  api.detail = { ...rows[0], rawProviderResponse: { data: { id: 'ref_1', client_key: 'secret-value' } } }
+  api.post = null
+  send.mockImplementation(async (method, path) => {
+    const answer = method === 'POST' ? api.post : path.startsWith('/admin/refunds?') ? api.list : path === '/admin/refunds/metrics' ? api.metrics : api.detail
+    if (answer instanceof Error) throw answer
+    return answer
+  })
+})
 afterEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   act(() => clearSession())
-  setRefunds(original)
 })
 
+const asRole = (role: 'staff' | 'admin') => act(() => setSession({ name: 'Dev User', email: 'dev@silhoufit.dev', role }))
 // jsdom loads no CSS, so the table and the card list are both on screen: these look in the table.
 const table = () => screen.getByRole('table')
 const bodyRows = () => within(table()).getAllByRole('row').slice(1)
-const rowOf = (request: RefundRequest) => bodyRows().find((r) => within(r).queryByText(request.requestNo))!
-const cards = () => screen.getByRole('region', { name: 'Refund requests at a glance' })
+const cards = () => screen.getByRole('region', { name: 'Refunds at a glance' })
 const figure = (label: string) => within(cards()).getByText(label).nextSibling
-const searchBox = () => screen.getByRole('textbox', { name: 'Search refund requests by request number, order, customer or staff' })
-const header = (name: string) => within(table()).getByRole('columnheader', { name })
-const pagerText = (from: number, to: number, total: number) => `Displaying ${from}–${to} of ${total}`
+const searchBox = () => screen.getByRole('textbox', { name: 'Search refunds by order, customer, email or reference' })
 
 async function renderPage() {
   renderAdmin(<RefundsPage />, PATH)
-  await within(table()).findByText(recent[0].requestNo)
-  await within(cards()).findByText('Total refunded')
+  await within(table()).findByText('SHF-00001')
+  await within(cards()).findByText('Refunded')
 }
 
-async function showPending() {
-  await userEvent.click(screen.getByRole('tab', { name: 'Pending' }))
-  await within(table()).findByText(pendingOnes[0].requestNo)
+async function openSheet(orderNumber = 'SHF-00001') {
+  await userEvent.click(within(table()).getByRole('button', { name: orderNumber }))
+  return screen.findByRole('dialog', { name: orderNumber })
 }
 
-async function openSheet(request: RefundRequest) {
-  await userEvent.click(within(rowOf(request)).getByRole('button', { name: request.requestNo }))
-  return screen.findByRole('dialog', { name: request.requestNo })
-}
-
-/** The pending request on top of the Pending tab, its sheet open. */
-async function openPending() {
-  await renderPage()
-  await showPending()
-  return { request: pendingOnes[0], dialog: await openSheet(pendingOnes[0]) }
-}
-
-describe('Returns & Refunds page', () => {
-  it('shows the title, the four cards and the first page of requests', async () => {
+describe('Refunds page', () => {
+  it('shows the title, the four cards from the metrics and the first page of refunds', async () => {
     await renderPage()
-    expect(screen.getByRole('heading', { level: 1, name: 'Returns & Refunds' })).toBeInTheDocument()
-    expect(document.title).toBe('Returns & Refunds — SilhouFit')
+    expect(screen.getByRole('heading', { level: 1, name: 'Refunds' })).toBeInTheDocument()
+    expect(document.title).toBe('Refunds — SilhouFit')
     const meta = document.querySelector<HTMLMetaElement>('meta[name="description"]')!.content
     expect(meta.length).toBeGreaterThanOrEqual(150)
     expect(meta.length).toBeLessThanOrEqual(160)
+    expect(screen.queryByText('Sample data')).toBeNull()
 
-    expect(figure('Pending')).toHaveTextContent(String(count('pending')))
-    expect(figure('Approved')).toHaveTextContent(String(count('approved')))
-    expect(figure('Rejected')).toHaveTextContent(String(count('rejected')))
-    expect(figure('Total refunded')).toHaveTextContent(formatPeso(refunded()))
-    expect(within(cards()).getByText(`${count('approved')} approved requests`)).toBeInTheDocument()
+    expect(figure('Needs action')).toHaveTextContent('9')
+    expect(figure('In progress')).toHaveTextContent('3')
+    expect(figure('Refunded')).toHaveTextContent(formatPeso(5200.5))
+    expect(within(cards()).getByText('3 refunds sent')).toBeInTheDocument()
+    expect(figure('Still owed')).toHaveTextContent(formatPeso(1800))
 
     expect(bodyRows()).toHaveLength(10)
-    expect(bodyRows().map((r) => within(r).getByRole('button').textContent)).toEqual(recent.slice(0, 10).map((r) => r.requestNo))
-    expect(screen.getByText(pagerText(1, 10, original.length))).toBeInTheDocument()
-    const first = rowOf(recent[0])
-    expect(within(first).getByText(formatPeso(recent[0].amount))).toBeInTheDocument()
-    expect(within(first).getByText(REFUND_REASON_LABELS[recent[0].reason])).toBeInTheDocument()
-    expect(within(first).getByText(recent[0].customerName)).toBeInTheDocument()
+    const first = bodyRows()[0]
+    expect(within(first).getByText(formatPeso(1001))).toBeInTheDocument()
+    expect(within(first).getByText('Late payment on cancelled order')).toBeInTheDocument()
+    expect(within(first).getByText('Anne Santos')).toBeInTheDocument()
+    expect(within(first).getByText('Failed')).toBeInTheDocument()
+    expect(within(first).getByText(formatOrderTime(rows[0].createdAt))).toBeInTheDocument()
+    expect(screen.getByText('Displaying 1–10 of 12')).toBeInTheDocument()
+    expect(listCalls()[0].get('sortBy')).toBe('createdAt')
+    expect(listCalls()[0].get('sortOrder')).toBe('desc')
   })
 
-  it('reserves as many placeholder rows as the first page while it loads', async () => {
+  it('reserves a full page of placeholder rows while it loads', async () => {
     renderAdmin(<RefundsPage />, PATH)
     expect(bodyRows()).toHaveLength(10)
-    expect(within(screen.getByRole('list', { name: 'Refund requests' })).getAllByRole('listitem')).toHaveLength(10)
-    await within(table()).findByText(recent[0].requestNo)
-    expect(bodyRows()).toHaveLength(10)
-    expect(within(screen.getByRole('list', { name: 'Refund requests' })).getAllByRole('listitem')).toHaveLength(10)
+    expect(within(screen.getByRole('list', { name: 'Refunds' })).getAllByRole('listitem')).toHaveLength(10)
+    await within(table()).findByText('SHF-00001')
   })
 
-  it('filters by status with the tabs', async () => {
-    await renderPage()
-    await userEvent.click(screen.getByRole('tab', { name: 'Pending' }))
-    const pending = count('pending')
-    expect(await screen.findByText(pagerText(1, Math.min(10, pending), pending))).toBeInTheDocument()
-    for (const r of bodyRows()) expect(within(r).getByText('Pending')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('tab', { name: 'Rejected' }))
-    const rejected = count('rejected')
-    expect(await screen.findByText(pagerText(1, Math.min(10, rejected), rejected))).toBeInTheDocument()
-    for (const r of bodyRows()) expect(within(r).getByText('Rejected')).toBeInTheDocument()
+  it('keeps each section on its own: the figures fail and retry while the list shows', async () => {
+    api.metrics = new ProductListError('network')
+    renderAdmin(<RefundsPage />, PATH)
+    await within(table()).findByText('SHF-00001')
+    const alert = await screen.findByText("We couldn't load the refund figures.")
+    expect(alert).toBeInTheDocument()
+    api.metrics = metrics
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await within(cards()).findByText('Still owed')).toBeInTheDocument()
   })
 
-  it('searches request, order, customer and staff after a pause, and offers Clear filters when nothing matches', async () => {
-    await renderPage()
-    await userEvent.type(searchBox(), original[0].requestNo)
-    expect(await screen.findByText(pagerText(1, 1, 1))).toBeInTheDocument()
-    expect(bodyRows()).toHaveLength(1)
+  it('shows an error with Retry when the list fails, and loads it on retry', async () => {
+    api.list = new ProductListError('server')
+    renderAdmin(<RefundsPage />, PATH)
+    expect(await screen.findByText("We couldn't load the refunds.")).toBeInTheDocument()
+    api.list = page(rows.slice(0, 10), 12)
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await within(table()).findByText('SHF-00001')).toBeInTheDocument()
+  })
 
-    await userEvent.clear(searchBox())
-    const order = original[3].orderNo
-    await userEvent.type(searchBox(), order.toLowerCase())
-    const byOrder = original.filter((r) => r.orderNo.toLowerCase().includes(order.toLowerCase())).length
-    expect(await screen.findByText(pagerText(1, byOrder, byOrder))).toBeInTheDocument()
-
-    await userEvent.clear(searchBox())
-    const staff = original.find((r) => r.requestedBy !== 'Customer')!.requestedBy
-    await userEvent.type(searchBox(), staff)
-    const byStaff = original.filter((r) => r.requestedBy === staff).length
-    expect(await screen.findByText(pagerText(1, Math.min(10, byStaff), byStaff))).toBeInTheDocument()
-
-    await userEvent.clear(searchBox())
-    await userEvent.type(searchBox(), 'zzzz')
-    expect(await screen.findByText('No refund requests match')).toBeInTheDocument()
+  it('says where refunds come from when there are none, and offers Clear filters when a filter finds none', async () => {
+    api.list = page([], 0)
+    renderAdmin(<RefundsPage />, PATH)
+    expect(await screen.findByText('No refunds yet')).toBeInTheDocument()
+    expect(screen.getByText('Late payments on cancelled orders are refunded automatically and appear here.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('tab', { name: 'Failed' }))
+    expect(await screen.findByText('No refunds match')).toBeInTheDocument()
+    api.list = page(rows.slice(0, 10), 12)
     await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
-    expect(await screen.findByText(pagerText(1, 10, original.length))).toBeInTheDocument()
-    expect(searchBox()).toHaveValue('')
+    expect(await within(table()).findByText('SHF-00001')).toBeInTheDocument()
+    expect(listCalls().at(-1)!.has('status')).toBe(false)
   })
 
-  it('sorts by a column, flips the direction on a second click and right-aligns the amounts', async () => {
+  it('sends the status tab, the debounced search and the sort as query keys, only when set', async () => {
     await renderPage()
-    expect(header('Requested at')).toHaveAttribute('aria-sort', 'descending')
+    await userEvent.click(screen.getByRole('tab', { name: 'Needs action' }))
+    await waitFor(() => expect(listCalls().at(-1)!.get('status')).toBe('REQUIRES_MANUAL_ACTION'))
+    const before = listCalls().length
+    await userEvent.type(searchBox(), 'anne')
+    expect(listCalls()).toHaveLength(before)
+    await waitFor(() => expect(listCalls().at(-1)!.get('search')).toBe('anne'))
+    expect(listCalls().length).toBe(before + 1)
+    expect([...listCalls().at(-1)!.keys()]).toEqual(['page', 'limit', 'status', 'search', 'sortBy', 'sortOrder'])
 
-    await userEvent.click(within(header('Amount')).getByRole('button'))
-    await waitFor(() => expect(header('Amount')).toHaveAttribute('aria-sort', 'ascending'))
-    expect(header('Requested at')).not.toHaveAttribute('aria-sort')
-    const lowest = Math.min(...original.map((r) => r.amount))
-    await waitFor(() => expect(within(bodyRows()[0]).getByText(formatPeso(lowest))).toBeInTheDocument())
-    expect(within(bodyRows()[0]).getByText(formatPeso(lowest))).toHaveClass('text-right', 'tabular-nums')
-    expect(header('Amount').className).toContain('text-right')
-    expect(header('Customer').className).toContain('text-left')
-
-    await userEvent.click(within(header('Amount')).getByRole('button'))
-    await waitFor(() => expect(header('Amount')).toHaveAttribute('aria-sort', 'descending'))
-    const highest = Math.max(...original.map((r) => r.amount))
-    await waitFor(() => expect(within(bodyRows()[0]).getByText(formatPeso(highest))).toBeInTheDocument())
+    await userEvent.click(within(table()).getByRole('button', { name: 'Amount' }))
+    await waitFor(() => expect(listCalls().at(-1)!.get('sortBy')).toBe('amount'))
+    expect(listCalls().at(-1)!.get('sortOrder')).toBe('asc')
+    await userEvent.click(within(table()).getByRole('button', { name: 'Amount' }))
+    await waitFor(() => expect(listCalls().at(-1)!.get('sortOrder')).toBe('desc'))
+    await userEvent.click(within(table()).getByRole('button', { name: 'Created' }))
+    await waitFor(() => expect(listCalls().at(-1)!.get('sortBy')).toBe('createdAt'))
   })
 
-  it('pages through the requests and falls back to the first page when the page no longer exists', async () => {
-    expect(original.length).toBeGreaterThan(20)
+  it('caps the search at 60 characters', async () => {
     await renderPage()
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }))
-    expect(await screen.findByText(pagerText(11, 20, original.length))).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }))
-    expect(await screen.findByText(pagerText(21, Math.min(30, original.length), original.length))).toBeInTheDocument()
-
-    act(() => setRefunds(original.slice(0, 15)))
-    expect(await screen.findByText('There are no refund requests on page 3.')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Go to the first page' }))
-    expect(await screen.findByText(pagerText(1, 10, 15))).toBeInTheDocument()
+    expect(searchBox()).toHaveAttribute('maxlength', '60')
   })
+})
 
-  it('opens a request in a sheet with its items, reason, amount and a link to the order, and Escape closes it', async () => {
+describe('the refund sheet', () => {
+  it('shows the facts, the failure and the gateway response with secrets hidden, and no actions for staff', async () => {
+    asRole('staff')
     await renderPage()
-    const request = recent[0]
-    const link = within(rowOf(request)).getByRole('link', { name: request.orderNo })
-    expect(link).toHaveAttribute('href', `/admin/transactions?q=${encodeURIComponent(request.orderNo)}`)
-
-    const button = within(rowOf(request)).getByRole('button', { name: request.requestNo })
-    const dialog = await openSheet(request)
-    expect(within(dialog).getByText(request.customerName)).toBeInTheDocument()
-    expect(within(dialog).getByText(REFUND_REASON_LABELS[request.reason])).toBeInTheDocument()
-    expect(within(dialog).getByText(request.reasonText)).toBeInTheDocument()
-    expect(within(dialog).getByRole('link', { name: request.orderNo })).toHaveAttribute('href', `/admin/transactions?q=${request.orderNo}`)
-    for (const item of request.items) expect(within(dialog).getAllByText(item.name).length).toBeGreaterThan(0)
-    expect(within(dialog).getByText('Order total').nextSibling).toHaveTextContent(formatPeso(request.orderTotal))
-    expect(within(dialog).getByText('Requested').nextSibling).toHaveTextContent(formatPeso(request.amount))
-
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(button).toHaveFocus()
+    const dialog = await openSheet()
+    expect(await within(dialog).findByText('Why it failed')).toBeInTheDocument()
+    expect(within(dialog).getByText('The gateway balance is too low.')).toBeInTheDocument()
+    expect(within(dialog).getByText('Automatic')).toBeInTheDocument()
+    expect(within(dialog).getByText('System')).toBeInTheDocument()
+    expect(within(dialog).getByText('pay_1')).toBeInTheDocument()
+    expect(within(dialog).getByText(/"client_key": "\[hidden\]"/)).toBeInTheDocument()
+    expect(within(dialog).queryByText(/secret-value/)).toBeNull()
+    for (const name of ['Retry refund', 'Check with gateway', 'Mark as refunded']) expect(within(dialog).queryByRole('button', { name })).toBeNull()
   })
 
-  it('approves the full amount after a confirmation, records the admin, and updates the cards and the sheet', async () => {
-    act(() => setSession({ name: 'Dev Admin', email: 'admin@silhoufit.dev', role: 'admin' }))
-    const { request, dialog } = await openPending()
-
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Approve refund' }))
-    const full = request.amount === request.orderTotal ? 'Full refund' : 'Requested amount'
-    expect(within(dialog).getByRole('radio', { name: `${full} (${formatPeso(request.amount)})` })).toBeChecked()
-    await userEvent.type(within(dialog).getByLabelText(/^Note/), 'Checked the item photos')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Review approval' }))
-
-    const confirm = await screen.findByRole('dialog', { name: `Approve ${formatPeso(request.amount)} refund for ${request.orderNo}?` })
-    expect(service.approveRefund).not.toHaveBeenCalled()
-    await userEvent.click(within(confirm).getByRole('button', { name: 'Approve refund' }))
-
-    expect(await screen.findByText(`Refund ${request.requestNo} approved: ${formatPeso(request.amount)}`)).toBeInTheDocument()
-    expect(service.approveRefund).toHaveBeenCalledWith(request.id, { amount: request.amount, note: 'Checked the item photos', decidedBy: 'Dev Admin' })
-    const sheet = screen.getByRole('dialog', { name: request.requestNo })
-    expect(within(sheet).getByText(/^Approved by Dev Admin on/)).toBeInTheDocument()
-    expect(within(sheet).getByText(`Refunded: ${formatPeso(request.amount)}`)).toBeInTheDocument()
-    expect(within(sheet).getByText('Note: Checked the item photos')).toBeInTheDocument()
-    expect(within(sheet).queryByRole('button', { name: 'Approve refund' })).toBeNull()
-    expect(within(sheet).queryByRole('button', { name: 'Reject refund' })).toBeNull()
-
-    await waitFor(() => expect(figure('Pending')).toHaveTextContent(String(count('pending') - 1)))
-    expect(figure('Approved')).toHaveTextContent(String(count('approved') + 1))
-    expect(figure('Total refunded')).toHaveTextContent(formatPeso(refunded() + request.amount))
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(within(table()).queryByText(request.requestNo)).toBeNull()
-  })
-
-  it('checks a partial amount in the field before it asks for the confirmation', async () => {
-    const { request, dialog } = await openPending()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Approve refund' }))
-    await userEvent.click(within(dialog).getByRole('radio', { name: 'Partial refund' }))
-    const amount = within(dialog).getByLabelText('Amount to refund')
-    const review = () => userEvent.click(within(dialog).getByRole('button', { name: 'Review approval' }))
-
-    await review()
-    expect(await within(dialog).findByText('Enter the amount to refund.')).toBeInTheDocument()
-    expect(amount).toHaveFocus()
-
-    await userEvent.type(amount, '0')
-    await userEvent.tab()
-    expect(await within(dialog).findByText('The refund must be more than ₱0.00.')).toBeInTheDocument()
-
-    await userEvent.clear(amount)
-    await userEvent.type(amount, String(request.orderTotal + 1))
-    await review()
-    expect(await within(dialog).findByText(`Enter an amount of at most ${formatPeso(request.orderTotal)}, the order total.`)).toBeInTheDocument()
-
-    // The field keeps only digits and 2 decimals, so letters and a third decimal never get in.
-    await userEvent.clear(amount)
-    await userEvent.type(amount, 'ab')
-    expect(amount).toHaveValue('')
-    await userEvent.type(amount, '1.234')
-    expect(amount).toHaveValue('1.23')
-
-    expect(service.approveRefund).not.toHaveBeenCalled()
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
-
-    await review()
-    await userEvent.click(within(await screen.findByRole('dialog', { name: `Approve ${formatPeso(1.23)} refund for ${request.orderNo}?` })).getByRole('button', { name: 'Approve refund' }))
-    expect(await screen.findByText(`Refund ${request.requestNo} approved: ${formatPeso(1.23)}`)).toBeInTheDocument()
-    expect(service.approveRefund).toHaveBeenCalledWith(request.id, expect.objectContaining({ amount: 1.23 }))
-  })
-
-  it('needs a reason of at least 10 characters to reject, counts it, and confirms with a secondary button', async () => {
-    const { request, dialog } = await openPending()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Reject refund' }))
-    const reason = within(dialog).getByLabelText('Reason for rejecting')
-    expect(within(dialog).getByText('0/300')).toBeInTheDocument()
-
-    await userEvent.type(reason, 'too short')
-    expect(within(dialog).getByText('9/300')).toBeInTheDocument()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Review rejection' }))
-    expect(await within(dialog).findByText('Use at least 10 characters so the reason is clear.')).toBeInTheDocument()
-    expect(service.rejectRefund).not.toHaveBeenCalled()
-
-    await userEvent.type(reason, ' by far')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Review rejection' }))
-    const confirm = await screen.findByRole('dialog', { name: `Reject refund ${request.requestNo}?` })
-    expect(within(confirm).getByRole('button', { name: 'Cancel' })).toBeEnabled()
-    const reject = within(confirm).getByRole('button', { name: 'Reject refund' })
-    expect(reject).toHaveClass('glass-btn')
-    expect(reject).not.toHaveClass('bg-fg')
-
-    let finish: (value: RefundRequest) => void = () => {}
-    vi.mocked(service.rejectRefund).mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)))
-    await userEvent.click(reject)
-    expect(await within(confirm).findByRole('button', { name: 'Reject refund' })).toBeDisabled()
-    expect(within(confirm).getByRole('button', { name: 'Cancel' })).toBeDisabled()
-    await userEvent.click(reject)
-    expect(service.rejectRefund).toHaveBeenCalledTimes(1)
-
-    await act(async () => finish({ ...request, status: 'rejected', decidedBy: 'Admin', decidedAt: new Date().toISOString(), approvedAmount: null, decisionNote: 'too short by far' }))
-    expect(await screen.findByText(`Refund ${request.requestNo} rejected`)).toBeInTheDocument()
-    expect(within(screen.getByRole('dialog')).getByText('Reason: too short by far')).toBeInTheDocument()
-  })
-
-  it('shows a decided request without controls, and refuses to decide it again', async () => {
+  it('explains why the refund exists and where it stands, with the attempts out of 5 and the next automatic retry', async () => {
+    asRole('staff')
+    api.detail = { ...rows[0], attemptCount: 2, nextRetryAt: '2026-10-26T07:42:00.000Z', rawProviderResponse: null }
     await renderPage()
-    const rejected = recent.find((r) => r.status === 'rejected')!
-    await userEvent.click(screen.getByRole('tab', { name: 'Rejected' }))
-    await within(table()).findByText(rejected.requestNo)
-    const dialog = await openSheet(rejected)
-    expect(within(dialog).getByText(new RegExp(`^Rejected by ${rejected.decidedBy}`))).toBeInTheDocument()
-    expect(within(dialog).getByText(`Reason: ${rejected.decisionNote}`)).toBeInTheDocument()
-    expect(within(dialog).queryByRole('button', { name: /refund$/ })).toBeNull()
-    expect(within(dialog).queryByRole('textbox')).toBeNull()
-
-    const approved = original.find((r) => r.status === 'approved')!
-    await expect(service.approveRefund(approved.id, { amount: 1, decidedBy: 'Dev Admin' })).rejects.toMatchObject({ kind: 'conflict' })
-    await expect(service.rejectRefund(rejected.id, { reason: 'A long enough reason', decidedBy: 'Dev Admin' })).rejects.toMatchObject({ kind: 'conflict' })
-    await expect(service.approveRefund('refund-missing', { amount: 1, decidedBy: 'Dev Admin' })).rejects.toMatchObject({ kind: 'not-found' })
-    expect(getRefunds().find((r) => r.id === approved.id)).toEqual(approved)
+    const dialog = await openSheet()
+    await within(dialog).findByText('Why it failed')
+    expect(within(dialog).getByText('The gateway did not take it. It is retried automatically.')).toBeInTheDocument()
+    expect(within(dialog).getByText((_, el) => el?.tagName === 'P' && el.textContent === 'Next automatic retry at 3:42 PM')).toBeInTheDocument()
+    expect(within(dialog).getByText('Automatic')).toBeInTheDocument()
+    expect(within(dialog).getByText('2 of 5')).toBeInTheDocument()
+    expect(within(dialog).getByText('Late payment on cancelled order')).toBeInTheDocument()
   })
 
-  it('checks the amount and the reason on the service too', async () => {
-    const request = pendingOnes[0]
-    await expect(service.approveRefund(request.id, { amount: 0, decidedBy: 'x' })).rejects.toMatchObject({ kind: 'validation', field: 'amount' })
-    await expect(service.approveRefund(request.id, { amount: request.orderTotal + 0.01, decidedBy: 'x' })).rejects.toMatchObject({ kind: 'validation', field: 'amount' })
-    await expect(service.approveRefund(request.id, { amount: 1.234, decidedBy: 'x' })).rejects.toMatchObject({ kind: 'validation', field: 'amount' })
-    await expect(service.rejectRefund(request.id, { reason: 'short', decidedBy: 'x' })).rejects.toMatchObject({ kind: 'validation', field: 'reason' })
-    await expect(service.rejectRefund(request.id, { reason: 'a'.repeat(301), decidedBy: 'x' })).rejects.toMatchObject({ kind: 'validation', field: 'reason' })
-    expect(getRefunds().find((r) => r.id === request.id)?.status).toBe('pending')
-  })
-
-  it('shows a section error with Retry when the list fails, and still shows the cards', async () => {
-    vi.mocked(service.listRefunds).mockRejectedValueOnce(network())
-    renderAdmin(<RefundsPage />, PATH)
-    expect(await screen.findByText("We couldn't load the refund requests.")).toBeInTheDocument()
-    expect(await within(cards()).findByText('Total refunded')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(await within(table()).findByText(recent[0].requestNo)).toBeInTheDocument()
-  })
-
-  it('keeps the list working when the figures fail', async () => {
-    vi.mocked(service.getRefundSummary).mockRejectedValueOnce(network())
-    renderAdmin(<RefundsPage />, PATH)
-    expect(await screen.findByText("We couldn't load the refund figures.")).toBeInTheDocument()
-    expect(await within(table()).findByText(recent[0].requestNo)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(await within(cards()).findByText('Total refunded')).toBeInTheDocument()
-  })
-
-  it('keeps the form and re-enables the buttons when the decision fails', async () => {
-    vi.mocked(service.approveRefund).mockRejectedValueOnce(network())
-    const { request, dialog } = await openPending()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Approve refund' }))
-    await userEvent.type(within(dialog).getByLabelText(/^Note/), 'Keep me')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Review approval' }))
-    await userEvent.click(within(await screen.findByRole('dialog', { name: /^Approve .* refund for / })).getByRole('button', { name: 'Approve refund' }))
-
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent("We couldn't approve the refund.")
-    expect(alert).toHaveTextContent(`refund ${request.requestNo} is still pending`)
-    const sheet = screen.getByRole('dialog')
-    expect(within(sheet).getByRole('button', { name: 'Approve refund' })).toBeEnabled()
-    // Focus stays on the button that was pressed instead of dropping to the page.
-    expect(within(sheet).getByRole('button', { name: 'Approve refund' })).toHaveFocus()
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
-    expect(within(screen.getByRole('dialog')).getByLabelText(/^Note/)).toHaveValue('Keep me')
-    expect(getRefunds().find((r) => r.id === request.id)?.status).toBe('pending')
-  })
-
-  it('closes the sheet and says so when someone else already decided the request', async () => {
-    const { request, dialog } = await openPending()
-    vi.mocked(service.rejectRefund).mockImplementationOnce(async () => {
-      setRefunds(original.map((r) => (r.id === request.id ? { ...r, status: 'approved', decidedBy: 'Alyssa Ferrer', decidedAt: new Date().toISOString(), approvedAmount: r.amount } : r)))
-      throw Object.assign(new Error('conflict'), { kind: 'conflict' })
-    })
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Reject refund' }))
-    await userEvent.type(within(dialog).getByLabelText('Reason for rejecting'), 'Item was worn already')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Review rejection' }))
-    await userEvent.click(within(await screen.findByRole('dialog', { name: `Reject refund ${request.requestNo}?` })).getByRole('button', { name: 'Reject refund' }))
-
-    expect(await screen.findByText(new RegExp(`Refund ${request.requestNo} was already decided`))).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-  })
-
-  it('shows an empty state, and says nothing is waiting on the Pending tab', async () => {
-    setRefunds([])
-    renderAdmin(<RefundsPage />, PATH)
-    expect(await screen.findByText('No refund requests yet')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('tab', { name: 'Pending' }))
-    expect(await screen.findByText('No pending requests')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Show all requests' }))
-    expect(await screen.findByText('No refund requests yet')).toBeInTheDocument()
-  })
-
-  it('approves several pending requests at once after one confirmation', async () => {
+  it.each([
+    ['REQUESTED', 'Waiting to be sent to the gateway.'],
+    ['PROCESSING', 'Sent to the gateway and settling. Use Check with gateway to see where it stands.'],
+    ['REQUIRES_MANUAL_ACTION', 'Needs an admin: the automatic attempts could not finish it.'],
+    ['SUCCEEDED', 'The money was sent back to the customer.'],
+    ['CANCELLED', 'This refund was cancelled, so no money was sent.'],
+  ])('says in plain words what %s means', async (status, words) => {
+    asRole('admin')
+    api.detail = { ...rows[0], status, nextRetryAt: '2026-10-26T07:42:00.000Z', rawProviderResponse: null }
     await renderPage()
-    await showPending()
-    const [a, b] = pendingOnes
-    expect(screen.queryByText(/ selected$/)).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
-    await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${a.requestNo}` }))
-    await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${b.requestNo}` }))
-    expect(screen.getByText('2 selected')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Approve selected' }))
-    const total = a.amount + b.amount
-    const dialog = await screen.findByRole('dialog', { name: `Approve 2 refunds totalling ${formatPeso(total)}?` })
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Approve refunds' }))
-
-    expect(await screen.findByText(`2 refunds approved: ${formatPeso(total)}`)).toBeInTheDocument()
-    expect(service.approveRefund).toHaveBeenCalledTimes(2)
-    await waitFor(() => expect(figure('Pending')).toHaveTextContent(String(count('pending') - 2)))
-    expect(figure('Total refunded')).toHaveTextContent(formatPeso(refunded() + total))
-    expect(screen.queryByText(/ selected$/)).toBeNull()
+    const dialog = await openSheet()
+    expect(await within(dialog).findByText(words)).toBeInTheDocument()
+    expect(within(dialog).queryByText(/Next automatic retry/)).toBeNull()
   })
 
-  it('hides the checkboxes until Select requests is pressed, numbers the rows, and clears the ticks when selecting is done', async () => {
+  it('says the automatic attempts are used up when they are, and promises no retry', async () => {
+    asRole('staff')
+    api.detail = { ...rows[0], attemptCount: 5, nextRetryAt: null, rawProviderResponse: null }
     await renderPage()
-    expect(screen.queryByRole('checkbox')).toBeNull()
-    // The first column counts the rows.
-    expect(within(bodyRows()[0]).getAllByRole('cell')[0]).toHaveTextContent('1')
-    expect(within(bodyRows()[9]).getAllByRole('cell')[0]).toHaveTextContent('10')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
-    expect(screen.getByRole('button', { name: 'Done selecting' })).toBeInTheDocument()
-    const first = within(table()).getAllByRole('checkbox', { name: /^Select RR-/ })[0]
-    await userEvent.click(first)
-    expect(screen.getByText('1 selected')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Done selecting' }))
-    expect(screen.queryByRole('checkbox')).toBeNull()
-    expect(screen.queryByText(/ selected$/)).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
-    expect(within(table()).getAllByRole('checkbox', { name: /^Select RR-/ }).every((box) => !(box as HTMLInputElement).checked)).toBe(true)
+    const dialog = await openSheet()
+    expect(await within(dialog).findByText('The gateway did not take it, and the automatic attempts are used up.')).toBeInTheDocument()
+    expect(within(dialog).queryByText(/Next automatic retry/)).toBeNull()
   })
 
-  it('selects every pending request on the page from the header, and starts again on another tab', async () => {
+  it('has a loading state and an error state with Retry of its own', async () => {
+    asRole('admin')
     await renderPage()
-    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
-    await userEvent.click(within(header('Select all pending requests on this page').parentElement!).getByRole('checkbox', { name: 'Select all pending requests on this page' }))
-    const onPage = recent.slice(0, 10).filter((r) => r.status === 'pending').length
-    expect(screen.getByText(`${onPage} selected`)).toBeInTheDocument()
-    // Decided requests have nothing to tick.
-    const decided = recent.slice(0, 10).find((r) => r.status !== 'pending')
-    if (decided) expect(within(rowOf(decided)).queryByRole('checkbox')).toBeNull()
-
-    await userEvent.click(screen.getByRole('tab', { name: 'Approved' }))
-    await within(table()).findByText(original.find((r) => r.status === 'approved')!.requestNo)
-    expect(screen.queryByText(/ selected$/)).toBeNull()
-    await userEvent.click(screen.getByRole('tab', { name: 'All' }))
-    await within(table()).findByText(recent[0].requestNo)
-    expect(screen.queryByText(/ selected$/)).toBeNull()
+    api.detail = new ProductListError('network')
+    const dialog = await openSheet()
+    expect(await within(dialog).findByText("We couldn't load the refund details.")).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Retry refund' })).toBeNull()
+    api.detail = { ...rows[0], rawProviderResponse: null }
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Retry' }))
+    expect(await within(dialog).findByText('Why it failed')).toBeInTheDocument()
+    expect(within(dialog).getByText('Gateway response (JSON)')).toBeInTheDocument()
   })
 
-  it('says how many of the selected were approved when some fail, and retries the rest', async () => {
+  it('offers only the actions the status allows', async () => {
+    asRole('admin')
     await renderPage()
-    await showPending()
-    const [a, b] = pendingOnes
-    vi.mocked(service.approveRefund).mockRejectedValueOnce(network())
-    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
-    await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${a.requestNo}` }))
-    await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${b.requestNo}` }))
-    await userEvent.click(screen.getByRole('button', { name: 'Approve selected' }))
-    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Approve refunds' }))
-
-    expect(await screen.findByText(/^1 of 2 approved, 1 failed/)).toBeInTheDocument()
-    expect(await screen.findByText('1 selected')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    const dialog = await screen.findByRole('dialog', { name: `Approve 1 refund totalling ${formatPeso(a.amount)}?` })
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Approve refunds' }))
-    expect(await screen.findByText(`1 refund approved: ${formatPeso(a.amount)}`)).toBeInTheDocument()
-    await waitFor(() => expect(figure('Pending')).toHaveTextContent(String(count('pending') - 2)))
+    api.detail = { ...rows[0], status: 'SUCCEEDED', failureCode: null, failureMessage: null, rawProviderResponse: null }
+    const dialog = await openSheet()
+    await within(dialog).findByText('Refund ref')
+    for (const name of ['Retry refund', 'Check with gateway', 'Mark as refunded']) expect(within(dialog).queryByRole('button', { name })).toBeNull()
   })
 
-  it('shows who requested each request and who decided it on the cards, not only in the wide table', async () => {
+  it('asks "Are you sure?" before a retry, and a retry the gateway refused is shown inline, not as a success', async () => {
+    asRole('admin')
     await renderPage()
-    const list = within(screen.getByRole('list', { name: 'Refund requests' }))
-    const pending = recent.slice(0, 10).find((r) => r.status === 'pending')!
-    const decided = recent.slice(0, 10).find((r) => r.status !== 'pending')
-    const card = (r: RefundRequest) => list.getAllByRole('listitem').find((li) => within(li).queryByText(r.requestNo))!
-    expect(card(pending)).toHaveTextContent(`Requested by ${pending.requestedBy}`)
-    expect(card(pending)).toHaveTextContent('Awaiting decision')
-    if (decided) {
-      expect(card(decided)).toHaveTextContent(`Decided ${formatOrderTime(decided.decidedAt!)} · ${decided.decidedBy}`)
-    }
+    const dialog = await openSheet()
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Retry refund' }))
+    expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
+    expect(within(dialog).getByText(/asks the gateway to send/)).toBeInTheDocument()
+    expect(posts()).toHaveLength(0)
+    api.post = { ...rows[0], status: 'FAILED', failureMessage: 'Card issuer declined the refund.', rawProviderResponse: null }
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Retry refund' }))
+    const alert = await within(dialog).findByRole('alert')
+    expect(alert).toHaveTextContent("The gateway didn't accept the retry.")
+    expect(alert).toHaveTextContent('Card issuer declined the refund.')
+    expect(alert).toHaveTextContent('You can retry the refund once the cause is fixed.')
+    expect(screen.queryByText(/is complete/)).toBeNull()
+    expect(posts()[0].slice(0, 3)).toEqual(['POST', '/admin/refunds/' + rows[0].id + '/retry', undefined])
   })
 
-  it('puts each request a fixed 1 to 4 hours after its order, and decides it after it was asked', () => {
-    for (const r of original) {
-      expect(Date.parse(r.requestedAt)).toBeGreaterThan(Date.parse(r.orderPlacedAt))
-      expect(Date.parse(r.requestedAt)).toBeLessThanOrEqual(Date.now())
-      if (r.decidedAt) expect(Date.parse(r.decidedAt) - Date.parse(r.requestedAt)).toBeGreaterThanOrEqual(30 * 60_000)
-    }
-    // A pending request is the order's own time plus a fixed offset, so it does not follow the clock.
-    for (const r of original.filter((x) => x.status === 'pending')) {
-      const hours = (Date.parse(r.requestedAt) - Date.parse(r.orderPlacedAt)) / 3_600_000
-      expect(hours).toBeGreaterThanOrEqual(1)
-      expect(hours).toBeLessThanOrEqual(4)
-    }
-  })
-
-  it('shows the placeholder rows, not "No refund requests yet", while the list loads again after Clear filters', async () => {
+  it('shows an info toast for a retry the gateway is still working on', async () => {
+    asRole('admin')
     await renderPage()
-    await userEvent.type(searchBox(), 'zzzz')
-    expect(await screen.findByText('No refund requests match')).toBeInTheDocument()
-    vi.mocked(service.listRefunds).mockImplementationOnce(() => new Promise(() => {}))
-    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
-    await waitFor(() => expect(table()).toHaveAttribute('aria-busy', 'true'))
-    await waitFor(() => expect(screen.queryByText('No refund requests match')).toBeNull())
-    expect(screen.queryByText('No refund requests yet')).toBeNull()
-    expect(bodyRows()).toHaveLength(10)
+    const dialog = await openSheet()
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Retry refund' }))
+    api.post = { ...rows[0], status: 'PROCESSING', failureCode: null, failureMessage: null, rawProviderResponse: null }
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Retry refund' }))
+    expect(await screen.findByText('Sent to the gateway; it will update when it settles.')).toBeInTheDocument()
+    expect(within(dialog).queryByRole('alert')).toBeNull()
   })
 
-  it('says a bulk approval failed because someone else decided, not because of the connection, and leaves nothing ticked', async () => {
+  it('checks with the gateway without asking, and says when it is done', async () => {
+    asRole('admin')
     await renderPage()
-    await showPending()
-    const [a, b] = pendingOnes
-    vi.mocked(service.approveRefund).mockRejectedValueOnce(Object.assign(new Error('conflict'), { kind: 'conflict' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Select requests' }))
-    await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${a.requestNo}` }))
-    await userEvent.click(within(table()).getByRole('checkbox', { name: `Select ${b.requestNo}` }))
-    await userEvent.click(screen.getByRole('button', { name: 'Approve selected' }))
-    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Approve refunds' }))
-
-    expect(await screen.findByText('1 of 2 approved, 1 already decided by someone else, the list is refreshed.')).toBeInTheDocument()
-    expect(screen.queryByText(/Check your connection/)).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
-    expect(screen.queryByText(/ selected$/)).toBeNull()
+    const dialog = await openSheet()
+    api.post = { ...rows[0], status: 'SUCCEEDED', failureCode: null, failureMessage: null, rawProviderResponse: null }
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Check with gateway' }))
+    expect(await screen.findByText(/Refund for order SHF-00001 is complete/)).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Retry refund' })).toBeNull()
   })
 
-  it('returns focus to the row button when a sheet opened by clicking the row is closed with Escape', async () => {
+  it("shows the server's own sentence for a 409 and a 400", async () => {
+    asRole('admin')
     await renderPage()
-    const request = recent[0]
-    const row = rowOf(request)
-    await userEvent.click(within(row).getByText(request.customerName))
-    await screen.findByRole('dialog', { name: request.requestNo })
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(within(row).getByRole('button', { name: request.requestNo })).toHaveFocus()
+    const dialog = await openSheet()
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Retry refund' }))
+    api.post = new ProductListError('conflict', 'This refund was already submitted to the gateway. Use sync instead.', 409)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Retry refund' }))
+    const alert = await within(dialog).findByRole('alert')
+    expect(alert).toHaveTextContent("We couldn't retry the refund.")
+    expect(alert).toHaveTextContent('This refund was already submitted to the gateway. Use sync instead.')
+  })
+
+  it('closes the sheet, says so and loads the list again when the refund is gone (404)', async () => {
+    asRole('admin')
+    await renderPage()
+    const dialog = await openSheet()
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Check with gateway' }))
+    const before = listCalls().length
+    api.post = new ProductListError('not-found', 'Refund not found', 404)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Check with gateway' }))
+    expect(await screen.findByText('That refund no longer exists, so the list was refreshed.')).toBeInTheDocument()
+    await waitFor(() => expect(listCalls().length).toBeGreaterThan(before))
+  })
+
+  it('uses the standard copy for a dropped connection', async () => {
+    asRole('admin')
+    await renderPage()
+    const dialog = await openSheet()
+    api.post = new ProductListError('network')
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Check with gateway' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('The connection dropped before we got a response.')
+  })
+})
+
+describe('Mark as refunded', () => {
+  async function openForm() {
+    asRole('admin')
+    await renderPage()
+    const dialog = await openSheet()
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Mark as refunded' }))
+    return dialog
+  }
+
+  it('needs a reference, counts characters, strips emoji, and asks "Are you sure?" with the warning before sending', async () => {
+    const dialog = await openForm()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Review' }))
+    expect(await within(dialog).findByText(/^Enter the reference of the payment/)).toBeInTheDocument()
+    expect(posts()).toHaveLength(0)
+
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /^Reference/ }), 'BDO 👍 1234')
+    expect(within(dialog).getByRole('textbox', { name: /^Reference/ })).toHaveValue('BDO 1234')
+    expect(within(dialog).getByText('8/128')).toBeInTheDocument()
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /^Notes/ }), 'Paid at the counter')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Review' }))
+    expect(within(dialog).getByText('Are you sure?')).toBeInTheDocument()
+    expect(within(dialog).getByText("Use this only after the money was returned outside SilhouFit. This can't be undone.")).toBeInTheDocument()
+    expect(posts()).toHaveLength(0)
+
+    api.post = { ...rows[0], status: 'SUCCEEDED', manualReference: 'BDO 1234', failureCode: null, failureMessage: null, rawProviderResponse: null }
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark as refunded' }))
+    expect(await screen.findByText('Refund for order SHF-00001 marked as refunded.')).toBeInTheDocument()
+    expect(posts()[0]).toEqual(['POST', `/admin/refunds/${rows[0].id}/resolve-manual`, { manualReference: 'BDO 1234', notes: 'Paid at the counter' }])
+    expect(within(dialog).queryByRole('button', { name: 'Mark as refunded' })).toBeNull()
+  })
+
+  it("shows the server's sentence for a refund the gateway is still working on", async () => {
+    const dialog = await openForm()
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /^Reference/ }), 'BDO-1')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Review' }))
+    api.post = new ProductListError('conflict', 'Refund is PROCESSING. Sync with the provider first.', 409)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark as refunded' }))
+    const alert = await within(dialog).findByRole('alert')
+    expect(alert).toHaveTextContent("We couldn't mark the refund as refunded.")
+    expect(alert).toHaveTextContent('Sync with the provider first.')
+    expect(within(dialog).getByRole('textbox', { name: /^Reference/ })).toHaveValue('BDO-1')
   })
 })

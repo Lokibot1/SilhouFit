@@ -20,6 +20,7 @@ import { Modal } from '../../ui/Modal'
 import { CopyId } from '../inventory/ProductDetail'
 import { OrderStatusPill, PaymentPill } from '../orders/OrderPills'
 import { EmptyNote, SectionBody } from '../StaffSection'
+import { RefundEntries } from '../RefundEntries'
 import { InvoicePreview } from './InvoicePreview'
 import { PlacedAt } from './TransactionParts'
 
@@ -158,6 +159,10 @@ function PaymentDetail({ detail }: { detail: AdminTransactionDetail }) {
             Open in Online orders
           </Link>
         )}
+      </section>
+      <section>
+        <h3 className="mb-2 text-base font-semibold text-fg md:text-sm">Refunds</h3>
+        <RefundEntries refunds={detail.refunds ?? []} refundedAmount={detail.refundedAmount ?? 0} />
       </section>
       <Payload payload={detail.payload} />
     </div>

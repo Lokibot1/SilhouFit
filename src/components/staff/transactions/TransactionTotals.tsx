@@ -34,12 +34,18 @@ function Tile({ label, hint, value, note, icon: Icon, tone }: { label: string; h
 
 const PAID_HINT = 'Volumes count paid payments only, so failed, pending and refunded payments are left out. All of these totals ignore the filters.'
 
+/** The refund counts the API adds to the metrics; none of the tiles has room for them, so they sit in the Transactions tooltip (left out for an older API). */
+function refundHint({ partiallyRefundedCount, pendingRefundCount, manualActionRefundCount }: AdminTransactionMetrics) {
+  if (partiallyRefundedCount === undefined || pendingRefundCount === undefined || manualActionRefundCount === undefined) return undefined
+  return `${count(partiallyRefundedCount)} partly refunded · ${count(pendingRefundCount)} refunds pending · ${count(manualActionRefundCount)} refunds need manual action`
+}
+
 /** Every payment the API holds, whatever the list is filtered to. Gross, fees and net are of the paid ones only. */
 export function TransactionTotals({ metrics, stale }: { metrics: AdminTransactionMetrics; stale: boolean }) {
   return (
     <div className={TOTALS_WRAP}>
       <dl aria-label="Totals across all transactions" aria-busy={stale} className={`${TOTALS_GRID} transition-opacity duration-150 ${stale ? 'opacity-60' : ''}`}>
-        <Tile label="Transactions" value={count(metrics.totalTransactions)} note={`${count(metrics.pendingCount)} pending · ${count(metrics.failedCount)} failed`} icon={BoxIcon} tone="violet" />
+        <Tile label="Transactions" hint={refundHint(metrics)} value={count(metrics.totalTransactions)} note={`${count(metrics.pendingCount)} pending · ${count(metrics.failedCount)} failed`} icon={BoxIcon} tone="violet" />
         <Tile label="Paid volume" hint={PAID_HINT} value={formatPesoWhole(metrics.totalGrossVolume)} note={`${count(metrics.paidCount)} paid · ${count(metrics.refundedCount)} refunded`} icon={BanknoteIcon} tone="success" />
         <Tile label="Fees" value={formatPesoWhole(metrics.totalFeeVolume)} note="Paid payments only" icon={HashIcon} tone="info" />
         <Tile label="Net" value={formatPesoWhole(metrics.totalNetVolume)} note="Paid payments only" icon={CartArrowIcon} tone="teal" />
