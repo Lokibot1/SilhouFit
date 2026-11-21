@@ -13,7 +13,7 @@ import { CustomerOffenses } from './CustomerOffenses'
 import { CustomerPurchases } from './CustomerPurchases'
 import { StatusBadge } from './StatusBadge'
 
-const REASON_MAX = 200
+const REASON_MAX = 500
 
 type Action = 'block' | 'unblock'
 

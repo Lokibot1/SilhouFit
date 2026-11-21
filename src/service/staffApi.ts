@@ -77,9 +77,10 @@ const toSuperadminAccount = (value: unknown): SuperadminAccount => {
 
 export type ManagedRole = 'customer' | 'staff' | 'admin' | 'superadmin'
 
-async function list<T>(role: ManagedRole, map: (value: unknown) => T, { search, status, sort, dir = 'asc', page = 1, limit = 10 }: AccountQuery, signal?: AbortSignal): Promise<AccountPage<T>> {
+async function list<T>(role: ManagedRole, map: (value: unknown) => T, { search, status, messagingBlocked, sort, dir = 'asc', page = 1, limit = 10 }: AccountQuery, signal?: AbortSignal): Promise<AccountPage<T>> {
   const query = new URLSearchParams({ role, page: String(page), limit: String(limit), sortBy: sort === 'createdAt' ? 'createdAt' : 'fullName', sortOrder: dir })
   if (status) query.set('isActive', String(status === 'active'))
+  if (messagingBlocked !== undefined) query.set('messagingBlocked', String(messagingBlocked))
   if (search?.trim()) query.set('search', search.trim())
   const body = await call('GET', `/users?${query}`, undefined, signal)
   const meta = isRecord(body) ? body.meta : null

@@ -6,12 +6,16 @@ import { ACCOUNT_PER_PAGE, type AccountDir, type AccountPage, type AccountSort }
 import { useDebouncedValue } from './useDebouncedValue'
 import { useSection } from './useSection'
 
-type Lister<T> = (query: { search?: string; status?: AccountStatus; sort: AccountSort; dir: AccountDir; page: number; limit: number }, options: RequestOptions) => Promise<AccountPage<T>>
+/** The Customers tab's Messaging filter: all, only blocked, or only not blocked. */
+export type MessagingFilter = '' | 'blocked' | 'allowed'
+
+type Lister<T> = (query: { search?: string; status?: AccountStatus; messagingBlocked?: boolean; sort: AccountSort; dir: AccountDir; page: number; limit: number }, options: RequestOptions) => Promise<AccountPage<T>>
 
 /** One tab's list: `expectedTotal` (when the tab knows how many accounts it has) sizes the loading skeleton so the rows do not jump when they arrive. `initialStatus` is the status filter the tab opens on ('' is all). Search (debounced), status filter, sort and page, loaded as its own section. The list loads again when the saved accounts change, here or in another tab. */
 export function useAccounts<T>(list: Lister<T>, defaultSort: AccountSort = 'name', expectedTotal?: number, initialStatus: AccountStatus | '' = '') {
   const [text, setText] = useState('')
   const [status, setStatus] = useState<AccountStatus | ''>(initialStatus)
+  const [messaging, setMessaging] = useState<MessagingFilter>('')
   const [sorted, setSorted] = useState<{ sort: AccountSort; dir: AccountDir }>({ sort: defaultSort, dir: 'asc' })
   const [page, setPage] = useState(1)
   const [per, setPer] = useState<number>(ACCOUNT_PER_PAGE)
@@ -24,10 +28,10 @@ export function useAccounts<T>(list: Lister<T>, defaultSort: AccountSort = 'name
   }, [])
 
   const load = useCallback(
-    (options: RequestOptions) => list({ search: search || undefined, status: status || undefined, ...sorted, page, limit: per }, options),
+    (options: RequestOptions) => list({ search: search || undefined, status: status || undefined, messagingBlocked: messaging ? messaging === 'blocked' : undefined, ...sorted, page, limit: per }, options),
     // A new version is a new request, though it is not read inside.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [list, search, status, sorted, page, per, version],
+    [list, search, status, messaging, sorted, page, per, version],
   )
   const { state, previous, retry } = useSection(load)
   const result = state.status === 'success' ? state.data : previous
@@ -48,6 +52,11 @@ export function useAccounts<T>(list: Lister<T>, defaultSort: AccountSort = 'name
       setStatus(value)
       setPage(1)
     },
+    messaging,
+    setMessaging: (value: MessagingFilter) => {
+      setMessaging(value)
+      setPage(1)
+    },
     sorted,
     sortBy: (sort: AccountSort) => {
       setSorted((old) => ({ sort, dir: old.sort === sort && old.dir === 'asc' ? 'desc' : 'asc' }))
@@ -62,10 +71,11 @@ export function useAccounts<T>(list: Lister<T>, defaultSort: AccountSort = 'name
       setPage(1)
     },
     // The starting status (Staff opens on Active) is the unfiltered view.
-    filtered: Boolean(search || status !== initialStatus),
+    filtered: Boolean(search || status !== initialStatus || messaging),
     clear: () => {
       setText('')
       setStatus(initialStatus)
+      setMessaging('')
       setPage(1)
     },
   }

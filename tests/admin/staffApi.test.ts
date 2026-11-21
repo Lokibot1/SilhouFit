@@ -89,6 +89,16 @@ describe('listing accounts from GET /users', () => {
     expect(requested().searchParams.get('isActive')).toBe(isActive)
   })
 
+  it.each([
+    [true, 'true'],
+    [false, 'false'],
+    [undefined, null],
+  ] as const)('sends messagingBlocked %s as %s (unset is not sent)', async (messagingBlocked, sent) => {
+    reply({ data: [], meta: META })
+    await listCustomerAccounts({ messagingBlocked })
+    expect(requested().searchParams.get('messagingBlocked')).toBe(sent)
+  })
+
   it('maps isActive to Active / Inactive, and a missing flag to active', async () => {
     reply({ data: [{ ...ITEM, isActive: false }, { ...ITEM, id: 'u2' }, { ...ITEM, id: 'u3', isActive: undefined }], meta: META })
     const [off, on, bare] = (await listStaffAccounts({})).data

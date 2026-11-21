@@ -1,10 +1,16 @@
 import type { ReactNode } from 'react'
+import type { MessagingFilter } from '../../../hooks/useAccounts'
 import type { AccountStatus } from '../../../types/accounts'
 import { ACCOUNT_PER_PAGE_OPTIONS, MAX_ACCOUNT_SEARCH } from '../../../utils/accountQuery'
 import { SearchIcon, XIcon } from '../../form/icons'
 import { Select } from '../../ui/Select'
 
 const PER_PAGE_CHOICES = ACCOUNT_PER_PAGE_OPTIONS.map((n) => ({ value: n, label: `${n} per page` }))
+const MESSAGING_CHOICES: { value: MessagingFilter; label: string }[] = [
+  { value: '', label: 'All' },
+  { value: 'blocked', label: 'Blocked' },
+  { value: 'allowed', label: 'Not blocked' },
+]
 
 interface AccountToolbarProps {
   /** What the search box looks through: "customers", "staff". */
@@ -17,13 +23,16 @@ interface AccountToolbarProps {
   status?: AccountStatus | ''
   onStatus?: (status: AccountStatus | '') => void
   statuses?: { value: AccountStatus | ''; label: string }[]
+  /** The messaging filter, for the Customers tab only. */
+  messaging?: MessagingFilter
+  onMessaging?: (messaging: MessagingFilter) => void
   per: number
   onPer: (per: number) => void
   /** The create button, when the tab has one. */
   action?: ReactNode
 }
 
-export function AccountToolbar({ noun, searchBy, text, onText, status, onStatus, statuses, per, onPer, action }: AccountToolbarProps) {
+export function AccountToolbar({ noun, searchBy, text, onText, status, onStatus, statuses, messaging, onMessaging, per, onPer, action }: AccountToolbarProps) {
   return (
     <div className="mb-3 grid gap-3">
       <div className="relative">
@@ -54,6 +63,11 @@ export function AccountToolbar({ noun, searchBy, text, onText, status, onStatus,
         {statuses && onStatus && (
           <div className="w-full @sm:w-44">
             <Select label="Status" triggerPrefix="Status: " value={status ?? ''} options={statuses} onChange={onStatus} />
+          </div>
+        )}
+        {onMessaging && (
+          <div className="w-full @sm:w-52">
+            <Select label="Messaging" triggerPrefix="Messaging: " value={messaging ?? ''} options={MESSAGING_CHOICES} onChange={onMessaging} />
           </div>
         )}
         <div className="w-full @sm:w-44">

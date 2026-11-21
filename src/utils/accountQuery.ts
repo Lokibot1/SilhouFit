@@ -10,6 +10,8 @@ export const MAX_ACCOUNT_SEARCH = 60
 export interface AccountQuery {
   search?: string
   status?: AccountStatus
+  /** Customers only: true is the messaging-blocked ones, false the rest; unset is all. */
+  messagingBlocked?: boolean
   sort?: AccountSort
   dir?: AccountDir
   page?: number

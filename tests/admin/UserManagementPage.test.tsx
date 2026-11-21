@@ -164,6 +164,18 @@ describe('Customers tab', () => {
     await waitFor(() => expect(vi.mocked(listCustomerAccounts).mock.calls.at(-1)![0]).toMatchObject({ search: 'kim', status: 'inactive' }))
   })
 
+  it('offers a Messaging filter of All, Blocked and Not blocked, and asks the list only when one is set', async () => {
+    await openCustomers()
+    expect(vi.mocked(listCustomerAccounts).mock.calls.at(-1)![0].messagingBlocked).toBeUndefined()
+    await userEvent.click(screen.getByRole('combobox', { name: 'Messaging' }))
+    expect(within(screen.getByRole('listbox', { name: 'Messaging' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['All', 'Blocked', 'Not blocked'])
+    await userEvent.click(screen.getByRole('option', { name: 'Blocked' }))
+    await waitFor(() => expect(vi.mocked(listCustomerAccounts).mock.calls.at(-1)![0].messagingBlocked).toBe(true))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Messaging' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Not blocked' }))
+    await waitFor(() => expect(vi.mocked(listCustomerAccounts).mock.calls.at(-1)![0].messagingBlocked).toBe(false))
+  })
+
   it('pages through the list', async () => {
     signInAs('admin')
     vi.mocked(listCustomerAccounts).mockImplementation((query) => Promise.resolve(page([KIM], query.page, 10, 25)))

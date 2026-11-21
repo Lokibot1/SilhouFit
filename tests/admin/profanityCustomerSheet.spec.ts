@@ -159,7 +159,7 @@ test.describe('block and unblock messaging', () => {
       await expect(confirm.getByText(/can still browse and shop, but can't send chat messages/)).toBeVisible()
       expect(blocks.calls).toHaveLength(0)
       await confirm.getByLabel('Reason').fill('Repeated insults in chat')
-      await expect(confirm.getByText('24/200')).toBeVisible()
+      await expect(confirm.getByText('24/500')).toBeVisible()
       await confirm.getByRole('button', { name: 'Block Messaging', exact: true }).click()
       await expect(toast(page, 'Kim Tan: messaging blocked.')).toBeVisible()
       expect(blocks.calls).toEqual([`block-messaging ${KIM.id}`])

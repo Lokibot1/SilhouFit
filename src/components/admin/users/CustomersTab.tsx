@@ -52,7 +52,7 @@ export function CustomersTab() {
       <h2 id="customers-list" className="sr-only">
         Customers
       </h2>
-      <AccountToolbar noun="customers" searchBy="name or email" text={list.text} onText={list.setText} status={list.status} onStatus={list.setStatus} statuses={STATUSES} per={list.per} onPer={list.setPer} />
+      <AccountToolbar noun="customers" searchBy="name or email" text={list.text} onText={list.setText} status={list.status} onStatus={list.setStatus} statuses={STATUSES} messaging={list.messaging} onMessaging={list.setMessaging} per={list.per} onPer={list.setPer} />
       <AccountTable
         list={list}
         label="Customers with email, status and date added"
