@@ -41,7 +41,7 @@ async function openAs(page: Page, who = ADMIN, area: 'admin' | 'superadmin' = 'a
 
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
 const section = (page: Page) => page.getByRole('region', { name: 'Pickup address' })
-const updated = (page: Page) => section(page).getByRole('definition').last()
+const updated = (page: Page) => section(page).locator('time')
 const toast = (page: Page) => page.getByText('Pickup location saved', { exact: true })
 
 async function pinWithAutoPin(page: Page) {
@@ -106,6 +106,8 @@ test.describe('empty state and first save', () => {
     await grantLocation(context)
     await openAs(page)
     await expect(section(page).getByText(/No pickup location is set\. Checkout can't quote delivery/)).toBeVisible()
+    await expect(section(page).getByRole('heading', { level: 2, name: 'No pickup location yet' })).toBeVisible()
+    await expect(section(page).getByRole('listitem')).toHaveText(['1Pin the spot on the map', '2Add the rider contact', '3Save and riders are sent there'])
     const cta = section(page).getByRole('button', { name: 'Set pickup location' })
     expect((await cta.boundingBox())!.height).toBeGreaterThanOrEqual(44)
     await cta.click()
@@ -692,7 +694,175 @@ test.describe('who can save', () => {
   })
 })
 
-test.describe('layout', () => {
+test.describe('the summary cards', () => {
+  const card = (page: Page) => page.getByRole('region', { name: 'Rider pin preview' })
+
+  test('shows the label, rider contact with its note, coordinates and the footer note and button', async ({ page }) => {
+    await mockPickupLocations(page, SEEDED)
+    await openAs(page)
+    await expect(section(page).getByText('Main Dispatch Hub', { exact: true })).toBeVisible()
+    await expect(section(page).getByText('Shared with assigned Lalamove riders upon pickup arrival.')).toBeVisible()
+    await expect(section(page).getByText('Applies to all new Lalamove rider bookings')).toBeVisible()
+    await expect(section(page).getByText('14.554700, 121.024400')).toHaveCSS('font-variant-numeric', /tabular-nums/)
+    await expect(updated(page)).toContainText(TIME_12H)
+  })
+
+  test('the status pill shows only when a location is saved, with a muted Not set when empty', async ({ page }) => {
+    await mockPickupLocations(page, SAVED)
+    await openAs(page)
+    await expect(page.getByText('Active for dispatch', { exact: true })).toBeVisible()
+    await expect(page.getByText('Not set', { exact: true })).toHaveCount(0)
+  })
+
+  test('the status pill is replaced by Not set when nothing is saved', async ({ page }) => {
+    await mockPickupLocations(page, null)
+    await openAs(page)
+    await expect(page.getByText('Not set', { exact: true })).toBeVisible()
+    await expect(page.getByText('Active for dispatch', { exact: true })).toHaveCount(0)
+    await expect(card(page)).toHaveCount(0)
+  })
+
+  test('the map card shows the pin, the label chip, the dispatch zone and an Open map link', async ({ page }) => {
+    await mockPickupLocations(page, SEEDED)
+    await openAs(page)
+    await expect(card(page).locator('.leaflet-container')).toBeVisible()
+    await expect(card(page).getByText('Main Dispatch Hub', { exact: true })).toBeVisible()
+    const pin = card(page).getByRole('img', { name: 'Pickup pin at 14.554700, 121.024400' })
+    const mapBox = (await card(page).locator('.leaflet-container').boundingBox())!
+    const pinBox = (await pin.boundingBox())!
+    // The map is centred on the saved coordinates and the pin's tip is that centre.
+    expect(Math.abs(pinBox.x + pinBox.width / 2 - (mapBox.x + mapBox.width / 2))).toBeLessThanOrEqual(2)
+    await expect(card(page).getByText('Makati City, Metro Manila', { exact: true })).toBeVisible()
+    const link = card(page).getByRole('link', { name: /^Open map/ })
+    await expect(link).toHaveAttribute('href', 'https://www.openstreetmap.org/?mlat=14.5547&mlon=121.0244#map=17/14.5547/121.0244')
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  test('the pin and its label stay on top of the map once the tiles have loaded', async ({ page }) => {
+    // An opaque tile, so a map that covers the pin would hide it.
+    const tile = '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#808080"/></svg>'
+    await page.route('**/tile.openstreetmap.org/**', (route) => route.fulfill({ status: 200, contentType: 'image/svg+xml', body: tile }))
+    await mockPickupLocations(page, SEEDED)
+    await openAs(page)
+    await expect(card(page).locator('.leaflet-tile-loaded').first()).toBeAttached()
+    // Leaflet's layers ignore the pointer, so a hit test cannot see them: compare what is painted with the element shown and hidden.
+    // If the map covers it, hiding it changes nothing.
+    const paintedWhenHidden = async (target: Locator) => {
+      await target.scrollIntoViewIfNeeded()
+      const clip = (await target.boundingBox())!
+      const shown = await page.screenshot({ clip, animations: 'disabled' })
+      await target.evaluate((el) => (el.style.visibility = 'hidden'))
+      const hidden = await page.screenshot({ clip, animations: 'disabled' })
+      await target.evaluate((el) => (el.style.visibility = ''))
+      return !shown.equals(hidden)
+    }
+    // A CSS locator, because a hidden element drops out of role queries.
+    const pin = card(page).locator('[aria-label^="Pickup pin at"]')
+    await expect(pin).toHaveCSS('background-color', 'rgb(180, 35, 24)')
+    expect(await paintedWhenHidden(pin)).toBe(true)
+    expect(await paintedWhenHidden(card(page).getByText('Main Dispatch Hub', { exact: true }))).toBe(true)
+  })
+
+  test('the map is read-only: dragging it does not move it', async ({ page }) => {
+    await mockPickupLocations(page, SAVED)
+    await openAs(page)
+    const map = card(page).locator('.leaflet-container')
+    await expect(map).toBeVisible()
+    const pane = card(page).locator('.leaflet-map-pane')
+    const before = await pane.evaluate((el) => el.style.transform)
+    const box = (await map.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2 + 40, { steps: 4 })
+    await page.mouse.up()
+    expect(await pane.evaluate((el) => el.style.transform)).toBe(before)
+  })
+
+  test('falls back to a tidy placeholder with the coordinates when the tiles fail', async ({ page }) => {
+    await page.route('**/tile.openstreetmap.org/**', (route) => route.abort())
+    await mockPickupLocations(page, SAVED)
+    await openAs(page)
+    await expect(card(page).getByText("The map couldn't load")).toBeVisible({ timeout: 20_000 })
+    await expect(card(page).getByText('14.599500, 120.984200')).toBeVisible()
+    await expect(card(page).locator('svg').first()).toBeVisible()
+    await expect(card(page).getByRole('link', { name: /^Open map/ })).toBeVisible()
+    expect(await overflow(page)).toBe(0)
+  })
+
+  test.describe('copy buttons', () => {
+    test.beforeEach(async ({ context }) => {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    })
+
+    for (const [name, text, message] of [
+      ['Copy address', '12 Rizal Avenue, Barangay 176, City of Manila, NCR, 1000', 'Address copied'],
+      ['Copy rider phone number', '+639171234567', 'Rider phone number copied'],
+      ['Copy coordinates', '14.599500, 120.984200', 'Coordinates copied'],
+    ]) {
+      test(`${name} copies the value and confirms`, async ({ page }) => {
+        await mockPickupLocations(page, SAVED)
+        await openAs(page)
+        const button = section(page).getByRole('button', { name })
+        const size = (await button.boundingBox())!
+        expect(size.width).toBeGreaterThanOrEqual(44)
+        expect(size.height).toBeGreaterThanOrEqual(44)
+        await button.click()
+        await expect(page.getByText(message, { exact: true })).toBeVisible()
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text)
+      })
+    }
+
+    test('says what to do when the browser blocks the clipboard', async ({ page }) => {
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')) } })
+        document.execCommand = () => false
+      })
+      await mockPickupLocations(page, SAVED)
+      await openAs(page)
+      await section(page).getByRole('button', { name: 'Copy address' }).click()
+      await expect(page.getByText(/Couldn't copy the address\. Your browser blocked clipboard access/)).toBeVisible()
+    })
+
+    test('the button is reachable and works from the keyboard', async ({ page }) => {
+      await mockPickupLocations(page, SAVED)
+      await openAs(page)
+      const button = section(page).getByRole('button', { name: 'Copy coordinates' })
+      await button.focus()
+      await page.keyboard.press('Enter')
+      await expect(page.getByText('Coordinates copied', { exact: true })).toBeVisible()
+    })
+  })
+
+  test('the skeleton and the loaded summary share their columns and stay within a line or two of height', async ({ page }) => {
+    await mockPickupLocations(page, SAVED)
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    await page.route(
+      (url) => url.pathname === '/pickup-locations',
+      async (route) => {
+        await held
+        return route.fallback()
+      },
+    )
+    await signIn(page, ADMIN, /\/admin$/)
+    await page.goto('/admin/pickup-location')
+    const status = page.getByRole('status', { name: 'Loading the pickup location' })
+    await expect(status).toBeVisible({ timeout: 20_000 })
+    const cardsOf = (root: Locator) => root.locator(':scope > div > div, :scope > div > section')
+    const skeleton = await cardsOf(status).evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map(({ x, width, height }) => ({ x, width, height })))
+    release()
+    await expect(section(page).getByRole('button', { name: 'Change pickup location' })).toBeVisible()
+    const loaded = await page.getByRole('region', { name: /^(Pickup address|Rider pin preview)$/ }).evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map(({ x, width, height }) => ({ x, width, height })))
+    expect(skeleton).toHaveLength(2)
+    expect(loaded).toHaveLength(2)
+    for (const [i, box] of loaded.entries()) {
+      expect(Math.abs(box.x - skeleton[i].x)).toBeLessThanOrEqual(1)
+      expect(Math.abs(box.width - skeleton[i].width)).toBeLessThanOrEqual(1)
+      expect(Math.abs(box.height - skeleton[i].height)).toBeLessThanOrEqual(56)
+    }
+  })
+
   for (const width of [320, 390, 768, 1280, 1920]) {
     test(`has no horizontal overflow at ${width}px with a very long address`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 })
@@ -708,7 +878,52 @@ test.describe('layout', () => {
       )
       await openAs(page)
       await expect(section(page).getByText(/SuperLongBuildingNameNoSpaces1/)).toBeVisible()
+      await expect(card(page).locator('.leaflet-container')).toBeVisible()
       expect(await overflow(page)).toBe(0)
+      // Every copy button stays inside its card.
+      for (const button of await section(page).getByRole('button', { name: /^Copy / }).all()) {
+        const box = (await button.boundingBox())!
+        const cardBox = (await section(page).boundingBox())!
+        expect(box.x + box.width).toBeLessThanOrEqual(cardBox.x + cardBox.width)
+      }
+    })
+  }
+
+  test('stacks the map under the details below the desktop breakpoint and puts it beside them from lg', async ({ page }) => {
+    await mockPickupLocations(page, SAVED)
+    await page.setViewportSize({ width: 768, height: 900 })
+    await openAs(page)
+    const stacked = { details: (await section(page).boundingBox())!, map: (await card(page).boundingBox())! }
+    expect(stacked.map.y).toBeGreaterThanOrEqual(stacked.details.y + stacked.details.height)
+    await page.setViewportSize({ width: 1280, height: 900 })
+    const wide = { details: (await section(page).boundingBox())!, map: (await card(page).boundingBox())! }
+    expect(wide.map.x).toBeGreaterThan(wide.details.x + wide.details.width - 1)
+    expect(Math.abs(wide.map.height - wide.details.height)).toBeLessThanOrEqual(1)
+    expect(wide.details.width + wide.map.width).toBeLessThanOrEqual(1152 + 16)
+  })
+
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`renders in ${scheme} mode with readable text and a visible card`, async ({ page }) => {
+      await mockPickupLocations(page, SAVED)
+      const lum = (c: string) => (c.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number).reduce((a, b) => a + b, 0) / 3
+      await page.emulateMedia({ colorScheme: scheme })
+      await openAs(page)
+      await expect(page.locator('html')).toHaveClass(scheme === 'dark' ? /dark/ : /^(?!.*dark)/)
+      await expect(card(page).locator('.leaflet-container')).toBeVisible()
+      const { bg, text, caption } = await section(page).evaluate((el) => ({
+        bg: getComputedStyle(el).backgroundColor,
+        text: getComputedStyle(el.querySelector('dd')!).color,
+        caption: getComputedStyle(el.querySelector('dt')!).color,
+      }))
+      if (scheme === 'dark') {
+        expect(lum(bg)).toBeLessThan(110)
+        expect(lum(text)).toBeGreaterThan(150)
+        expect(lum(caption)).toBeGreaterThan(110)
+      } else {
+        expect(lum(bg)).toBeGreaterThan(200)
+        expect(lum(text)).toBeLessThan(90)
+        expect(lum(caption)).toBeLessThan(140)
+      }
     })
   }
 })

@@ -40,6 +40,10 @@ vi.mock('../../src/service/reverseGeocode', async (original) => ({
   reverseGeocode: api.reverseGeocode,
   lookupPostal: api.lookupPostal,
 }))
+// Leaflet is covered by the browser tests; here the preview only shows where it was asked to look.
+vi.mock('../../src/components/admin/pickup/PickupMapPreview', () => ({
+  default: ({ lat, lon }: { lat: number; lon: number }) => <div data-testid="map-preview">{`${lat},${lon}`}</div>,
+}))
 vi.mock('../../src/service/signOut', () => ({ signOut: api.signOut }))
 // The real map is covered in MapPicker.test.tsx; here it only hands a position back.
 vi.mock('../../src/components/address/MapPicker', () => ({
@@ -99,6 +103,8 @@ beforeEach(() => {
 })
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
+  Reflect.deleteProperty(document, 'execCommand')
   vi.clearAllMocks()
   act(() => clearSession())
   document.title = ''
@@ -154,7 +160,16 @@ describe('PickupLocationPage', () => {
     await act(async () => finish(null))
     expect(screen.queryByRole('status', { name: 'Loading the pickup location' })).not.toBeInTheDocument()
     expect(screen.getByText(/No pickup location is set\. Checkout can't quote delivery and riders can't be booked until you set one\./)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Set pickup location' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Set pickup location' })).toHaveClass('bg-fg')
+    expect(screen.getByRole('heading', { level: 2, name: 'No pickup location yet' })).toBeInTheDocument()
+    const steps = within(screen.getByRole('list')).getAllByRole('listitem')
+    expect(steps.map((step) => step.textContent)).toEqual(['1Pin the spot on the map', '2Add the rider contact', '3Save and riders are sent there'])
+  })
+
+  it('styles Change pickup location as the primary action', async () => {
+    api.fetchPickupLocation.mockResolvedValue(SAVED)
+    setup()
+    expect(await screen.findByRole('button', { name: 'Change pickup location' })).toHaveClass('bg-fg', 'min-h-11')
   })
 
   it('shows the error with Retry, then the location once the retry works', async () => {
@@ -169,12 +184,115 @@ describe('PickupLocationPage', () => {
   it('shows the saved location as a summary with the time in 12-hour Manila time', async () => {
     api.fetchPickupLocation.mockResolvedValue(SAVED)
     setup()
-    const list = (await screen.findByText('Main store')).closest('dl') as HTMLElement
-    expect(within(list).getByText('12 Rizal Avenue, Barangay 176, City of Manila, NCR, 1000')).toBeInTheDocument()
-    expect(within(list).getByText('14.599500, 120.984200')).toHaveClass('tabular-nums')
-    expect(within(list).getByText('+639171234567')).toBeInTheDocument()
-    expect(within(list).getByText('Updated')).toBeInTheDocument()
-    expect(within(list).getByText(/Nov 19, 2026, 3:05 PM/)).toBeInTheDocument()
+    expect(await screen.findByText('Main store')).toBeInTheDocument()
+    const list = screen.getByText('12 Rizal Avenue, Barangay 176, City of Manila, NCR, 1000').closest('dl') as HTMLElement
+    expect(within(list).getByText('14.599500, 120.984200')).toHaveClass('tabular-nums', 'font-mono')
+    expect(within(list).getByText('+639171234567')).toHaveClass('tabular-nums')
+    expect(within(list).getByText('Shared with assigned Lalamove riders upon pickup arrival.')).toBeInTheDocument()
+    expect(screen.getByText(/Nov 19, 2026, 3:05 PM/).closest('p')).toHaveTextContent('Updated Nov 19, 2026, 3:05 PM')
+    expect(screen.getByText('Applies to all new Lalamove rider bookings')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Rider pin preview' })).toBeInTheDocument()
+    expect(await screen.findByTestId('map-preview')).toHaveTextContent('14.5995,120.9842')
+  })
+
+  it('falls back to the city when the location has no label', async () => {
+    api.fetchPickupLocation.mockResolvedValue({ ...SAVED, label: null })
+    setup()
+    expect(await screen.findByRole('button', { name: 'Change pickup location' })).toBeInTheDocument()
+    expect(screen.getByText('City of Manila', { selector: 'p' })).toBeInTheDocument()
+  })
+
+  it('shows the Active for dispatch pill only once a location is saved, and a muted Not set when empty', async () => {
+    let finish: (value: PickupLocation | null) => void = () => {}
+    api.fetchPickupLocation.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    setup()
+    expect(screen.queryByText('Active for dispatch')).not.toBeInTheDocument()
+    expect(screen.queryByText('Not set')).not.toBeInTheDocument()
+    await act(async () => finish(SAVED))
+    expect(await screen.findByText('Active for dispatch')).toBeInTheDocument()
+    expect(screen.queryByText('Not set')).not.toBeInTheDocument()
+    cleanup()
+
+    api.fetchPickupLocation.mockResolvedValue(null)
+    setup()
+    expect(await screen.findByText('Not set')).toBeInTheDocument()
+    expect(screen.queryByText('Active for dispatch')).not.toBeInTheDocument()
+  })
+
+  it('names the dispatch zone: city and province, the region for NCR without one, or the city alone', async () => {
+    api.fetchPickupLocation.mockResolvedValue(SAVED)
+    setup()
+    const zone = async () => (await screen.findByText('Dispatch zone')).nextElementSibling as HTMLElement
+    expect(await zone()).toHaveTextContent(/^City of Manila, NCR$/)
+    cleanup()
+
+    api.fetchPickupLocation.mockResolvedValue({ ...SAVED, province: 'Metro Manila', cityMunicipality: 'Makati City' })
+    setup()
+    expect(await zone()).toHaveTextContent(/^Makati City, Metro Manila$/)
+    cleanup()
+
+    api.fetchPickupLocation.mockResolvedValue({ ...SAVED, region: 'Central Luzon', province: null, cityMunicipality: 'Angeles City' })
+    setup()
+    expect(await zone()).toHaveTextContent(/^Angeles City$/)
+  })
+
+  it('opens the saved coordinates in OpenStreetMap in a new tab, announced to screen readers', async () => {
+    api.fetchPickupLocation.mockResolvedValue(SAVED)
+    setup()
+    const link = await screen.findByRole('link', { name: /^Open map/ })
+    expect(link).toHaveAccessibleName('Open map, opens in a new tab')
+    expect(link).toHaveAttribute('href', 'https://www.openstreetmap.org/?mlat=14.5995&mlon=120.9842#map=17/14.5995/120.9842')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  describe('copy buttons', () => {
+    const rows = [
+      ['Copy address', '12 Rizal Avenue, Barangay 176, City of Manila, NCR, 1000', 'Address copied'],
+      ['Copy rider phone number', '+639171234567', 'Rider phone number copied'],
+      ['Copy coordinates', '14.599500, 120.984200', 'Coordinates copied'],
+    ] as const
+
+    it.each(rows)('%s puts the value on the clipboard and says so', async (name, text, message) => {
+      api.fetchPickupLocation.mockResolvedValue(SAVED)
+      const user = setup()
+      await user.click(await screen.findByRole('button', { name }))
+      expect(await navigator.clipboard.readText()).toBe(text)
+      expect(await screen.findByText(message)).toBeInTheDocument()
+    })
+
+    it('swaps its icon for a check in the button that was copied', async () => {
+      api.fetchPickupLocation.mockResolvedValue(SAVED)
+      const user = setup()
+      const button = await screen.findByRole('button', { name: 'Copy address' })
+      expect(button.querySelector('rect')).not.toBeNull()
+      await user.click(button)
+      await waitFor(() => expect(button.querySelector('rect')).toBeNull())
+    })
+
+    it('falls back to selecting and copying when the Clipboard API refuses, keeping focus on the button', async () => {
+      api.fetchPickupLocation.mockResolvedValue(SAVED)
+      const user = setup()
+      const button = await screen.findByRole('button', { name: 'Copy coordinates' })
+      vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
+      const exec = vi.fn().mockReturnValue(true)
+      Object.defineProperty(document, 'execCommand', { configurable: true, value: exec })
+      await user.click(button)
+      expect(exec).toHaveBeenCalledWith('copy')
+      expect(await screen.findByText('Coordinates copied')).toBeInTheDocument()
+      expect(button).toHaveFocus()
+      expect(document.querySelector('textarea')).toBeNull()
+    })
+
+    it('says plainly what to do when nothing can copy', async () => {
+      api.fetchPickupLocation.mockResolvedValue(SAVED)
+      const user = setup()
+      vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
+      Object.defineProperty(document, 'execCommand', { configurable: true, value: vi.fn().mockReturnValue(false) })
+      await user.click(await screen.findByRole('button', { name: 'Copy address' }))
+      expect(await screen.findByText(/Couldn't copy the address\. Your browser blocked clipboard access, so select the text and copy it by hand\./)).toBeInTheDocument()
+      expect(screen.queryByText('Address copied')).not.toBeInTheDocument()
+    })
   })
 
   it('saves a first location without a confirmation, then toasts, updates the summary and focuses the heading', async () => {

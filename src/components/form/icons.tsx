@@ -474,3 +474,17 @@ export const SendIcon = ({ size = 20, className }: IconProps) => (
     <path d="M21 3 10 14M21 3l-7 18-4-7-7-4z" />
   </Icon>
 )
+
+export const PhoneIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />
+  </Icon>
+)
+
+export const TargetIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <circle cx="12" cy="12" r="8" />
+    <circle cx="12" cy="12" r="2" />
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+  </Icon>
+)
