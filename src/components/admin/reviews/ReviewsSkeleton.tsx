@@ -10,17 +10,25 @@ export const REVIEW_HEADERS = ['Reviewer', 'Product', 'Rating', 'Review', 'Date'
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
-// The last column holds up to three 44px icon buttons, so its placeholder is that tall and wide.
-const BAR_WIDTH = ['w-28', 'w-24', 'w-24', 'w-48', 'w-24', 'w-16', 'w-36']
-// Only the Rating cells are centred.
-const BAR_ALIGN: Record<number, string> = { 2: 'mx-auto' }
+// Reviewer, Product, Rating (five 16px stars), Review, Date (two lines), Status (two stacked badges) and Actions (three 44px icon buttons).
+const BAR_WIDTH = ['w-28', 'w-24', 'w-[88px]', 'w-48', 'w-24', 'w-20', 'w-36']
+const BAR_HEIGHT = ['h-5', 'h-5', 'h-4', 'h-5', 'h-5', 'h-5', 'h-11']
+// Rating is centred like its cells, and the Status badges are centred too.
+const BAR_ALIGN: Record<number, string> = { 2: 'mx-auto', 5: 'mx-auto' }
 
 export function ReviewTableSkeletonRows({ count }: { count: number }) {
   return Array.from({ length: count }, (_, n) => (
     <tr key={n} className={`${REVIEW_ROW} animate-pulse`}>
       {BAR_WIDTH.map((width, i) => (
         <td key={i} className={TD}>
-          <Bar className={`${i === BAR_WIDTH.length - 1 ? 'h-11' : 'h-5'} ${width} ${BAR_ALIGN[i] ?? ''}`} />
+          {i === 4 || i === 5 ? (
+            <div className={`grid gap-1 ${BAR_ALIGN[i] ? 'justify-items-center' : ''}`}>
+              <Bar className={`${i === 5 ? 'h-5' : 'h-4'} ${width}`} />
+              <Bar className={`${i === 5 ? 'h-5 w-16' : 'h-4 w-16'}`} />
+            </div>
+          ) : (
+            <Bar className={`${BAR_HEIGHT[i]} ${width} ${BAR_ALIGN[i] ?? ''}`} />
+          )}
         </td>
       ))}
     </tr>
@@ -53,8 +61,9 @@ export function ReviewsPageSkeleton() {
       <section className={STAFF_SECTION}>
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <Bar className="h-9 w-full max-md:h-11 @sm:w-40" />
+          <Bar className="h-9 w-full max-md:h-11 @sm:w-40" />
           <Bar className="h-9 w-full max-md:h-11 @sm:w-44" />
-          <Bar className="h-11 w-36" />
+          <Bar className="h-9 w-full max-md:h-11 @sm:w-40" />
         </div>
         <table className="hidden w-full border-separate border-spacing-0 whitespace-nowrap @4xl:table">
           <thead>
