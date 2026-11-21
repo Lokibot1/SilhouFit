@@ -17,6 +17,7 @@ import { MeasurementsPageSkeleton } from './components/staff/MeasurementsSkeleto
 import { TransactionsPageSkeleton } from './components/staff/TransactionsSkeleton'
 import { ArInsightsPageSkeleton } from './components/admin/ar/ArInsightsSkeleton'
 import { HelpAnswersPageSkeleton } from './components/admin/chatbot/HelpAnswersSkeleton'
+import { ProfanityPageSkeleton } from './components/admin/profanity/ProfanitySkeleton'
 import { PickupLocationPageSkeleton } from './components/admin/pickup/PickupLocationSkeleton'
 import { PromotionsPageSkeleton } from './components/admin/promotions/PromotionsSkeleton'
 import { RefundsPageSkeleton } from './components/admin/refunds/RefundsSkeleton'
@@ -106,6 +107,9 @@ const StaffLayout = lazy(() =>
 )
 const PermissionsPage = lazy(() =>
   import('./views/superadmin/PermissionsPage').then((m) => ({ default: m.PermissionsPage })),
+)
+const ProfanityPage = lazy(() =>
+  import('./views/superadmin/ProfanityPage').then((m) => ({ default: m.ProfanityPage })),
 )
 const StaffDashboardPage = lazy(() =>
   import('./views/staff/StaffDashboardPage').then((m) => ({ default: m.StaffDashboardPage })),
@@ -503,6 +507,14 @@ function App() {
                 element={
                   <Suspense fallback={<AccountsPageSkeleton />}>
                     <PermissionsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="profanity"
+                element={
+                  <Suspense fallback={<ProfanityPageSkeleton />}>
+                    <ProfanityPage />
                   </Suspense>
                 }
               />

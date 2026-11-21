@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, GridIcon, InfoIcon, ListIcon, LockIcon, MapPinIcon, MessageIcon, RestoreIcon, RulerIcon, StarIcon, UserIcon, UsersIcon } from '../form/icons'
+import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, FilterIcon, GridIcon, InfoIcon, ListIcon, LockIcon, MapPinIcon, MessageIcon, RestoreIcon, RulerIcon, StarIcon, UserIcon, UsersIcon } from '../form/icons'
 import type { PageKey } from '../../config/pagePermissions'
 import type { Area } from '../../utils/staffRole'
 
@@ -55,6 +55,7 @@ export const NAV: Record<Area, NavItem[]> = {
   superadmin: [
     ...ADMIN_NAV.map((item) => ({ ...item, to: item.to?.replace('/admin', '/superadmin') })),
     { label: 'Permissions', to: '/superadmin/permissions', icon: LockIcon, group: 'superadmin' },
+    { label: 'Profanity Filter', to: '/superadmin/profanity', icon: FilterIcon, group: 'superadmin' },
     { label: 'Profile', to: '/superadmin/profile', icon: UserIcon },
   ],
 }
