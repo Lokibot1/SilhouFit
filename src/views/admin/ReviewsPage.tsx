@@ -9,13 +9,12 @@ import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { PAGER_ROWS } from '../../components/staff/transactions/layout'
 import { useToast } from '../../components/toast/useToast'
 import { SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
-import { Checkbox } from '../../components/ui/Checkbox'
 import { Select } from '../../components/ui/Select'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useSection } from '../../hooks/useSection'
-import { ADMIN_REVIEWS_PER_PAGE, deleteReply, deleteReview, listAdminReviews, replyToReview, restoreReview, type AdminReview, type ReviewSort } from '../../service/reviewsApi'
+import { ADMIN_REVIEWS_PER_PAGE, deleteReply, deleteReview, listAdminReviews, listDeletedAdminReviews, replyToReview, restoreReview, type AdminReview, type ReviewSort } from '../../service/reviewsApi'
 
 const META_DESCRIPTION =
   'Read what customers say about SilhouFit products, reply to a review as the store, delete one that breaks the rules and restore it if it was a mistake.'
@@ -25,6 +24,14 @@ const SORTS: { value: ReviewSort; label: string }[] = [
   { value: 'oldest', label: 'Oldest first' },
   { value: 'highest_rating', label: 'Highest rating' },
   { value: 'lowest_rating', label: 'Lowest rating' },
+]
+const STATUSES = [
+  { value: 'published', label: 'Published' },
+  { value: 'deleted', label: 'Deleted' },
+]
+const PHOTOS = [
+  { value: 'all', label: 'All reviews' },
+  { value: 'photos', label: 'With photos' },
 ]
 const RATINGS = [{ value: 0, label: 'All ratings' }, ...[5, 4, 3, 2, 1].map((n) => ({ value: n, label: `${n} ${n === 1 ? 'star' : 'stars'}` }))]
 
@@ -57,8 +64,10 @@ export function ReviewsPage() {
   // Counts up after every change, so the list reads again (its old rows stay until the new ones arrive).
   const [version, setVersion] = useState(0)
   const load = useCallback(
-    (options: { signal?: AbortSignal }) =>
-      listAdminReviews({ page, limit: ADMIN_REVIEWS_PER_PAGE, rating: rating || undefined, hasImages: photos, includeDeleted: deleted, sortBy: sort }, options),
+    (options: { signal?: AbortSignal }) => {
+      const params = { page, limit: ADMIN_REVIEWS_PER_PAGE, rating: rating || undefined, hasImages: photos, sortBy: sort }
+      return deleted ? listDeletedAdminReviews(params, options) : listAdminReviews({ ...params, includeDeleted: false }, options)
+    },
     // A new version is a new request, though it is not read inside.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [page, rating, photos, deleted, sort, version],
@@ -152,15 +161,15 @@ export function ReviewsPage() {
           <div className="w-full @sm:w-40">
             <Select label="Filter by rating" value={rating} options={RATINGS} onChange={(next) => change({ rating: next })} />
           </div>
+          <div className="w-full @sm:w-40">
+            <Select label="Filter by status" value={deleted ? 'deleted' : 'published'} options={STATUSES} onChange={(next) => change({ deleted: next === 'deleted' })} />
+          </div>
           <div className="w-full @sm:w-44">
             <Select label="Sort reviews" value={sort} options={SORTS} onChange={(next) => change({ sort: next })} />
           </div>
-          <Checkbox label="Only reviews with photos" checked={photos} onChange={(next) => change({ photos: next })}>
-            With photos
-          </Checkbox>
-          <Checkbox label="Include deleted reviews" checked={deleted} onChange={(next) => change({ deleted: next })}>
-            Include deleted
-          </Checkbox>
+          <div className="w-full @sm:w-40">
+            <Select label="Filter by photos" value={photos ? 'photos' : 'all'} options={PHOTOS} onChange={(next) => change({ photos: next === 'photos' })} />
+          </div>
         </div>
         <p role="status" className="sr-only">
           {state.status === 'loading' ? 'Loading reviews' : ''}
@@ -255,7 +264,7 @@ export function ReviewsPage() {
         onClose={() => setAsking(false)}
       >
         {confirm?.kind === 'delete'
-          ? 'The review disappears from the product page. You can undo it right after, or restore it later by including deleted reviews.'
+          ? 'The review disappears from the product page. You can undo it right after, or restore it later from the Deleted filter.'
           : 'Shoppers stop seeing your reply under this review. You can write a new one at any time.'}
       </ConfirmDialog>
     </div>

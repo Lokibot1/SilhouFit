@@ -57,11 +57,11 @@ export function StarRating({ value, onChange, disabled, firstRef, error, errorId
 }
 
 /** A rating that is only shown. */
-export function StarDisplay({ rating }: { rating: number }) {
+export function StarDisplay({ rating, size = 20 }: { rating: number; size?: 16 | 20 }) {
   return (
     <span role="img" aria-label={`Rated ${rating} out of 5`} className="inline-flex gap-0.5">
       {STARS.map((n) => (
-        <StarIcon key={n} size={20} className={n <= rating ? FILLED : EMPTY} />
+        <StarIcon key={n} size={size} className={n <= rating ? FILLED : EMPTY} />
       ))}
     </span>
   )

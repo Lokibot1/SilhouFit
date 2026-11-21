@@ -261,6 +261,21 @@ export async function listAdminReviews({ page = 1, limit = ADMIN_REVIEWS_PER_PAG
   return { data: body.data.map(toAdminReview), meta: toMeta(body.meta) }
 }
 
+/**
+ * Only the deleted reviews. The API can add deleted reviews to the list but not filter to them,
+ * so this reads every page with deleted ones included and keeps the deleted rows, then pages them here.
+ */
+export async function listDeletedAdminReviews({ page = 1, limit = ADMIN_REVIEWS_PER_PAGE, ...rest }: Omit<AdminReviewsParams, 'includeDeleted'> = {}, options: RequestOptions = {}): Promise<AdminReviewsPage> {
+  const deleted: AdminReview[] = []
+  for (let next = 1, pages = 1; next <= pages; next++) {
+    const result = await listAdminReviews({ ...rest, page: next, limit: 50, includeDeleted: true }, options)
+    pages = result.meta.totalPages
+    deleted.push(...result.data.filter((review) => review.isDeleted))
+  }
+  const totalPages = Math.ceil(deleted.length / limit)
+  return { data: deleted.slice((page - 1) * limit, page * limit), meta: { total: deleted.length, page, limit, totalPages } }
+}
+
 const moderate = async (method: 'POST' | 'DELETE', path: string, body?: unknown) => toAdminReview(await call(method, `/admin/reviews/${path}`, body, undefined, 'moderate'))
 
 /** DELETE /admin/reviews/:id: hides the review (a soft delete that restoreReview undoes). */

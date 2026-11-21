@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { AdminReview } from '../../../service/reviewsApi'
 import { formatOrderTime } from '../../../utils/format'
+import { MessageIcon, PencilIcon, RestoreIcon, TrashIcon, XIcon } from '../../form/icons'
 import { StarDisplay } from '../../orders/StarRating'
 import { TD, TH } from '../../staff/inventory/layout'
-import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { RowIconButton } from '../../staff/measurements/RowIconButton'
 import { REVIEW_HEADERS, REVIEW_ROW, ReviewCardSkeletonRows, ReviewTableSkeletonRows } from './ReviewsSkeleton'
 
 export interface ReviewActionHandlers {
@@ -28,16 +30,16 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 /** The status in words and a dot, so it never rests on colour alone. */
 function Badge({ label, dot }: { label: string; dot: string }) {
   return (
-    <span className="font-ui inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-2 text-sm whitespace-nowrap text-fg">
-      <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${dot}`} />
+    <span className="font-ui inline-flex h-5 shrink-0 items-center gap-1 rounded-full border border-line-strong px-1.5 text-xs whitespace-nowrap text-fg">
+      <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${dot}`} />
       {label}
     </span>
   )
 }
 
-function Status({ review }: { review: AdminReview }) {
+function Status({ review, className = 'flex-wrap items-center' }: { review: AdminReview; className?: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className={`flex gap-1 ${className}`}>
       {review.isDeleted ? <Badge label="Deleted" dot="bg-danger" /> : <Badge label="Published" dot="bg-success" />}
       {review.adminReply && <Badge label="Replied" dot="border-2 border-fg" />}
     </div>
@@ -69,25 +71,28 @@ function Content({ review }: { review: AdminReview }) {
 
 function Actions({ review, busy, onReply, onRemoveReply, onDelete, onRestore }: ReviewActionHandlers & { review: AdminReview; busy: boolean }) {
   const name = review.user.name
-  const button = (label: string, aria: string, onClick: () => void) => (
-    <button type="button" disabled={busy} aria-label={`${aria} ${name}'s review`} onClick={onClick} className={SECONDARY_BUTTON_SM}>
-      {label}
-    </button>
-  )
+  // Icon-only like the other pages: the label is the accessible name and the tooltip.
+  const button = (aria: string, icon: ReactNode, onClick: () => void) => <RowIconButton label={`${aria} ${name}'s review`} icon={icon} disabled={busy} onClick={onClick} />
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-nowrap items-center gap-2">
       {review.isDeleted ? (
-        button('Restore', 'Restore', () => onRestore(review))
+        button('Restore', <RestoreIcon />, () => onRestore(review))
       ) : (
         <>
-          {button(review.adminReply ? 'Edit reply' : 'Reply', review.adminReply ? 'Edit your reply to' : 'Reply to', () => onReply(review))}
-          {review.adminReply && button('Remove reply', 'Remove your reply to', () => onRemoveReply(review))}
-          {button('Delete', 'Delete', () => onDelete(review))}
+          {review.adminReply ? button('Edit your reply to', <PencilIcon />, () => onReply(review)) : button('Reply to', <MessageIcon size={16} />, () => onReply(review))}
+          {review.adminReply && button('Remove your reply to', <XIcon />, () => onRemoveReply(review))}
+          {button('Delete', <TrashIcon />, () => onDelete(review))}
         </>
       )}
     </div>
   )
 }
+
+const DAY = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' })
+const CLOCK = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })
+
+// Rating and Review have centred headers; the Review data stays left-aligned.
+const ALIGN: Record<string, string> = { Rating: 'text-center', Review: 'text-center' }
 
 /** The reviews: a table from the @4xl of its panel and cards below, each row with its own actions. */
 export function ReviewsTable({ rows, stale, skeletonRows, busyId, ...handlers }: ReviewsTableProps) {
@@ -99,7 +104,7 @@ export function ReviewsTable({ rows, stale, skeletonRows, busyId, ...handlers }:
         <thead>
           <tr>
             {REVIEW_HEADERS.map((label) => (
-              <th key={label} scope="col" className={label === 'Rating' ? TH.replace('text-left', 'text-right') : TH}>
+              <th key={label} scope="col" className={ALIGN[label] ? TH.replace('text-left', ALIGN[label]) : TH}>
                 {label}
               </th>
             ))}
@@ -117,21 +122,22 @@ export function ReviewsTable({ rows, stale, skeletonRows, busyId, ...handlers }:
                 <td className={TD}>
                   <Product review={review} />
                 </td>
-                <td className={`${TD} text-right`}>
-                  <span className="inline-flex justify-end">
-                    <StarDisplay rating={review.rating} />
-                  </span>
+                <td className={`${TD} text-center`}>
+                  <StarDisplay rating={review.rating} size={16} />
                 </td>
                 <td className={`${TD} max-w-xs py-2`}>
                   <Content review={review} />
                 </td>
                 <td className={`${TD} text-sm whitespace-nowrap text-fg-muted`}>
-                  <time dateTime={review.createdAt}>{formatOrderTime(review.createdAt)}</time>
+                  <time dateTime={review.createdAt} className="grid tabular-nums">
+                    <span>{DAY.format(new Date(review.createdAt))}</span>
+                    <span>{CLOCK.format(new Date(review.createdAt))}</span>
+                  </time>
                 </td>
-                <td className={TD}>
-                  <Status review={review} />
+                <td className={`${TD} w-px`}>
+                  <Status review={review} className="flex-col items-center" />
                 </td>
-                <td className={`${TD} py-2`}>
+                <td className={`${TD} w-px py-2`}>
                   <Actions review={review} busy={busyId === review.id} {...handlers} />
                 </td>
               </tr>

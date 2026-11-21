@@ -4,7 +4,7 @@ vi.mock('../../src/service/supabase', () => ({
   getSupabase: async () => ({ auth: { getSession: async () => ({ data: { session: { access_token: 'token-123' } } }) } }),
 }))
 
-const { createReview, deleteReply, deleteReview, fetchPendingReviews, fetchProductReviews, listAdminReviews, replyToReview, restoreReview, updateReview } = await import('../../src/service/reviewsApi')
+const { createReview, deleteReply, deleteReview, fetchPendingReviews, fetchProductReviews, listAdminReviews, listDeletedAdminReviews, replyToReview, restoreReview, updateReview } = await import('../../src/service/reviewsApi')
 
 const REVIEW = {
   id: 'r-1',
@@ -112,6 +112,19 @@ describe('admin moderation', () => {
     expect(result.data[0].isDeleted).toBe(true)
     await listAdminReviews()
     expect([...new URL(fetchMock.mock.calls[1][0]).searchParams.keys()].sort()).toEqual(['limit', 'page', 'sortBy'])
+  })
+
+  it('keeps only deleted reviews across every page, then pages them itself', async () => {
+    const row = (id: string, isDeleted: boolean) => ({ ...REVIEW, id, isDeleted })
+    const pages = [
+      { data: [row('a', false), row('b', true)], meta: { total: 4, page: 1, limit: 50, totalPages: 2 } },
+      { data: [row('c', true), row('d', false)], meta: { total: 4, page: 2, limit: 50, totalPages: 2 } },
+    ]
+    fetchMock.mockImplementation(async (url: string) => json(pages[Number(new URL(url).searchParams.get('page')) - 1]))
+    const result = await listDeletedAdminReviews({ page: 1, limit: 1 })
+    expect(fetchMock.mock.calls.every(([url]) => new URL(url).searchParams.get('includeDeleted') === 'true')).toBe(true)
+    expect(result.data.map((r) => r.id)).toEqual(['b'])
+    expect(result.meta).toEqual({ total: 2, page: 1, limit: 1, totalPages: 2 })
   })
 
   it('rejects a list without data as a server error', async () => {

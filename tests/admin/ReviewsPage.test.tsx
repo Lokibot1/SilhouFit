@@ -1,15 +1,15 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { deleteReply, deleteReview, listAdminReviews, replyToReview, restoreReview, type AdminReview } from '../../src/service/reviewsApi'
+import { deleteReply, deleteReview, listAdminReviews, listDeletedAdminReviews, replyToReview, restoreReview, type AdminReview } from '../../src/service/reviewsApi'
 import { clearSession } from '../../src/service/session'
-import { formatOrderTime } from '../../src/utils/format'
 import { ReviewsPage } from '../../src/views/admin/ReviewsPage'
 import { renderAdmin, setUpAdminDom } from '../shared/adminSession'
 
 vi.mock('../../src/service/reviewsApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/reviewsApi')>()),
   listAdminReviews: vi.fn(),
+  listDeletedAdminReviews: vi.fn(),
   replyToReview: vi.fn(),
   deleteReply: vi.fn(),
   deleteReview: vi.fn(),
@@ -82,7 +82,9 @@ describe('ReviewsPage', () => {
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 20, includeDeleted: false, sortBy: 'newest' }), expect.anything())
     const first = row('Reviewer 1')
     expect(within(first).getByText('22222222')).toBeInTheDocument()
-    expect(within(first).getByText(formatOrderTime('2026-11-01T02:00:00.000Z'))).toBeInTheDocument()
+    // The date and the time sit on two lines.
+    expect(within(first).getByText('Nov 1, 2026')).toBeInTheDocument()
+    expect(within(first).getByText('10:00 AM')).toBeInTheDocument()
     expect(within(first).getByText('Published')).toBeInTheDocument()
     expect(within(first).queryByText('Replied')).not.toBeInTheDocument()
     expect(within(row('Reviewer 2')).getByText('Replied')).toBeInTheDocument()
@@ -107,12 +109,14 @@ describe('ReviewsPage', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
-  it('asks for deleted reviews only when Include deleted is on', async () => {
+  it('shows only deleted reviews from the Deleted status filter', async () => {
     await renderPage()
-    list.mockResolvedValue(page([review(3, { isDeleted: true })]))
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Include deleted reviews' }))
-    expect(await within(table()).findByText('Deleted')).toBeInTheDocument()
-    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ includeDeleted: true, page: 1 }), expect.anything())
+    vi.mocked(listDeletedAdminReviews).mockResolvedValue(page([review(3, { isDeleted: true })]))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Filter by status' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Deleted' }))
+    expect(await within(table()).findByText('Reviewer 3')).toBeInTheDocument()
+    expect(within(table()).queryByText('Reviewer 1')).not.toBeInTheDocument()
+    expect(listDeletedAdminReviews).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }), expect.anything())
     // A deleted review can only be restored.
     const deleted = row('Reviewer 3')
     expect(within(deleted).queryByRole('button', { name: /^Reply/ })).not.toBeInTheDocument()

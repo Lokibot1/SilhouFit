@@ -10,14 +10,17 @@ export const REVIEW_HEADERS = ['Reviewer', 'Product', 'Rating', 'Review', 'Date'
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
-const BAR_WIDTH = ['w-28', 'w-24', 'w-24', 'w-48', 'w-24', 'w-20', 'w-44']
+// The last column holds up to three 44px icon buttons, so its placeholder is that tall and wide.
+const BAR_WIDTH = ['w-28', 'w-24', 'w-24', 'w-48', 'w-24', 'w-16', 'w-36']
+// Only the Rating cells are centred.
+const BAR_ALIGN: Record<number, string> = { 2: 'mx-auto' }
 
 export function ReviewTableSkeletonRows({ count }: { count: number }) {
   return Array.from({ length: count }, (_, n) => (
     <tr key={n} className={`${REVIEW_ROW} animate-pulse`}>
       {BAR_WIDTH.map((width, i) => (
         <td key={i} className={TD}>
-          <Bar className={`h-5 ${width} ${i === 2 ? 'ml-auto' : ''}`} />
+          <Bar className={`${i === BAR_WIDTH.length - 1 ? 'h-11' : 'h-5'} ${width} ${BAR_ALIGN[i] ?? ''}`} />
         </td>
       ))}
     </tr>
@@ -30,7 +33,7 @@ export function ReviewCardSkeletonRows({ count }: { count: number }) {
       <Bar className="h-5 w-1/2" />
       <Bar className="h-5 w-2/3" />
       <Bar className="h-5 w-full" />
-      <Bar className="h-11 w-3/4" />
+      <Bar className="h-11 w-36" />
     </li>
   ))
 }

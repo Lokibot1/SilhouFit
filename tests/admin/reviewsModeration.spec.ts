@@ -96,14 +96,17 @@ for (const role of ROLES) {
       expect(last()).toMatchObject({ method: 'POST', action: 'restore', id: reviewId(1) })
     })
 
-    test('restores a deleted review from the Include deleted view', async ({ page }) => {
+    test('restores a deleted review from the Deleted status filter', async ({ page }) => {
       await open(page, role)
-      await page.getByText('Include deleted', { exact: true }).click()
+      await page.getByRole('combobox', { name: 'Filter by status' }).click()
+      await page.getByRole('option', { name: 'Deleted' }).click()
       await expect(rowOf(page, 3)).toContainText('Deleted')
+      await expect(rowOf(page, 1)).toHaveCount(0)
       expect(reviews.adminQueries[reviews.adminQueries.length - 1].get('includeDeleted')).toBe('true')
       await rowOf(page, 3).getByRole('button', { name: "Restore Reviewer Number3's review" }).click()
       await expect(toast(page, "Reviewer Number3's review is restored.")).toBeVisible()
-      await expect(rowOf(page, 3)).toContainText('Published')
+      // A restored review is no longer deleted, so it leaves the Deleted view.
+      await expect(rowOf(page, 3)).toHaveCount(0)
       expect(last()).toMatchObject({ action: 'restore', id: reviewId(3) })
     })
   })
