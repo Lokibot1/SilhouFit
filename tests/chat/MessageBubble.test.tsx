@@ -16,10 +16,10 @@ const failed = (failure?: ChatErrorKind): ThreadMessage => ({
   failure,
 })
 
-const show = (message: ThreadMessage) =>
+const show = (message: ThreadMessage, blocked = false) =>
   render(
     <ul>
-      <MessageBubble message={message} mine onRetry={vi.fn()} onRemove={vi.fn()} />
+      <MessageBubble message={message} mine blocked={blocked} onRetry={vi.fn()} onRemove={vi.fn()} />
     </ul>,
   )
 
@@ -28,6 +28,12 @@ describe('MessageBubble failed send', () => {
     show(failed(kind))
     expect(screen.getByRole('alert')).toHaveTextContent(sendFailureCopy(kind))
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+  })
+
+  it('offers only Remove once messaging is blocked', () => {
+    show(failed('network'), true)
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
   })
 

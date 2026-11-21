@@ -13,11 +13,13 @@ interface MessageBubbleProps {
   mine: boolean
   /** The viewer is staff, so they see the real sender; a customer sees every sender who is not a customer as KRAL. */
   staff?: boolean
+  /** The sender cannot send (messaging blocked), so Retry would only fail again. */
+  blocked?: boolean
   onRetry: (id: string) => void
   onRemove: (id: string) => void
 }
 
-export function MessageBubble({ message, enter = false, mine, staff = false, onRetry, onRemove }: MessageBubbleProps) {
+export function MessageBubble({ message, enter = false, mine, staff = false, blocked = false, onRetry, onRemove }: MessageBubbleProps) {
   const { status } = message
   const { sender } = message
   const masked = !staff && !mine && sender?.role !== 'customer'
@@ -43,7 +45,7 @@ export function MessageBubble({ message, enter = false, mine, staff = false, onR
         {status === 'failed' ? (
           <div role="alert" className="mt-1 flex flex-wrap items-center gap-x-1 px-1 text-sm text-danger">
             <span>{sendFailureCopy(message.failure ?? 'network')}</span>
-            {message.failure !== 'validation' && (
+            {message.failure !== 'validation' && !blocked && (
               <button type="button" onClick={() => onRetry(message.id)} className={`${ACTION} text-fg`}>
                 Retry
               </button>

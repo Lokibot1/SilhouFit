@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useConversation } from '../../hooks/useConversation'
 import { CHAT_BRAND_NAME, displayName } from '../../service/chatApi'
 import { formatPlacedAt } from '../../utils/format'
+import { Tooltip } from '../ui/Tooltip'
 import { SectionBody } from '../staff/StaffSection'
 import { ChatSkeleton } from './ChatSkeleton'
 import { Composer } from './Composer'
@@ -69,6 +70,7 @@ export function ChatThread({ conversationId, staff = false, leading, compact = f
               messages={chat.messages}
               selfId={chat.selfId}
               staff={staff}
+              blocked={!staff && !!blockedAt}
               hasMore={chat.hasMore}
               loadingEarlier={chat.loadingEarlier}
               onLoadEarlier={() => void chat.loadEarlier()}
@@ -83,7 +85,14 @@ export function ChatThread({ conversationId, staff = false, leading, compact = f
                   Messaging blocked
                 </span>
                 <time dateTime={blockedAt}>{formatPlacedAt(blockedAt)}</time>
-                {detail.customer?.messagingBlockedReason && ` · ${detail.customer.messagingBlockedReason}`}. They can't send messages; you can still reply.
+                . They can't send messages; you can still reply.
+                {detail.customer?.messagingBlockedReason && (
+                  <Tooltip label={detail.customer.messagingBlockedReason} wrap className="mt-1 w-full">
+                    <span tabIndex={0} className="line-clamp-2 min-w-0 rounded-sm break-words">
+                      Reason: {detail.customer.messagingBlockedReason}
+                    </span>
+                  </Tooltip>
+                )}
               </p>
             )}
             <Composer

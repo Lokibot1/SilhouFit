@@ -106,5 +106,7 @@ describe('Composer', () => {
     expect(field).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
     expect(field).toHaveAccessibleDescription(/blocked by staff/)
+    expect(field).toHaveAttribute('placeholder', 'Messaging is blocked')
+    expect(screen.queryByText(/ \/ 2000/)).not.toBeInTheDocument()
   })
 })

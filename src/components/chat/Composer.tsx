@@ -87,8 +87,8 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
           rows={1}
           aria-label="Message"
           disabled={!!disabledReason}
-          aria-describedby={disabledReason || masked || flagged ? 'chat-composer-count chat-composer-note' : 'chat-composer-count'}
-          placeholder="Write a message"
+          aria-describedby={disabledReason ? 'chat-composer-note' : masked || flagged ? 'chat-composer-count chat-composer-note' : 'chat-composer-count'}
+          placeholder={disabledReason ? 'Messaging is blocked' : 'Write a message'}
           className="font-ui field-sizing-content max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-line-strong bg-canvas px-3 py-2.5 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted"
         />
         <Tooltip label="Send message">
@@ -110,9 +110,11 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
               : 'Some words were hidden. Repeated use of this language can lead to your messaging being blocked or your account banned.')}
         </p>
       )}
-      <p id="chat-composer-count" className="font-ui mt-1 text-right text-xs text-fg-muted tabular-nums">
-        {text.length} / {maxLength}
-      </p>
+      {!disabledReason && (
+        <p id="chat-composer-count" className="font-ui mt-1 text-right text-xs text-fg-muted tabular-nums">
+          {text.length} / {maxLength}
+        </p>
+      )}
     </form>
   )
 }
