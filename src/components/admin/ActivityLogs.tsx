@@ -33,6 +33,8 @@ export const ACTIONS: Record<ActivityAction, { label: string; icon: Icon }> = {
   USER_INVITED: { label: 'Account invited', icon: PlusIcon },
   USER_ACTIVATED: { label: 'Account activated', icon: RestoreIcon },
   USER_DEACTIVATED: { label: 'Account deactivated', icon: ArchiveIcon },
+  USER_MESSAGING_BLOCKED: { label: 'Messaging blocked', icon: XIcon },
+  USER_MESSAGING_UNBLOCKED: { label: 'Messaging unblocked', icon: RestoreIcon },
   BODY_PROFILE_CREATED: { label: 'Body profile created', icon: RulerIcon },
   ORDER_CREATED: { label: 'Order placed', icon: BagIcon },
   ORDER_STATUS_CHANGED: { label: 'Order status changed', icon: PencilIcon },

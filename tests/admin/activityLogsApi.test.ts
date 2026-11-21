@@ -90,6 +90,12 @@ describe('fetchActivityLogs', () => {
     expect(data[0]).toMatchObject({ action: 'COUPON_USED', category: 'account' })
   })
 
+  it('files the messaging block and unblock under Accounts', async () => {
+    send.mockResolvedValue(page([entry({ action: 'USER_MESSAGING_BLOCKED' }), entry({ id: 'a2', action: 'USER_MESSAGING_UNBLOCKED' })]))
+    const { data } = await fetchActivityLogs({})
+    expect(data.map((log) => [log.action, log.category])).toEqual([['USER_MESSAGING_BLOCKED', 'account'], ['USER_MESSAGING_UNBLOCKED', 'account']])
+  })
+
   it.each([
     ['a body that is not an object', 'nope'],
     ['no data list', { meta: { total: 0 } }],

@@ -31,6 +31,8 @@ const CATEGORY_OF: Record<ActivityAction, ActivityCategory> = {
   USER_INVITED: 'account',
   USER_ACTIVATED: 'account',
   USER_DEACTIVATED: 'account',
+  USER_MESSAGING_BLOCKED: 'account',
+  USER_MESSAGING_UNBLOCKED: 'account',
   BODY_PROFILE_CREATED: 'account',
   ORDER_CREATED: 'order',
   ORDER_STATUS_CHANGED: 'order',
