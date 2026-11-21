@@ -43,6 +43,9 @@ export interface CustomerSummary {
   lastName: string
   fullName: string | null
   avatarUrl: string | null
+  /** When staff blocked this customer from sending messages; null when messaging is allowed. */
+  messagingBlockedAt: string | null
+  messagingBlockedReason: string | null
 }
 
 export interface Conversation {
@@ -102,7 +105,7 @@ export function sendFailureCopy(kind: ChatErrorKind) {
     case 'validation':
       return 'Not sent. The message was refused as invalid (it may be empty or over 2,000 characters). Edit it and send a new one.'
     case 'forbidden':
-      return 'Not sent. You may not have permission, or your sign-in expired. Sign in again, then retry.'
+      return 'Not sent. Your messaging may be blocked, or your sign-in expired. Sign in again, then retry; if it keeps failing, contact support.'
     case 'rate-limit':
       return "Not sent. You're sending too fast. Wait a moment, then press Retry."
     case 'not-found':
@@ -156,7 +159,7 @@ export function toMessage(value: unknown): ChatMessage {
 
 function toCustomer(value: unknown): CustomerSummary | undefined {
   if (!isRecord(value) || typeof value.id !== 'string') return undefined
-  return { id: value.id, email: text(value.email), firstName: text(value.firstName), lastName: text(value.lastName), fullName: nullableText(value.fullName), avatarUrl: nullableText(value.avatarUrl) }
+  return { id: value.id, email: text(value.email), firstName: text(value.firstName), lastName: text(value.lastName), fullName: nullableText(value.fullName), avatarUrl: nullableText(value.avatarUrl), messagingBlockedAt: nullableText(value.messagingBlockedAt), messagingBlockedReason: nullableText(value.messagingBlockedReason) }
 }
 
 export function toConversation(value: unknown): Conversation {

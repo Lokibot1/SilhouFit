@@ -50,7 +50,7 @@ const message = (id: string, createdAt: string, extra: Partial<ChatMessage> = {}
 const detail: Conversation = {
   id: 'c1',
   customerId: 'u9',
-  customer: { id: 'u9', email: 'lia@example.com', firstName: 'Lia', lastName: 'Reyes', fullName: 'Lia Reyes', avatarUrl: null },
+  customer: { id: 'u9', email: 'lia@example.com', firstName: 'Lia', lastName: 'Reyes', fullName: 'Lia Reyes', avatarUrl: null, messagingBlockedAt: null, messagingBlockedReason: null },
   lastMessageAt: null,
   customerReadAt: null,
   staffReadAt: null,
@@ -249,6 +249,20 @@ describe('useConversation', () => {
     act(() => void result.current.retrySend(failed.id))
     expect(result.current.messages.at(-1)).toMatchObject({ status: 'pending', failure: undefined })
     await act(async () => finish(message('m2', '2025-11-04T02:00:00Z', { senderId: 'me', content: 'Hello' })))
+  })
+
+  it('refreshes the detail after a forbidden send, so a block that started mid-thread shows, and ignores a failed refresh', async () => {
+    const { result } = await setup()
+    const blocked = { ...detail, customer: { ...detail.customer!, messagingBlockedAt: '2025-11-05T00:00:00Z', messagingBlockedReason: 'Spam' } }
+    vi.mocked(sendMessage).mockRejectedValueOnce(new ChatError('forbidden'))
+    vi.mocked(fetchConversation).mockResolvedValueOnce(blocked)
+    await act(async () => void result.current.send('Hello'))
+    expect(result.current.detail?.customer?.messagingBlockedAt).toBe('2025-11-05T00:00:00Z')
+
+    vi.mocked(sendMessage).mockRejectedValueOnce(new ChatError('forbidden'))
+    vi.mocked(fetchConversation).mockRejectedValueOnce(new TypeError('failed'))
+    await act(async () => void result.current.send('Again'))
+    expect(result.current.messages.at(-1)).toMatchObject({ status: 'failed', failure: 'forbidden' })
   })
 
   describe('typing', () => {

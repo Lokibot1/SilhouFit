@@ -15,7 +15,7 @@ const LONG = 'asdadasdasdasasdadasdasdasasdadasdasdasasdadasdasdasasdadasdasdas'
 const thread = (id: string, name: string, content: string | null, extra: Partial<Conversation> = {}, senderId = 'user-1'): Conversation => ({
   id,
   customerId: 'user-1',
-  customer: { id: 'user-1', email: `${name.split(' ')[0].toLowerCase()}@example.com`, firstName: name.split(' ')[0], lastName: name.split(' ')[1] ?? '', fullName: name, avatarUrl: null },
+  customer: { id: 'user-1', email: `${name.split(' ')[0].toLowerCase()}@example.com`, firstName: name.split(' ')[0], lastName: name.split(' ')[1] ?? '', fullName: name, avatarUrl: null, messagingBlockedAt: null, messagingBlockedReason: null },
   lastMessageAt: content ? new Date().toISOString() : null,
   customerReadAt: null,
   staffReadAt: null,

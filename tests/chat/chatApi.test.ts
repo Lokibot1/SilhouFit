@@ -87,6 +87,13 @@ describe('conversations', () => {
     expect(thread).toMatchObject({ id: 'c1', customerId: 'u9', hasUnreadMessages: true, lastMessage: { id: 'm1' } })
   })
 
+  it('reads the messaging block of the customer, and null when the API sends none', async () => {
+    reply(conversation)
+    expect((await fetchMyConversation()).customer).toMatchObject({ messagingBlockedAt: null, messagingBlockedReason: null })
+    reply({ ...conversation, customer: { ...conversation.customer, messagingBlockedAt: '2026-11-04T02:00:00Z', messagingBlockedReason: 'Spam' } })
+    expect((await fetchMyConversation()).customer).toMatchObject({ messagingBlockedAt: '2026-11-04T02:00:00Z', messagingBlockedReason: 'Spam' })
+  })
+
   it('builds a customer name from firstName and lastName, or uses fullName', async () => {
     reply(conversation)
     const thread = await fetchConversation('c1')
@@ -172,7 +179,7 @@ describe('sendFailureCopy', () => {
   it.each<[ChatErrorKind, string]>([
     ['network', "Not sent. We couldn't reach the server, so check your connection and press Retry."],
     ['validation', 'Not sent. The message was refused as invalid (it may be empty or over 2,000 characters). Edit it and send a new one.'],
-    ['forbidden', 'Not sent. You may not have permission, or your sign-in expired. Sign in again, then retry.'],
+    ['forbidden', 'Not sent. Your messaging may be blocked, or your sign-in expired. Sign in again, then retry; if it keeps failing, contact support.'],
     ['rate-limit', "Not sent. You're sending too fast. Wait a moment, then press Retry."],
     ['server', 'Not sent. Something went wrong on our side. Press Retry in a minute.'],
     ['simulated', 'Not sent. Something went wrong on our side. Press Retry in a minute.'],

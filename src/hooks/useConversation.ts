@@ -174,6 +174,11 @@ export function useConversation(conversationId: string) {
     } catch (e) {
       const failure = e instanceof ChatError ? e.kind : 'network'
       setLive((old) => old && { ...old, messages: old.messages.map((m) => (m.id === id ? { ...m, status: 'failed', failure } : m)) })
+      // A block that started after this thread loaded: refresh the detail so the composer shows it. A failed refresh changes nothing.
+      if (failure === 'forbidden') {
+        const detail = await fetchConversation(conversationId).catch(() => undefined)
+        if (detail) setLive((old) => old && { ...old, detail })
+      }
     }
   }
 

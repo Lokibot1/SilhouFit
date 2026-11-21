@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useConversation } from '../../hooks/useConversation'
 import { CHAT_BRAND_NAME, displayName } from '../../service/chatApi'
+import { formatPlacedAt } from '../../utils/format'
 import { SectionBody } from '../staff/StaffSection'
 import { ChatSkeleton } from './ChatSkeleton'
 import { Composer } from './Composer'
@@ -47,6 +48,7 @@ function TypingLine({ name }: { name?: string }) {
 export function ChatThread({ conversationId, staff = false, leading, compact = false, publishOffset = true }: ChatThreadProps) {
   const chat = useConversation(conversationId)
   const { detail } = chat
+  const blockedAt = detail?.customer?.messagingBlockedAt
 
   return (
     <SectionBody section={chat.section} what="this conversation" skeleton={<ChatSkeleton compact={compact} />} errorClassName="p-4">
@@ -74,7 +76,18 @@ export function ChatThread({ conversationId, staff = false, leading, compact = f
               onRemove={chat.removeFailed}
             />
             <TypingLine name={chat.typingName} />
+            {staff && blockedAt && (
+              <p className="font-ui shrink-0 border-t border-line bg-canvas-sub px-3 py-2 text-sm break-words text-fg-muted">
+                <span className="mr-2 inline-flex h-6 items-center gap-1.5 rounded-full border border-line-strong px-2 whitespace-nowrap text-fg">
+                  <span aria-hidden="true" className="size-2 rounded-full bg-warning" />
+                  Messaging blocked
+                </span>
+                <time dateTime={blockedAt}>{formatPlacedAt(blockedAt)}</time>
+                {detail.customer?.messagingBlockedReason && ` · ${detail.customer.messagingBlockedReason}`}. They can't send messages; you can still reply.
+              </p>
+            )}
             <Composer
+              disabledReason={!staff && blockedAt ? `Your messaging is blocked, so you can't send messages. You can still read replies.${detail.customer?.messagingBlockedReason ? ` Reason: ${detail.customer.messagingBlockedReason}` : ''}` : undefined}
               onSend={(body) => void chat.send(body)}
               sending={chat.sending}
               onTyping={chat.notifyTyping}
