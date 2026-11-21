@@ -32,6 +32,7 @@ import { CartSkeleton, ShopSkeleton, WishlistSkeleton } from './components/shop/
 import { AboutPage } from './views/public/AboutPage'
 import { CookiePolicyPage } from './views/legal/CookiePolicyPage'
 import { ContactPage } from './views/public/ContactPage'
+import { LinkExpiredPage } from './views/public/LinkExpiredPage'
 import { NotFoundPage } from './views/public/NotFoundPage'
 import { ServerErrorPage } from './views/public/ServerErrorPage'
 import { PrivacyPolicyPage } from './views/legal/PrivacyPolicyPage'
@@ -530,6 +531,7 @@ function App() {
                 }
               />
               <Route path="500" element={<ServerErrorPage />} />
+              <Route path="link-expired" element={<LinkExpiredPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
