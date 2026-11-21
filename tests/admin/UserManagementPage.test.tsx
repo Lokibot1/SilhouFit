@@ -198,6 +198,14 @@ describe('Customers tab', () => {
     expect(await screen.findByText('No inactive customers')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Show active customers' }))
     expect(await screen.findByText('No customers yet')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Inactive' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Messaging' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Blocked' }))
+    expect(await screen.findByText('No customers match')).toBeInTheDocument()
+    expect(screen.getByText(/search, status or messaging filter/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(await screen.findByText('No customers yet')).toBeInTheDocument()
   })
 
   it('shows the error and loads again from the retry button', async () => {

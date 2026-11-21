@@ -73,7 +73,7 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
           (emptyFiltered ?? (
             <>
               <p className="text-base font-semibold text-fg">No {noun} match</p>
-              <p className="mt-1 text-base text-fg-muted">Check the spelling, or clear the search and status filter and try again.</p>
+              <p className="mt-1 text-base text-fg-muted">{list.messaging ? 'Check the spelling, or clear the search, status or messaging filter and try again.' : 'Check the spelling, or clear the search and status filter and try again.'}</p>
               <button type="button" onClick={clear} className={`${SECONDARY_BUTTON} mt-3`}>
                 Clear filters
               </button>

@@ -70,7 +70,7 @@ export function CustomersTab() {
           </>
         )}
         emptyFiltered={
-          list.status === 'inactive' && !list.text.trim() ? (
+          list.status === 'inactive' && !list.text.trim() && !list.messaging ? (
             <>
               <p className="text-base font-semibold text-fg">No inactive customers</p>
               <p className="mt-1 mb-3 text-base text-fg-muted">Deactivated accounts show up here and can be activated again.</p>

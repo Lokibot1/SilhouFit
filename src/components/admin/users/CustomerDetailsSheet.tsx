@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { blockMessagingApi, unblockMessagingApi } from '../../../service/staffApi'
 import type { CustomerAccount } from '../../../types/accounts'
@@ -60,9 +60,20 @@ export function CustomerDetailsSheet({ account, onClose, onChanged }: CustomerDe
   const [confirming, setConfirming] = useState<Action | null>(null)
   const [reason, setReason] = useState('')
   const [pending, setPending] = useState(false)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const wasConfirming = useRef(false)
   const name = account ? fullName(account) : ''
   const blocked = !!account?.messagingBlockedAt
   const action: Action = blocked ? 'unblock' : 'block'
+
+  // The dialog swaps with the sheet, which reopens with focus on its panel: put it back on the button that asked.
+  useEffect(() => {
+    if (confirming) wasConfirming.current = true
+    else if (wasConfirming.current) {
+      wasConfirming.current = false
+      trigger.current?.focus()
+    }
+  }, [confirming])
 
   async function confirm() {
     if (!account || !confirming || pending) return
@@ -123,7 +134,7 @@ export function CustomerDetailsSheet({ account, onClose, onChanged }: CustomerDe
               )}
               {manage && (
                 <div className="flex flex-wrap gap-3">
-                  <button type="button" onClick={() => setConfirming(action)} className={SECONDARY_BUTTON_SM}>
+                  <button ref={trigger} type="button" onClick={() => setConfirming(action)} className={SECONDARY_BUTTON_SM}>
                     {ACTIONS[action].button}
                   </button>
                 </div>

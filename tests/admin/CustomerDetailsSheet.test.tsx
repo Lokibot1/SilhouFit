@@ -221,6 +221,15 @@ describe('CustomerDetailsSheet messaging block', () => {
     expect(await screen.findByText(/messaging blocked\./)).toBeInTheDocument()
   })
 
+  it.each(['Cancel', 'Escape'])('returns focus to Block messaging after %s', async (how) => {
+    const user = userEvent.setup()
+    open()
+    await user.click(screen.getByRole('button', { name: 'Block messaging' }))
+    if (how === 'Cancel') await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    else await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Block messaging' })).toHaveFocus())
+  })
+
   it('unblocks after asking, without a reason box', async () => {
     const user = userEvent.setup()
     staff.unblockMessagingApi.mockResolvedValue(customer('cus-010', 'Carlo'))
