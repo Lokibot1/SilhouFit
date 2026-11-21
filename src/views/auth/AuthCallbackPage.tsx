@@ -21,8 +21,6 @@ import { homeFor } from '../../utils/staffRole'
 
 const META_DESCRIPTION =
   'Finishing your Google sign-in to KRAL. If something went wrong, you can head back to the login page and try again whenever you are ready to continue now.'
-const EXPIRED_DESCRIPTION =
-  'This KRAL link has expired or was already used. Request a new reset email to set your password, or go back to the login page and sign in with what you have.'
 
 // Waiting on the Supabase code exchange plus /users/me; past this the connection is treated as dropped.
 const TIMEOUT_MS = 15_000
@@ -54,7 +52,7 @@ const ERROR_COPY: Record<FailKind, { title: string; body: string }> = {
 }
 const RETRYABLE: FailKind[] = ['network', 'rate-limit', 'server']
 
-type View = { status: 'loading' } | { status: 'age'; me: Me } | { status: 'underage' } | { status: 'cancelled' } | { status: 'expired' } | { status: 'failed'; kind: FailKind }
+type View = { status: 'loading' } | { status: 'age'; me: Me } | { status: 'underage' } | { status: 'cancelled' } | { status: 'failed'; kind: FailKind }
 
 // Supabase puts `code` (or an `error`) in the query, and tokens or an `error` in the hash for the implicit flow.
 function readParams() {
@@ -117,6 +115,8 @@ export function AuthCallbackPage() {
   // Read once: cleaning the URL later must not change the answer on a re-render or a StrictMode re-run.
   const [params] = useState(readParams)
   const hasResult = Boolean(params.code ?? params.accessToken)
+  // An expired or reused invitation or recovery link has its own page.
+  if (params.error && params.linkExpired) return <Navigate to="/link-expired" replace />
   if (!hasResult && !params.error && getSession()) return <Navigate to="/profile" replace />
   // No result and no app session: a reload after the code was used. A Supabase session may still be waiting to finish.
   return <CallbackFlow params={params} resume={!hasResult && !params.error} />
@@ -130,13 +130,7 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
   // Read, not taken: StrictMode runs this twice, so the stash is cleared only once the flow ends.
   const [next] = useState(readStashedNext)
   const [view, setView] = useState<View>(() =>
-    error
-      ? params.linkExpired
-        ? { status: 'expired' }
-        : error === 'access_denied'
-          ? { status: 'cancelled' }
-          : { status: 'failed', kind: 'session' }
-      : { status: 'loading' },
+    error ? (error === 'access_denied' ? { status: 'cancelled' } : { status: 'failed', kind: 'session' }) : { status: 'loading' },
   )
   const [attempt, setAttempt] = useState(0)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -172,11 +166,9 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
     setView({ status: 'underage' })
   }, [])
 
-  useMetaDescription(view.status === 'expired' ? EXPIRED_DESCRIPTION : META_DESCRIPTION)
+  useMetaDescription(META_DESCRIPTION)
   useDocumentTitle(
-    view.status === 'expired'
-      ? 'Link expired — KRAL'
-      : view.status === 'cancelled'
+    view.status === 'cancelled'
         ? 'Google sign-in cancelled — KRAL'
         : view.status === 'underage'
           ? 'Must be 18 or older — KRAL'
@@ -299,13 +291,8 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
   }
 
   const cancelled = view.status === 'cancelled'
-  const expired = view.status === 'expired'
-  const copy = expired
-    ? {
-        title: 'This link has expired or was already used',
-        body: 'Invitation and reset links work once and stop working after a short time, so this one can no longer open your account. Send a new reset email to choose a password.',
-      }
-    : view.status === 'underage'
+  const copy =
+    view.status === 'underage'
       ? { title: 'You must be 18 or older', body: UNDERAGE_MESSAGE }
       : cancelled
       ? {
@@ -330,11 +317,6 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
           <p className="mt-2 text-base leading-relaxed text-fg-muted">{copy.body}</p>
         </div>
         <div className="mt-auto flex flex-col gap-3 pt-6">
-          {expired && (
-            <Link to="/forgot-password" className={PRIMARY_BUTTON}>
-              Send a new reset email
-            </Link>
-          )}
           {retryable && (
             <button
               type="button"
@@ -354,7 +336,7 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
               unfinished.current = false
               signOut()
             }}
-            className={retryable || expired ? SECONDARY_BUTTON : PRIMARY_BUTTON}
+            className={retryable ? SECONDARY_BUTTON : PRIMARY_BUTTON}
           >
             Back to login
           </Link>

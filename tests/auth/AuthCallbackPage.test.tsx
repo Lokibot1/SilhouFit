@@ -87,6 +87,7 @@ function renderCallback(url: string, { strict = false } = {}) {
           <Route path="/profile" element={<p>profile page</p>} />
           <Route path="/auth/set-password" element={<p>set password page</p>} />
           <Route path="/login" element={<p>login page</p>} />
+          <Route path="/link-expired" element={<p>link expired page</p>} />
           <Route path="/checkout" element={<p>checkout page</p>} />
           <Route path="*" element={<p>somewhere else</p>} />
         </Routes>
@@ -275,20 +276,10 @@ describe('AuthCallbackPage expired or reused links', () => {
   it.each([
     ['hash', '/auth/callback#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired'],
     ['query', '/auth/callback?error=access_denied&error_code=otp_expired'],
-  ])('says the link has expired, not that Google sign-in was cancelled, in the %s', async (_where, url) => {
+  ])('redirects to the link expired page, not the cancelled Google message, in the %s', async (_where, url) => {
     renderCallback(url)
-    const heading = await screen.findByRole('heading', { name: 'This link has expired or was already used' })
-    expect(heading).toHaveFocus()
-    expect(screen.getByRole('alert')).toHaveTextContent('Send a new reset email')
-    expect(screen.getByRole('link', { name: 'Send a new reset email' })).toHaveAttribute('href', '/forgot-password')
-    expect(screen.getByRole('link', { name: 'Back to login' })).toHaveAttribute('href', '/login')
+    expect(await screen.findByText('link expired page')).toBeInTheDocument()
     expect(document.body.textContent).not.toContain('cancelled')
-    expect(document.body.textContent).not.toContain('Email link is invalid')
-    expect(document.title).toBe('Link expired — KRAL')
-    const description = document.querySelector('meta[name="description"]')?.getAttribute('content') ?? ''
-    expect(description).toMatch(/expired/)
-    expect(description.length).toBeGreaterThanOrEqual(150)
-    expect(description.length).toBeLessThanOrEqual(160)
     expect(me).not.toHaveBeenCalled()
   })
 })

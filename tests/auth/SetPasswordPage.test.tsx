@@ -39,6 +39,7 @@ function renderPage(state?: { recovery: boolean }) {
           <Route path="/auth/set-password" element={<SetPasswordPage />} />
           <Route path="/staff" element={<p>staff home</p>} />
           <Route path="/login" element={<p>login page</p>} />
+          <Route path="/link-expired" element={<p>link expired page</p>} />
           <Route path="*" element={<p>elsewhere</p>} />
         </Routes>
       </ToastProvider>
@@ -53,11 +54,10 @@ const fill = async (next: string, confirm: string) => {
 }
 
 describe('SetPasswordPage', () => {
-  it('says the link has expired, with a way to request another, when there is no session', async () => {
+  it('redirects to the link expired page when there is no session', async () => {
     getSupabaseSession.mockResolvedValue({ data: { session: null } })
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent('This link has expired.')
-    expect(screen.getByRole('link', { name: 'Send a new reset email' })).toHaveAttribute('href', '/forgot-password')
+    expect(await screen.findByText('link expired page')).toBeInTheDocument()
     expect(updateUser).not.toHaveBeenCalled()
   })
 
@@ -122,10 +122,10 @@ describe('SetPasswordPage', () => {
     [{ code: 'same_password', status: 422 }, 'This is already your password.'],
     [{ status: 429 }, 'Too many attempts.'],
     [{ status: 0 }, 'connection dropped'],
-    [{ status: 401 }, 'This link has expired.'],
-    [{ status: 403, code: 'session_not_found' }, 'This link has expired.'],
-    [{ status: 400, name: 'AuthSessionMissingError', message: 'Auth session missing!' }, 'This link has expired.'],
-    [{ status: 403, code: 'bad_jwt' }, 'This link has expired.'],
+    [{ status: 401 }, 'link expired page'],
+    [{ status: 403, code: 'session_not_found' }, 'link expired page'],
+    [{ status: 400, name: 'AuthSessionMissingError', message: 'Auth session missing!' }, 'link expired page'],
+    [{ status: 403, code: 'bad_jwt' }, 'link expired page'],
     [{ status: 500 }, 'went wrong on our side'],
   ])('explains %j', async (error, text) => {
     updateUser.mockResolvedValue({ error })

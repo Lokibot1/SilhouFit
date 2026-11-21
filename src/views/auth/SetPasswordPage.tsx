@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AuthHeading, AuthSplit } from '../../components/auth/AuthSplit'
-import { CALLBACK_BLOCK, CallbackSkeleton } from '../../components/form/CallbackSkeleton'
+import { CallbackSkeleton } from '../../components/form/CallbackSkeleton'
 import { FloatingField } from '../../components/form/FloatingField'
 import { PasswordChecklist } from '../../components/form/PasswordChecklist'
 import { AlertIcon, LockIcon, SpinnerIcon } from '../../components/form/icons'
 import { useToast } from '../../components/toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
+import { PRIMARY_BUTTON } from '../../components/ui/buttonStyles'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { fetchMe } from '../../service/fetchMe'
@@ -21,10 +21,9 @@ const META_DESCRIPTION =
 
 type Failure = 'weak' | 'same' | 'rate-limit' | 'network' | 'expired' | 'server'
 
-const FAILURE_COPY: Record<Exclude<Failure, 'weak' | 'same'>, { title: string; body: string }> = {
+const FAILURE_COPY: Record<Exclude<Failure, 'weak' | 'same' | 'expired'>, { title: string; body: string }> = {
   'rate-limit': { title: 'Too many attempts.', body: 'Your password was not set. Wait a few minutes, then try again.' },
   network: { title: 'Your password was not set.', body: 'The connection dropped before we got a response. Check your connection and try again.' },
-  expired: { title: 'This link has expired.', body: 'Your password was not set. Ask for a new reset email from the login page.' },
   server: { title: 'Your password was not set.', body: 'Something went wrong on our side. Try again in a moment.' },
 }
 
@@ -62,6 +61,11 @@ export function SetPasswordPage() {
     }
   }, [])
 
+  // An expired or used link has its own page.
+  useEffect(() => {
+    if (failure === 'expired') navigate('/link-expired', { replace: true })
+  }, [failure, navigate])
+
   const passwordError = validatePassword(password) ?? undefined
   const confirmError = validateConfirmPassword(password, confirm) ?? undefined
   const shown = (name: keyof typeof touched, error: string | undefined) => (touched[name] ? error : undefined)
@@ -69,7 +73,7 @@ export function SetPasswordPage() {
   const banner =
     failure === 'weak'
       ? { title: 'Your password was not set.', body: `${detail ?? 'The sign-in service found the password too weak.'} Choose a longer or less common password, then try again.` }
-      : failure && failure !== 'same'
+      : failure && failure !== 'same' && failure !== 'expired'
         ? FAILURE_COPY[failure]
         : null
 
@@ -136,31 +140,7 @@ export function SetPasswordPage() {
 
   if (view === 'checking') return <CallbackSkeleton />
 
-  if (view === 'missing') {
-    return (
-      <AuthSplit photo={false}>
-        <div className={CALLBACK_BLOCK}>
-          <span className="flex size-10 items-center justify-center rounded-full border border-line-strong text-danger">
-            <AlertIcon size={20} />
-          </span>
-          <div role="alert">
-            <h1 className="display mt-4 text-3xl text-fg">This link has expired.</h1>
-            <p className="mt-2 text-base leading-relaxed text-fg-muted">
-              The invitation or reset link was already used or is out of date, so no password was set. Request a new reset email, or ask an administrator to invite you again.
-            </p>
-          </div>
-          <div className="mt-auto flex flex-col gap-3 pt-6">
-            <Link to="/forgot-password" className={PRIMARY_BUTTON}>
-              Send a new reset email
-            </Link>
-            <Link to="/login" className={SECONDARY_BUTTON}>
-              Back to login
-            </Link>
-          </div>
-        </div>
-      </AuthSplit>
-    )
-  }
+  if (view === 'missing') return <Navigate to="/link-expired" replace />
 
   return (
     <AuthSplit photo={false}>

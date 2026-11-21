@@ -103,10 +103,11 @@ test("Supabase's weak password message is shown and the form stays", async ({ pa
   await expect(page).toHaveURL(/\/auth\/set-password$/)
 })
 
-test('opening /auth/set-password with no session says the link has expired and offers a new reset email', async ({ page }) => {
+test('opening /auth/set-password with no session redirects to the link expired page', async ({ page }) => {
   await page.goto('/auth/set-password')
-  await expect(page.getByRole('heading', { level: 1, name: 'This link has expired.' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Send a new reset email' })).toHaveAttribute('href', '/forgot-password')
+  await expect(page).toHaveURL(/\/link-expired$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'This link has expired' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Request a new link' })).toHaveAttribute('href', '/forgot-password')
 })
 
 test('fits 320px wide with no horizontal scroll', async ({ page }) => {

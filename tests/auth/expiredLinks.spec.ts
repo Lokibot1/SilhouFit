@@ -17,10 +17,6 @@ test.beforeEach(async ({ page }) => {
 })
 
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-const luminance = (css: string) => {
-  const [r, g, b] = (css.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number)
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
 
 async function stubSupabase(page: Page, failUpdate?: { status: number; body: object }) {
   await page.route('**/auth/v1/user*', async (route) => {
@@ -40,75 +36,59 @@ async function submitPassword(page: Page) {
   await page.getByRole('button', { name: 'Set password', exact: true }).click()
 }
 
-test.describe('expired link page', () => {
-  test('explains what happened and why, names the next step, and shows no Google cancellation copy', async ({ page }) => {
+test.describe('expired link redirect', () => {
+  test('an expired link in the hash lands on /link-expired with the page content and no leftover error text', async ({ page }) => {
     await page.goto(EXPIRED)
-    await expect(page.getByRole('heading', { level: 1, name: 'This link has expired or was already used' })).toBeVisible()
-    await expect(page.getByRole('alert')).toContainText('Invitation and reset links work once and stop working after a short time')
-    await expect(page.getByRole('alert')).toContainText('Send a new reset email to choose a password.')
+    await expect(page).toHaveURL(/\/link-expired$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'This link has expired' })).toBeVisible()
     await expect(page.getByText(/cancelled/i)).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(0)
-    await expect(page).toHaveTitle('Link expired — KRAL')
-    // The error is cleaned out of the address bar.
+    await expect(page).toHaveTitle('Link expired — SilhouFit')
     expect(page.url()).not.toContain('otp_expired')
   })
 
-  test('Send a new reset email goes to /forgot-password, Back to login goes to /login', async ({ page }) => {
+  test('an expired link in the query redirects too, and Back does not return to the callback', async ({ page }) => {
+    await page.goto('/login')
+    await page.goto('/auth/callback?error=access_denied&error_code=otp_expired')
+    await expect(page).toHaveURL(/\/link-expired$/)
+    await page.goBack()
+    await expect(page).toHaveURL(/\/login$/)
+  })
+
+  test('Request a new link goes to /forgot-password, Back to login goes to /login', async ({ page }) => {
     await page.goto(EXPIRED)
-    await expect(page.getByRole('link', { name: 'Send a new reset email' })).toHaveAttribute('href', '/forgot-password')
+    await expect(page.getByRole('link', { name: 'Request a new link' })).toHaveAttribute('href', '/forgot-password')
     await page.getByRole('link', { name: 'Back to login' }).click()
     await expect(page).toHaveURL(/\/login$/)
   })
 
-  test('the heading takes focus, Tab reaches Send a new reset email first and Enter follows it', async ({ page }) => {
-    await page.goto(EXPIRED)
-    await expect(page.getByRole('heading', { level: 1 })).toBeFocused()
-    await page.keyboard.press('Tab')
-    await expect(page.getByRole('link', { name: 'Send a new reset email' })).toBeFocused()
-    await page.keyboard.press('Tab')
-    await expect(page.getByRole('link', { name: 'Back to login' })).toBeFocused()
-    await page.keyboard.press('Shift+Tab')
-    await page.keyboard.press('Enter')
-    await expect(page).toHaveURL(/\/forgot-password$/)
-  })
-
-  for (const width of [320, 768]) {
-    test(`fits ${width}px with no horizontal scroll and 44px links`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 700 })
-      await page.goto(EXPIRED)
-      await expect(page.getByRole('link', { name: 'Send a new reset email' })).toBeVisible()
-      expect(await overflow(page)).toBeLessThanOrEqual(0)
-      for (const name of ['Send a new reset email', 'Back to login']) {
-        expect((await page.getByRole('link', { name }).boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
-      }
-    })
-  }
-
-  test('dark mode: the heading and the primary link stay readable', async ({ page }) => {
-    await page.emulateMedia({ colorScheme: 'dark' })
-    await page.goto(EXPIRED)
-    await expect(page.locator('html')).toHaveClass(/dark/)
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-    const [bg, heading] = await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.querySelector('h1')!).color])
-    expect(luminance(bg)).toBeLessThan(110)
-    expect(Math.abs(luminance(heading) - luminance(bg))).toBeGreaterThan(80)
-    const link = page.getByRole('link', { name: 'Send a new reset email' })
-    const [linkText, linkBg] = await link.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor])
-    expect(Math.abs(luminance(linkText) - luminance(linkBg))).toBeGreaterThan(60)
+  test('a Google cancellation does not redirect', async ({ page }) => {
+    await page.goto('/auth/callback?error=access_denied&error_description=User+denied')
+    await expect(page).toHaveURL(/\/auth\/callback$/)
   })
 })
 
 test.describe('set-password session errors', () => {
-  const cases: { name: string; status: number; body: object; title: string; absent?: string }[] = [
-    { name: '401 without a code', status: 401, body: { msg: 'invalid JWT' }, title: 'This link has expired.' },
-    { name: '403 session_not_found', status: 403, body: { code: 403, error_code: 'session_not_found', msg: 'Session does not exist' }, title: 'This link has expired.' },
-    { name: '400 bad_jwt', status: 400, body: { code: 400, error_code: 'bad_jwt', msg: 'invalid JWT' }, title: 'This link has expired.' },
-    { name: '400 refresh_token_not_found', status: 400, body: { code: 400, error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token' }, title: 'This link has expired.' },
+  const expired: { name: string; status: number; body: object }[] = [
+    { name: '401 without a code', status: 401, body: { msg: 'invalid JWT' } },
+    { name: '403 session_not_found', status: 403, body: { code: 403, error_code: 'session_not_found', msg: 'Session does not exist' } },
+    { name: '400 bad_jwt', status: 400, body: { code: 400, error_code: 'bad_jwt', msg: 'invalid JWT' } },
+    { name: '400 refresh_token_not_found', status: 400, body: { code: 400, error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token' } },
+  ]
+  const others = [
     { name: '429 rate limit', status: 429, body: { code: 429, error_code: 'over_request_rate_limit', msg: 'slow down' }, title: 'Too many attempts.' },
     { name: '500', status: 500, body: { msg: 'boom' }, title: 'Your password was not set.' },
   ]
 
-  for (const c of cases) {
+  for (const c of expired) {
+    test(`${c.name} redirects to /link-expired`, async ({ page }) => {
+      await stubSupabase(page, { status: c.status, body: c.body })
+      await submitPassword(page)
+      await expect(page).toHaveURL(/\/link-expired$/)
+      await expect(page.getByRole('heading', { level: 1, name: 'This link has expired' })).toBeVisible()
+    })
+  }
+
+  for (const c of others) {
     test(`${c.name} shows "${c.title}" and keeps the form`, async ({ page }) => {
       await stubSupabase(page, { status: c.status, body: c.body })
       await submitPassword(page)
@@ -118,14 +98,6 @@ test.describe('set-password session errors', () => {
     })
   }
 
-  test('an expired session says the password was not set and what to do next', async ({ page }) => {
-    await stubSupabase(page, { status: 403, body: { code: 403, error_code: 'session_not_found', msg: 'gone' } })
-    await submitPassword(page)
-    const alert = page.getByRole('alert').filter({ hasText: 'This link has expired.' })
-    await expect(alert).toContainText('Your password was not set.')
-    await expect(alert).toContainText('Ask for a new reset email from the login page.')
-  })
-
   test('same_password is shown next to the field and focuses it', async ({ page }) => {
     await stubSupabase(page, { status: 422, body: { code: 422, error_code: 'same_password', msg: 'same' } })
     await submitPassword(page)
@@ -133,24 +105,14 @@ test.describe('set-password session errors', () => {
     await expect(page.getByLabel('New password', { exact: true })).toBeFocused()
   })
 
-  test('with no session at all the page offers a new reset email and fits 320px at 44px', async ({ page }) => {
+  test('with no session at all it redirects to /link-expired, which fits 320px with 44px links', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 })
     await page.goto('/auth/set-password')
-    await expect(page.getByRole('heading', { level: 1, name: 'This link has expired.' })).toBeVisible()
-    const link = page.getByRole('link', { name: 'Send a new reset email' })
-    await expect(link).toHaveAttribute('href', '/forgot-password')
-    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
-    expect(await overflow(page)).toBeLessThanOrEqual(0)
-    // The logo link comes first in the page; the reset link is within the next few stops.
-    for (let i = 0; i < 4 && !(await link.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press('Tab')
-    await expect(link).toBeFocused()
-  })
-
-  test('an error banner at 320px does not scroll the page sideways', async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 700 })
-    await stubSupabase(page, { status: 403, body: { code: 403, error_code: 'session_not_found', msg: 'gone' } })
-    await submitPassword(page)
-    await expect(page.getByRole('alert').filter({ hasText: 'This link has expired.' })).toBeVisible()
+    await expect(page).toHaveURL(/\/link-expired$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'This link has expired' })).toBeVisible()
+    for (const name of ['Request a new link', 'Back to login']) {
+      expect((await page.getByRole('link', { name }).boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    }
     expect(await overflow(page)).toBeLessThanOrEqual(0)
   })
 })
