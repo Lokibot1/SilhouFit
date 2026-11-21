@@ -46,6 +46,11 @@ export interface SuperadminAccount extends Omit<BaseAccount, 'status'> {
 /** A customer as the accounts API lists them: the profile only, no orders or spend. */
 export interface CustomerAccount extends BaseAccount {
   role: 'customer'
+  /** How many chat messages and reviews the profanity filter has masked. */
+  offenseCount: number
+  /** ISO time, set while the customer cannot send chat messages. */
+  messagingBlockedAt: string | null
+  messagingBlockedReason: string | null
 }
 
 export interface Customer extends BaseAccount {

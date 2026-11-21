@@ -57,7 +57,17 @@ function toAccount(value: unknown): Omit<StaffAccount, 'role'> {
   }
 }
 
-const toCustomerAccount = (value: unknown): CustomerAccount => ({ ...toAccount(value), role: 'customer' })
+const toCustomerAccount = (value: unknown): CustomerAccount => {
+  const account = toAccount(value)
+  const { offenseCount, messagingBlockedAt, messagingBlockedReason } = value as Record<string, unknown>
+  return {
+    ...account,
+    role: 'customer',
+    offenseCount: count(offenseCount, 0),
+    messagingBlockedAt: isText(messagingBlockedAt) ? messagingBlockedAt : null,
+    messagingBlockedReason: isText(messagingBlockedReason) ? messagingBlockedReason : null,
+  }
+}
 const toStaffAccount = (value: unknown): StaffAccount => ({ ...toAccount(value), role: 'staff' })
 const toAdminAccount = (value: unknown): AdminAccount => ({ ...toAccount(value), role: 'admin' })
 const toSuperadminAccount = (value: unknown): SuperadminAccount => {
@@ -192,3 +202,13 @@ export const deactivateAccountApi = (id: string) => setActive('deactivate', id)
 
 /** POST /users/:id/activate (no body). The person can sign in again with their current password. */
 export const activateAccountApi = (id: string) => setActive('activate', id)
+
+/** POST /users/:id/block-messaging (admin or above). The customer keeps shopping but cannot send chat messages. An already blocked customer is a 409 with the server's sentence. Returns the updated customer. */
+export async function blockMessagingApi(id: string, reason?: string): Promise<CustomerAccount> {
+  return toCustomerAccount(await call('POST', `/users/${encodeURIComponent(id)}/block-messaging`, reason?.trim() ? { reason: reason.trim() } : undefined))
+}
+
+/** POST /users/:id/unblock-messaging (admin or above). A customer who is not blocked is a 409. Returns the updated customer. */
+export async function unblockMessagingApi(id: string): Promise<CustomerAccount> {
+  return toCustomerAccount(await call('POST', `/users/${encodeURIComponent(id)}/unblock-messaging`, undefined))
+}

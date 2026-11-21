@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   activateAccountApi,
+  blockMessagingApi,
   countAccounts,
   deactivateAccountApi,
   inviteAdminAccountApi,
@@ -12,6 +13,7 @@ import {
   listSuperadminAccounts,
   StaffApiError,
   subscribeAccountChanges,
+  unblockMessagingApi,
 } from '../../src/service/staffApi'
 import { errorKind } from '../../src/components/staff/StaffSection'
 
@@ -366,5 +368,45 @@ describe('deactivating and activating', () => {
   it('rejects an answer without an id', async () => {
     reply({})
     expect((await failure(activateAccountApi('u1'))).kind).toBe('server')
+  })
+})
+
+describe('messaging block and offense count on a customer', () => {
+  const BLOCKED = { ...ITEM, role: 'customer', offenseCount: 4, messagingBlockedAt: '2026-10-26T14:30:00.000Z', messagingBlockedReason: 'Spam' }
+
+  it('maps offenseCount, messagingBlockedAt and messagingBlockedReason, with neutral values when the API sends none', async () => {
+    reply({ data: [BLOCKED, { ...ITEM, role: 'customer' }], meta: META })
+    const { data } = await listCustomerAccounts({})
+    expect(data[0]).toMatchObject({ offenseCount: 4, messagingBlockedAt: '2026-10-26T14:30:00.000Z', messagingBlockedReason: 'Spam' })
+    expect(data[1]).toMatchObject({ offenseCount: 0, messagingBlockedAt: null, messagingBlockedReason: null })
+  })
+
+  it('blocks with a trimmed reason (POST /users/:id/block-messaging) and returns the customer', async () => {
+    reply(BLOCKED)
+    const account = await blockMessagingApi('u1', ' Spam ')
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+    expect(requested().pathname).toBe('/users/u1/block-messaging')
+    expect(sent()).toEqual({ reason: 'Spam' })
+    expect(account).toMatchObject({ role: 'customer', messagingBlockedAt: BLOCKED.messagingBlockedAt })
+  })
+
+  it('sends no body when there is no reason', async () => {
+    reply(BLOCKED)
+    await blockMessagingApi('u1', '  ')
+    expect(fetchMock.mock.calls[0][1].body).toBeUndefined()
+  })
+
+  it('unblocks with POST /users/:id/unblock-messaging', async () => {
+    reply({ ...BLOCKED, messagingBlockedAt: null, messagingBlockedReason: null })
+    const account = await unblockMessagingApi('u1')
+    expect(requested().pathname).toBe('/users/u1/unblock-messaging')
+    expect(account.messagingBlockedAt).toBeNull()
+  })
+
+  it("keeps the server's sentence on a 409", async () => {
+    reply({ statusCode: 409, message: 'User messaging is already blocked', error: 'Conflict' }, 409)
+    const error = await failure(blockMessagingApi('u1'))
+    expect(error.status).toBe(409)
+    expect(error.detail).toBe('User messaging is already blocked')
   })
 })

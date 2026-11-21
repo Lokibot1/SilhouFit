@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useAccounts } from '../../../hooks/useAccounts'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useDeactivateCustomer } from '../../../hooks/useDeactivateAccount'
-import { useModeration } from '../../../hooks/useModeration'
 import { listCustomerAccounts } from '../../../service/staffApi'
 import type { CustomerAccount } from '../../../types/accounts'
 import { fullName } from '../../../utils/accountQuery'
@@ -16,10 +15,6 @@ import { AccountTable, type AccountColumn } from './AccountTable'
 import { AccountToolbar } from './AccountToolbar'
 import { CustomerDetailsSheet } from './CustomerDetailsSheet'
 import { StatusBadge } from './StatusBadge'
-
-function OffenseCount({ id }: { id: string }) {
-  return <>{useModeration(id).offenses.length}</>
-}
 
 const STATUSES = [
   { value: 'active' as const, label: 'Active' },
@@ -48,7 +43,7 @@ export function CustomersTab() {
     { key: 'name', header: 'Customer', sort: 'name', title: true, cell: (a) => <AccountName account={a} /> },
     { key: 'email', header: 'Email', indent: true, width: 'w-[24%]', cell: (a) => <AccountEmail email={a.email} /> },
     { key: 'status', header: 'Status', cardLabel: 'Status:', width: 'w-[14%]', cell: (a) => <StatusBadge status={a.status} /> },
-    { key: 'offenses', header: 'Offenses', cardLabel: 'Offenses:', center: true, width: 'w-[10%]', cell: (a) => <OffenseCount id={a.id} /> },
+    { key: 'offenses', header: 'Offenses', cardLabel: 'Offenses:', center: true, width: 'w-[10%]', cell: (a) => <span className="tabular-nums">{a.offenseCount}</span> },
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
   ]
 
@@ -92,7 +87,14 @@ export function CustomersTab() {
           </>
         }
       />
-      <CustomerDetailsSheet account={viewing} onClose={() => setViewing(null)} />
+      <CustomerDetailsSheet
+        account={viewing}
+        onClose={() => setViewing(null)}
+        onChanged={(updated) => {
+          setViewing(updated)
+          list.retry()
+        }}
+      />
       {deactivate.element}
     </section>
   )

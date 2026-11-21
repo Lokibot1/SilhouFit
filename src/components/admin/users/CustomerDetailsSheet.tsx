@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
-import { useModeration } from '../../../hooks/useModeration'
-import { banUser, blockMessaging, unbanUser, unblockMessaging, type ModerationAction, type ModerationStatus } from '../../../service/moderation'
+import { blockMessagingApi, unblockMessagingApi } from '../../../service/staffApi'
 import type { CustomerAccount } from '../../../types/accounts'
 import { fullName } from '../../../utils/accountQuery'
 import { formatPlacedAt } from '../../../utils/format'
@@ -10,93 +9,78 @@ import { useToast } from '../../toast/useToast'
 import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { ConfirmDialog } from './ConfirmDialog'
+import { CustomerOffenses } from './CustomerOffenses'
 import { CustomerPurchases } from './CustomerPurchases'
 import { StatusBadge } from './StatusBadge'
 
 const REASON_MAX = 200
 
-const STATUS_LABEL: Record<ModerationStatus, { label: string; dot: string }> = {
-  active: { label: 'Active', dot: 'bg-success' },
-  messaging_blocked: { label: 'Messaging blocked', dot: 'bg-warning' },
-  banned: { label: 'Banned', dot: 'bg-danger' },
-}
+type Action = 'block' | 'unblock'
 
-const ACTIONS: Record<ModerationAction, { run: typeof blockMessaging; confirmLabel: string; button: string; effect: string; done: string; past: string }> = {
-  block_messaging: {
-    run: blockMessaging,
+const ACTIONS: Record<Action, { confirmLabel: string; button: string; effect: string; done: string }> = {
+  block: {
     confirmLabel: 'Block Messaging',
     button: 'Block messaging',
     effect: "can still browse and shop, but can't send chat messages until messaging is unblocked. Their earlier messages stay in the conversations.",
     done: 'messaging blocked.',
-    past: 'Messaging blocked',
   },
-  unblock_messaging: {
-    run: unblockMessaging,
+  unblock: {
     confirmLabel: 'Unblock Messaging',
     button: 'Unblock messaging',
     effect: 'will be able to send chat messages again.',
     done: 'messaging unblocked.',
-    past: 'Messaging unblocked',
-  },
-  ban: {
-    run: banUser,
-    confirmLabel: 'Ban Account',
-    button: 'Ban account',
-    effect: "can't sign in, and any open session ends. Their orders and messages are kept, and you can unban them from here.",
-    done: 'banned.',
-    past: 'Banned',
-  },
-  unban: {
-    run: unbanUser,
-    confirmLabel: 'Unban Account',
-    button: 'Unban account',
-    effect: 'will be able to sign in again.',
-    done: 'unbanned.',
-    past: 'Unbanned',
   },
 }
 
-/** The actions a status allows. A banned customer is only ever unbanned. */
-const ALLOWED: Record<ModerationStatus, ModerationAction[]> = {
-  active: ['block_messaging', 'ban'],
-  messaging_blocked: ['unblock_messaging', 'ban'],
-  banned: ['unban'],
+/** What happened, why, and what to do, for a block or unblock that failed. The server's own sentence is shown for a refusal. */
+function failureCopy(error: unknown, name: string, action: Action) {
+  const { status, detail } = (error ?? {}) as { status?: number; detail?: string }
+  const head = `Couldn't ${action} messaging for ${name}.`
+  if (status === 401) return `${head} Your session expired. Sign in again, then retry.`
+  if (status === 403) return `${head} ${detail ?? 'Your account is not allowed to do this.'} Nothing changed.`
+  if (status === 404) return `${head} This customer account no longer exists. Close this panel and reload the list.`
+  if (status === 409) return `${head} ${detail ?? 'Its status already changed.'} Close this panel and reload the list to see the current status.`
+  if (status === 429) return `${head} Too many requests were sent, so nothing changed. Wait a few minutes, then try again.`
+  return `${head} The change wasn't saved, probably because the connection dropped. Press ${ACTIONS[action].confirmLabel} to try again.`
 }
 
 interface CustomerDetailsSheetProps {
   /** The customer to show; null keeps the sheet closed. */
   account: CustomerAccount | null
   onClose: () => void
+  /** Called with the customer as the server returns it after messaging is blocked or unblocked. */
+  onChanged: (account: CustomerAccount) => void
 }
 
-/** A customer's additional data: account basics, chat offenses, moderation status, the actions staff can take and who took them. */
-export function CustomerDetailsSheet({ account, onClose }: CustomerDetailsSheetProps) {
+/** A customer's additional data: account basics, purchases, offenses and the messaging block. An admin or a superadmin can block and unblock messaging; only a superadmin reads the offenses. */
+export function CustomerDetailsSheet({ account, onClose, onChanged }: CustomerDetailsSheetProps) {
   const toast = useToast()
-  const actor = useCurrentUser()?.name ?? 'Staff'
-  const [confirming, setConfirming] = useState<ModerationAction | null>(null)
+  const role = useCurrentUser()?.role
+  const manage = role === 'admin' || role === 'superadmin'
+  const [confirming, setConfirming] = useState<Action | null>(null)
   const [reason, setReason] = useState('')
   const [pending, setPending] = useState(false)
-  const moderation = useModeration(account?.id ?? '')
   const name = account ? fullName(account) : ''
+  const blocked = !!account?.messagingBlockedAt
+  const action: Action = blocked ? 'unblock' : 'block'
 
   async function confirm() {
     if (!account || !confirming || pending) return
-    const { run, done, confirmLabel } = ACTIONS[confirming]
+    const { done } = ACTIONS[confirming]
     setPending(true)
     try {
-      await run(account.id, actor, reason)
+      const updated = await (confirming === 'block' ? blockMessagingApi(account.id, reason) : unblockMessagingApi(account.id))
+      onChanged(updated)
       toast.show({ kind: 'success', message: `${name}: ${done}` })
       setConfirming(null)
       setReason('')
-    } catch {
-      toast.show({ kind: 'error', message: `Couldn't update ${name}. The change wasn't saved, probably because the connection dropped. Press ${confirmLabel} to try again.` })
+    } catch (error) {
+      toast.show({ kind: 'error', message: failureCopy(error, name, confirming) })
+      setConfirming(null)
     } finally {
       setPending(false)
     }
   }
-
-  const { label, dot } = STATUS_LABEL[moderation.status]
-  const total = moderation.offenses.length
 
   // The confirmation replaces the sheet instead of stacking on it, so only one dialog traps focus and answers Escape.
   return (
@@ -117,69 +101,32 @@ export function CustomerDetailsSheet({ account, onClose }: CustomerDetailsSheetP
               </div>
             </dl>
 
-            {account && <CustomerPurchases id={account.id} />}
+            <CustomerPurchases id={account.id} />
 
-            <section aria-labelledby="offenses-heading" className="grid gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <h3 id="offenses-heading" className="text-base font-semibold text-fg">
-                  Offenses
-                </h3>
-                <p className="font-ui text-base text-fg tabular-nums">
-                  <span className="sr-only">Total offenses: </span>
-                  {total}
-                </p>
-              </div>
-              <p className="flex items-center gap-2 text-base text-fg">
-                <span className="text-fg-muted">Moderation status:</span>
-                <span className="font-ui inline-flex h-6 items-center gap-1.5 rounded-full border border-line-strong px-2 text-sm whitespace-nowrap">
-                  <span aria-hidden="true" className={`size-2 rounded-full ${dot}`} />
-                  {label}
-                </span>
-              </p>
-              {total === 0 ? (
-                <p className="text-base text-fg-muted">No offenses. Chat messages with hidden words from this customer will be listed here.</p>
-              ) : (
-                <ol aria-label="Offenses, newest first" className="divide-y divide-line border-y border-line">
-                  {moderation.offenses.map((offense) => (
-                    <li key={offense.id} className="grid gap-0.5 py-2 text-left">
-                      <p className="text-sm text-fg-muted tabular-nums">
-                        <time dateTime={offense.createdAt}>{formatPlacedAt(offense.createdAt)}</time>
-                        {offense.conversationId && <span className="font-mono"> · {offense.conversationId}</span>}
-                      </p>
-                      <p className="text-base break-words text-fg">{offense.excerpt}</p>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
+            <CustomerOffenses id={account.id} total={account.offenseCount} canRead={role === 'superadmin'} />
 
             <section aria-labelledby="moderation-heading" className="grid gap-3">
               <h3 id="moderation-heading" className="text-base font-semibold text-fg">
-                Moderation
+                Messaging
               </h3>
-              <div className="flex flex-wrap gap-3">
-                {ALLOWED[moderation.status].map((action) => (
-                  <button key={action} type="button" onClick={() => setConfirming(action)} className={SECONDARY_BUTTON_SM}>
+              <p className="flex items-center gap-2 text-base text-fg">
+                <span className="text-fg-muted">Status:</span>
+                <span className="font-ui inline-flex h-6 items-center gap-1.5 rounded-full border border-line-strong px-2 text-sm whitespace-nowrap">
+                  <span aria-hidden="true" className={`size-2 rounded-full ${blocked ? 'bg-warning' : 'bg-success'}`} />
+                  {blocked ? 'Messaging blocked' : 'Messaging allowed'}
+                </span>
+              </p>
+              {account.messagingBlockedAt && (
+                <p className="text-sm break-words text-fg-muted tabular-nums">
+                  Blocked <time dateTime={account.messagingBlockedAt}>{formatPlacedAt(account.messagingBlockedAt)}</time>.{account.messagingBlockedReason && ` Reason: ${account.messagingBlockedReason}`}
+                </p>
+              )}
+              {manage && (
+                <div className="flex flex-wrap gap-3">
+                  <button type="button" onClick={() => setConfirming(action)} className={SECONDARY_BUTTON_SM}>
                     {ACTIONS[action].button}
                   </button>
-                ))}
-              </div>
-              {moderation.history.length === 0 ? (
-                <p className="text-base text-fg-muted">No moderation actions yet.</p>
-              ) : (
-                <ol aria-label="Moderation actions, newest first" className="divide-y divide-line border-y border-line">
-                  {moderation.history.map((entry) => (
-                    <li key={entry.id} className="grid gap-0.5 py-2 text-left">
-                      <p className="text-base text-fg">
-                        {ACTIONS[entry.action].past} by {entry.actor}
-                      </p>
-                      <p className="text-sm text-fg-muted tabular-nums">
-                        <time dateTime={entry.at}>{formatPlacedAt(entry.at)}</time>
-                      </p>
-                      {entry.reason && <p className="text-base break-words text-fg-muted">Reason: {entry.reason}</p>}
-                    </li>
-                  ))}
-                </ol>
+                </div>
               )}
             </section>
           </div>
@@ -199,11 +146,13 @@ export function CustomerDetailsSheet({ account, onClose }: CustomerDetailsSheetP
         <p>
           {name} {confirming && ACTIONS[confirming].effect}
         </p>
-        <div className="mt-3">
-          <Field id="moderation-reason" label="Reason" optional count={{ value: reason.length, max: REASON_MAX }}>
-            <textarea id="moderation-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={REASON_MAX} rows={2} className={FIELD_INPUT} />
-          </Field>
-        </div>
+        {confirming === 'block' && (
+          <div className="mt-3">
+            <Field id="moderation-reason" label="Reason" optional count={{ value: reason.length, max: REASON_MAX }}>
+              <textarea id="moderation-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={REASON_MAX} rows={2} className={FIELD_INPUT} />
+            </Field>
+          </div>
+        )}
       </ConfirmDialog>
     </>
   )

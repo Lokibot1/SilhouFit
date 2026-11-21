@@ -96,6 +96,9 @@ const customer = (id: string, firstName: string, lastName: string, status: Custo
   role: 'customer',
   email: `${firstName}.${lastName}@example.com`.toLowerCase(),
   status,
+  offenseCount: 0,
+  messagingBlockedAt: null,
+  messagingBlockedReason: null,
 })
 const SAM = staff('s1', 'Sam', 'Reyes')
 const ANA = staff('s2', 'Ana', 'Cruz')
@@ -109,6 +112,15 @@ describe('Customers tab', () => {
     renderAdmin(<UserManagementPage />)
     await screen.findAllByText('Kim Tan')
   }
+
+  it("shows each customer's offense count from the API", async () => {
+    signInAs('admin')
+    vi.mocked(listCustomerAccounts).mockResolvedValue(page([{ ...KIM, offenseCount: 3 }]))
+    renderAdmin(<UserManagementPage />)
+    await screen.findAllByText('Kim Tan')
+    const table = screen.getAllByRole('table', { hidden: true })[0]
+    expect(within(table).getAllByRole('row', { hidden: true })[1]).toHaveTextContent(/Active.*3/)
+  })
 
   it('lists customers from the API with a running number, email, Active status and date, and no add button', async () => {
     await openCustomers()
