@@ -3,7 +3,7 @@ import { APPAREL_SIZES } from '../../../data/products'
 import { withCommas } from '../../../utils/format'
 import { formatFileSize } from '../../../utils/fileSize'
 import type { ProductVariant } from '../../../service/fetchProductList'
-import { createFailureReason, createVariant, manageFailureReason, saveVariant, uploadImage } from '../../../service/inventoryActions'
+import { createFailureReason, createVariant, manageFailureReason, saveVariant, sizingFailure, uploadImage } from '../../../service/inventoryActions'
 import {
   buildVariantInput,
   buildVariantPatch,
@@ -85,11 +85,13 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
   const [discarding, setDiscarding] = useState(false)
   // Counts up on every failed save, so focus moves once the fieldset is enabled again.
   const [focusFailure, setFocusFailure] = useState(0)
-  const [failedOnSku, setFailedOnSku] = useState(false)
+  const [failedOn, setFailedOn] = useState('vs-submit')
+  // A 400 about the size or the measurements: shown at that field while what was sent is still what is in the form.
+  const [rejected, setRejected] = useState<{ key: 'size' | 'measurements'; text: string; sent: string }>()
 
   useEffect(() => {
-    if (focusFailure && !pending) document.getElementById(failedOnSku ? 'vs-sku' : 'vs-submit')?.focus()
-    // Only a new failure moves focus, not the later edits that change `failedOnSku`.
+    if (focusFailure && !pending) document.getElementById(failedOn)?.focus()
+    // Only a new failure moves focus, not the later edits that change `failedOn`.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [focusFailure, pending])
 
@@ -114,6 +116,8 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
   const sent = inherit ? { ...values, measurements: baseText } : values
   const errors = validateVariantForm(sent, { mode })
   if (conflictSku && values.sku === conflictSku) errors.sku = `SKU ${conflictSku} is already used by another variant. Change the SKU.`
+  const attempt = JSON.stringify([values.size, sent.measurements])
+  if (rejected && rejected.sent === attempt) errors[rejected.key] = rejected.text
   const error = (key: string) => (attempted || touched.has(key) ? errors[key] : undefined)
   const touch = (key: string) => setTouched((old) => new Set(old).add(key))
   const unchanged = editing && Object.keys(buildVariantPatch(sent, variant)).length === 0 && !image
@@ -170,8 +174,11 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
       if (controller.signal.aborted) return
       const { kind = '' } = failure as { kind?: string }
       if (kind === 'conflict') setConflictSku(values.sku)
-      setFailedOnSku(kind === 'conflict')
+      const sizing = kind === 'validation' && stage === 'save' ? sizingFailure((failure as { detail?: string }).detail) : null
+      setRejected(sizing ? { key: sizing.field, text: sizing.reason, sent: attempt } : undefined)
+      setFailedOn(kind === 'conflict' ? 'vs-sku' : sizing ? FIELD_ID[sizing.field] : 'vs-submit')
       setFocusFailure((n) => n + 1)
+      if (sizing) return setBanner(null)
       setBanner({
         title: stage === 'upload' ? `Couldn't upload ${image?.file.name}.` : editing ? "Couldn't save the variant." : "Couldn't add the variant.",
         why: stage === 'upload' ? createFailureReason(failure, 'upload') : manageFailureReason(failure, editing ? 'save-variant' : 'add-variant'),

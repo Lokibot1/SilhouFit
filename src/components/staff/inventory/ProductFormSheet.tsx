@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CATEGORIES, SIZES_BY_CATEGORY, type Category } from '../../../data/products'
 import type { Gender } from '../../../service/fetchProductList'
 import { addCustomSizing, getCustomSizings, getProductSizingId, linkProductSizing, useCustomSizings } from '../../../service/customSizings'
-import { addProduct, createFailureReason, manageFailureReason, saveProduct, uploadImage } from '../../../service/inventoryActions'
+import { addProduct, createFailureReason, manageFailureReason, saveProduct, sizingFailure, uploadImage } from '../../../service/inventoryActions'
 import { buildCustomSizing, draftSizes, newSizingDraft, validateSizingDraft } from '../../../utils/customSizing'
 import { useBaseMeasurements } from '../../../hooks/useBaseMeasurements'
 import { GENDERS } from '../../../utils/inventoryQuery'
@@ -290,6 +290,8 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
         setConflictSku(conflict[1])
         touch(`sku:${conflict[0]}`)
       }
+      // The base rows may be what the server found missing, so read them again for the inline sizes check.
+      if (kind === 'validation' && stage === 'create' && !editing && sizingFailure(detail)) base.reload()
       setBanner({
         title:
           stage === 'upload'

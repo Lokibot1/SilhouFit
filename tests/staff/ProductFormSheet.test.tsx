@@ -227,6 +227,18 @@ describe('Add product sheet', () => {
     expect(within(dialog).queryByRole('link', { name: /Base measurements/ })).not.toBeInTheDocument()
   })
 
+  it('says a size or measurements rejection in plain words and reads the base rows again', async () => {
+    const user = userEvent.setup()
+    vi.mocked(addProduct).mockRejectedValue(new ProductListError('validation', 'Base size measurement for category "Hoodie" and size "S" has no measurement values defined.', 400))
+    const dialog = await openSheet(user)
+    await fillValid(user)
+    const before = vi.mocked(fetchCategoryMeasurements).mock.calls.length
+    await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
+    expect(await within(dialog).findByText(/has no garment measurements to use/)).toBeInTheDocument()
+    expect(within(dialog).queryByText(/measurement values defined/)).not.toBeInTheDocument()
+    await waitFor(() => expect(vi.mocked(fetchCategoryMeasurements).mock.calls.length).toBeGreaterThan(before))
+  })
+
   it('asks the API to inherit the base measurements on base sizes, without copying them', async () => {
     const user = userEvent.setup()
     vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })

@@ -225,6 +225,28 @@ describe('VariantSheet required measurements', () => {
     expect(within(sheet).queryByRole('link', { name: /Base measurements/ })).not.toBeInTheDocument()
   })
 
+  it('shows a size or measurements rejection at its field, focuses it, and clears it once the form changes', async () => {
+    const user = userEvent.setup()
+    const rejected = (detail: string) => new ProductListError('validation', detail, 400)
+    vi.mocked(createVariant)
+      .mockRejectedValueOnce(rejected('No active base size measurement found for category "Hoodie" and size "3XL" (variant "3XL"). Provide explicit measurements or create a base size measurement first.'))
+      .mockRejectedValueOnce(rejected('Size "XXL" is not an allowed apparel size. Allowed sizes are: XS'))
+    const { sheet } = setup({ category: 'Hoodie' })
+    await asCan(user, sheet)
+    await user.type(within(sheet).getByRole('textbox', { name: /^Chest width/ }), '50')
+    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
+    const measurements = await within(sheet).findByText(/has no garment measurements to use/)
+    expect(measurements).not.toHaveTextContent(/inheritBaseMeasurements|No active base/)
+    expect(within(sheet).queryByRole('alert')).not.toBeInTheDocument()
+    await waitFor(() => expect(sheet.querySelector('#vs-measurements')).toHaveFocus())
+    await user.type(within(sheet).getByRole('textbox', { name: /^Chest width/ }), '.5')
+    expect(within(sheet).queryByText(/has no garment measurements to use/)).not.toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
+    expect(await within(sheet).findByText(/size is missing or not one the store accepts/)).toBeInTheDocument()
+    await waitFor(() => expect(within(sheet).getByRole('combobox', { name: 'Size' })).toHaveFocus())
+    expect(within(sheet).getByRole('combobox', { name: 'Size' })).toHaveAttribute('aria-invalid', 'true')
+  })
+
   it('does not ask for measurements when editing', async () => {
     const user = userEvent.setup()
     vi.mocked(saveVariant).mockResolvedValue(VARIANT)

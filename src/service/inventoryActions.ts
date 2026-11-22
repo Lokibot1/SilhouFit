@@ -65,11 +65,23 @@ const UPLOAD_WHY: Record<string, string> = {
   forbidden: 'Your account is not allowed to upload to the product images storage. Ask an admin to allow staff uploads, then try again.',
 }
 
+/**
+ * A 400 about a variant's size or garment measurements, in plain words and with the field it belongs to; null for any other 400. The API words
+ * these several ways, so it goes by the subject: "measurement" first (those messages also mention the size), then the whole word "size".
+ */
+export function sizingFailure(detail: string | undefined): { field: 'size' | 'measurements'; reason: string } | null {
+  if (/measurement/i.test(detail ?? ''))
+    return { field: 'measurements', reason: "The variant's size has no garment measurements to use. Enter at least one measurement, or add that size in Base measurements and check again." }
+  if (/\bsize\b/i.test(detail ?? ''))
+    return { field: 'size', reason: "The variant's size is missing or not one the store accepts. Choose XS, S, M, L, XL, 2XL, 3XL or Free Size, then try again." }
+  return null
+}
+
 /** Why adding a product failed and what to do next. A 400 says what the server objected to. */
 export function createFailureReason(error: unknown, stage: 'upload' | 'create'): string {
   const { kind = '', detail } = (error ?? {}) as { kind?: string; detail?: string }
   if (kind === 'validation' && stage === 'create')
-    return `The server rejected the product${detail ? `: ${detail}` : ''}. Check what you entered, then create it again.`
+    return sizingFailure(detail)?.reason ?? `The server rejected the product${detail ? `: ${detail}` : ''}. Check what you entered, then create it again.`
   const why = (stage === 'upload' ? UPLOAD_WHY : CREATE_WHY)[kind] ?? WHY.server
   return stage === 'upload' && detail ? `${why} (Server said: ${detail})` : why
 }
@@ -105,7 +117,7 @@ const MANAGE_VERB: Record<ManageAction, string> = {
 /** Why deleting, adding or editing a product or variant failed and what to do next, for the "what happened" sentence before it. A 400 says what the server objected to. */
 export function manageFailureReason(error: unknown, action: ManageAction): string {
   const { kind = '', detail } = (error ?? {}) as { kind?: string; detail?: string }
-  if (kind === 'validation') return `The server rejected the change${detail ? `: ${detail}` : ''}. Check what you entered, then try again.`
+  if (kind === 'validation') return sizingFailure(detail)?.reason ?? `The server rejected the change${detail ? `: ${detail}` : ''}. Check what you entered, then try again.`
   if (kind === 'conflict') return 'That SKU is already used by another variant. Change the SKU, then try again.'
   if (kind === 'forbidden') return `Your account is not allowed to ${MANAGE_VERB[action]}. Sign in again, or ask an admin for access.`
   if (kind === 'not-found') return 'It no longer exists, so someone may have deleted it. Reload the list to see what is there now.'
