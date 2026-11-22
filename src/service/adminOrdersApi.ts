@@ -272,7 +272,7 @@ export async function cancelDelivery(id: string): Promise<void> {
   await change(() => request('POST', `${base(id)}/cancel-delivery`, undefined))
 }
 
-export const failureOf = (error: unknown) => error as { kind?: string; detail?: string; status?: number } | null
+export const failureOf = (error: unknown) => error as { kind?: string; detail?: string; status?: number; code?: string; retryable?: boolean } | null
 
 /** Why a change failed, in words a staff member can act on. The server's own sentence is used for a refusal (400, 409); never a provider's. */
 export function explainFailure(error: unknown): string {
@@ -286,9 +286,16 @@ export function explainFailure(error: unknown): string {
 
 /** The toast for a failed Book rider. `retry` is false when trying again cannot help. */
 export function dispatchFailure(error: unknown): { message: string; retry: boolean } {
-  const { kind, detail } = failureOf(error) ?? {}
+  const { kind, detail, code, retryable } = failureOf(error) ?? {}
+  if (code === 'INSUFFICIENT_COURIER_CREDIT') return { message: 'No rider was booked because the Lalamove wallet is out of credit. Ask an admin to top it up, then book again.', retry: false }
+  if (code === 'COURIER_AUTH_ERROR') return { message: 'No rider was booked because Lalamove rejected our account settings. Ask an admin to check the Lalamove keys.', retry: false }
+  if (code?.startsWith('PICKUP_LOCATION_')) return { message: 'No rider was booked because the pickup location is missing or incomplete. Ask an admin to fix it in Pickup location.', retry: false }
+  if (code === 'INVALID_PHONE_NUMBER') {
+    return { message: "No rider was booked because Lalamove can't use a phone number on this booking. Check the pickup contact phone in Pickup location and the customer's phone.", retry: false }
+  }
   if (kind === 'rate-limit') return { message: 'Too many requests right now, so no rider was booked. Try again shortly.', retry: true }
-  if (kind === 'conflict') return { message: 'This order is already being dispatched.', retry: false }
+  if (kind === 'conflict') return { message: code && detail ? detail : 'This order is already being dispatched.', retry: false }
+  if (retryable === false) return { message: detail ?? 'No rider was booked, and trying again will not help.', retry: false }
   if (kind === 'validation') return { message: detail ?? 'The server did not accept this booking.', retry: false }
   if (kind === 'forbidden') return { message: explainFailure(error), retry: false }
   if (kind === 'network') return { message: `No rider was booked. ${explainFailure(error)}`, retry: true }
@@ -297,6 +304,8 @@ export function dispatchFailure(error: unknown): { message: string; retry: boole
 
 /** The inline error for a failed Cancel delivery. */
 export function cancelDeliveryFailure(error: unknown): string {
-  if (failureOf(error)?.kind === 'conflict') return 'Lalamove only lets you cancel while it is finding a driver or within 5 minutes of a match. Contact Lalamove support to cancel this delivery.'
+  const { kind, detail, code } = failureOf(error) ?? {}
+  if (kind === 'conflict' && code && code !== 'CANCELLATION_FORBIDDEN' && detail) return detail
+  if (kind === 'conflict') return 'Lalamove only lets you cancel while it is finding a driver or within 5 minutes of a match. Contact Lalamove support to cancel this delivery.'
   return `The delivery was not cancelled. ${explainFailure(error)}`
 }

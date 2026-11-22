@@ -79,14 +79,17 @@ export class ProductListError extends Error {
   code?: string
   /** On a 429: how long the server asked us to wait (its `Retry-After`), 15 s when it did not say, at most 120 s. */
   retryAfterMs?: number
+  /** The server's `retryable` flag; false means asking again cannot help. */
+  retryable?: boolean
 
-  constructor(kind: ProductListErrorKind, detail?: string, status?: number, code?: string, retryAfterMs?: number) {
+  constructor(kind: ProductListErrorKind, detail?: string, status?: number, code?: string, retryAfterMs?: number, retryable?: boolean) {
     super(`Loading products failed (${kind}).`)
     this.kind = kind
     this.detail = detail
     this.status = status
     this.code = code
     this.retryAfterMs = retryAfterMs
+    this.retryable = retryable
   }
 }
 
@@ -98,12 +101,16 @@ const retryAfterMs = (response: Response) => {
 
 const STATUS_KIND: Record<number, ProductListErrorKind> = { 400: 'validation', 401: 'forbidden', 403: 'forbidden', 404: 'not-found', 409: 'conflict', 429: 'rate-limit' }
 
-/** The server's own message (Nest sends a string or a list of them) and its `code`, each undefined when the body does not have it. */
-async function errorBody(response: Response): Promise<{ detail?: string; code?: string }> {
+/** The server's own message (Nest sends a string or a list of them), its `code` and `retryable`, each undefined when the body does not have it. */
+async function errorBody(response: Response): Promise<{ detail?: string; code?: string; retryable?: boolean }> {
   try {
-    const { message, code } = (await response.json()) as { message?: unknown; code?: unknown }
+    const { message, code, retryable } = (await response.json()) as { message?: unknown; code?: unknown; retryable?: unknown }
     const text = Array.isArray(message) ? message.filter((m) => typeof m === 'string').join('; ') : message
-    return { detail: typeof text === 'string' && text ? text.slice(0, 300) : undefined, code: typeof code === 'string' ? code : undefined }
+    return {
+      detail: typeof text === 'string' && text ? text.slice(0, 300) : undefined,
+      code: typeof code === 'string' ? code : undefined,
+      retryable: typeof retryable === 'boolean' ? retryable : undefined,
+    }
   } catch {
     return {}
   }
@@ -133,8 +140,8 @@ export async function request(method: 'GET' | 'PATCH' | 'POST' | 'PUT' | 'DELETE
     throw new ProductListError('network')
   }
   if (!response.ok) {
-    const { detail, code } = await errorBody(response)
-    throw new ProductListError(STATUS_KIND[response.status] ?? 'server', detail, response.status, code, retryAfterMs(response))
+    const { detail, code, retryable } = await errorBody(response)
+    throw new ProductListError(STATUS_KIND[response.status] ?? 'server', detail, response.status, code, retryAfterMs(response), retryable)
   }
   try {
     return await response.json()

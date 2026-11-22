@@ -234,7 +234,31 @@ describe('failure copy', () => {
     expect(dispatchFailure(fail('validation', 'Only paid orders can be dispatched.'))).toEqual({ message: 'Only paid orders can be dispatched.', retry: false })
   })
 
+  it.each([
+    ['INSUFFICIENT_COURIER_CREDIT', 'server', /wallet is out of credit/],
+    ['COURIER_AUTH_ERROR', 'server', /Lalamove keys/],
+    ['PICKUP_LOCATION_NOT_CONFIGURED', 'validation', /pickup location is missing/],
+    ['PICKUP_LOCATION_INVALID', 'validation', /pickup location is missing/],
+    ['INVALID_PHONE_NUMBER', 'validation', /pickup contact phone/],
+  ] as const)('gives next steps for %s and offers no retry', (code, kind, copy) => {
+    const result = dispatchFailure(new ProductListError(kind, 'Provider said ERR_X', 502, code, undefined, false))
+    expect(result.message).toMatch(copy)
+    expect(result.message).not.toMatch(/ERR_X/)
+    expect(result.retry).toBe(false)
+  })
+
+  it('keeps retry for a transient coded error and drops it when the server says not to retry', () => {
+    expect(dispatchFailure(new ProductListError('server', 'Lalamove timed out', 502, 'COURIER_TIMEOUT', undefined, true)).retry).toBe(true)
+    expect(dispatchFailure(new ProductListError('server', 'Rejected for good', 502, 'COURIER_REJECTED', undefined, false))).toEqual({ message: 'Rejected for good', retry: false })
+  })
+
+  it('shows the server sentence for a coded conflict', () => {
+    expect(dispatchFailure(new ProductListError('conflict', 'Delivery already booked.', 409, 'DELIVERY_EXISTS'))).toEqual({ message: 'Delivery already booked.', retry: false })
+  })
+
   it('explains the cancellation window on a conflict, and the failure otherwise', () => {
+    expect(cancelDeliveryFailure(new ProductListError('conflict', 'Order is not shipped.', 409, 'ORDER_STATE'))).toBe('Order is not shipped.')
+    expect(cancelDeliveryFailure(new ProductListError('conflict', 'x', 409, 'CANCELLATION_FORBIDDEN'))).toMatch(/within 5 minutes/)
     expect(cancelDeliveryFailure(fail('conflict'))).toMatch(/within 5 minutes of a match\. Contact Lalamove support/)
     expect(cancelDeliveryFailure(fail('network'))).toMatch(/^The delivery was not cancelled\. The connection dropped/)
   })

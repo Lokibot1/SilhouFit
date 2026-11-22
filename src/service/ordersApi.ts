@@ -87,8 +87,8 @@ export interface OrdersPage {
   meta: { total: number; page: number; limit: number; totalPages: number; hasNextPage: boolean }
 }
 
-/** 'no-coordinates': the saved address has no map pin. 'not-cancellable': the order moved on. 'quote-expired': the delivery fee quote ran out or no longer fits. 'already-paid': the payment service already took the payment, but the order has not caught up yet. 'simulated' is kept for callers that gate on it. */
-export type OrdersErrorKind = ProductListErrorKind | 'simulated' | 'no-coordinates' | 'not-cancellable' | 'quote-expired' | 'already-paid'
+/** 'undeliverable': the courier cannot serve the address (out of area, too far, bad phone); another address is the fix. 'no-coordinates': the saved address has no map pin. 'not-cancellable': the order moved on. 'quote-expired': the delivery fee quote ran out or no longer fits. 'already-paid': the payment service already took the payment, but the order has not caught up yet. 'simulated' is kept for callers that gate on it. */
+export type OrdersErrorKind = ProductListErrorKind | 'simulated' | 'no-coordinates' | 'not-cancellable' | 'quote-expired' | 'already-paid' | 'undeliverable'
 
 export class OrdersError extends Error {
   kind: OrdersErrorKind
@@ -96,13 +96,19 @@ export class OrdersError extends Error {
   detail?: string
   status?: number
   retryAfterMs?: number
+  /** The server's machine-readable `code`, when it sent one. */
+  code?: string
+  /** The server's `retryable` flag; false means asking again cannot help. */
+  retryable?: boolean
 
-  constructor(kind: OrdersErrorKind, detail?: string, status?: number, retryAfterMs?: number) {
+  constructor(kind: OrdersErrorKind, detail?: string, status?: number, retryAfterMs?: number, code?: string, retryable?: boolean) {
     super(`The orders request failed (${kind}).`)
     this.kind = kind
     this.detail = detail
     this.status = status
     this.retryAfterMs = retryAfterMs
+    this.code = code
+    this.retryable = retryable
   }
 }
 
@@ -200,11 +206,21 @@ type Operation = 'create' | 'quote' | 'read' | 'cancel' | 'pay'
 
 const STOCK_WORDS = /stock|unavailable|no longer available|invalid quantity/i
 
+const ADDRESS_CODES = ['OUT_OF_SERVICE_AREA', 'ROUTE_TOO_FAR', 'INVALID_MARKET', 'INVALID_DELIVERY_ROUTE', 'INCOMPLETE_ADDRESS']
+const OUR_SIDE_CODES = ['PICKUP_LOCATION_NOT_CONFIGURED', 'PICKUP_LOCATION_INVALID', 'COURIER_SERVICE_UNAVAILABLE', 'COURIER_AUTH_ERROR']
+
 /** Turns the API's failure into one the screen can explain; an abort passes through untouched. */
 function toOrdersError(failure: unknown, operation: Operation): unknown {
   if (!(failure instanceof ProductListError)) return failure
-  const { kind, detail, status, retryAfterMs } = failure
+  const { kind, detail, status, retryAfterMs, code, retryable } = failure
   const told = detail ?? ''
+  if (code && ADDRESS_CODES.includes(code)) return new OrdersError('undeliverable', `${told} Choose another delivery address.`.trim(), status, undefined, code, retryable)
+  if (code === 'INVALID_PHONE_NUMBER') {
+    return new OrdersError('undeliverable', "The phone number on this address can't be used by our courier. Edit the address with a Philippine mobile number like 0917 123 4567.", status, undefined, code, retryable)
+  }
+  if (code && OUR_SIDE_CODES.includes(code)) {
+    return new OrdersError('server', "Delivery isn't available right now because of a problem on our side. Your order was not placed. Contact us and we'll sort it out.", status, undefined, code, false)
+  }
   if (kind === 'validation') {
     if (operation === 'cancel') return new OrdersError('not-cancellable', undefined, status)
     if (operation === 'pay' && /already been paid/i.test(told)) return new OrdersError('already-paid', undefined, status)
@@ -218,7 +234,7 @@ function toOrdersError(failure: unknown, operation: Operation): unknown {
   }
   if (kind === 'not-found' && (operation === 'create' || operation === 'quote')) return new OrdersError('not-found', 'That address is gone. Pick another delivery address.', status)
   if (kind === 'forbidden') return new OrdersError('forbidden', 'Your session ended. Sign in again.', status)
-  return new OrdersError(kind, told || undefined, status, retryAfterMs)
+  return new OrdersError(kind, told || undefined, status, retryAfterMs, code, retryable)
 }
 
 async function call(method: 'GET' | 'POST', path: string, body: unknown, signal: AbortSignal | undefined, operation: Operation) {

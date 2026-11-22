@@ -14,6 +14,19 @@ const { resetSampleOrders } = await import('../../src/service/sampleOrders')
 
 const page = (data: unknown[], more = false) => ({ data, meta: { total: data.length, page: 1, limit: 100, totalPages: more ? 2 : 1, hasNextPage: more, hasPreviousPage: false } })
 
+const COURIER_CODES: [string, string, RegExp][] = [
+  ['OUT_OF_SERVICE_AREA', 'undeliverable', /Makati City, Metro Manila.*Choose another delivery address\.$/],
+  ['ROUTE_TOO_FAR', 'undeliverable', /Choose another delivery address\.$/],
+  ['INVALID_MARKET', 'undeliverable', /Choose another delivery address\.$/],
+  ['INVALID_DELIVERY_ROUTE', 'undeliverable', /Choose another delivery address\.$/],
+  ['INCOMPLETE_ADDRESS', 'undeliverable', /Choose another delivery address\.$/],
+  ['INVALID_PHONE_NUMBER', 'undeliverable', /Philippine mobile number like 0917 123 4567/],
+  ['PICKUP_LOCATION_NOT_CONFIGURED', 'server', /problem on our side/],
+  ['PICKUP_LOCATION_INVALID', 'server', /problem on our side/],
+  ['COURIER_SERVICE_UNAVAILABLE', 'server', /problem on our side/],
+  ['COURIER_AUTH_ERROR', 'server', /problem on our side/],
+]
+
 beforeEach(() => {
   vi.resetAllMocks()
   vi.useRealTimers()
@@ -158,6 +171,13 @@ describe('placing an order', () => {
     send.mockRejectedValue(new ProductListError(kind))
     await expect(createOrder({ addressId: 'a1' })).rejects.toMatchObject({ kind })
   })
+
+  it.each(COURIER_CODES)('maps %s to %s on create, even when the message mentions stock', async (code, kind, copy) => {
+    send.mockRejectedValue(new ProductListError('validation', 'Pickup is in Makati City, Metro Manila. Item unavailable.', 422, code, undefined, false))
+    const error = (await createOrder({ addressId: 'a1' }).catch((e: unknown) => e)) as InstanceType<typeof OrdersError>
+    expect(error).toMatchObject({ kind, code, retryable: false })
+    expect(error.detail).toMatch(copy)
+  })
 })
 
 describe('quoting shipping', () => {
@@ -184,6 +204,20 @@ describe('quoting shipping', () => {
     await expect(quoteShipping('a1')).rejects.toMatchObject({ kind: 'no-coordinates' })
     send.mockRejectedValueOnce(new ProductListError('rate-limit', undefined, 429))
     await expect(quoteShipping('a1')).rejects.toMatchObject({ kind: 'rate-limit' })
+  })
+
+  it.each(COURIER_CODES)('maps %s to %s on a quote', async (code, kind, copy) => {
+    send.mockRejectedValue(new ProductListError('validation', 'Pickup is in Makati City, Metro Manila.', 422, code, undefined, false))
+    const error = (await quoteShipping('a1').catch((e: unknown) => e)) as InstanceType<typeof OrdersError>
+    expect(error).toMatchObject({ kind, code, retryable: false })
+    expect(error.detail).toMatch(copy)
+  })
+
+  it('passes retryable through and leaves old errors without a code alone', async () => {
+    send.mockRejectedValueOnce(new ProductListError('server', 'Lalamove timed out', 502, 'COURIER_TIMEOUT', undefined, true))
+    await expect(quoteShipping('a1')).rejects.toMatchObject({ kind: 'server', detail: 'Lalamove timed out', retryable: true })
+    send.mockRejectedValueOnce(new ProductListError('server', undefined, 500))
+    await expect(quoteShipping('a1')).rejects.toMatchObject({ kind: 'server', code: undefined, retryable: undefined })
   })
 })
 
