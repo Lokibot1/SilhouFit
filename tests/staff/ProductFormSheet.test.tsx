@@ -212,6 +212,21 @@ describe('Add product sheet', () => {
     await waitFor(() => expect(addProduct).toHaveBeenCalledTimes(1))
   })
 
+  it('links the missing sizes to Base measurements, and Check again clears the message once they are added', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetchCategoryMeasurements).mockResolvedValue(['S', 'M'].map(baseRow))
+    const dialog = await openSheet(user)
+    await fillValid(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
+    const link = await within(dialog).findByRole('link', { name: /Add XS, L, XL in Base measurements/ })
+    expect(link).toHaveAttribute('href', 'measurements?category=Hoodie')
+    expect(link).toHaveAttribute('target', '_blank')
+    vi.mocked(fetchCategoryMeasurements).mockResolvedValue(['XS', 'S', 'M', 'L', 'XL'].map(baseRow))
+    await user.click(within(dialog).getByRole('button', { name: 'Check again' }))
+    await waitFor(() => expect(within(dialog).queryByText(/No size guide measurements/)).not.toBeInTheDocument())
+    expect(within(dialog).queryByRole('link', { name: /Base measurements/ })).not.toBeInTheDocument()
+  })
+
   it('asks the API to inherit the base measurements on base sizes, without copying them', async () => {
     const user = userEvent.setup()
     vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })

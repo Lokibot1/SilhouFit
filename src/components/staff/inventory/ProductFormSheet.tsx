@@ -527,7 +527,7 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
               }}
             />
 
-            {!editing && <VariantBuilder values={values} skus={skus} disabled={pending} error={error} touch={touch} set={set} />}
+            {!editing && <VariantBuilder values={values} skus={skus} disabled={pending} error={error} touch={touch} set={set} base={base} />}
           </fieldset>
         </form>
       )}

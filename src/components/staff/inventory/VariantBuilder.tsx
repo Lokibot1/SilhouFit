@@ -1,4 +1,6 @@
+import type { useBaseMeasurements } from '../../../hooks/useBaseMeasurements'
 import { withCommas } from '../../../utils/format'
+import { baseMeasurementsFor } from '../../../utils/sizeGuide'
 import {
   DEFAULT_HEX,
   describedBy,
@@ -17,6 +19,7 @@ import {
 } from '../../../utils/productValidation'
 import { PlusIcon } from '../../form/icons'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { BaseMeasurementsLink } from './BaseMeasurementsLink'
 import { Field, FIELD_INPUT } from './FormField'
 import { SizingPicker } from './SizingPicker'
 import { StockCell } from './StockEditor'
@@ -34,12 +37,14 @@ interface VariantBuilderProps {
   error: (key: string) => string | undefined
   touch: (key: string) => void
   set: (patch: Partial<ProductFormValues>) => void
+  /** The category's base measurements: a ticked size without a row gets a link to add it, and Check again. */
+  base: ReturnType<typeof useBaseMeasurements>
 }
 
 const SMALL_BUTTON = `${SECONDARY_BUTTON} text-sm`
 
 /** Sizes as tick chips, colours as rows, and the size x colour variants they make, one card each (the sheet is narrow). */
-export function VariantBuilder({ values, skus, disabled, error, touch, set }: VariantBuilderProps) {
+export function VariantBuilder({ values, skus, disabled, error, touch, set, base }: VariantBuilderProps) {
   const chips = sizeChips(values)
   const rows = variantRows(values)
 
@@ -51,6 +56,7 @@ export function VariantBuilder({ values, skus, disabled, error, touch, set }: Va
   const setColor = (id: string, patch: Partial<ColorRow>) => set({ colors: values.colors.map((c) => (c.id === id ? { ...c, ...patch } : c)) })
   const sizesError = error('sizes')
   const colorsError = error('colors')
+  const missing = base.status === 'ready' ? chips.filter((size) => values.sizes.includes(size) && !baseMeasurementsFor(values.category, size, base.rows)) : []
 
   return (
     <div className="grid gap-5">
@@ -77,6 +83,7 @@ export function VariantBuilder({ values, skus, disabled, error, touch, set }: Va
             ))}
           </div>
           {sizesError && <p className="text-sm text-danger">{sizesError}</p>}
+          {sizesError && missing.length > 0 && <BaseMeasurementsLink category={values.category} sizes={missing.join(', ')} onCheckAgain={base.reload} />}
         </fieldset>
       )}
 
