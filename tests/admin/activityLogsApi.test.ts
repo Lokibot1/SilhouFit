@@ -104,6 +104,13 @@ describe('fetchActivityLogs', () => {
     expect(data[1].actor).toBe('Payment gateway')
   })
 
+  it('files every pickup location action under Orders', async () => {
+    const actions = ['PICKUP_LOCATION_CREATED', 'PICKUP_LOCATION_UPDATED', 'PICKUP_LOCATION_DELETED']
+    send.mockResolvedValue(page(actions.map((action, i) => entry({ id: `p${i}`, action, target: { type: 'PICKUP_LOCATION', id: 'p1', label: 'Main warehouse' } }))))
+    const { data } = await fetchActivityLogs({})
+    expect(data.map((log) => [log.action, log.category])).toEqual(actions.map((action) => [action, 'order']))
+  })
+
   it.each([
     ['a body that is not an object', 'nope'],
     ['no data list', { meta: { total: 0 } }],
