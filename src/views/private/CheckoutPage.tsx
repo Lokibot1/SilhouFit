@@ -47,6 +47,7 @@ import {
   filterStreet,
   NATIONAL_PHONE_MAX,
   toNationalPhone,
+  validateAddressPhone,
   validateCity,
   validateFullName,
   validatePostal,
@@ -58,7 +59,7 @@ import {
 import { formatPeso, variantLabel } from '../../utils/format'
 import { adaptOrderToReceipt } from '../../utils/orders'
 import { hasProfanity, PROFANITY_ERROR } from '../../utils/profanity'
-import { sanitizePhoneDigits, validatePhone } from '../../utils/signUpValidation'
+import { sanitizePhoneDigits } from '../../utils/signUpValidation'
 
 const META_DESCRIPTION =
   'Review your SilhouFit order, pick a saved delivery address and add a note for the seller. You pay on a secure payment page right after placing your order.'
@@ -78,7 +79,7 @@ const FILTERS: Record<AddressField, (value: string) => string> = {
 }
 const VALIDATORS: Record<AddressField, (value: string) => string | null> = {
   fullName: validateFullName,
-  phone: validatePhone,
+  phone: validateAddressPhone,
   street: validateStreet,
   city: validateCity,
   postal: validatePostal,
@@ -171,6 +172,8 @@ function describeFailure(error: OrdersError): { title: string; body: string; aga
   switch (error.kind) {
     case 'no-coordinates':
       return { title: 'This address has no map pin', body: `${error.detail ?? 'Pin this address on the map so we can deliver to it.'} Your order was not placed.`, again: false }
+    case 'undeliverable':
+      return { title: "We can't deliver to this address", body: `${error.detail ?? 'Our courier cannot deliver there. Choose another delivery address.'} Your order was not placed.`, again: false }
     case 'quote-expired':
       return { title: 'The delivery fee changed', body: error.detail ?? 'The delivery fee ran out before your order went through. Check the new fee, then place your order again.', again: true }
     case 'validation':
@@ -184,7 +187,7 @@ function describeFailure(error: OrdersError): { title: string; body: string; aga
     case 'network':
       return { title, body: 'The connection dropped before we got a reply, and no new order shows on your account. Your details are kept: check your connection, then try again.', again: true }
     default:
-      return { title, body: 'Something went wrong on our side, so no order was made. Your details are kept: try again in a moment.', again: true }
+      return { title, body: (error.code && error.detail) || 'Something went wrong on our side, so no order was made. Your details are kept: try again in a moment.', again: error.retryable !== false }
   }
 }
 
@@ -265,7 +268,7 @@ function FailurePanel({ error, fromCart, next, onRetry, onPin, onPick }: Failure
               Pin this address
             </button>
           )}
-          {error.kind === 'not-found' && (
+          {(error.kind === 'not-found' || error.kind === 'undeliverable') && (
             <button type="button" onClick={onPick} className={KRAL_PRIMARY}>
               Pick an address
             </button>
@@ -442,7 +445,9 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
   const totals = computeTotals(items, simulated ? undefined : (current?.data?.shippingFee ?? 0))
   const quoteError = current?.error
   const quoteErrorCopy =
-    quoteError?.kind === 'rate-limit'
+    quoteError?.kind === 'undeliverable' || (quoteError?.kind === 'server' && quoteError.code && quoteError.detail)
+      ? quoteError.detail
+      : quoteError?.kind === 'rate-limit'
       ? 'Too many fee checks in a minute. Try again shortly.'
       : quoteError?.kind === 'network'
         ? "We couldn't get the delivery fee because the connection dropped. Check your connection, then try again."
@@ -901,9 +906,16 @@ function CheckoutForm({ items, user, fromCart, notices }: CheckoutFormProps) {
                 Pin your address
               </button>
             )}
-            <button type="button" onClick={() => setQuoteNonce((n) => n + 1)} className={KRAL_LINK}>
-              Try again
-            </button>
+            {quoteError.kind === 'undeliverable' && (
+              <button type="button" onClick={() => setEditing(true)} className={KRAL_LINK}>
+                Pick an address
+              </button>
+            )}
+            {quoteError.retryable !== false && (
+              <button type="button" onClick={() => setQuoteNonce((n) => n + 1)} className={KRAL_LINK}>
+                Try again
+              </button>
+            )}
           </div>
         )}
 

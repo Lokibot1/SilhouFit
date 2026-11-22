@@ -135,7 +135,7 @@ test('a failed quote says "Unavailable", disables Place order, and Try again rec
   expect(shop.orders.quotes).toHaveLength(2)
 })
 
-const FAILURES: { name: string; reply: OrderReply | 'abort'; copy: string; pin?: boolean }[] = [
+const FAILURES: { name: string; reply: OrderReply | 'abort'; copy: string; pin?: boolean; pick?: boolean }[] = [
   { name: 'too many requests (429)', reply: { status: 429, json: { statusCode: 429, message: 'ThrottlerException: Too Many Requests' } }, copy: 'Too many fee checks in a minute. Try again shortly.' },
   { name: 'a dropped connection', reply: 'abort', copy: "We couldn't get the delivery fee because the connection dropped. Check your connection, then try again." },
   {
@@ -144,14 +144,24 @@ const FAILURES: { name: string; reply: OrderReply | 'abort'; copy: string; pin?:
     copy: "This address has no map pin on our side, so we can't work out delivery. Pin it on the map, then your fee loads.",
     pin: true,
   },
+  {
+    name: 'an address outside the delivery area',
+    reply: {
+      status: 422,
+      json: { statusCode: 422, error: 'Unprocessable Entity', code: 'OUT_OF_SERVICE_AREA', message: 'We only deliver within Makati City, Metro Manila.', retryable: false },
+    },
+    copy: 'We only deliver within Makati City, Metro Manila. Choose another delivery address.',
+    pick: true,
+  },
 ]
-for (const { name, reply, copy, pin } of FAILURES) {
+for (const { name, reply, copy, pin, pick } of FAILURES) {
   test(`${name} has its own message and keeps Place order disabled`, async ({ page }) => {
     shop.orders.on.quote = () => reply
     await openCheckout(page)
     await expect(shippingRow(page)).toContainText('Unavailable')
     await expect(summary(page).getByRole('alert')).toContainText(copy)
-    await expect(summary(page).getByRole('alert').getByRole('button', { name: 'Try again' })).toBeVisible()
+    await expect(summary(page).getByRole('alert').getByRole('button', { name: 'Try again' })).toHaveCount(pick ? 0 : 1)
+    await expect(summary(page).getByRole('alert').getByRole('button', { name: 'Pick an address' })).toHaveCount(pick ? 1 : 0)
     await expect(summary(page).getByRole('alert').getByRole('button', { name: 'Pin your address' })).toHaveCount(pin ? 1 : 0)
     await expect(placeOrderButton(page)).toBeDisabled()
     expect(shop.orders.posts).toHaveLength(0)

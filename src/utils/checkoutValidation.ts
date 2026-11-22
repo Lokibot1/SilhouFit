@@ -132,8 +132,7 @@ export function validateLine2(value: string): string | null {
 }
 
 // A copy of the API's PH_PHONE_REGEX (silhoufit-api/src/addresses/dto/address.constants.ts): the server is the authority.
-const PH_PHONE_REGEX =
-  /^(?:(?:\+63|0)[\s.-]?9(?:[\s.-]?\d){9}|(?:\+63|0)[\s.-]?[2-8]\d{0,2}(?:[\s.-]?\d{3,4}){2}|\(0[2-8]\d{0,2}\)[\s.-]?(?:\d{3,4}[\s.-]?){1,2}\d{4})$/
+const PH_PHONE_REGEX = /^(?:\+63|0)[\s.-]?9(?:[\s.-]?\d){9}$/
 
 /** `national` is what follows the fixed "+63". */
 export function validateAddressPhone(national: string): string | null {

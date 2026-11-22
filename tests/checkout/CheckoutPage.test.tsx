@@ -367,6 +367,16 @@ describe('CheckoutPage address and note', () => {
     expect(screen.getByLabelText('Phone number')).toHaveValue('9171234567') // the +63 is dropped, digits only, 10 at most
   })
 
+  it('rejects a landline in the phone field and asks for a Philippine mobile number', async () => {
+    const user = userEvent.setup({ delay: null })
+    renderCheckout()
+    await screen.findByRole('heading', { name: 'Heritage Polo' })
+    await openAddress(user)
+    await user.type(screen.getByLabelText('Phone number'), '281234567')
+    await user.tab()
+    expect(screen.getByText('Enter a Philippine mobile number like 917 123 4567.')).toBeInTheDocument()
+  })
+
   it('counts the phone out of 10 and stops there, so a typed 0 does not leave room for an extra digit', async () => {
     const user = userEvent.setup({ delay: null })
     renderCheckout()
