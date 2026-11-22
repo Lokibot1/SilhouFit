@@ -181,7 +181,9 @@ export function buildTimeline(order: CustomerOrder): TimelineStep[] {
   if (order.status === 'REFUNDED') {
     const reached = order.shipment?.deliveredAt ? 6 : order.shipment?.pickupTime ? 4 : order.paidAt ? 2 : 1
     const done = FLOW.slice(0, reached).map((step, i): TimelineStep => ({ ...step, at: stamps[i], state: 'done' }))
-    return [...done, { key: 'refunded', label: 'Refunded', at: null, state: 'current' }]
+    // Only an order that was cancelled first has a Cancelled step; the API sends no time for the refund itself.
+    const cancelled: TimelineStep[] = order.cancelledAt ? [{ key: 'cancelled', label: 'Cancelled', at: order.cancelledAt, state: 'cancelled', note: order.cancellationReason ?? undefined }] : []
+    return [...done, ...cancelled, { key: 'refunded', label: 'Refunded', at: null, state: 'current' }]
   }
   const current = CURRENT_STEP[order.status]
   return FLOW.map((step, i): TimelineStep => {

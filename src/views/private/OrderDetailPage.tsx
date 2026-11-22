@@ -240,7 +240,7 @@ function OrderBody({ order, onCancel, onRefresh }: { order: CustomerOrder; onCan
           <Row label="Total" strong>
             {formatPeso(order.total)}
           </Row>
-          <Row label="Payment">{paymentStatusLabel(order.paymentStatus)}</Row>
+          <Row label="Payment">{order.status === 'CANCELLED' && order.paymentStatus === 'PAID' ? 'Refund in progress' : paymentStatusLabel(order.paymentStatus)}</Row>
         </dl>
 
         <div className="border-t border-kral-rule pt-4">

@@ -138,6 +138,13 @@ describe('the timeline', () => {
     expect(steps.map((s) => s.key)).toContain('delivered')
     expect(buildTimeline(customerOrder({ status: 'REFUNDED' })).map((s) => s.key)).toEqual(['placed', 'refunded'])
   })
+
+  it('keeps Cancelled with its reason before Refunded, and gives Refunded no time', () => {
+    const steps = buildTimeline(customerOrder({ status: 'REFUNDED', paidAt: '2026-10-26T03:00:00.000Z', cancelledAt: '2026-10-26T05:00:00.000Z', cancellationReason: 'Wrong size' }))
+    expect(steps.map((s) => s.key)).toEqual(['placed', 'paid', 'cancelled', 'refunded'])
+    expect(steps[2]).toMatchObject({ state: 'cancelled', at: '2026-10-26T05:00:00.000Z', note: 'Wrong size' })
+    expect(steps[3]).toMatchObject({ state: 'current', at: null })
+  })
 })
 
 describe('adaptOrderToReceipt', () => {
