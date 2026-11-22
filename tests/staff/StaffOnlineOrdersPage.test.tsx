@@ -6,6 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import type { AdminOrderDetail, AdminOrderMetrics, AdminOrderRow, AdminOrdersPage } from '../../src/service/adminOrdersApi'
 import { ProductListError } from '../../src/service/fetchProductList'
+import { clearSession, setSession } from '../../src/service/session'
 import { customerOrder, orderItem } from '../fixtures/orders'
 
 vi.mock('../../src/service/adminOrdersApi', async (importOriginal) => ({
@@ -16,6 +17,7 @@ vi.mock('../../src/service/adminOrdersApi', async (importOriginal) => ({
   updateAdminOrder: vi.fn(),
   dispatchOrder: vi.fn(),
   cancelDelivery: vi.fn(),
+  cancelAndRefundOrder: vi.fn(),
 }))
 
 const api = await import('../../src/service/adminOrdersApi')
@@ -26,6 +28,7 @@ const metrics = vi.mocked(api.fetchAdminOrderMetrics)
 const detail = vi.mocked(api.fetchAdminOrder)
 const update = vi.mocked(api.updateAdminOrder)
 const dispatch = vi.mocked(api.dispatchOrder)
+const refund = vi.mocked(api.cancelAndRefundOrder)
 
 const COUNTS: AdminOrderMetrics = { pendingPaymentCount: 4, processingCount: 3, dispatchedCount: 2, deliveredTodayCount: 1, totalRevenue: 12500 }
 
@@ -71,6 +74,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  clearSession()
   const orders = [row(1), row(2, { status: 'PENDING_PAYMENT', paymentStatus: 'UNPAID' })]
   list.mockResolvedValue(answer(orders))
   metrics.mockResolvedValue(COUNTS)
@@ -339,15 +343,96 @@ describe('Online orders page', () => {
     expect(dialog).toBeInTheDocument()
   })
 
-  it('keeps Cancel order off for a paid order and says why', async () => {
+  it('keeps Cancel and refund off for staff and says only an admin can', async () => {
+    setSession({ name: 'Sam', email: 'sam@example.com', role: 'staff' })
     renderPage()
     const drawer = await openOrder(1)
-    expect(await within(drawer).findByText("Paid orders can't be cancelled here. Refunds go through the payment provider.")).toBeInTheDocument()
-    const cancel = within(drawer).getByRole('button', { name: 'Cancel order' })
+    expect(await within(drawer).findByText('Only an admin can cancel a paid order and refund it.')).toBeInTheDocument()
+    const cancel = within(drawer).getByRole('button', { name: 'Cancel and refund' })
     expect(cancel).toBeDisabled()
     await userEvent.click(cancel)
-    expect(screen.queryByRole('dialog', { name: /^Cancel order SHF/ })).not.toBeInTheDocument()
-    expect(update).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog', { name: /^Cancel and refund order SHF/ })).not.toBeInTheDocument()
+    expect(refund).not.toHaveBeenCalled()
+  })
+
+  describe('Cancel and refund as an admin', () => {
+    const openDialog = async () => {
+      setSession({ name: 'Ana', email: 'ana@example.com', role: 'admin' })
+      renderPage()
+      const drawer = await openOrder(1)
+      await userEvent.click(await within(drawer).findByRole('button', { name: 'Cancel and refund' }))
+      return screen.findByRole('dialog', { name: 'Cancel and refund order SHF-20261026-000001?' })
+    }
+    const fill = async (dialog: HTMLElement, order = 'SHF-20261026-000001') => {
+      await userEvent.type(within(dialog).getByRole('textbox', { name: /Reason/ }), '  Out of stock  ')
+      await userEvent.type(within(dialog).getByRole('textbox', { name: /Type SHF/ }), order)
+    }
+    const done = (status: 'SUCCEEDED' | 'PROCESSING' | 'FAILED') =>
+      detailOf(row(1, { status: 'CANCELLED' }), {
+        refunds: [{ id: 'r1', amount: 3879, status, reason: 'ORDER_CANCELLED', refundReference: null, manualReference: null, failureCode: null, succeededAt: null, createdAt: '2026-10-26T03:00:00.000Z' }],
+      })
+
+    it('waits for the typed order number and a reason, then cancels, restocks and says the refund is done', async () => {
+      const dialog = await openDialog()
+      expect(within(dialog).getByText(/back to their original payment method/)).toHaveTextContent('The customer gets ₱3,879.00 back')
+      expect(within(dialog).getByText('The customer sees this reason in their order and email.')).toBeInTheDocument()
+      const confirm = within(dialog).getByRole('button', { name: 'Cancel and refund' })
+      expect(confirm).toBeDisabled()
+      await userEvent.click(within(dialog).getByRole('textbox', { name: /Reason/ }))
+      await userEvent.tab()
+      expect(await within(dialog).findByText('Enter why the order is being cancelled.')).toBeInTheDocument()
+      await fill(dialog, 'SHF-20261026-00000')
+      expect(confirm).toBeDisabled()
+      await userEvent.type(within(dialog).getByRole('textbox', { name: /Type SHF/ }), '1')
+      expect(confirm).toBeEnabled()
+      refund.mockResolvedValue(done('SUCCEEDED'))
+      await userEvent.click(confirm)
+      expect(refund).toHaveBeenCalledWith(row(1).id, { reason: 'Out of stock', restockItems: true })
+      expect(await screen.findByText('Order SHF-20261026-000001 cancelled and ₱3,879.00 refunded')).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: /^Cancel and refund order SHF/ })).not.toBeInTheDocument())
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(2))
+    })
+
+    it('sends the restock choice and tells the refund is still with the gateway', async () => {
+      const dialog = await openDialog()
+      await fill(dialog)
+      await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Put items back in stock' }))
+      refund.mockResolvedValue(done('PROCESSING'))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel and refund' }))
+      expect(refund).toHaveBeenCalledWith(row(1).id, { reason: 'Out of stock', restockItems: false })
+      expect(await screen.findByText('Order cancelled. The ₱3,879.00 refund is with the gateway and updates when it settles.')).toBeInTheDocument()
+    })
+
+    it('says the refund did not go through when the gateway refused it', async () => {
+      const dialog = await openDialog()
+      await fill(dialog)
+      refund.mockResolvedValue(done('FAILED'))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel and refund' }))
+      expect(await screen.findByText("Order cancelled, but the refund didn't go through. Open it in Refunds to retry.")).toBeInTheDocument()
+    })
+
+    it('shows a conflict in the dialog without a Retry', async () => {
+      const dialog = await openDialog()
+      await fill(dialog)
+      refund.mockRejectedValue(new ProductListError('conflict', 'POST /admin/orders/x/cancel-and-refund conflicts', 409))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel and refund' }))
+      const alert = await within(dialog).findByRole('alert')
+      expect(alert).toHaveTextContent('The order changed while you were cancelling it')
+      expect(alert).not.toHaveTextContent(/POST/)
+      expect(within(dialog).queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    })
+
+    it('shows a dropped connection in the dialog with a Retry that tries again', async () => {
+      const dialog = await openDialog()
+      await fill(dialog)
+      refund.mockRejectedValueOnce(new ProductListError('network'))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel and refund' }))
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('The order was not cancelled. The connection dropped')
+      refund.mockResolvedValueOnce(done('SUCCEEDED'))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Retry' }))
+      expect(refund).toHaveBeenCalledTimes(2)
+      expect(await screen.findByText('Order SHF-20261026-000001 cancelled and ₱3,879.00 refunded')).toBeInTheDocument()
+    })
   })
 
   it('books a rider, and when Lalamove does not answer shows the fixed copy with a Retry', async () => {
@@ -372,8 +457,8 @@ describe('Online orders page', () => {
     detail.mockResolvedValue(booked)
     renderPage()
     const drawer = await openOrder(1)
-    expect(await within(drawer).findByText("Paid orders can't be cancelled here. Refunds go through the payment provider.")).toBeInTheDocument()
-    expect(within(drawer).getByRole('button', { name: 'Cancel order' })).toBeDisabled()
+    expect(await within(drawer).findByText('Only an admin can cancel a paid order and refund it.')).toBeInTheDocument()
+    expect(within(drawer).getByRole('button', { name: 'Cancel and refund' })).toBeDisabled()
     vi.mocked(api.cancelDelivery).mockRejectedValue(new ProductListError('conflict', undefined, 409))
     await userEvent.click(within(drawer).getByRole('button', { name: 'Cancel delivery' }))
     const dialog = await screen.findByRole('dialog', { name: 'Cancel the delivery for SHF-20261026-000001?' })

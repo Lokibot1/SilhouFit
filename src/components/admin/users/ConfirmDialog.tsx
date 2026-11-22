@@ -13,6 +13,8 @@ interface ConfirmDialogProps {
   /** The action as a verb phrase that matches the title: "Deactivate account". */
   confirmLabel: string
   pending: boolean
+  /** Keeps the confirm button off until the caller is satisfied (a typed confirmation). */
+  confirmDisabled?: boolean
   onConfirm: () => void
   onClose: () => void
   /** 'kral' restyles the dialog flat and square for the KRAL pages. */
@@ -20,7 +22,7 @@ interface ConfirmDialogProps {
 }
 
 /** "Are you sure?" before a destructive action. Cancel takes focus first. The confirm button is the secondary style with a danger border and text, and both buttons wait while the request is in flight. */
-export function ConfirmDialog({ open, title, children, confirmLabel, pending, onConfirm, onClose, tone }: ConfirmDialogProps) {
+export function ConfirmDialog({ open, title, children, confirmLabel, pending, confirmDisabled, onConfirm, onClose, tone }: ConfirmDialogProps) {
   const kral = tone === 'kral'
   const cancel = useRef<HTMLButtonElement>(null)
   return (
@@ -35,7 +37,7 @@ export function ConfirmDialog({ open, title, children, confirmLabel, pending, on
           <button ref={cancel} type="button" onClick={onClose} disabled={pending} className={kral ? KRAL_SECONDARY : `${SECONDARY_BUTTON} disabled:opacity-60`}>
             Cancel
           </button>
-          <button type="button" onClick={onConfirm} disabled={pending} aria-busy={pending} className={kral ? `${KRAL_DANGER} disabled:cursor-progress` : `${SECONDARY_BUTTON} border-danger! text-danger! hover:text-danger! disabled:cursor-progress disabled:opacity-70`}>
+          <button type="button" onClick={onConfirm} disabled={pending || confirmDisabled} aria-busy={pending} className={kral ? `${KRAL_DANGER} disabled:cursor-progress` : `${SECONDARY_BUTTON} border-danger! text-danger! hover:text-danger! disabled:cursor-progress disabled:opacity-70`}>
             {pending && <SpinnerIcon className="mr-2" />}
             {confirmLabel}
           </button>

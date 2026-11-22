@@ -557,21 +557,22 @@ test.describe('actions', () => {
       await expect(drawer.getByText('This order is closed.')).toBeVisible()
     })
 
-    test('a paid order cannot be cancelled here: Cancel order is off with the reason and sends nothing', async ({ page }) => {
+    test('a paid order cannot be cancelled here: Cancel and refund is off for staff with the reason and sends nothing', async ({ page }) => {
       const api = await setup(page, [paidOrder(1)])
       await open(page)
       const drawer = await openDrawer(page, 1)
-      const cancel = drawer.getByRole('button', { name: 'Cancel order', exact: true })
+      const cancel = drawer.getByRole('button', { name: 'Cancel and refund', exact: true })
       await expect(cancel).toBeDisabled()
-      await expect(drawer.getByText("Paid orders can't be cancelled here. Refunds go through the payment provider.")).toBeVisible()
+      await expect(drawer.getByText("Only an admin can cancel a paid order and refund it.")).toBeVisible()
       await cancel.scrollIntoViewIfNeeded() // a forced click skips the wait, so on a phone it could fire while the drawer is still sliding in
       await cancel.click({ force: true })
       await expect(confirmOf(page, 1)).toHaveCount(0)
       expect(api.patches).toHaveLength(0)
     })
 
-    const PAID_WHY = "Paid orders can't be cancelled here. Refunds go through the payment provider."
+    const PAID_WHY = "Only an admin can cancel a paid order and refund it."
     const cancelButton = (drawer: Locator) => drawer.getByRole('button', { name: 'Cancel order', exact: true })
+    const refundButton = (drawer: Locator) => drawer.getByRole('button', { name: 'Cancel and refund', exact: true })
 
     test('a paid order stays uncancellable while Preparing, while a rider is being booked and while one is booked', async ({ page }) => {
       const api = await setup(page, [
@@ -583,11 +584,11 @@ test.describe('actions', () => {
 
       for (const n of [1, 2, 3]) {
         const drawer = await openDrawer(page, n)
-        await expect(cancelButton(drawer)).toBeDisabled()
-        await expect(cancelButton(drawer)).toHaveAccessibleDescription(PAID_WHY)
+        await expect(refundButton(drawer)).toBeDisabled()
+        await expect(refundButton(drawer)).toHaveAccessibleDescription(PAID_WHY)
         await expect(drawer.getByText(PAID_WHY, { exact: true })).toBeVisible()
-        await cancelButton(drawer).scrollIntoViewIfNeeded()
-        await cancelButton(drawer).click({ force: true })
+        await refundButton(drawer).scrollIntoViewIfNeeded()
+        await refundButton(drawer).click({ force: true })
         await expect(confirmOf(page, n)).toHaveCount(0)
         await page.keyboard.press('Escape')
         await expect(drawer).toBeHidden()
@@ -595,7 +596,7 @@ test.describe('actions', () => {
       expect(api.patches).toHaveLength(0)
     })
 
-    test('with the keyboard, Tab skips the off Cancel order and Enter or Space on the page sends nothing', async ({ page }) => {
+    test('with the keyboard, Tab skips the off Cancel and refund and Enter or Space on the page sends nothing', async ({ page }) => {
       const api = await setup(page, [paidOrder(1)])
       await open(page)
       const drawer = await openDrawer(page, 1)
@@ -607,7 +608,7 @@ test.describe('actions', () => {
         stops.push(await page.evaluate(() => document.activeElement?.textContent?.trim() ?? ''))
       }
       expect(stops).toContain('Book rider')
-      expect(stops).not.toContain('Cancel order')
+      expect(stops).not.toContain('Cancel and refund')
       // Pressing keys on the page cannot open the dialog either.
       await page.keyboard.press('Enter')
       await page.keyboard.press('Space')
@@ -773,7 +774,7 @@ test.describe('actions', () => {
       await expect(busy).toBeDisabled()
       await expect(busy).toHaveAttribute('aria-busy', 'true')
       await expect(drawer.getByRole('button', { name: 'Book rider' })).toBeDisabled()
-      await expect(drawer.getByRole('button', { name: 'Cancel order', exact: true })).toBeDisabled()
+      await expect(drawer.getByRole('button', { name: 'Cancel and refund', exact: true })).toBeDisabled()
       await busy.click({ force: true })
       expect(api.patches).toHaveLength(1)
 
@@ -862,13 +863,13 @@ test.describe('actions', () => {
       }
     })
 
-    test('while the courier is still booking (no booking id yet) there is no Cancel delivery, and Cancel order waits', async ({ page }) => {
+    test('while the courier is still booking (no booking id yet) there is no Cancel delivery, and Cancel and refund waits', async ({ page }) => {
       await setup(page, [paidOrder(1, { shipment: adminShipment({ orderId: adminOrder(1).id, status: 'DISPATCHING', externalOrderId: null }) })])
       await open(page)
       const drawer = await openDrawer(page, 1)
 
       await expect(drawer.getByRole('button', { name: 'Cancel delivery' })).toHaveCount(0)
-      await expect(drawer.getByRole('button', { name: 'Cancel order', exact: true })).toBeDisabled()
+      await expect(drawer.getByRole('button', { name: 'Cancel and refund', exact: true })).toBeDisabled()
       await expect(drawer.getByText('A rider is being booked. Wait for it to finish.')).toBeVisible()
     })
 
@@ -936,8 +937,8 @@ test.describe('actions', () => {
       const api = await setup(page, [bookedOrder(1)])
       await open(page)
       const drawer = await openDrawer(page, 1)
-      await expect(drawer.getByRole('button', { name: 'Cancel order', exact: true })).toBeDisabled()
-      await expect(drawer.getByText("Paid orders can't be cancelled here. Refunds go through the payment provider.")).toBeVisible()
+      await expect(drawer.getByRole('button', { name: 'Cancel and refund', exact: true })).toBeDisabled()
+      await expect(drawer.getByText("Only an admin can cancel a paid order and refund it.")).toBeVisible()
 
       await drawer.getByRole('button', { name: 'Cancel delivery' }).click()
       const confirm = confirmOf(page, 1)
@@ -1088,11 +1089,11 @@ test.describe('layout', () => {
   })
 })
 
-// Start preparing next to Book rider and Cancel order: how the three sit in the drawer, by keyboard, when it is off, in both colour schemes, and what it does to the list and counts.
+// Start preparing next to Book rider and Cancel and refund: how the three sit in the drawer, by keyboard, when it is off, in both colour schemes, and what it does to the list and counts.
 test.describe('start preparing layout', () => {
   const start = (drawer: Locator) => drawer.getByRole('button', { name: 'Start preparing' })
   const book = (drawer: Locator) => drawer.getByRole('button', { name: 'Book rider' })
-  const cancel = (drawer: Locator) => drawer.getByRole('button', { name: 'Cancel order', exact: true })
+  const cancel = (drawer: Locator) => drawer.getByRole('button', { name: 'Cancel and refund', exact: true })
   const BOOKING = 'A rider is being booked. Wait for it to finish.'
   const dispatching = (n: number) => paidOrder(n, { shipment: adminShipment({ orderId: adminOrderId(n), status: 'DISPATCHING', externalOrderId: null }) })
 

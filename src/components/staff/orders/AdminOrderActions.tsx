@@ -1,12 +1,15 @@
 import { flushSync } from 'react-dom'
 import { useId, useRef, useState, type ReactNode } from 'react'
-import { cancelDelivery, cancelDeliveryFailure, dispatchFailure, dispatchOrder, explainFailure, failureOf, updateAdminOrder, type AdminOrderDetail } from '../../../service/adminOrdersApi'
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { cancelAndRefundOrder, cancelDelivery, cancelDeliveryFailure, cancelRefundFailure, dispatchFailure, dispatchOrder, explainFailure, failureOf, updateAdminOrder, type AdminOrderDetail } from '../../../service/adminOrdersApi'
 import { cleanText, stripControl } from '../../../utils/checkoutValidation'
-import { canCancelDelivery, canStartPreparing, cancelOrderBlock, dispatchBlock, isClosed, RIDER_BOOKING_WHY } from '../../../utils/orders'
+import { formatPeso } from '../../../utils/format'
+import { canCancelDelivery, canStartPreparing, cancelOrderBlock, cancelRefundBlock, dispatchBlock, isClosed, RIDER_BOOKING_WHY } from '../../../utils/orders'
 import { ConfirmDialog } from '../../admin/users/ConfirmDialog'
 import { AlertIcon, BoxIcon, InfoIcon, NoteIcon, SendIcon, SpinnerIcon } from '../../form/icons'
 import { useToast } from '../../toast/useToast'
 import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { Checkbox } from '../../ui/Checkbox'
 import { Field, FIELD_INPUT, PLAIN_INPUT } from '../inventory/FormField'
 import { CARD_LABEL, OrderCard } from './OrderCard'
 
@@ -44,14 +47,22 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
   const toast = useToast()
   // The action in flight ('prepare', 'dispatch', 'notes', 'cancel-order' or 'cancel-delivery'); every button waits for it.
   const [busy, setBusy] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<'order' | 'delivery' | null>(null)
+  const [dialog, setDialog] = useState<'order' | 'refund' | 'delivery' | null>(null)
   const [reason, setReason] = useState('')
   const [dialogError, setDialogError] = useState('')
+  // Cancel and refund only: the dialog error can be retried, items go back on the shelf, the order number is typed to confirm, the reason field was left.
+  const [canRetry, setCanRetry] = useState(false)
+  const [restock, setRestock] = useState(true)
+  const [typed, setTyped] = useState('')
+  const [reasonTouched, setReasonTouched] = useState(false)
+  const role = useCurrentUser()?.role
   const [notes, setNotes] = useState(detail.internalNotes ?? '')
   const pending = busy !== null
   const closed = isClosed(detail)
   const dispatchWhy = dispatchBlock(detail)
-  const cancelWhy = cancelOrderBlock(detail)
+  const paid = detail.paymentStatus === 'PAID' || detail.paymentStatus === 'PARTIALLY_REFUNDED'
+  const cancelWhy = paid ? cancelRefundBlock(detail, role === 'admin' || role === 'superadmin') : cancelOrderBlock(detail)
+  const reasonError = reasonTouched && !cleanText(reason) ? 'Enter why the order is being cancelled.' : ''
   const prepareWhy = detail.shipment?.status === 'DISPATCHING' ? RIDER_BOOKING_WHY : null
   const bookRef = useRef<HTMLButtonElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -109,6 +120,10 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
     setDialog(null)
     setReason('')
     setDialogError('')
+    setCanRetry(false)
+    setRestock(true)
+    setTyped('')
+    setReasonTouched(false)
   }
 
   async function confirmCancelOrder() {
@@ -122,6 +137,34 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
       onChanged()
     } catch (error) {
       setDialogError(`The order was not cancelled. ${explainFailure(error)}`)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function confirmCancelRefund() {
+    const why = cleanText(reason)
+    if (!why) {
+      setReasonTouched(true)
+      return
+    }
+    setBusy('cancel-refund')
+    setDialogError('')
+    setCanRetry(false)
+    try {
+      const result = await cancelAndRefundOrder(detail.id, { reason: why, restockItems: restock })
+      closeDialog()
+      onChanged()
+      // The order is cancelled even when the gateway refused the refund, so the toast follows the refund.
+      const refund = result.refunds?.find((r) => r.reason === 'ORDER_CANCELLED')
+      const amount = formatPeso(refund?.amount ?? detail.total)
+      if (refund?.status === 'SUCCEEDED') toast.show({ kind: 'success', message: `Order ${detail.orderNumber} cancelled and ${amount} refunded` })
+      else if (refund?.status === 'REQUESTED' || refund?.status === 'PROCESSING') toast.show({ kind: 'success', message: `Order cancelled. The ${amount} refund is with the gateway and updates when it settles.` })
+      else toast.show({ kind: 'info', message: "Order cancelled, but the refund didn't go through. Open it in Refunds to retry." })
+    } catch (error) {
+      const failure = cancelRefundFailure(error)
+      setDialogError(failure.message)
+      setCanRetry(failure.retry)
     } finally {
       setBusy(null)
     }
@@ -187,10 +230,10 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
               type="button"
               disabled={pending || !!cancelWhy}
               aria-describedby={cancelWhy ? `cancel-why-${detail.id}` : undefined}
-              onClick={() => setDialog('order')}
+              onClick={() => setDialog(paid ? 'refund' : 'order')}
               className={`${ACTION} px-2 whitespace-nowrap text-fg-muted hover:text-danger disabled:cursor-progress disabled:opacity-60`}
             >
-              Cancel order
+              {paid ? 'Cancel and refund' : 'Cancel order'}
             </button>
           </div>
         )}
@@ -248,6 +291,65 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
           </Field>
         </div>
         {dialogError && <DialogError>{dialogError}</DialogError>}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={dialog === 'refund'}
+        title={`Cancel and refund order ${detail.orderNumber}?`}
+        confirmLabel="Cancel and refund"
+        pending={busy === 'cancel-refund'}
+        confirmDisabled={typed.trim().toUpperCase() !== detail.orderNumber.toUpperCase()}
+        onConfirm={() => void confirmCancelRefund()}
+        onClose={closeDialog}
+      >
+        <p>
+          The customer gets <span className="tabular-nums">{formatPeso(detail.total - (detail.refundedAmount ?? 0))}</span> back to their original payment method. This can't be undone.
+        </p>
+        <div className="mt-3">
+          <Field
+            id={`refund-reason-${detail.id}`}
+            label="Reason"
+            count={{ value: reason.length, max: REASON_MAX }}
+            error={reasonError}
+            hint="The customer sees this reason in their order and email."
+          >
+            <textarea
+              id={`refund-reason-${detail.id}`}
+              value={reason}
+              onChange={(event) => setReason(stripControl(event.target.value))}
+              onBlur={() => setReasonTouched(true)}
+              maxLength={REASON_MAX}
+              rows={2}
+              readOnly={busy === 'cancel-refund'}
+              aria-invalid={!!reasonError}
+              aria-describedby={`refund-reason-${detail.id}-${reasonError ? 'error' : 'hint'}`}
+              className={FIELD_INPUT}
+            />
+          </Field>
+        </div>
+        <Checkbox checked={restock} onChange={setRestock} label="Put items back in stock" disabled={busy === 'cancel-refund'} className="justify-start!">
+          Put items back in stock
+        </Checkbox>
+        <div className="mt-3">
+          <Field id={`refund-confirm-${detail.id}`} label={`Type ${detail.orderNumber} to confirm`}>
+            <input
+              id={`refund-confirm-${detail.id}`}
+              type="text"
+              value={typed}
+              onChange={(event) => setTyped(stripControl(event.target.value))}
+              readOnly={busy === 'cancel-refund'}
+              autoComplete="off"
+              spellCheck={false}
+              className={FIELD_INPUT}
+            />
+          </Field>
+        </div>
+        {dialogError && <DialogError>{dialogError}</DialogError>}
+        {dialogError && canRetry && (
+          <button type="button" disabled={pending} onClick={() => void confirmCancelRefund()} className={`${ACTION_SECONDARY} mt-2`}>
+            Retry
+          </button>
+        )}
       </ConfirmDialog>
 
       <ConfirmDialog
