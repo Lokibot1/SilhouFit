@@ -10,7 +10,6 @@ import {
   filterColorName,
   filterMeasurement,
   filterPrice,
-  filterSize,
   filterSku,
   filterStock,
   filterText,
@@ -55,9 +54,8 @@ describe('input filters', () => {
     expect(filterPrice('12345678')).toBe('1234567')
     expect(filterPrice('.5')).toBe('.5')
   })
-  it('filters stock, size, colour and SKU boxes', () => {
+  it('filters stock, colour and SKU boxes', () => {
     expect(filterStock('12ab345678')).toBe('12345')
-    expect(filterSize('2xl-long!')).toBe('2XLLON')
     expect(filterColorName('Navy 9 Blue')).toBe('Navy Blue')
     expect(filterSku('ab c_d-1')).toBe('ABCD-1')
   })
@@ -325,9 +323,12 @@ describe('validateVariantForm', () => {
     expect(validateVariantForm(form(), { mode: 'add' })).toEqual({})
   })
 
-  it('needs at least one of size, colour and name', () => {
-    expect(validateVariantForm(form({ size: '' }), { mode: 'add' }).identity).toBeDefined()
-    expect(validateVariantForm(form({ size: '', name: 'Gift set' }), { mode: 'add' })).toEqual({})
+  it('needs a size from the API list, in add and edit', () => {
+    for (const mode of ['add', 'edit'] as const) {
+      expect(validateVariantForm(form({ size: '', name: 'Gift set' }), { mode }).size).toMatch(/^Choose a size\./)
+      expect(validateVariantForm(form({ size: 'XXL' }), { mode }).size).toBeDefined()
+    }
+    for (const size of ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', 'Free Size']) expect(validateVariantForm(form({ size }), { mode: 'add' }).size, size).toBeUndefined()
   })
 
   it('needs a valid hex with a colour, and none without one', () => {
@@ -373,6 +374,7 @@ describe('buildVariantInput', () => {
     const v = {
       ...variantFormValues(),
       sku: 'MY-SKU',
+      size: 'M',
       color: 'Navy',
       colorHex: '#26324A',
       name: 'Slim',
@@ -383,6 +385,7 @@ describe('buildVariantInput', () => {
     expect(buildVariantInput(v, 'https://x/v.jpg')).toEqual({
       sku: 'MY-SKU',
       name: 'Slim',
+      size: 'M',
       color: 'Navy',
       colorHex: '#26324a',
       price: 12.5,
@@ -409,9 +412,9 @@ describe('buildVariantPatch', () => {
     expect(buildVariantPatch({ ...same(), colorHex: '#000000' }, VARIANT)).toEqual({ color: 'Navy', colorHex: '#000000' })
   })
 
-  it('sends color: null alone for a cleared colour, and null for a cleared size', () => {
+  it('sends color: null alone for a cleared colour, and a changed size as is', () => {
     expect(buildVariantPatch({ ...same(), color: '', colorHex: '#26324a' }, VARIANT)).toEqual({ color: null })
-    expect(buildVariantPatch({ ...same(), size: '' }, VARIANT)).toEqual({ size: null })
+    expect(buildVariantPatch({ ...same(), size: 'L' }, VARIANT)).toEqual({ size: 'L' })
   })
 
   it('sends changed measurements only, null when cleared, and a new image URL', () => {

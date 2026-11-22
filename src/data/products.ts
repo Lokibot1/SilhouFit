@@ -6,6 +6,9 @@ export type Category = string
 
 export type Badge = 'New' | 'Best seller' | 'Limited' | 'AR-ready'
 
+/** The sizes the API accepts for a variant. */
+export const APPAREL_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', 'Free Size']
+
 /** Default sizes per category: Hoodie, Shirt, Pants and Shorts XS to XL, Headwear Free Size. Stock is tracked per piece, not per size. */
 export const SIZES_BY_CATEGORY: Record<string, string[]> = {
   Hoodie: ['XS', 'S', 'M', 'L', 'XL'],

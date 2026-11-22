@@ -54,11 +54,17 @@ function setup(props: Partial<React.ComponentProps<typeof VariantSheet>> = {}) {
   return { onSaved, onClose, sheet: screen.getByRole('dialog') }
 }
 
+const pickSize = async (user: ReturnType<typeof userEvent.setup>, sheet: HTMLElement, size: string) => {
+  await user.click(within(sheet).getByRole('combobox', { name: 'Size' }))
+  await user.click(screen.getByRole('option', { name: size }))
+}
+
 describe('VariantSheet', () => {
   it('shows the SKU as auto-generated when blank on add, and asks for a hex once a colour is typed', async () => {
     const user = userEvent.setup()
     const { sheet } = setup()
     expect(within(sheet).getByRole('textbox', { name: /^SKU/ })).toHaveAttribute('placeholder', 'Auto-generated if blank')
+    await pickSize(user, sheet, 'M')
     await user.type(within(sheet).getByRole('textbox', { name: /^Colour name/ }), 'Teal')
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
     await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
@@ -70,8 +76,6 @@ describe('VariantSheet', () => {
   it('filters what is typed: size upper-case without symbols, price to two decimals, measurement to one', async () => {
     const user = userEvent.setup()
     const { sheet } = setup()
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'x-l!')
-    expect(within(sheet).getByRole('textbox', { name: /^Size/ })).toHaveValue('XL')
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '12.345')
     expect(within(sheet).getByRole('textbox', { name: /^Price/ })).toHaveValue('12.34')
     await user.type(within(sheet).getByRole('textbox', { name: /^Chest width/ }), '52.55')
@@ -81,7 +85,7 @@ describe('VariantSheet', () => {
   it('flags a measurement outside its range inline and does not send', async () => {
     const user = userEvent.setup()
     const { sheet } = setup()
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'M')
+    await pickSize(user, sheet, 'M')
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
     await user.type(within(sheet).getByRole('textbox', { name: /^Neck/ }), '4')
     await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
@@ -96,7 +100,7 @@ describe('VariantSheet', () => {
     vi.mocked(uploadImage).mockResolvedValue('https://cdn.test/v.jpg')
     vi.mocked(createVariant).mockImplementation(() => new Promise((resolve) => (finish = () => resolve(VARIANT))))
     const { sheet, onSaved } = setup()
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'M')
+    await pickSize(user, sheet, 'M')
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
     await user.type(within(sheet).getByRole('textbox', { name: /^Chest width/ }), '52.5')
     fireEvent.change(screen.getByLabelText('Choose a variant image file'), { target: { files: [new File(['x'], 'v.jpg', { type: 'image/jpeg' })] } })
@@ -119,7 +123,7 @@ describe('VariantSheet', () => {
     const user = userEvent.setup()
     vi.mocked(createVariant).mockRejectedValueOnce(new ProductListError('network')).mockResolvedValue(VARIANT)
     const { sheet, onSaved } = setup()
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'M')
+    await pickSize(user, sheet, 'M')
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
     await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
     const alert = await within(sheet).findByRole('alert')
@@ -171,7 +175,7 @@ describe('VariantSheet', () => {
     vi.mocked(createVariant).mockRejectedValue(new ProductListError('conflict'))
     const user = userEvent.setup()
     const { sheet } = setup()
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'M')
+    await pickSize(user, sheet, 'M')
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
     await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
     await waitFor(() => expect(within(sheet).getByRole('textbox', { name: /^SKU/ })).toHaveFocus())
@@ -181,7 +185,7 @@ describe('VariantSheet', () => {
     vi.mocked(createVariant).mockRejectedValue(new ProductListError('server'))
     const user = userEvent.setup()
     const { sheet } = setup()
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'M')
+    await pickSize(user, sheet, 'M')
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
     await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
     await waitFor(() => expect(within(sheet).getByRole('button', { name: 'Add variant' })).toHaveFocus())
@@ -220,7 +224,7 @@ describe('VariantSheet measurements by category', () => {
 describe('VariantSheet inherit base measurements', () => {
   const box = (sheet: HTMLElement) => within(sheet).getByRole('checkbox', { name: 'Inherit base measurements' })
   const fillBasics = async (user: ReturnType<typeof userEvent.setup>, sheet: HTMLElement, size: string) => {
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), size)
+    await pickSize(user, sheet, size)
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
   }
 
@@ -244,10 +248,9 @@ describe('VariantSheet inherit base measurements', () => {
   it('re-resolves the values when the size changes while on', async () => {
     const user = userEvent.setup()
     const { sheet } = setup({ category: 'Hoodie' })
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'M')
+    await pickSize(user, sheet, 'M')
     await waitFor(() => expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toHaveValue('55'))
-    await user.clear(within(sheet).getByRole('textbox', { name: /^Size/ }))
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'L')
+    await pickSize(user, sheet, 'L')
     expect(box(sheet)).toBeChecked()
     expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toHaveValue('58')
     expect(within(sheet).getByRole('textbox', { name: /^Neck/ })).toHaveValue('')
@@ -274,8 +277,8 @@ describe('VariantSheet inherit base measurements', () => {
     const user = userEvent.setup()
     vi.mocked(createVariant).mockResolvedValue(VARIANT)
     const { sheet } = setup({ category: 'Hoodie' })
-    await fillBasics(user, sheet, 'XXL')
-    expect(await within(sheet).findByText('No base measurements for Hoodie XXL yet')).toBeInTheDocument()
+    await fillBasics(user, sheet, '3XL')
+    expect(await within(sheet).findByText('No base measurements for Hoodie 3XL yet')).toBeInTheDocument()
     expect(box(sheet)).toBeDisabled()
     expect(box(sheet)).not.toBeChecked()
     await user.type(within(sheet).getByRole('textbox', { name: /^Chest width/ }), '50')
@@ -297,7 +300,7 @@ describe('VariantSheet inherit base measurements', () => {
     vi.mocked(fetchCategoryMeasurements).mockRejectedValueOnce(new ProductListError('server'))
     const user = userEvent.setup()
     const { sheet } = setup({ category: 'Hoodie' })
-    await user.type(within(sheet).getByRole('textbox', { name: /^Size/ }), 'M')
+    await pickSize(user, sheet, 'M')
     expect(await within(sheet).findByText("Base measurements couldn't load. Enter them by hand.")).toBeInTheDocument()
     expect(box(sheet)).toBeDisabled()
     expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toBeEnabled()

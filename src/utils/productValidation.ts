@@ -1,4 +1,4 @@
-import { SIZES_BY_CATEGORY, type Category } from '../data/products'
+import { APPAREL_SIZES, SIZES_BY_CATEGORY, type Category } from '../data/products'
 import type { SizingDraft } from './customSizing'
 import { withCommas } from './format'
 import type { Gender, MeasurementKey, ProductDetailFields, ProductListItem, ProductVariant } from '../service/fetchProductList'
@@ -14,7 +14,6 @@ export const PRODUCT_LIMITS = {
   nameMax: 100,
   descriptionMax: 1000,
   priceMax: 1_000_000,
-  sizeMax: 6,
   colorNameMax: 30,
   colorsMax: 8,
   skuMax: 40,
@@ -42,7 +41,6 @@ export const filterMultiline = (input: string, max: number) =>
   // oxlint-disable-next-line no-control-regex
   stripEmoji(input.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '')).slice(0, max)
 export const filterColorName = (input: string) => input.replace(/[^\p{L}\p{M} ]/gu, '').replace(/ {2,}/g, ' ').slice(0, PRODUCT_LIMITS.colorNameMax)
-export const filterSize = (input: string) => input.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, PRODUCT_LIMITS.sizeMax)
 export const filterSku = (input: string) => input.replace(/[^a-z0-9-]/gi, '').toUpperCase().slice(0, PRODUCT_LIMITS.skuMax)
 
 /** Digits and one dot, two decimals at most, seven integer digits at most (1,000,000 is the ceiling). */
@@ -341,11 +339,11 @@ export function variantFormValues(variant?: ProductVariant): VariantFormValues {
   }
 }
 
-/** Every problem in the variant form, by field key (`identity` is "none of size, colour and name filled in"). An empty object means it can be sent. */
+/** Every problem in the variant form, by field key. An empty object means it can be sent. */
 export function validateVariantForm(v: VariantFormValues, { mode }: { mode: 'add' | 'edit' }): Record<string, string> {
   const errors: Record<string, string> = {}
   const color = cleanText(v.color)
-  if (!cleanText(v.size) && !color && !cleanText(stripEmoji(v.name))) errors.identity = 'Enter a size, a colour or a variant name so this variant can be told apart.'
+  if (!APPAREL_SIZES.includes(cleanText(v.size))) errors.size = 'Choose a size. Every variant needs one so the size guide and AR Fitting can match it.'
   if (color && !HEX_COLOR.test(v.colorHex)) errors.colorHex = 'Enter a hex colour such as #1b1d21 or #fff.'
   if (mode === 'edit' && !v.sku) errors.sku = 'Enter a SKU.'
   const price = validatePrice(v.price)
@@ -374,7 +372,7 @@ export function buildVariantInput(v: VariantFormValues, imageUrl?: string): Vari
   return {
     ...(v.sku && { sku: v.sku }),
     ...(variantText(v.name) && { name: variantText(v.name) }),
-    ...(variantText(v.size) && { size: variantText(v.size) }),
+    size: variantText(v.size),
     ...(color && { color, colorHex: v.colorHex.toLowerCase() }),
     price: parsePrice(v.price)!,
     stock: parseStock(v.stock)!,
@@ -387,10 +385,10 @@ export function buildVariantInput(v: VariantFormValues, imageUrl?: string): Vari
 export function buildVariantPatch(v: VariantFormValues, original: ProductVariant, imageUrl?: string): VariantPatch {
   const patch: VariantPatch = {}
   if (v.sku !== original.sku) patch.sku = v.sku
-  for (const key of ['name', 'size'] as const) {
-    const next = variantText(v[key])
-    if (next !== (original[key] ?? '')) patch[key] = next || null
-  }
+  const name = variantText(v.name)
+  if (name !== (original.name ?? '')) patch.name = name || null
+  const size = variantText(v.size)
+  if (size !== (original.size ?? '')) patch.size = size
   const color = variantText(v.color)
   const hex = v.colorHex.toLowerCase()
   if (color ? color !== (original.color ?? '') || hex !== (original.colorHex ?? '').toLowerCase() : original.color) {

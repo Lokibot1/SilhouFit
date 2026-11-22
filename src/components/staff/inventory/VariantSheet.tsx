@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { APPAREL_SIZES } from '../../../data/products'
 import { withCommas } from '../../../utils/format'
 import { formatFileSize } from '../../../utils/fileSize'
 import type { ProductVariant } from '../../../service/fetchProductList'
@@ -11,7 +12,6 @@ import {
   filterColorName,
   filterMeasurement,
   filterPrice,
-  filterSize,
   filterSku,
   filterStock,
   filterText,
@@ -29,14 +29,16 @@ import { useBaseMeasurements } from '../../../hooks/useBaseMeasurements'
 import { baseMeasurementsFor } from '../../../utils/sizeGuide'
 import { COLUMNS_BY_CATEGORY } from '../../../utils/sizeMeasurementValidation'
 import { Checkbox } from '../../ui/Checkbox'
-import { Field, FIELD_INPUT } from './FormField'
+import { Select } from '../../ui/Select'
+import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from './FormField'
 import { pickerValue } from './VariantBuilder'
 
 const FORM_ID = 'variant-form'
 const RETRYABLE = ['network', 'rate-limit', 'server']
+const SIZE_OPTIONS = [{ value: '', label: 'Choose a size' }, ...APPAREL_SIZES.map((size) => ({ value: size, label: size }))]
 const SMALL_BUTTON = `${SECONDARY_BUTTON} text-sm`
 /** The field each error key belongs to, to move focus to the first problem. */
-const FIELD_ID: Record<string, string> = { identity: 'vs-size', colorHex: 'vs-hex', sku: 'vs-sku', price: 'vs-price', stock: 'vs-stock' }
+const FIELD_ID: Record<string, string> = { size: 'vs-size', colorHex: 'vs-hex', sku: 'vs-sku', price: 'vs-price', stock: 'vs-stock' }
 
 interface Banner {
   title: string
@@ -223,7 +225,7 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
     </div>
   )
 
-  const identityError = error('identity')
+  const sizeError = error('size')
   const hexError = error('colorHex')
   return (
     <Modal variant="sheet" open onClose={requestClose} title={discarding ? 'Are you sure?' : editing ? 'Edit variant' : 'Add variant'} footer={footer}>
@@ -249,20 +251,28 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
             </div>
           )}
 
-          <Field id="vs-size" label="Size" optional error={identityError}>
-            <input
-              id="vs-size"
-              type="text"
-              autoComplete="off"
-              placeholder="e.g. M"
-              value={values.size}
-              aria-invalid={Boolean(identityError)}
-              aria-describedby={describedBy('vs-size', identityError)}
-              onChange={(event) => set({ size: filterSize(event.target.value) })}
-              onBlur={() => touch('identity')}
-              className={FIELD_INPUT}
-            />
-          </Field>
+          <div className="grid gap-1">
+            <SelectField label="Size">
+              <Select
+                id="vs-size"
+                label="Size"
+                value={APPAREL_SIZES.includes(values.size) ? values.size : ''}
+                options={SIZE_OPTIONS}
+                invalid={Boolean(sizeError)}
+                describedBy={describedBy('vs-size', sizeError)}
+                onChange={(size) => {
+                  set({ size })
+                  touch('size')
+                }}
+                className={SELECT_FLAT}
+              />
+            </SelectField>
+            {sizeError && (
+              <p id="vs-size-error" className="px-1 text-xs text-danger">
+                {sizeError}
+              </p>
+            )}
+          </div>
 
           <Field id="vs-color" label="Colour name" optional>
             <input
@@ -271,9 +281,7 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
               autoComplete="off"
               placeholder="e.g. Navy"
               value={values.color}
-              aria-invalid={Boolean(identityError)}
               onChange={(event) => set({ color: filterColorName(event.target.value) })}
-              onBlur={() => touch('identity')}
               className={FIELD_INPUT}
             />
           </Field>
@@ -316,10 +324,8 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
               type="text"
               autoComplete="off"
               value={values.name}
-              aria-invalid={Boolean(identityError)}
               aria-describedby="vs-name-count"
               onChange={(event) => set({ name: filterText(event.target.value, PRODUCT_LIMITS.variantNameMax) })}
-              onBlur={() => touch('identity')}
               className={FIELD_INPUT}
             />
           </Field>

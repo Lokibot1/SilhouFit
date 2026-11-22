@@ -86,7 +86,7 @@ export interface VariantInput {
   /** Blank or left out: the API generates one. */
   sku?: string
   name?: string
-  size?: string
+  size: string
   color?: string
   /** Required with `color`. */
   colorHex?: string
@@ -96,11 +96,11 @@ export interface VariantInput {
   measurements?: MeasurementsInput
 }
 
-/** Only the keys that changed. `null` clears a name, size or colour (clearing the colour clears its hex); a new colour needs its `colorHex` in the same patch. */
+/** Only the keys that changed. `null` clears a name or colour (clearing the colour clears its hex); a new colour needs its `colorHex` in the same patch. */
 export interface VariantPatch {
   sku?: string
   name?: string | null
-  size?: string | null
+  size?: string
   color?: string | null
   colorHex?: string | null
   price?: number

@@ -216,6 +216,11 @@ test.describe('delete product', () => {
   })
 })
 
+const pickSize = async (page: Page, dialog: Locator, size: string) => {
+  await dialog.getByRole('combobox', { name: 'Size', exact: true }).click()
+  await page.getByRole('option', { name: size, exact: true }).click()
+}
+
 test.describe('add variant', () => {
   async function openAdd(page: Page) {
     const drawer = await openDrawer(page, 'Linen Shirt')
@@ -230,7 +235,7 @@ test.describe('add variant', () => {
   test('posts the exact body, toasts, and brings the drawer back with the new variant', async ({ page }) => {
     const api = await start(page)
     const dialog = await openAdd(page)
-    await dialog.getByLabel('Size (optional)', { exact: true }).fill('xl')
+    await pickSize(page, dialog, 'XL')
     await dialog.getByLabel('Colour name (optional)', { exact: true }).fill('Olive')
     await dialog.getByLabel('Colour hex', { exact: true }).fill('556B2F')
     await dialog.getByLabel('SKU (optional)', { exact: true }).fill('ls-olive-xl')
@@ -262,7 +267,7 @@ test.describe('add variant', () => {
   test('inherit base measurements is on for a size with a base row and posts those values', async ({ page }) => {
     const api = await start(page, [linen(), wool()], [sizeRow({ category: 'Hoodie', size: 'XL', chestWidthCm: 61, totalLengthCm: 74, shoulderWidthCm: 50, sleeveLengthCm: 64, neckCm: 40 })])
     const dialog = await openAdd(page)
-    await dialog.getByLabel('Size (optional)', { exact: true }).fill('xl')
+    await pickSize(page, dialog, 'XL')
     await fillPrice(dialog)
     const inherit = dialog.getByRole('checkbox', { name: 'Inherit base measurements' })
     await expect(inherit).toBeChecked()
@@ -278,7 +283,7 @@ test.describe('add variant', () => {
   test('turning inherit off starts from the base values and posts what was typed', async ({ page }) => {
     const api = await start(page, [linen(), wool()], [sizeRow({ category: 'Hoodie', size: 'XL', chestWidthCm: 61, totalLengthCm: 74, shoulderWidthCm: 50, sleeveLengthCm: 64, neckCm: 40 })])
     const dialog = await openAdd(page)
-    await dialog.getByLabel('Size (optional)', { exact: true }).fill('xl')
+    await pickSize(page, dialog, 'XL')
     await fillPrice(dialog)
     await dialog.getByText('Inherit base measurements', { exact: true }).click()
     await expect(dialog.getByLabel('Chest width', { exact: true })).toBeEnabled()
@@ -292,8 +297,8 @@ test.describe('add variant', () => {
   test('a size without a base row disables the checkbox with a hint and keeps the manual boxes', async ({ page }) => {
     await start(page, [linen(), wool()], [sizeRow({ category: 'Hoodie', size: 'XL' })])
     const dialog = await openAdd(page)
-    await dialog.getByLabel('Size (optional)', { exact: true }).fill('XXS')
-    await expect(dialog.getByText('No base measurements for Hoodie XXS yet')).toBeVisible()
+    await pickSize(page, dialog, '3XL')
+    await expect(dialog.getByText('No base measurements for Hoodie 3XL yet')).toBeVisible()
     await expect(dialog.getByRole('checkbox', { name: 'Inherit base measurements' })).toBeDisabled()
     await expect(dialog.getByLabel('Chest width', { exact: true })).toBeEnabled()
   })
@@ -302,16 +307,17 @@ test.describe('add variant', () => {
     const api = await start(page)
     const dialog = await openAdd(page)
     await dialog.getByLabel('Variant name (optional)', { exact: true }).fill('Gift set')
+    await pickSize(page, dialog, 'Free Size')
     await fillPrice(dialog, '99')
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
     await expect(toast(page, 'Variant added')).toBeVisible()
-    expect(api.of('POST', 'variants').map((c) => c.body)).toEqual([{ name: 'Gift set', price: 99, stock: 0 }])
+    expect(api.of('POST', 'variants').map((c) => c.body)).toEqual([{ name: 'Gift set', size: 'Free Size', price: 99, stock: 0 }])
   })
 
   test('a taken SKU (409) is shown on the SKU field, and a new SKU saves', async ({ page }) => {
     const api = await start(page)
     const dialog = await openAdd(page)
-    await dialog.getByLabel('Size (optional)', { exact: true }).fill('L')
+    await pickSize(page, dialog, 'L')
     await dialog.getByLabel('SKU (optional)', { exact: true }).fill('wc-grey-m')
     await fillPrice(dialog)
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
@@ -335,6 +341,7 @@ test.describe('add variant', () => {
   test('a colour needs its hex: the error is inline, the hex is focused and nothing is sent', async ({ page }) => {
     const api = await start(page)
     const dialog = await openAdd(page)
+    await pickSize(page, dialog, 'M')
     await dialog.getByLabel('Colour name (optional)', { exact: true }).fill('Olive')
     await fillPrice(dialog)
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
@@ -351,26 +358,27 @@ test.describe('add variant', () => {
     expect(api.of('POST', 'variants')[0].body).toMatchObject({ color: 'Olive', colorHex: '#abc' })
   })
 
-  test('needs at least one of size, colour or name, and a price', async ({ page }) => {
+  test('needs a size from the list, and a price', async ({ page }) => {
     const api = await start(page)
     const dialog = await openAdd(page)
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
 
-    await expect(dialog.getByText('Enter a size, a colour or a variant name so this variant can be told apart.')).toBeVisible()
+    const size = dialog.getByRole('combobox', { name: 'Size', exact: true })
+    const sizeError = 'Choose a size. Every variant needs one so the size guide and AR Fitting can match it.'
+    await expect(dialog.getByText(sizeError)).toBeVisible()
     await expect(dialog.getByText('Enter an amount above 0 and up to 1,000,000, with at most 2 decimals.')).toBeVisible()
-    await expect(dialog.getByLabel('Size (optional)', { exact: true })).toBeFocused()
-    await expect(dialog.getByLabel('Size (optional)', { exact: true })).toHaveAttribute('aria-invalid', 'true')
+    await expect(size).toBeFocused()
+    await expect(size).toHaveAttribute('aria-invalid', 'true')
     expect(api.of('POST', 'variants')).toHaveLength(0)
 
-    // Any one of the three is enough.
-    await dialog.getByLabel('Variant name (optional)', { exact: true }).fill('Gift set')
-    await expect(dialog.getByText('Enter a size, a colour or a variant name so this variant can be told apart.')).toHaveCount(0)
+    await pickSize(page, dialog, 'M')
+    await expect(dialog.getByText(sizeError)).toHaveCount(0)
   })
 
   test('measurements outside their range are named inline, and valid ones then save', async ({ page }) => {
     const api = await start(page)
     const dialog = await openAdd(page)
-    await dialog.getByLabel('Size (optional)', { exact: true }).fill('M')
+    await pickSize(page, dialog, 'M')
     await fillPrice(dialog)
     await dialog.getByLabel('Chest width', { exact: true }).fill('4')
     await dialog.getByLabel('Total length', { exact: true }).fill('9')
@@ -401,7 +409,7 @@ test.describe('add variant', () => {
   test('a server error shows why with Try again, which sends the same variant again', async ({ page }) => {
     const api = await start(page)
     const dialog = await openAdd(page)
-    await dialog.getByLabel('Size (optional)', { exact: true }).fill('L')
+    await pickSize(page, dialog, 'L')
     await fillPrice(dialog)
     await interceptOnce(page, 'POST', VARIANTS_PATH, failWith(500))
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
@@ -416,7 +424,7 @@ test.describe('add variant', () => {
   test('a 403 says the account may not add variants, with no retry', async ({ page }) => {
     await start(page)
     const dialog = await openAdd(page)
-    await dialog.getByLabel('Size (optional)', { exact: true }).fill('L')
+    await pickSize(page, dialog, 'L')
     await fillPrice(dialog)
     await interceptOnce(page, 'POST', VARIANTS_PATH, failWith(403, { message: 'Forbidden resource' }))
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
@@ -427,7 +435,7 @@ test.describe('add variant', () => {
   test('while saving the button cannot be pressed twice and Escape, Cancel and Close are ignored', async ({ page }) => {
     const api = await start(page)
     const dialog = await openAdd(page)
-    await dialog.getByLabel('Size (optional)', { exact: true }).fill('L')
+    await pickSize(page, dialog, 'L')
     await fillPrice(dialog)
     const release = await hold(page, 'POST', VARIANTS_PATH)
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
@@ -450,7 +458,7 @@ test.describe('focus regressions', () => {
     const drawer = await openDrawer(page, 'Linen Shirt')
     await drawer.getByRole('button', { name: 'Add color variant', exact: true }).click()
     const dialog = variantDialog(page, 'Add')
-    await dialog.getByLabel('Size (optional)', { exact: true }).fill('L')
+    await pickSize(page, dialog, 'L')
     await dialog.getByLabel('SKU (optional)', { exact: true }).fill('wc-grey-m')
     await dialog.getByLabel('Price (PHP)', { exact: true }).fill('100')
     await dialog.getByRole('button', { name: 'Add variant', exact: true }).click()
@@ -492,7 +500,7 @@ test.describe('edit variant', () => {
   test('opens pre-filled with Save variant disabled, enables on a change and disables when reverted', async ({ page }) => {
     await start(page)
     const dialog = await openEdit(page, 'Navy M')
-    await expect(dialog.getByLabel('Size (optional)', { exact: true })).toHaveValue('M')
+    await expect(dialog.getByRole('combobox', { name: 'Size', exact: true })).toHaveText('M')
     await expect(dialog.getByLabel('Colour name (optional)', { exact: true })).toHaveValue('Navy')
     await expect(dialog.getByLabel('Colour hex', { exact: true })).toHaveValue('#1b2a49')
     await expect(dialog.getByLabel('SKU', { exact: true })).toHaveValue('LS-NAVY-M')
@@ -991,8 +999,10 @@ test.describe('keyboard', () => {
     await drawer.getByRole('button', { name: 'Add color variant', exact: true }).focus()
     await page.keyboard.press('Enter')
     const dialog = variantDialog(page, 'Add')
-    await dialog.getByLabel('Size (optional)', { exact: true }).focus()
+    await dialog.getByRole('combobox', { name: 'Size', exact: true }).focus()
+    await page.keyboard.press('Enter') // opens the list
     await page.keyboard.type('XL')
+    await page.keyboard.press('Enter')
     await dialog.getByLabel('Price (PHP)', { exact: true }).focus()
     await page.keyboard.type('250')
     await page.keyboard.press('Enter') // submits the form

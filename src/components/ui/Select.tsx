@@ -196,10 +196,14 @@ interface SelectProps<T> {
   className?: string
   /** 'kral' restyles the trigger and list flat and square for the KRAL pages; unset leaves the skeuomorphic control. */
   tone?: 'kral'
+  /** For forms: the trigger's id (a label or error can point at it) and its invalid state. */
+  id?: string
+  invalid?: boolean
+  describedBy?: string
 }
 
 /** A select-only combobox: a button that opens a listbox. Focus stays on the button throughout. */
-export function Select<T extends string | number>({ label, value, options, onChange, triggerPrefix = '', className = '', tone }: SelectProps<T>) {
+export function Select<T extends string | number>({ label, value, options, onChange, triggerPrefix = '', className = '', tone, id, invalid, describedBy }: SelectProps<T>) {
   const kral = tone === 'kral'
   const listboxId = useId()
   const labelId = useId()
@@ -311,8 +315,11 @@ export function Select<T extends string | number>({ label, value, options, onCha
       </span>
       <button
         ref={setButton}
+        id={id}
         type="button"
         role="combobox"
+        aria-invalid={invalid}
+        aria-describedby={describedBy}
         aria-labelledby={labelId}
         aria-haspopup="listbox"
         aria-expanded={open}
