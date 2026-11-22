@@ -30,6 +30,7 @@ import { baseMeasurementsFor } from '../../../utils/sizeGuide'
 import { COLUMNS_BY_CATEGORY } from '../../../utils/sizeMeasurementValidation'
 import { Checkbox } from '../../ui/Checkbox'
 import { Select } from '../../ui/Select'
+import { BaseMeasurementsLink } from './BaseMeasurementsLink'
 import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from './FormField'
 import { pickerValue } from './VariantBuilder'
 
@@ -38,7 +39,7 @@ const RETRYABLE = ['network', 'rate-limit', 'server']
 const SIZE_OPTIONS = [{ value: '', label: 'Choose a size' }, ...APPAREL_SIZES.map((size) => ({ value: size, label: size }))]
 const SMALL_BUTTON = `${SECONDARY_BUTTON} text-sm`
 /** The field each error key belongs to, to move focus to the first problem. */
-const FIELD_ID: Record<string, string> = { size: 'vs-size', colorHex: 'vs-hex', sku: 'vs-sku', price: 'vs-price', stock: 'vs-stock' }
+const FIELD_ID: Record<string, string> = { size: 'vs-size', colorHex: 'vs-hex', sku: 'vs-sku', price: 'vs-price', stock: 'vs-stock', measurements: 'vs-measurements' }
 
 interface Banner {
   title: string
@@ -226,6 +227,7 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
   )
 
   const sizeError = error('size')
+  const measurementsError = error('measurements')
   const hexError = error('colorHex')
   return (
     <Modal variant="sheet" open onClose={requestClose} title={discarding ? 'Are you sure?' : editing ? 'Edit variant' : 'Add variant'} footer={footer}>
@@ -424,10 +426,10 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
             )}
           </div>
 
-          <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
+          <fieldset id="vs-measurements" tabIndex={-1} aria-describedby={describedBy('vs-measurements', measurementsError)} className="m-0 grid min-w-0 gap-3 border-0 p-0">
             <legend className="text-sm font-semibold text-fg">AR garment measurements (cm)</legend>
             <p className="text-xs text-fg-muted">
-              Optional. AR Fitting compares these with the shopper&apos;s body to show how the garment fits.{columns && ` Only the ones that apply to ${category?.toLowerCase()} are shown.`}
+              {editing ? 'Optional.' : 'Enter at least one, or inherit the base ones.'} AR Fitting compares these with the shopper&apos;s body to show how the garment fits.{columns && ` Only the ones that apply to ${category?.toLowerCase()} are shown.`}
             </p>
             {inheritHint && (
               <div className="grid gap-1">
@@ -446,6 +448,9 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
                 <p className="text-xs text-fg-muted">
                   {inheritHint}
                 </p>
+                {category && baseRows.status === 'ready' && values.size.trim() && !base && (
+                  <BaseMeasurementsLink category={category} sizes={values.size.trim()} onCheckAgain={baseRows.reload} />
+                )}
               </div>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -472,6 +477,11 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
                 )
               })}
             </div>
+            {measurementsError && (
+              <p id="vs-measurements-error" className="text-sm text-danger">
+                {measurementsError}
+              </p>
+            )}
           </fieldset>
         </fieldset>
       </form>

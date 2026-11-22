@@ -358,6 +358,7 @@ export function validateVariantForm(v: VariantFormValues, { mode }: { mode: 'add
     const value = parseMeasurement(text)
     if (value === null || value < min || value > max) errors[`m:${key}`] = `Enter ${label.toLowerCase()} from ${min} to ${max} cm.`
   }
+  if (mode === 'add' && !MEASUREMENT_FIELDS.some(({ key }) => v.measurements[key])) errors.measurements = 'Enter at least one measurement. AR Fitting needs it to show how this variant fits.'
   return errors
 }
 

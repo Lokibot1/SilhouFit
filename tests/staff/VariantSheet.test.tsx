@@ -125,6 +125,7 @@ describe('VariantSheet', () => {
     const { sheet, onSaved } = setup()
     await pickSize(user, sheet, 'M')
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
+    await user.type(within(sheet).getByRole('textbox', { name: /^Chest width/ }), '50')
     await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
     const alert = await within(sheet).findByRole('alert')
     expect(alert).toHaveTextContent("Couldn't add the variant.")
@@ -177,6 +178,7 @@ describe('VariantSheet', () => {
     const { sheet } = setup()
     await pickSize(user, sheet, 'M')
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
+    await user.type(within(sheet).getByRole('textbox', { name: /^Chest width/ }), '50')
     await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
     await waitFor(() => expect(within(sheet).getByRole('textbox', { name: /^SKU/ })).toHaveFocus())
   })
@@ -187,8 +189,50 @@ describe('VariantSheet', () => {
     const { sheet } = setup()
     await pickSize(user, sheet, 'M')
     await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
+    await user.type(within(sheet).getByRole('textbox', { name: /^Chest width/ }), '50')
     await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
     await waitFor(() => expect(within(sheet).getByRole('button', { name: 'Add variant' })).toHaveFocus())
+  })
+})
+
+describe('VariantSheet required measurements', () => {
+  const asCan = async (user: ReturnType<typeof userEvent.setup>, sheet: HTMLElement) => {
+    await pickSize(user, sheet, '3XL')
+    await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '10')
+  }
+
+  it('blocks a new variant with no measurements, says why under them and focuses them', async () => {
+    const user = userEvent.setup()
+    const { sheet } = setup({ category: 'Hoodie' })
+    await asCan(user, sheet)
+    await user.click(within(sheet).getByRole('button', { name: 'Add variant' }))
+    expect(within(sheet).getByText('Enter at least one measurement. AR Fitting needs it to show how this variant fits.')).toBeInTheDocument()
+    expect(sheet.querySelector('#vs-measurements')).toHaveFocus()
+    expect(createVariant).not.toHaveBeenCalled()
+  })
+
+  it('links to Base measurements for a size with none, and Check again picks up the row added meanwhile', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetchCategoryMeasurements).mockResolvedValueOnce([]).mockResolvedValue([baseRow('3XL', { chestWidthCm: 70 })])
+    const { sheet } = setup({ category: 'Hoodie' })
+    await asCan(user, sheet)
+    const link = await within(sheet).findByRole('link', { name: /Add 3XL in Base measurements/ })
+    expect(link).toHaveAttribute('href', 'measurements?category=Hoodie')
+    expect(link).toHaveAttribute('target', '_blank')
+    await user.click(within(sheet).getByRole('button', { name: 'Check again' }))
+    await waitFor(() => expect(within(sheet).getByRole('checkbox', { name: 'Inherit base measurements' })).toBeChecked())
+    expect(within(sheet).getByRole('textbox', { name: /^Chest width/ })).toHaveValue('70')
+    expect(within(sheet).queryByRole('link', { name: /Base measurements/ })).not.toBeInTheDocument()
+  })
+
+  it('does not ask for measurements when editing', async () => {
+    const user = userEvent.setup()
+    vi.mocked(saveVariant).mockResolvedValue(VARIANT)
+    const { sheet } = setup({ mode: 'edit', variant: VARIANT })
+    await user.clear(within(sheet).getByRole('textbox', { name: /^Price/ }))
+    await user.type(within(sheet).getByRole('textbox', { name: /^Price/ }), '600')
+    await user.click(within(sheet).getByRole('button', { name: 'Save variant' }))
+    expect(saveVariant).toHaveBeenCalledWith('p1', 'v1', { price: 600 }, expect.anything())
   })
 })
 

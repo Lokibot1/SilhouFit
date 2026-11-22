@@ -317,7 +317,7 @@ const VARIANT: ProductVariant = {
 }
 
 describe('validateVariantForm', () => {
-  const form = (over: Partial<VariantFormValues> = {}): VariantFormValues => ({ ...variantFormValues(), size: 'M', price: '500', ...over })
+  const form = (over: Partial<VariantFormValues> = {}): VariantFormValues => ({ ...variantFormValues(), size: 'M', price: '500', measurements: { ...variantFormValues().measurements, chestWidthCm: '50' }, ...over })
 
   it('accepts a size and a price, with the SKU left blank on add', () => {
     expect(validateVariantForm(form(), { mode: 'add' })).toEqual({})
@@ -329,6 +329,13 @@ describe('validateVariantForm', () => {
       expect(validateVariantForm(form({ size: 'XXL' }), { mode }).size).toBeDefined()
     }
     for (const size of ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', 'Free Size']) expect(validateVariantForm(form({ size }), { mode: 'add' }).size, size).toBeUndefined()
+  })
+
+  it('needs one measurement on add only, typed or copied from the base', () => {
+    const none = variantFormValues().measurements
+    expect(validateVariantForm(form({ measurements: none }), { mode: 'add' }).measurements).toMatch(/^Enter at least one measurement/)
+    expect(validateVariantForm(form({ measurements: none }), { mode: 'edit' }).measurements).toBeUndefined()
+    expect(validateVariantForm(form(), { mode: 'add' }).measurements).toBeUndefined()
   })
 
   it('needs a valid hex with a colour, and none without one', () => {
