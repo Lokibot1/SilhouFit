@@ -96,6 +96,14 @@ describe('fetchActivityLogs', () => {
     expect(data.map((log) => [log.action, log.category])).toEqual([['USER_MESSAGING_BLOCKED', 'account'], ['USER_MESSAGING_UNBLOCKED', 'account']])
   })
 
+  it('files every refund action under Transactions, a gateway one as the payment gateway', async () => {
+    const actions = ['REFUND_REQUESTED', 'REFUND_SUCCEEDED', 'REFUND_FAILED', 'REFUND_MANUAL_ACTION_REQUIRED', 'REFUND_RETRIED', 'REFUND_MANUALLY_RESOLVED']
+    send.mockResolvedValue(page(actions.map((action, i) => entry({ id: `r${i}`, action, ...(i === 1 && { actor: { id: null, type: 'WEBHOOK', role: null, email: null, fullName: null } }) }))))
+    const { data } = await fetchActivityLogs({})
+    expect(data.map((log) => [log.action, log.category])).toEqual(actions.map((action) => [action, 'transaction']))
+    expect(data[1].actor).toBe('Payment gateway')
+  })
+
   it.each([
     ['a body that is not an object', 'nope'],
     ['no data list', { meta: { total: 0 } }],
