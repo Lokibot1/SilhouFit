@@ -1,8 +1,9 @@
+import { APPAREL_SIZES } from '../data/products'
 import type { MeasurementKey } from '../service/fetchProductList'
 import type { CustomSizing } from '../service/customSizings'
 import { cleanText } from './checkoutValidation'
 import { filterText, MEASUREMENT_FIELDS, parseMeasurement } from './productValidation'
-import { COLUMNS_BY_CATEGORY, SIZE_MAX } from './sizeMeasurementValidation'
+import { COLUMNS_BY_CATEGORY } from './sizeMeasurementValidation'
 
 export const SIZING_NAME_MAX = 40
 export const SIZING_ROWS_MAX = 10
@@ -47,8 +48,8 @@ export function validateSizingDraft(draft: SizingDraft, category: string, takenN
   for (const row of draft.rows) {
     const size = cleanText(row.size)
     if (!size) errors[`size:${row.id}`] = 'Enter a size such as S.'
-    else if (size.length > SIZE_MAX) errors[`size:${row.id}`] = `Use ${SIZE_MAX} characters or fewer.`
     else if (seen.has(size.toLowerCase())) errors[`size:${row.id}`] = `${size} is listed twice. Give each size its own name.`
+    else if (!APPAREL_SIZES.includes(size)) errors[`size:${row.id}`] = 'Use one of XS, S, M, L, XL, 2XL, 3XL or Free Size.'
     seen.add(size.toLowerCase())
 
     let filled = 0

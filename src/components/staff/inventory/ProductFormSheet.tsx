@@ -265,12 +265,16 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
         linkProductSizing(product.id, sizingMode === 'custom' ? sizingId || addCustomSizing(buildCustomSizing(sizingDraft, category)).id : null)
         onSaved?.(latest.current.name.trim())
       } else {
-        // On the category's base sizing the API gives each variant its size's base measurements.
+        // On the category's base sizing the API gives each variant its size's base measurements; on a custom sizing each carries its own.
         const input = buildProductInput(latest.current, urls)
-        if (latest.current.sizingMode === 'base') input.inheritBaseMeasurements = true
+        const { sizingMode, sizingId, sizingDraft, category } = latest.current
+        if (sizingMode === 'base') input.inheritBaseMeasurements = true
+        else {
+          const { sizes } = getCustomSizings().find((s) => s.id === sizingId) ?? buildCustomSizing(sizingDraft, category)
+          for (const variant of input.variants) variant.measurements = sizes.find((s) => s.size === variant.size)?.measurements
+        }
         const created = await addProduct(input, { signal: controller.signal })
         // The product and its sizing are linked here (mock) until the API stores the link.
-        const { sizingMode, sizingId, sizingDraft, category } = latest.current
         if (sizingMode === 'custom') linkProductSizing(created.id, sizingId || addCustomSizing(buildCustomSizing(sizingDraft, category)).id)
         onCreated?.(created)
       }

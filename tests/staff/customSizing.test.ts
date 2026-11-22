@@ -32,6 +32,19 @@ describe('validateSizingDraft', () => {
   })
 })
 
+describe('validateSizingDraft sizes', () => {
+  it('accepts only the sizes the API allows', () => {
+    const draft = filled('Boxy')
+    draft.rows[0].size = 'XXL'
+    draft.rows[1].size = 'One size'
+    draft.rows[2].size = 'Free Size'
+    const errors = validateSizingDraft(draft, 'Hoodie', [])
+    expect(errors[`size:${draft.rows[0].id}`]).toBe('Use one of XS, S, M, L, XL, 2XL, 3XL or Free Size.')
+    expect(errors[`size:${draft.rows[1].id}`]).toBe('Use one of XS, S, M, L, XL, 2XL, 3XL or Free Size.')
+    expect(errors[`size:${draft.rows[2].id}`]).toBeUndefined()
+  })
+})
+
 describe('custom sizing store', () => {
   beforeEach(() => localStorage.clear())
 

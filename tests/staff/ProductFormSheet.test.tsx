@@ -239,7 +239,7 @@ describe('Add product sheet', () => {
     expect(input.variants.every((v) => v.measurements === undefined)).toBe(true)
   })
 
-  it('does not ask the API to inherit base measurements on a custom sizing', async () => {
+  it("sends the custom sizing's own measurements on each variant instead of inheriting the base ones", async () => {
     const user = userEvent.setup()
     vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })
     addCustomSizing({ category: 'Hoodie', name: 'Boxy fit', sizes: [{ size: 'M', measurements: { chestWidthCm: 60, totalLengthCm: 70 } }] })
@@ -252,7 +252,7 @@ describe('Add product sheet', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
     await waitFor(() => expect(addProduct).toHaveBeenCalled())
     const input = vi.mocked(addProduct).mock.calls[0][0]
-    expect(input.variants.map((v) => v.size)).toEqual(['M'])
+    expect(input.variants.map((v) => [v.size, v.measurements])).toEqual([['M', { chestWidthCm: 60, totalLengthCm: 70 }]])
     expect(input).not.toHaveProperty('inheritBaseMeasurements')
   })
 
