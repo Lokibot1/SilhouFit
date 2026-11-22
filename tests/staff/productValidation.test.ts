@@ -211,6 +211,10 @@ describe('validateProductForm base measurements', () => {
     expect(check({}, { rows: [row('S'), row('M')], status: 'ready' })).toBeUndefined()
     expect(check({}, { rows: [row('S'), row('M', null)], status: 'ready' })).toMatch(/for M\./)
   })
+  it('passes Headwear with a Free Size base row', () => {
+    const free = { ...row('Free Size', null), category: 'Headwear', neckCm: 58 }
+    expect(validateProductForm(valid({ category: 'Headwear', sizes: ['Free Size'] }), { base: { rows: [free], status: 'ready' } }).sizes).toBeUndefined()
+  })
   it('says so while loading or when loading failed', () => {
     expect(check({}, { rows: [], status: 'loading' })).toBe('Checking base measurements…')
     expect(check({}, { rows: [], status: 'failed' })).toBe("Base measurements couldn't load. Close this sheet and try again.")
