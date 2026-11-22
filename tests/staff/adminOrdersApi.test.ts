@@ -8,7 +8,7 @@ vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
 }))
 const send = vi.mocked(request)
 
-const { cancelDelivery, cancelDeliveryFailure, dispatchFailure, dispatchOrder, explainFailure, fetchAdminOrder, fetchAdminOrderMetrics, fetchAdminOrders, fetchUserOrders, fetchUserOrderSummary, updateAdminOrder } = await import('../../src/service/adminOrdersApi')
+const { cancelAndRefundOrder, cancelRefundFailure, cancelDelivery, cancelDeliveryFailure, dispatchFailure, dispatchOrder, explainFailure, fetchAdminOrder, fetchAdminOrderMetrics, fetchAdminOrders, fetchUserOrders, fetchUserOrderSummary, updateAdminOrder } = await import('../../src/service/adminOrdersApi')
 
 const customer = { id: 'u1', email: 'anne@example.com', firstName: 'Anne', lastName: 'Santos', fullName: 'Anne Santos', avatarUrl: null }
 const apiRow = (over: Record<string, unknown> = {}) => ({
@@ -206,6 +206,14 @@ describe('changing an order', () => {
     ])
   })
 
+  it('POSTs the cancel and refund with only the reason and restock choice, and gives back the order', async () => {
+    send.mockResolvedValue(apiDetail({ status: 'CANCELLED', refundedAmount: 3879 }))
+    const order = await cancelAndRefundOrder(ORDER_ID, { reason: 'Out of stock', restockItems: false })
+    expect(send).toHaveBeenCalledWith('POST', `/admin/orders/${ORDER_ID}/cancel-and-refund`, { reason: 'Out of stock', restockItems: false })
+    expect(order.status).toBe('CANCELLED')
+    expect(order.refundedAmount).toBe(3879)
+  })
+
   it('keeps the failure so the screen can tell a bad gateway from a refusal', async () => {
     send.mockRejectedValue(new ProductListError('server', undefined, 502))
     await expect(dispatchOrder(ORDER_ID)).rejects.toMatchObject({ kind: 'server', status: 502 })
@@ -261,6 +269,23 @@ describe('failure copy', () => {
     expect(cancelDeliveryFailure(new ProductListError('conflict', 'x', 409, 'CANCELLATION_FORBIDDEN'))).toMatch(/within 5 minutes/)
     expect(cancelDeliveryFailure(fail('conflict'))).toMatch(/within 5 minutes of a match\. Contact Lalamove support/)
     expect(cancelDeliveryFailure(fail('network'))).toMatch(/^The delivery was not cancelled\. The connection dropped/)
+  })
+
+  it('explains a failed cancel and refund in its own words, with a retry only when it can help', () => {
+    const coded = cancelRefundFailure(new ProductListError('conflict', 'POST /x failed', 409, 'CANCELLATION_FORBIDDEN'))
+    expect(coded.message).toMatch(/within 5 minutes of a match/)
+    expect(coded.retry).toBe(false)
+    expect(cancelRefundFailure(new ProductListError('conflict', 'POST /admin/orders/1 conflicts', 409))).toEqual({
+      message: 'The order changed while you were cancelling it (a rider may be booked or on the way). Check its status, then try again.',
+      retry: false,
+    })
+    expect(cancelRefundFailure(fail('validation', 'path /x'))).toEqual({ message: 'This order can no longer be cancelled and refunded.', retry: false })
+    expect(cancelRefundFailure(fail('forbidden'))).toEqual({ message: 'Only an admin can cancel and refund a paid order.', retry: false })
+    for (const kind of ['network', 'rate-limit', 'server'] as const) {
+      const result = cancelRefundFailure(fail(kind, 'path /x'))
+      expect(result.retry).toBe(true)
+      expect(result.message).not.toMatch(/path/)
+    }
   })
 
   it('uses the server sentence for a refused change and plain copy for the rest', () => {

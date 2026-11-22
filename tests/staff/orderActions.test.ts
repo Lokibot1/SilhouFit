@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ORDER_STATUSES, PAYMENT_STATUSES, SHIPMENT_STATUSES, type OrderStatus, type PaymentStatus, type ShipmentStatus } from '../../src/service/ordersApi'
-import { canCancelDelivery, canStartPreparing, cancelOrderBlock, dispatchBlock, isClosed, RIDER_BOOKING_WHY } from '../../src/utils/orders'
+import { canCancelDelivery, canStartPreparing, cancelOrderBlock, cancelRefundBlock, dispatchBlock, isClosed, RIDER_BOOKING_WHY } from '../../src/utils/orders'
 
 type Booking = { status: ShipmentStatus; externalOrderId: string | null } | null
 
@@ -80,7 +80,29 @@ describe('Cancel order', () => {
       if (cancelOrderBlock(o) !== null) continue
       expect(isClosed(o), JSON.stringify(o)).toBe(false)
       expect(o.paymentStatus, JSON.stringify(o)).not.toBe('PAID')
+      expect(o.paymentStatus, JSON.stringify(o)).not.toBe('PARTIALLY_REFUNDED')
     }
+  })
+})
+
+describe('Cancel and refund', () => {
+  const HAS_PARCEL = "The rider has the parcel, so it can't be cancelled now."
+
+  it('is on for an admin while the order is Paid or Preparing and no rider is on the way', () => {
+    expect(cancelRefundBlock(order('PAID', 'PAID', { status: 'QUOTED', externalOrderId: null }), true)).toBeNull()
+    expect(cancelRefundBlock(order('PROCESSING', 'PARTIALLY_REFUNDED', booked('CANCELLED')), true)).toBeNull()
+    expect(cancelRefundBlock(order('DISPATCHED', 'PAID', booked('ASSIGNING_DRIVER')), true)).toBeNull()
+  })
+
+  it('says why it is off', () => {
+    expect(cancelRefundBlock(order('DELIVERED', 'PAID'), true)).toBe('This order is closed.')
+    expect(cancelRefundBlock(order('PAID', 'PAID'), false)).toBe('Only an admin can cancel a paid order and refund it.')
+    expect(cancelRefundBlock(order('OUT_FOR_DELIVERY', 'PAID', booked('ON_GOING')), true)).toBe(HAS_PARCEL)
+    expect(cancelRefundBlock(order('PROCESSING', 'PAID', { status: 'DISPATCHING', externalOrderId: null }), true)).toBe(RIDER_BOOKING_WHY)
+    expect(cancelRefundBlock(order('PROCESSING', 'PAID', booked('PICKED_UP')), true)).toBe(HAS_PARCEL)
+    expect(cancelRefundBlock(order('DISPATCHED', 'PAID', booked('ON_GOING')), true)).toBe(HAS_PARCEL)
+    expect(cancelRefundBlock(order('DISPATCHED', 'PAID', { status: 'ASSIGNING_DRIVER', externalOrderId: null }), true)).toBe(HAS_PARCEL)
+    expect(cancelRefundBlock(order('DISPATCHED', 'PAID'), true)).toBe(HAS_PARCEL)
   })
 })
 

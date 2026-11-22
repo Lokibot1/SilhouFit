@@ -302,10 +302,28 @@ export function dispatchFailure(error: unknown): { message: string; retry: boole
   return { message: "Lalamove didn't answer, so no rider was booked. Try again in a few minutes.", retry: true }
 }
 
+const CANCELLATION_WINDOW = 'Lalamove only lets you cancel while it is finding a driver or within 5 minutes of a match. Contact Lalamove support to cancel this delivery.'
+
 /** The inline error for a failed Cancel delivery. */
 export function cancelDeliveryFailure(error: unknown): string {
   const { kind, detail, code } = failureOf(error) ?? {}
   if (kind === 'conflict' && code && code !== 'CANCELLATION_FORBIDDEN' && detail) return detail
-  if (kind === 'conflict') return 'Lalamove only lets you cancel while it is finding a driver or within 5 minutes of a match. Contact Lalamove support to cancel this delivery.'
+  if (kind === 'conflict') return CANCELLATION_WINDOW
   return `The delivery was not cancelled. ${explainFailure(error)}`
+}
+
+/** Feature: Staff orders – Cancel and refund */
+/** POST /admin/orders/:id/cancel-and-refund (admin only). Cancels a paid order and refunds it in full; the order comes back even when the gateway refused the refund, so read its ORDER_CANCELLED refund. The reason is shown to the customer. */
+export async function cancelAndRefundOrder(id: string, { reason, restockItems }: { reason: string; restockItems: boolean }): Promise<AdminOrderDetail> {
+  return change(async () => toDetail(await request('POST', `${base(id)}/cancel-and-refund`, { reason, restockItems })))
+}
+
+/** The inline error for a failed Cancel and refund; the server's own words name API paths, so none are shown. `retry` is false when trying again cannot help. */
+export function cancelRefundFailure(error: unknown): { message: string; retry: boolean } {
+  const { kind, code } = failureOf(error) ?? {}
+  if (kind === 'conflict' && code === 'CANCELLATION_FORBIDDEN') return { message: `The order was not cancelled. ${CANCELLATION_WINDOW}`, retry: false }
+  if (kind === 'conflict') return { message: 'The order changed while you were cancelling it (a rider may be booked or on the way). Check its status, then try again.', retry: false }
+  if (kind === 'validation') return { message: 'This order can no longer be cancelled and refunded.', retry: false }
+  if (kind === 'forbidden') return { message: 'Only an admin can cancel and refund a paid order.', retry: false }
+  return { message: `The order was not cancelled. ${explainFailure(error)}`, retry: true }
 }

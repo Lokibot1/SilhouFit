@@ -102,7 +102,21 @@ export const canStartPreparing = (order: Actionable) => order.status === 'PAID' 
 /** Why Cancel order is off, or null when it can be cancelled. The API only cancels unpaid orders; a rider needs a paid one, so unpaid orders have none. */
 export function cancelOrderBlock(order: Actionable): string | null {
   if (isClosed(order)) return 'This order is closed.'
-  return order.paymentStatus === 'PAID' ? "Paid orders can't be cancelled here. Refunds go through the payment provider." : null
+  return order.paymentStatus === 'PAID' || order.paymentStatus === 'PARTIALLY_REFUNDED' ? "Paid orders can't be cancelled here. Refunds go through the payment provider." : null
+}
+
+const RIDER_HAS_PARCEL = "The rider has the parcel, so it can't be cancelled now."
+
+/** Why Cancel and refund is off for a paid order, or null when the API will take it (admins only; a rider can still be cancelled while finding a driver). */
+export function cancelRefundBlock(order: Actionable, isAdmin: boolean): string | null {
+  if (isClosed(order)) return 'This order is closed.'
+  if (!isAdmin) return 'Only an admin can cancel a paid order and refund it.'
+  if (order.status === 'OUT_FOR_DELIVERY') return RIDER_HAS_PARCEL
+  const shipment = order.shipment
+  if (shipment?.status === 'DISPATCHING') return RIDER_BOOKING_WHY
+  if (shipment?.status === 'ON_GOING' || shipment?.status === 'PICKED_UP') return RIDER_HAS_PARCEL
+  if (order.status === 'DISPATCHED' && !(shipment?.status === 'ASSIGNING_DRIVER' && shipment.externalOrderId)) return RIDER_HAS_PARCEL
+  return null
 }
 
 /** A rider is booked and the order is not delivered yet. */
