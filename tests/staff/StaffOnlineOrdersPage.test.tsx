@@ -420,6 +420,18 @@ describe('Online orders page', () => {
       expect(alert).toHaveTextContent('The order changed while you were cancelling it')
       expect(alert).not.toHaveTextContent(/POST/)
       expect(within(dialog).queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+      // The order is read again so the drawer shows its real status; the dialog stays open.
+      await waitFor(() => expect(detail).toHaveBeenCalledTimes(2))
+      expect(dialog).toBeInTheDocument()
+    })
+
+    it('reads the order again when the cancel is refused as no longer possible', async () => {
+      const dialog = await openDialog()
+      await fill(dialog)
+      refund.mockRejectedValue(new ProductListError('validation', 'terminal status', 400))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel and refund' }))
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('This order can no longer be cancelled and refunded.')
+      await waitFor(() => expect(detail).toHaveBeenCalledTimes(2))
     })
 
     it('shows a dropped connection in the dialog with a Retry that tries again', async () => {
@@ -428,6 +440,7 @@ describe('Online orders page', () => {
       refund.mockRejectedValueOnce(new ProductListError('network'))
       await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel and refund' }))
       expect(await within(dialog).findByRole('alert')).toHaveTextContent('The order was not cancelled. The connection dropped')
+      expect(detail).toHaveBeenCalledTimes(1)
       refund.mockResolvedValueOnce(done('SUCCEEDED'))
       await userEvent.click(within(dialog).getByRole('button', { name: 'Retry' }))
       expect(refund).toHaveBeenCalledTimes(2)

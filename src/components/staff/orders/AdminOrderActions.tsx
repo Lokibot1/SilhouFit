@@ -165,6 +165,9 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
       const failure = cancelRefundFailure(error)
       setDialogError(failure.message)
       setCanRetry(failure.retry)
+      // A refused cancel means the order is not as the drawer shows it, so read it again; the dialog stays open.
+      const { kind } = failureOf(error) ?? {}
+      if (kind === 'conflict' || kind === 'validation') onChanged()
     } finally {
       setBusy(null)
     }
@@ -331,10 +334,12 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
           Put items back in stock
         </Checkbox>
         <div className="mt-3">
-          <Field id={`refund-confirm-${detail.id}`} label={`Type ${detail.orderNumber} to confirm`}>
+          <Field id={`refund-confirm-${detail.id}`} label="Order number" hint={`Type ${detail.orderNumber} to confirm`}>
             <input
               id={`refund-confirm-${detail.id}`}
               type="text"
+              aria-label={`Type ${detail.orderNumber} to confirm`}
+              aria-describedby={`refund-confirm-${detail.id}-hint`}
               value={typed}
               onChange={(event) => setTyped(stripControl(event.target.value))}
               readOnly={busy === 'cancel-refund'}

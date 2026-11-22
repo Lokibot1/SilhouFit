@@ -87,6 +87,7 @@ describe('Cancel order', () => {
 
 describe('Cancel and refund', () => {
   const HAS_PARCEL = "The rider has the parcel, so it can't be cancelled now."
+  const NOT_CONFIRMED = "The rider booking isn't confirmed yet, so this order can't be cancelled here. Check the delivery, then try again."
 
   it('is on for an admin while the order is Paid or Preparing and no rider is on the way', () => {
     expect(cancelRefundBlock(order('PAID', 'PAID', { status: 'QUOTED', externalOrderId: null }), true)).toBeNull()
@@ -101,8 +102,8 @@ describe('Cancel and refund', () => {
     expect(cancelRefundBlock(order('PROCESSING', 'PAID', { status: 'DISPATCHING', externalOrderId: null }), true)).toBe(RIDER_BOOKING_WHY)
     expect(cancelRefundBlock(order('PROCESSING', 'PAID', booked('PICKED_UP')), true)).toBe(HAS_PARCEL)
     expect(cancelRefundBlock(order('DISPATCHED', 'PAID', booked('ON_GOING')), true)).toBe(HAS_PARCEL)
-    expect(cancelRefundBlock(order('DISPATCHED', 'PAID', { status: 'ASSIGNING_DRIVER', externalOrderId: null }), true)).toBe(HAS_PARCEL)
-    expect(cancelRefundBlock(order('DISPATCHED', 'PAID'), true)).toBe(HAS_PARCEL)
+    expect(cancelRefundBlock(order('DISPATCHED', 'PAID', { status: 'ASSIGNING_DRIVER', externalOrderId: null }), true)).toBe(NOT_CONFIRMED)
+    expect(cancelRefundBlock(order('DISPATCHED', 'PAID'), true)).toBe(NOT_CONFIRMED)
   })
 })
 
