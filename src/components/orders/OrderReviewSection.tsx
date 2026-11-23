@@ -119,9 +119,12 @@ export function OrderReviewSection({ order }: { order: CustomerOrder }) {
       }
       const comment = input.text.trim()
       const imageUrls = [...input.keptImages.map((image) => image.url), ...uploaded]
-      if (current.kind === 'edit') await updateReview(current.row.review.id, { rating: input.rating, comment, imageUrls })
-      else await createReview(order.id, current.row.pending.product.id, { rating: input.rating, comment, ...(input.orderItemId && { orderItemId: input.orderItemId }), ...(imageUrls.length > 0 && { imageUrls }) })
-      toast.show({ kind: 'success', message: current.kind === 'edit' ? 'Review updated.' : 'Review posted.' })
+      const saved = current.kind === 'edit'
+        ? await updateReview(current.row.review.id, { rating: input.rating, comment, imageUrls })
+        : await createReview(order.id, current.row.pending.product.id, { rating: input.rating, comment, ...(input.orderItemId && { orderItemId: input.orderItemId }), ...(imageUrls.length > 0 && { imageUrls }) })
+      // The server hides words that aren't allowed, so a saved comment that differs from the one sent was masked.
+      if (saved.comment !== comment) toast.show({ kind: 'info', message: current.kind === 'edit' ? "Review updated. Some words were hidden because they aren't allowed." : "Review posted. Some words were hidden because they aren't allowed. You can edit your review for 30 days." })
+      else toast.show({ kind: 'success', message: current.kind === 'edit' ? 'Review updated.' : 'Review posted.' })
       refocus.current = current.row.key
       setTarget(null)
       load(undefined, true)

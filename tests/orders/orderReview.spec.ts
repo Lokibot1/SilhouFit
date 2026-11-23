@@ -205,6 +205,16 @@ test.describe('writing a review', () => {
     expect(reviews.creates).toEqual([{ orderId: orderId(DELIVERED), productId: PRODUCT_ID, body: { rating: 4, comment: GOOD_TEXT } }])
   })
 
+  test('a comment the server masked shows an info toast saying words were hidden', async ({ page }) => {
+    await openOrder(page)
+    await openForm(page)
+    await rate(page, 4)
+    await textBox(page).fill(GOOD_TEXT)
+    reviews.on.create = () => ({ status: 201, json: mine({ rating: 4, comment: '**** well and arrived on time.' }) })
+    await dialog(page).getByRole('button', { name: 'Post review' }).click()
+    await expect(toast(page, "Review posted. Some words were hidden because they aren't allowed. You can edit your review for 30 days.")).toBeVisible()
+  })
+
   test('posting with photos uploads them to the reviews bucket and sends their URLs', async ({ page }) => {
     await openOrder(page, { needsSession: true })
     await openForm(page)
