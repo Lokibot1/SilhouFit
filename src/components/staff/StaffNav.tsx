@@ -48,9 +48,11 @@ interface StaffNavProps {
   collapsed?: boolean
   /** Called when a live item is chosen, so the sheet can close. */
   onNavigate?: () => void
+  /** Whether the list scrolls on its own (the desktop sidebar). The mobile drawer sits in a scrolling panel, so its list must not be a scroller too, or a finger drag on it goes nowhere. */
+  scrolls?: boolean
 }
 
-export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps) {
+export function StaffNav({ area, collapsed = false, onNavigate, scrolls = true }: StaffNavProps) {
   const role = useCurrentUser()?.role ?? area
   const canView = useCanView(role)
   const unread = useChatUnread()
@@ -68,7 +70,7 @@ export function StaffNav({ area, collapsed = false, onNavigate }: StaffNavProps)
     })
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <nav aria-label={AREA_LABEL[area]} className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pb-6 ${collapsed ? '' : '[scrollbar-gutter:stable] pr-2'}`}>
+      <nav aria-label={AREA_LABEL[area]} className={`min-h-0 flex-1 pb-6 ${scrolls ? 'overflow-x-hidden overflow-y-auto overscroll-contain' : ''} ${collapsed ? '' : '[scrollbar-gutter:stable] pr-2'}`}>
         <ul className={`grid gap-1 ${collapsed ? 'justify-center' : ''}`}>
           {items.map((item, index) => {
             if (foldable && item.group && folded.has(item.group)) {

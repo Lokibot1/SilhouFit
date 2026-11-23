@@ -176,7 +176,7 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
       </div>
       <Modal open={menuOpen && !wide} onClose={() => setMenuOpen(false)} title="Menu" variant="drawer-left">
         <div className="staff-shell flex min-h-full flex-col pb-5">
-          <StaffNav area={shellArea} onNavigate={() => setMenuOpen(false)} />
+          <StaffNav area={shellArea} onNavigate={() => setMenuOpen(false)} scrolls={false} />
         </div>
       </Modal>
       <ChatDock staff />
