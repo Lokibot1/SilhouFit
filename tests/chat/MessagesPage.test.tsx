@@ -17,6 +17,7 @@ const renderPage = () =>
       <Routes>
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/login" element={<p>login page</p>} />
+        <Route path="/staff/messages" element={<p>staff inbox</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -30,6 +31,13 @@ describe('MessagesPage', () => {
   it('sends a guest to sign in without asking the server for a conversation', () => {
     renderPage()
     expect(screen.getByText('login page')).toBeInTheDocument()
+    expect(fetchMyConversation).not.toHaveBeenCalled()
+  })
+
+  it('sends a staff account to its own inbox without asking for a customer conversation', () => {
+    setSession({ name: 'Sam', email: 'sam@example.com', role: 'staff' })
+    renderPage()
+    expect(screen.getByText('staff inbox')).toBeInTheDocument()
     expect(fetchMyConversation).not.toHaveBeenCalled()
   })
 

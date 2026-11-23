@@ -7,17 +7,19 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useSection } from '../../hooks/useSection'
 import { fetchMyConversation } from '../../service/chatApi'
+import { isStaffRole } from '../../utils/staffRole'
 
 const META_DESCRIPTION =
   'Message the SilhouFit team. Ask about sizing, orders, delivery or pickup and read their replies in the same conversation, as soon as they arrive.'
 
-/** A customer's one conversation with the SilhouFit team. A guest goes to sign in before anything is requested. */
+/** A customer's one conversation with the SilhouFit team. A guest goes to sign in and staff to their own inbox before anything is requested. */
 export function MessagesPage() {
   useDocumentTitle('Your messages — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
   const user = useCurrentUser()
 
   if (!user) return <Navigate to="/login?next=%2Fmessages" replace />
+  if (isStaffRole(user.role)) return <Navigate to={`/${user.role}/messages`} replace />
   return <CustomerThread />
 }
 
