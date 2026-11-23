@@ -168,7 +168,7 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
             </Tooltip>
           </>
         )}
-        {/* The box and Send share one rounded outline, which lights up while the box has focus. 36px with a mouse, 44px on touch. */}
+        {/* The box has its own rounded outline, which lights up while it has focus. Paperclip and Send are 36px buttons beside it with a mouse, 44px on touch. */}
         <div className="flex min-h-9 min-w-0 flex-1 items-end rounded-xl bg-canvas ring-1 ring-line-strong ring-inset focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-chrome-strong pointer-coarse:min-h-11">
           <textarea
             ref={field}
@@ -184,21 +184,19 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
             disabled={!!disabledReason}
             aria-describedby={disabledReason ? 'chat-composer-note' : masked || flagged ? 'chat-composer-count chat-composer-note' : 'chat-composer-count'}
             placeholder={disabledReason ? 'Messaging is blocked' : 'Write a message'}
-            className="font-ui field-sizing-content max-h-24 min-h-9 min-w-0 flex-1 resize-none bg-transparent py-1.5 pr-2 pl-3 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted focus-visible:outline-none pointer-coarse:min-h-11 pointer-coarse:py-2.5"
+            className="font-ui field-sizing-content max-h-24 min-h-9 min-w-0 flex-1 resize-none bg-transparent px-3 py-1.5 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted focus-visible:outline-none pointer-coarse:min-h-11 pointer-coarse:py-2.5"
           />
-          <Tooltip label="Send message">
-            <button
-              type="submit"
-              disabled={blocked}
-              aria-label="Send message"
-              className="group flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-canvas disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:size-11"
-            >
-              <span className="flex size-7 items-center justify-center rounded-full bg-fg group-enabled:group-hover:bg-chrome-strong pointer-coarse:size-8">
-                <SendIcon />
-              </span>
-            </button>
-          </Tooltip>
         </div>
+        <Tooltip label="Send message">
+          <button
+            type="submit"
+            disabled={blocked}
+            aria-label="Send message"
+            className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-fg text-canvas enabled:hover:bg-chrome-strong disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:size-11"
+          >
+            <SendIcon />
+          </button>
+        </Tooltip>
       </div>
       {notes.length > 0 && (
         <div role="status" className="font-ui mt-1 grid gap-1 text-xs font-semibold text-danger">

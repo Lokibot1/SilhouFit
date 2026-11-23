@@ -36,12 +36,12 @@ describe('Composer', () => {
     expect(onSend).toHaveBeenCalledWith('Hi!')
   })
 
-  it('keeps the box and Send inside one rounded box (36px with a mouse, 44px on touch), with the paperclip outside it', () => {
+  it('keeps the text box a rounded box (36px with a mouse, 44px on touch), with the paperclip and Send both outside it', () => {
     render(<Composer onSend={vi.fn()} sending={false} attachments />)
     const pill = screen.getByRole('textbox', { name: 'Message' }).parentElement!
     expect(pill).toHaveClass('rounded-xl', 'min-h-9', 'pointer-coarse:min-h-11', 'focus-within:outline-2')
     expect(pill).not.toHaveClass('rounded-full')
-    expect(pill).toContainElement(screen.getByRole('button', { name: 'Send message' }))
+    expect(pill).not.toContainElement(screen.getByRole('button', { name: 'Send message' }))
     expect(pill).not.toContainElement(screen.getByRole('button', { name: 'Attach photos or videos' }))
   })
 
