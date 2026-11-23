@@ -13,6 +13,8 @@ export class AvatarUploadError extends Error {
 
 const AVATAR_BUCKET = 'avatars'
 export const AVATAR_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+/** Every type the upload path can name a file for (chat attachments). Not the avatar whitelist: that is AVATAR_TYPES. */
+export const UPLOAD_EXTENSIONS: Record<string, string> = { ...AVATAR_TYPES, 'image/gif': 'gif', 'image/avif': 'avif', 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' }
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024
 const UPLOAD_KIND: Record<number, AvatarUploadErrorKind> = { 400: 'invalid', 413: 'invalid', 415: 'invalid', 401: 'unauthorized', 403: 'invalid', 429: 'rate-limit' }
 
@@ -31,7 +33,7 @@ export async function uploadAvatar(file: File, userId: string, onProgress: (perc
   }
   signal?.throwIfAborted()
   if (!token) throw new AvatarUploadError('unauthorized')
-  const path = `${userId}/${crypto.randomUUID()}.${AVATAR_TYPES[file.type] ?? 'jpg'}`
+  const path = `${userId}/${crypto.randomUUID()}.${UPLOAD_EXTENSIONS[file.type] ?? 'jpg'}`
   const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
   await new Promise<void>((resolve, reject) => {
