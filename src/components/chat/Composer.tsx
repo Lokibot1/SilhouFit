@@ -126,7 +126,7 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
         event.preventDefault()
         submit()
       }}
-      className="border-t border-line bg-canvas-sub p-3"
+      className="border-t border-line bg-canvas-sub px-3 py-2"
     >
       {files.length > 0 && (
         <ul aria-label="Attached files" className="mb-2 flex flex-wrap gap-2">
@@ -161,15 +161,15 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
                 type="button"
                 onClick={() => picker.current?.click()}
                 aria-label="Attach photos or videos"
-                className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-line-strong bg-canvas text-fg hover:bg-fg/5"
+                className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-line-strong bg-canvas text-fg hover:bg-fg/5 pointer-coarse:size-11"
               >
                 <PaperclipIcon />
               </button>
             </Tooltip>
           </>
         )}
-        {/* The pill: the box and Send share one rounded outline, which lights up while the box has focus. */}
-        <div className="flex min-h-11 min-w-0 flex-1 items-end rounded-full bg-canvas ring-1 ring-line-strong ring-inset focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-chrome-strong">
+        {/* The box and Send share one rounded outline, which lights up while the box has focus. 36px with a mouse, 44px on touch. */}
+        <div className="flex min-h-9 min-w-0 flex-1 items-end rounded-xl bg-canvas ring-1 ring-line-strong ring-inset focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-chrome-strong pointer-coarse:min-h-11">
           <textarea
             ref={field}
             value={text}
@@ -184,16 +184,16 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
             disabled={!!disabledReason}
             aria-describedby={disabledReason ? 'chat-composer-note' : masked || flagged ? 'chat-composer-count chat-composer-note' : 'chat-composer-count'}
             placeholder={disabledReason ? 'Messaging is blocked' : 'Write a message'}
-            className="font-ui field-sizing-content max-h-24 min-h-11 min-w-0 flex-1 resize-none bg-transparent py-2.5 pr-2 pl-5 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted focus-visible:outline-none"
+            className="font-ui field-sizing-content max-h-24 min-h-9 min-w-0 flex-1 resize-none bg-transparent py-1.5 pr-2 pl-3 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted focus-visible:outline-none pointer-coarse:min-h-11 pointer-coarse:py-2.5"
           />
           <Tooltip label="Send message">
             <button
               type="submit"
               disabled={blocked}
               aria-label="Send message"
-              className="group flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-canvas disabled:cursor-not-allowed disabled:opacity-50"
+              className="group flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-canvas disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:size-11"
             >
-              <span className="flex size-8 items-center justify-center rounded-full bg-fg group-enabled:group-hover:bg-chrome-strong">
+              <span className="flex size-7 items-center justify-center rounded-full bg-fg group-enabled:group-hover:bg-chrome-strong pointer-coarse:size-8">
                 <SendIcon />
               </span>
             </button>
@@ -216,7 +216,7 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
         </p>
       )}
       {!disabledReason && (
-        <p id="chat-composer-count" className="font-ui mt-1 text-right text-xs text-fg-muted tabular-nums">
+        <p id="chat-composer-count" className="font-ui mt-0.5 text-right text-[10px] leading-4 text-fg-muted/70 tabular-nums">
           {text.length} / {maxLength}
         </p>
       )}
