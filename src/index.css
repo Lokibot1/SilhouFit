@@ -1391,6 +1391,12 @@
     transform: translate(19px, calc(-50% - var(--field-h) / 2));
   }
 
+  /* A select's box height follows its text, so its label is pinned to the top edge rather than offset by --field-h. */
+  .field--select.field--floated .field__label {
+    top: 0;
+    transform: translate(19px, -50%);
+  }
+
   .field--floated .field__outline legend {
     max-width: 100%;
   }

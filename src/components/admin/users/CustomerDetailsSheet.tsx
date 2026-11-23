@@ -15,6 +15,8 @@ import { StatusBadge } from './StatusBadge'
 
 const REASON_MAX = 500
 
+const REASON_PRESETS = ['Offensive or abusive language', 'Harassment of staff', 'Spam or repeated messages', 'Inappropriate images']
+
 type Action = 'block' | 'unblock'
 
 const ACTIONS: Record<Action, { confirmLabel: string; button: string; effect: string; done: string }> = {
@@ -159,6 +161,13 @@ export function CustomerDetailsSheet({ account, onClose, onChanged }: CustomerDe
         </p>
         {confirming === 'block' && (
           <div className="mt-3">
+            <div role="group" aria-label="Common reasons" className="mb-3 flex flex-wrap gap-2">
+              {REASON_PRESETS.map((preset) => (
+                <button key={preset} type="button" aria-pressed={reason === preset} onClick={() => setReason(preset)} className={`${SECONDARY_BUTTON_SM} aria-pressed:ring-2 aria-pressed:ring-fg`}>
+                  {preset}
+                </button>
+              ))}
+            </div>
             <Field id="moderation-reason" label="Reason" optional count={{ value: reason.length, max: REASON_MAX }}>
               <textarea id="moderation-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={REASON_MAX} rows={2} className={FIELD_INPUT} />
             </Field>

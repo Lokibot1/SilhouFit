@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Composer } from '../../src/components/chat/Composer'
 
@@ -118,6 +119,16 @@ describe('Composer', () => {
     expect(field).toHaveAccessibleDescription(/blocked by staff/)
     expect(field).toHaveAttribute('placeholder', 'Messaging is blocked')
     expect(screen.queryByText(/ \/ 2000/)).not.toBeInTheDocument()
+  })
+
+  it('can show a link inside the blocked notice while the box stays disabled', () => {
+    render(
+      <MemoryRouter>
+        <Composer onSend={vi.fn()} sending={false} disabledReason={<>Blocked. <a href="/contact">Contact us</a>.</>} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('link', { name: 'Contact us' })).toHaveAttribute('href', '/contact')
+    expect(screen.getByRole('textbox', { name: 'Message' })).toBeDisabled()
   })
 })
 

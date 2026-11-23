@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { useConversation } from '../../hooks/useConversation'
 import { CHAT_BRAND_NAME, displayName } from '../../service/chatApi'
 import { Avatar } from '../ui/Avatar'
@@ -52,6 +53,7 @@ export function ChatThread({ conversationId, staff = false, leading, compact = f
   const chat = useConversation(conversationId)
   const { detail } = chat
   const blockedAt = detail?.customer?.messagingBlockedAt
+  const blockedReason = detail?.customer?.messagingBlockedReason?.trim()
   const customerName = detail?.customer ? displayName(detail.customer) : 'Customer'
   const other = staff
     ? { name: customerName, avatar: <Avatar name={customerName} src={detail?.customer?.avatarUrl ?? undefined} size="xs" /> }
@@ -105,7 +107,17 @@ export function ChatThread({ conversationId, staff = false, leading, compact = f
               </p>
             )}
             <Composer
-              disabledReason={!staff && blockedAt ? `Your messaging is blocked, so you can't send messages. You can still read replies.${detail.customer?.messagingBlockedReason ? ` Reason: ${detail.customer.messagingBlockedReason}` : ''}` : undefined}
+              disabledReason={
+                !staff && blockedAt ? (
+                  <>
+                    {`Your messaging is blocked, so you can't send messages. You can still read replies.${blockedReason ? ` Reason: ${blockedReason}${/[.!?]$/.test(blockedReason) ? '' : '.'}` : ''} Think this is a mistake? `}
+                    <Link to="/contact" className="relative font-semibold text-fg underline underline-offset-2 after:absolute after:-inset-y-3.5 after:inset-x-0 hover:text-chrome-strong">
+                      Contact us
+                    </Link>
+                    .
+                  </>
+                ) : undefined
+              }
               onSend={(body, files) => void chat.send(body, files)}
               attachments
               sending={chat.sending}

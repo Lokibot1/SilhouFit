@@ -221,6 +221,21 @@ describe('CustomerDetailsSheet messaging block', () => {
     expect(await screen.findByText(/messaging blocked\./)).toBeInTheDocument()
   })
 
+  it('fills the reason from a preset, marks it pressed, and blocks with that text', async () => {
+    const user = userEvent.setup()
+    const updated = customer('cus-010', 'Carlo', { messagingBlockedAt: blockedAt, messagingBlockedReason: 'Harassment of staff' })
+    staff.blockMessagingApi.mockResolvedValue(updated)
+    open()
+    await user.click(screen.getByRole('button', { name: 'Block messaging' }))
+    const preset = screen.getByRole('button', { name: 'Harassment of staff' })
+    expect(preset).toHaveAttribute('aria-pressed', 'false')
+    await user.click(preset)
+    expect(preset).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText(/Reason/)).toHaveValue('Harassment of staff')
+    await user.click(screen.getByRole('button', { name: 'Block Messaging' }))
+    await waitFor(() => expect(staff.blockMessagingApi).toHaveBeenCalledWith('cus-010', 'Harassment of staff'))
+  })
+
   it.each(['Cancel', 'Escape'])('returns focus to Block messaging after %s', async (how) => {
     const user = userEvent.setup()
     open()

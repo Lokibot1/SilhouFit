@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { MAX_MESSAGE_LENGTH } from '../../service/chatApi'
 import { hasProfanity, maskProfanity } from '../../utils/profanity'
 import { checkChatFile, CHAT_ACCEPT } from '../../utils/chatAttachments'
@@ -17,7 +17,7 @@ interface ComposerProps {
   /** Called with the masked text after a message that had flagged words was sent, so the offense can be counted. */
   onMasked?: (maskedBody: string) => void
   /** Why the customer cannot write (for example, messaging blocked by staff). The box and Send are disabled and the reason is shown. */
-  disabledReason?: string
+  disabledReason?: ReactNode
   /** Publishes its height as --bottom-bar-h so a toast sits above it. The dock turns this off: it reads that variable itself. */
   publishOffset?: boolean
   /** Shows the paperclip: photos and videos can be attached. */

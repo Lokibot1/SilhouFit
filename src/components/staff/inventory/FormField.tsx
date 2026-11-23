@@ -92,7 +92,7 @@ export const SELECT_FLAT = 'bg-none! bg-transparent! shadow-none! border-0! font
 /** A <Select> in the same compact outlined box as a Field, its label sitting on the border (a pick is always showing, so it is always up). */
 export function SelectField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="field field--compact field--floated">
+    <div className="field field--compact field--floated field--select">
       <div className="field__box">
         {children}
         <span aria-hidden="true" className="field__label">

@@ -95,6 +95,25 @@ test('staff cannot open Help Chatbot until a superadmin turns it on for them', a
   await expect(page.getByRole('heading', { level: 1, name: 'Help Chatbot' })).toBeVisible({ timeout: 20_000 })
 })
 
+test('the Link page label sits on the box edge, clear of the picked value, even with a larger root font', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await signIn(page, ADMIN, /\/admin$/)
+  await page.goto('/admin/chatbot')
+  await page.addStyleTag({ content: 'html{font-size:20px}' })
+  await expect(page.getByRole('heading', { level: 1, name: 'Help Chatbot' })).toBeVisible({ timeout: 20_000 })
+  await page.getByRole('button', { name: 'Add question' }).first().click()
+  const sheet = page.getByRole('dialog', { name: 'Add question' })
+  const trigger = (await sheet.getByRole('combobox', { name: 'Link page' }).boundingBox())!
+  const label = (await sheet.locator('.field__label', { hasText: 'Link page' }).boundingBox())!
+  expect(Math.abs(label.y + label.height / 2 - trigger.y)).toBeLessThan(2)
+  const valueTop = await sheet.getByRole('combobox', { name: 'Link page' }).evaluate((el) => {
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    return range.getBoundingClientRect().top
+  })
+  expect(label.y + label.height).toBeLessThanOrEqual(valueTop)
+})
+
 test('stays inside a 320px screen', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 })
   await signIn(page, ADMIN, /\/admin$/)

@@ -375,6 +375,16 @@ test.describe('offenses', () => {
     expect(mock.offenseLists.at(-1)?.get('startDate')).toBe(new Date('2026-09-01T00:00:00').toISOString())
   })
 
+  test('the From and To date labels sit on the box border', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await open(page, { offenses: manyAdminOffenses(3) }, 'Offenses')
+    for (const name of ['From date', 'To date']) {
+      const input = (await page.getByLabel(name).boundingBox())!
+      const label = (await page.locator('.field__label', { hasText: name }).boundingBox())!
+      expect(Math.abs(label.y + label.height / 2 - input.y)).toBeLessThan(2)
+    }
+  })
+
   test('an end date before the start date shows the inline error and the empty note with Clear filters', async ({ page }) => {
     const mock = await open(page, { offenses: manyAdminOffenses(3) }, 'Offenses')
     await page.getByLabel('To date').fill('2026-09-01')
