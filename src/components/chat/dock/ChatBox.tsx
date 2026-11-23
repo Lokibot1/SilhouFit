@@ -15,7 +15,7 @@ import { ChatThread } from '../ChatThread'
 import { KralAvatar } from '../KralAvatar'
 import { HelpBot } from './HelpBot'
 
-const HEADER_BUTTON = 'flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg hover:bg-fg/10'
+const HEADER_BUTTON = 'flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg hover:bg-fg/10 pointer-coarse:size-11'
 
 /** The customer's one thread: its id is looked up first. */
 function MineThread() {
@@ -71,16 +71,19 @@ export function ChatBox({ box, staff, onMinimize, onClose }: ChatBoxProps) {
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line pr-1 pl-3">
         {box.id === HELP_BOX ? <BotAvatar size="sm" /> : box.id === 'mine' ? <KralAvatar size="sm" /> : <Avatar name={box.name} src={box.avatarUrl} size="sm" />}
         <h2 className="display min-w-0 flex-1 truncate text-lg text-fg">{box.name}</h2>
-        <Tooltip label="Minimize">
-          <button type="button" onClick={onMinimize} aria-label={`Minimize chat with ${box.name}`} className={HEADER_BUTTON}>
-            <MinusIcon />
-          </button>
-        </Tooltip>
-        <Tooltip label="Close">
-          <button type="button" onClick={onClose} aria-label={`Close chat with ${box.name}`} className={HEADER_BUTTON}>
-            <XIcon />
-          </button>
-        </Tooltip>
+        {/* Related controls sit together: no gap between them, and the 44px touch size only where a finger is used. */}
+        <div className="flex shrink-0 items-center">
+          <Tooltip label="Minimize">
+            <button type="button" onClick={onMinimize} aria-label={`Minimize chat with ${box.name}`} className={HEADER_BUTTON}>
+              <MinusIcon />
+            </button>
+          </Tooltip>
+          <Tooltip label="Close">
+            <button type="button" onClick={onClose} aria-label={`Close chat with ${box.name}`} className={HEADER_BUTTON}>
+              <XIcon />
+            </button>
+          </Tooltip>
+        </div>
       </header>
       {box.id === HELP_BOX ? <HelpBot /> : box.id === 'mine' ? <MineThread /> : <ChatThread key={box.id} conversationId={box.id} staff={staff} compact publishOffset={false} />}
     </motion.section>
