@@ -54,11 +54,11 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
           </p>
         )}
         {attachments.length > 0 && (
-          // Fixed square tiles, so nothing moves while the files load.
+          // Fixed square pictures with no border, so nothing moves while the files load.
           <div className={`mb-1 grid ${compact ? 'w-44' : 'w-60'} max-w-full gap-1 transition-opacity duration-200 ${attachments.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${status === 'pending' ? 'opacity-70' : ''}`}>
             {attachments.map((file, index) => {
               const description = `${file.type === 'IMAGE' ? 'Photo' : 'Video'} ${index + 1} of ${attachments.length} from ${name || 'sender'}`
-              const tile = 'aspect-square min-h-11 min-w-11 overflow-hidden rounded-xl border border-line bg-canvas-sub'
+              const tile = 'aspect-square min-h-11 min-w-11 overflow-hidden rounded-xl bg-canvas-sub'
               return file.type === 'IMAGE' ? (
                 <button key={file.id || file.url} type="button" onClick={() => setOpen(index)} className={`${tile} cursor-pointer`}>
                   <PhotoImg src={file.url} alt={description} loading="lazy" className="size-full object-cover" />

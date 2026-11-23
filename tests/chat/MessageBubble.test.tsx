@@ -167,6 +167,17 @@ describe('MessageBubble attachments', () => {
     expect(tile).toHaveFocus()
   })
 
+  it('draws a photo as a rounded square with no border, at least 44px to tap', () => {
+    render(
+      <ul>
+        <MessageBubble message={withFiles('', 1)} mine onRetry={vi.fn()} onRemove={vi.fn()} />
+      </ul>,
+    )
+    const tile = screen.getAllByRole('button')[0]
+    expect(tile).toHaveClass('aspect-square', 'rounded-xl', 'min-h-11', 'min-w-11', 'bg-canvas-sub')
+    expect(tile.className).not.toMatch(/border/)
+  })
+
   it('falls back to a placeholder tile when a photo fails to load', () => {
     render(
       <ul>
