@@ -78,12 +78,11 @@ for (const [who, home, path] of [
   })
 }
 
-test('the custom sizings section, not the base sizes, says Sample data', async ({ page }) => {
+test('the base measurements page does not say Sample data', async ({ page }) => {
   await signIn(page, STAFF, /\/staff$/)
   await page.goto('/staff/measurements')
-  const custom = page.getByRole('region', { name: 'Custom sizings' })
-  await expect(custom.getByText('Sample data', { exact: true })).toBeVisible({ timeout: 20_000 })
-  await expect(badge(page)).toHaveCount(1)
+  await expect(page.getByRole('heading', { level: 1, name: 'Base measurements' })).toBeVisible({ timeout: 20_000 })
+  await expect(badge(page)).toHaveCount(0)
 })
 
 test('stays inside a 320px screen', async ({ page }) => {
