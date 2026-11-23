@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, FilterIcon, GridIcon, InfoIcon, ListIcon, LockIcon, MapPinIcon, MessageIcon, RestoreIcon, RulerIcon, StarIcon, UserIcon, UsersIcon } from '../form/icons'
+import { ArIcon, BagIcon, BanknoteIcon, CartIcon, ClockIcon, DownloadIcon, FilterIcon, GridIcon, InfoIcon, ListIcon, LockIcon, MapPinIcon, MessageIcon, RestoreIcon, RulerIcon, StarIcon, UserIcon, UsersIcon } from '../form/icons'
 import type { PageKey } from '../../config/pagePermissions'
 import type { Area } from '../../utils/staffRole'
 
@@ -30,6 +30,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'User Management', to: '/admin/users', icon: UsersIcon, group: 'admin', page: 'user-management' },
   { label: 'Activity Logs', to: '/admin/activity-logs', icon: ClockIcon, group: 'admin', page: 'activity-logs' },
   { label: 'Pickup Location', to: '/admin/pickup-location', icon: MapPinIcon, group: 'admin', page: 'pickup-location' },
+  { label: 'Reports', to: '/admin/reports', icon: DownloadIcon, group: 'admin', page: 'reports' },
   { label: 'AR Insights', to: '/admin/ar-insights', icon: ArIcon, group: 'admin', page: 'ar-insights' },
   { label: 'Pricing & Promotions', to: '/admin/promotions', icon: BanknoteIcon, group: 'admin', page: 'promotions' },
   { label: 'Refunds', to: '/admin/refunds', icon: RestoreIcon, group: 'admin', page: 'refunds' },

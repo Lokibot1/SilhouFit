@@ -8,7 +8,7 @@ import { fetchSalesSeries, type SalesDay } from '../../service/fetchStaffAnalyti
 import type { RequestOptions } from '../../service/simulateRequest'
 import { areaPath, niceCeil, smoothPath } from '../../utils/chartPath'
 import { formatDay, formatPeso, formatPesoCompact, formatPesoWhole } from '../../utils/format'
-import { defaultFilter, describeSales, manilaToday, resolveSalesWindow, SALES_NOUN, type Granularity, type Period } from '../../utils/period'
+import { defaultFilter, describeSales, manilaToday, resolveSalesWindow, SALES_NOUN, type Granularity, type Period, type PeriodFilterValue } from '../../utils/period'
 import { Tooltip } from '../ui/Tooltip'
 import { SalesFilter, type SalesScope } from './SalesFilter'
 import { EmptyNote, SectionBody, StaffSection } from './StaffSection'
@@ -23,11 +23,13 @@ const DOTTED_MAX = 31
 const DAY_LABEL_PX = 48
 
 /** Sales over the chosen period as a smooth line, with one point per day, week, month, quarter or year, as the filter says. */
-export function SalesChart() {
-  const [period, setPeriod] = useState<Period>(() => defaultFilter().period)
+export function SalesChart({ filter: given }: { filter?: PeriodFilterValue } = {}) {
+  const [ownPeriod, setPeriod] = useState<Period>(() => defaultFilter().period)
   const [scope, setScope] = useState<SalesScope>({ month: null, year: null })
-  const year = scope.year ?? manilaToday().year
-  const month = scope.month ?? undefined
+  // With a filter from the page (Reports) the chart follows it and shows no controls of its own.
+  const period = given?.period ?? ownPeriod
+  const year = given ? given.year : (scope.year ?? manilaToday().year)
+  const month = given ? undefined : (scope.month ?? undefined)
   const filter = { period, year, month }
   const fetcher = useCallback((options: RequestOptions) => fetchSalesSeries({ ...options, filter: { period, year, month } }), [period, year, month])
   const section = useSection(fetcher)
@@ -52,7 +54,8 @@ export function SalesChart() {
       id="sales"
       title="Sales"
       description={describeSales(filter)}
-      filter={{
+      embedded={!!given}
+      filter={given ? undefined : {
         name: 'Sales',
         value: filter,
         onChange: (next) => changePeriod(next.period),

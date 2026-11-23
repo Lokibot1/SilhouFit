@@ -16,6 +16,7 @@ export type PageKey =
   | 'user-management'
   | 'activity-logs'
   | 'pickup-location'
+  | 'reports'
   | 'ar-insights'
   | 'promotions'
   | 'refunds'
@@ -95,6 +96,13 @@ export const PAGE_GROUPS: ReadonlyArray<PageGroup> = [
     roles: ['admin'],
     pages: [{ key: 'pickup-location', label: 'Pickup Location' }],
   },
+  // Admin only, like the pickup location: staff are never offered it.
+  {
+    id: 'reports',
+    label: 'Reports',
+    roles: ['admin'],
+    pages: [{ key: 'reports', label: 'Reports' }],
+  },
 ]
 
 export type Permissions = Record<PermissionRole, PageKey[]>
@@ -104,7 +112,7 @@ const keysOf = (...ids: string[]) => PAGE_GROUPS.filter((group) => ids.includes(
 export const DEFAULT_PERMISSIONS: Permissions = {
   customer: keysOf('storefront'),
   staff: keysOf('operations'),
-  admin: keysOf('operations', 'admin-tools', 'user-management', 'activity-logs', 'pickup-location'),
+  admin: keysOf('operations', 'admin-tools', 'user-management', 'activity-logs', 'pickup-location', 'reports'),
 }
 
 /** The pages a superadmin can give each role; anything else stored for a role is ignored. */
@@ -126,6 +134,7 @@ const DASHBOARD_PAGE: Record<string, PageKey> = {
   users: 'user-management',
   'activity-logs': 'activity-logs',
   'pickup-location': 'pickup-location',
+  reports: 'reports',
   'ar-insights': 'ar-insights',
   promotions: 'promotions',
   refunds: 'refunds',

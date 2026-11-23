@@ -13,6 +13,7 @@ export function StaffSection({
   description,
   filter,
   action,
+  embedded,
   children,
 }: {
   id: string
@@ -21,8 +22,25 @@ export function StaffSection({
   filter?: { name: string; value: PeriodFilterValue; onChange: (value: PeriodFilterValue) => void; adjectives?: boolean; disabled?: Period[]; control?: ReactNode }
   /** A control on the right of the title row; the title and description shorten before it is pushed out. */
   action?: ReactNode
+  /** Inside another card (the Reports page): no card of its own and no filter, a small title above the chart. */
+  embedded?: boolean
   children: ReactNode
 }) {
+  if (embedded) {
+    return (
+      <section aria-labelledby={id} className="min-w-0">
+        <h3 id={id} className="font-ui text-sm font-semibold text-fg">
+          {title}
+        </h3>
+        {description && (
+          <p id={`${id}-desc`} className="mt-0.5 mb-3 truncate text-xs leading-4 text-fg-muted">
+            {description}
+          </p>
+        )}
+        {children}
+      </section>
+    )
+  }
   const heading = (
     <h2 id={id} className={`display text-xl text-fg ${action ? 'truncate' : ''}`}>
       {title}
