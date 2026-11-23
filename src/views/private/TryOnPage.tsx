@@ -22,7 +22,6 @@ import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useProduct } from '../../hooks/useProducts'
 import { useSizeGuide } from '../../hooks/useSizeGuide'
 import { BodyProfileError, getBodyProfile } from '../../service/bodyProfile'
-import { useProductSizing } from '../../service/customSizings'
 import type { ProductVariant } from '../../service/fetchProductList'
 import { compareFit, recommendSize, type FitLevel, type FitRegion } from '../../utils/arFit'
 import { canTryOn, garmentScale } from '../../utils/arGarment'
@@ -116,7 +115,7 @@ export function TryOnPage() {
   useEffect(() => {
     if (tryable) loadStage().catch(() => {}) // the stage's own boundary reports a chunk that will not load
   }, [tryable])
-  const guide = useSizeGuide(product?.category ?? 'Shirt', product?.variants ?? NO_VARIANTS, tryable, useProductSizing(product?.id))
+  const guide = useSizeGuide(product?.category ?? 'Shirt', product?.variants ?? NO_VARIANTS, tryable)
   const camera = useCamera()
   const [declined, setDeclined] = useState(false)
   const [trackStatus, setTrackStatus] = useState<TrackStatus>('off')

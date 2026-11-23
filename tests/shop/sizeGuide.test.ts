@@ -95,32 +95,6 @@ describe('buildSizeGuide', () => {
   })
 })
 
-describe('buildSizeGuide with a custom sizing', () => {
-  const custom = {
-    id: 'cs1', category: 'Hoodie', name: 'Hoodie Custom', createdAt: '',
-    sizes: [
-      { size: 'S', measurements: { chestWidthCm: 60, totalLengthCm: 72 } },
-      { size: 'M', measurements: { chestWidthCm: 63 } },
-    ],
-  }
-
-  it('reads the sizing instead of the base rows, as this piece', () => {
-    const guide = buildSizeGuide('Hoodie', [variant('S', 'Black'), variant('M', 'Black')], HOODIE_BASE, custom)
-    expect(guide.rows.map((r) => [r.size, r.source, r.values.chestWidthCm])).toEqual([['S', 'product', 60], ['M', 'product', 63]])
-    expect(guide.rows[0].values.neckCm).toBeNull()
-  })
-
-  it('gives a size the sizing lacks no values rather than a base row', () => {
-    const [row] = buildSizeGuide('Hoodie', [variant('XL', 'Black')], HOODIE_BASE, custom).rows
-    expect(row.source).toBe('none')
-  })
-
-  it('still prefers a variant\'s own measurements', () => {
-    const own = m({ chestWidthCm: 99 })
-    expect(buildSizeGuide('Hoodie', [variant('S', 'Black', own)], HOODIE_BASE, custom).rows[0].values.chestWidthCm).toBe(99)
-  })
-})
-
 describe('baseMeasurementsFor', () => {
   it('copies the numbers of the matching size, ignoring case and spacing, and leaves unset ones out', () => {
     expect(baseMeasurementsFor('Hoodie', ' xl ', HOODIE_BASE)).toEqual({ chestWidthCm: 61, totalLengthCm: 74 })
