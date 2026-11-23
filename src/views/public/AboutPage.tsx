@@ -49,15 +49,6 @@ const PROFILE = [
   ['Production', 'Its own production team (tahian) that delivers output regularly'],
 ]
 
-// Hex values from the KRAL rebranding sheet. Porcelain is shown as the light grey it appears in the sheet.
-const PALETTE = [
-  { name: 'Crimson', hex: '#D11F2E' },
-  { name: 'Obsidian', hex: '#231F20' },
-  { name: 'Graphite', hex: '#393935' },
-  { name: 'Stonewash', hex: '#8D8981' },
-  { name: 'Porcelain', hex: '#EEECED' },
-]
-
 const BACK_OFFICE = [
   'Inventory and size charts',
   'Online orders and messages',
@@ -129,29 +120,6 @@ export function AboutPage() {
             ))}
           </dl>
         </div>
-
-        <Section id="rebrand" label="Rebrand" title="A bolder, more consistent identity">
-          <div className="max-w-2xl space-y-4 text-base leading-relaxed text-kral-muted">
-            <p>
-              As KRAL grew, it wanted to replace its old logo and build a stronger brand identity that better represents the brand and its clothing.
-            </p>
-            <p>
-              The rebrand goes beyond the logo. It aims for one consistent look across clothing labels, hang tags, stickers, packaging and other brand materials: bold and recognisable, fitting its streetwear style while the brand reaches new markets.
-            </p>
-            <p>Rebrand by Bryworks. © KRAL. All rights reserved.</p>
-          </div>
-          <ul aria-label="KRAL brand colours" className="mt-8 grid grid-cols-2 gap-px border border-kral-rule bg-kral-rule sm:grid-cols-5">
-            {PALETTE.map((c) => (
-              <li key={c.name} className="bg-kral-bg">
-                <span aria-hidden="true" className="block h-16 border-b border-kral-rule" style={{ backgroundColor: c.hex }} />
-                <span className="block p-3">
-                  <span className="block font-kral-display text-sm font-extrabold text-kral-fg uppercase">{c.name}</span>
-                  <span className="block text-sm text-kral-muted">{c.hex}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Section>
 
         <GroupHeader id="silhoufit" index="02" kicker="SilhouFit // The system" title="About SilhouFit" />
         <p className="max-w-2xl pt-6 pb-4 text-base leading-relaxed text-kral-muted">
