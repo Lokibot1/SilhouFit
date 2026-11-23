@@ -373,7 +373,7 @@ describe('archive and restore', () => {
     await waitFor(() => expect(sizesInTable()).toHaveLength(3))
     await user.click(within(table()).getByRole('button', { name: 'Archive Hoodie M', hidden: true }))
     const dialog = await screen.findByRole('dialog', { name: 'Are you sure?' })
-    expect(dialog).toHaveTextContent('Hoodie M will be hidden')
+    expect(dialog).toHaveTextContent('Hoodie M will stop being inherited by new products. Existing products keep their measurements.')
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
     expect(setActive).not.toHaveBeenCalled()
 

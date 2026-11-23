@@ -210,7 +210,7 @@ export function StaffMeasurementsPage() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="display text-2xl text-fg sm:text-3xl">Base measurements</h1>
-          <p className="mt-1 text-xs text-fg-muted">The garment sizes, in cm, behind the size guide and the AR fitting defaults.</p>
+          <p className="mt-1 text-xs text-fg-muted">The garment sizes, in cm, that new products inherit. Existing products keep their own measurements.</p>
           <p className="mt-1 h-5 text-sm text-fg-muted">
             {rows && (
               <>
@@ -261,7 +261,7 @@ export function StaffMeasurementsPage() {
           archivedView ? (
             <div>
               <p className="text-base font-semibold text-fg">No archived {category} sizes</p>
-              <p className="mt-1 text-base text-fg-muted">Sizes you archive are hidden from the size guide and listed here, where you can restore them.</p>
+              <p className="mt-1 text-base text-fg-muted">Sizes you archive stop being inherited by new products and are listed here, where you can restore them.</p>
             </div>
           ) : (
             <div>
@@ -370,7 +370,7 @@ export function StaffMeasurementsPage() {
         {archiving && (
           <div className="grid gap-3 pb-5">
             <p className="text-base leading-relaxed text-fg-muted">
-              {nameOf(archiving)} will be hidden from the size guide and the AR fitting defaults. You can restore it from the Archived tab.
+              {nameOf(archiving)} will stop being inherited by new products. Existing products keep their measurements. You can restore it from the Archived tab.
             </p>
             {archiveError && (
               <p role="alert" className="text-sm text-danger">
