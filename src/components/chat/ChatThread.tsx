@@ -28,7 +28,7 @@ function TypingLine({ name }: { name?: string }) {
   const [shown, setShown] = useState(name)
   if (name && name !== shown) setShown(name)
   return (
-    <div className="min-h-6 shrink-0 px-3 text-sm text-fg-muted">
+    <div className="min-h-4 shrink-0 px-3 text-xs leading-4 text-fg-muted">
       <p role="status" aria-live="polite" className="sr-only">
         {name && `${name} is typing`}
       </p>

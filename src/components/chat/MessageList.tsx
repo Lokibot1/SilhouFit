@@ -59,7 +59,7 @@ export function MessageList({ messages, selfId, staff, blocked, compact, otherRe
         const { scrollHeight, scrollTop, clientHeight } = event.currentTarget
         nearBottom.current = scrollHeight - scrollTop - clientHeight < NEAR_BOTTOM
       }}
-      className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4 sm:px-4"
+      className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 pt-4 pb-2 sm:px-4"
     >
       {hasMore && (
         <div className="mb-4 flex justify-center">
