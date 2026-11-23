@@ -92,6 +92,31 @@ describe('MessageBubble avatar', () => {
   })
 })
 
+describe('MessageBubble sent time', () => {
+  const sent = { ...failed(), status: undefined, createdAt: new Date(Date.now() - 2 * 60_000).toISOString() }
+
+  it('shows "Sent 2m ago" only under the viewer’s last message, and no clock time', () => {
+    const { rerender } = render(
+      <ul>
+        <MessageBubble message={sent} mine last onRetry={vi.fn()} onRemove={vi.fn()} />
+      </ul>,
+    )
+    expect(screen.getByText('Sent 2m ago')).toBeInTheDocument()
+    expect(screen.queryByText(/\d:\d\d/)).toBeNull()
+    rerender(
+      <ul>
+        <MessageBubble message={sent} mine onRetry={vi.fn()} onRemove={vi.fn()} />
+      </ul>,
+    )
+    expect(screen.queryByText(/Sent/)).toBeNull()
+  })
+
+  it('keeps Sending… for a pending message', () => {
+    show({ ...sent, status: 'pending' })
+    expect(screen.getByText('Sending…')).toBeInTheDocument()
+  })
+})
+
 describe('MessageBubble read receipt', () => {
   const sent = { ...failed(), status: undefined }
   const seen = { name: 'KRAL', avatar: <img src="/favicon.svg" alt="KRAL" /> }
@@ -99,7 +124,7 @@ describe('MessageBubble read receipt', () => {
   it('labels the tiny avatar under a read message', () => {
     render(
       <ul>
-        <MessageBubble message={sent} mine seen={seen} onRetry={vi.fn()} onRemove={vi.fn()} />
+        <MessageBubble message={sent} mine last seen={seen} onRetry={vi.fn()} onRemove={vi.fn()} />
       </ul>,
     )
     expect(screen.getByRole('img', { name: 'Seen by KRAL' })).toBeInTheDocument()

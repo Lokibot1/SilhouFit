@@ -83,6 +83,12 @@ export function formatShortAgo(iso: string, now = new Date()) {
   return SHORT_DAY.format(new Date(iso))
 }
 
+/** "Sent just now", "Sent 2m ago", "Sent 3h ago", then "Sent Nov 4": the line under the viewer's last message. */
+export function formatSentAgo(iso: string, now = new Date()) {
+  const short = formatShortAgo(iso, now)
+  return short === 'now' ? 'Sent just now' : /\d[mh]$/.test(short) ? `Sent ${short} ago` : `Sent ${short}`
+}
+
 /** The Manila calendar day of an ISO time, "2026-11-03", for grouping a thread by day. */
 export const manilaDay = (iso: string) => MANILA_DAY.format(new Date(iso))
 

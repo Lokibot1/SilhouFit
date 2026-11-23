@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ThreadMessage } from '../../src/hooks/useConversation'
-import { lastSeenId, lastSentId } from '../../src/utils/chatThread'
+import { formatSentAgo } from '../../src/utils/format'
+import { lastSeenId, lastSentId, needsTimeDivider } from '../../src/utils/chatThread'
 
 const msg = (id: string, senderId: string, createdAt: string, status?: ThreadMessage['status']): ThreadMessage => ({ id, conversationId: 'c', senderId, content: id, attachments: [], createdAt, updatedAt: createdAt, status })
 
@@ -22,5 +23,28 @@ describe('lastSeenId', () => {
     expect(lastSeenId(list, 'me', '2025-11-03T00:59:59Z')).toBeUndefined()
     expect(lastSeenId(list, 'me', null)).toBeUndefined()
     expect(lastSeenId(list, 'nobody', '2025-11-03T02:00:00Z')).toBeUndefined()
+  })
+})
+
+describe('needsTimeDivider', () => {
+  const at = (iso: string) => ({ createdAt: iso })
+  it('opens the thread and every new day', () => {
+    expect(needsTimeDivider(undefined, at('2025-11-03T01:00:00Z'))).toBe(true)
+    // 15:59 UTC is 11:59 PM in Manila, 16:01 UTC is 12:01 AM the next day.
+    expect(needsTimeDivider(at('2025-11-03T15:59:00Z'), at('2025-11-03T16:01:00Z'))).toBe(true)
+  })
+  it('follows a gap of 15 minutes or more, but not a shorter one', () => {
+    expect(needsTimeDivider(at('2025-11-03T01:00:00Z'), at('2025-11-03T01:14:59Z'))).toBe(false)
+    expect(needsTimeDivider(at('2025-11-03T01:00:00Z'), at('2025-11-03T01:15:00Z'))).toBe(true)
+  })
+})
+
+describe('formatSentAgo', () => {
+  const now = new Date('2025-11-03T05:00:00Z')
+  it('reads as a sentence under the last message', () => {
+    expect(formatSentAgo('2025-11-03T04:59:50Z', now)).toBe('Sent just now')
+    expect(formatSentAgo('2025-11-03T04:58:00Z', now)).toBe('Sent 2m ago')
+    expect(formatSentAgo('2025-11-03T02:00:00Z', now)).toBe('Sent 3h ago')
+    expect(formatSentAgo('2025-11-01T02:00:00Z', now)).toBe('Sent Nov 1')
   })
 })

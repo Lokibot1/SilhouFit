@@ -28,7 +28,7 @@ function setup(messages: ThreadMessage[], props: Partial<Parameters<typeof Messa
 }
 
 describe('MessageList', () => {
-  it('shows times in 12-hour form on Manila time', () => {
+  it('shows centered times in 12-hour form on Manila time', () => {
     // 07:45 UTC is 3:45 PM in Manila; 16:05 UTC is 12:05 AM the next day.
     setup([message('m1', '2025-11-03T07:45:00Z'), message('m2', '2025-11-03T16:05:00Z')])
     const [first, second] = screen.getAllByText(/\d:\d\d\s?[AP]M/)
@@ -36,11 +36,12 @@ describe('MessageList', () => {
     expect(second).toHaveTextContent(/^12:05\s?AM$/)
   })
 
-  it('lists messages in the order given, oldest first, in a polite live log with a separator for each day', () => {
+  it('lists messages in the order given, oldest first, in a polite live log with a separator for each day and a time before each group', () => {
     setup([message('m1', '2025-11-03T07:45:00Z'), message('m2', '2025-11-03T08:00:00Z'), message('m3', '2025-11-04T08:00:00Z')])
     const log = screen.getByRole('log', { name: 'Messages' })
     expect(log).toHaveAttribute('aria-live', 'polite')
-    expect(within(log).getAllByRole('separator')).toHaveLength(2)
+    // Two day separators, plus a time for the first message of each day and for m2 (15 minutes after m1).
+    expect(within(log).getAllByRole('separator')).toHaveLength(5)
     expect(within(log).getByText('Nov 3, 2025')).toBeInTheDocument()
     expect(screen.getAllByTestId('chat-message').map((li) => li.textContent)).toEqual([expect.stringContaining('content m1'), expect.stringContaining('content m2'), expect.stringContaining('content m3')])
   })
@@ -55,6 +56,15 @@ describe('MessageList', () => {
     unmount()
     setup(mine, { other, otherReadAt: '2025-11-03T07:45:30Z' })
     expect(screen.queryByRole('img', { name: 'Seen by KRAL' })).toBeNull()
+  })
+
+  it('shows no time under messages, only "Sent … ago" under the viewer’s last one', () => {
+    setup([message('m1', '2025-11-03T07:45:00Z', { senderId: 'me' }), message('m2', '2025-11-03T07:46:00Z', { senderId: 'me' }), message('m3', '2025-11-03T07:47:00Z')])
+    expect(screen.getAllByRole('separator').filter((el) => el.querySelector('time'))).toHaveLength(1)
+    const [first, second, third] = screen.getAllByTestId('chat-message')
+    expect(first).not.toHaveTextContent(/Sent/)
+    expect(second).toHaveTextContent(/^content m2Sent /)
+    expect(third).not.toHaveTextContent(/Sent|\d:\d\d/)
   })
 
   it('shows the empty state, pointing to the composer', () => {

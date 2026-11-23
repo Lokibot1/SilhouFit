@@ -1,8 +1,8 @@
 import { useReducedMotion } from 'motion/react'
 import { Fragment, useLayoutEffect, useRef, type ReactNode } from 'react'
 import type { ThreadMessage } from '../../hooks/useConversation'
-import { lastSeenId } from '../../utils/chatThread'
-import { formatChatDay, manilaDay } from '../../utils/format'
+import { lastSeenId, lastSentId, needsTimeDivider } from '../../utils/chatThread'
+import { formatChatDay, formatMessageTime, manilaDay } from '../../utils/format'
 import { SpinnerIcon } from '../form/icons'
 import { SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
 import { MessageBubble } from './MessageBubble'
@@ -35,6 +35,7 @@ export function MessageList({ messages, selfId, staff, blocked, compact, otherRe
   const nearBottom = useRef(true)
   const previous = useRef({ first: '', height: 0 })
   const reduced = useReducedMotion()
+  const sentId = lastSentId(messages, selfId)
   const seenId = lastSeenId(messages, selfId, otherReadAt)
 
   useLayoutEffect(() => {
@@ -77,7 +78,12 @@ export function MessageList({ messages, selfId, staff, blocked, compact, otherRe
                 {formatChatDay(message.createdAt)}
               </li>
             )}
-            <MessageBubble message={message} enter={message.fresh} mine={message.senderId === selfId} staff={staff} blocked={blocked} compact={compact} seen={message.id === seenId ? other : undefined} onRetry={onRetry} onRemove={onRemove} />
+            {needsTimeDivider(messages[index - 1], message) && (
+              <li role="separator" className="font-ui text-center text-xs text-fg-muted tabular-nums">
+                <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>
+              </li>
+            )}
+            <MessageBubble message={message} enter={message.fresh} mine={message.senderId === selfId} staff={staff} blocked={blocked} compact={compact} last={message.id === sentId} seen={message.id === seenId ? other : undefined} onRetry={onRetry} onRemove={onRemove} />
           </Fragment>
         ))}
         </ol>

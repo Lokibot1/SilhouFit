@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import type { ThreadMessage } from '../../hooks/useConversation'
 import { CHAT_BRAND_NAME, ROLE_LABEL, displayName, sendFailureCopy } from '../../service/chatApi'
-import { formatMessageTime } from '../../utils/format'
+import { useNow } from '../../hooks/useNow'
+import { formatSentAgo } from '../../utils/format'
 import { Avatar } from '../ui/Avatar'
 import { KralAvatar } from './KralAvatar'
 import { Modal } from '../ui/Modal'
@@ -21,13 +22,19 @@ interface MessageBubbleProps {
   blocked?: boolean
   /** The dock's small window: smaller text and pictures. */
   compact?: boolean
+  /** The viewer's last sent message: "Sent 2m ago" shows under it. */
+  last?: boolean
   /** The other person has read this message: their tiny avatar sits under it. */
   seen?: { name: string; avatar: ReactNode }
   onRetry: (id: string) => void
   onRemove: (id: string) => void
 }
 
-export function MessageBubble({ message, enter = false, mine, staff = false, blocked = false, compact = false, seen, onRetry, onRemove }: MessageBubbleProps) {
+function SentAgo({ iso }: { iso: string }) {
+  return <>{formatSentAgo(iso, useNow())}</>
+}
+
+export function MessageBubble({ message, enter = false, mine, staff = false, blocked = false, compact = false, last = false, seen, onRetry, onRemove }: MessageBubbleProps) {
   const { status, progress } = message
   const { sender } = message
   const masked = !staff && !mine && sender?.role !== 'customer'
@@ -83,8 +90,8 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
               Remove
             </button>
           </div>
-        ) : (
-          <p className="font-ui mt-1 px-1 text-xs text-fg-muted tabular-nums">
+        ) : (status === 'pending' || last) && (
+          <p className="font-ui mt-1 flex items-center gap-1 px-1 text-xs text-fg-muted tabular-nums">
             {status === 'pending' && progress !== undefined && progress < 100 ? (
               <span className="flex items-center gap-2">
                 <span role="progressbar" aria-label="Uploading files" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="block h-1 w-24 overflow-hidden rounded-full bg-line">
@@ -95,14 +102,16 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
             ) : status === 'pending' ? (
               'Sending…'
             ) : (
-              <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>
+              <>
+                <SentAgo iso={message.createdAt} />
+                {seen && (
+                  <span role="img" aria-label={`Seen by ${seen.name}`} className="flex">
+                    <span aria-hidden="true">{seen.avatar}</span>
+                  </span>
+                )}
+              </>
             )}
           </p>
-        )}
-        {seen && (
-          <span role="img" aria-label={`Seen by ${seen.name}`} className="mt-0.5 flex px-1">
-            <span aria-hidden="true">{seen.avatar}</span>
-          </span>
         )}
       </div>
       <Modal open={!!photo} onClose={() => setOpen(undefined)} title={photo?.fileName || 'Photo'}>
