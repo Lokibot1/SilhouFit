@@ -130,7 +130,9 @@ export function TryOnPage() {
   // Smallest first; a size with no measurements cannot be tried on.
   const sizes = useMemo(() => guide.guide.rows.filter((r) => r.source !== 'none'), [guide.guide])
   const recommended = useMemo(() => (entered ? recommendSize(entered, sizes) : null), [entered, sizes])
-  const row = sizes.find((r) => r.size === pickedSize) ?? sizes.find((r) => r.size === recommended) ?? sizes[0]
+  // No size is chosen until the saved measurements have loaded, so the smallest never shows first and then jumps to the recommended one.
+  const measured = profile.status !== 'loading'
+  const row = measured ? (sizes.find((r) => r.size === pickedSize) ?? sizes.find((r) => r.size === recommended) ?? sizes[0]) : undefined
   const size = row?.size
   const colour = product?.colors.find((c) => c.name === pickedColor) ?? product?.colors.find((c) => c.name.toLowerCase() === query.get('color')?.toLowerCase()) ?? product?.colors[0]
 
@@ -183,19 +185,23 @@ export function TryOnPage() {
               )}
             >
               <Suspense fallback={<div className="absolute inset-0 animate-pulse" />}>
-                <TryOnStage
-                  colorHex={colour?.hex ?? '#ffffff'}
-                  scale={scale}
-                  largest={largest}
-                  image={item.image}
-                  alt={item.alt}
-                  video={camera.videoRef}
-                  live={camera.state === 'live'}
-                  refSize={reference?.size ?? ''}
-                  refScaleX={refScaleX}
-                  trackKey={trackKey}
-                  onStatus={setTrackStatus}
-                />
+                {measured ? (
+                  <TryOnStage
+                    colorHex={colour?.hex ?? '#ffffff'}
+                    scale={scale}
+                    largest={largest}
+                    image={item.image}
+                    alt={item.alt}
+                    video={camera.videoRef}
+                    live={camera.state === 'live'}
+                    refSize={reference?.size ?? ''}
+                    refScaleX={refScaleX}
+                    trackKey={trackKey}
+                    onStatus={setTrackStatus}
+                  />
+                ) : (
+                  <div className="absolute inset-0 animate-pulse" />
+                )}
               </Suspense>
             </SectionBoundary>
           </NearViewport>

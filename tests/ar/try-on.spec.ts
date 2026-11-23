@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { CORS, shirt, stage, start, stubCamera } from '../shared/tryOn'
+import { CORS, PROFILE, shirt, stage, start, stubCamera } from '../shared/tryOn'
 
 // The AR try-on page. Linen Shirt (Shirt, AR ready) comes in S, M, L (with standard rows) and XL (without one), in Navy and Black.
 // The camera is stubbed, so no hardware is needed; the specs assert the page's state, never pixels, as WebGL may be software here.
@@ -71,6 +71,24 @@ test.describe('AR try-on', () => {
       await expect(stage(page)).toHaveAttribute('data-size', 'L')
     })
   }
+
+  test('no size shows while the saved measurements load, so the smallest never appears before the recommended one', async ({ page }) => {
+    await start(page)
+    let release!: () => void
+    const held = new Promise<void>((resolve) => (release = resolve))
+    await page.route('**/users/me/body-profile', async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+      await held
+      return route.fulfill({ json: PROFILE, headers: CORS })
+    })
+    await page.goto('/shop/linen-shirt/try-on')
+    // The size buttons are up (the size list loaded) while the profile is still pending: none is selected and the stage has no size yet.
+    await expect(page.getByRole('radio', { name: 'S', exact: true })).toBeVisible({ timeout: 15000 })
+    await expect(stage(page)).toHaveAttribute('data-size', '')
+    await expect(page.getByRole('radio', { name: 'S', exact: true })).not.toBeChecked()
+    release()
+    await expect(stage(page)).toHaveAttribute('data-size', 'M', { timeout: 15000 })
+  })
 
   test('without a saved body profile it says how to get fit details and links to the measurements', async ({ page }) => {
     await start(page, { profile: false })
