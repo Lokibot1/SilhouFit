@@ -77,6 +77,22 @@ describe('ReviewOrderModal', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
+  it('turns Post review off at once while the text has profanity, saying why, and back on when it is removed', async () => {
+    const { user, onSubmit } = setup()
+    await user.click(screen.getByRole('radio', { name: '2 stars: Fair' }))
+    const box = screen.getByRole('textbox', { name: 'Your review' })
+    await user.type(box, 'this is fucking terrible')
+    expect(screen.getByRole('button', { name: 'Post review' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent("This contains language that isn't allowed")
+    expect(box).toHaveAccessibleDescription(/isn't allowed/)
+    await user.click(screen.getByRole('button', { name: 'Post review' }))
+    expect(onSubmit).not.toHaveBeenCalled()
+    await user.clear(box)
+    await user.type(box, TEXT)
+    expect(screen.getByRole('button', { name: 'Post review' })).toBeEnabled()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('sends the rating, text and files when everything is valid', async () => {
     const { user, onSubmit } = setup()
     await user.click(screen.getByRole('radio', { name: '5 stars: Excellent' }))

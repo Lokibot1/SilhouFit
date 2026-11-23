@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { ReviewImage } from '../../service/reviewsApi'
+import { PROFANITY_ERROR } from '../../utils/profanity'
 import { checkReviewFile, filterReviewText, REVIEW_ACCEPT, REVIEW_LIMITS, validateReview } from '../../utils/reviewValidation'
 import { AlertIcon, PlusIcon, SpinnerIcon } from '../form/icons'
 import { KRAL_INPUT, KRAL_PRIMARY, KRAL_SECONDARY } from '../shop/shopControls'
@@ -102,7 +103,9 @@ export function ReviewOrderModal({ open, productName, orderNumber, initial, vari
 
   const errors = validateReview({ rating, text })
   const ratingError = submitted ? errors.rating : undefined
-  const textError = touched || submitted ? errors.text : undefined
+  // Profanity can never be posted, so it is explained at once (the Post button is off while it is there) instead of waiting for a blur.
+  const profane = errors.text === PROFANITY_ERROR
+  const textError = touched || submitted || profane ? errors.text : undefined
 
   function pick(files: FileList | null) {
     const notes: string[] = []
@@ -162,7 +165,7 @@ export function ReviewOrderModal({ open, productName, orderNumber, initial, vari
           <button type="button" onClick={onClose} disabled={pending} className={KRAL_SECONDARY}>
             Cancel
           </button>
-          <button type="button" onClick={submit} disabled={pending} aria-busy={pending} className={`${KRAL_PRIMARY} disabled:cursor-progress`}>
+          <button type="button" onClick={submit} disabled={pending || profane} aria-busy={pending} className={`${KRAL_PRIMARY} ${pending ? 'disabled:cursor-progress' : 'disabled:cursor-not-allowed'}`}>
             {pending && <SpinnerIcon className="mr-2" />}
             {initial ? 'Save review' : 'Post review'}
           </button>
