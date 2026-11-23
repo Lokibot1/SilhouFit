@@ -41,6 +41,11 @@ describe('notificationHref', () => {
     expect(notificationHref(toNotification(entry({ data: null }))!)).toBeNull()
     expect(notificationHref(toNotification(entry({ data: { orderId: 7 } }))!)).toBeNull()
   })
+
+  it.each(['MESSAGING_BLOCKED', 'MESSAGING_UNBLOCKED'])('links %s to Messages, with or without data', (type) => {
+    expect(notificationHref(toNotification(entry({ type, data: null }))!)).toBe('/messages')
+    expect(notificationHref(toNotification(entry({ type, data: { blocked: true, reason: 'Spam' } }))!)).toBe('/messages')
+  })
 })
 
 describe('fetchNotifications', () => {

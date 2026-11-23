@@ -138,6 +138,36 @@ test('the bar has no sideways scroll and the panel fits on screen at 320px', asy
   expect(await overflow(page)).toBeLessThanOrEqual(0)
 })
 
+const REASON = 'x'.repeat(300)
+const blocked = () => notification(3, { type: 'MESSAGING_BLOCKED', title: 'Messaging blocked', body: `Your messaging privileges have been blocked. Reason: ${REASON}`, data: { blocked: true, reason: REASON } })
+// Nothing real is called: the chat API of the Messages page is refused.
+const noChat = (page: Page) => page.route((url) => url.origin !== 'http://localhost:5173' && url.pathname.startsWith('/chat'), (route) => route.abort())
+
+test('a messaging block row opens Messages and closes the panel', async ({ page }) => {
+  await noChat(page)
+  await open(page, [...items(), blocked()])
+  await bell(page, 3).click()
+  const row = panel(page).getByRole('link', { name: /Messaging blocked/ })
+  await expect(row).toHaveAttribute('href', '/messages')
+  await row.click()
+  await expect(page).toHaveURL(/\/messages$/)
+  await expect(panel(page)).toHaveCount(0)
+})
+
+test('a long block reason does not scroll sideways at 320px in the bell or on the page', async ({ page }) => {
+  await noChat(page)
+  await page.setViewportSize({ width: 320, height: 568 })
+  await open(page, [...items(), blocked()])
+  await bell(page, 3).click()
+  await expect(panel(page).getByText(/Reason: x+/)).toBeVisible()
+  await insideViewport(page)
+  expect(await overflow(page)).toBeLessThanOrEqual(0)
+  await page.keyboard.press('Escape')
+  await page.goto('/notifications')
+  await expect(page.getByRole('link', { name: /Messaging blocked/ })).toBeVisible()
+  expect(await overflow(page)).toBeLessThanOrEqual(0)
+})
+
 test('a guest gets no bell', async ({ page }) => {
   await mockAuth(page)
   await page.addInitScript(() => localStorage.setItem('silhoufit-cookie-consent', 'accepted'))

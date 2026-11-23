@@ -199,11 +199,11 @@ function Row({ entry, onDone }: { entry: ServerNotification; onDone: () => void 
             {relativeTime(entry.createdAt)}
           </time>
         </span>
-        {entry.body && <span className="block text-sm text-kral-muted">{entry.body}</span>}
+        {entry.body && <span className="block text-sm break-words text-kral-muted">{entry.body}</span>}
       </span>
     </>
   )
-  // A notification that names no order has nowhere to go: a plain row, closed with the panel.
+  // A notification that names no order or chat has nowhere to go: a plain row, closed with the panel.
   return href ? (
     <Link to={href} onClick={onDone} className={`kral-focus ${ROW}`}>
       {content}

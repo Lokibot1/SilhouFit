@@ -149,11 +149,11 @@ function Row({ entry, onOpen }: { entry: ServerNotification; onOpen: () => void 
             {relativeTime(entry.createdAt)}
           </time>
         </span>
-        {entry.body && <span className="block text-base text-kral-muted">{entry.body}</span>}
+        {entry.body && <span className="block text-base break-words text-kral-muted">{entry.body}</span>}
       </span>
     </>
   )
-  // A notification that names no order has nowhere to go: a plain row.
+  // A notification that names no order or chat has nowhere to go: a plain row.
   return href ? (
     <Link to={href} onClick={onOpen} className={ROW}>
       {content}

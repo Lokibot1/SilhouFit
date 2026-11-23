@@ -97,6 +97,20 @@ describe('NotificationsPage', () => {
     expect(screen.getByText('Payment received 3').closest('a')).toBeNull()
   })
 
+  it('links a messaging block to Messages, shows its reason, and marks only it read once', async () => {
+    const blocked = apiNotification(9, { type: 'MESSAGING_BLOCKED', title: 'Messaging blocked', body: 'Your messaging privileges have been blocked. Reason: Spam', data: { blocked: true, reason: 'Spam' } })
+    server = fakeNotifications([...many(2), blocked])
+    const user = userEvent.setup()
+    renderPage()
+    const link = await screen.findByRole('link', { name: /Messaging blocked/ })
+    expect(link).toHaveAttribute('href', '/messages')
+    expect(link).toHaveTextContent('Reason: Spam')
+    await user.click(link)
+    expect(where()).toBe('/messages')
+    await waitFor(() => expect(server.calls.filter((c) => c.startsWith('POST'))).toEqual([`POST /notifications/${blocked.id}/read`]))
+    expect(server.items.filter((n) => n.readAt).map((n) => n.id)).toEqual([blocked.id])
+  })
+
   it('loads the next page of 20 with Show more, from the server total', async () => {
     serve(45)
     const user = userEvent.setup()

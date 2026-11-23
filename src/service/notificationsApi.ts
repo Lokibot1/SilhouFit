@@ -56,5 +56,8 @@ export async function markAllNotificationsRead() {
   listeners.forEach((run) => run())
 }
 
-/** Where a notification leads: the order it is about, when it names one. */
-export const notificationHref = (n: ServerNotification) => (typeof n.data?.orderId === 'string' && n.data.orderId ? `/orders/${n.data.orderId}` : null)
+/** Where a notification leads: Messages for a messaging block change, else the order it is about, when it names one. */
+export const notificationHref = (n: ServerNotification) => {
+  if (n.type === 'MESSAGING_BLOCKED' || n.type === 'MESSAGING_UNBLOCKED') return '/messages'
+  return typeof n.data?.orderId === 'string' && n.data.orderId ? `/orders/${n.data.orderId}` : null
+}
