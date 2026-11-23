@@ -92,6 +92,25 @@ describe('MessageBubble avatar', () => {
   })
 })
 
+describe('MessageBubble read receipt', () => {
+  const sent = { ...failed(), status: undefined }
+  const seen = { name: 'KRAL', avatar: <img src="/favicon.svg" alt="KRAL" /> }
+
+  it('labels the tiny avatar under a read message', () => {
+    render(
+      <ul>
+        <MessageBubble message={sent} mine seen={seen} onRetry={vi.fn()} onRemove={vi.fn()} />
+      </ul>,
+    )
+    expect(screen.getByRole('img', { name: 'Seen by KRAL' })).toBeInTheDocument()
+  })
+
+  it('shows nothing when it has not been read', () => {
+    show(sent)
+    expect(screen.queryByRole('img', { name: /Seen by/ })).toBeNull()
+  })
+})
+
 describe('MessageBubble attachments', () => {
   const photo = (n: number) => ({ id: `a${n}`, url: `https://cdn.example.com/p${n}.png`, type: 'IMAGE' as const, mimeType: 'image/png', fileName: `p${n}.png`, sizeBytes: 10, displayOrder: n, createdAt: '' })
   const withFiles = (content: string, count: number): ThreadMessage => ({ ...failed(), status: undefined, content, attachments: Array.from({ length: count }, (_, n) => photo(n)) })

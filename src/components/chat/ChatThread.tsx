@@ -1,11 +1,13 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useConversation } from '../../hooks/useConversation'
 import { CHAT_BRAND_NAME, displayName } from '../../service/chatApi'
+import { Avatar } from '../ui/Avatar'
 import { formatPlacedAt } from '../../utils/format'
 import { Tooltip } from '../ui/Tooltip'
 import { SectionBody } from '../staff/StaffSection'
 import { ChatSkeleton } from './ChatSkeleton'
 import { Composer } from './Composer'
+import { KralAvatar } from './KralAvatar'
 import { ConnectionStatus } from './ConnectionStatus'
 import { MessageList } from './MessageList'
 
@@ -50,6 +52,10 @@ export function ChatThread({ conversationId, staff = false, leading, compact = f
   const chat = useConversation(conversationId)
   const { detail } = chat
   const blockedAt = detail?.customer?.messagingBlockedAt
+  const customerName = detail?.customer ? displayName(detail.customer) : 'Customer'
+  const other = staff
+    ? { name: customerName, avatar: <Avatar name={customerName} src={detail?.customer?.avatarUrl ?? undefined} size="xs" /> }
+    : { name: CHAT_BRAND_NAME, avatar: <KralAvatar size="xs" /> }
 
   return (
     <SectionBody section={chat.section} what="this conversation" skeleton={<ChatSkeleton compact={compact} />} errorClassName="p-4">
@@ -72,6 +78,8 @@ export function ChatThread({ conversationId, staff = false, leading, compact = f
               staff={staff}
               blocked={!staff && !!blockedAt}
               compact={compact}
+              otherReadAt={staff ? detail.customerReadAt : detail.staffReadAt}
+              other={other}
               hasMore={chat.hasMore}
               loadingEarlier={chat.loadingEarlier}
               onLoadEarlier={() => void chat.loadEarlier()}

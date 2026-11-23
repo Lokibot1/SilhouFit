@@ -165,7 +165,11 @@ export function useConversation(conversationId: string) {
     if (arrived.length === 0) return
     if (arrived.some((message) => message.senderId === typingId.current)) clearTyping()
     setLive((current) => current && { ...current, messages: mergeArrived(current.messages, arrived, current.selfId) })
-    if (arrived.some((message) => message.senderId !== old.selfId)) void markConversationRead(conversationId).catch(() => {})
+    if (arrived.some((message) => message.senderId !== old.selfId)) {
+      void markConversationRead(conversationId).catch(() => {})
+      // A reply means they have read the thread: refresh the detail so the read receipt moves.
+      void fetchConversation(conversationId).then((detail) => setLive((current) => current && { ...current, detail }), () => {})
+    }
   }
 
   const sync = () => void fetchMessages(conversationId).then((page) => receive(page.messages), () => {})

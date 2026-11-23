@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { ThreadMessage } from '../../hooks/useConversation'
 import { CHAT_BRAND_NAME, ROLE_LABEL, displayName, sendFailureCopy } from '../../service/chatApi'
 import { formatMessageTime } from '../../utils/format'
@@ -21,11 +21,13 @@ interface MessageBubbleProps {
   blocked?: boolean
   /** The dock's small window: smaller text and pictures. */
   compact?: boolean
+  /** The other person has read this message: their tiny avatar sits under it. */
+  seen?: { name: string; avatar: ReactNode }
   onRetry: (id: string) => void
   onRemove: (id: string) => void
 }
 
-export function MessageBubble({ message, enter = false, mine, staff = false, blocked = false, compact = false, onRetry, onRemove }: MessageBubbleProps) {
+export function MessageBubble({ message, enter = false, mine, staff = false, blocked = false, compact = false, seen, onRetry, onRemove }: MessageBubbleProps) {
   const { status, progress } = message
   const { sender } = message
   const masked = !staff && !mine && sender?.role !== 'customer'
@@ -96,6 +98,11 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
               <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>
             )}
           </p>
+        )}
+        {seen && (
+          <span role="img" aria-label={`Seen by ${seen.name}`} className="mt-0.5 flex px-1">
+            <span aria-hidden="true">{seen.avatar}</span>
+          </span>
         )}
       </div>
       <Modal open={!!photo} onClose={() => setOpen(undefined)} title={photo?.fileName || 'Photo'}>

@@ -1,6 +1,7 @@
 import { useReducedMotion } from 'motion/react'
-import { Fragment, useLayoutEffect, useRef } from 'react'
+import { Fragment, useLayoutEffect, useRef, type ReactNode } from 'react'
 import type { ThreadMessage } from '../../hooks/useConversation'
+import { lastSeenId } from '../../utils/chatThread'
 import { formatChatDay, manilaDay } from '../../utils/format'
 import { SpinnerIcon } from '../form/icons'
 import { SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
@@ -18,6 +19,9 @@ interface MessageListProps {
   blocked?: boolean
   /** The dock's small window: smaller text and pictures. */
   compact?: boolean
+  /** When the other person last read the thread, and who they are: their tiny avatar shows under the viewer's last message once they have read it. */
+  otherReadAt?: string | null
+  other?: { name: string; avatar: ReactNode }
   hasMore: boolean
   loadingEarlier: boolean
   onLoadEarlier: () => void
@@ -26,11 +30,12 @@ interface MessageListProps {
 }
 
 /** The thread: oldest at the top, a date separator per day. It follows new messages only while the reader is near the bottom. */
-export function MessageList({ messages, selfId, staff, blocked, compact, hasMore, loadingEarlier, onLoadEarlier, onRetry, onRemove }: MessageListProps) {
+export function MessageList({ messages, selfId, staff, blocked, compact, otherReadAt, other, hasMore, loadingEarlier, onLoadEarlier, onRetry, onRemove }: MessageListProps) {
   const scroller = useRef<HTMLDivElement>(null)
   const nearBottom = useRef(true)
   const previous = useRef({ first: '', height: 0 })
   const reduced = useReducedMotion()
+  const seenId = lastSeenId(messages, selfId, otherReadAt)
 
   useLayoutEffect(() => {
     const element = scroller.current!
@@ -72,7 +77,7 @@ export function MessageList({ messages, selfId, staff, blocked, compact, hasMore
                 {formatChatDay(message.createdAt)}
               </li>
             )}
-            <MessageBubble message={message} enter={message.fresh} mine={message.senderId === selfId} staff={staff} blocked={blocked} compact={compact} onRetry={onRetry} onRemove={onRemove} />
+            <MessageBubble message={message} enter={message.fresh} mine={message.senderId === selfId} staff={staff} blocked={blocked} compact={compact} seen={message.id === seenId ? other : undefined} onRetry={onRetry} onRemove={onRemove} />
           </Fragment>
         ))}
         </ol>

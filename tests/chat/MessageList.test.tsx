@@ -4,6 +4,9 @@ import { MessageList } from '../../src/components/chat/MessageList'
 import type { ThreadMessage } from '../../src/hooks/useConversation'
 import type { MessageSender } from '../../src/service/chatApi'
 
+// jsdom has no element.scrollTo.
+Element.prototype.scrollTo = () => {}
+
 const sender = (role: MessageSender['role'], fullName: string): MessageSender => ({ id: `${role}-1`, firstName: '', lastName: '', fullName, role, avatarUrl: null })
 
 const message = (id: string, createdAt: string, extra: Partial<ThreadMessage> = {}): ThreadMessage => ({
@@ -40,6 +43,18 @@ describe('MessageList', () => {
     expect(within(log).getAllByRole('separator')).toHaveLength(2)
     expect(within(log).getByText('Nov 3, 2025')).toBeInTheDocument()
     expect(screen.getAllByTestId('chat-message').map((li) => li.textContent)).toEqual([expect.stringContaining('content m1'), expect.stringContaining('content m2'), expect.stringContaining('content m3')])
+  })
+
+  it('shows the other person’s tiny avatar under the viewer’s last message only once they have read it', () => {
+    const mine = [message('m1', '2025-11-03T07:45:00Z', { senderId: 'me' }), message('m2', '2025-11-03T07:46:00Z', { senderId: 'me' })]
+    const other = { name: 'KRAL', avatar: <img src="/favicon.svg" alt="KRAL" /> }
+    const { unmount } = render(<MessageList messages={mine} selfId="me" other={other} otherReadAt="2025-11-03T07:50:00Z" hasMore={false} loadingEarlier={false} onLoadEarlier={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} />)
+    const [first, second] = screen.getAllByTestId('chat-message')
+    expect(within(first).queryByRole('img', { name: 'Seen by KRAL' })).toBeNull()
+    expect(within(second).getByRole('img', { name: 'Seen by KRAL' })).toBeInTheDocument()
+    unmount()
+    setup(mine, { other, otherReadAt: '2025-11-03T07:45:30Z' })
+    expect(screen.queryByRole('img', { name: 'Seen by KRAL' })).toBeNull()
   })
 
   it('shows the empty state, pointing to the composer', () => {
