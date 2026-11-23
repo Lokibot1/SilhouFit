@@ -26,6 +26,10 @@ vi.mock('../../src/service/activityLogs', () => ({
     meta: { total: 1, page: 1, limit: 20, totalPages: 1 },
   }),
 }))
+vi.mock('../../src/service/adminTransactionsApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/adminTransactionsApi')>()),
+  fetchTransactionTrend: vi.fn().mockResolvedValue(-8.3),
+}))
 vi.mock('../../src/service/adminOverview', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/adminOverview')>()),
   getStockFigures: vi.fn().mockResolvedValue({ out: 1, low: 1 }),
@@ -125,6 +129,10 @@ describe('admin dashboard', () => {
     for (const label of ['Refunds', 'AR-ready products', 'Low or out of stock']) expect(await within(figures).findByText(label)).toBeInTheDocument()
     expect(within(figures).getByText('Refunds').nextSibling).toHaveTextContent('212')
     expect(within(figures).getByText('7.1% of 2,988 payments refunded')).toBeInTheDocument()
+    // Fewer refunds than the same days last month is good news: a green pill, with the direction in the link's name.
+    expect(await within(figures).findByText('−8.3%')).toHaveClass('bg-success/15')
+    expect(within(figures).getByText('this month')).toBeInTheDocument()
+    expect(within(figures).getByRole('link', { name: /^Refunds: 212, .*, down 8\.3% from the same days last month, open returned transactions$/ })).toBeInTheDocument()
     expect(within(figures).getByText('AR-ready products').nextSibling).toHaveTextContent('8')
     expect(within(figures).getByText('Low or out of stock').nextSibling).toHaveTextContent('2')
     for (const gone of ['Active accounts', 'Archived staff', 'First sign-in due']) expect(within(figures).queryByText(gone)).toBeNull()

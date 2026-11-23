@@ -52,6 +52,8 @@ export interface AdminTransactionsMock {
   transactions: AdminTransactionDto[]
   /** The query strings of GET /admin/transactions, in order. */
   lists: URLSearchParams[]
+  /** The query strings of the one-row, date-ranged counts behind the Transactions and Refunds trend pills (limit=1); kept out of `lists` so list assertions see only the page's own requests. */
+  trends: URLSearchParams[]
   /** How many GET /admin/transactions/metrics were made. */
   metrics: number
   /** Every GET /admin/transactions/:id (the id), in order. */
@@ -67,7 +69,7 @@ export interface AdminTransactionsMock {
 }
 
 const LIST_KEYS = ['page', 'limit', 'status', 'paymentMethod', 'provider', 'orderId', 'startDate', 'endDate', 'search', 'sortBy', 'sortOrder']
-const STATUSES = ['UNPAID', 'PENDING', 'PAID', 'FAILED', 'REFUNDED']
+const STATUSES = ['UNPAID', 'PENDING', 'PAID', 'FAILED', 'PARTIALLY_REFUNDED', 'REFUNDED']
 const METHODS = ['GCASH', 'PAYMAYA', 'CARD', 'GRAB_PAY', 'BILLEASE', 'OTHER']
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -82,6 +84,7 @@ export async function mockAdminTransactions(page: Page, initial: AdminTransactio
   const mock: AdminTransactionsMock = {
     transactions: [...initial],
     lists: [],
+    trends: [],
     metrics: 0,
     details: [],
     orders: [],
@@ -120,7 +123,7 @@ export async function mockAdminTransactions(page: Page, initial: AdminTransactio
     if (request.method() !== 'GET') return reply({ status: 405, json: {} })
 
     if (!id) {
-      mock.lists.push(url.searchParams)
+      ;(url.searchParams.get('limit') === '1' ? mock.trends : mock.lists).push(url.searchParams)
       await wait('list')
       if (await apply(mock.on.list?.(url.searchParams))) return
       const q = url.searchParams

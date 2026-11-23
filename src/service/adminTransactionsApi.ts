@@ -4,6 +4,7 @@ import { ProductListError, request } from './fetchProductList'
 import { isMoney, isRecord, ORDER_STATUSES, oneOf, PAYMENT_STATUSES, type OrderStatus, type PaymentStatus } from './ordersApi'
 import { toRefundSummary, type RefundEntry } from './refundEntries'
 import type { RequestOptions } from './simulateRequest'
+import { manilaToday } from '../utils/period'
 
 // Staff payment records: the API's /admin/transactions endpoints (staff role or above). The API rejects query keys it does not know,
 // so only the keys below are ever sent. No cache and no polling: every read goes to the server.
@@ -150,6 +151,42 @@ export async function fetchAdminTransactions(
   return {
     data: body.data.map(toRow),
     meta: { total: meta.total, page: Number(meta.page) || page, limit: Number(meta.limit) || limit, totalPages: Number(meta.totalPages) || 0 },
+  }
+}
+
+/** Payment statuses counted together for a trend; `undefined` stands for every payment. */
+export type TrendStatuses = readonly (PaymentStatus | undefined)[]
+export const ALL_PAYMENTS: TrendStatuses = [undefined]
+export const REFUNDED_PAYMENTS: TrendStatuses = ['REFUNDED', 'PARTIALLY_REFUNDED']
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/** This month so far, and day 1 to the same day of last month (clamped to its length), as Manila dates. */
+export function trendWindows(today: string) {
+  const [year, month, day] = today.split('-').map(Number)
+  const last = new Date(Date.UTC(year, month - 2, 1))
+  const [lastYear, lastMonth] = [last.getUTCFullYear(), last.getUTCMonth() + 1]
+  const lastLength = new Date(Date.UTC(lastYear, lastMonth, 0)).getUTCDate()
+  return {
+    current: { from: `${year}-${pad(month)}-01`, to: today },
+    previous: { from: `${lastYear}-${pad(lastMonth)}-01`, to: `${lastYear}-${pad(lastMonth)}-${pad(Math.min(day, lastLength))}` },
+  }
+}
+
+/**
+ * Percent change in the payments of `statuses` this month so far against the same days last month, one decimal, like the analytics.
+ * Null when last month had none (nothing to compare with) or when a request fails: the trend never breaks its card.
+ * Reads each window's count off the list's `meta.total` (limit 1), so no backend change is needed.
+ */
+export async function fetchTransactionTrend(statuses: TrendStatuses, { signal }: RequestOptions = {}, at = new Date()): Promise<number | null> {
+  const { current, previous } = trendWindows(manilaToday(at).date)
+  const count = async (range: { from: string; to: string }) =>
+    (await Promise.all(statuses.map((status) => fetchAdminTransactions({ status, limit: 1, ...range }, { signal })))).reduce((sum, { meta }) => sum + meta.total, 0)
+  try {
+    const [now, before] = await Promise.all([count(current), count(previous)])
+    return before === 0 ? null : Math.round(((now - before) / before) * 1000) / 10
+  } catch {
+    return null
   }
 }
 

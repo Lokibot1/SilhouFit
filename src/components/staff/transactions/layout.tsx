@@ -20,7 +20,9 @@ export const PAGER_SKELETON_ROWS = 'flex flex-col items-end gap-3 @2xl:flex-row 
 
 // The totals strip sits under the page title, outside the table panel. 2 x 2 cards on a phone, one row of four from @lg of the page width
 // (the strip's wrapper is the size container). The skeleton repeats both, so loading and loaded are the same height: the caption line
-// under Orders is always reserved.
+// under Orders is always reserved, and so is the pill row under it (24px: the Transactions tile's this-month trend).
 export const TOTALS_WRAP = '@container'
 export const TOTALS_GRID = 'grid grid-cols-2 gap-2 @lg:grid-cols-4 @lg:gap-3'
-export const TOTALS_TILE = 'relative h-[5.5rem] min-w-0 rounded-xl border border-line bg-canvas-sub px-3 py-3 @sm:px-4'
+// The first tile carries the trend pill and its "this month" label, which need more than half of a phone's width, so it takes the first row alone there.
+export const TOTALS_FIRST_TILE = '@max-lg:col-span-2'
+export const TOTALS_TILE = 'relative h-28 min-w-0 rounded-xl border border-line bg-canvas-sub px-3 py-3 @sm:px-4'

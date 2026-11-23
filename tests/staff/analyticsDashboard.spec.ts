@@ -1,8 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { manyAdminOrders, mockAdminOrders } from '../shared/adminOrders'
+import { fail, manyAdminOrders, mockAdminOrders } from '../shared/adminOrders'
 import { mockAuditLogs } from '../shared/auditLogs'
 import { mockNotifications } from '../shared/notificationsApi'
-import { manyAdminTransactions, mockAdminTransactions } from '../shared/adminTransactions'
+import { adminTransaction, manyAdminTransactions, mockAdminTransactions } from '../shared/adminTransactions'
 import { mockCart, mockProductMetrics, mockProducts, type ProductMetricsMock } from '../shared/products'
 
 // The /staff and /admin dashboards read GET /analytics/summary, /sales, /product-mix and /trending. Those are stubbed here (deterministic, not the live API),
@@ -327,6 +327,67 @@ for (const target of PAGES) {
       await expect(operations.getByRole('link', { name: /^Refunds: / })).toBeVisible()
       await expect(operations.getByText(/% of \d+ payments refunded/)).toBeVisible()
       await expect(page.getByText('Sample data', { exact: true })).toHaveCount(0)
+    })
+
+    // Refunds placed now and on day 1 of last month (inside both same-days windows), so the pill compares this month so far with the same days last month.
+    async function openWithRefunds(page: Page, now: number, before: number) {
+      const manila = new Date(Date.now() + 8 * 3_600_000)
+      const lastMonthDay1 = new Date(Date.UTC(manila.getUTCFullYear(), manila.getUTCMonth() - 1, 1, 4)).toISOString()
+      const rows = [
+        ...Array.from({ length: now }, (_, i) => adminTransaction(i + 1, { status: i % 2 ? 'PARTIALLY_REFUNDED' : 'REFUNDED', createdAt: new Date().toISOString() })),
+        ...Array.from({ length: before }, (_, i) => adminTransaction(now + i + 1, { status: 'REFUNDED', createdAt: lastMonthDay1 })),
+      ]
+      await stubAnalytics(page)
+      await stubRest(page, 2)
+      await mockAdminTransactions(page, rows) // the newest route wins
+      await page.goto('/login')
+      await page.getByLabel('Email', { exact: true }).fill(target.who.email)
+      await page.getByLabel('Password', { exact: true }).fill(target.who.password)
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+      await expect(page).toHaveURL(target.home)
+    }
+
+    for (const scheme of ['light', 'dark'] as const) {
+      test(`${scheme}: the Refunds card adds a red this-month pill beside the all-time total at 320px, with no horizontal scroll`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: scheme })
+        await page.setViewportSize({ width: 320, height: 800 })
+        await openWithRefunds(page, 3, 1)
+        const card = region(page, 'Refunds, AR and stock at a glance').getByRole('link', { name: /^Refunds: / })
+        const pill = card.getByText('+200.0%')
+        await expect(pill).toBeVisible()
+        await expect(card).toHaveAccessibleName(/^Refunds: 3, .*, up 200\.0% from the same days last month, open returned transactions$/)
+        await expect(pill).toHaveClass(/bg-danger\/10/)
+        const label = card.getByText('this month')
+        await expect(label).toBeVisible()
+        const [pillBox, cardBox] = [await pill.boundingBox(), await card.boundingBox()]
+        const labelBox = (await label.boundingBox())!
+        expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width)
+        expect(pillBox!.x + pillBox!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width)
+        expect(pillBox!.y + pillBox!.height).toBeLessThanOrEqual(cardBox!.y + cardBox!.height)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
+      })
+    }
+
+    test('fewer refunds than the same days last month is a green pill', async ({ page }) => {
+      await openWithRefunds(page, 1, 2)
+      const card = region(page, 'Refunds, AR and stock at a glance').getByRole('link', { name: /^Refunds: / })
+      await expect(card.getByText('−50.0%')).toHaveClass(/bg-success\/15/)
+    })
+
+    test('a failing trend request leaves the Refunds total and no pill or error', async ({ page }) => {
+      await stubAnalytics(page)
+      await stubRest(page, 2)
+      const api = await mockAdminTransactions(page, manyAdminTransactions(3))
+      api.on.list = (q) => (q.get('limit') === '1' ? fail(500, 'boom') : undefined)
+      await page.goto('/login')
+      await page.getByLabel('Email', { exact: true }).fill(target.who.email)
+      await page.getByLabel('Password', { exact: true }).fill(target.who.password)
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+      await expect(page).toHaveURL(target.home)
+      const operations = region(page, 'Refunds, AR and stock at a glance')
+      await expect(operations.getByText(/% of \d+ payments refunded/)).toBeVisible()
+      await expect(operations.getByRole('link', { name: /^Refunds: / }).getByText(/^[+−]\d/)).toHaveCount(0)
+      await expect(operations.getByRole('alert')).toHaveCount(0)
     })
 
     test('the Low or out of stock card shows out plus low from GET /products/metrics', async ({ page }) => {

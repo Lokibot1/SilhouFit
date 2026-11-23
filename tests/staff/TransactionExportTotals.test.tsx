@@ -7,7 +7,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransactionTotalsSkeleton } from '../../src/components/staff/TransactionsSkeleton'
 import { TransactionTotals } from '../../src/components/staff/transactions/TransactionTotals'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
-import { fetchAdminTransactionMetrics, fetchAdminTransactions, type AdminTransactionMetrics, type AdminTransactionRow, type AdminTransactionsPage } from '../../src/service/adminTransactionsApi'
+import { fetchAdminTransactionMetrics, fetchAdminTransactions, fetchTransactionTrend, ALL_PAYMENTS, type AdminTransactionMetrics, type AdminTransactionRow, type AdminTransactionsPage } from '../../src/service/adminTransactionsApi'
 import { ProductListError } from '../../src/service/fetchProductList'
 import { manilaToday } from '../../src/utils/period'
 import { StaffTransactionsPage } from '../../src/views/staff/StaffTransactionsPage'
@@ -16,6 +16,7 @@ vi.mock('../../src/service/adminTransactionsApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/adminTransactionsApi')>()),
   fetchAdminTransactions: vi.fn(),
   fetchAdminTransactionMetrics: vi.fn(),
+  fetchTransactionTrend: vi.fn(),
 }))
 vi.mock('../../src/service/ordersApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/ordersApi')>()),
@@ -24,6 +25,7 @@ vi.mock('../../src/service/ordersApi', async (importOriginal) => ({
 
 const list = vi.mocked(fetchAdminTransactions)
 const metrics = vi.mocked(fetchAdminTransactionMetrics)
+const trend = vi.mocked(fetchTransactionTrend)
 
 const order = (n: number): AdminTransactionRow => ({
   id: `00000000-0000-4000-9000-${String(n).padStart(12, '0')}`,
@@ -83,6 +85,7 @@ beforeEach(() => {
   })
   serve(3)
   metrics.mockResolvedValue(figures)
+  trend.mockResolvedValue(18.4)
 })
 
 function renderPage(search = '') {
@@ -117,6 +120,26 @@ describe('the totals strip', () => {
     expect(within(strip).getByText('Fees').nextSibling).toHaveTextContent('₱57,075')
     expect(within(strip).getByText('Net').nextSibling).toHaveTextContent('₱2,225,925')
     expect(within(strip).getAllByText('Paid payments only')).toHaveLength(2)
+  })
+
+  it('adds this month against the same days last month to the Transactions count only, and keeps the all-time total', async () => {
+    renderPage('?status=FAILED')
+    const strip = await totals()
+    expect(await within(strip).findByText('+18.4%')).toHaveClass('bg-success/15')
+    expect(within(strip).getByText('this month')).toBeInTheDocument()
+    expect(within(strip).getByText('Transactions').nextSibling).toHaveTextContent('1,234')
+    expect(within(strip).getAllByText(/%$/)).toHaveLength(1)
+    expect(trend.mock.calls[0][0]).toBe(ALL_PAYMENTS)
+  })
+
+  it('shows the total without a pill when the trend has nothing to compare or fails', async () => {
+    trend.mockResolvedValue(null)
+    renderPage()
+    const strip = await totals()
+    await waitFor(() => expect(trend).toHaveBeenCalled())
+    expect(within(strip).getByText('Transactions').nextSibling).toHaveTextContent('1,234')
+    expect(within(strip).queryByText(/%$/)).toBeNull()
+    expect(within(strip).queryByText('this month')).toBeNull()
   })
 
   it('explains on the Paid volume label that totals count paid payments only and ignore the filters', async () => {
@@ -162,7 +185,7 @@ describe('the totals strip', () => {
   })
 
   it('has a skeleton with the same grid and tiles, so nothing shifts when it loads', () => {
-    const realWrap = render(<TransactionTotals metrics={figures} stale={false} />).container.firstElementChild as HTMLElement
+    const realWrap = render(<TransactionTotals metrics={figures} stale={false} trend={18.4} />).container.firstElementChild as HTMLElement
     const skeletonWrap = render(<TransactionTotalsSkeleton />).container.firstElementChild as HTMLElement
     const base = (el: Element) => el.className.split(/\s+/).filter((c) => c && !['animate-pulse', 'transition-opacity', 'duration-150'].includes(c)).sort()
     expect(base(skeletonWrap)).toEqual(base(realWrap))
@@ -174,7 +197,7 @@ describe('the totals strip', () => {
   })
 
   it('dims while the totals load again', () => {
-    render(<TransactionTotals metrics={figures} stale />)
+    render(<TransactionTotals metrics={figures} stale trend={null} />)
     expect(screen.getByLabelText('Totals across all transactions')).toHaveClass('opacity-60')
   })
 

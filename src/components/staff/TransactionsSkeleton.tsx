@@ -1,6 +1,6 @@
 import { CARD_ROW, PAGER_CONTROL, PAGER_FOOTER, PAGER_PAGINATION, TABLE_HEAD_ROW, TABLE_ROW, TD, TH } from './inventory/layout'
 import { STAFF_SECTION } from './StaffSkeleton'
-import { PAGER_ROWS, PAGER_SKELETON_ROWS, TOTALS_GRID, TOTALS_TILE, TOTALS_WRAP, TransactionColgroup } from './transactions/layout'
+import { PAGER_ROWS, PAGER_SKELETON_ROWS, TOTALS_FIRST_TILE, TOTALS_GRID, TOTALS_TILE, TOTALS_WRAP, TransactionColgroup } from './transactions/layout'
 
 const Bar = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
@@ -54,7 +54,7 @@ export function TransactionTotalsSkeleton() {
     <div aria-hidden="true" className={TOTALS_WRAP}>
       <div className={`${TOTALS_GRID} animate-pulse`}>
         {[0, 1, 2, 3].map((n) => (
-          <div key={n} className={TOTALS_TILE}>
+          <div key={n} className={n === 0 ? `${TOTALS_TILE} ${TOTALS_FIRST_TILE}` : TOTALS_TILE}>
             <Bar className="absolute top-3 right-3 size-8 @sm:right-4" />
             <Bar className="h-4 w-16" />
             <Bar className="mt-1.5 h-5 w-24" />

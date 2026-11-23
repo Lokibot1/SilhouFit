@@ -1025,3 +1025,51 @@ test.describe('refunds', () => {
     await expect(drawer.getByText('No refunds yet.')).toBeVisible()
   })
 })
+
+test.describe('this-month trend on the Transactions count', () => {
+  /** Three payments this month and two on day 1 of last month (both inside the same-days windows), so the pill reads +50.0% while the count stays 5. */
+  function trendRows() {
+    const manila = new Date(Date.now() + 8 * 3_600_000)
+    const lastMonthDay1 = new Date(Date.UTC(manila.getUTCFullYear(), manila.getUTCMonth() - 1, 1, 4)).toISOString()
+    return [
+      ...[1, 2, 3].map((n) => adminTransaction(n, { createdAt: new Date().toISOString() })),
+      ...[4, 5].map((n) => adminTransaction(n, { createdAt: lastMonthDay1 })),
+    ]
+  }
+
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`${scheme}: at 320px the pill sits beside the all-time count with no horizontal scroll`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme })
+      const api = await setup(page, trendRows())
+      await page.setViewportSize({ width: 320, height: 800 })
+      await open(page)
+
+      const strip = totals(page)
+      const pill = strip.getByText('+50.0%')
+      await expect(pill).toBeVisible()
+      await expect(strip.getByText('Transactions').locator('xpath=following::dd[1]')).toHaveText('5')
+      await expect(pill).toContainText('up from the same days last month')
+      const label = strip.getByText('this month')
+      await expect(label).toBeVisible()
+      const [box, tile, viewport] = [await pill.boundingBox(), await strip.locator('dd').first().locator('xpath=ancestor::div[contains(@class,"relative")][1]').boundingBox(), page.viewportSize()!]
+      expect(box!.x + box!.width).toBeLessThanOrEqual(tile!.x + tile!.width)
+      expect(box!.y + box!.height).toBeLessThanOrEqual(tile!.y + tile!.height)
+      const labelBox = (await label.boundingBox())!
+      expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(tile!.x + tile!.width)
+      expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(tile!.y + tile!.height)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
+      expect(await overflow(page)).toBe(0)
+      const windows = api.trends.map((q) => [q.get('startDate')!.slice(0, 10), q.get('endDate')!.slice(0, 10)])
+      expect(windows).toHaveLength(2)
+    })
+  }
+
+  test('a failing trend request leaves the total and no pill', async ({ page }) => {
+    const api = await setup(page, trendRows())
+    api.on.list = (q) => (q.get('limit') === '1' ? fail(500, 'boom') : undefined)
+    await open(page)
+    await expect(totals(page)).toContainText('5')
+    await expect(totals(page).getByText(/%$/)).toHaveCount(0)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+  })
+})

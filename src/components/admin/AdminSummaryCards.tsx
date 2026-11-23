@@ -4,14 +4,17 @@ import { Link } from 'react-router-dom'
 import { useReveal } from '../../hooks/useReveal'
 import { useSection } from '../../hooks/useSection'
 import { useAccountCount } from '../../hooks/useAccountCount'
+import { useTransactionTrend } from '../../hooks/useTransactionTrend'
+import { REFUNDED_PAYMENTS, type TrendStatuses } from '../../service/adminTransactionsApi'
 import { getArFigures, getRefundFigures, getStockFigures, type ArFigures, type RefundFigures, type StockFigures } from '../../service/adminOverview'
 import { LOW_STOCK } from '../../data/products'
 import type { ManagedRole } from '../../service/staffApi'
 import type { RequestOptions } from '../../service/simulateRequest'
 import { ArIcon, BoxIcon, LockIcon, RestoreIcon, SettingsIcon, UserIcon, UsersIcon } from '../form/icons'
 import { SectionBody } from '../staff/StaffSection'
+import { TrendPill } from '../staff/StatCards'
 import { SampleDataBadge } from '../ui/SampleDataBadge'
-import { STAFF_SECTION, STAT_CARD, STAT_CONTEXT, STAT_LABEL, STAT_VALUE, statIcon, type StatTone } from '../staff/StaffSkeleton'
+import { STAFF_SECTION, STAT_CARD, STAT_CONTEXT, STAT_LABEL, STAT_PILL_ROW, STAT_VALUE, statIcon, type StatTone } from '../staff/StaffSkeleton'
 
 // Wrap instead of truncating (the shared classes cut a long label off with an ellipsis).
 const LABEL = STAT_LABEL.replace('truncate ', '')
@@ -22,12 +25,17 @@ const Bar = ({ className }: { className: string }) => <div className={`rounded-x
 // A card that shows placeholder data keeps a footer row for its Sample badge, loading or loaded, so nothing shifts.
 const SAMPLE_ROOM = 'pb-14'
 
-const CardSkeleton = ({ label, sample }: { label: string; sample?: boolean }) => (
+const CardSkeleton = ({ label, sample, trend }: { label: string; sample?: boolean; trend?: boolean }) => (
   <div role="status" aria-label={label} className={`${STAT_CARD} animate-pulse ${sample ? SAMPLE_ROOM : ''}`}>
     <Bar className="col-start-1 row-start-1 w-24 text-sm" />
     <Bar className="col-start-1 row-start-2 mt-0.5 w-20 text-xs" />
     <div className="col-start-2 row-span-2 row-start-1 size-8 rounded-xl bg-line" />
     <Bar className={`${STAT_VALUE} w-16`} />
+    {trend && (
+      <div className={STAT_PILL_ROW}>
+        <div className="h-5 w-32 rounded-full bg-line" />
+      </div>
+    )}
   </div>
 )
 
@@ -45,17 +53,21 @@ interface CardProps {
   action: string
   /** Leaves room under the figures for a Sample badge the caller places over the card. */
   sample?: boolean
+  /** Reserves a row for the this-month trend pill: the change (undefined while it loads, null for none) and whether a rise is good news. */
+  trend?: { change: number | null | undefined; goodWhenUp: boolean }
 }
 
-// The whole card is one link, so there is no nested anchor.
-function Card({ index, icon: Icon, tone, label, value, context, unit, to, action, sample }: CardProps) {
+// The whole card is one link, so there is no nested anchor; the pill inside it is not focusable and its direction is in the link's name.
+function Card({ index, icon: Icon, tone, label, value, context, unit, to, action, sample, trend }: CardProps) {
   const { ref, fade } = useReveal<HTMLAnchorElement>(index)
+  const change = trend?.change
+  const direction = change ? `, ${change > 0 ? 'up' : 'down'} ${Math.abs(change).toFixed(1)}% from the same days last month` : change === 0 ? ', no change from the same days last month' : ''
   return (
     <MotionLink
       ref={ref}
       {...fade}
       to={to}
-      aria-label={`${label}: ${value.toLocaleString('en-PH')}${unit ? ` ${unit}` : ''}, ${context}, ${action}`}
+      aria-label={`${label}: ${value.toLocaleString('en-PH')}${unit ? ` ${unit}` : ''}, ${context}${direction}, ${action}`}
       className={`${STAT_CARD} h-full ${sample ? SAMPLE_ROOM : ''} cursor-pointer transition-colors hover:border-line-strong hover:bg-canvas-raised focus-visible:outline-2 focus-visible:outline-offset-2`}
     >
       <span className={LABEL}>{label}</span>
@@ -64,6 +76,11 @@ function Card({ index, icon: Icon, tone, label, value, context, unit, to, action
       <span aria-hidden="true" className={statIcon(tone)}>
         <Icon size={20} />
       </span>
+      {trend && (
+        <span className={STAT_PILL_ROW}>
+          <TrendPill change={trend.change} label="this month" goodWhenUp={trend.goodWhenUp} focusable={false} />
+        </span>
+      )}
     </MotionLink>
   )
 }
@@ -113,20 +130,24 @@ export function AccountSummaryCards({ base, superadmins }: { base: '/admin' | '/
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString('en-PH')} ${n === 1 ? one : many}`
 
 /** Each operations card loads, fails and retries on its own. */
-function OpsCard<T>({ index, fetcher, what, icon, tone, label, to, action, read, sampleReason }: Pick<CardProps, 'index' | 'icon' | 'tone' | 'label' | 'to' | 'action'> & {
+function OpsCard<T>({ index, fetcher, what, icon, tone, label, to, action, read, sampleReason, trendOf }: Pick<CardProps, 'index' | 'icon' | 'tone' | 'label' | 'to' | 'action'> & {
   fetcher: (options: RequestOptions) => Promise<T>
   what: string
   read: (data: T) => { value: number; context: string }
   /** Set while the card's figures are placeholders: the badge inside the card says what is. */
   sampleReason?: string
+  /** Gives the card a this-month trend pill: the payments it counts, and whether a rise is good news. It loads on its own and never fails the card. */
+  trendOf?: { statuses: TrendStatuses; goodWhenUp: boolean }
 }) {
   const section = useSection(fetcher)
+  const change = useTransactionTrend(trendOf?.statuses ?? null)
+  const trend = trendOf && { change, goodWhenUp: trendOf.goodWhenUp }
   return (
-    <SectionBody section={section} what={what} skeleton={<CardSkeleton label={`Loading ${label.toLowerCase()}`} sample={!!sampleReason} />} errorClassName={STAFF_SECTION}>
+    <SectionBody section={section} what={what} skeleton={<CardSkeleton label={`Loading ${label.toLowerCase()}`} sample={!!sampleReason} trend={!!trendOf} />} errorClassName={STAFF_SECTION}>
       {(data) => (
         // The badge sits over the card beside the link, not inside it, so no focusable element is nested in the anchor.
         <div className="relative">
-          <Card index={index} icon={icon} tone={tone} label={label} to={to} action={action} sample={!!sampleReason} {...read(data)} />
+          <Card index={index} icon={icon} tone={tone} label={label} to={to} action={action} sample={!!sampleReason} trend={trend} {...read(data)} />
           {sampleReason && (
             <div className="absolute bottom-3 left-4">
               <SampleDataBadge reason={sampleReason} />
@@ -151,6 +172,7 @@ export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'
         label="Refunds"
         to={`${base}/transactions?status=returned`}
         action="open returned transactions"
+        trendOf={{ statuses: REFUNDED_PAYMENTS, goodWhenUp: false }}
         read={({ refunded, payments }: RefundFigures) => ({
           value: refunded,
           context: `${payments > 0 ? ((refunded / payments) * 100).toFixed(1) : '0.0'}% of ${payments.toLocaleString('en-PH')} payments refunded`,

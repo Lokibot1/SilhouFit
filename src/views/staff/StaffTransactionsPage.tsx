@@ -27,7 +27,9 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useMetaDescription } from "../../hooks/useMetaDescription";
 import { useSection } from "../../hooks/useSection";
 import { UUID } from "../../service/fetchProductList";
+import { useTransactionTrend } from "../../hooks/useTransactionTrend";
 import {
+  ALL_PAYMENTS,
   fetchAdminTransactionMetrics,
   fetchAdminTransactions,
   type AdminTransactionRow,
@@ -105,6 +107,9 @@ export function StaffTransactionsPage() {
   const totals = useSection(loadTotals);
   const totalsResult =
     totals.state.status === "success" ? totals.state.data : totals.previous;
+
+  // This month's change in payments sits beside the all-time count; the sample list has no dates to compare, so none is asked.
+  const trend = useTransactionTrend(sample ? null : ALL_PAYMENTS);
 
   const toast = useToast();
   const user = useCurrentUser();
@@ -289,6 +294,7 @@ export function StaffTransactionsPage() {
           <TransactionTotals
             metrics={totalsResult}
             stale={totals.state.status === "loading"}
+            trend={trend}
           />
         )
       ) : (

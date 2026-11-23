@@ -95,20 +95,37 @@ function Card({ index, icon: Icon, label, value, context, change = null, aov = n
 
 const PILL = 'font-ui inline-flex h-5 items-center gap-1 rounded-full px-2 text-xs font-semibold tabular-nums text-fg'
 
-/** Up or down against the same days last month. Direction is the arrow and the sign, not only the colour. */
-function ChangePill({ change }: { change: number }) {
+/**
+ * Up or down against the same days last month. Direction is the arrow and the sign, not only the colour.
+ * `goodWhenUp` false flips the colours (refunds: up is bad). `focusable` false is for a pill inside a link, where the card's own name carries the direction.
+ */
+export function ChangePill({ change, goodWhenUp = true, focusable = true }: { change: number; goodWhenUp?: boolean; focusable?: boolean }) {
   const up = change > 0
   const down = change < 0
+  const good = goodWhenUp ? up : down
+  const bad = goodWhenUp ? down : up
   const Arrow = down ? TrendDownIcon : TrendUpIcon
   const text = `${up ? '+' : down ? '−' : ''}${Math.abs(change).toFixed(1)}%`
   return (
     <Tooltip label="Compared with the same days last month">
-      <span tabIndex={0} className={`${PILL} ${up ? 'bg-success/15' : down ? 'bg-danger/10' : 'bg-line'}`}>
-        <Arrow size={16} className={up ? 'text-success' : down ? 'text-danger' : 'text-fg-muted'} />
+      <span tabIndex={focusable ? 0 : undefined} className={`${PILL} ${good ? 'bg-success/15' : bad ? 'bg-danger/10' : 'bg-line'}`}>
+        <Arrow size={16} className={good ? 'text-success' : bad ? 'text-danger' : 'text-fg-muted'} />
         {text}
         <span className="sr-only">{up ? ', up' : down ? ', down' : ', no change'} from the same days last month</span>
       </span>
     </Tooltip>
+  )
+}
+
+/** The pill for a trend that loads on its own: a placeholder the size of pill and label while undefined, nothing for null. The label says what the pill covers when the big number beside it is an all-time total. */
+export function TrendPill({ change, label, ...rest }: { change: number | null | undefined; label?: string; goodWhenUp?: boolean; focusable?: boolean }) {
+  if (change === undefined) return <div aria-hidden="true" className={`h-5 animate-pulse rounded-full bg-line ${label ? 'w-32' : 'w-20'}`} />
+  if (change === null) return null
+  return (
+    <>
+      <ChangePill change={change} {...rest} />
+      {label && <span aria-hidden="true" className="ml-1.5 text-xs whitespace-nowrap text-fg-muted">{label}</span>}
+    </>
   )
 }
 

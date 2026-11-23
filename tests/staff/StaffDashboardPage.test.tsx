@@ -4,6 +4,7 @@ import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as adminOrders from '../../src/service/adminOrdersApi'
+import { fetchTransactionTrend } from '../../src/service/adminTransactionsApi'
 import type { Me } from '../../src/service/fetchMe'
 import * as analytics from '../../src/service/fetchStaffAnalytics'
 import { defaultFilter, describe as describePeriod } from '../../src/utils/period'
@@ -19,6 +20,11 @@ vi.mock('../../src/service/fetchStaffAnalytics', async (importOriginal) => ({
 
 // The Recent orders tile reads the real orders endpoint and the stock and AR-ready cards the real metrics endpoint; the analytics functions are stubbed.
 vi.mock('../../src/service/adminOrdersApi', () => ({ fetchAdminOrders: vi.fn() }))
+// The refunds card's trend reads the transactions list for two windows; its own tests cover that.
+vi.mock('../../src/service/adminTransactionsApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/adminTransactionsApi')>()),
+  fetchTransactionTrend: vi.fn(),
+}))
 vi.mock('../../src/service/adminOverview', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/adminOverview')>()),
   getStockFigures: vi.fn().mockResolvedValue({ out: 1, low: 2 }),
@@ -56,6 +62,7 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  vi.mocked(fetchTransactionTrend).mockResolvedValue(null)
   vi.mocked(analytics.fetchStaffSummary).mockResolvedValue({ arSessions: 37, salesTotal: 482350, aov: 5024.48, arChange: 18.4, salesChange: -8.7, ordersChange: 0, orderCount: 96, unitsSold: 214, periodStart: '2026-10-01', periodEnd: '2026-10-22' })
   vi.mocked(analytics.fetchSalesSeries).mockResolvedValue([
     { date: '2026-08-01', total: 1000 },
@@ -88,11 +95,19 @@ function renderPage() {
 
 describe('StaffDashboardPage', () => {
   it('shows the figures and the charts, with the real refunds card', async () => {
+    vi.mocked(fetchTransactionTrend).mockResolvedValue(12.5)
     renderPage()
     expect(await screen.findByText('Hello, Sam')).toBeInTheDocument()
     const operations = screen.getByRole('region', { name: 'Refunds, AR and stock at a glance' })
     expect(await within(operations).findByText('7.1% of 2,988 payments refunded')).toBeInTheDocument()
     expect(within(operations).queryByText('Sample data')).toBeNull()
+    // The refunds card keeps its all-time total and adds this month's trend; more refunds is bad news, so the pill is red.
+    expect(within(operations).getByText('212')).toBeInTheDocument()
+    const pill = await within(operations).findByText('+12.5%')
+    expect(pill).toHaveClass('bg-danger/10')
+    expect(within(operations).getByText('this month')).toBeInTheDocument()
+    expect(pill).not.toHaveAttribute('tabindex')
+    expect(within(operations).getByRole('link', { name: /^Refunds: 212, .*, up 12\.5% from the same days last month, open returned transactions$/ })).toBeInTheDocument()
     expect(await screen.findByText('AR Fitting Sessions')).toBeInTheDocument()
     expect(await screen.findByText('37', { selector: '.sr-only' })).toBeInTheDocument()
     expect(await screen.findByText('₱482,350', { selector: '.sr-only' })).toBeInTheDocument()
@@ -100,6 +115,14 @@ describe('StaffDashboardPage', () => {
     expect((await screen.findAllByText('Hoodie')).length).toBeGreaterThan(0)
     expect(screen.getByText('60%')).toBeInTheDocument()
     expect(screen.getByText('Washed Black Tee')).toBeInTheDocument()
+  })
+
+  it('shows the refunds total without a pill when last month has nothing to compare with', async () => {
+    renderPage()
+    const operations = screen.getByRole('region', { name: 'Refunds, AR and stock at a glance' })
+    expect(await within(operations).findByText('7.1% of 2,988 payments refunded')).toBeInTheDocument()
+    expect(within(operations).queryByText(/%$/, { selector: 'span' })).toBeNull()
+    expect(within(operations).getByRole('link', { name: /^Refunds: 212, 7\.1% of 2,988 payments refunded, open returned transactions$/ })).toBeInTheDocument()
   })
 
   it('shows orders, stock and AR Fitting use for each trendy item', async () => {

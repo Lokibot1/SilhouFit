@@ -8,7 +8,7 @@ vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
 }))
 const send = vi.mocked(request)
 
-const { fetchAdminTransaction, fetchAdminTransactionMetrics, fetchAdminTransactions, orderToTransactionDetail, redactPayload } = await import('../../src/service/adminTransactionsApi')
+const { ALL_PAYMENTS, REFUNDED_PAYMENTS, fetchAdminTransaction, fetchAdminTransactionMetrics, fetchAdminTransactions, fetchTransactionTrend, orderToTransactionDetail, redactPayload, trendWindows } = await import('../../src/service/adminTransactionsApi')
 
 const ID = '11111111-1111-4111-8111-111111111111'
 const ORDER_ID = '22222222-2222-4222-8222-222222222222'
@@ -255,5 +255,74 @@ describe('an order as an invoice reads it', () => {
     const removed = orderToTransactionDetail(adminOrderDetail({ customer: null }), 'GCASH')
     expect(removed.customerName).toBe('Customer account removed')
     expect(removed.customer).toBeUndefined()
+  })
+})
+
+describe('trendWindows', () => {
+  it('runs day 1 to today, against day 1 to the same day of last month', () => {
+    expect(trendWindows('2026-11-23')).toEqual({ current: { from: '2026-11-01', to: '2026-11-23' }, previous: { from: '2026-10-01', to: '2026-10-23' } })
+  })
+
+  it('clamps to the length of last month', () => {
+    expect(trendWindows('2026-03-31').previous).toEqual({ from: '2026-02-01', to: '2026-02-28' })
+    expect(trendWindows('2028-03-30').previous).toEqual({ from: '2028-02-01', to: '2028-02-29' })
+    expect(trendWindows('2026-05-31').previous).toEqual({ from: '2026-04-01', to: '2026-04-30' })
+  })
+
+  it('crosses the year in January', () => {
+    expect(trendWindows('2027-01-15')).toEqual({ current: { from: '2027-01-01', to: '2027-01-15' }, previous: { from: '2026-12-01', to: '2026-12-15' } })
+  })
+})
+
+describe('fetchTransactionTrend', () => {
+  // Noon on Nov 23 in Manila is 04:00 UTC the same day; a UTC clock late on Nov 22 would already read Nov 23 in Manila.
+  const at = new Date('2026-11-22T17:00:00Z')
+  /** Answers each list call with the total set for its window ('now' from Nov 1, otherwise 'before') and status. */
+  const totals = (now: Record<string, number>, before: Record<string, number>) =>
+    send.mockImplementation(async (_method, path) => {
+      const query = new URL(`http://x${path}`).searchParams
+      const window = query.get('startDate')!.startsWith('2026-11') ? now : before
+      return { data: [], meta: { total: window[query.get('status') ?? 'ALL'] ?? 0, page: 1, limit: 1, totalPages: 1 } }
+    })
+
+  it('compares the two windows by their totals, one request each, in Manila days', async () => {
+    totals({ ALL: 118 }, { ALL: 100 })
+    await expect(fetchTransactionTrend(ALL_PAYMENTS, {}, at)).resolves.toBe(18)
+    const queries = send.mock.calls.map(([, path]) => new URL(`http://x${path}`).searchParams)
+    expect(queries).toHaveLength(2)
+    for (const query of queries) expect(query.get('limit')).toBe('1')
+    expect(queries.map((query) => [query.get('startDate'), query.get('endDate')])).toEqual([
+      ['2026-11-01T00:00:00+08:00', '2026-11-23T23:59:59.999+08:00'],
+      ['2026-10-01T00:00:00+08:00', '2026-10-23T23:59:59.999+08:00'],
+    ])
+  })
+
+  it('rounds to one decimal, and a fall is negative', async () => {
+    totals({ ALL: 3 }, { ALL: 7 })
+    await expect(fetchTransactionTrend(ALL_PAYMENTS, {}, at)).resolves.toBe(-57.1)
+  })
+
+  it('adds the statuses of a refund count together in each window', async () => {
+    totals({ REFUNDED: 3, PARTIALLY_REFUNDED: 2 }, { REFUNDED: 2, PARTIALLY_REFUNDED: 2 })
+    await expect(fetchTransactionTrend(REFUNDED_PAYMENTS, {}, at)).resolves.toBe(25)
+    expect(send).toHaveBeenCalledTimes(4)
+  })
+
+  it('has no change to show when last month had none', async () => {
+    totals({ ALL: 5 }, {})
+    await expect(fetchTransactionTrend(ALL_PAYMENTS, {}, at)).resolves.toBeNull()
+  })
+
+  it('shows no change when nothing moved, rather than hiding it', async () => {
+    totals({ ALL: 4 }, { ALL: 4 })
+    await expect(fetchTransactionTrend(ALL_PAYMENTS, {}, at)).resolves.toBe(0)
+  })
+
+  it('resolves to null instead of failing when a request fails', async () => {
+    send.mockRejectedValue(new ProductListError('server'))
+    await expect(fetchTransactionTrend(ALL_PAYMENTS, {}, at)).resolves.toBeNull()
+    totals({ ALL: 5 }, { ALL: 4 })
+    send.mockRejectedValueOnce(new ProductListError('network'))
+    await expect(fetchTransactionTrend(REFUNDED_PAYMENTS, {}, at)).resolves.toBeNull()
   })
 })
