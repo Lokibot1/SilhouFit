@@ -36,6 +36,14 @@ describe('Composer', () => {
     expect(onSend).toHaveBeenCalledWith('Hi!')
   })
 
+  it('keeps the box and Send inside one rounded pill, with the paperclip outside it', () => {
+    render(<Composer onSend={vi.fn()} sending={false} attachments />)
+    const pill = screen.getByRole('textbox', { name: 'Message' }).parentElement!
+    expect(pill).toHaveClass('rounded-full', 'focus-within:outline-2')
+    expect(pill).toContainElement(screen.getByRole('button', { name: 'Send message' }))
+    expect(pill).not.toContainElement(screen.getByRole('button', { name: 'Attach photos or videos' }))
+  })
+
   it('never sends only spaces', async () => {
     const user = userEvent.setup()
     const { onSend, field } = setup()

@@ -168,32 +168,37 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
             </Tooltip>
           </>
         )}
-        <textarea
-          ref={field}
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value)
-            if (event.target.value.trim()) onTyping?.()
-          }}
-          onKeyDown={onKeyDown}
-          maxLength={maxLength}
-          rows={1}
-          aria-label="Message"
-          disabled={!!disabledReason}
-          aria-describedby={disabledReason ? 'chat-composer-note' : masked || flagged ? 'chat-composer-count chat-composer-note' : 'chat-composer-count'}
-          placeholder={disabledReason ? 'Messaging is blocked' : 'Write a message'}
-          className="font-ui field-sizing-content max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-line-strong bg-canvas px-3 py-2.5 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted"
-        />
-        <Tooltip label="Send message">
-          <button
-            type="submit"
-            disabled={blocked}
-            aria-label="Send message"
-            className="btn-lift flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border-2 border-fg bg-fg text-canvas hover:border-chrome-strong hover:bg-chrome-strong disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <SendIcon />
-          </button>
-        </Tooltip>
+        {/* The pill: the box and Send share one rounded outline, which lights up while the box has focus. */}
+        <div className="flex min-h-11 min-w-0 flex-1 items-end rounded-full bg-canvas ring-1 ring-line-strong ring-inset focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-chrome-strong">
+          <textarea
+            ref={field}
+            value={text}
+            onChange={(event) => {
+              setText(event.target.value)
+              if (event.target.value.trim()) onTyping?.()
+            }}
+            onKeyDown={onKeyDown}
+            maxLength={maxLength}
+            rows={1}
+            aria-label="Message"
+            disabled={!!disabledReason}
+            aria-describedby={disabledReason ? 'chat-composer-note' : masked || flagged ? 'chat-composer-count chat-composer-note' : 'chat-composer-count'}
+            placeholder={disabledReason ? 'Messaging is blocked' : 'Write a message'}
+            className="font-ui field-sizing-content max-h-24 min-h-11 min-w-0 flex-1 resize-none bg-transparent py-2.5 pr-2 pl-5 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted focus-visible:outline-none"
+          />
+          <Tooltip label="Send message">
+            <button
+              type="submit"
+              disabled={blocked}
+              aria-label="Send message"
+              className="group flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-canvas disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="flex size-8 items-center justify-center rounded-full bg-fg group-enabled:group-hover:bg-chrome-strong">
+                <SendIcon />
+              </span>
+            </button>
+          </Tooltip>
+        </div>
       </div>
       {notes.length > 0 && (
         <div role="status" className="font-ui mt-1 grid gap-1 text-xs font-semibold text-danger">
