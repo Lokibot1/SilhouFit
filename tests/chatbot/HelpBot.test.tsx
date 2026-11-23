@@ -100,6 +100,16 @@ describe('HelpBot answers', () => {
     expect(await field()).toHaveFocus()
   })
 
+  it('keeps Browse topics when it has no answer, so a stuck question is a way back to the menu', async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(await screen.findByRole('button', { name: 'Browse topics' }))
+    await user.click(screen.getByRole('button', { name: 'Sizing' }))
+    await user.type(await field(), 'zebra giraffe{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'Browse topics' }))
+    expect(screen.getByRole('button', { name: 'Sizing' })).toBeInTheDocument()
+  })
+
   it('never answers from a draft', async () => {
     const user = userEvent.setup()
     const store = faqStore(FAQS.map((a) => (a.question === 'How do I reset my password?' ? { ...a, isActive: false } : a)))

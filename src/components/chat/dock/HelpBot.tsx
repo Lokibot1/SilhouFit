@@ -92,7 +92,7 @@ function Conversation({ answers }: { answers: PublicHelpAnswer[] }) {
     const { best, related } = matchAnswers(text, answers)
     if (best) replyAfter(delay, { text: best.answer, link: best.link, chips: [...related.map(askChip), TOPICS_CHIP] })
     else if (related.length) replyAfter(delay, { text: 'Did you mean one of these?', chips: [...related.map(askChip), TOPICS_CHIP] })
-    else replyAfter(delay, { text: "I don't have an answer for that yet.", chips: [...handoff, REPHRASE_CHIP] })
+    else replyAfter(delay, { text: "I don't have an answer for that yet.", chips: [REPHRASE_CHIP, TOPICS_CHIP, ...handoff] })
   }
 
   function press({ action }: HelpChip) {
