@@ -46,14 +46,14 @@ describe('LegalModal', () => {
   it('shows the real policy text for each document', () => {
     setup('terms')
     expect(screen.getByRole('dialog', { name: 'Terms of Service' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Governing law' })).toBeInTheDocument()
-    expect(screen.getByText('These terms are governed by the laws of the Philippines.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Governing law & dispute jurisdiction' })).toBeInTheDocument()
+    expect(screen.getByText(/governed by and construed under the laws of the Republic of the Philippines/)).toBeInTheDocument()
   })
 
   it('shows the privacy policy under its own title', () => {
     setup('privacy')
     expect(screen.getByRole('dialog', { name: 'Privacy Policy' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'How camera data is handled' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Personal data we collect' })).toBeInTheDocument()
   })
 
   it('keeps "I understand" disabled, with a linked hint, until the end is reached', async () => {

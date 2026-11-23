@@ -2,67 +2,75 @@ import {
   LegalPageLayout,
   LegalSection,
 } from '../../components/legal/LegalPageLayout'
+import { Bullets, Lead } from '../../components/legal/legalParts'
 
 export function CookiePolicyPage() {
   return (
     <LegalPageLayout
       title="Cookie policy"
-      lastUpdated="September 27, 2026"
-      scopeNote="This policy covers what this site actually stores in your browser today, and what categories the full platform is designed to use once it is live."
+      lastUpdated="November 3, 2026"
+      scopeNote="This Cookie Policy sets out how SilhouFit utilizes cookies, web storage, and related tracking scripts on the SilhouFit website (silhoufit.com) in compliance with the Data Privacy Act of 2012."
     >
-      <LegalSection heading="What this site uses today">
+      <LegalSection heading="Scope & definitions">
         <p>
-          This site stores these in your browser&apos;s storage: your light
-          or dark theme choice, whether you accepted or rejected this
-          cookie notice, your sign-in session, your cart and wishlist, your
-          progress through the welcome tour, a summary of your last order,
-          and the delivery address you save, which stays on this device. No
-          analytics, advertising, or tracking cookies are set. Rejecting
-          the notice only stops it from reappearing; it does not remove
-          these, which the site needs to work.
+          Cookies are small data files placed on your browser or device memory
+          when accessing web services. They enable system security, persist
+          shopping cart sessions, retain sizing preferences, and provide
+          analytical telemetry on platform use.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Categories planned for the live platform">
-        <p>
-          None of the categories below are active on this site. They
-          describe what the full platform is designed to use once
-          boutiques and shoppers are on it.
-        </p>
-        <p>
-          <span className="font-semibold text-fg">
-            Strictly necessary.
-          </span>{' '}
-          Keeping you signed in and remembering the contents of your cart.
-        </p>
-        <p>
-          <span className="font-semibold text-fg">
-            Functional.
-          </span>{' '}
-          Remembering preferences such as size and theme.
-        </p>
-        <p>
-          <span className="font-semibold text-fg">
-            Analytics.
-          </span>{' '}
-          Aggregated, non-identifying usage data used to improve the
-          catalog and the fitting module.
-        </p>
+      <LegalSection heading="Classification of cookies">
+        <Bullets>
+          <li>
+            <Lead>Strictly Necessary:</Lead> Critical for system uptime,
+            account session validation, anti-CSRF tokens, and cart retention
+            (e.g., auth_token, csrf_protection, cart_id). Mandatory (cannot be
+            disabled without system malfunction).
+          </li>
+          <li>
+            <Lead>Functional / Preferences:</Lead> Retains user configurations
+            such as UI theme (dark/light mode), interface language, and
+            dismissals (e.g., ui_theme, onboarding_dismissed). Optional via
+            cookie settings.
+          </li>
+          <li>
+            <Lead>Analytics & Performance:</Lead> Gathers aggregated,
+            non-personally identifiable telemetry to measure site performance
+            and popular sizing trends. Optional via cookie banner.
+          </li>
+          <li>
+            <Lead>Marketing / Re-targeting:</Lead> Measures performance of
+            authorized fashion campaigns and promotional events. Opt-in
+            required.
+          </li>
+        </Bullets>
       </LegalSection>
 
-      <LegalSection heading="Managing storage">
-        <p>
-          You can clear local storage for this site at any time through
-          your browser settings, which will reset your theme, sign you out,
-          empty your cart and remove your saved address, and reshow the
-          cookie notice.
-        </p>
-      </LegalSection>
-
-      <LegalSection heading="Changes to this policy">
-        <p>
-          Updates will be posted on this page with a new date at the top.
-        </p>
+      <LegalSection heading="Cookie lifespans & management">
+        <Bullets>
+          <li>
+            <Lead>Session Cookies:</Lead> Automatically wiped when you
+            terminate your web browser session.
+          </li>
+          <li>
+            <Lead>Persistent Cookies:</Lead> Remain stored on your device for a
+            predetermined period (up to 12 months) unless manually purged.
+          </li>
+          <li>
+            <Lead>Security Flags:</Lead> Sensitive session and authentication
+            cookies utilize HttpOnly, Secure, and SameSite=Strict flags to
+            defend against Cross-Site Scripting (XSS) and unauthorized token
+            transmission.
+          </li>
+          <li>
+            <Lead>Opt-Out & Browser Controls:</Lead> You can modify cookie
+            preferences at any time via the cookie settings panel on the
+            SilhouFit website (silhoufit.com) or through your browser
+            settings. Disabling strictly necessary cookies may prevent
+            checkout and account operations.
+          </li>
+        </Bullets>
       </LegalSection>
     </LegalPageLayout>
   )
