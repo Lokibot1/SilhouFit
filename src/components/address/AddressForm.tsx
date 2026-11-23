@@ -217,6 +217,8 @@ interface AddressFormProps {
   pinCopy?: { hint: string; missing: string; mapNote: string }
   /** Words the save button and its failure messages for something other than a shopper's address (the pickup location). */
   saveLabel?: string
+  /** Words the default checkbox for something other than a shopper's address: its label, the note when it is locked on (first one, or already the default) and the help while it can be changed. */
+  defaultCopy?: { label: string; first: string; locked: string; help: string }
 }
 
 /** Puts a saved address's places back on the lists first (the form is a skeleton meanwhile); a new address needs no lookup. */
@@ -270,6 +272,7 @@ function AddressFormBody({
   nameLabel = 'Recipient name',
   pinCopy,
   saveLabel = 'Save address',
+  defaultCopy,
 }: AddressFormProps & { resolved: ResolvedAddress | null }) {
   const kral = tone === 'kral'
   const reword = (message: string) =>
@@ -888,15 +891,19 @@ function AddressFormBody({
             checked={makeDefault}
             onChange={setMakeDefault}
             disabled={pending || lockedDefault}
-            label="Set as default address"
+            label={defaultCopy?.label ?? 'Set as default address'}
             className={kral ? 'font-kral-mono justify-start text-base' : 'justify-start'}
             tone={tone}
           >
-            Set as default address
+            {defaultCopy?.label ?? 'Set as default address'}
           </Checkbox>
-          {lockedDefault && (
+          {(lockedDefault || defaultCopy) && (
             <p className={`leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-xs text-fg-muted'}`}>
-              {existingCount === 0 ? 'Your first address is always your default.' : 'To change your default, set another address as default.'}
+              {!lockedDefault
+                ? defaultCopy?.help
+                : existingCount === 0
+                  ? (defaultCopy?.first ?? 'Your first address is always your default.')
+                  : (defaultCopy?.locked ?? 'To change your default, set another address as default.')}
             </p>
           )}
         </div>

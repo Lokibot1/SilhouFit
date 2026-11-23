@@ -50,40 +50,70 @@ export const apiPickupLocation = (over: Partial<ApiPickupLocation> = {}): ApiPic
   ...over,
 })
 
-/** Stands in for the pickup location API: GET (list), POST (409 once one exists), PATCH and DELETE (always refused). Keeps its own copy of the row. */
-export function pickupLocationStore(initial: ApiPickupLocation | null) {
-  let row = initial ? { ...initial } : null
+/**
+ * Stands in for the pickup location API with the backend's rules: GET lists the default first, then newest first. The first row is always the
+ * default, and a later one only when it is created with isDefault (the old default is demoted). PATCH { isDefault: true } demotes the rest,
+ * { isDefault: false } on the default promotes the newest other (400 when it is alone), DELETE promotes the newest other when it removes the
+ * default (400 for the only one). An unknown id is 404. Keeps its own copy of the rows.
+ */
+export function pickupLocationStore(initial: ApiPickupLocation | ApiPickupLocation[] | null) {
+  let rows: ApiPickupLocation[] = initial ? [initial].flat().map((row) => ({ ...row })) : []
+  let clock = Date.parse('2026-11-20T00:00:00.000Z')
+  const stamp = () => new Date((clock += 1000)).toISOString()
+  const newestOther = (id: string) => rows.filter((row) => row.id !== id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+  const setDefault = (id: string) => (rows = rows.map((row) => ({ ...row, isDefault: row.id === id })))
+  const notFound = (id: string) => ({ status: 404, json: { message: `Pickup location with ID "${id}" not found` } })
 
   return {
-    get row() {
-      return row
+    /** The list as the API sends it. */
+    get rows() {
+      return [...rows].sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || b.createdAt.localeCompare(a.createdAt))
     },
-    /** Someone else deleted the row: later PATCHes answer 404 and the list is empty. */
-    remove() {
-      row = null
+    /** The default row, or null when there is none. */
+    get row() {
+      return rows.find((row) => row.isDefault) ?? null
+    },
+    /** Someone else deleted it (or every row): later calls for it answer 404. */
+    remove(id?: string) {
+      rows = id ? rows.filter((row) => row.id !== id) : []
     },
     /** Every body POST or PATCH received, so a test can check what was sent. */
     bodies: [] as Record<string, unknown>[],
     handle(method: string, path: string, body?: unknown): { status: number; json: unknown } {
       const id = path.split('/')[2]
-      if (method === 'GET') return { status: 200, json: row ? [row] : [] }
+      if (method === 'GET') return { status: 200, json: this.rows }
       if (method === 'POST') {
         this.bodies.push(body as Record<string, unknown>)
-        if (row) return { status: 409, json: { message: 'Only one pickup location is currently supported. Please update the existing pickup location.' } }
-        row = apiPickupLocation({ ...(body as object), updatedAt: new Date().toISOString() })
-        return { status: 201, json: row }
+        const { isDefault, ...fields } = body as Record<string, unknown>
+        const created = apiPickupLocation({ ...fields, id: crypto.randomUUID(), isDefault: false, createdAt: stamp(), updatedAt: stamp() })
+        rows = [...rows, created]
+        if (rows.length === 1 || isDefault === true) setDefault(created.id)
+        return { status: 201, json: rows.find((row) => row.id === created.id) }
       }
-      if (method === 'DELETE') return { status: 400, json: { message: 'Cannot delete the only pickup location' } }
+      const target = rows.find((row) => row.id === id)
+      if (!target) return notFound(id)
+      if (method === 'DELETE') {
+        if (rows.length === 1) return { status: 400, json: { message: 'Cannot delete the only pickup location' } }
+        const next = newestOther(id)
+        rows = rows.filter((row) => row.id !== id)
+        if (target.isDefault) setDefault(next.id)
+        return { status: 200, json: { success: true } }
+      }
       this.bodies.push(body as Record<string, unknown>)
-      if (!row || row.id !== id) return { status: 404, json: { message: `Pickup location with ID "${id}" not found` } }
-      row = { ...row, ...(body as object), updatedAt: new Date().toISOString() }
-      return { status: 200, json: row }
+      const { isDefault, ...fields } = body as Record<string, unknown>
+      if (isDefault === true) setDefault(id)
+      if (isDefault === false && target.isDefault) {
+        if (rows.length === 1) return { status: 400, json: { message: 'Cannot unset the default pickup location when it is the only pickup location' } }
+        setDefault(newestOther(id).id)
+      }
+      rows = rows.map((row) => (row.id === id ? { ...row, ...fields, updatedAt: stamp() } : row))
+      return { status: 200, json: rows.find((row) => row.id === id) }
     },
   }
 }
 
 /** Stands in for the pickup location API in the browser; register it before the page loads. State lives in the closure. */
-export async function mockPickupLocations(page: Page, initial: ApiPickupLocation | null) {
+export async function mockPickupLocations(page: Page, initial: ApiPickupLocation | ApiPickupLocation[] | null) {
   const store = pickupLocationStore(initial)
   await page.route((url) => url.origin !== PAGE_ORIGIN && /^\/pickup-locations(\/|$)/.test(url.pathname), async (route: Route) => {
     const request = route.request()

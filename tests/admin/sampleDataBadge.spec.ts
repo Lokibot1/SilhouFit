@@ -148,7 +148,7 @@ test.describe('connected pages have no badge', () => {
     await signIn(page, ADMIN, /\/admin$/)
     await page.goto('/admin/pickup-location')
     await expect(page.getByRole('heading', { level: 1, name: 'Pickup location' })).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByRole('button', { name: 'Change pickup location' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Edit/ })).toBeVisible()
     await expect(badge(page)).toHaveCount(0)
   })
 

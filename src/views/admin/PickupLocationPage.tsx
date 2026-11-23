@@ -24,7 +24,14 @@ import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useSection } from '../../hooks/useSection'
 import { AddressError, type Address, type AddressErrorKind, type AddressInput } from '../../service/addresses'
 import { ProductListError } from '../../service/fetchProductList'
-import { fetchPickupLocation, savePickupLocation, type PickupInput, type PickupLocation } from '../../service/pickupLocation'
+import {
+  createPickupLocation,
+  deletePickupLocation,
+  fetchPickupLocations,
+  updatePickupLocation,
+  type PickupInput,
+  type PickupLocation,
+} from '../../service/pickupLocation'
 import { signOut } from '../../service/signOut'
 import { formatPlacedAt } from '../../utils/format'
 
@@ -40,9 +47,16 @@ const PIN_COPY = {
   mapNote: 'Your location is sent to OpenStreetMap only to fill these fields. The pin is saved as the pickup spot when you save.',
 }
 
+const DEFAULT_COPY = {
+  label: 'Make this the default location',
+  first: 'Your first pickup location is always the default.',
+  locked: 'To change the default, set another location as default.',
+  help: 'Riders are booked from the default location for all new orders. Leave this off to keep it saved as a spare.',
+}
+
 /** The form edits an Address, so a saved pickup location is dressed as one. Contact name and phone ride in the recipient fields. */
 const toAddress = (l: PickupLocation): Address => ({
-  id: 'pickup-location',
+  id: l.id,
   label: l.label,
   recipientName: l.contactName,
   phone: l.contactPhone,
@@ -56,7 +70,7 @@ const toAddress = (l: PickupLocation): Address => ({
   country: 'PH',
   latitude: l.latitude,
   longitude: l.longitude,
-  isDefault: false,
+  isDefault: l.isDefault,
   createdAt: l.updatedAt,
   updatedAt: l.updatedAt,
 })
@@ -76,7 +90,7 @@ const toPickup = (input: AddressInput): PickupInput => ({
   longitude: input.longitude,
 })
 
-const ADDRESS_KIND: Record<string, AddressErrorKind> = { forbidden: 'unauthorized', validation: 'invalid', conflict: 'invalid', 'not-found': 'not-found', 'rate-limit': 'rate-limit', network: 'network' }
+const ADDRESS_KIND: Record<string, AddressErrorKind> = { forbidden: 'unauthorized', validation: 'invalid', 'not-found': 'not-found', 'rate-limit': 'rate-limit', network: 'network' }
 
 /** The form words failures by AddressError kind; 401 and 403 both end the session. */
 function asAddressError(error: unknown) {
@@ -87,6 +101,8 @@ function asAddressError(error: unknown) {
 const addressOf = (l: PickupInput) =>
   [l.streetAddress, l.addressLine2, l.barangay, l.cityMunicipality, l.province, l.region, l.postalCode].filter(Boolean).join(', ')
 const coordinatesOf = (l: PickupInput) => `${l.latitude.toFixed(6)}, ${l.longitude.toFixed(6)}`
+
+const labelOf = (l: PickupLocation) => l.label ?? l.cityMunicipality
 
 const openMapUrl = (l: PickupInput) => `https://www.openstreetmap.org/?mlat=${l.latitude}&mlon=${l.longitude}#map=17/${l.latitude}/${l.longitude}`
 /** City or municipality and province; NCR has no province, so its region stands in. */
@@ -111,7 +127,7 @@ function Row({ icon, term, copy, children }: { icon: ReactNode; term: string; co
 }
 
 /** Whether checkout can quote and riders can be booked; shown once the location is known. */
-function StatusPill({ active }: { active: boolean }) {
+function StatusPill({ active, label = active ? 'Active for dispatch' : 'Not set' }: { active: boolean; label?: string }) {
   return (
     <span
       className={`font-ui inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2 text-sm whitespace-nowrap ${
@@ -119,57 +135,111 @@ function StatusPill({ active }: { active: boolean }) {
       }`}
     >
       <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${active ? 'bg-success' : 'border-2 border-dashed border-fg-muted'}`} />
-      {active ? 'Active for dispatch' : 'Not set'}
+      {label}
     </span>
   )
 }
 
-interface SummaryProps {
-  location: PickupLocation
-  headingRef: Ref<HTMLHeadingElement>
-  openRef: Ref<HTMLButtonElement>
-  onChange: () => void
+/** What a failed action says: what happened, why, and what to do next. */
+function failureMessage(error: unknown, what: string) {
+  const { kind, detail } = error instanceof ProductListError ? error : { kind: 'server', detail: undefined }
+  const why =
+    kind === 'not-found'
+      ? 'That pickup location no longer exists, probably deleted on another device. We reloaded the list.'
+      : kind === 'validation' && /only pickup location/i.test(detail ?? '')
+        ? 'It is the only pickup location, and riders need somewhere to collect orders. Add another one first.'
+        : kind === 'validation'
+          ? `The server said: ${(detail ?? 'it did not accept this').replace(/[.\s]+$/, '')}. Reload the page, then try again.`
+          : kind === 'rate-limit'
+            ? 'Our servers are limiting requests right now. Try again shortly.'
+            : kind === 'network'
+              ? 'The connection dropped. Check your connection, then try again.'
+              : 'Something went wrong on our side. Try again in a moment.'
+  return `We couldn't ${what}. ${why}`
 }
 
-/** The saved location as two cards: its details with copy buttons, and a read-only map. The details are also the map's text alternative. */
-function Summary({ location, headingRef, openRef, onChange }: SummaryProps) {
-  const label = location.label ?? location.cityMunicipality
+interface CardProps {
+  location: PickupLocation
+  headingRef?: Ref<HTMLHeadingElement>
+  /** The row under the details: a note and the buttons. */
+  footer: ReactNode
+}
+
+/** One saved location: its details with copy buttons, and `footer` for what can be done to it. The details are also the map's text alternative. */
+function LocationCard({ location, headingRef, footer }: CardProps) {
   const address = addressOf(location)
   const coordinates = coordinatesOf(location)
+  const labelId = `pickup-label-${location.id}`
   return (
-    <div className={PICKUP_GRID}>
-      <section aria-labelledby="pickup-heading" className={PICKUP_CARD}>
-        <div className={PICKUP_HEAD}>
-          <span aria-hidden="true" className="row-span-2 flex size-11 items-center justify-center rounded-xl bg-fg/5 text-fg">
-            <StoreIcon />
-          </span>
+    <section aria-labelledby={location.isDefault ? 'pickup-heading' : labelId} className={PICKUP_CARD}>
+      <div className={PICKUP_HEAD}>
+        <span aria-hidden="true" className="row-span-2 flex size-11 items-center justify-center rounded-xl bg-fg/5 text-fg">
+          <StoreIcon />
+        </span>
+        {location.isDefault ? (
           <h2 id="pickup-heading" ref={headingRef} tabIndex={-1} className="text-sm leading-5 text-fg-muted outline-none">
             Pickup address
           </h2>
-          <p className="display min-w-0 text-lg leading-7 break-words text-fg">{label}</p>
-          <p className={`${PICKUP_UPDATED} text-sm leading-5 text-fg-muted tabular-nums sm:self-center sm:text-right`}>
-            Updated <time dateTime={location.updatedAt}>{formatPlacedAt(location.updatedAt)}</time>
+        ) : (
+          <p className="text-sm leading-5 text-fg-muted">Saved location</p>
+        )}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3">
+          <p id={labelId} className="display min-w-0 text-lg leading-7 break-words text-fg">
+            {labelOf(location)}
           </p>
+          {location.isDefault && <StatusPill active label="Default" />}
         </div>
-        <dl className="divide-y divide-line">
-          <Row icon={<MapPinIcon />} term="Address" copy={{ text: address, what: 'address' }}>
-            {address}
-          </Row>
-          <Row icon={<PhoneIcon />} term="Rider contact" copy={{ text: location.contactPhone, what: 'rider phone number' }}>
-            {location.contactName}, <span className="tabular-nums">{location.contactPhone}</span>
-            <span className="mt-1 block text-sm leading-5 text-fg-muted">Shared with assigned Lalamove riders upon pickup arrival.</span>
-          </Row>
-          <Row icon={<TargetIcon />} term="Coordinates" copy={{ text: coordinates, what: 'coordinates' }}>
-            <span className="font-mono tabular-nums">{coordinates}</span>
-          </Row>
-        </dl>
-        <div className={PICKUP_FOOT}>
-          <p className="text-sm leading-5 text-fg-muted">Applies to all new Lalamove rider bookings</p>
-          <button ref={openRef} type="button" onClick={onChange} className={`${PRIMARY_BUTTON} w-full sm:w-auto sm:shrink-0 sm:whitespace-nowrap`}>
-            Change pickup location
-          </button>
-        </div>
-      </section>
+        <p className={`${PICKUP_UPDATED} text-sm leading-5 text-fg-muted tabular-nums sm:self-center sm:text-right`}>
+          Updated <time dateTime={location.updatedAt}>{formatPlacedAt(location.updatedAt)}</time>
+        </p>
+      </div>
+      <dl className="divide-y divide-line">
+        <Row icon={<MapPinIcon />} term="Address" copy={{ text: address, what: 'address' }}>
+          {address}
+        </Row>
+        <Row icon={<PhoneIcon />} term="Rider contact" copy={{ text: location.contactPhone, what: 'rider phone number' }}>
+          {location.contactName}, <span className="tabular-nums">{location.contactPhone}</span>
+          <span className="mt-1 block text-sm leading-5 text-fg-muted">Shared with assigned Lalamove riders upon pickup arrival.</span>
+        </Row>
+        <Row icon={<TargetIcon />} term="Coordinates" copy={{ text: coordinates, what: 'coordinates' }}>
+          <span className="font-mono tabular-nums">{coordinates}</span>
+        </Row>
+      </dl>
+      <div className={PICKUP_FOOT}>{footer}</div>
+    </section>
+  )
+}
+
+const FOOT_NOTE = 'min-w-0 text-sm leading-5 text-fg-muted'
+const FOOT_BUTTONS = 'flex flex-col gap-3 sm:shrink-0 sm:flex-row sm:flex-wrap'
+
+interface SummaryProps {
+  location: PickupLocation
+  /** Whether another location could be made the default, which is what lets this one be deleted. */
+  hasOthers: boolean
+  headingRef: Ref<HTMLHeadingElement>
+  onEdit: () => void
+}
+
+/** The default location as two cards: its details, and a read-only map. */
+function Summary({ location, hasOthers, headingRef, onEdit }: SummaryProps) {
+  return (
+    <div className={PICKUP_GRID}>
+      <LocationCard
+        location={location}
+        headingRef={headingRef}
+        footer={
+          <>
+            <p className={FOOT_NOTE}>
+              Used for all new Lalamove rider bookings and checkout quotes.
+              {hasOthers && <span className="block">Set another location as default to delete this one.</span>}
+            </p>
+            <button id={`pickup-edit-${location.id}`} type="button" aria-label={`Edit ${labelOf(location)}`} onClick={onEdit} className={`${PRIMARY_BUTTON} w-full sm:w-auto sm:shrink-0`}>
+              Edit
+            </button>
+          </>
+        }
+      />
       <section aria-labelledby="pickup-map-heading" className={PICKUP_CARD}>
         <div className={PICKUP_MAP_HEAD}>
           <MapPinIcon className="text-fg-muted" />
@@ -179,7 +249,7 @@ function Summary({ location, headingRef, openRef, onChange }: SummaryProps) {
         </div>
         <div className={`${PICKUP_MAP} relative`}>
           <Suspense fallback={<div role="status" aria-label="Loading the map" className="absolute inset-0 animate-pulse bg-line" />}>
-            <PickupMapPreview key={`${location.latitude},${location.longitude}`} lat={location.latitude} lon={location.longitude} label={label} />
+            <PickupMapPreview key={`${location.latitude},${location.longitude}`} lat={location.latitude} lon={location.longitude} label={labelOf(location)} />
           </Suspense>
         </div>
         <div className={PICKUP_MAP_FOOT}>
@@ -197,10 +267,44 @@ function Summary({ location, headingRef, openRef, onChange }: SummaryProps) {
   )
 }
 
+interface SavedProps {
+  location: PickupLocation
+  onEdit: () => void
+  onMakeDefault: () => void
+  onDelete: () => void
+}
+
+/** A saved spare: kept for later, and not used for riders until it is made the default. */
+function SavedLocation({ location, onEdit, onMakeDefault, onDelete }: SavedProps) {
+  return (
+    <li className="min-w-0">
+      <LocationCard
+        location={location}
+        footer={
+          <>
+            <p className={FOOT_NOTE}>A saved spare. Riders are not booked here until you set it as default.</p>
+            <div className={FOOT_BUTTONS}>
+              <button type="button" aria-label={`Set as default ${labelOf(location)}`} onClick={onMakeDefault} className={SECONDARY_BUTTON}>
+                Set as default
+              </button>
+              <button id={`pickup-edit-${location.id}`} type="button" aria-label={`Edit ${labelOf(location)}`} onClick={onEdit} className={SECONDARY_BUTTON}>
+                Edit
+              </button>
+              <button type="button" aria-label={`Delete ${labelOf(location)}`} onClick={onDelete} className={SECONDARY_BUTTON}>
+                Delete
+              </button>
+            </div>
+          </>
+        }
+      />
+    </li>
+  )
+}
+
 const STEPS = ['Pin the spot on the map', 'Add the rider contact', 'Save and riders are sent there']
 
 /** Nothing saved yet: what is missing, what setting it takes, and the button that starts. */
-function EmptyCard({ openRef, onSet }: { openRef: Ref<HTMLButtonElement>; onSet: () => void }) {
+function EmptyCard({ onSet }: { onSet: () => void }) {
   return (
     <section aria-label="Pickup address" className={`${PICKUP_CARD} mx-auto w-full max-w-3xl text-center`}>
       <div className="relative isolate flex h-44 items-center justify-center border-b border-line bg-canvas">
@@ -226,7 +330,7 @@ function EmptyCard({ openRef, onSet }: { openRef: Ref<HTMLButtonElement>; onSet:
             </li>
           ))}
         </ol>
-        <button ref={openRef} type="button" onClick={onSet} className={`${PRIMARY_BUTTON} mt-6 w-full sm:mx-auto sm:w-auto`}>
+        <button id="pickup-add" type="button" onClick={onSet} className={`${PRIMARY_BUTTON} mt-6 w-full sm:mx-auto sm:w-auto`}>
           Set pickup location
         </button>
       </div>
@@ -261,34 +365,52 @@ function Place({ heading, place }: { heading: string; place: PickupInput }) {
 }
 
 interface Replacing {
-  input: PickupInput
+  input: AddressInput
   resolve: (address: Address | null) => void
   reject: (error: unknown) => void
 }
 
-/** Where Lalamove riders collect orders: one saved location an admin sets, changes and replaces. */
+interface Action {
+  kind: 'default' | 'delete'
+  location: PickupLocation
+}
+
+/** Where Lalamove riders collect orders: the locations an admin saves, with one default that dispatch and checkout quotes use. */
 export function PickupLocationPage() {
   useDocumentTitle('Pickup location — SilhouFit')
   useMetaDescription(META_DESCRIPTION)
   const toast = useToast()
-  const section = useSection(fetchPickupLocation)
-  // The form's starting point: the saved location dressed as an address, or null for the first one.
-  const [form, setForm] = useState<{ initial: Address | null } | null>(null)
+  const section = useSection(fetchPickupLocations)
+  // The form's starting point: the location being edited dressed as an address, or null for a new one.
+  const [form, setForm] = useState<{ id?: string; initial: Address | null } | null>(null)
   const [edited, setEdited] = useState(false)
   const [saving, setSaving] = useState(false)
   const [replacing, setReplacing] = useState<Replacing | null>(null)
+  const [action, setAction] = useState<Action | null>(null)
   const [writing, setWriting] = useState(false)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const openRef = useRef<HTMLButtonElement>(null)
+  // The id of the button that opened the form: its card is off the page meanwhile, so it is looked up again on return.
+  const opener = useRef('pickup-add')
   const focusHeading = useRef(false)
+  const focusAfterAction = useRef(false)
   const wasOpen = useRef(false)
-  const saved = section.state.status === 'success' ? section.state.data : null
+  const locations = section.state.status === 'success' ? section.state.data : []
+  const current = locations.find((l) => l.isDefault)
+  const others = locations.filter((l) => !l.isDefault)
+  const editing = locations.find((l) => l.id === form?.id)
 
-  // Back on the summary: after a save the heading takes focus, after Cancel the button that opened the form.
+  // Back on the list: after a save the heading takes focus, after Cancel the button that opened the form.
   useEffect(() => {
-    if (wasOpen.current && !form) (focusHeading.current ? headingRef : openRef).current?.focus()
+    if (wasOpen.current && !form) (focusHeading.current ? headingRef.current : document.getElementById(opener.current))?.focus()
     wasOpen.current = form !== null
   }, [form])
+
+  // Set as default and Delete take their button off the page, so once their dialog is gone the heading takes focus.
+  useEffect(() => {
+    if (action || !focusAfterAction.current) return
+    focusAfterAction.current = false
+    headingRef.current?.focus()
+  }, [action])
 
   // There is no router blocker, so a reload or closing the tab is the only exit that can be warned about.
   useEffect(() => {
@@ -298,29 +420,35 @@ export function PickupLocationPage() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [form, edited])
 
-  function open() {
+  function open(location?: PickupLocation) {
+    opener.current = location ? `pickup-edit-${location.id}` : 'pickup-add'
     focusHeading.current = false
     setEdited(false)
-    setForm({ initial: saved ? toAddress(saved) : null })
+    setForm({ id: location?.id, initial: location ? toAddress(location) : null })
   }
 
-  async function write(input: PickupInput): Promise<Address> {
+  // A write can demote or promote other rows, so the list is read again rather than patched.
+  const reload = () =>
+    fetchPickupLocations().then(section.swap, () => toast.show({ kind: 'error', message: "We couldn't refresh the list. Check your connection, then reload the page." }))
+
+  async function write(input: AddressInput): Promise<Address> {
+    const fields = toPickup(input)
     try {
-      const location = await savePickupLocation(input, saved?.id)
-      section.swap(location)
+      // The first location is the default on its own; a later one only when asked, and an edit only when it is not already.
+      const location = editing
+        ? await updatePickupLocation(editing.id, { ...fields, ...(input.isDefault && !editing.isDefault && { isDefault: true }) })
+        : await createPickupLocation({ ...fields, ...(input.isDefault && locations.length > 0 && { isDefault: true }) })
+      await reload()
       return toAddress(location)
     } catch (error) {
-      // Someone else set one first: load it, so the next Save goes through Replace.
-      if (error instanceof ProductListError && error.kind === 'conflict') fetchPickupLocation().then(section.swap, () => {})
       throw asAddressError(error)
     }
   }
 
-  // The first save goes straight through; replacing a saved one waits for the dialog's answer.
+  // Only the default decides where riders go, so only editing it waits for the dialog's answer.
   function save(input: AddressInput): Promise<Address | null> {
-    const next = toPickup(input)
-    if (!saved) return write(next)
-    return new Promise((resolve, reject) => setReplacing({ input: next, resolve, reject }))
+    if (!editing?.isDefault) return write(input)
+    return new Promise((resolve, reject) => setReplacing({ input, resolve, reject }))
   }
 
   async function confirm() {
@@ -344,17 +472,49 @@ export function PickupLocationPage() {
   function finishSave() {
     focusHeading.current = true
     setForm(null)
-    toast.show({ kind: 'success', message: 'Pickup location saved' })
+    toast.show({ kind: 'success', message: editing ? 'Pickup location saved' : 'Pickup location added' })
+  }
+
+  async function runAction() {
+    if (!action) return
+    const { kind, location } = action
+    setWriting(true)
+    try {
+      if (kind === 'delete') await deletePickupLocation(location.id)
+      else await updatePickupLocation(location.id, { isDefault: true })
+      await reload()
+      focusAfterAction.current = true
+      toast.show({ kind: 'success', message: kind === 'delete' ? 'Pickup location deleted' : 'Default pickup location changed' })
+    } catch (error) {
+      if (error instanceof ProductListError && error.kind === 'forbidden') signOut()
+      else {
+        if (error instanceof ProductListError && error.kind === 'not-found') {
+          focusAfterAction.current = true
+          void reload()
+        }
+        toast.show({ kind: 'error', message: failureMessage(error, kind === 'delete' ? 'delete the pickup location' : 'change the default pickup location') })
+      }
+    } finally {
+      setWriting(false)
+      setAction(null)
+    }
   }
 
   return (
     <div className="grid gap-3">
-      <header className="min-h-8">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="display text-2xl text-fg sm:text-3xl">Pickup location</h1>
-          {section.state.status === 'success' && <StatusPill active={saved !== null} />}
+      <header className="flex min-h-8 flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 className="display text-2xl text-fg sm:text-3xl">Pickup location</h1>
+            {section.state.status === 'success' && <StatusPill active={locations.length > 0} />}
+          </div>
+          <p className="mt-1 text-xs text-fg-muted">Where Lalamove riders collect orders.</p>
         </div>
-        <p className="mt-1 text-xs text-fg-muted">Where Lalamove riders collect orders.</p>
+        {locations.length > 0 && !form && (
+          <button id="pickup-add" type="button" onClick={() => open()} className={`${SECONDARY_BUTTON} w-full sm:w-auto`}>
+            Add pickup location
+          </button>
+        )}
       </header>
       {section.state.status === 'error' ? (
         <PlainCard headingRef={headingRef}>
@@ -372,13 +532,14 @@ export function PickupLocationPage() {
             </div>
           }
         >
-          {(location) =>
+          {() =>
             form ? (
               <PlainCard headingRef={headingRef}>
                 <div className="max-w-xl" onInput={() => setEdited(true)} onClick={() => setEdited(true)}>
                   <AddressForm
                     initial={form.initial}
-                    hideDefault
+                    existingCount={locations.length}
+                    defaultCopy={DEFAULT_COPY}
                     requirePin
                     nameLabel="Contact name"
                     saveLabel="Save pickup location"
@@ -386,8 +547,8 @@ export function PickupLocationPage() {
                     save={save}
                     onSaved={finishSave}
                     onUnauthorized={signOut}
-                    // Reload behind the form, which stays open with its message and the edit; the next Save sets it again.
-                    onGone={() => void fetchPickupLocation().then(section.swap, () => {})}
+                    // Reload behind the form, which stays open with its message and the edit; the next Save adds it again.
+                    onGone={() => void reload()}
                     onPendingChange={setSaving}
                     footer={(submit) => (
                       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -400,22 +561,66 @@ export function PickupLocationPage() {
                   />
                 </div>
               </PlainCard>
-            ) : location ? (
-              <Summary location={location} headingRef={headingRef} openRef={openRef} onChange={open} />
+            ) : current ? (
+              <>
+                <Summary location={current} hasOthers={others.length > 0} headingRef={headingRef} onEdit={() => open(current)} />
+                {others.length > 0 && (
+                  <section aria-labelledby="pickup-others-heading" className="flex max-w-6xl min-w-0 flex-col gap-3">
+                    <h2 id="pickup-others-heading" className="text-base font-semibold text-fg">
+                      Other pickup locations
+                    </h2>
+                    <ul className="flex flex-col gap-3">
+                      {others.map((location) => (
+                        <SavedLocation
+                          key={location.id}
+                          location={location}
+                          onEdit={() => open(location)}
+                          onMakeDefault={() => setAction({ kind: 'default', location })}
+                          onDelete={() => setAction({ kind: 'delete', location })}
+                        />
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </>
             ) : (
-              <EmptyCard openRef={openRef} onSet={open} />
+              <EmptyCard onSet={() => open()} />
             )
           }
         </SectionBody>
       )}
       <ConfirmDialog open={replacing !== null} title="Replace the pickup location?" confirmLabel="Replace pickup location" pending={writing} onConfirm={() => void confirm()} onClose={cancelReplace}>
-        {replacing && saved && (
+        {replacing && editing && (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Place heading="Now" place={saved} />
-              <Place heading="New" place={replacing.input} />
+              <Place heading="Now" place={editing} />
+              <Place heading="New" place={toPickup(replacing.input)} />
             </div>
             <p className="mt-3">Riders booked after this go to the new spot. Orders already handed to a rider are not affected.</p>
+          </>
+        )}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={action !== null}
+        title={action?.kind === 'delete' ? 'Delete this pickup location?' : 'Change the default pickup location?'}
+        confirmLabel={action?.kind === 'delete' ? 'Delete pickup location' : 'Set as default'}
+        pending={writing}
+        onConfirm={() => void runAction()}
+        onClose={() => setAction(null)}
+      >
+        {action?.kind === 'delete' && (
+          <>
+            <Place heading="Delete" place={action.location} />
+            <p className="mt-3">Orders already shipped keep the pickup details they left from. This can't be undone.</p>
+          </>
+        )}
+        {action?.kind === 'default' && (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {current && <Place heading="Now" place={current} />}
+              <Place heading="New" place={action.location} />
+            </div>
+            <p className="mt-3">Riders are booked from the new location for all orders dispatched from now on. Orders already handed to a rider are not affected.</p>
           </>
         )}
       </ConfirmDialog>

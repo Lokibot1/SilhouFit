@@ -42,7 +42,7 @@ async function openAs(page: Page, who = ADMIN, area: 'admin' | 'superadmin' = 'a
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
 const section = (page: Page) => page.getByRole('region', { name: 'Pickup address' })
 const updated = (page: Page) => section(page).locator('time')
-const toast = (page: Page) => page.getByText('Pickup location saved', { exact: true })
+const toast = (page: Page) => page.getByText(/^Pickup location (saved|added)$/)
 
 async function pinWithAutoPin(page: Page) {
   await page.getByRole('button', { name: 'Pin on a map' }).click()
@@ -126,7 +126,7 @@ test.describe('empty state and first save', () => {
     await expect(summary.filter({ hasText: /^\d{2}\.\d{6}, \d{2,3}\.\d{6}$/ })).toBeVisible()
     await expect(section(page).getByText(/718 P\. Paterno Street.*Barangay 176.*City of Manila.*NCR/)).toBeVisible()
     await expect(updated(page)).toContainText(TIME_12H)
-    await expect(section(page).getByRole('button', { name: 'Change pickup location' })).toBeVisible()
+    await expect(section(page).getByRole('button', { name: /^Edit/ })).toBeVisible()
     // The heading takes focus after a save.
     await expect(page.getByRole('heading', { level: 2, name: 'Pickup address' })).toBeFocused()
 
@@ -205,30 +205,6 @@ test.describe('empty state and first save', () => {
     await expect(section(page).getByRole('button', { name: 'Set pickup location' })).toBeFocused()
     expect(store.row).toBeNull()
   })
-
-  test('a 409 on save shows the server message and keeps the form', async ({ page, context }) => {
-    await mockPickupLocations(page, null)
-    // Someone else saved one between the page loading and this save.
-    await page.route(
-      (url) => url.pathname === '/pickup-locations',
-      (route) =>
-        route.request().method() === 'POST'
-          ? route.fulfill({
-              status: 409,
-              json: { message: 'Only one pickup location is currently supported. Please update the existing pickup location.' },
-              headers: CORS,
-            })
-          : route.fallback(),
-    )
-    await grantLocation(context)
-    await openAs(page)
-    await section(page).getByRole('button', { name: 'Set pickup location' }).click()
-    await fillForm(page)
-    await page.getByRole('button', { name: 'Save pickup location' }).click()
-    await expect(page.getByText(/The server said: Only one pickup location is currently supported\. Please update the existing pickup location\./)).toBeVisible()
-    await expect(toast(page)).toHaveCount(0)
-    await expect(page.getByLabel('Contact name', { exact: true })).toHaveValue('Maria Santos')
-  })
 })
 
 test.describe('replacing a saved location', () => {
@@ -242,7 +218,7 @@ test.describe('replacing a saved location', () => {
     await openAs(page)
     await expect(section(page).getByRole('definition').filter({ hasText: 'Maria Santos, +639171234567' })).toBeVisible()
     await expect(section(page).getByText('12 Rizal Avenue, Barangay 176, City of Manila, NCR, 1000')).toBeVisible()
-    await section(page).getByRole('button', { name: 'Change pickup location' }).click()
+    await section(page).getByRole('button', { name: /^Edit/ }).click()
     // The form starts from what is saved.
     await expect(page.getByLabel('Contact name', { exact: true })).toHaveValue('Maria Santos')
     await expect(page.getByLabel('House No., Street Name', { exact: true })).toHaveValue('12 Rizal Avenue')
@@ -315,7 +291,7 @@ test.describe('loading and errors', () => {
     await expect(section(page).getByText("We couldn't load the pickup location.")).toBeVisible({ timeout: 20_000 })
     fail = false
     await section(page).getByRole('button', { name: 'Retry' }).click()
-    await expect(section(page).getByRole('button', { name: 'Change pickup location' })).toBeVisible()
+    await expect(section(page).getByRole('button', { name: /^Edit/ })).toBeVisible()
   })
 })
 
@@ -336,8 +312,8 @@ test.describe('page chrome', () => {
     page.on('pageerror', (error) => errors.push(error.message))
     await mockPickupLocations(page, SAVED)
     await openAs(page)
-    await expect(section(page).getByRole('button', { name: 'Change pickup location' })).toBeVisible()
-    await section(page).getByRole('button', { name: 'Change pickup location' }).click()
+    await expect(section(page).getByRole('button', { name: /^Edit/ })).toBeVisible()
+    await section(page).getByRole('button', { name: /^Edit/ }).click()
     await expect(page.getByLabel('Contact name', { exact: true })).toBeVisible()
     expect(errors).toEqual([])
   })
@@ -347,9 +323,9 @@ test.describe('page chrome', () => {
       await page.setViewportSize({ width, height: 800 })
       await mockPickupLocations(page, SAVED)
       await openAs(page)
-      await expect(section(page).getByRole('button', { name: 'Change pickup location' })).toBeVisible()
+      await expect(section(page).getByRole('button', { name: /^Edit/ })).toBeVisible()
       expect(await overflow(page)).toBe(0)
-      await section(page).getByRole('button', { name: 'Change pickup location' }).click()
+      await section(page).getByRole('button', { name: /^Edit/ }).click()
       await expect(page.getByLabel('Contact name', { exact: true })).toBeVisible()
       expect(await overflow(page)).toBe(0)
       await page.getByLabel('Contact name', { exact: true }).fill('Pedro Reyes')
@@ -470,8 +446,8 @@ async function mockMakati(page: Page) {
  * The seeded row names its city "Makati City" while PSGC calls it "City of Makati", so the form does not preselect it and `makati` picks it again.
  */
 async function startChange(page: Page, { name = 'Pedro Reyes', makati = false } = {}) {
-  await expect(section(page).getByRole('button', { name: 'Change pickup location' })).toBeVisible()
-  await section(page).getByRole('button', { name: 'Change pickup location' }).click()
+  await expect(section(page).getByRole('button', { name: /^Edit/ })).toBeVisible()
+  await section(page).getByRole('button', { name: /^Edit/ }).click()
   await page.getByLabel('Contact name', { exact: true }).fill(name)
   if (makati) {
     await pick(page, /^City or municipality/, 'City of Makati')
@@ -501,7 +477,7 @@ test.describe('save failures and edge cases', () => {
     const methods: string[] = []
     page.on('request', (request) => isPickupCall(request.url()) && request.method() !== 'OPTIONS' && methods.push(request.method()))
     await openAs(page)
-    await expect(section(page).getByRole('button', { name: 'Change pickup location' })).toBeVisible()
+    await expect(section(page).getByRole('button', { name: /^Edit/ })).toBeVisible()
     store.remove()
     const dialog = await startChange(page)
     await dialog.getByRole('button', { name: 'Replace pickup location' }).click()
@@ -518,7 +494,7 @@ test.describe('save failures and edge cases', () => {
     await page.getByRole('button', { name: 'Save pickup location' }).click()
     await expect(toast(page)).toBeVisible()
     await expect(page.getByRole('dialog', { name: 'Replace the pickup location?' })).toHaveCount(0)
-    expect(methods.at(-1)).toBe('POST')
+    expect(methods.filter((method) => method !== 'GET').at(-1)).toBe('POST')
     expect(store.row).toMatchObject({ contactName: 'Pedro Reyes' })
     await expect(section(page).getByRole('definition').filter({ hasText: 'Pedro Reyes' })).toBeVisible()
   })
@@ -633,7 +609,7 @@ test.describe('the seeded backend row', () => {
     await expect(summary.filter({ hasText: '14.554700, 121.024400' })).toBeVisible()
     await expect(updated(page)).toContainText(TIME_12H)
 
-    await section(page).getByRole('button', { name: 'Change pickup location' }).click()
+    await section(page).getByRole('button', { name: /^Edit/ }).click()
     await expect(page.getByLabel('Contact name', { exact: true })).toHaveValue('Silhoufit Dispatch Hub')
     await expect(page.getByLabel('House No., Street Name', { exact: true })).toHaveValue('Ayala Center')
     await page.getByLabel('Contact name', { exact: true }).fill('Pedro Reyes')
@@ -702,7 +678,7 @@ test.describe('the summary cards', () => {
     await openAs(page)
     await expect(section(page).getByText('Main Dispatch Hub', { exact: true })).toBeVisible()
     await expect(section(page).getByText('Shared with assigned Lalamove riders upon pickup arrival.')).toBeVisible()
-    await expect(section(page).getByText('Applies to all new Lalamove rider bookings')).toBeVisible()
+    await expect(section(page).getByText(/Used for all new Lalamove rider bookings and checkout quotes\./)).toBeVisible()
     await expect(section(page).getByText('14.554700, 121.024400')).toHaveCSS('font-variant-numeric', /tabular-nums/)
     await expect(updated(page)).toContainText(TIME_12H)
   })
@@ -852,7 +828,7 @@ test.describe('the summary cards', () => {
     const cardsOf = (root: Locator) => root.locator(':scope > div > div, :scope > div > section')
     const skeleton = await cardsOf(status).evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map(({ x, width, height }) => ({ x, width, height })))
     release()
-    await expect(section(page).getByRole('button', { name: 'Change pickup location' })).toBeVisible()
+    await expect(section(page).getByRole('button', { name: /^Edit/ })).toBeVisible()
     const loaded = await page.getByRole('region', { name: /^(Pickup address|Rider pin preview)$/ }).evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map(({ x, width, height }) => ({ x, width, height })))
     expect(skeleton).toHaveLength(2)
     expect(loaded).toHaveLength(2)
@@ -926,4 +902,292 @@ test.describe('the summary cards', () => {
       }
     })
   }
+})
+
+// Several locations: the default first, the others as saved spares an admin can make the default, edit or delete.
+// The stand-in API follows the backend's rules (tests/shared/pickupLocations.ts), so what the page shows after a write is what the API would answer.
+test.describe('several locations', () => {
+  const SPARE = apiPickupLocation({
+    id: '5a8c1e47-9d02-4b6f-b3a1-0c7d2e9f4a18',
+    label: 'Makati hub',
+    contactName: 'Pedro Reyes',
+    contactPhone: '+639175550000',
+    cityMunicipality: 'Makati City',
+    province: 'Metro Manila',
+    barangay: 'San Lorenzo',
+    streetAddress: 'Ayala Center',
+    postalCode: '1226',
+    latitude: 14.5547,
+    longitude: 121.0244,
+    isDefault: false,
+    createdAt: '2026-11-19T09:00:00.000Z',
+    updatedAt: '2026-11-19T09:00:00.000Z',
+  })
+  const spare = (page: Page) => page.getByRole('region', { name: 'Makati hub' })
+  const writes = (page: Page) => {
+    const calls: { method: string; path: string; body: unknown }[] = []
+    page.on('request', (request) => {
+      if (request.method() !== 'GET' && request.method() !== 'OPTIONS' && isPickupCall(request.url())) {
+        calls.push({ method: request.method(), path: new URL(request.url()).pathname, body: request.postDataJSON() })
+      }
+    })
+    return calls
+  }
+
+  test('lists the default first, with a Default pill and no Delete, and the spare with its three actions', async ({ page }) => {
+    await mockPickupLocations(page, [SPARE, SAVED])
+    await openAs(page)
+    const main = section(page)
+    await expect(main.getByText('Main warehouse', { exact: true })).toBeVisible()
+    await expect(main.getByText('Default', { exact: true })).toBeVisible()
+    await expect(main.getByText(/Used for all new Lalamove rider bookings and checkout quotes\./)).toBeVisible()
+    await expect(main.getByText('Set another location as default to delete this one.')).toBeVisible()
+    await expect(main.getByRole('button', { name: /^Edit/ })).toBeVisible()
+    await expect(main.getByRole('button', { name: /^Delete/ })).toHaveCount(0)
+    await expect(page.getByRole('heading', { level: 2, name: 'Other pickup locations' })).toBeVisible()
+    await expect(spare(page).getByText('Default', { exact: true })).toHaveCount(0)
+    await expect(spare(page).getByText('14.554700, 121.024400')).toHaveCSS('font-variant-numeric', /tabular-nums/)
+    for (const name of ['Set as default Makati hub', 'Edit Makati hub', 'Delete Makati hub']) {
+      const box = (await spare(page).getByRole('button', { name }).boundingBox())!
+      expect(box.height).toBeGreaterThanOrEqual(44)
+    }
+    // The default card is first on the page.
+    expect((await main.boundingBox())!.y).toBeLessThan((await spare(page).boundingBox())!.y)
+  })
+
+  test('adds a second location as a spare unless it is made the default', async ({ page, context }) => {
+    await grantLocation(context)
+    const store = await mockPickupLocations(page, SAVED)
+    await openAs(page)
+    await page.getByRole('button', { name: 'Add pickup location' }).click()
+    const box = page.getByRole('checkbox', { name: 'Make this the default location' })
+    await expect(box).not.toBeChecked()
+    await expect(page.getByText(/Leave this off to keep it saved as a spare/)).toBeVisible()
+    await fillForm(page, { label: 'Quezon hub' })
+    await page.getByRole('button', { name: 'Save pickup location' }).click()
+    await expect(page.getByText('Pickup location added', { exact: true })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Quezon hub' })).toBeVisible()
+    await expect(section(page).getByText('Main warehouse', { exact: true })).toBeVisible()
+    expect(store.bodies[0]).not.toHaveProperty('isDefault')
+    expect(store.rows.map((row) => [row.label, row.isDefault])).toEqual([['Main warehouse', true], ['Quezon hub', false]])
+    await expect(page.getByRole('heading', { level: 2, name: 'Pickup address' })).toBeFocused()
+  })
+
+  test('makes the new location the default when the box is ticked, and the old one becomes a spare', async ({ page, context }) => {
+    await grantLocation(context)
+    const store = await mockPickupLocations(page, SAVED)
+    await openAs(page)
+    await page.getByRole('button', { name: 'Add pickup location' }).click()
+    await fillForm(page, { label: 'Quezon hub' })
+    await page.getByRole('checkbox', { name: 'Make this the default location' }).setChecked(true, { force: true })
+    await page.getByRole('button', { name: 'Save pickup location' }).click()
+    await expect(page.getByText('Pickup location added', { exact: true })).toBeVisible()
+    expect(store.bodies[0]).toMatchObject({ isDefault: true })
+    await expect(section(page).getByText('Quezon hub', { exact: true })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Main warehouse' })).toBeVisible()
+  })
+
+  test('the first location is the default automatically, and the form says so', async ({ page, context }) => {
+    await grantLocation(context)
+    const store = await mockPickupLocations(page, null)
+    await openAs(page)
+    await section(page).getByRole('button', { name: 'Set pickup location' }).click()
+    const box = page.getByRole('checkbox', { name: 'Make this the default location' })
+    await expect(box).toBeChecked()
+    await expect(box).toBeDisabled()
+    await expect(page.getByText('Your first pickup location is always the default.')).toBeVisible()
+    await fillForm(page)
+    await page.getByRole('button', { name: 'Save pickup location' }).click()
+    await expect(toast(page)).toBeVisible()
+    expect(store.rows).toHaveLength(1)
+    expect(store.row?.isDefault).toBe(true)
+  })
+
+  test('Set as default asks first with Now and New; Cancel sends nothing, Escape too, and the button keeps focus', async ({ page }) => {
+    await mockPickupLocations(page, [SAVED, SPARE])
+    const calls = writes(page)
+    await openAs(page)
+    const opener = spare(page).getByRole('button', { name: 'Set as default Makati hub' })
+    await opener.click()
+    const dialog = page.getByRole('dialog', { name: 'Change the default pickup location?' })
+    await expect(dialog.getByText('Are you sure?')).toBeVisible()
+    await expect(dialog.getByText('Now', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('Main warehouse')).toBeVisible()
+    await expect(dialog.getByText('New', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('Makati hub')).toBeVisible()
+    await expect(dialog.getByText(/Riders are booked from the new location for all orders dispatched from now on/)).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(opener).toBeFocused()
+    await opener.click()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(opener).toBeFocused()
+    expect(calls).toEqual([])
+  })
+
+  test('confirming Set as default swaps the two, toasts, and moves focus to the heading', async ({ page }) => {
+    const store = await mockPickupLocations(page, [SAVED, SPARE])
+    const calls = writes(page)
+    await openAs(page)
+    await spare(page).getByRole('button', { name: 'Set as default Makati hub' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Set as default', exact: true }).click()
+    await expect(page.getByText('Default pickup location changed', { exact: true })).toBeVisible()
+    expect(calls).toEqual([{ method: 'PATCH', path: `/pickup-locations/${SPARE.id}`, body: { isDefault: true } }])
+    expect(store.row?.id).toBe(SPARE.id)
+    await expect(section(page).getByText('Makati hub', { exact: true })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Main warehouse' }).getByRole('button', { name: 'Delete Main warehouse' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Pickup address' })).toBeFocused()
+  })
+
+  test('Edit on a spare saves without the Replace dialog', async ({ page, context }) => {
+    await grantLocation(context)
+    const store = await mockPickupLocations(page, [SAVED, SPARE])
+    await mockMakati(page)
+    await openAs(page)
+    await spare(page).getByRole('button', { name: 'Edit Makati hub' }).click()
+    await expect(page.getByLabel('Contact name', { exact: true })).toHaveValue('Pedro Reyes')
+    await page.getByLabel('Contact name', { exact: true }).fill('Ana Cruz')
+    await pick(page, /^City or municipality/, 'City of Makati')
+    await pick(page, /^Barangay/, 'San Lorenzo')
+    await page.getByRole('button', { name: 'Save pickup location' }).click()
+    await expect(page.getByText('Pickup location saved', { exact: true })).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    expect(store.rows.find((row) => row.id === SPARE.id)).toMatchObject({ contactName: 'Ana Cruz', isDefault: false })
+  })
+
+  test('Delete asks first; Cancel sends nothing, confirming deletes only that location and toasts', async ({ page }) => {
+    const store = await mockPickupLocations(page, [SAVED, SPARE])
+    const calls = writes(page)
+    await openAs(page)
+    await spare(page).getByRole('button', { name: 'Delete Makati hub' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Delete this pickup location?' })
+    await expect(dialog.getByText('Are you sure?')).toBeVisible()
+    await expect(dialog.getByText(/Orders already shipped keep the pickup details they left from/)).toBeVisible()
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
+    expect(calls).toEqual([])
+
+    await spare(page).getByRole('button', { name: 'Delete Makati hub' }).click()
+    await dialog.getByRole('button', { name: 'Delete pickup location' }).dblclick()
+    await expect(page.getByText('Pickup location deleted', { exact: true })).toBeVisible()
+    expect(calls).toEqual([{ method: 'DELETE', path: `/pickup-locations/${SPARE.id}`, body: null }])
+    expect(store.rows.map((row) => row.id)).toEqual([SAVED.id])
+    await expect(spare(page)).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Other pickup locations' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { level: 2, name: 'Pickup address' })).toBeFocused()
+    await expect(section(page).getByRole('button', { name: /^Delete/ })).toHaveCount(0)
+  })
+
+  test('a 400 for the last location says why and what to do, and keeps the list', async ({ page }) => {
+    await mockPickupLocations(page, [SAVED, SPARE])
+    await page.route(
+      (url) => url.pathname.startsWith('/pickup-locations/'),
+      (route) => (route.request().method() === 'DELETE' ? route.fulfill({ status: 400, json: { message: 'Cannot delete the only pickup location' }, headers: CORS }) : route.fallback()),
+    )
+    await openAs(page)
+    await spare(page).getByRole('button', { name: 'Delete Makati hub' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete pickup location' }).click()
+    await expect(page.getByText(/We couldn't delete the pickup location\. It is the only pickup location, and riders need somewhere to collect orders\. Add another one first\./)).toBeVisible()
+    await expect(page.getByText('Pickup location deleted')).toHaveCount(0)
+    await expect(spare(page)).toBeVisible()
+  })
+
+  test('a 404 says it was deleted elsewhere, reloads the list, and the card disappears', async ({ page }) => {
+    const store = await mockPickupLocations(page, [SAVED, SPARE])
+    await openAs(page)
+    await expect(spare(page)).toBeVisible()
+    store.remove(SPARE.id)
+    await spare(page).getByRole('button', { name: 'Set as default Makati hub' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Set as default', exact: true }).click()
+    await expect(page.getByText(/We couldn't change the default pickup location\. That pickup location no longer exists, probably deleted on another device\. We reloaded the list\./)).toBeVisible()
+    await expect(spare(page)).toHaveCount(0)
+    await expect(section(page).getByText('Main warehouse', { exact: true })).toBeVisible()
+  })
+
+  test('a 500 on the list shows the error with Retry, then both locations', async ({ page }) => {
+    await mockPickupLocations(page, [SAVED, SPARE])
+    let fail = true
+    await page.route(
+      (url) => url.pathname === '/pickup-locations',
+      (route) => (fail && route.request().method() === 'GET' ? route.fulfill({ status: 500, json: { message: 'boom' }, headers: CORS }) : route.fallback()),
+    )
+    await openAs(page)
+    await expect(page.getByText("We couldn't load the pickup location.")).toBeVisible({ timeout: 20_000 })
+    fail = false
+    await page.getByRole('button', { name: 'Retry' }).click()
+    await expect(spare(page)).toBeVisible()
+  })
+
+  test('the keyboard reaches Delete, Enter opens the dialog, Escape closes it and focus returns to Delete', async ({ page }) => {
+    await mockPickupLocations(page, [SAVED, SPARE])
+    await openAs(page)
+    const del = spare(page).getByRole('button', { name: 'Delete Makati hub' })
+    await del.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('dialog', { name: 'Delete this pickup location?' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(del).toBeFocused()
+  })
+
+  test('Cancel on the add form returns focus to the Add button', async ({ page }) => {
+    await mockPickupLocations(page, SAVED)
+    await openAs(page)
+    await page.getByRole('button', { name: 'Add pickup location' }).click()
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Add pickup location' })).toBeFocused()
+  })
+
+  test('the empty state has no Add button, only Set pickup location', async ({ page }) => {
+    await mockPickupLocations(page, null)
+    await openAs(page)
+    await expect(section(page).getByRole('button', { name: 'Set pickup location' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add pickup location' })).toHaveCount(0)
+  })
+
+  for (const width of [320, 1280]) {
+    test(`has no horizontal overflow at ${width}px with several locations, the add form and both dialogs`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
+      const long = apiPickupLocation({ ...SPARE, label: 'Makati hub Makati hub Makati hub Makati hub', streetAddress: 'SuperLongBuildingNameNoSpaces1 Tower Two Unit 1204' })
+      await mockPickupLocations(page, [SAVED, long, apiPickupLocation({ ...SPARE, id: 'c3', label: 'Pasig hub', createdAt: '2026-11-19T10:00:00.000Z' })])
+      await openAs(page)
+      await expect(page.getByRole('region', { name: 'Pasig hub' })).toBeVisible()
+      expect(await overflow(page)).toBe(0)
+      await page.getByRole('region', { name: 'Pasig hub' }).getByRole('button', { name: 'Set as default Pasig hub' }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      expect(await overflow(page)).toBe(0)
+      await page.keyboard.press('Escape')
+      await page.getByRole('region', { name: 'Pasig hub' }).getByRole('button', { name: 'Delete Pasig hub' }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      expect(await overflow(page)).toBe(0)
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'Add pickup location' }).click()
+      await expect(page.getByLabel('Contact name', { exact: true })).toBeVisible()
+      expect(await overflow(page)).toBe(0)
+    })
+  }
+
+  test('renders the spare card in dark mode with readable text', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await mockPickupLocations(page, [SAVED, SPARE])
+    await openAs(page)
+    await expect(page.locator('html')).toHaveClass(/dark/)
+    await expect(spare(page)).toBeVisible()
+    const lum = (c: string) => (c.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number).reduce((a, b) => a + b, 0) / 3
+    const { bg, text } = await spare(page).evaluate((el) => ({ bg: getComputedStyle(el).backgroundColor, text: getComputedStyle(el.querySelector('dd')!).color }))
+    expect(lum(bg)).toBeLessThan(110)
+    expect(lum(text)).toBeGreaterThan(150)
+  })
+
+  test('staff cannot reach the page and send no request to /pickup-locations', async ({ page }) => {
+    await mockPickupLocations(page, [SAVED, SPARE])
+    const calls: string[] = []
+    page.on('request', (request) => isPickupCall(request.url()) && request.method() !== 'OPTIONS' && calls.push(request.method()))
+    await signIn(page, STAFF, /\/staff$/)
+    await page.goto('/admin/pickup-location')
+    await expect(page).toHaveURL(/\/staff$/)
+    expect(calls).toEqual([])
+  })
 })
