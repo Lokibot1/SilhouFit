@@ -1,5 +1,5 @@
 import { filterMeasurement, describedBy } from '../../../utils/productValidation'
-import { filterSizingName, newSizingRow, SIZING_NAME_MAX, SIZING_ROWS_MAX, sizingColumns, type SizingDraft, type SizingRow } from '../../../utils/customSizing'
+import { newSizingRow, SIZING_ROWS_MAX, sizingColumns, type SizingDraft, type SizingRow } from '../../../utils/customSizing'
 import { filterSizeLabel, SIZE_MAX } from '../../../utils/sizeMeasurementValidation'
 import { PlusIcon } from '../../form/icons'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
@@ -9,38 +9,21 @@ interface CustomSizingEditorProps {
   category: string
   draft: SizingDraft
   onChange: (draft: SizingDraft) => void
-  /** Prefix of the field ids: `${idPrefix}-name`, `${idPrefix}-size:<row>`, `${idPrefix}-m:<row>:<key>`, `${idPrefix}-row:<row>`. */
+  /** Prefix of the field ids: `${idPrefix}-size:<row>`, `${idPrefix}-m:<row>:<key>`, `${idPrefix}-row:<row>`. */
   idPrefix: string
   /** The error to show for a key (see validateSizingDraft), or undefined. */
   error: (key: string) => string | undefined
   touch: (key: string) => void
 }
 
-/** The name of a custom sizing and its sizes, each with the measurements (cm) its category asks for. Shared by the product form and the Measurements page. */
+/** A product's own sizes, each with the measurements (cm) its category asks for. */
 export function CustomSizingEditor({ category, draft, onChange, idPrefix, error, touch }: CustomSizingEditorProps) {
   const columns = sizingColumns(category)
-  const nameId = `${idPrefix}-name`
-  const nameError = error('name')
 
   const setRow = (id: string, patch: (row: SizingRow) => SizingRow) => onChange({ ...draft, rows: draft.rows.map((row) => (row.id === id ? patch(row) : row)) })
 
   return (
     <div className="grid gap-4">
-      <Field id={nameId} label="Sizing name" count={{ value: draft.name.length, max: SIZING_NAME_MAX }} error={nameError}>
-        <input
-          id={nameId}
-          type="text"
-          autoComplete="off"
-          placeholder={`e.g. ${category} Custom`}
-          value={draft.name}
-          aria-invalid={Boolean(nameError)}
-          aria-describedby={describedBy(nameId, nameError, true)}
-          onChange={(event) => onChange({ ...draft, name: filterSizingName(event.target.value) })}
-          onBlur={() => touch('name')}
-          className={FIELD_INPUT}
-        />
-      </Field>
-
       <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
         <legend className="text-sm font-semibold text-fg">Sizes and measurements (cm)</legend>
         {draft.rows.map((row, index) => {
@@ -111,7 +94,7 @@ export function CustomSizingEditor({ category, draft, onChange, idPrefix, error,
           <PlusIcon />
           Add size
         </button>
-        {draft.rows.length >= SIZING_ROWS_MAX && <p className="text-xs text-fg-muted">A custom sizing holds up to {SIZING_ROWS_MAX} sizes.</p>}
+        {draft.rows.length >= SIZING_ROWS_MAX && <p className="text-xs text-fg-muted">A product holds up to {SIZING_ROWS_MAX} sizes.</p>}
       </fieldset>
     </div>
   )

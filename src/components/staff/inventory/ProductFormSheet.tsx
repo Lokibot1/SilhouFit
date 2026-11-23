@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CATEGORIES, SIZES_BY_CATEGORY, type Category } from '../../../data/products'
 import type { Gender } from '../../../service/fetchProductList'
-import { addCustomSizing, getCustomSizings, getProductSizingId, linkProductSizing, useCustomSizings } from '../../../service/customSizings'
 import { addProduct, createFailureReason, manageFailureReason, saveProduct, sizingFailure, uploadImage } from '../../../service/inventoryActions'
 import { buildCustomSizing, draftSizes, newSizingDraft, validateSizingDraft } from '../../../utils/customSizing'
 import { useBaseMeasurements } from '../../../hooks/useBaseMeasurements'
@@ -28,7 +27,6 @@ import { Checkbox } from '../../ui/Checkbox'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
 import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from './FormField'
-import { SizingPicker } from './SizingPicker'
 import { ImageUploader } from './ImageUploader'
 import { VariantBuilder } from './VariantBuilder'
 
@@ -51,7 +49,6 @@ const initialValues = (): ProductFormValues => ({
   sizes: SIZES_BY_CATEGORY[CATEGORIES[0]],
   custom: [],
   sizingMode: 'base',
-  sizingId: '',
   sizingDraft: newSizingDraft(),
   colors: [newColor()],
   edits: {},
@@ -59,11 +56,8 @@ const initialValues = (): ProductFormValues => ({
 
 /** The form for an existing product: its own fields only, and its current images as drafts (no file, so they are not uploaded again). */
 const editValues = (p: ProductEditSource): ProductFormValues => {
-  const sizingId = getProductSizingId(p.id)
   return {
     ...initialValues(),
-    sizingMode: sizingId ? 'custom' : 'base',
-    sizingId,
     name: p.name,
     brand: p.brand ?? '',
     category: p.category as Category,
@@ -137,16 +131,14 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
   const categoryOptions =
     product && !CATEGORY_OPTIONS.some((o) => o.value === product.category) ? [{ value: product.category, label: product.category }, ...CATEGORY_OPTIONS] : CATEGORY_OPTIONS
   const customSizing = values.sizingMode === 'custom'
-  const newSizing = customSizing && !values.sizingId
-  const takenNames = useCustomSizings(values.category).map((s) => s.name)
   const base = useBaseMeasurements(values.category)
   const { sizes: sizesError, ...formErrors }: Record<string, string> = validateProductForm(values, {
     conflictSku,
     mode: editing ? 'edit' : 'create',
     base,
   })
-  const sizingErrors = newSizing
-    ? Object.fromEntries(Object.entries(validateSizingDraft(values.sizingDraft, values.category, takenNames)).map(([key, message]) => [`sizing:${key}`, message]))
+  const sizingErrors = customSizing
+    ? Object.fromEntries(Object.entries(validateSizingDraft(values.sizingDraft, values.category)).map(([key, message]) => [`sizing:${key}`, message]))
     : {}
   // A custom sizing's sizes come from its rows, whose own errors say what is missing.
   const errors: Record<string, string> = {
@@ -173,16 +165,14 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
         v = {
           ...v,
           sizingMode: 'base',
-          sizingId: '',
           sizingDraft: newSizingDraft(),
           sizes: SIZES_BY_CATEGORY[patch.category],
           custom: [],
         }
       if (v.sizingMode !== 'custom') return v
-      const saved = getCustomSizings().find((s) => s.id === v.sizingId)
       return {
         ...v,
-        sizes: saved ? saved.sizes.map((s) => s.size) : draftSizes(v.sizingDraft),
+        sizes: draftSizes(v.sizingDraft),
         custom: [],
       }
     })
@@ -258,24 +248,19 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
       }
       stage = 'create'
       if (product) {
-        // A sizing-only change has nothing for the API (the link is mock for now).
         const patch = buildProductPatch(latest.current, urls, product)
         if (Object.keys(patch).length > 0) await saveProduct(product.id, patch, { signal: controller.signal })
-        const { sizingMode, sizingId, sizingDraft, category } = latest.current
-        linkProductSizing(product.id, sizingMode === 'custom' ? sizingId || addCustomSizing(buildCustomSizing(sizingDraft, category)).id : null)
         onSaved?.(latest.current.name.trim())
       } else {
         // On the category's base sizing the API gives each variant its size's base measurements; on a custom sizing each carries its own.
         const input = buildProductInput(latest.current, urls)
-        const { sizingMode, sizingId, sizingDraft, category } = latest.current
+        const { sizingMode, sizingDraft, category } = latest.current
         if (sizingMode === 'base') input.inheritBaseMeasurements = true
         else {
-          const { sizes } = getCustomSizings().find((s) => s.id === sizingId) ?? buildCustomSizing(sizingDraft, category)
+          const { sizes } = buildCustomSizing(sizingDraft, category)
           for (const variant of input.variants) variant.measurements = sizes.find((s) => s.size === variant.size)?.measurements
         }
         const created = await addProduct(input, { signal: controller.signal })
-        // The product and its sizing are linked here (mock) until the API stores the link.
-        if (sizingMode === 'custom') linkProductSizing(created.id, sizingId || addCustomSizing(buildCustomSizing(sizingDraft, category)).id)
         onCreated?.(created)
       }
     } catch (failure) {
@@ -474,7 +459,6 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
               <p className="text-xs text-fg-muted">Shoppers can try this item on in AR Fitting.</p>
             </div>
 
-            {editing && <SizingPicker values={values} disabled={pending} error={error} touch={touch} set={set} editing />}
 
             <Field
               id="pf-description"

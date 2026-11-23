@@ -857,6 +857,37 @@ test.describe('AR Fitting flag', () => {
       expect(api.rows.find((p) => p.name === 'Canvas Tote')?.isArReady).toBe(ticked)
     })
   }
+
+  for (const custom of [false, true]) {
+    test(`Add product on ${custom ? 'its own sizes sends each variant its measurements and no inherit flag' : 'the base sizes asks the server to inherit them'}`, async ({ page }) => {
+      await page.route(/\/storage\/v1\/object\/products\//, (route) => route.fulfill({ status: 200, json: { Key: 'products/x.png' } }))
+      const api = await start(page, undefined, ['XS', 'S', 'M', 'L', 'XL'].map((size) => sizeRow({ category: 'Hoodie', size })))
+      await page.getByRole('button', { name: 'Add product', exact: true }).first().click()
+      const dialog = page.getByRole('dialog', { name: 'Add product', exact: true })
+      await dialog.getByRole('textbox', { name: /^Name/ }).fill('Canvas Tote')
+      await dialog.getByRole('textbox', { name: /Base price/ }).fill('900')
+      await dialog.getByLabel('Choose image files').setInputFiles({ name: 'front.png', mimeType: 'image/png', buffer: Buffer.from('x') })
+      await dialog.getByRole('textbox', { name: 'Colour 1 name' }).fill('Sand')
+      if (custom) {
+        await dialog.getByRole('combobox', { name: 'Sizing', exact: true }).click()
+        await page.getByRole('option', { name: 'Custom sizing', exact: true }).click()
+        const chest = dialog.getByRole('textbox', { name: /^Chest width/ })
+        for (let i = 0; i < 3; i++) await chest.nth(i).fill(String(50 + i * 5))
+      }
+      await dialog.getByRole('button', { name: 'Create product', exact: true }).click()
+
+      await expect(toast(page, 'Canvas Tote added')).toBeVisible()
+      const [call] = api.of('POST', 'list')
+      const variants = (call.body as { variants: { size: string; measurements?: object }[] }).variants
+      if (custom) {
+        expect(call.body).not.toHaveProperty('inheritBaseMeasurements')
+        expect(variants.map((v) => [v.size, v.measurements])).toEqual([['S', { chestWidthCm: 50 }], ['M', { chestWidthCm: 55 }], ['L', { chestWidthCm: 60 }]])
+      } else {
+        expect(call.body).toMatchObject({ inheritBaseMeasurements: true })
+        expect(variants.every((v) => v.measurements === undefined)).toBe(true)
+      }
+    })
+  }
 })
 
 test.describe('loading and error states', () => {

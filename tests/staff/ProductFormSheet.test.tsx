@@ -6,7 +6,6 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { fetchProductDetail, fetchProductList, ProductListError, type PaginatedProducts } from '../../src/service/fetchProductList'
 import { addProduct, saveProduct, uploadImage } from '../../src/service/inventoryActions'
-import { addCustomSizing } from '../../src/service/customSizings'
 import { fetchCategoryMeasurements } from '../../src/service/sizeMeasurements'
 import { StaffInventoryPage } from '../../src/views/staff/StaffInventoryPage'
 
@@ -254,17 +253,20 @@ describe('Add product sheet', () => {
   it("sends the custom sizing's own measurements on each variant instead of inheriting the base ones", async () => {
     const user = userEvent.setup()
     vi.mocked(addProduct).mockResolvedValue({ id: 'new-1', name: 'Linen Shirt' })
-    addCustomSizing({ category: 'Hoodie', name: 'Boxy fit', sizes: [{ size: 'M', measurements: { chestWidthCm: 60, totalLengthCm: 70 } }] })
     const dialog = await openSheet(user)
     await user.click(within(dialog).getByRole('combobox', { name: 'Sizing' }))
     await user.click(await screen.findByRole('option', { name: 'Custom sizing' }))
-    await user.click(within(dialog).getByRole('combobox', { name: 'Custom sizing' }))
-    await user.click(await screen.findByRole('option', { name: 'Boxy fit' }))
+    const chest = within(dialog).getAllByRole('textbox', { name: /^Chest width/ })
+    for (const [i, row] of chest.entries()) await user.type(row, String(50 + i * 5))
     await fillValid(user)
     await user.click(within(dialog).getByRole('button', { name: 'Create product' }))
     await waitFor(() => expect(addProduct).toHaveBeenCalled())
     const input = vi.mocked(addProduct).mock.calls[0][0]
-    expect(input.variants.map((v) => [v.size, v.measurements])).toEqual([['M', { chestWidthCm: 60, totalLengthCm: 70 }]])
+    expect(input.variants.map((v) => [v.size, v.measurements])).toEqual([
+      ['S', { chestWidthCm: 50 }],
+      ['M', { chestWidthCm: 55 }],
+      ['L', { chestWidthCm: 60 }],
+    ])
     expect(input).not.toHaveProperty('inheritBaseMeasurements')
   })
 
