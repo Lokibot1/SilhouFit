@@ -42,6 +42,7 @@ const message = (id: string, createdAt: string, extra: Partial<ChatMessage> = {}
   conversationId: 'c1',
   senderId: 'staff-1',
   content: `content ${id}`,
+  attachments: [],
   createdAt,
   updatedAt: createdAt,
   sender: STAFF,

@@ -186,7 +186,7 @@ export function useConversation(conversationId: string) {
     if (!live) return
     const id = `pending-${crypto.randomUUID()}`
     const now = new Date().toISOString()
-    const pending: ThreadMessage = { id, conversationId, senderId: live.selfId ?? '', content, createdAt: now, updatedAt: now, sender: selfSender(live), status: 'pending', fresh: true }
+    const pending: ThreadMessage = { id, conversationId, senderId: live.selfId ?? '', content, attachments: [], createdAt: now, updatedAt: now, sender: selfSender(live), status: 'pending', fresh: true }
     setLive((old) => old && { ...old, messages: mergeMessages(old.messages, [pending]) })
     return deliver(id, content)
   }

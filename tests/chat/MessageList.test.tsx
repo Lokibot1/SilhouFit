@@ -11,6 +11,7 @@ const message = (id: string, createdAt: string, extra: Partial<ThreadMessage> = 
   conversationId: 'c1',
   senderId: 'staff-1',
   content: `content ${id}`,
+  attachments: [],
   createdAt,
   updatedAt: createdAt,
   sender: sender('staff', 'Ana Cruz'),

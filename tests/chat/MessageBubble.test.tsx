@@ -9,6 +9,7 @@ const failed = (failure?: ChatErrorKind): ThreadMessage => ({
   conversationId: 'c1',
   senderId: 'me',
   content: 'Hello',
+  attachments: [],
   createdAt: '2025-11-04T01:00:00Z',
   updatedAt: '2025-11-04T01:00:00Z',
   sender: { id: 'me', firstName: 'Me', lastName: '', fullName: 'Me', role: 'customer', avatarUrl: null },

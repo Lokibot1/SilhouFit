@@ -25,11 +25,23 @@ export interface MessageSender {
   avatarUrl: string | null
 }
 
+export interface MessageAttachment {
+  id: string
+  url: string
+  type: 'IMAGE' | 'VIDEO'
+  mimeType: string
+  fileName: string
+  sizeBytes: number | null
+  displayOrder: number
+  createdAt: string
+}
+
 export interface ChatMessage {
   id: string
   conversationId: string
   senderId: string
   content: string
+  attachments: MessageAttachment[]
   createdAt: string
   updatedAt: string
   /** Missing on a message that arrived over Realtime: the row has no sender. */
@@ -148,13 +160,32 @@ export function toTyping(value: unknown) {
   return isRecord(value) ? toSender(value.sender) : undefined
 }
 
+function toAttachments(value: unknown): MessageAttachment[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry, index) => {
+    if (!isRecord(entry) || typeof entry.url !== 'string' || !entry.url || (entry.type !== 'IMAGE' && entry.type !== 'VIDEO')) return []
+    return [{ id: text(entry.id), url: entry.url, type: entry.type, mimeType: text(entry.mimeType), fileName: text(entry.fileName), sizeBytes: typeof entry.sizeBytes === 'number' ? entry.sizeBytes : null, displayOrder: typeof entry.displayOrder === 'number' ? entry.displayOrder : index, createdAt: text(entry.createdAt) }]
+  })
+}
+
+/** What the inbox shows for a message: its text, else a line about its attachments (the API sends no preview for those). */
+export function previewText(message: Pick<ChatMessage, 'content' | 'attachments'>) {
+  if (message.content) return message.content
+  const { attachments } = message
+  const count = attachments.length
+  if (count === 0) return ''
+  if (attachments.every((a) => a.type === 'IMAGE')) return count === 1 ? 'Sent a photo' : `Sent ${count} photos`
+  if (attachments.every((a) => a.type === 'VIDEO')) return count === 1 ? 'Sent a video' : `Sent ${count} videos`
+  return `Sent ${count} attachments`
+}
+
 export function toMessage(value: unknown): ChatMessage {
   if (!isRecord(value)) throw new ChatError('server')
   const { id, conversationId, senderId, content, createdAt, updatedAt } = value
   if (typeof id !== 'string' || typeof conversationId !== 'string' || typeof senderId !== 'string' || typeof content !== 'string') throw new ChatError('server')
   if (typeof createdAt !== 'string' || Number.isNaN(Date.parse(createdAt))) throw new ChatError('server')
   const sender = toSender(value.sender)
-  return { id, conversationId, senderId, content, createdAt, updatedAt: typeof updatedAt === 'string' ? updatedAt : createdAt, ...(sender && { sender }) }
+  return { id, conversationId, senderId, content, attachments: toAttachments(value.attachments), createdAt, updatedAt: typeof updatedAt === 'string' ? updatedAt : createdAt, ...(sender && { sender }) }
 }
 
 function toCustomer(value: unknown): CustomerSummary | undefined {

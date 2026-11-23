@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DockInbox } from '../../src/components/chat/dock/DockInbox'
 import { Row } from '../../src/components/chat/InboxList'
-import type { Conversation } from '../../src/service/chatApi'
+import type { Conversation, MessageAttachment } from '../../src/service/chatApi'
 import { formatShortAgo } from '../../src/utils/format'
 
 const inbox = vi.hoisted(() => ({ value: {} as unknown }))
@@ -20,7 +20,7 @@ const thread = (id: string, name: string, content: string | null, extra: Partial
   customerReadAt: null,
   staffReadAt: null,
   hasUnreadMessages: false,
-  lastMessage: content ? { id: `m-${id}`, conversationId: id, senderId, content, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } : null,
+  lastMessage: content ? { id: `m-${id}`, conversationId: id, senderId, content, attachments: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } : null,
   createdAt: '2026-11-03T01:00:00Z',
   updatedAt: '2026-11-03T01:00:00Z',
   ...extra,
@@ -88,6 +88,28 @@ describe('Row', () => {
   })
 })
 
+describe('Row attachment previews', () => {
+  const file = (type: 'IMAGE' | 'VIDEO'): MessageAttachment => ({ id: 'a', url: 'https://x/a', type, mimeType: type === 'IMAGE' ? 'image/png' : 'video/mp4', fileName: 'a', sizeBytes: 1, displayOrder: 0, createdAt: '' })
+  const withFiles = (...files: MessageAttachment[]) => {
+    const t = thread('c1', 'Lia Reyes', 'x')
+    t.lastMessage = { ...t.lastMessage!, content: '', attachments: files }
+    return (
+      <ul>
+        <Row thread={t} selected={false} onSelect={vi.fn()} />
+      </ul>
+    )
+  }
+  it.each([
+    [[file('IMAGE')], 'Sent a photo'],
+    [[file('IMAGE'), file('IMAGE'), file('IMAGE')], 'Sent 3 photos'],
+    [[file('VIDEO')], 'Sent a video'],
+    [[file('IMAGE'), file('VIDEO')], 'Sent 2 attachments'],
+  ])('shows a line for attachment-only messages', (files, copy) => {
+    render(withFiles(...files))
+    expect(screen.getByText(copy)).toBeInTheDocument()
+  })
+})
+
 describe('DockInbox', () => {
   it('shows a skeleton while loading', () => {
     show({ status: 'loading' })
@@ -140,6 +162,15 @@ describe('DockInbox', () => {
   it('shows the empty state when there are no conversations', () => {
     loaded([])
     expect(screen.getByText(/No conversations yet/)).toBeInTheDocument()
+  })
+
+  it('searches the attachment preview text too', async () => {
+    const t = thread('c1', 'Lia Reyes', 'x')
+    t.lastMessage = { ...t.lastMessage!, content: '', attachments: [{ id: 'a', url: 'https://x/a', type: 'IMAGE', mimeType: 'image/png', fileName: 'a', sizeBytes: 1, displayOrder: 0, createdAt: '' }] }
+    loaded([t, thread('c2', 'Ben Tan', 'hello')])
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search conversations' }), 'photo')
+    await act(() => vi.advanceTimersByTimeAsync(250))
+    expect(screen.getAllByTestId('inbox-row')).toHaveLength(1)
   })
 
   it('Arrow keys walk from the search through the rows and back; Escape closes and returns focus', async () => {

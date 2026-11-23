@@ -6,7 +6,7 @@ import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import { useInbox } from '../../../hooks/useInbox'
 import { useSelfId } from '../../../hooks/useSelfId'
 import { DURATION, EASE_OUT } from '../../../motion/tokens'
-import { displayName } from '../../../service/chatApi'
+import { displayName, previewText } from '../../../service/chatApi'
 import { openChat } from '../../../service/chatDock'
 import { SearchIcon, XIcon } from '../../form/icons'
 import { SectionBody } from '../../staff/StaffSection'
@@ -52,7 +52,7 @@ export function DockInbox({ area, anchor, onClose }: DockInboxProps) {
     .filter((thread) => {
       if (!query) return true
       const who = thread.customer ? `${displayName(thread.customer)} ${thread.customer.email}` : 'Customer'
-      return `${who} ${thread.lastMessage?.content ?? ''}`.toLowerCase().includes(query)
+      return `${who} ${thread.lastMessage ? previewText(thread.lastMessage) : ''}`.toLowerCase().includes(query)
     })
   const panel = useRef<HTMLDivElement>(null)
   const [place, setPlace] = useState<ReturnType<typeof computePlace>>()

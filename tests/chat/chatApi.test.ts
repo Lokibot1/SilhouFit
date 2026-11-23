@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ChatError, displayName, fetchConversation, fetchConversations, fetchMessages, fetchMyConversation, markConversationRead, sendFailureCopy, sendMessage, sendTyping, toTyping, type ChatErrorKind } from '../../src/service/chatApi'
+import { ChatError, displayName, previewText, toMessage, fetchConversation, fetchConversations, fetchMessages, fetchMyConversation, markConversationRead, sendFailureCopy, sendMessage, sendTyping, toTyping, type ChatErrorKind } from '../../src/service/chatApi'
 import { clearSession, setSession } from '../../src/service/session'
 
 vi.mock('../../src/service/supabase', () => ({
@@ -187,6 +187,28 @@ describe('sendFailureCopy', () => {
     ['conflict', 'Not sent. This conversation is no longer available. Reload the page.'],
   ])('%s', (kind, copy) => {
     expect(sendFailureCopy(kind)).toBe(copy)
+  })
+})
+
+describe('message attachments', () => {
+  const att = { id: 'a1', url: 'https://x/a.png', type: 'IMAGE', mimeType: 'image/png', fileName: 'a.png', sizeBytes: 10, displayOrder: 0, createdAt: '2026-11-04T01:00:00Z' }
+  const base = message('m1', '2026-11-04T01:00:00Z')
+
+  it('parses attachments, and tolerates missing, malformed or bad entries', () => {
+    expect(toMessage({ ...base, attachments: [att] }).attachments).toEqual([att])
+    expect(toMessage(base).attachments).toEqual([])
+    expect(toMessage({ ...base, attachments: 'nope' }).attachments).toEqual([])
+    expect(toMessage({ ...base, attachments: [null, { ...att, url: '' }, { ...att, type: 'AUDIO' }, att] }).attachments).toEqual([att])
+  })
+
+  it('previews the text, else photos, a video or a mix', () => {
+    const preview = (types: string[]) => previewText({ content: '', attachments: types.map((type) => ({ ...att, type })) as never })
+    expect(previewText({ content: 'Hi', attachments: [att] as never })).toBe('Hi')
+    expect(preview(['IMAGE'])).toBe('Sent a photo')
+    expect(preview(['IMAGE', 'IMAGE'])).toBe('Sent 2 photos')
+    expect(preview(['VIDEO'])).toBe('Sent a video')
+    expect(preview(['IMAGE', 'VIDEO'])).toBe('Sent 2 attachments')
+    expect(preview([])).toBe('')
   })
 })
 

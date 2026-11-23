@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useInbox, type InboxFilter } from '../../hooks/useInbox'
 import { useSelfId } from '../../hooks/useSelfId'
-import { displayName, type Conversation } from '../../service/chatApi'
+import { displayName, previewText, type Conversation } from '../../service/chatApi'
 import { formatShortAgo } from '../../utils/format'
 import { SearchIcon } from '../form/icons'
 import { SectionBody } from '../staff/StaffSection'
@@ -53,7 +53,7 @@ export function Row({ thread, selected, selfId, onSelect }: { thread: Conversati
           <span className={`flex min-w-0 text-xs ${unread ? 'font-semibold text-fg' : 'text-fg-muted'}`}>
             <span className="truncate">
               {mine && 'You: '}
-              {thread.lastMessage?.content ?? 'No messages yet'}
+              {thread.lastMessage ? previewText(thread.lastMessage) : 'No messages yet'}
             </span>
             {thread.lastMessageAt && <time dateTime={thread.lastMessageAt} className="font-ui shrink-0 pl-1 tabular-nums">· {formatShortAgo(thread.lastMessageAt)}</time>}
           </span>
