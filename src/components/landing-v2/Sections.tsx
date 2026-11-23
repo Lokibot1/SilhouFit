@@ -1,6 +1,6 @@
 // The static sections of landing v2: tape, study, lookbook and reception. Data-driven and interactive ones have their own files.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const TAPE = ['KRAL®', 'SILHOUFIT']
 
@@ -96,9 +96,19 @@ const PLATES = [
 function Plate({ plate, no }: { plate: (typeof PLATES)[number]; no: number }) {
   const [failed, setFailed] = useState(false)
   const [colour, setColour] = useState(false) // a tap (no hover on phones) toggles the colour
+  const [inView, setInView] = useState(false) // on phones the colour shows while the plate is in the middle of the screen
+  const ref = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { rootMargin: '-35% 0px -35% 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
   return (
     <figure
-      className={`sv2-plate sv2-plate--${plate.size}${colour ? ' sv2-plate--colour' : ''}`}
+      ref={ref}
+      className={`sv2-plate sv2-plate--${plate.size}${colour ? ' sv2-plate--colour' : ''}${inView ? ' sv2-plate--inview' : ''}`}
       tabIndex={0}
       aria-label={plate.title}
       onClick={() => setColour((c) => !c)}

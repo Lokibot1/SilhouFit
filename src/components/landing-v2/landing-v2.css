@@ -1208,6 +1208,12 @@ a.sv2-logo:hover {
     filter: none;
   }
 }
+/* No hover on phones: the plate gains colour while it crosses the middle of the screen as you scroll. */
+@media (hover: none) {
+  .sv2-plate--inview img {
+    filter: none;
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
   .sv2-plate img {
     transition: filter 0.3s ease-out, transform 0.2s ease-out;
