@@ -160,6 +160,14 @@ describe('placing an order', () => {
     expect(error.detail).toMatch(copy)
   })
 
+  it.each([
+    ['QUOTATION_ORIGIN_MISMATCH', 'Quotation pickup location no longer matches the current pickup location. Request a new shipping quote.'],
+    ['QUOTATION_DESTINATION_MISMATCH', 'Quotation destination does not match the delivery address coordinates. Request a new shipping quote.'],
+  ])('maps %s to quote-expired, not a missing pin', async (code, detail) => {
+    send.mockRejectedValue(new ProductListError('validation', detail, 400, code))
+    await expect(createOrder({ addressId: 'a1' })).rejects.toMatchObject({ kind: 'quote-expired', status: 400, detail: expect.stringMatching(/delivery fee ran out/) })
+  })
+
   it('maps a missing address to not-found and a dead session to forbidden', async () => {
     send.mockRejectedValueOnce(new ProductListError('not-found', 'Address with ID "a" not found', 404))
     await expect(createOrder({ addressId: 'a' })).rejects.toMatchObject({ kind: 'not-found', detail: expect.stringMatching(/address is gone/) })

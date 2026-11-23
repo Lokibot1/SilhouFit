@@ -206,6 +206,8 @@ type Operation = 'create' | 'quote' | 'read' | 'cancel' | 'pay'
 
 const STOCK_WORDS = /stock|unavailable|no longer available|invalid quantity/i
 
+const QUOTE_EXPIRED_COPY = 'The delivery fee ran out before your order went through. Check the new fee, then place your order again.'
+
 const ADDRESS_CODES = ['OUT_OF_SERVICE_AREA', 'ROUTE_TOO_FAR', 'INVALID_MARKET', 'INVALID_DELIVERY_ROUTE', 'INCOMPLETE_ADDRESS']
 const OUR_SIDE_CODES = ['PICKUP_LOCATION_NOT_CONFIGURED', 'PICKUP_LOCATION_INVALID', 'COURIER_SERVICE_UNAVAILABLE', 'COURIER_AUTH_ERROR']
 
@@ -221,13 +223,14 @@ function toOrdersError(failure: unknown, operation: Operation): unknown {
   if (code && OUR_SIDE_CODES.includes(code)) {
     return new OrdersError('server', "Delivery isn't available right now because of a problem on our side. Your order was not placed. Contact us and we'll sort it out.", status, undefined, code, false)
   }
+  if (code === 'QUOTATION_ORIGIN_MISMATCH' || code === 'QUOTATION_DESTINATION_MISMATCH') return new OrdersError('quote-expired', QUOTE_EXPIRED_COPY, status)
   if (kind === 'validation') {
     if (operation === 'cancel') return new OrdersError('not-cancellable', undefined, status)
     if (operation === 'pay' && /already been paid/i.test(told)) return new OrdersError('already-paid', undefined, status)
     if (operation === 'quote' && /coordinates/i.test(told)) return new OrdersError('no-coordinates', 'Pin this address on the map so we can deliver to it.', status)
     if (operation === 'create') {
       if (/coordinates/i.test(told)) return new OrdersError('no-coordinates', 'Pin this address on the map so we can deliver to it.', status)
-      if (/quotation/i.test(told)) return new OrdersError('quote-expired', 'The delivery fee ran out before your order went through. Check the new fee, then place your order again.', status)
+      if (/quotation/i.test(told)) return new OrdersError('quote-expired', QUOTE_EXPIRED_COPY, status)
       if (STOCK_WORDS.test(told)) return new OrdersError('validation', `${told}. Go back to your cart and adjust the quantity.`, status)
       return new OrdersError('validation', 'Your cart changed. Reload your cart, then check out again.', status)
     }
