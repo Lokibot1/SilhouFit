@@ -40,13 +40,13 @@ const ACTIONS = [
 ]
 
 const PROFILE = [
-  ['Brand', 'A streetwear brand from the Philippines'],
-  ['Products', 'Printed hoodies with designs like camo and realtree, and pants that match the style. The catalogue also carries other streetwear basics.'],
-  ['Target customers', 'Males who love streetwear'],
-  ['How it sells', 'KRAL started by selling online and has expanded into live selling. It sells on Facebook, Shopee, TikTok Shop and Lazada, and SilhouFit gives KRAL its own storefront.'],
-  ['Catalogue size', 'Very large, with many products and size and colour variations'],
-  ['Team', 'The owner plus a few staff. One staff member handles inventory and product updates together with the owner.'],
-  ['Production', 'Its own production team (tahian) that delivers output regularly'],
+  ['Brand', 'Philippine-based streetwear apparel brand.'],
+  ['Product line', 'Camo and Realtree-printed hoodies, matching pants, and streetwear basics.'],
+  ['Target customers', 'Male streetwear enthusiasts.'],
+  ['How it sells', 'Multi-channel retail spanning live drops on TikTok Shop, official marketplaces on Shopee and Lazada, and a dedicated flagship storefront powered by SilhouFit.'],
+  ['Catalogue size', 'High-volume SKU catalogue offering diverse designs, colorways, and sizing.'],
+  ['Team', 'Lean operational team led by the owner, with dedicated staff handling inventory and catalogue updates.'],
+  ['Production', 'Dedicated in-house production facility (tahian) delivering consistent, scheduled inventory output.'],
 ]
 
 const BACK_OFFICE = [
