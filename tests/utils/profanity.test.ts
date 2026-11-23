@@ -60,6 +60,14 @@ describe('maskProfanity', () => {
     expect(offended).toBe(true)
   })
 
+  // SHF-MSG-1: a blocked word run into another word used to star only its first part and leave the rest readable.
+  it('stars a flagged word whole when it is run together with other text', () => {
+    expect(maskProfanity('potanginapotangina').text).toBe('*'.repeat(18))
+    expect(maskProfanity('potanginamogagoka').text).toBe('*'.repeat(17))
+    expect(maskProfanity('potanginapotangina mo').text).toBe('*'.repeat(18) + ' mo')
+    expect(maskProfanity('potangina mo, ok!').text).toBe('*'.repeat(9) + ' mo, ok!')
+  })
+
   it('leaves clean text untouched', () => {
     for (const clean of ['hello, is this in size medium?', 'Dickson at the cockpit', 'I a m here', 'kill the lag']) {
       expect(maskProfanity(clean)).toEqual({ text: clean, offended: false })

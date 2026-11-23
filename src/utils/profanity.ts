@@ -87,6 +87,8 @@ export function hasProfanity(text: string): boolean {
 /** Swaps every letter in `text` for an asterisk and keeps spaces and dots, so "f u c k" becomes "* * * *" and the length never changes. */
 const star = (text: string) => text.replace(/[^\s.\-_*]/gu, '*')
 
+const WORD_CHAR = /[\p{L}\p{N}]/u
+
 /** The text with each flagged word (including spaced-out ones) replaced by asterisks of the same length, and whether anything was replaced. */
 export function maskProfanity(text: string): { text: string; offended: boolean } {
   const { clean, fold } = prepare(text)
@@ -100,8 +102,15 @@ export function maskProfanity(text: string): { text: string; offended: boolean }
   // Match indexes count UTF-16 units, so mask on the string itself rather than on code points.
   let out = clean
   for (const [from, to] of spaced) out = out.slice(0, from) + star(out.slice(from, to)) + out.slice(to)
-  for (const { startIndex, endIndex } of matcher.getAllMatches(spacedFold, true).reverse()) {
-    out = out.slice(0, startIndex) + '*'.repeat(endIndex - startIndex + 1) + out.slice(endIndex + 1)
+  // A flagged word is starred whole: "potanginapotangina" and "potanginamogagoka" match only their first part, and the rest must not show.
+  const flagged = new Array<boolean>(out.length).fill(false)
+  for (const { startIndex, endIndex } of matcher.getAllMatches(spacedFold, true)) {
+    let from = startIndex
+    let to = endIndex
+    while (from > 0 && WORD_CHAR.test(spacedFold[from - 1])) from--
+    while (to < out.length - 1 && WORD_CHAR.test(spacedFold[to + 1])) to++
+    flagged.fill(true, from, to + 1)
   }
+  out = out.split('').map((char, i) => (flagged[i] ? '*' : char)).join('')
   return { text: out, offended: out !== clean }
 }
