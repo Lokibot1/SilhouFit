@@ -45,6 +45,19 @@ test.describe('customer dock', () => {
     await expect(head(page, 'KRAL')).toHaveCount(0)
   })
 
+  test('Escape in the photo lightbox closes only the lightbox; the chat stays open', async ({ page }) => {
+    const file = { id: 'a0', url: 'https://cdn.example.com/p.png', type: 'IMAGE' as const, mimeType: 'image/png', fileName: 'p.png', sizeBytes: 10, displayOrder: 0, createdAt: OLD(1) }
+    await startChat(page, 'customer', { path: '/wishlist', init: { messages: [msg('', SAM, OLD(1), { attachments: [file] })] } })
+    await openMessages(page)
+    await box(page, 'KRAL').getByRole('button', { name: /^Photo 1 of 1/ }).click()
+    const lightbox = page.getByRole('dialog')
+    await expect(lightbox).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(lightbox).toHaveCount(0)
+    await expect(box(page, 'KRAL')).toBeVisible()
+    await expect(head(page, 'KRAL')).toHaveCount(0)
+  })
+
   test('a route change minimizes the open chat to a head', async ({ page }) => {
     await startChat(page, 'customer', { path: '/wishlist' })
     await openMessages(page)

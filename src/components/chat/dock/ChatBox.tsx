@@ -38,8 +38,10 @@ interface ChatBoxProps {
 export function ChatBox({ box, staff, onMinimize, onClose }: ChatBoxProps) {
   const wide = useMediaQuery('(min-width: 640px)')
 
-  function onKeyDown(event: KeyboardEvent) {
+  function onKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key !== 'Escape' || event.defaultPrevented) return
+    // A dialog portaled out of the box (the photo lightbox) still bubbles here through React: its Escape closes it, not the chat.
+    if (!event.currentTarget.contains(event.target as Node)) return
     event.stopPropagation()
     onMinimize()
   }
