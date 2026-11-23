@@ -22,11 +22,13 @@ interface AvatarProps {
   /** Shown instead of the letters taken from `name`, for names that carry a suffix. */
   initials?: string
   size?: keyof typeof SIZES
+  /** A fixed hue (0-360) instead of one taken from the name, for a group that shares a colour. */
+  hue?: number
   /** 'kral' squares the avatar for the KRAL pages. */
   tone?: 'kral'
 }
 
-export function Avatar({ name, src, initials: given, size = 'md', tone }: AvatarProps) {
+export function Avatar({ name, src, initials: given, size = 'md', tone, hue }: AvatarProps) {
   const [failedSrc, setFailedSrc] = useState<string>()
   const letters = given || initials(name)
   const shape = tone === 'kral' ? 'rounded-none border border-kral-rule' : 'rounded-full'
@@ -47,7 +49,7 @@ export function Avatar({ name, src, initials: given, size = 'md', tone }: Avatar
       role="img"
       aria-label={name || 'Account'}
       className={`${SIZES[size]} font-ui flex shrink-0 items-center justify-center ${shape} font-semibold text-white ${tone === 'kral' ? 'font-kral-display' : ''}`}
-      style={{ backgroundColor: `hsl(${hueFor(name)} 45% 32%)` }}
+      style={{ backgroundColor: `hsl(${hue ?? hueFor(name)} 45% 32%)` }}
     >
       {letters || <UserIcon />}
     </span>

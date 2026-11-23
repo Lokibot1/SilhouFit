@@ -28,7 +28,7 @@ export function SuperadminsTab() {
       width: 'w-12',
       cell: (_, index) => <span className="tabular-nums">{((meta?.page ?? list.page) - 1) * (meta?.limit ?? list.per) + index + 1}</span>,
     },
-    { key: 'name', header: 'Superadmin', sort: 'name', title: true, cell: (a) => <AccountName account={a} /> },
+    { key: 'name', header: 'Superadmin', sort: 'name', title: true, cell: (a) => <AccountName account={a} role="superadmin" /> },
     { key: 'email', header: 'Email', indent: true, width: 'w-[24%]', cell: (a) => <AccountEmail email={a.email} /> },
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
   ]

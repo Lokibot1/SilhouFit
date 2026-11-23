@@ -40,11 +40,11 @@ export function CustomersTab() {
       width: 'w-12',
       cell: (_, index) => <span className="tabular-nums">{((meta?.page ?? list.page) - 1) * (meta?.limit ?? list.per) + index + 1}</span>,
     },
-    { key: 'name', header: 'Customer', sort: 'name', title: true, cell: (a) => <AccountName account={a} /> },
+    { key: 'name', header: 'Customer', sort: 'name', title: true, cell: (a) => <AccountName account={a} role="customer" /> },
     { key: 'email', header: 'Email', indent: true, width: 'w-[24%]', cell: (a) => <AccountEmail email={a.email} /> },
     { key: 'status', header: 'Status', cardLabel: 'Status:', width: 'w-[14%]', cell: (a) => <StatusBadge status={a.status} /> },
-    { key: 'offenses', header: 'Offenses', cardLabel: 'Offenses:', center: true, width: 'w-[10%]', cell: (a) => <span className="tabular-nums">{a.offenseCount}</span> },
-    { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
+    { key: 'offenses', header: 'Offenses', cardLabel: 'Offenses:', width: 'w-[14%]', cell: (a) => <span className="tabular-nums">{a.offenseCount}</span> },
+    { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[14%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
   ]
 
   return (
@@ -58,6 +58,7 @@ export function CustomersTab() {
         label="Customers with email, status and date added"
         noun="customers"
         columns={columns}
+        onRowClick={setViewing}
         actions={(account) => (
           <>
             <RowAction label={`View details of ${fullName(account)}`} icon={<EyeIcon size={16} />} onClick={() => setViewing(account)} />

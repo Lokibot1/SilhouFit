@@ -41,6 +41,8 @@ interface AccountTableProps<T extends { id: string }> {
   columns: AccountColumn<T>[]
   /** A last column of buttons, one set per row. Their clicks must not reach the row (use RowAction). */
   actions?: (row: T) => ReactNode
+  /** Makes the whole row (table row or card) clickable. Keep a button in `actions` for keyboard users. */
+  onRowClick?: (row: T) => void
   /** Shown when there are no accounts at all (not when a search or filter hides them). */
   empty: ReactNode
   /** Replaces "No ___ match" when a filter hides every account and its own message fits better. */
@@ -48,7 +50,7 @@ interface AccountTableProps<T extends { id: string }> {
 }
 
 /** A tab's list: the table from @4xl of its panel and cards below, with the loading, error and empty states and the pager. */
-export function AccountTable<T extends { id: string }>({ list, label, noun, columns, actions, empty, emptyFiltered }: AccountTableProps<T>) {
+export function AccountTable<T extends { id: string }>({ list, label, noun, columns, actions, onRowClick, empty, emptyFiltered }: AccountTableProps<T>) {
   const { state, result, stale, retry, sorted, sortBy, page, setPage, per, filtered, clear } = list
   const rows = result?.data ?? null
   const cells = columns.length + (actions ? 1 : 0)
@@ -131,7 +133,8 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
               <tr
                 key={row.id}
                 style={{ '--i': index } as CSSProperties}
-                className={`${TABLE_ROW} enter-row hover:bg-line/40`}
+                onClick={onRowClick && (() => onRowClick(row))}
+                className={`${TABLE_ROW} enter-row hover:bg-line/40${onRowClick ? ' cursor-pointer' : ''}`}
               >
                 {columns.map((column) => (
                   <td key={column.key} className={`${TD} text-sm text-fg ${column.right ? 'text-right tabular-nums' : column.center ? 'text-center tabular-nums' : ''}${column.indent ? ' pl-10!' : ''}`}>
@@ -176,7 +179,8 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
             <li
               key={row.id}
               style={{ '--i': index } as CSSProperties}
-              className="enter-row flex min-h-24 flex-col justify-center gap-1 py-3 hover:bg-line/40"
+              onClick={onRowClick && (() => onRowClick(row))}
+              className={`enter-row flex min-h-24 flex-col justify-center gap-1 py-3 hover:bg-line/40${onRowClick ? ' cursor-pointer' : ''}`}
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">{heading.cell(row, index)}</div>

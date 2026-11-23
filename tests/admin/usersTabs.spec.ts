@@ -147,7 +147,7 @@ test.describe('Customers tab', () => {
     await expect(page.getByRole('main').getByText(/Orders|Lifetime spend|Sample data/)).toHaveCount(0)
     await expect(visibleText(page, 'kim.tan@silhoufit.dev')).toBeVisible()
     if (await page.getByRole('table').isVisible()) {
-      await expect(page.getByRole('columnheader')).toHaveText(['#', 'Customer', 'Email', 'Status', 'Added', 'Actions'])
+      await expect(page.getByRole('columnheader')).toHaveText(['#', 'Customer', 'Email', 'Status', 'Offenses', 'Added', 'Actions'])
       const number = page.getByRole('table').getByRole('row').nth(1).getByRole('cell').first()
       await expect(number).toHaveText('1')
       // The # column is left-aligned like the other tabs.

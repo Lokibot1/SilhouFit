@@ -44,7 +44,7 @@ export function StaffTab() {
       width: 'w-12',
       cell: (_, index) => <span className="tabular-nums">{((meta?.page ?? list.page) - 1) * (meta?.limit ?? list.per) + index + 1}</span>,
     },
-    { key: 'name', header: 'Staff', sort: 'name', title: true, cell: (a) => <AccountName account={a} /> },
+    { key: 'name', header: 'Staff', sort: 'name', title: true, cell: (a) => <AccountName account={a} role="staff" /> },
     { key: 'email', header: 'Email', indent: true, width: 'w-[24%]', cell: (a) => <AccountEmail email={a.email} /> },
     { key: 'status', header: 'Status', cardLabel: 'Status:', width: 'w-[14%]', cell: (a) => <StatusBadge status={a.status} /> },
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
