@@ -36,7 +36,7 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
   const label = masked || !sender ? '' : ROLE_LABEL[sender.role]
   return (
     <li data-testid="chat-message" data-status={status ?? 'sent'} className={`flex min-w-0 items-end gap-2 ${mine ? 'origin-bottom-right flex-row-reverse' : 'origin-bottom-left'} ${enter ? 'enter-message' : ''}`}>
-      {masked ? <KralAvatar size="sm" /> : <Avatar name={name} src={sender?.avatarUrl ?? undefined} size="sm" />}
+      {!mine && (masked ? <KralAvatar size="sm" /> : <Avatar name={name} src={sender?.avatarUrl ?? undefined} size="sm" />)}
       <div className={`flex min-w-0 max-w-[80%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
         {!mine && (
           <p className="font-ui mb-1 truncate px-1 text-sm text-fg-muted">

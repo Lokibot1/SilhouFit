@@ -64,6 +64,34 @@ describe('MessageBubble long text', () => {
   })
 })
 
+describe('MessageBubble avatar', () => {
+  const sent = { ...failed(), status: undefined }
+  const staffSender = { id: 'st', firstName: 'Ana', lastName: 'Cruz', fullName: 'Ana Cruz', role: 'staff' as const, avatarUrl: null }
+
+  it('shows no avatar on the viewer’s own message', () => {
+    show(sent)
+    expect(screen.queryByRole('img')).toBeNull()
+  })
+
+  it('shows the KRAL logo on a staff message to a customer', () => {
+    render(
+      <ul>
+        <MessageBubble message={{ ...sent, senderId: 'st', sender: staffSender }} mine={false} onRetry={vi.fn()} onRemove={vi.fn()} />
+      </ul>,
+    )
+    expect(screen.getByRole('img', { name: 'KRAL' })).toHaveAttribute('src', '/favicon.svg')
+  })
+
+  it('shows the customer’s avatar on their message to staff', () => {
+    render(
+      <ul>
+        <MessageBubble message={sent} mine={false} staff onRetry={vi.fn()} onRemove={vi.fn()} />
+      </ul>,
+    )
+    expect(screen.getByRole('img', { name: 'Me' })).toBeInTheDocument()
+  })
+})
+
 describe('MessageBubble attachments', () => {
   const photo = (n: number) => ({ id: `a${n}`, url: `https://cdn.example.com/p${n}.png`, type: 'IMAGE' as const, mimeType: 'image/png', fileName: `p${n}.png`, sizeBytes: 10, displayOrder: n, createdAt: '' })
   const withFiles = (content: string, count: number): ThreadMessage => ({ ...failed(), status: undefined, content, attachments: Array.from({ length: count }, (_, n) => photo(n)) })
