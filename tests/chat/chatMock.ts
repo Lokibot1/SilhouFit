@@ -28,6 +28,7 @@ export interface Msg {
   conversationId: string
   senderId: string
   content: string
+  attachments: unknown[]
   createdAt: string
   updatedAt: string
   sender: Sender
@@ -89,7 +90,7 @@ let counter = 0
 /** A message from `from`; `at` defaults to now so a live message sorts after the seeded ones. */
 export function msg(content: string, from: Person, at = new Date().toISOString(), overrides: Partial<Msg> = {}): Msg {
   counter += 1
-  return { id: `m${counter}`, conversationId: CID, senderId: from.id, content, createdAt: at, updatedAt: at, sender: senderOf(from), ...overrides }
+  return { id: `m${counter}`, conversationId: CID, senderId: from.id, content, attachments: [], createdAt: at, updatedAt: at, sender: senderOf(from), ...overrides }
 }
 export const OLD = (minutes: number) => new Date(Date.UTC(2026, 10, 3, 2, minutes)).toISOString()
 
@@ -124,6 +125,10 @@ export interface ChatMock {
   me: Person
   /** Every POST /messages content, in order. */
   sends: string[]
+  /** The attachments of every POST /messages, in order. */
+  sentAttachments: { url: string; fileName: string; mimeType: string; sizeBytes: number }[][]
+  /** The path of every file uploaded to Storage (attachments bucket), in order. */
+  uploads: string[]
   /** The conversation id of every POST /typing, in order. */
   typings: string[]
   sendReply: (attempt: number) => SendReply
@@ -189,6 +194,8 @@ export async function mockChat(page: Page, role: Role = 'customer', init: Partia
     messages: init.messages ?? [],
     me: ME[role],
     sends: [],
+    sentAttachments: [],
+    uploads: [],
     typings: [],
     sendReply: () => 'ok',
     fail: { inbox: null, conversation: null },
@@ -238,19 +245,30 @@ export async function mockChat(page: Page, role: Role = 'customer', init: Partia
       }
       if (action === 'messages' && method === 'GET') return json(route, { data: mock.messages, meta: { total: mock.messages.length, limit: 50, hasMore: false } })
       if (action === 'messages' && method === 'POST') {
-        const { content } = request.postDataJSON() as { content: string }
+        const { content, attachments = [] } = request.postDataJSON() as { content: string; attachments?: ChatMock['sentAttachments'][number] }
         mock.sends.push(content)
+        mock.sentAttachments.push(attachments)
         await gates.send
         const reply = mock.sendReply(mock.sends.length)
         if (reply === 'abort') return route.abort('failed')
         if (reply !== 'ok') return json(route, { message: reply.message }, reply.status)
-        const stored = msg(content, mock.me)
+        const at = new Date().toISOString()
+        // Like the API: each stored attachment is an IMAGE or VIDEO row with an id and its order.
+        const stored = msg(content, mock.me, at, {
+          attachments: attachments.map((a, index) => ({ ...a, id: `a${index}`, type: a.mimeType.startsWith('video/') ? 'VIDEO' : 'IMAGE', displayOrder: index, createdAt: at })),
+        })
         mock.messages.push(stored)
         return json(route, stored, 201)
       }
       return json(route, { success: true })
     },
   )
+  // Supabase Storage: accepts every upload, like the real bucket does for a signed-in user.
+  await page.route('**/storage/v1/object/attachments/**', (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    mock.uploads.push(new URL(route.request().url()).pathname.split('/object/attachments/')[1])
+    return route.fulfill({ status: 200, json: { Key: 'attachments' }, headers: CORS })
+  })
   return mock
 }
 

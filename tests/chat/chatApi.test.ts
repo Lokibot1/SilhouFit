@@ -133,6 +133,13 @@ describe('sendMessage and markConversationRead', () => {
     expect(sent.id).toBe('m1')
   })
 
+  it('posts attachments with exactly the four fields, and allows empty text', async () => {
+    reply(message('m1', '2026-11-04T01:00:00Z'), 201)
+    const file = { url: 'https://x/storage/v1/object/public/attachments/u1/a.webp', fileName: 'a.webp', mimeType: 'image/webp', sizeBytes: 9 }
+    await sendMessage('c1', '', [file])
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ content: '', attachments: [file] })
+  })
+
   it('posts to /read and tells the page it was read', async () => {
     reply({ success: true })
     const heard = vi.fn()
@@ -187,6 +194,11 @@ describe('sendFailureCopy', () => {
     ['conflict', 'Not sent. This conversation is no longer available. Reload the page.'],
   ])('%s', (kind, copy) => {
     expect(sendFailureCopy(kind)).toBe(copy)
+  })
+
+  it('says which files are allowed when a message with files is refused', () => {
+    expect(sendFailureCopy('validation', true)).toBe('Not sent. A file was refused: only JPG, PNG, WebP, GIF, AVIF, MP4, WebM or MOV up to 25 MB, 5 per message. Remove it and send again.')
+    expect(sendFailureCopy('network', true)).toBe(sendFailureCopy('network'))
   })
 })
 

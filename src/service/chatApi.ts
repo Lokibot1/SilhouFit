@@ -36,6 +36,14 @@ export interface MessageAttachment {
   createdAt: string
 }
 
+/** One uploaded file as the send endpoint takes it: exactly these four fields. */
+export interface SentAttachment {
+  url: string
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+}
+
 export interface ChatMessage {
   id: string
   conversationId: string
@@ -110,11 +118,12 @@ export class ChatError extends Error {
 }
 
 /** Why a message was not sent, for the copy under it. Never includes the server's own text. */
-export function sendFailureCopy(kind: ChatErrorKind) {
+export function sendFailureCopy(kind: ChatErrorKind, withFiles = false) {
   switch (kind) {
     case 'network':
       return "Not sent. We couldn't reach the server, so check your connection and press Retry."
     case 'validation':
+      if (withFiles) return 'Not sent. A file was refused: only JPG, PNG, WebP, GIF, AVIF, MP4, WebM or MOV up to 25 MB, 5 per message. Remove it and send again.'
       return 'Not sent. The message was refused as invalid (it may be empty or over 2,000 characters). Edit it and send a new one.'
     case 'forbidden':
       return 'Not sent. Your messaging may be blocked, or your sign-in expired. Sign in again, then retry; if it keeps failing, contact support.'
@@ -245,9 +254,9 @@ export async function fetchMessages(id: string, before?: string, { signal }: Req
 }
 
 /** Feature: Chat – Send message */
-/** POST /chat/conversations/:id/messages, for a customer and for staff alike. 2000 characters at most; there is no client id, so a repeat is stored again. */
-export async function sendMessage(id: string, content: string, { signal }: RequestOptions = {}) {
-  return toMessage(await call('POST', `${idPath(id)}/messages`, { content }, signal))
+/** POST /chat/conversations/:id/messages, for a customer and for staff alike. 2000 characters at most, and up to 5 already-uploaded attachments (text may then be empty); there is no client id, so a repeat is stored again. */
+export async function sendMessage(id: string, content: string, attachments?: SentAttachment[], { signal }: RequestOptions = {}) {
+  return toMessage(await call('POST', `${idPath(id)}/messages`, { content, ...(attachments?.length && { attachments }) }, signal))
 }
 
 /** Feature: Chat – Mark read */

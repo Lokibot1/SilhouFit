@@ -15,11 +15,14 @@ import {
   type ChatRole,
   type Conversation,
   type MessageSender,
+  type SentAttachment,
 } from '../service/chatApi'
 import { conversationTopic } from '../service/chatRealtime'
 import { fetchMe } from '../service/fetchMe'
 import { getSession } from '../service/session'
 import type { RequestOptions } from '../service/simulateRequest'
+import { AvatarUploadError, deleteAvatar, uploadAvatar } from '../service/uploadAvatar'
+import { compressImage } from '../utils/chatAttachments'
 import { useChatRealtime } from './useChatRealtime'
 import { useCurrentUser } from './useCurrentUser'
 import { useSection } from './useSection'
@@ -31,6 +34,8 @@ export interface ThreadMessage extends ChatMessage {
   failure?: ChatErrorKind
   /** The React key: the local id of a message the viewer sent, kept after the server confirms it so the bubble does not remount and animate again. */
   key?: string
+  /** Percent of the attached files uploaded so far; only on a pending message that has files. */
+  progress?: number
   /** Arrived or was sent after the thread showed, so its bubble animates in. */
   fresh?: boolean
 }
@@ -47,6 +52,17 @@ interface Live {
   selfId?: string
 }
 
+const ATTACHMENT_BUCKET = 'attachments'
+/** The send failure kind for an upload that failed: a refused file is a validation failure, an expired sign-in a forbidden one. */
+const UPLOAD_FAILURE: Record<string, ChatErrorKind> = { invalid: 'validation', unauthorized: 'forbidden' }
+
+/** What a message the viewer is sending still holds: the chosen files, those already uploaded (so Retry does not upload them again) and the local previews to release. */
+interface Outbox {
+  files: File[]
+  uploaded: SentAttachment[]
+  previews: string[]
+}
+
 /** Joins messages by id, so a confirmed message and its Realtime echo are one. Oldest first. */
 export function mergeMessages(current: ThreadMessage[], incoming: ThreadMessage[]) {
   const byId = new Map(current.map((message) => [message.id, message]))
@@ -59,7 +75,7 @@ function mergeArrived(messages: ThreadMessage[], arrived: ChatMessage[], selfId?
   let result = messages
   const keyed: ThreadMessage[] = []
   for (const message of arrived) {
-    const index = message.senderId === selfId ? result.findIndex((m) => m.status === 'pending' && m.content === message.content) : -1
+    const index = message.senderId === selfId ? result.findIndex((m) => m.status === 'pending' && m.content === message.content && m.attachments.length === message.attachments.length) : -1
     if (index >= 0) {
       keyed.push({ ...message, key: result[index].id, fresh: true })
       result = result.filter((_, n) => n !== index)
@@ -81,6 +97,11 @@ export function useConversation(conversationId: string) {
   const typingTimer = useRef<number>(undefined)
   const typingId = useRef<string>(undefined)
   const lastTyped = useRef(0)
+  const outbox = useRef(new Map<string, Outbox>())
+  useEffect(() => {
+    const boxes = outbox.current
+    return () => boxes.forEach((box) => box.previews.forEach((url) => URL.revokeObjectURL(url)))
+  }, [])
   useEffect(() => {
     liveRef.current = live
   })
@@ -167,13 +188,37 @@ export function useConversation(conversationId: string) {
     }
   }, [connection, toast])
 
+  const setProgress = (id: string, progress: number) => setLive((old) => old && { ...old, messages: old.messages.map((m) => (m.id === id ? { ...m, progress } : m)) })
+
+  /** Deletes what this message uploaded (best effort); the files are no use once it is refused or removed. */
+  function dropUploads(box: Outbox) {
+    const selfId = liveRef.current?.selfId
+    for (const { url } of box.uploaded.splice(0)) if (selfId) void deleteAvatar(url, selfId, ATTACHMENT_BUCKET)
+  }
+
+  function release(id: string) {
+    outbox.current.get(id)?.previews.forEach((url) => URL.revokeObjectURL(url))
+    outbox.current.delete(id)
+  }
+
   async function deliver(id: string, content: string) {
+    const box = outbox.current.get(id)
     try {
-      const sent = await sendMessage(conversationId, content)
+      if (box && box.uploaded.length < box.files.length) {
+        const selfId = liveRef.current?.selfId ?? (await fetchMe()).id
+        for (let i = box.uploaded.length; i < box.files.length; i++) {
+          const file = await compressImage(box.files[i])
+          const url = await uploadAvatar(file, selfId, (percent) => setProgress(id, Math.round((i * 100 + percent) / box.files.length)), undefined, ATTACHMENT_BUCKET)
+          box.uploaded.push({ url, fileName: file.name.slice(0, 255), mimeType: file.type, sizeBytes: file.size })
+        }
+      }
+      const sent = box?.uploaded.length ? await sendMessage(conversationId, content, box.uploaded) : await sendMessage(conversationId, content)
+      release(id)
       setLive((old) => old && { ...old, messages: mergeMessages(old.messages.filter((m) => m.id !== id), [{ ...sent, key: id, fresh: true }]) })
     } catch (e) {
-      const failure = e instanceof ChatError ? e.kind : 'network'
-      setLive((old) => old && { ...old, messages: old.messages.map((m) => (m.id === id ? { ...m, status: 'failed', failure } : m)) })
+      const failure = e instanceof ChatError ? e.kind : e instanceof AvatarUploadError ? (UPLOAD_FAILURE[e.kind] ?? e.kind) : 'network'
+      if (failure === 'validation' && box) dropUploads(box)
+      setLive((old) => old && { ...old, messages: old.messages.map((m) => (m.id === id ? { ...m, status: 'failed', failure, progress: undefined } : m)) })
       // A block that started after this thread loaded: refresh the detail so the composer shows it. A failed refresh changes nothing.
       if (failure === 'forbidden') {
         const detail = await fetchConversation(conversationId).catch(() => undefined)
@@ -182,24 +227,33 @@ export function useConversation(conversationId: string) {
     }
   }
 
-  function send(content: string) {
+  function send(content: string, files: File[] = []) {
     if (!live) return
     const id = `pending-${crypto.randomUUID()}`
     const now = new Date().toISOString()
-    const pending: ThreadMessage = { id, conversationId, senderId: live.selfId ?? '', content, attachments: [], createdAt: now, updatedAt: now, sender: selfSender(live), status: 'pending', fresh: true }
+    const previews = files.map((file) => URL.createObjectURL(file))
+    if (files.length) outbox.current.set(id, { files, uploaded: [], previews })
+    const attachments = files.map((file, index) => ({ id: `${id}-${index}`, url: previews[index], type: file.type.startsWith('video/') ? ('VIDEO' as const) : ('IMAGE' as const), mimeType: file.type, fileName: file.name, sizeBytes: file.size, displayOrder: index, createdAt: now }))
+    const pending: ThreadMessage = { id, conversationId, senderId: live.selfId ?? '', content, attachments, createdAt: now, updatedAt: now, sender: selfSender(live), status: 'pending', ...(files.length && { progress: 0 }), fresh: true }
     setLive((old) => old && { ...old, messages: mergeMessages(old.messages, [pending]) })
     return deliver(id, content)
   }
 
-  /** Sends a failed message again. The API has no way to tell it from a new one, so a copy that did reach the server shows up twice. */
+  /** Sends a failed message again. The API has no way to tell it from a new one, so a copy that did reach the server shows up twice. Files already uploaded are not uploaded again. */
   function retrySend(id: string) {
     const failed = live?.messages.find((m) => m.id === id && m.status === 'failed')
     if (!failed) return
-    setLive((old) => old && { ...old, messages: old.messages.map((m) => (m.id === id ? { ...m, status: 'pending', failure: undefined } : m)) })
+    const box = outbox.current.get(id)
+    setLive((old) => old && { ...old, messages: old.messages.map((m) => (m.id === id ? { ...m, status: 'pending', failure: undefined, ...(box && { progress: Math.round((box.uploaded.length * 100) / box.files.length) }) } : m)) })
     return deliver(id, failed.content)
   }
 
-  const removeFailed = (id: string) => setLive((old) => old && { ...old, messages: old.messages.filter((m) => m.id !== id) })
+  function removeFailed(id: string) {
+    const box = outbox.current.get(id)
+    if (box) dropUploads(box)
+    release(id)
+    setLive((old) => old && { ...old, messages: old.messages.filter((m) => m.id !== id) })
+  }
 
   async function loadEarlier() {
     const oldest = live?.messages.find((m) => !m.status)

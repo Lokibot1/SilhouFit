@@ -4,6 +4,7 @@ import { POLL_MS, SAFETY_POLL_MS } from '../../src/hooks/useChatRealtime'
 import { TYPING_MS, TYPING_SEND_MS, useConversation } from '../../src/hooks/useConversation'
 import { ChatError, fetchConversation, fetchMessages, markConversationRead, sendMessage, sendTyping, type ChatMessage, type Conversation, type MessageSender } from '../../src/service/chatApi'
 import { clearSession, setSession } from '../../src/service/session'
+import { AvatarUploadError, deleteAvatar, uploadAvatar } from '../../src/service/uploadAvatar'
 
 vi.mock('../../src/service/chatApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/chatApi')>()),
@@ -13,6 +14,12 @@ vi.mock('../../src/service/chatApi', async (importOriginal) => ({
   sendTyping: vi.fn(),
   markConversationRead: vi.fn().mockResolvedValue(undefined),
 }))
+vi.mock('../../src/service/uploadAvatar', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/uploadAvatar')>()),
+  uploadAvatar: vi.fn(),
+  deleteAvatar: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('../../src/utils/chatAttachments', () => ({ compressImage: vi.fn(async (file: File) => file) }))
 vi.mock('../../src/service/fetchMe', () => ({ fetchMe: vi.fn().mockResolvedValue({ id: 'me' }) }))
 
 const toast = { show: vi.fn(), dismiss: vi.fn() }
@@ -322,5 +329,90 @@ describe('useConversation', () => {
       act(() => result.current.notifyTyping())
       expect(sendTyping).toHaveBeenCalledTimes(2)
     })
+  })
+})
+
+describe('useConversation attachments', () => {
+  const photo = (name = 'a.png') => new File(['x'], name, { type: 'image/png' })
+  const url = (name: string) => `https://x/storage/v1/object/public/attachments/me/${name}`
+  beforeEach(() => {
+    let n = 0
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => `blob:p${n++}`), revokeObjectURL: vi.fn() }))
+    vi.mocked(uploadAvatar).mockImplementation(async (file, _id, onProgress) => {
+      onProgress(100)
+      return url(file.name)
+    })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('shows a pending bubble with local previews, uploads to the attachments bucket, then sends the four fields', async () => {
+    const { result } = await setup()
+    let finish!: (sent: ChatMessage) => void
+    vi.mocked(sendMessage).mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    act(() => void result.current.send('', [photo('a.png'), photo('b.png')]))
+    expect(result.current.messages.at(-1)).toMatchObject({ status: 'pending', content: '', attachments: [{ url: 'blob:p0', type: 'IMAGE' }, { url: 'blob:p1' }] })
+    await waitFor(() => expect(sendMessage).toHaveBeenCalled())
+    expect(uploadAvatar).toHaveBeenCalledWith(expect.any(File), 'me', expect.any(Function), undefined, 'attachments')
+    expect(sendMessage).toHaveBeenCalledWith('c1', '', [
+      { url: url('a.png'), fileName: 'a.png', mimeType: 'image/png', sizeBytes: 1 },
+      { url: url('b.png'), fileName: 'b.png', mimeType: 'image/png', sizeBytes: 1 },
+    ])
+    await act(async () => finish(message('m2', '2025-11-04T02:00:00Z', { senderId: 'me', content: '' })))
+    expect(result.current.messages.map((m) => m.id)).toEqual(['m1', 'm2'])
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:p0')
+  })
+
+  it('reports aggregate upload progress on the pending bubble', async () => {
+    const { result } = await setup()
+    let report!: (percent: number) => void
+    vi.mocked(uploadAvatar).mockImplementation((_f, _id, onProgress) => {
+      report = onProgress
+      return new Promise(() => {})
+    })
+    act(() => void result.current.send('', [photo('a.png'), photo('b.png')]))
+    await waitFor(() => expect(report).toBeDefined())
+    act(() => report(50))
+    expect(result.current.messages.at(-1)?.progress).toBe(25)
+  })
+
+  it('pairs an echo with its pending copy by text and attachment count when the text is empty', async () => {
+    const { result } = await setup()
+    vi.mocked(uploadAvatar).mockReturnValue(new Promise(() => {}))
+    act(() => void result.current.send('', [photo()]))
+    const echo = message('m2', '2025-11-04T02:00:00Z', { senderId: 'me', content: '', attachments: [{ id: 'x', url: url('a.png'), type: 'IMAGE', mimeType: 'image/png', fileName: 'a.png', sizeBytes: 1, displayOrder: 0, createdAt: '' }] })
+    insert(echo)
+    expect(result.current.messages.map((m) => m.id)).toEqual(['m1', 'm2'])
+  })
+
+  it('retries without uploading again, after the send failed on the network', async () => {
+    const { result } = await setup()
+    vi.mocked(sendMessage).mockRejectedValueOnce(new ChatError('network'))
+    await act(async () => void result.current.send('', [photo()]))
+    const failed = result.current.messages.at(-1)!
+    expect(failed.status).toBe('failed')
+    expect(uploadAvatar).toHaveBeenCalledTimes(1)
+    expect(deleteAvatar).not.toHaveBeenCalled()
+    vi.mocked(sendMessage).mockResolvedValue(message('m2', '2025-11-04T02:00:00Z', { senderId: 'me', content: '' }))
+    await act(async () => void result.current.retrySend(failed.id))
+    expect(uploadAvatar).toHaveBeenCalledTimes(1)
+    expect(sendMessage).toHaveBeenCalledTimes(2)
+  })
+
+  it('deletes the uploads when the server refuses the message, and releases the previews on Remove', async () => {
+    const { result } = await setup()
+    vi.mocked(sendMessage).mockRejectedValueOnce(new ChatError('validation'))
+    await act(async () => void result.current.send('', [photo()]))
+    expect(result.current.messages.at(-1)).toMatchObject({ status: 'failed', failure: 'validation' })
+    expect(deleteAvatar).toHaveBeenCalledWith(url('a.png'), 'me', 'attachments')
+    act(() => result.current.removeFailed(result.current.messages.at(-1)!.id))
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:p0')
+  })
+
+  it('maps an upload that was refused to a validation failure without sending', async () => {
+    const { result } = await setup()
+    vi.mocked(uploadAvatar).mockRejectedValue(new AvatarUploadError('invalid'))
+    await act(async () => void result.current.send('', [photo()]))
+    expect(result.current.messages.at(-1)).toMatchObject({ status: 'failed', failure: 'validation' })
+    expect(sendMessage).not.toHaveBeenCalled()
   })
 })

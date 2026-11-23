@@ -23,7 +23,7 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message, enter = false, mine, staff = false, blocked = false, onRetry, onRemove }: MessageBubbleProps) {
-  const { status } = message
+  const { status, progress } = message
   const { sender } = message
   const masked = !staff && !mine && sender?.role !== 'customer'
   const name = masked ? CHAT_BRAND_NAME : sender ? displayName(sender) : ''
@@ -68,7 +68,7 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
         )}
         {status === 'failed' ? (
           <div role="alert" className="mt-1 flex flex-wrap items-center gap-x-1 px-1 text-sm text-danger">
-            <span>{sendFailureCopy(message.failure ?? 'network')}</span>
+            <span>{sendFailureCopy(message.failure ?? 'network', attachments.length > 0)}</span>
             {message.failure !== 'validation' && !blocked && (
               <button type="button" onClick={() => onRetry(message.id)} className={`${ACTION} text-fg`}>
                 Retry
@@ -80,7 +80,18 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
           </div>
         ) : (
           <p className="font-ui mt-1 px-1 text-xs text-fg-muted tabular-nums">
-            {status === 'pending' ? 'Sending…' : <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>}
+            {status === 'pending' && progress !== undefined && progress < 100 ? (
+              <span className="flex items-center gap-2">
+                <span role="progressbar" aria-label="Uploading files" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="block h-1 w-24 overflow-hidden rounded-full bg-line">
+                  <span className="block h-full origin-left bg-fg" style={{ transform: `scaleX(${progress / 100})` }} />
+                </span>
+                Uploading {progress}%
+              </span>
+            ) : status === 'pending' ? (
+              'Sending…'
+            ) : (
+              <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>
+            )}
           </p>
         )}
       </div>

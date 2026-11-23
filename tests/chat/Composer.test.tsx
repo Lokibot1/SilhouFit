@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Composer } from '../../src/components/chat/Composer'
 
 function setup(props: Partial<{ sending: boolean }> = {}) {
@@ -108,5 +108,69 @@ describe('Composer', () => {
     expect(field).toHaveAccessibleDescription(/blocked by staff/)
     expect(field).toHaveAttribute('placeholder', 'Messaging is blocked')
     expect(screen.queryByText(/ \/ 2000/)).not.toBeInTheDocument()
+  })
+})
+
+describe('Composer attachments', () => {
+  beforeEach(() => {
+    let n = 0
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => `blob:preview-${n++}`), revokeObjectURL: vi.fn() }))
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  const png = (name = 'a.png') => new File(['x'], name, { type: 'image/png' })
+  function withFiles() {
+    const onSend = vi.fn()
+    render(<Composer onSend={onSend} sending={false} attachments />)
+    return { onSend, input: screen.getByLabelText('Choose photos or videos to attach') as HTMLInputElement, send: screen.getByRole('button', { name: 'Send message' }) }
+  }
+
+  it('shows no paperclip unless attachments are on', () => {
+    render(<Composer onSend={vi.fn()} sending={false} />)
+    expect(screen.queryByRole('button', { name: 'Attach photos or videos' })).toBeNull()
+  })
+
+  it('enables Send for an attachment alone, previews it, and sends the files with empty text', async () => {
+    const user = userEvent.setup()
+    const { onSend, input, send } = withFiles()
+    expect(send).toBeDisabled()
+    const file = png()
+    await user.upload(input, file)
+    expect(screen.getByAltText('a.png')).toBeInTheDocument()
+    expect(send).toBeEnabled()
+    await user.click(send)
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('', [file])
+    expect(screen.queryByAltText('a.png')).toBeNull()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview-0')
+  })
+
+  it('removes a file with its button and returns focus to the paperclip', async () => {
+    const user = userEvent.setup()
+    const { input } = withFiles()
+    await user.upload(input, png())
+    await user.click(screen.getByRole('button', { name: 'Remove a.png' }))
+    expect(screen.queryByAltText('a.png')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Attach photos or videos' })).toHaveFocus()
+  })
+
+  it('shows a video as a named tile', async () => {
+    const user = userEvent.setup()
+    const { input } = withFiles()
+    await user.upload(input, new File(['x'], 'clip.mp4', { type: 'video/mp4' }))
+    expect(screen.getByText('clip.mp4')).toBeInTheDocument()
+  })
+
+  it('refuses a wrong type, an oversized file and a sixth file with a note saying why and what to do', async () => {
+    const user = userEvent.setup({ applyAccept: false })
+    const { input } = withFiles()
+    await user.upload(input, new File(['x'], 'doc.pdf', { type: 'application/pdf' }))
+    expect(screen.getByRole('status')).toHaveTextContent("doc.pdf wasn't added. Only JPG")
+    const big = new File(['x'], 'big.mp4', { type: 'video/mp4' })
+    Object.defineProperty(big, 'size', { value: 26 * 1024 * 1024 })
+    await user.upload(input, big)
+    expect(screen.getByRole('status')).toHaveTextContent('limit is 25 MB')
+    await user.upload(input, [1, 2, 3, 4, 5, 6].map((n) => png(`p${n}.png`)))
+    expect(screen.getAllByRole('listitem')).toHaveLength(5)
+    expect(screen.getByRole('status')).toHaveTextContent("p6.png wasn't added. A message holds 5 files")
   })
 })

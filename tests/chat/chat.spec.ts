@@ -111,6 +111,37 @@ test.describe('customer thread', () => {
   })
 })
 
+test.describe('attachments', () => {
+  // A 1x1 PNG, so the page can really draw the photo the mocked server hands back.
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64')
+
+  test('attaches a photo, shows its preview, uploads it with progress and sends it with empty text', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'covered on desktop')
+    const api = await startChat(page, 'customer', { init: { messages: [HELLO] } })
+    await expect(sendButton(page)).toBeDisabled()
+    await page.getByLabel('Choose photos or videos to attach').setInputFiles({ name: 'hoodie.png', mimeType: 'image/png', buffer: PNG })
+    await expect(page.getByRole('img', { name: 'hoodie.png' })).toBeVisible()
+    await expect(sendButton(page)).toBeEnabled()
+    await sendButton(page).click()
+    const mine = messages(page).last()
+    await expect(mine).toHaveAttribute('data-status', 'sent')
+    expect(api.uploads).toHaveLength(1)
+    expect(api.uploads[0]).toMatch(/^user-1\/[\w-]+\.png$/)
+    expect(api.sends).toEqual([''])
+    expect(api.sentAttachments[0]).toMatchObject([{ fileName: 'hoodie.png', mimeType: 'image/png', sizeBytes: PNG.length }])
+    await expect(mine.getByRole('button')).toHaveCount(1)
+  })
+
+  test('refuses a file type that is not allowed, and says what to do', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'covered on desktop')
+    const api = await startChat(page, 'customer', { init: { messages: [HELLO] } })
+    await page.getByLabel('Choose photos or videos to attach').setInputFiles({ name: 'notes.pdf', mimeType: 'application/pdf', buffer: Buffer.from('x') })
+    await expect(page.getByRole('status').filter({ hasText: "notes.pdf wasn't added" })).toBeVisible()
+    await expect(sendButton(page)).toBeDisabled()
+    expect(api.uploads).toHaveLength(0)
+  })
+})
+
 test.describe('staff inbox', () => {
   test('lists threads, opens one, marks it read, replies, and shows a customer message and the inbox update live', async ({ page, isMobile }) => {
     test.skip(isMobile, 'the list and thread are side by side on desktop only; the phone layout is covered below')

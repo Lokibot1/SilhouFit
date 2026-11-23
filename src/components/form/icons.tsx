@@ -475,6 +475,18 @@ export const SendIcon = ({ size = 20, className }: IconProps) => (
   </Icon>
 )
 
+export const PaperclipIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="m21 11-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6L15 6.5" />
+  </Icon>
+)
+
+export const VideoIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M3 6h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1ZM16 10l6-3v10l-6-3" />
+  </Icon>
+)
+
 export const PhoneIcon = ({ size = 20, className }: IconProps) => (
   <Icon size={size} className={className}>
     <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />

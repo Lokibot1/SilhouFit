@@ -97,7 +97,8 @@ export function ChatThread({ conversationId, staff = false, leading, compact = f
             )}
             <Composer
               disabledReason={!staff && blockedAt ? `Your messaging is blocked, so you can't send messages. You can still read replies.${detail.customer?.messagingBlockedReason ? ` Reason: ${detail.customer.messagingBlockedReason}` : ''}` : undefined}
-              onSend={(body) => void chat.send(body)}
+              onSend={(body, files) => void chat.send(body, files)}
+              attachments
               sending={chat.sending}
               onTyping={chat.notifyTyping}
               focusOnMount={compact}
