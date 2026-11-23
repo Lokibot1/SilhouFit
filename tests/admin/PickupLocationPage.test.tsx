@@ -464,9 +464,8 @@ describe('PickupLocationPage', () => {
       const main = await screen.findByRole('region', { name: 'Pickup address' })
       expect(within(main).getByText('Default')).toBeInTheDocument()
       expect(within(main).getByText(/Used for all new Lalamove rider bookings and checkout quotes\./)).toBeInTheDocument()
-      expect(within(main).getByText('Set another location as default to delete this one.')).toBeInTheDocument()
       expect(within(main).getByRole('button', { name: 'Edit Main store' })).toBeInTheDocument()
-      expect(within(main).queryByRole('button', { name: /^Delete/ })).not.toBeInTheDocument()
+      expect(within(main).getByRole('button', { name: 'Delete Main store' })).toBeInTheDocument()
       expect(within(main).queryByRole('button', { name: /^Set as default/ })).not.toBeInTheDocument()
       expect(screen.getByRole('heading', { level: 2, name: 'Other pickup locations' })).toBeInTheDocument()
       const spare = spareCard()
@@ -477,11 +476,11 @@ describe('PickupLocationPage', () => {
       expect(within(spare).getByRole('button', { name: 'Delete Makati hub' })).toBeInTheDocument()
     })
 
-    it('has no hint and no Other locations list for the only location', async () => {
+    it('has no Delete and no Other locations list for the only location', async () => {
       api.fetchPickupLocations.mockResolvedValue([SAVED])
       setup()
       await screen.findByRole('button', { name: 'Edit Main store' })
-      expect(screen.queryByText('Set another location as default to delete this one.')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Delete Main store' })).not.toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'Other pickup locations' })).not.toBeInTheDocument()
     })
 
@@ -567,6 +566,20 @@ describe('PickupLocationPage', () => {
       expect(within(main).getByText('Makati hub', { selector: 'p' })).toBeInTheDocument()
       expect(within(screen.getByRole('region', { name: 'Main store' })).getByRole('button', { name: 'Delete Main store' })).toBeInTheDocument()
       await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Pickup address' })).toHaveFocus())
+    })
+
+    it('deletes the default after a dialog that says another location takes over', async () => {
+      both()
+      api.deletePickupLocation.mockImplementation(async () => {
+        api.fetchPickupLocations.mockResolvedValue([{ ...SPARE, isDefault: true }])
+      })
+      const user = setup()
+      await user.click(await screen.findByRole('button', { name: 'Delete Main store' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Delete this pickup location?' })
+      expect(within(dialog).getByText(/This is the default location/)).toBeInTheDocument()
+      await user.click(within(dialog).getByRole('button', { name: 'Delete pickup location' }))
+      expect(await screen.findByText('Pickup location deleted')).toBeInTheDocument()
+      expect(api.deletePickupLocation).toHaveBeenCalledWith(SAVED.id)
     })
 
     it('deletes a spare only after the Are you sure? dialog, then toasts', async () => {

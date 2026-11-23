@@ -215,14 +215,15 @@ const FOOT_BUTTONS = 'flex flex-col gap-3 sm:shrink-0 sm:flex-row sm:flex-wrap'
 
 interface SummaryProps {
   location: PickupLocation
-  /** Whether another location could be made the default, which is what lets this one be deleted. */
+  /** Whether another location could take over as the default, which is what lets this one be deleted. */
   hasOthers: boolean
   headingRef: Ref<HTMLHeadingElement>
   onEdit: () => void
+  onDelete: () => void
 }
 
 /** The default location as two cards: its details, and a read-only map. */
-function Summary({ location, hasOthers, headingRef, onEdit }: SummaryProps) {
+function Summary({ location, hasOthers, headingRef, onEdit, onDelete }: SummaryProps) {
   return (
     <div className={PICKUP_GRID}>
       <LocationCard
@@ -232,11 +233,17 @@ function Summary({ location, hasOthers, headingRef, onEdit }: SummaryProps) {
           <>
             <p className={FOOT_NOTE}>
               Used for all new Lalamove rider bookings and checkout quotes.
-              {hasOthers && <span className="block">Set another location as default to delete this one.</span>}
             </p>
-            <button id={`pickup-edit-${location.id}`} type="button" aria-label={`Edit ${labelOf(location)}`} onClick={onEdit} className={`${PRIMARY_BUTTON} w-full sm:w-auto sm:shrink-0`}>
-              Edit
-            </button>
+            <div className={FOOT_BUTTONS}>
+              {hasOthers && (
+                <button type="button" aria-label={`Delete ${labelOf(location)}`} onClick={onDelete} className={SECONDARY_BUTTON}>
+                  Delete
+                </button>
+              )}
+              <button id={`pickup-edit-${location.id}`} type="button" aria-label={`Edit ${labelOf(location)}`} onClick={onEdit} className={PRIMARY_BUTTON}>
+                Edit
+              </button>
+            </div>
           </>
         }
       />
@@ -564,7 +571,7 @@ export function PickupLocationPage() {
               </PlainCard>
             ) : current ? (
               <>
-                <Summary location={current} hasOthers={others.length > 0} headingRef={headingRef} onEdit={() => open(current)} />
+                <Summary location={current} hasOthers={others.length > 0} headingRef={headingRef} onEdit={() => open(current)} onDelete={() => setAction({ kind: 'delete', location: current })} />
                 {others.length > 0 && (
                   <section aria-labelledby="pickup-others-heading" className="flex max-w-6xl min-w-0 flex-col gap-3">
                     <h2 id="pickup-others-heading" className="text-base font-semibold text-fg">
@@ -612,6 +619,7 @@ export function PickupLocationPage() {
         {action?.kind === 'delete' && (
           <>
             <Place heading="Delete" place={action.location} />
+            {action.location.isDefault && <p className="mt-3">This is the default location. Your newest other pickup location becomes the default, so riders can still be booked.</p>}
             <p className="mt-3">Orders already shipped keep the pickup details they left from. This can't be undone.</p>
           </>
         )}

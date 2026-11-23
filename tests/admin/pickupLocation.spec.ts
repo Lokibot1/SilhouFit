@@ -934,16 +934,15 @@ test.describe('several locations', () => {
     return calls
   }
 
-  test('lists the default first, with a Default pill and no Delete, and the spare with its three actions', async ({ page }) => {
+  test('lists the default first, with a Default pill and Delete, and the spare with its three actions', async ({ page }) => {
     await mockPickupLocations(page, [SPARE, SAVED])
     await openAs(page)
     const main = section(page)
     await expect(main.getByText('Main warehouse', { exact: true })).toBeVisible()
     await expect(main.getByText('Default', { exact: true })).toBeVisible()
     await expect(main.getByText(/Used for all new Lalamove rider bookings and checkout quotes\./)).toBeVisible()
-    await expect(main.getByText('Set another location as default to delete this one.')).toBeVisible()
     await expect(main.getByRole('button', { name: /^Edit/ })).toBeVisible()
-    await expect(main.getByRole('button', { name: /^Delete/ })).toHaveCount(0)
+    await expect(main.getByRole('button', { name: /^Delete/ })).toHaveCount(1)
     await expect(page.getByRole('heading', { level: 2, name: 'Other pickup locations' })).toBeVisible()
     await expect(spare(page).getByText('Default', { exact: true })).toHaveCount(0)
     await expect(spare(page).getByText('14.554700, 121.024400')).toHaveCSS('font-variant-numeric', /tabular-nums/)
