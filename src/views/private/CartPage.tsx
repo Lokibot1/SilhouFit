@@ -1,5 +1,5 @@
 import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useTransform } from 'motion/react'
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useOpenLoginModal } from '../../components/auth/LoginModal'
 import { BagIcon, CartIcon, CheckIcon, ChevronDownIcon, FilterIcon, MinusIcon, PaletteIcon, PlusIcon, RulerIcon, StoreIcon, TrashIcon, UserIcon } from '../../components/form/icons'
@@ -118,6 +118,14 @@ export function CartPage() {
   useMetaDescription(DESCRIPTION)
 
   const cart = useCart()
+  // Stock can change while the page is open, and a phone keeps the tab for hours: look again on arrival and each time the tab comes back.
+  const { refresh } = cart
+  useEffect(() => {
+    refresh()
+    const onVisible = () => document.visibilityState === 'visible' && refresh()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refresh])
   const user = useCurrentUser()
   const navigate = useNavigate()
   const toast = useToast()

@@ -183,6 +183,16 @@ function addToCart({ product, variantId, qty = 1 }: AddRequest): Promise<'added'
   })
 }
 
+/** Reads the server's cart again without the loading skeleton, so stock that changed while the page sat open (a phone tab can stay open for hours) shows up. Runs after any change in flight. */
+function refreshCart() {
+  if (!signedIn || state.status !== 'ready') return
+  const current = generation
+  void enqueue(async () => {
+    const cart = await fetchCart()
+    if (current === generation) commitServer(cart)
+  }).catch(() => {})
+}
+
 /** Sets a line's quantity, capped at the variant's stock; zero or less removes it. */
 function setLineQty(key: string, qty: number) {
   return enqueue(async () => {
@@ -278,6 +288,7 @@ export function useCart() {
     lines: current.lines,
     count: current.count,
     retry: () => void load(),
+    refresh: refreshCart,
     qtyOfVariant: (variantId: string | undefined) => current.lines.find((line) => line.variantId === variantId)?.qty ?? 0,
     add: addToCart,
     remove: removeFromCart,
