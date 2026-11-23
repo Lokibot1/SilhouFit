@@ -142,7 +142,6 @@ function OpsCard<T>({ index, fetcher, what, icon, tone, label, to, action, read,
 export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'; first?: number }) {
   return (
     <>
-      {/* SAMPLE_DATA: refunds read the sample orders until the backend answers; stock and AR-ready are connected (see service/adminOverview). */}
       <OpsCard
         index={first}
         fetcher={getRefundFigures}
@@ -152,10 +151,9 @@ export function OperationsCards({ base, first = 0 }: { base: '/admin' | '/staff'
         label="Refunds"
         to={`${base}/transactions?status=returned`}
         action="open returned transactions"
-        sampleReason="Refund figures are placeholders until their backend is connected."
-        read={({ returned, orders }: RefundFigures) => ({
-          value: returned,
-          context: `${orders > 0 ? ((returned / orders) * 100).toFixed(1) : '0.0'}% of ${orders.toLocaleString('en-PH')} orders returned`,
+        read={({ refunded, payments }: RefundFigures) => ({
+          value: refunded,
+          context: `${payments > 0 ? ((refunded / payments) * 100).toFixed(1) : '0.0'}% of ${payments.toLocaleString('en-PH')} payments refunded`,
         })}
       />
       <OpsCard

@@ -1,20 +1,22 @@
-// The three operations figures on the admin dashboard. Stock and AR-ready are read from the backend (one GET /products/metrics serves both); refunds are answered from the sample data the staff pages use until the backend has them.
+// The three operations figures on the admin dashboard, all read from the backend: stock and AR-ready share one GET /products/metrics, refunds come from GET /admin/transactions/metrics, the same counts as the Transactions page.
 // None repeats the staff cards (AR sessions, sales, orders, units sold).
 import { LOW_STOCK } from '../data/products'
 import { ProductListError, request } from './fetchProductList'
 import { isMoney, isRecord } from './ordersApi'
-import { sampleTransactionSummary } from './sampleTransactions'
+import { fetchAdminTransactionMetrics } from './adminTransactionsApi'
 import type { RequestOptions } from './simulateRequest'
 
 export interface RefundFigures {
-  returned: number
-  orders: number
+  /** Payments that were refunded in full or in part, the same count the Transactions page shows. */
+  refunded: number
+  /** Every payment, whatever its status. */
+  payments: number
 }
 
-/** REPLACE: GET /orders/summary (the Transactions page's fetchTransactionSummary): `returnedCount` and `count` for all orders. */
-export async function getRefundFigures({ signal, delayMs = 700 }: RequestOptions = {}): Promise<RefundFigures> {
-  const { count, returnedCount } = await sampleTransactionSummary({}, { signal, delayMs })
-  return { returned: returnedCount, orders: count }
+/** Connected: GET /admin/transactions/metrics (staff and above), `refundedCount` plus `partiallyRefundedCount` against `totalTransactions`. */
+export async function getRefundFigures({ signal }: Pick<RequestOptions, 'signal'> = {}): Promise<RefundFigures> {
+  const metrics = await fetchAdminTransactionMetrics({ signal })
+  return { refunded: metrics.refundedCount + (metrics.partiallyRefundedCount ?? 0), payments: metrics.totalTransactions }
 }
 
 export interface ArFigures {

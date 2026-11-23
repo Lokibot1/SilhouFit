@@ -1,14 +1,15 @@
 import { expect, test, type Page } from '@playwright/test'
 import { manyAdminOrders, mockAdminOrders } from '../shared/adminOrders'
 import { adminRefund, manyAdminRefunds, mockAdminRefunds } from '../shared/adminRefunds'
+import { manyAdminTransactions, mockAdminTransactions } from '../shared/adminTransactions'
 import { manyAuditLogs, mockAuditLogs } from '../shared/auditLogs'
 import { FAQS, mockFaqs } from '../shared/faqs'
 import { apiPickupLocation, mockPickupLocations } from '../shared/pickupLocations'
 import { mockProductMetrics } from '../shared/products'
 import { stubUsersApi, SAMPLE_USERS } from './usersApiStub'
 
-// Every page that still reads placeholder data says "Sample data" next to its title (the /staff and /admin dashboards are connected apart from their
-// Refunds card, so it carries the badge instead; AR-ready and Low or out of stock read the backend); the pages that are connected to the backend (the User
+// Every page that still reads placeholder data says "Sample data" next to its title (the /staff and /admin dashboards are fully connected, so their
+// cards carry no badge: Refunds, AR-ready and Low or out of stock all read the backend); the pages that are connected to the backend (the User
 // Management tabs, the Messages dropdown, Online orders, Refunds, Activity logs, Help Chatbot, Pickup location) must not. Sign-in is the dev-only simulated one. Runs in the desktop and mobile projects.
 
 const STAFF = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
@@ -53,11 +54,12 @@ for (const [who, home, path] of [
   [STAFF, /\/staff$/, '/staff'],
   [ADMIN, /\/admin$/, '/admin'],
 ] as const) {
-  test(`${path} says Sample data inside its refunds card only, not next to the title`, async ({ page }) => {
+  test(`${path} shows the real refunds card and says Sample data nowhere`, async ({ page }) => {
     // The dashboards' connected sections call the API, which the dev accounts have no token for, so they are stubbed.
     await mockAdminOrders(page, manyAdminOrders(1))
     await mockAuditLogs(page, [])
     await mockProductMetrics(page)
+    await mockAdminTransactions(page, manyAdminTransactions(3))
     await page.route(
       (url) => url.origin !== 'http://localhost:5173' && url.pathname.startsWith('/analytics/'),
       (route) => {
@@ -71,8 +73,8 @@ for (const [who, home, path] of [
     await signIn(page, who, home)
     await page.goto(path)
     await expect(page.getByRole('heading', { level: 1, name: 'Hello' })).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByRole('region', { name: 'Refunds, AR and stock at a glance' }).getByText('Sample data', { exact: true })).toHaveCount(1)
-    await expect(badge(page)).toHaveCount(1)
+    await expect(page.getByRole('region', { name: 'Refunds, AR and stock at a glance' }).getByText(/% of \d+ payments refunded/)).toBeVisible()
+    await expect(badge(page)).toHaveCount(0)
     await expect(page.getByRole('heading', { level: 1 }).locator('..').getByText('Sample data')).toHaveCount(0)
     expect(await overflow(page)).toBe(0)
   })

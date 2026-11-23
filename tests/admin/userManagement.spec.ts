@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { manyAdminTransactions, mockAdminTransactions } from '../shared/adminTransactions'
 import { mockProductMetrics } from '../shared/products'
 import { inactive, manyUsers, stubUsersApi, userRow, type UsersStub } from './usersApiStub'
 
@@ -32,6 +33,7 @@ async function signIn(page: Page, { email, password }: { email: string; password
 }
 
 async function signInAsAdmin(page: Page, to = '/admin') {
+  await mockAdminTransactions(page, manyAdminTransactions(2)) // the dashboard's Refunds card reads the transaction metrics
   await signIn(page, ADMIN)
   await expect(page).toHaveURL(/\/admin$/)
   if (to !== '/admin') await page.goto(to)

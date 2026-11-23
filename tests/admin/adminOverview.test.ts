@@ -7,7 +7,7 @@ vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
 }))
 const send = vi.mocked(request)
 
-const { getArFigures, getStockFigures } = await import('../../src/service/adminOverview')
+const { getArFigures, getStockFigures, getRefundFigures } = await import('../../src/service/adminOverview')
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -75,5 +75,30 @@ describe('the AR-ready and stock cards together', () => {
     await expect(getStockFigures()).rejects.toMatchObject({ kind: 'server' })
     send.mockResolvedValue({ totalProducts: 40, arReadyProducts: 8, outOfStockCount: 3, lowStockCount: 7, lowStockThreshold: 5 })
     await expect(getStockFigures()).resolves.toEqual({ out: 3, low: 7 })
+  })
+})
+
+const TX = { totalTransactions: 42, paidCount: 40, refundedCount: 2, failedCount: 0, pendingCount: 0, totalGrossVolume: 72031, totalFeeVolume: 0, totalNetVolume: 142 }
+
+describe('getRefundFigures', () => {
+  it('counts refunded and partly refunded payments against every payment', async () => {
+    send.mockResolvedValue({ ...TX, partiallyRefundedCount: 1 })
+    await expect(getRefundFigures()).resolves.toEqual({ refunded: 3, payments: 42 })
+    expect(send).toHaveBeenCalledWith('GET', '/admin/transactions/metrics', undefined, undefined)
+  })
+
+  it('works with an older API that has no partial count', async () => {
+    send.mockResolvedValue(TX)
+    await expect(getRefundFigures()).resolves.toEqual({ refunded: 2, payments: 42 })
+  })
+
+  it('rejects a body without the counts as a server error', async () => {
+    send.mockResolvedValue({ totalTransactions: 5 })
+    await expect(getRefundFigures()).rejects.toMatchObject({ kind: 'server' })
+  })
+
+  it('passes a rate limit through', async () => {
+    send.mockRejectedValue(new ProductListError('rate-limit', undefined, 429, undefined, 4000))
+    await expect(getRefundFigures()).rejects.toMatchObject({ kind: 'rate-limit' })
   })
 })

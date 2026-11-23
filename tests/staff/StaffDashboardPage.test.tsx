@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
@@ -17,12 +17,13 @@ vi.mock('../../src/service/fetchStaffAnalytics', async (importOriginal) => ({
   fetchTrendingItems: vi.fn(),
 }))
 
-// The Recent orders tile reads the real orders endpoint and the stock and AR-ready cards the real metrics endpoint; the analytics functions are stubbed; only the refunds card is still sample data.
+// The Recent orders tile reads the real orders endpoint and the stock and AR-ready cards the real metrics endpoint; the analytics functions are stubbed.
 vi.mock('../../src/service/adminOrdersApi', () => ({ fetchAdminOrders: vi.fn() }))
 vi.mock('../../src/service/adminOverview', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/adminOverview')>()),
   getStockFigures: vi.fn().mockResolvedValue({ out: 1, low: 2 }),
   getArFigures: vi.fn().mockResolvedValue({ ready: 8, products: 12 }),
+  getRefundFigures: vi.fn().mockResolvedValue({ refunded: 212, payments: 2988 }),
 }))
 
 const ME = { firstName: 'Sam' } as Me
@@ -86,11 +87,12 @@ function renderPage() {
 }
 
 describe('StaffDashboardPage', () => {
-  it('shows the figures and the charts, with the sample data pill on the operations cards only', async () => {
+  it('shows the figures and the charts, with the real refunds card', async () => {
     renderPage()
     expect(await screen.findByText('Hello, Sam')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getAllByText('Sample data')).toHaveLength(1))
-    expect(within(screen.getByRole('region', { name: 'Refunds, AR and stock at a glance' })).getAllByText('Sample data')).toHaveLength(1)
+    const operations = screen.getByRole('region', { name: 'Refunds, AR and stock at a glance' })
+    expect(await within(operations).findByText('7.1% of 2,988 payments refunded')).toBeInTheDocument()
+    expect(within(operations).queryByText('Sample data')).toBeNull()
     expect(await screen.findByText('AR Fitting Sessions')).toBeInTheDocument()
     expect(await screen.findByText('37', { selector: '.sr-only' })).toBeInTheDocument()
     expect(await screen.findByText('₱482,350', { selector: '.sr-only' })).toBeInTheDocument()

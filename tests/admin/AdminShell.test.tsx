@@ -30,6 +30,7 @@ vi.mock('../../src/service/adminOverview', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/adminOverview')>()),
   getStockFigures: vi.fn().mockResolvedValue({ out: 1, low: 1 }),
   getArFigures: vi.fn().mockResolvedValue({ ready: 8, products: 12 }),
+  getRefundFigures: vi.fn().mockResolvedValue({ refunded: 212, payments: 2988 }),
 }))
 // The dashboard's sales widgets are covered by their own tests; here only the admin part is under test.
 vi.mock('../../src/views/staff/StaffDashboardPage', () => ({
@@ -120,8 +121,10 @@ describe('admin dashboard', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Hello, Dev' })).toBeInTheDocument()
     const figures = await screen.findByRole('region', { name: 'Refunds, AR and stock at a glance' })
     for (const gone of ['Customers', 'Staff', 'Admins']) expect(within(figures).queryByText(gone)).toBeNull()
-    // The refund figures come from the sample orders; the AR-ready and stock figures from the (mocked) metrics endpoint.
+    // The refund, AR-ready and stock figures all come from the (mocked) metrics endpoints.
     for (const label of ['Refunds', 'AR-ready products', 'Low or out of stock']) expect(await within(figures).findByText(label)).toBeInTheDocument()
+    expect(within(figures).getByText('Refunds').nextSibling).toHaveTextContent('212')
+    expect(within(figures).getByText('7.1% of 2,988 payments refunded')).toBeInTheDocument()
     expect(within(figures).getByText('AR-ready products').nextSibling).toHaveTextContent('8')
     expect(within(figures).getByText('Low or out of stock').nextSibling).toHaveTextContent('2')
     for (const gone of ['Active accounts', 'Archived staff', 'First sign-in due']) expect(within(figures).queryByText(gone)).toBeNull()
@@ -135,9 +138,8 @@ describe('admin dashboard', () => {
     // The logged actions come from the API.
     expect(await screen.findByText('Order placed: SF-10231')).toBeInTheDocument()
     expect(screen.queryByText('Recent activity')).toBeNull()
-    // Only the refunds card is still sample data, so it carries the one badge.
-    expect(screen.getAllByText('Sample data')).toHaveLength(1)
-    expect(within(figures).getAllByText('Sample data')).toHaveLength(1)
+    // Every figure is real, so nothing says Sample data.
+    expect(within(figures).queryByText('Sample data')).toBeNull()
   })
 })
 

@@ -2,11 +2,12 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { manyAdminOrders, mockAdminOrders } from '../shared/adminOrders'
 import { mockAuditLogs } from '../shared/auditLogs'
 import { mockNotifications } from '../shared/notificationsApi'
+import { manyAdminTransactions, mockAdminTransactions } from '../shared/adminTransactions'
 import { mockCart, mockProductMetrics, mockProducts, type ProductMetricsMock } from '../shared/products'
 
 // The /staff and /admin dashboards read GET /analytics/summary, /sales, /product-mix and /trending. Those are stubbed here (deterministic, not the live API),
 // as are the other calls the dashboards make (Recent orders on /admin/orders, Activity logs on the admin page), because the dev simulated accounts have no
-// Supabase token. AR-ready and Low or out of stock read GET /products/metrics (stubbed too, one shared request); only the Refunds card is still sample data, and it carries a Sample data badge inside the card. Sign-in is the dev-only simulated one.
+// Supabase token. AR-ready and Low or out of stock read GET /products/metrics (stubbed too, one shared request) and the Refunds card reads GET /admin/refunds/metrics with GET /admin/orders/metrics (stubbed), so no card is sample data. Sign-in is the dev-only simulated one.
 
 const STAFF = { email: 'sam.reyes@silhoufit.dev', password: 'Staff@12345' }
 const ADMIN = { email: 'admin@silhoufit.dev', password: 'Admin@12345' }
@@ -81,6 +82,7 @@ test.beforeEach(async ({ page }) => {
 async function stubRest(page: Page, orders: number): Promise<ProductMetricsMock> {
   await mockAdminOrders(page, manyAdminOrders(orders))
   await mockAuditLogs(page, [])
+  await mockAdminTransactions(page, manyAdminTransactions(3))
   await mockNotifications(page)
   await mockCart(page, await mockProducts(page))
   // After mockProducts: the newest route wins, and mockProducts would read /products/metrics as a product id.
@@ -319,22 +321,12 @@ for (const target of PAGES) {
       await expect(page.getByRole('alert')).toHaveCount(0)
     })
 
-    test('a Sample data badge inside the Refunds card only, and nowhere else', async ({ page }) => {
+    test('the Refunds card shows the real refund figures, and Sample data appears nowhere', async ({ page }) => {
       await open(page, target)
       const operations = region(page, 'Refunds, AR and stock at a glance')
-      const stock = operations.getByRole('link', { name: /^Low or out of stock: / })
-      const ar = operations.getByRole('link', { name: /^AR-ready products: / })
-      await expect(stock).toBeVisible()
-      await expect(ar).toBeVisible()
-      await expect(operations.getByText('Sample data', { exact: true })).toHaveCount(1)
-      await expect(page.getByText('Sample data', { exact: true })).toHaveCount(1)
-      await expect(stock.getByText('Sample data')).toHaveCount(0)
-      await expect(ar.getByText('Sample data')).toHaveCount(0)
-      for (const connected of [cards(page), sales(page), mix(page), trending(page), recent(page)]) {
-        await expect(connected.getByText('Sample data', { exact: true })).toHaveCount(0)
-      }
-      // Not next to the page title any more.
-      await expect(page.getByRole('heading', { level: 1 }).locator('..').getByText('Sample data')).toHaveCount(0)
+      await expect(operations.getByRole('link', { name: /^Refunds: / })).toBeVisible()
+      await expect(operations.getByText(/% of \d+ payments refunded/)).toBeVisible()
+      await expect(page.getByText('Sample data', { exact: true })).toHaveCount(0)
     })
 
     test('the Low or out of stock card shows out plus low from GET /products/metrics', async ({ page }) => {
