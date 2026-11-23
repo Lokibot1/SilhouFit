@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MessageBubble } from '../../src/components/chat/MessageBubble'
 import type { ThreadMessage } from '../../src/hooks/useConversation'
 import { sendFailureCopy, type ChatErrorKind } from '../../src/service/chatApi'
@@ -60,5 +61,47 @@ describe('MessageBubble long text', () => {
     expect(bubble).toHaveClass('max-w-full', 'min-w-0', 'text-base', 'md:text-sm')
     expect(bubble.parentElement).toHaveClass('min-w-0', 'max-w-[80%]')
     expect(screen.getByTestId('chat-message')).toHaveClass('min-w-0', 'flex-row-reverse')
+  })
+})
+
+describe('MessageBubble attachments', () => {
+  const photo = (n: number) => ({ id: `a${n}`, url: `https://cdn.example.com/p${n}.png`, type: 'IMAGE' as const, mimeType: 'image/png', fileName: `p${n}.png`, sizeBytes: 10, displayOrder: n, createdAt: '' })
+  const withFiles = (content: string, count: number): ThreadMessage => ({ ...failed(), status: undefined, content, attachments: Array.from({ length: count }, (_, n) => photo(n)) })
+
+  it('draws no empty bubble for an attachment-only message', () => {
+    const { container } = render(
+      <ul>
+        <MessageBubble message={withFiles('', 1)} mine onRetry={vi.fn()} onRemove={vi.fn()} />
+      </ul>,
+    )
+    expect(container.querySelector('.whitespace-pre-wrap')).toBeNull()
+  })
+
+  beforeEach(() => vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })))
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('describes each photo and opens it in a lightbox that Escape closes, returning focus', async () => {
+    render(
+      <ul>
+        <MessageBubble message={withFiles('', 2)} mine onRetry={vi.fn()} onRemove={vi.fn()} />
+      </ul>,
+    )
+    expect(screen.getByAltText('Photo 2 of 2 from Me')).toHaveAttribute('loading', 'lazy')
+    const tile = screen.getAllByRole('button')[0]
+    await userEvent.click(tile)
+    expect(await screen.findByRole('dialog', { name: 'p0.png' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(tile).toHaveFocus()
+  })
+
+  it('falls back to a placeholder tile when a photo fails to load', () => {
+    render(
+      <ul>
+        <MessageBubble message={withFiles('', 1)} mine onRetry={vi.fn()} onRemove={vi.fn()} />
+      </ul>,
+    )
+    fireEvent.error(screen.getByAltText('Photo 1 of 1 from Me'))
+    expect(screen.getByRole('img', { name: /photo unavailable/ })).toBeInTheDocument()
   })
 })

@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import type { ThreadMessage } from '../../hooks/useConversation'
 import { CHAT_BRAND_NAME, ROLE_LABEL, displayName, sendFailureCopy } from '../../service/chatApi'
 import { formatMessageTime } from '../../utils/format'
 import { Avatar } from '../ui/Avatar'
+import { Modal } from '../ui/Modal'
+import { PhotoImg } from '../ui/PhotoImg'
 
 const ACTION = 'font-ui min-h-11 cursor-pointer rounded-xl px-3 text-sm font-semibold underline underline-offset-2 hover:text-chrome-strong'
 
@@ -24,6 +27,9 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
   const { sender } = message
   const masked = !staff && !mine && sender?.role !== 'customer'
   const name = masked ? CHAT_BRAND_NAME : sender ? displayName(sender) : ''
+  const [open, setOpen] = useState<number>()
+  const { attachments } = message
+  const photo = open === undefined ? undefined : attachments[open]
   const label = masked || !sender ? '' : ROLE_LABEL[sender.role]
   return (
     <li data-testid="chat-message" data-status={status ?? 'sent'} className={`flex min-w-0 items-end gap-2 ${mine ? 'origin-bottom-right flex-row-reverse' : 'origin-bottom-left'} ${enter ? 'enter-message' : ''}`}>
@@ -35,13 +41,31 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
             {label && <span className="ml-2 rounded-full border border-line-strong px-2 py-0.5 text-xs font-medium">{label}</span>}
           </p>
         )}
-        <div
-          className={`max-w-full min-w-0 rounded-xl px-3 py-2 text-base leading-6 md:text-sm [overflow-wrap:anywhere] whitespace-pre-wrap ${
-            mine ? 'bg-fg text-canvas' : 'border border-line bg-canvas-sub text-fg'
-          } transition-opacity duration-200 ${status === 'pending' ? 'opacity-70' : ''} ${status === 'failed' ? 'ring-2 ring-danger' : ''}`}
-        >
-          {message.content}
-        </div>
+        {attachments.length > 0 && (
+          // Fixed square tiles, so nothing moves while the files load.
+          <div className={`mb-1 grid w-60 max-w-full gap-1 transition-opacity duration-200 ${attachments.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${status === 'pending' ? 'opacity-70' : ''}`}>
+            {attachments.map((file, index) => {
+              const description = `${file.type === 'IMAGE' ? 'Photo' : 'Video'} ${index + 1} of ${attachments.length} from ${name || 'sender'}`
+              const tile = 'aspect-square min-h-11 min-w-11 overflow-hidden rounded-xl border border-line bg-canvas-sub'
+              return file.type === 'IMAGE' ? (
+                <button key={file.id || file.url} type="button" onClick={() => setOpen(index)} className={`${tile} cursor-pointer`}>
+                  <PhotoImg src={file.url} alt={description} loading="lazy" className="size-full object-cover" />
+                </button>
+              ) : (
+                <video key={file.id || file.url} src={`${file.url}#t=0.1`} controls preload="metadata" playsInline aria-label={description} className={`${tile} object-contain`} />
+              )
+            })}
+          </div>
+        )}
+        {message.content && (
+          <div
+            className={`max-w-full min-w-0 rounded-xl px-3 py-2 text-base leading-6 md:text-sm [overflow-wrap:anywhere] whitespace-pre-wrap ${
+              mine ? 'bg-fg text-canvas' : 'border border-line bg-canvas-sub text-fg'
+            } transition-opacity duration-200 ${status === 'pending' ? 'opacity-70' : ''} ${status === 'failed' ? 'ring-2 ring-danger' : ''}`}
+          >
+            {message.content}
+          </div>
+        )}
         {status === 'failed' ? (
           <div role="alert" className="mt-1 flex flex-wrap items-center gap-x-1 px-1 text-sm text-danger">
             <span>{sendFailureCopy(message.failure ?? 'network')}</span>
@@ -60,6 +84,9 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
           </p>
         )}
       </div>
+      <Modal open={!!photo} onClose={() => setOpen(undefined)} title={photo?.fileName || 'Photo'}>
+        {photo && <PhotoImg src={photo.url} alt={photo.fileName || 'Photo'} className="max-h-[70vh] w-full rounded-xl object-contain" />}
+      </Modal>
     </li>
   )
 }
