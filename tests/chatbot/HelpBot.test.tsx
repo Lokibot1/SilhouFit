@@ -64,6 +64,17 @@ describe('HelpBot answers', () => {
     expect(screen.getByRole('button', { name: 'How do I find my size?' })).toBeInTheDocument()
   })
 
+  it('keeps Browse topics after every answer, so a topic never traps the user', async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(await screen.findByRole('button', { name: 'Browse topics' }))
+    await user.click(screen.getByRole('button', { name: 'Sizing' }))
+    await user.click(screen.getByRole('button', { name: 'How do I find my size?' }))
+    expect(screen.getByRole('button', { name: 'Browse topics' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Browse topics' }))
+    expect(screen.getByRole('button', { name: 'Sizing' })).toBeInTheDocument()
+  })
+
   it('answers a typed question from the saved list', async () => {
     const user = userEvent.setup()
     setup()

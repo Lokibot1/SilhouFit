@@ -72,7 +72,7 @@ function Conversation({ answers }: { answers: PublicHelpAnswer[] }) {
   function ask(answer: PublicHelpAnswer) {
     addUserMessage(answer.question)
     const related = answers.filter((a) => a.id !== answer.id && a.category === answer.category).slice(0, 3)
-    replyAfter(delay, { text: answer.answer, link: answer.link, chips: related.length ? related.map(askChip) : [TOPICS_CHIP] })
+    replyAfter(delay, { text: answer.answer, link: answer.link, chips: [...related.map(askChip), TOPICS_CHIP] })
   }
 
   function topics() {
@@ -90,8 +90,8 @@ function Conversation({ answers }: { answers: PublicHelpAnswer[] }) {
   function type(text: string) {
     addUserMessage(text)
     const { best, related } = matchAnswers(text, answers)
-    if (best) replyAfter(delay, { text: best.answer, link: best.link, chips: related.map(askChip) })
-    else if (related.length) replyAfter(delay, { text: 'Did you mean one of these?', chips: related.map(askChip) })
+    if (best) replyAfter(delay, { text: best.answer, link: best.link, chips: [...related.map(askChip), TOPICS_CHIP] })
+    else if (related.length) replyAfter(delay, { text: 'Did you mean one of these?', chips: [...related.map(askChip), TOPICS_CHIP] })
     else replyAfter(delay, { text: "I don't have an answer for that yet.", chips: [...handoff, REPHRASE_CHIP] })
   }
 
