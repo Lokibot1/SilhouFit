@@ -34,6 +34,16 @@ describe('SizeSheet measurements by category', () => {
     expect(screen.getByRole('textbox', { name: 'Sleeve length' })).toHaveValue('')
   })
 
+  it('offers only the allowed sizes, less those the category already has', async () => {
+    const user = userEvent.setup()
+    const made = (id: string, size: string) => ({ id, category: 'Hoodie', size, ...none, chestWidthCm: 55, isActive: true, createdAt: '', updatedAt: '' }) as SizeMeasurement
+    const listed = (dialog: HTMLElement) => within(dialog).getByRole('combobox', { name: 'Size' })
+    render(<SizeSheet category="Hoodie" taken={[made('a', 'M'), made('b', 'xl')]} onSaved={vi.fn()} onClose={vi.fn()} />)
+    await user.click(listed(screen.getByRole('dialog')))
+    const names = (await screen.findAllByRole('option')).map((o) => o.textContent)
+    expect(names).toEqual(['Choose a size', 'XS', 'S', 'L', '2XL', '3XL', 'Free Size'])
+  })
+
   it('keeps a measurement the row already has, even if its category does not use it', () => {
     const row = { id: 'r1', category: 'Pants', size: '32', ...none, sleeveLengthCm: 60, isActive: true, createdAt: '', updatedAt: '' } as SizeMeasurement
     render(<SizeSheet row={row} category="Pants" onSaved={vi.fn()} onClose={vi.fn()} />)

@@ -41,12 +41,16 @@ describe('validateSizeForm', () => {
 
   it('needs a size and at least one measurement', () => {
     const errors = validateSizeForm(filled('  ', {}))
-    expect(errors.size).toMatch(/Enter a size/)
+    expect(errors.size).toBe('Choose a size.')
     expect(errors.measurements).toBe('Enter at least one measurement.')
   })
 
-  it('caps the size at 20 characters', () => {
-    expect(validateSizeForm(filled('x'.repeat(21), { chestWidthCm: '55' })).size).toMatch(/20 characters/)
+  it('only accepts the sizes the server allows', () => {
+    for (const size of ['XS', '2XL', '3XL', 'Free Size']) expect(validateSizeForm(filled(size, { chestWidthCm: '55' })).size, size).toBeUndefined()
+    for (const size of ['XXL', 'One size', '32']) expect(validateSizeForm(filled(size, { chestWidthCm: '55' })).size, size).toMatch(/Use one of/)
+  })
+
+  it('caps the size filter at 20 characters', () => {
     expect(filterSizeLabel('x'.repeat(30))).toHaveLength(20)
   })
 

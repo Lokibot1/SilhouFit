@@ -27,7 +27,10 @@ const overflow = (page: Page) => page.evaluate(() => document.documentElement.sc
 const action = (page: Page, verb: 'Edit' | 'Archive' | 'Restore', name: string) => page.getByRole('button', { name: `${verb} ${name}`, exact: true })
 
 async function fillSheet(dialog: Locator, size: string, measurements: Record<string, string>) {
-  if (size) await dialog.getByLabel('Size', { exact: true }).fill(size)
+  if (size) {
+    await dialog.getByRole('combobox', { name: 'Size', exact: true }).click()
+    await dialog.page().getByRole('option', { name: size, exact: true }).click()
+  }
   for (const [label, value] of Object.entries(measurements)) await dialog.getByLabel(label, { exact: true }).fill(value)
 }
 
@@ -100,12 +103,18 @@ test.describe('add a size', () => {
     await addButton(page).click()
     const dialog = sheet(page, 'Add size')
     await dialog.getByRole('button', { name: 'Add size', exact: true }).click()
-    await expect(dialog.getByText('Enter a size such as XS.')).toBeVisible()
+    await expect(dialog.getByText('Choose a size.')).toBeVisible()
     await expect(dialog.getByText('Enter at least one measurement.')).toBeVisible()
     await expect(dialog.getByLabel('Size', { exact: true })).toBeFocused()
     expect(api.of('POST')).toHaveLength(0)
 
-    await fillSheet(dialog, 'XXL', { 'Chest width': '300' })
+    // Only the sizes the server accepts are offered: 2XL and 3XL are, XXL is not, and M is taken.
+    await dialog.getByRole('combobox', { name: 'Size', exact: true }).click()
+    await expect(page.getByRole('option', { name: 'XXL', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('option', { name: 'M', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('option', { name: '3XL', exact: true })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await fillSheet(dialog, '2XL', { 'Chest width': '300' })
     await dialog.getByLabel('Neck', { exact: true }).focus()
     await expect(dialog.getByText('Enter chest width from 5 to 250 cm.')).toBeVisible()
 
@@ -113,26 +122,28 @@ test.describe('add a size', () => {
     await dialog.getByLabel('Total length', { exact: true }).fill('74')
     await dialog.getByRole('button', { name: 'Add size', exact: true }).click()
 
-    await expect(toast(page, 'Hoodie XXL added')).toBeVisible()
+    await expect(toast(page, 'Hoodie 2XL added')).toBeVisible()
     await expect(page.getByRole('dialog')).toHaveCount(0)
-    await expect(action(page, 'Edit', 'Hoodie XXL')).toBeVisible()
-    expect(api.of('POST')[0].body).toEqual({ category: 'Hoodie', size: 'XXL', chestWidthCm: 64.5, totalLengthCm: 74 })
+    await expect(action(page, 'Edit', 'Hoodie 2XL')).toBeVisible()
+    expect(api.of('POST')[0].body).toEqual({ category: 'Hoodie', size: '2XL', chestWidthCm: 64.5, totalLengthCm: 74 })
   })
 
   test('names the category and size when it already exists (409) and keeps the sheet open', async ({ page }) => {
     const api = await start(page)
     await addButton(page).click()
     const dialog = sheet(page, 'Add size')
-    await fillSheet(dialog, 'M', { 'Chest width': '56' })
+    // Someone else adds Hoodie L after the list loaded, so the sheet still offers it.
+    api.rows.push(sizeRow({ size: 'L' }))
+    await fillSheet(dialog, 'L', { 'Chest width': '56' })
     await dialog.getByRole('button', { name: 'Add size', exact: true }).click()
-    await expect(dialog.getByText('An active Hoodie M already exists. Edit that one, or use a different size.').first()).toBeVisible()
+    await expect(dialog.getByText('An active Hoodie L already exists. Edit that one, or use a different size.').first()).toBeVisible()
     await expect(dialog.getByLabel('Size', { exact: true })).toBeFocused()
     await expect(dialog.getByLabel('Size', { exact: true })).toHaveAttribute('aria-invalid', 'true')
-    expect(api.rows.filter((r) => r.size === 'M')).toHaveLength(1)
+    expect(api.rows.filter((r) => r.size === 'L')).toHaveLength(1)
     // A different size clears it.
-    await dialog.getByLabel('Size', { exact: true }).fill('L')
+    await fillSheet(dialog, 'XS', {})
     await dialog.getByRole('button', { name: 'Add size', exact: true }).click()
-    await expect(toast(page, 'Hoodie L added')).toBeVisible()
+    await expect(toast(page, 'Hoodie XS added')).toBeVisible()
   })
 
   test('shows the server messages on a 400', async ({ page }) => {
@@ -151,12 +162,12 @@ test.describe('add a size', () => {
     const dialog = sheet(page, 'Add size')
     await dialog.getByRole('combobox', { name: 'Category' }).first().click()
     await page.getByRole('option', { name: 'Headwear' }).click()
-    await fillSheet(dialog, 'One size', { Neck: '58' })
+    await fillSheet(dialog, 'Free Size', { Neck: '58' })
     await dialog.getByRole('button', { name: 'Add size', exact: true }).click()
-    await expect(toast(page, 'Headwear One size added')).toBeVisible()
+    await expect(toast(page, 'Headwear Free Size added')).toBeVisible()
     await expect(page).toHaveURL(/category=Headwear/)
-    await expect(action(page, 'Edit', 'Headwear One size')).toBeVisible()
-    expect(api.of('POST')[0].body).toEqual({ category: 'Headwear', size: 'One size', neckCm: 58 })
+    await expect(action(page, 'Edit', 'Headwear Free Size')).toBeVisible()
+    expect(api.of('POST')[0].body).toEqual({ category: 'Headwear', size: 'Free Size', neckCm: 58 })
   })
 })
 

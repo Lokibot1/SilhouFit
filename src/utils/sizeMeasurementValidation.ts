@@ -1,4 +1,4 @@
-import { CATEGORIES, SIZES_BY_CATEGORY } from '../data/products'
+import { APPAREL_SIZES, CATEGORIES } from '../data/products'
 import type { MeasurementKey } from '../service/fetchProductList'
 import type { SizeMeasurement, SizeMeasurementInput, SizeMeasurementPatch } from '../service/sizeMeasurements'
 import { cleanText } from './checkoutValidation'
@@ -38,8 +38,8 @@ export function sizeFormValues(category: string, row?: SizeMeasurement): SizeFor
 export function validateSizeForm(v: SizeFormValues): Record<string, string> {
   const errors: Record<string, string> = {}
   if (!(CATEGORIES as readonly string[]).includes(v.category)) errors.category = 'Choose a category.'
-  if (!cleanText(v.size)) errors.size = `Enter a size such as ${SIZES_BY_CATEGORY[v.category]?.[0] ?? 'M'}.`
-  else if (cleanText(v.size).length > SIZE_MAX) errors.size = `Use ${SIZE_MAX} characters or fewer.`
+  if (!cleanText(v.size)) errors.size = 'Choose a size.'
+  else if (!APPAREL_SIZES.includes(cleanText(v.size))) errors.size = 'Use one of XS, S, M, L, XL, 2XL, 3XL or Free Size.'
   let filled = 0
   for (const { key, label, min, max } of MEASUREMENT_FIELDS) {
     const text = v.measurements[key]

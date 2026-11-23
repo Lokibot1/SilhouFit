@@ -184,6 +184,11 @@ async function openAdd(user: ReturnType<typeof userEvent.setup>) {
   return screen.findByRole('dialog', { name: 'Add size' })
 }
 
+async function pick(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement, size: string) {
+  await user.click(within(dialog).getByRole('combobox', { name: 'Size' }))
+  await user.click(await screen.findByRole('option', { name: size }))
+}
+
 describe('add a size', () => {
   it('validates inline, then creates the row, closes, refreshes and toasts', async () => {
     const user = userEvent.setup()
@@ -192,57 +197,54 @@ describe('add a size', () => {
     expect(screen.getByRole('combobox', { name: 'Category' })).toBeInTheDocument()
 
     await user.click(within(dialog).getByRole('button', { name: 'Add size' }))
-    expect(within(dialog).getByText(/Enter a size/)).toBeInTheDocument()
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('Enter at least one measurement.')
+    expect(within(dialog).getByText('Choose a size.')).toBeInTheDocument()
+    expect(within(dialog).getByText('Enter at least one measurement.')).toBeInTheDocument()
     expect(create).not.toHaveBeenCalled()
 
     await user.type(within(dialog).getByLabelText('Chest width'), '300')
     await user.tab()
     expect(within(dialog).getByText('Enter chest width from 5 to 250 cm.')).toBeInTheDocument()
 
-    await user.type(within(dialog).getByLabelText('Size'), 'XXL')
+    await pick(user, dialog, '2XL')
     await user.clear(within(dialog).getByLabelText('Chest width'))
     await user.type(within(dialog).getByLabelText('Chest width'), '60')
-    create.mockResolvedValue(hoodie('XXL', { chestWidthCm: 60 }))
-    list.mockResolvedValue([hoodie('XXL')])
+    create.mockResolvedValue(hoodie('2XL', { chestWidthCm: 60 }))
+    list.mockResolvedValue([hoodie('2XL')])
     await user.click(within(dialog).getByRole('button', { name: 'Add size' }))
 
-    await waitFor(() => expect(create).toHaveBeenCalledWith({ category: 'Hoodie', size: 'XXL', chestWidthCm: 60 }, expect.anything()))
+    await waitFor(() => expect(create).toHaveBeenCalledWith({ category: 'Hoodie', size: '2XL', chestWidthCm: 60 }, expect.anything()))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add size' })).not.toBeInTheDocument())
-    expect(await screen.findByText('Hoodie XXL added')).toBeInTheDocument()
-    await waitFor(() => expect(sizesInTable()).toEqual(['XXL']))
+    expect(await screen.findByText('Hoodie 2XL added')).toBeInTheDocument()
+    await waitFor(() => expect(sizesInTable()).toEqual(['2XL']))
   })
 
-  it('rejects a size name that already exists, ignoring case, before anything is sent', async () => {
+  it('does not offer a size the category already has, and offers 2XL and 3XL but not XXL', async () => {
     const user = userEvent.setup()
     renderPage()
     const dialog = await openAdd(user)
-    await user.type(within(dialog).getByLabelText('Size'), 'xl')
-    await user.type(within(dialog).getByLabelText('Chest width'), '55')
-    await user.click(within(dialog).getByRole('button', { name: 'Add size' }))
-    expect(await within(dialog).findByText(/Hoodie xl already exists/)).toBeInTheDocument()
-    expect(within(dialog).getByLabelText('Size')).toHaveAttribute('aria-invalid', 'true')
-    expect(create).not.toHaveBeenCalled()
+    await user.click(within(dialog).getByRole('combobox', { name: 'Size' }))
+    const names = (await screen.findAllByRole('option')).map((o) => o.textContent)
+    expect(names).toEqual(['Choose a size', 'XS', 'L', '2XL', '3XL', 'Free Size'])
   })
 
   it('names the category and size on a 409 and keeps the sheet open', async () => {
     const user = userEvent.setup()
     renderPage()
     const dialog = await openAdd(user)
-    await user.type(within(dialog).getByLabelText('Size'), 'XXL')
+    await pick(user, dialog, '2XL')
     await user.type(within(dialog).getByLabelText('Chest width'), '55')
     create.mockRejectedValue(new ProductListError('conflict'))
     await user.click(within(dialog).getByRole('button', { name: 'Add size' }))
-    await waitFor(() => expect(within(dialog).getAllByText(/An active Hoodie XXL already exists/).length).toBeGreaterThan(0))
-    expect(within(dialog).getByLabelText('Size')).toHaveAttribute('aria-invalid', 'true')
-    expect(within(dialog).getByLabelText('Size')).toHaveFocus()
+    await waitFor(() => expect(within(dialog).getAllByText(/An active Hoodie 2XL already exists/).length).toBeGreaterThan(0))
+    expect(within(dialog).getByRole('combobox', { name: 'Size' })).toHaveAttribute('aria-invalid', 'true')
+    expect(within(dialog).getByRole('combobox', { name: 'Size' })).toHaveFocus()
   })
 
   it('uses add-appropriate copy when creating hits a 404', async () => {
     const user = userEvent.setup()
     renderPage()
     const dialog = await openAdd(user)
-    await user.type(within(dialog).getByLabelText('Size'), 'XXL')
+    await pick(user, dialog, '2XL')
     await user.type(within(dialog).getByLabelText('Chest width'), '55')
     create.mockRejectedValue(new ProductListError('not-found'))
     await user.click(within(dialog).getByRole('button', { name: 'Add size' }))
@@ -255,7 +257,7 @@ describe('add a size', () => {
     const user = userEvent.setup()
     renderPage()
     const dialog = await openAdd(user)
-    await user.type(within(dialog).getByLabelText('Size'), 'XXL')
+    await pick(user, dialog, '2XL')
     await user.type(within(dialog).getByLabelText('Chest width'), '55')
     create.mockRejectedValue(new ProductListError('validation', 'size is too long'))
     await user.click(within(dialog).getByRole('button', { name: 'Add size' }))
@@ -270,7 +272,7 @@ describe('add a size', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
     dialog = await openAdd(user)
-    await user.type(within(dialog).getByLabelText('Size'), 'M')
+    await pick(user, dialog, 'XS')
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     const confirm = await screen.findByRole('dialog', { name: 'Are you sure?' })
     expect(within(confirm).getByRole('button', { name: 'Cancel' })).toHaveFocus()
@@ -282,7 +284,7 @@ describe('add a size', () => {
     const user = userEvent.setup()
     renderPage()
     const dialog = await openAdd(user)
-    await user.type(within(dialog).getByLabelText('Size'), 'XXL')
+    await pick(user, dialog, '2XL')
     await user.type(within(dialog).getByLabelText('Chest width'), '55')
     create.mockReturnValue(new Promise(() => {}))
     await user.click(within(dialog).getByRole('button', { name: 'Add size' }))
