@@ -55,9 +55,14 @@ export interface Product {
 /** Every photo of a piece, main one first. */
 export const productImages = (product: Pick<Product, 'image' | 'images'>) => [product.image, ...(product.images ?? [])]
 
-/** The sizes a product comes in: its variants' sizes when it has them, otherwise those of its category. */
+const sizeRank = (size: string) => {
+  const rank = APPAREL_SIZES.indexOf(size)
+  return rank < 0 ? APPAREL_SIZES.length : rank
+}
+
+/** The sizes a product comes in, smallest first (a size the API accepts, then any other as it came): its variants' sizes when it has them, otherwise those of its category. */
 export const sizesFor = (product: Pick<Product, 'category' | 'variants'>) =>
-  product.variants ? [...new Set(product.variants.flatMap((v) => (v.size ? [v.size] : [])))] : (SIZES_BY_CATEGORY[product.category] ?? [])
+  [...(product.variants ? new Set(product.variants.flatMap((v) => (v.size ? [v.size] : []))) : (SIZES_BY_CATEGORY[product.category] ?? []))].sort((a, b) => sizeRank(a) - sizeRank(b))
 
 /**
  * What a size and colour pick comes to. Once every option the product offers is chosen, an API product answers with that variant's

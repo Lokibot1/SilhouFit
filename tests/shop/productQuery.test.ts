@@ -95,6 +95,14 @@ describe('sizes, price and stock of a product from the API', () => {
     expect(sizesFor(piece)).toEqual(['S', 'M'])
   })
 
+  it('lists sizes smallest first whatever order the API sent them, unknown labels last, without reordering the category defaults', () => {
+    const shuffled = { ...piece, variants: [v('3XL', 'Black', 1, 1), v('Mystery', 'Black', 1, 1), v('XS', 'Black', 1, 1), v('2XL', 'Black', 1, 1), v('S', 'Black', 1, 1)] }
+    expect(sizesFor(shuffled)).toEqual(['XS', 'S', '2XL', '3XL', 'Mystery'])
+    const fallback = sizesFor({ category: 'Hoodie', variants: undefined })
+    fallback.reverse()
+    expect(sizesFor({ category: 'Hoodie', variants: undefined })).toEqual(['XS', 'S', 'M', 'L', 'XL'])
+  })
+
   it('answers for the whole piece until size and colour are chosen, then for that variant', () => {
     expect(choiceOf(piece, '', '')).toMatchObject({ stock: 9, price: 1000, variant: undefined })
     expect(choiceOf(piece, 'M', 'navy')).toMatchObject({ stock: 5, price: 1200, variant: { id: 'M-Navy' } })
