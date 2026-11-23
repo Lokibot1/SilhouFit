@@ -182,7 +182,7 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
             rows={1}
             aria-label="Message"
             disabled={!!disabledReason}
-            aria-describedby={disabledReason ? 'chat-composer-note' : masked || flagged ? 'chat-composer-count chat-composer-note' : 'chat-composer-count'}
+            aria-describedby={disabledReason || masked || flagged ? 'chat-composer-note' : undefined}
             placeholder={disabledReason ? 'Messaging is blocked' : 'Write a message'}
             className="font-ui field-sizing-content max-h-24 min-h-9 min-w-0 flex-1 resize-none bg-transparent px-3 py-1.5 text-base leading-6 text-fg sm:text-sm placeholder:text-fg-muted focus-visible:outline-none pointer-coarse:min-h-11 pointer-coarse:py-2.5"
           />
@@ -211,11 +211,6 @@ export function Composer({ onSend, sending, onTyping, onMasked, disabledReason, 
             (flagged
               ? "Please don't use profanity or offensive language. These words will be hidden when you send, and repeated use can get your messaging blocked or your account banned."
               : 'Some words were hidden. Repeated use of this language can lead to your messaging being blocked or your account banned.')}
-        </p>
-      )}
-      {!disabledReason && (
-        <p id="chat-composer-count" className="font-ui mt-0.5 text-right text-[10px] leading-4 text-fg-muted/70 tabular-nums">
-          {text.length} / {maxLength}
         </p>
       )}
     </form>

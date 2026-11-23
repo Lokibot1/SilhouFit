@@ -26,12 +26,13 @@ describe('Composer', () => {
     expect(field).toHaveValue('one\ntwo')
   })
 
-  it('sends with the button, and shows the count out of 2000', async () => {
+  it('sends with the button, shows no character count, and still caps the message at 2000', async () => {
     const user = userEvent.setup()
     const { onSend, field, send } = setup()
     expect(send).toBeDisabled()
     await user.type(field, 'Hi!')
-    expect(screen.getByText('3 / 2000')).toBeInTheDocument()
+    expect(screen.queryByText(/ \/ 2000/)).not.toBeInTheDocument()
+    expect(field).toHaveAttribute('maxlength', '2000')
     await user.click(send)
     expect(onSend).toHaveBeenCalledWith('Hi!')
   })
