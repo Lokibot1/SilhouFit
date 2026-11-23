@@ -16,6 +16,8 @@ interface MessageListProps {
   staff?: boolean
   /** The viewer cannot send (messaging blocked): failed messages offer Remove only. */
   blocked?: boolean
+  /** The dock's small window: smaller text and pictures. */
+  compact?: boolean
   hasMore: boolean
   loadingEarlier: boolean
   onLoadEarlier: () => void
@@ -24,7 +26,7 @@ interface MessageListProps {
 }
 
 /** The thread: oldest at the top, a date separator per day. It follows new messages only while the reader is near the bottom. */
-export function MessageList({ messages, selfId, staff, blocked, hasMore, loadingEarlier, onLoadEarlier, onRetry, onRemove }: MessageListProps) {
+export function MessageList({ messages, selfId, staff, blocked, compact, hasMore, loadingEarlier, onLoadEarlier, onRetry, onRemove }: MessageListProps) {
   const scroller = useRef<HTMLDivElement>(null)
   const nearBottom = useRef(true)
   const previous = useRef({ first: '', height: 0 })
@@ -70,7 +72,7 @@ export function MessageList({ messages, selfId, staff, blocked, hasMore, loading
                 {formatChatDay(message.createdAt)}
               </li>
             )}
-            <MessageBubble message={message} enter={message.fresh} mine={message.senderId === selfId} staff={staff} blocked={blocked} onRetry={onRetry} onRemove={onRemove} />
+            <MessageBubble message={message} enter={message.fresh} mine={message.senderId === selfId} staff={staff} blocked={blocked} compact={compact} onRetry={onRetry} onRemove={onRemove} />
           </Fragment>
         ))}
         </ol>

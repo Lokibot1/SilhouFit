@@ -3,6 +3,7 @@ import type { ThreadMessage } from '../../hooks/useConversation'
 import { CHAT_BRAND_NAME, ROLE_LABEL, displayName, sendFailureCopy } from '../../service/chatApi'
 import { formatMessageTime } from '../../utils/format'
 import { Avatar } from '../ui/Avatar'
+import { KralAvatar } from './KralAvatar'
 import { Modal } from '../ui/Modal'
 import { PhotoImg } from '../ui/PhotoImg'
 
@@ -18,11 +19,13 @@ interface MessageBubbleProps {
   staff?: boolean
   /** The sender cannot send (messaging blocked), so Retry would only fail again. */
   blocked?: boolean
+  /** The dock's small window: smaller text and pictures. */
+  compact?: boolean
   onRetry: (id: string) => void
   onRemove: (id: string) => void
 }
 
-export function MessageBubble({ message, enter = false, mine, staff = false, blocked = false, onRetry, onRemove }: MessageBubbleProps) {
+export function MessageBubble({ message, enter = false, mine, staff = false, blocked = false, compact = false, onRetry, onRemove }: MessageBubbleProps) {
   const { status, progress } = message
   const { sender } = message
   const masked = !staff && !mine && sender?.role !== 'customer'
@@ -33,7 +36,7 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
   const label = masked || !sender ? '' : ROLE_LABEL[sender.role]
   return (
     <li data-testid="chat-message" data-status={status ?? 'sent'} className={`flex min-w-0 items-end gap-2 ${mine ? 'origin-bottom-right flex-row-reverse' : 'origin-bottom-left'} ${enter ? 'enter-message' : ''}`}>
-      <Avatar name={name} src={masked ? undefined : (sender?.avatarUrl ?? undefined)} size="sm" />
+      {masked ? <KralAvatar size="sm" /> : <Avatar name={name} src={sender?.avatarUrl ?? undefined} size="sm" />}
       <div className={`flex min-w-0 max-w-[80%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
         {!mine && (
           <p className="font-ui mb-1 truncate px-1 text-sm text-fg-muted">
@@ -43,7 +46,7 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
         )}
         {attachments.length > 0 && (
           // Fixed square tiles, so nothing moves while the files load.
-          <div className={`mb-1 grid w-60 max-w-full gap-1 transition-opacity duration-200 ${attachments.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${status === 'pending' ? 'opacity-70' : ''}`}>
+          <div className={`mb-1 grid ${compact ? 'w-44' : 'w-60'} max-w-full gap-1 transition-opacity duration-200 ${attachments.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${status === 'pending' ? 'opacity-70' : ''}`}>
             {attachments.map((file, index) => {
               const description = `${file.type === 'IMAGE' ? 'Photo' : 'Video'} ${index + 1} of ${attachments.length} from ${name || 'sender'}`
               const tile = 'aspect-square min-h-11 min-w-11 overflow-hidden rounded-xl border border-line bg-canvas-sub'
@@ -59,7 +62,7 @@ export function MessageBubble({ message, enter = false, mine, staff = false, blo
         )}
         {message.content && (
           <div
-            className={`max-w-full min-w-0 rounded-xl px-3 py-2 text-base leading-6 md:text-sm [overflow-wrap:anywhere] whitespace-pre-wrap ${
+            className={`max-w-full min-w-0 rounded-xl px-3 py-2 text-base leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap ${compact ? 'sm:text-xs sm:leading-5' : 'md:text-sm'} ${
               mine ? 'bg-fg text-canvas' : 'border border-line bg-canvas-sub text-fg'
             } transition-opacity duration-200 ${status === 'pending' ? 'opacity-70' : ''} ${status === 'failed' ? 'ring-2 ring-danger' : ''}`}
           >

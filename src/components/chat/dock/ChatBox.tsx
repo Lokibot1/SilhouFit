@@ -12,6 +12,7 @@ import { Avatar } from '../../ui/Avatar'
 import { Tooltip } from '../../ui/Tooltip'
 import { ChatSkeleton } from '../ChatSkeleton'
 import { ChatThread } from '../ChatThread'
+import { KralAvatar } from '../KralAvatar'
 import { HelpBot } from './HelpBot'
 
 const HEADER_BUTTON = 'flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-fg hover:bg-fg/10'
@@ -65,10 +66,10 @@ export function ChatBox({ box, staff, onMinimize, onClose }: ChatBoxProps) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 12, scale: 0.96 }}
       transition={{ duration: DURATION.state, ease: EASE_OUT }}
-      className="fixed inset-x-0 bottom-0 flex h-[min(32rem,80svh)] flex-col overflow-hidden rounded-t-xl border border-line-strong bg-canvas-sub text-fg shadow-popover sm:static sm:h-[30rem] sm:max-h-[calc(100svh-6rem)] sm:w-[22rem] sm:rounded-xl"
+      className="fixed inset-x-0 bottom-0 flex h-[min(32rem,80svh)] flex-col overflow-hidden rounded-t-xl border border-line-strong bg-canvas-sub text-fg shadow-popover sm:static sm:h-[26rem] sm:max-h-[calc(100svh-6rem)] sm:w-[19rem] sm:rounded-xl"
     >
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line pr-1 pl-3">
-        {box.id === HELP_BOX ? <BotAvatar size="sm" /> : <Avatar name={box.name} src={box.avatarUrl} size="sm" />}
+        {box.id === HELP_BOX ? <BotAvatar size="sm" /> : box.id === 'mine' ? <KralAvatar size="sm" /> : <Avatar name={box.name} src={box.avatarUrl} size="sm" />}
         <h2 className="display min-w-0 flex-1 truncate text-lg text-fg">{box.name}</h2>
         <Tooltip label="Minimize">
           <button type="button" onClick={onMinimize} aria-label={`Minimize chat with ${box.name}`} className={HEADER_BUTTON}>

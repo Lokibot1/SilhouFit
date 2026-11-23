@@ -71,6 +71,7 @@ export function ChatThread({ conversationId, staff = false, leading, compact = f
               selfId={chat.selfId}
               staff={staff}
               blocked={!staff && !!blockedAt}
+              compact={compact}
               hasMore={chat.hasMore}
               loadingEarlier={chat.loadingEarlier}
               onLoadEarlier={() => void chat.loadEarlier()}
