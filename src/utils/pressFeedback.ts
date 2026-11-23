@@ -2,7 +2,8 @@
 // Uses Web Animations on the individual `scale` property so it composes with each element's own
 // transform hover-lift and never replaces its CSS transition list (Tailwind transition-* utilities).
 const TAPPABLE = 'button, a, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .press'
-const OPT_OUT = ':disabled, [aria-disabled="true"], [role="slider"], [data-no-press]'
+// Dropdown fields and their options do not bounce: the list fades in and out on its own.
+const OPT_OUT = ':disabled, [aria-disabled="true"], [role="slider"], [role="combobox"], [aria-haspopup="listbox"], [role="option"], [data-no-press]'
 const SINK_MS = 80
 const SPRING_MS = 700
 // A damped spring sampled as keyframes: one overshoot to 1.04, a small undershoot, settled by the end. A single

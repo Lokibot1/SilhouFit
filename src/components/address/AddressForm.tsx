@@ -219,6 +219,8 @@ interface AddressFormProps {
   saveLabel?: string
   /** Words the default checkbox for something other than a shopper's address: its label, the note when it is locked on (first one, or already the default) and the help while it can be changed. */
   defaultCopy?: { label: string; first: string; locked: string; help: string }
+  /** On a wide page (the pickup location): the fields sit in columns from `lg` instead of one narrow column. */
+  wide?: boolean
 }
 
 /** Puts a saved address's places back on the lists first (the form is a skeleton meanwhile); a new address needs no lookup. */
@@ -273,6 +275,7 @@ function AddressFormBody({
   pinCopy,
   saveLabel = 'Save address',
   defaultCopy,
+  wide = false,
 }: AddressFormProps & { resolved: ResolvedAddress | null }) {
   const kral = tone === 'kral'
   const reword = (message: string) =>
@@ -636,7 +639,7 @@ function AddressFormBody({
 
   return (
     <form noValidate onSubmit={(event) => void submit(event)} aria-busy={pending} className="pt-3 pb-5">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
+      <div className={`grid grid-cols-[minmax(0,1fr)] gap-4 ${wide ? 'lg:grid-cols-3' : ''}`}>
         <FloatingField
           tone={tone}
           id={fieldId('label')}
@@ -681,7 +684,7 @@ function AddressFormBody({
         />
       </div>
 
-      <button ref={pinButton} type="button" onClick={() => setMapOpen(true)} className={`${kral ? KRAL_SECONDARY : SECONDARY_BUTTON} mt-4 w-full`}>
+      <button ref={pinButton} type="button" onClick={() => setMapOpen(true)} className={`${kral ? KRAL_SECONDARY : SECONDARY_BUTTON} mt-4 w-full ${wide ? 'lg:w-auto lg:min-w-60' : ''}`}>
         Pin on a map
       </button>
       <p className={`mt-2 leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-xs text-fg-muted'}`}>
@@ -730,7 +733,7 @@ function AddressFormBody({
         </p>
       )}
 
-      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4">
+      <div className={`mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 ${wide ? 'lg:grid-cols-2' : ''}`}>
         {typed ? (
           <>
             <FloatingField
@@ -868,7 +871,7 @@ function AddressFormBody({
           readOnly={pending}
         />
         {postalState !== 'idle' && (
-          <p role="status" className={`-mt-2 flex items-center gap-2 leading-snug ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-sm text-fg-muted'}`}>
+          <p role="status" className={`-mt-2 flex items-center gap-2 leading-snug ${wide ? 'lg:col-span-2' : ''} ${kral ? 'font-kral-mono text-base text-kral-muted md:text-sm' : 'text-sm text-fg-muted'}`}>
             {postalState === 'loading' && <SpinnerIcon className="shrink-0" />}
             {postalState === 'loading' && 'Looking up your postal code…'}
             {postalState === 'filled' && 'Postal code filled in from your address. Check it before you save.'}

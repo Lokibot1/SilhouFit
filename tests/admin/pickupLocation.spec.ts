@@ -1140,6 +1140,58 @@ test.describe('several locations', () => {
     await expect(page.getByRole('button', { name: 'Add pickup location' })).toBeFocused()
   })
 
+  test('the add form uses the page width: a wide card with the contact fields side by side on a large screen, one column on a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await mockPickupLocations(page, SAVED)
+    await openAs(page)
+    await page.getByRole('button', { name: 'Add pickup location' }).click()
+    const name = page.getByLabel('Contact name', { exact: true })
+    const phone = page.getByLabel('Phone number', { exact: true })
+    await expect(name).toBeVisible()
+    const form = (await page.locator('form[aria-busy]').boundingBox())!
+    expect(form.width).toBeGreaterThan(800) // it was 576px wide before the card was widened
+    const [a, b] = [(await name.boundingBox())!, (await phone.boundingBox())!]
+    expect(Math.abs(a.y - b.y)).toBeLessThan(4) // same row
+    expect(b.x).toBeGreaterThan(a.x + a.width - 1)
+    expect(await overflow(page)).toBe(0)
+
+    await page.setViewportSize({ width: 320, height: 800 })
+    const [c, d] = [(await name.boundingBox())!, (await phone.boundingBox())!]
+    expect(d.y).toBeGreaterThan(c.y + c.height - 1) // stacked
+    expect(await overflow(page)).toBe(0)
+  })
+
+  test('pressing a dropdown field does not bounce it, while an ordinary button still does', async ({ page }) => {
+    await page.addInitScript(() => {
+      const scaled: string[] = []
+      ;(window as unknown as { __scaled: string[] }).__scaled = scaled
+      const animate = Element.prototype.animate
+      Element.prototype.animate = function (this: Element, keyframes: Keyframe[] | PropertyIndexedKeyframes | null, options?: number | KeyframeAnimationOptions) {
+        if (JSON.stringify(keyframes).includes('"scale"')) scaled.push(this.getAttribute('role') ?? this.tagName.toLowerCase())
+        return animate.call(this, keyframes, options)
+      }
+    })
+    await mockPickupLocations(page, SAVED)
+    await openAs(page)
+    await page.getByRole('button', { name: 'Add pickup location' }).click()
+    const dropdown = page.locator('button[aria-haspopup="listbox"]').first() // the Region picker
+    await expect(dropdown).toBeVisible()
+    const scaledNow = () => page.evaluate(() => (window as unknown as { __scaled: string[] }).__scaled.slice())
+    const press = async (target: ReturnType<Page['getByRole']>) => {
+      await target.scrollIntoViewIfNeeded()
+      const box = (await target.boundingBox())!
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(0, 0) // released elsewhere: no click
+      await page.mouse.up()
+    }
+    await page.evaluate(() => ((window as unknown as { __scaled: string[] }).__scaled.length = 0)) // the Add click above bounced, as buttons do
+    await press(dropdown)
+    expect(await scaledNow()).toEqual([])
+    await press(page.getByRole('button', { name: 'Cancel', exact: true }))
+    expect((await scaledNow()).length).toBeGreaterThan(0)
+  })
+
   test('the empty state has no Add button, only Set pickup location', async ({ page }) => {
     await mockPickupLocations(page, null)
     await openAs(page)

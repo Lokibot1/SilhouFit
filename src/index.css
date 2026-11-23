@@ -806,6 +806,11 @@
     box-shadow: var(--skeuo-inset);
   }
 
+  /* A dropdown field does not move when pressed: its list opening is the feedback. */
+  .skeuo[aria-haspopup='listbox']:active {
+    transform: none;
+  }
+
   .skeuo[aria-pressed='true'],
   .skeuo[aria-current='page'],
   .skeuo[data-checked='true'],

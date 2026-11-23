@@ -339,9 +339,9 @@ function EmptyCard({ onSet }: { onSet: () => void }) {
 }
 
 /** The one-card states (empty, error, form): the same card, with the heading that takes focus. */
-function PlainCard({ headingRef, children }: { headingRef: Ref<HTMLHeadingElement>; children: ReactNode }) {
+function PlainCard({ headingRef, wide = false, children }: { headingRef: Ref<HTMLHeadingElement>; wide?: boolean; children: ReactNode }) {
   return (
-    <section aria-labelledby="pickup-heading" className={`${PICKUP_CARD} max-w-2xl p-5 sm:p-6`}>
+    <section aria-labelledby="pickup-heading" className={`${PICKUP_CARD} ${wide ? 'max-w-6xl' : 'max-w-2xl'} p-5 sm:p-6`}>
       <h2 id="pickup-heading" ref={headingRef} tabIndex={-1} className="display mb-3 text-xl text-fg outline-none">
         Pickup address
       </h2>
@@ -534,9 +534,10 @@ export function PickupLocationPage() {
         >
           {() =>
             form ? (
-              <PlainCard headingRef={headingRef}>
-                <div className="max-w-xl" onInput={() => setEdited(true)} onClick={() => setEdited(true)}>
+              <PlainCard headingRef={headingRef} wide>
+                <div onInput={() => setEdited(true)} onClick={() => setEdited(true)}>
                   <AddressForm
+                    wide
                     initial={form.initial}
                     existingCount={locations.length}
                     defaultCopy={DEFAULT_COPY}
