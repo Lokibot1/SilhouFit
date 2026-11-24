@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useToast } from '../components/toast/useToast'
 import { ProductListError } from '../service/fetchProductList'
 import { fetchNotifications, fetchUnreadCount, markAllNotificationsRead, markNotificationRead, onNotificationsChanged, type ServerNotification } from '../service/notificationsApi'
+import { popupsOn, soundOn } from '../service/notificationPrefs'
 import { notificationTone } from '../utils/notifications'
 import { playNotification } from '../utils/sound'
 import { useLivePoll } from './useLivePoll'
@@ -71,14 +72,16 @@ export function useNotifications({ enabled = true, list = true, announce }: { en
         if (!latest) return
         const extra = next - known - 1
         const href = announcer(latest)
-        toast.show({
-          kind: 'info',
-          tone: notificationTone(latest.type),
-          title: latest.title,
-          message: `${latest.body ?? ''}${extra > 0 ? `${latest.body ? ' ' : ''}and ${extra} more` : ''}`,
-          action: href ? { label: 'View', onClick: () => go(href) } : undefined,
-        })
-        playNotification()
+        if (popupsOn()) {
+          toast.show({
+            kind: 'info',
+            tone: notificationTone(latest.type),
+            title: latest.title,
+            message: `${latest.body ?? ''}${extra > 0 ? `${latest.body ? ' ' : ''}and ${extra} more` : ''}`,
+            action: href ? { label: 'View', onClick: () => go(href) } : undefined,
+          })
+        }
+        if (soundOn()) playNotification()
       }
     },
     [load, toast],

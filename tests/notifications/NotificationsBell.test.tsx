@@ -25,6 +25,7 @@ beforeAll(() => {
 })
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.clear()
   server = seed()
   api.request.mockImplementation((method: string, path: string) => server.handle(method, path))
 })
@@ -74,6 +75,18 @@ describe('NotificationsBell', () => {
     await screen.findByRole('button', { name: 'Notifications, 4 unread' })
     expect(toast.show).toHaveBeenCalledTimes(1)
     expect(sound.playNotification).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows no pop-up and plays no chime when both are turned off on this device, but the badge still counts', async () => {
+    localStorage.setItem('silhoufit-notify-popup', 'off')
+    localStorage.setItem('silhoufit-notify-sound', 'off')
+    renderBell()
+    await screen.findByRole('button', { name: 'Notifications, 2 unread' })
+    server.items.push(apiNotification(3, { type: 'PAYMENT_FAILED', title: 'Payment failed', body: 'Order SHF-3 was declined.' }))
+    document.dispatchEvent(new Event('visibilitychange'))
+    await screen.findByRole('button', { name: 'Notifications, 3 unread' })
+    expect(toast.show).not.toHaveBeenCalled()
+    expect(sound.playNotification).not.toHaveBeenCalled()
   })
 
   it('hides the badge until the count is known', () => {

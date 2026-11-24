@@ -24,7 +24,7 @@
         var theme = localStorage.getItem('silhoufit-theme')
         if (
           theme === 'dark' ||
-          (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
         ) {
           document.documentElement.classList.add('dark')
         }

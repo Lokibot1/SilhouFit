@@ -28,6 +28,7 @@ const PANEL_KRAL = 'fixed z-[85] flex flex-col overflow-hidden border border-kra
 /**
  * The signed-in avatar as a button that opens a small panel with who is signed in and Sign out.
  * `profileTo` is where Profile goes; null shows it as coming soon, for an area with no profile page yet.
+ * `settingsTo` is where Settings goes.
  * `ordersTo` is where My orders goes; null leaves the row out, for the staff areas, which have no customer orders.
  * `onSignOut` runs just before the session ends. `themeSwitch` adds a Dark mode row with the theme switch.
  * `tone="kral"` restyles the button and panel flat and square for the storefront pages (no theme row there).
@@ -35,6 +36,7 @@ const PANEL_KRAL = 'fixed z-[85] flex flex-col overflow-hidden border border-kra
 export function AccountMenu({
   user,
   profileTo = '/profile',
+  settingsTo = '/settings',
   ordersTo = '/orders',
   onSignOut,
   themeSwitch = false,
@@ -43,6 +45,7 @@ export function AccountMenu({
 }: {
   user: CurrentUser
   profileTo?: string | null
+  settingsTo?: string
   ordersTo?: string | null
   onSignOut?: () => void
   themeSwitch?: boolean
@@ -175,12 +178,10 @@ export function AccountMenu({
                   Orders
                 </Link>
               )}
-              {/* The settings page is still to do, so the row shows but does nothing yet. */}
-              <button type="button" aria-disabled="true" className={soon}>
+              <Link to={settingsTo} onClick={() => close(false)} className={live}>
                 <SettingsIcon />
                 Settings
-                <span className="ml-auto text-sm">Soon</span>
-              </button>
+              </Link>
               {themeSwitch && <ThemeRow className={`${ITEM_LIVE} focus-within:bg-fg/10`} />}
               {kral && (
                 // Below md the bar keeps only the cart, wishlist and this menu: Messages and the theme switch are here instead.

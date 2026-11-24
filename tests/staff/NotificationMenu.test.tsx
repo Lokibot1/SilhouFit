@@ -21,6 +21,7 @@ beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
 })
 beforeEach(() => {
+  localStorage.clear()
   server = seed()
   api.request.mockImplementation((method: string, path: string) => server.handle(method, path))
 })
@@ -51,6 +52,16 @@ describe('NotificationMenu', () => {
     expect(await screen.findByText('Order SHF-9 has been placed.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'View' }))
     expect(screen.getByTestId('where')).toHaveTextContent('/admin/online-orders?q=SHF-9')
+  })
+
+  it('shows no pop-up when pop-ups are turned off on this device, but the badge still counts', async () => {
+    localStorage.setItem('silhoufit-notify-popup', 'off')
+    renderBell()
+    await screen.findByRole('button', { name: 'Notifications, 3 unread' })
+    server.items.push(placed(9))
+    document.dispatchEvent(new Event('visibilitychange'))
+    await screen.findByRole('button', { name: 'Notifications, 4 unread' })
+    expect(screen.queryByText('Order SHF-9 has been placed.')).not.toBeInTheDocument()
   })
 
   it('shows a skeleton while loading, then the list with times in 12-hour form', async () => {

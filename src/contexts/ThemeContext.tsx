@@ -11,40 +11,58 @@ import {
 import { flushSync } from 'react-dom'
 
 type Theme = 'light' | 'dark'
+type Preference = Theme | 'system'
 
 const STORAGE_KEY = 'silhoufit-theme'
+const DARK_QUERY = '(prefers-color-scheme: dark)'
 
-function getInitialTheme(): Theme {
+function getInitialPreference(): Preference {
   const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light'
+  return stored === 'light' || stored === 'dark' ? stored : 'system'
 }
 
 interface ThemeContextValue {
+  /** What is on screen now: the preference, or the OS setting while the preference is System. */
   theme: Theme
+  preference: Preference
+  setPreference: (preference: Preference) => void
   toggleTheme: (origin?: { x: number; y: number }) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme)
+  const [preference, setPreference] = useState<Preference>(getInitialPreference)
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia(DARK_QUERY).matches)
+  const theme: Theme = preference === 'system' ? (systemDark ? 'dark' : 'light') : preference
+
+  // Follow the OS only while the preference is System.
+  useEffect(() => {
+    if (preference !== 'system') return
+    const query = window.matchMedia(DARK_QUERY)
+    const sync = () => setSystemDark(query.matches)
+    sync()
+    query.addEventListener('change', sync)
+    return () => query.removeEventListener('change', sync)
+  }, [preference])
 
   // Layout effect so the class flips inside flushSync, before the View Transition snapshot.
   useLayoutEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
-    localStorage.setItem(STORAGE_KEY, theme)
   }, [theme])
+
+  useLayoutEffect(() => {
+    localStorage.setItem(STORAGE_KEY, preference)
+  }, [preference])
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) void import('../native').then((native) => native.syncStatusBar(theme))
   }, [theme])
 
   const toggleTheme = useCallback((origin?: { x: number; y: number }) => {
+    // Flips what is on screen into an explicit light or dark, even from System.
     const flip = () =>
-      setTheme((current) => (current === 'dark' ? 'light' : 'dark'))
+      setPreference(document.documentElement.classList.contains('dark') ? 'light' : 'dark')
 
     const reduceMotion = window.matchMedia(
       '(prefers-reduced-motion: reduce)',
@@ -73,7 +91,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, preference, setPreference, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   )

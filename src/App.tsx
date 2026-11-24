@@ -102,6 +102,10 @@ const ProfilePage = lazy(() =>
   import('./views/private/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 )
 
+const SettingsPage = lazy(() =>
+  import('./views/private/SettingsPage').then((m) => ({ default: m.SettingsPage })),
+)
+
 const MessagesPage = lazy(() =>
   import('./views/private/MessagesPage').then((m) => ({ default: m.MessagesPage })),
 )
@@ -177,6 +181,16 @@ function StaffProfile() {
     <div className="[&>div]:pt-6!">
       <Suspense fallback={<ProfileSkeleton />}>
         <ProfilePage />
+      </Suspense>
+    </div>
+  )
+}
+
+function StaffSettings() {
+  return (
+    <div className="[&>div]:pt-6!">
+      <Suspense fallback={<ProfileSkeleton />}>
+        <SettingsPage />
       </Suspense>
     </div>
   )
@@ -473,6 +487,14 @@ function App() {
                 }
               />
               <Route
+                path="settings"
+                element={
+                  <Suspense fallback={<ProfileSkeleton tone="kral" />}>
+                    <SettingsPage tone="kral" />
+                  </Suspense>
+                }
+              />
+              <Route
                 path="profile/measurements"
                 element={
                   <Suspense fallback={<ProfileSkeleton tone="kral" />}>
@@ -506,6 +528,7 @@ function App() {
               <Route index element={<StaffDashboardPage />} />
               {operationsRoutes}
               <Route path="profile" element={<StaffProfile />} />
+              <Route path="settings" element={<StaffSettings />} />
             </Route>
             <Route
               path="admin"
@@ -519,6 +542,7 @@ function App() {
               {operationsRoutes}
               {adminToolRoutes}
               <Route path="profile" element={<StaffProfile />} />
+              <Route path="settings" element={<StaffSettings />} />
             </Route>
             <Route
               path="superadmin"
@@ -548,6 +572,7 @@ function App() {
                 }
               />
               <Route path="profile" element={<StaffProfile />} />
+              <Route path="settings" element={<StaffSettings />} />
             </Route>
             <Route element={<Layout bare />}>
               <Route

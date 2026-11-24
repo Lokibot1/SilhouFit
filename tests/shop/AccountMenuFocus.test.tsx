@@ -67,7 +67,7 @@ describe('account menu focus', () => {
     renderBar()
     await user.click(screen.getByRole('button', { name: 'Account, Ana Reyes' }))
     const links = within(screen.getByRole('group', { name: 'Account' })).getAllByRole('link').map((l) => l.textContent)
-    expect(links).toEqual(['Profile', 'Orders'])
+    expect(links).toEqual(['Profile', 'Orders', 'Settings'])
     await user.click(screen.getByRole('link', { name: 'Orders' }))
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/orders'))
   })
