@@ -29,7 +29,7 @@ export function NotificationsBell() {
   const [open, setOpen] = useState(false)
   const [place, setPlace] = useState<ReturnType<typeof computePlace>>()
   // The badge only needs the count; the list is read while the panel is open.
-  const { count, items, status, error, retry, markAllRead } = useNotifications({ list: open })
+  const { count, items, status, error, retry, markAllRead } = useNotifications({ list: open, announce: notificationHref })
   const unread = count ?? 0
 
   // Closing, however it happens, marks what was shown as read.

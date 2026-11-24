@@ -17,6 +17,23 @@ const SENTENCE: Record<OrderStatus, string> = {
 
 export const notificationSentence = (status: OrderStatus) => `Your order ${SENTENCE[status]}`
 
+export type Tone = 'success' | 'info' | 'warning' | 'danger'
+
+const TONES: Record<string, Tone> = {
+  ORDER_PAID: 'success',
+  REFUND_SUCCEEDED: 'success',
+  MESSAGING_UNBLOCKED: 'success',
+  PRODUCT_LOW_STOCK: 'warning',
+  REFUND_ACTION_REQUIRED: 'warning',
+  PAYMENT_FAILED: 'danger',
+  ORDER_CANCELLED: 'danger',
+  PRODUCT_SOLD_OUT: 'danger',
+  MESSAGING_BLOCKED: 'danger',
+}
+
+/** The accent a notification's toast takes; anything not listed is plain info. */
+export const notificationTone = (type: string): Tone => TONES[type] ?? 'info'
+
 /** "Just now", "5 min ago", "3 hr ago", "Yesterday", then "Oct 22, 3:45 PM" (Manila time, 12-hour). */
 export function relativeTime(iso: string, now = new Date()) {
   const minutes = Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000)

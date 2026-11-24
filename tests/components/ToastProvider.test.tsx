@@ -42,6 +42,16 @@ describe('ToastProvider', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('shows a toned toast with its title as a status, and auto-dismisses it', async () => {
+    setup({ kind: 'info', tone: 'danger', title: 'Payment failed', message: 'Order SHF-1 was declined.' })
+    const toast = screen.getByRole('status')
+    expect(toast).toHaveTextContent('Payment failed')
+    expect(toast).toHaveTextContent('Order SHF-1 was declined.')
+
+    await advance(5000)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('pauses while hovered and resumes on leave', async () => {
     setup({ kind: 'info', message: 'Heads up' })
     const toast = screen.getByRole('status')

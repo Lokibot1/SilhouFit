@@ -1,10 +1,18 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DURATION, EASE_OUT } from '../../motion/tokens'
-import { AlertIcon, CheckIcon, XIcon } from '../form/icons'
+import type { Tone } from '../../utils/notifications'
+import { AlertIcon, CheckIcon, InfoIcon, XIcon } from '../form/icons'
 import { ToastContext, type ToastOptions } from './useToast'
 
 const AUTO_DISMISS_MS = 4500
+
+const TONE_STYLE: Record<Tone, { bar: string; text: string; Icon: typeof CheckIcon }> = {
+  success: { bar: 'bg-success', text: 'text-success', Icon: CheckIcon },
+  info: { bar: 'bg-info', text: 'text-info', Icon: InfoIcon },
+  warning: { bar: 'bg-warning', text: 'text-warning', Icon: AlertIcon },
+  danger: { bar: 'bg-danger', text: 'text-danger', Icon: AlertIcon },
+}
 
 type ActiveToast = ToastOptions & { id: number }
 
@@ -73,7 +81,8 @@ function ToastView({ toast, onDismiss }: { toast: ActiveToast; onDismiss: () => 
   }, [onDismiss])
 
   const isError = toast.kind === 'error'
-  const Icon = isError ? AlertIcon : CheckIcon
+  const tone = toast.tone && TONE_STYLE[toast.tone]
+  const Icon = tone ? tone.Icon : isError ? AlertIcon : CheckIcon
 
   return (
     <div
@@ -83,13 +92,17 @@ function ToastView({ toast, onDismiss }: { toast: ActiveToast; onDismiss: () => 
       onMouseLeave={resume}
       onFocus={pause}
       onBlur={resume}
-      className="glass-card glass-floating [--g-fill:1.2]! flex flex-wrap items-start gap-3 rounded-xl py-1 pr-1 pl-3 sm:py-2 sm:pr-2 sm:pl-4"
+      className="glass-card glass-floating relative [--g-fill:1.2]! flex flex-wrap items-start gap-3 rounded-xl py-1 pr-1 pl-3 sm:py-2 sm:pr-2 sm:pl-4"
     >
+      {tone && <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 rounded-l-xl ${tone.bar}`} />}
       <Icon
-        size={20}
-        className={`mt-2.5 sm:mt-3 ${isError ? 'text-danger' : toast.kind === 'success' ? 'text-success' : 'text-chrome-strong'}`}
+        size={tone ? 16 : 20}
+        className={`mt-2.5 sm:mt-3 ${tone ? tone.text : isError ? 'text-danger' : toast.kind === 'success' ? 'text-success' : 'text-chrome-strong'}`}
       />
-      <p className="min-w-0 flex-1 basis-36 py-2.5 text-base leading-snug sm:py-3 text-fg md:text-sm">{toast.message}</p>
+      <p className="min-w-0 flex-1 basis-36 py-2.5 text-base leading-snug sm:py-3 text-fg md:text-sm">
+        {toast.title && <strong className="block font-semibold">{toast.title}</strong>}
+        {toast.message}
+      </p>
       {toast.action && (
         <button
           type="button"

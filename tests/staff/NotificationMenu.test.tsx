@@ -43,6 +43,16 @@ function renderBell() {
 }
 
 describe('NotificationMenu', () => {
+  it('toasts a new order arrival, and View opens Online Orders for it', async () => {
+    renderBell()
+    await screen.findByRole('button', { name: 'Notifications, 3 unread' })
+    server.items.push(placed(9))
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(await screen.findByText('Order SHF-9 has been placed.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'View' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/admin/online-orders?q=SHF-9')
+  })
+
   it('shows a skeleton while loading, then the list with times in 12-hour form', async () => {
     let answer: () => void = () => {}
     api.request.mockImplementation(async (method: string, path: string) => {

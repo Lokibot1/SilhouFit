@@ -11,6 +11,9 @@ import { fakeNotifications } from './fakeNotifications'
 const api = vi.hoisted(() => ({ request: vi.fn() }))
 vi.mock('../../src/service/fetchProductList', async (original) => ({ ...(await original<typeof import('../../src/service/fetchProductList')>()), ...api }))
 
+const sound = vi.hoisted(() => ({ playNotification: vi.fn() }))
+vi.mock('../../src/utils/sound', () => sound)
+
 const toast = { show: vi.fn(), dismiss: vi.fn() }
 let server = fakeNotifications([])
 const seed = () => fakeNotifications([apiNotification(1), apiNotification(2, { type: 'SHIPMENT_STATUS_CHANGED', title: 'Out for delivery', body: null, data: null })])
@@ -47,6 +50,30 @@ describe('NotificationsBell', () => {
     expect(button).toHaveAttribute('aria-expanded', 'false')
     expect(button).not.toHaveAttribute('title')
     expect(server.calls).toEqual(['GET /notifications/unread-count'])
+  })
+
+  it('says nothing on first load, then toasts and chimes once for a new arrival, but not with the panel open', async () => {
+    renderBell()
+    await screen.findByRole('button', { name: 'Notifications, 2 unread' })
+    expect(toast.show).not.toHaveBeenCalled()
+    expect(sound.playNotification).not.toHaveBeenCalled()
+
+    server.items.push(apiNotification(3, { type: 'PAYMENT_FAILED', title: 'Payment failed', body: 'Order SHF-3 was declined.' }))
+    document.dispatchEvent(new Event('visibilitychange'))
+    await waitFor(() => expect(toast.show).toHaveBeenCalledTimes(1))
+    expect(toast.show).toHaveBeenCalledWith(
+      expect.objectContaining({ tone: 'danger', title: 'Payment failed', message: 'Order SHF-3 was declined.', action: expect.objectContaining({ label: 'View' }) }),
+    )
+    expect(sound.playNotification).toHaveBeenCalledTimes(1)
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Notifications, 3 unread' }))
+    await screen.findByText('Payment failed')
+    server.items.push(apiNotification(4))
+    document.dispatchEvent(new Event('visibilitychange'))
+    await screen.findByRole('button', { name: 'Notifications, 4 unread' })
+    expect(toast.show).toHaveBeenCalledTimes(1)
+    expect(sound.playNotification).toHaveBeenCalledTimes(1)
   })
 
   it('hides the badge until the count is known', () => {

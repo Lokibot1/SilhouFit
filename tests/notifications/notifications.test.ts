@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { ORDER_STATUSES } from '../../src/service/ordersApi'
-import { notificationSentence, relativeTime } from '../../src/utils/notifications'
+import { notificationSentence, notificationTone, relativeTime } from '../../src/utils/notifications'
+
+describe('notificationTone', () => {
+  it.each([
+    ['ORDER_PAID', 'success'],
+    ['PRODUCT_LOW_STOCK', 'warning'],
+    ['PRODUCT_SOLD_OUT', 'danger'],
+    ['ORDER_CREATED', 'info'],
+    ['SOMETHING_NEW', 'info'],
+  ] as const)('%s is %s', (type, tone) => {
+    expect(notificationTone(type)).toBe(tone)
+  })
+})
 
 describe('notificationSentence', () => {
   it.each([

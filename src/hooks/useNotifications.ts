@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useToast } from '../components/toast/useToast'
 import { ProductListError } from '../service/fetchProductList'
 import { fetchNotifications, fetchUnreadCount, markAllNotificationsRead, markNotificationRead, onNotificationsChanged, type ServerNotification } from '../service/notificationsApi'
+import { notificationTone } from '../utils/notifications'
+import { playNotification } from '../utils/sound'
 import { useLivePoll } from './useLivePoll'
 
 interface Page {
@@ -18,8 +21,9 @@ const isAbort = (failure: unknown) => failure instanceof DOMException && failure
  * The signed-in shopper's notifications from the server. The unread count is polled alone; the list is read only while `list` is on
  * (the page, or the bell while open) and again whenever the count changes. Marking read is optimistic and rolls back on failure.
  */
-export function useNotifications({ enabled = true, list = true }: { enabled?: boolean; list?: boolean } = {}) {
+export function useNotifications({ enabled = true, list = true, announce }: { enabled?: boolean; list?: boolean; announce?: (n: ServerNotification) => string | null } = {}) {
   const toast = useToast()
+  const navigate = useNavigate()
   const [count, setCount] = useState<number | null>(null)
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [shown, setShown] = useState<Page>(EMPTY)
@@ -29,9 +33,9 @@ export function useNotifications({ enabled = true, list = true }: { enabled?: bo
   const [loadingMore, setLoadingMore] = useState(false)
   const controller = useRef<AbortController | null>(null)
   // What the stable callbacks below read, so a listener bound when the panel opened still sees the current list.
-  const live = useRef({ count, shown, unreadOnly, list })
+  const live = useRef({ count, shown, unreadOnly, list, announce, navigate })
   useEffect(() => {
-    live.current = { count, shown, unreadOnly, list }
+    live.current = { count, shown, unreadOnly, list, announce, navigate }
   })
 
   const load = useCallback((page: number, only: boolean) => {
@@ -57,12 +61,27 @@ export function useNotifications({ enabled = true, list = true }: { enabled?: bo
   const readCount = useCallback(
     async (signal?: AbortSignal) => {
       const next = await fetchUnreadCount({ signal })
-      const { count: known, unreadOnly: only, list: listing } = live.current
+      const { count: known, unreadOnly: only, list: listing, announce: announcer, navigate: go } = live.current
       live.current.count = next
       setCount(next)
       if (listing && known !== null && known !== next) void load(1, only)
+      if (announcer && !listing && known !== null && next > known) {
+        // The newest unread one is the story; the rest are only counted.
+        const latest = await fetchNotifications({ page: 1, unreadOnly: true }, { signal }).then((page) => page.items[0], () => undefined)
+        if (!latest) return
+        const extra = next - known - 1
+        const href = announcer(latest)
+        toast.show({
+          kind: 'info',
+          tone: notificationTone(latest.type),
+          title: latest.title,
+          message: `${latest.body ?? ''}${extra > 0 ? `${latest.body ? ' ' : ''}and ${extra} more` : ''}`,
+          action: href ? { label: 'View', onClick: () => go(href) } : undefined,
+        })
+        playNotification()
+      }
     },
-    [load],
+    [load, toast],
   )
 
   useEffect(() => {

@@ -41,15 +41,18 @@ function NotificationIcon({ kind, unread }: { kind: NotificationKind; unread: bo
   )
 }
 
+function staffHref(item: ServerNotification, area: Area) {
+  const { orderId, orderNumber, productId } = item.data ?? {}
+  return typeof orderId === 'string' && typeof orderNumber === 'string'
+    ? `/${area}/online-orders?q=${encodeURIComponent(orderNumber)}`
+    : typeof productId === 'string' && productId
+      ? `/${area}/inventory?q=${encodeURIComponent(productId)}`
+      : null
+}
+
 function NotificationRow({ item, area, onOpen }: { item: ServerNotification; area: Area; onOpen: () => void }) {
   const unread = !item.readAt
-  const { orderId, orderNumber, productId } = item.data ?? {}
-  const href =
-    typeof orderId === 'string' && typeof orderNumber === 'string'
-      ? `/${area}/online-orders?q=${encodeURIComponent(orderNumber)}`
-      : typeof productId === 'string' && productId
-        ? `/${area}/inventory?q=${encodeURIComponent(productId)}`
-        : null
+  const href = staffHref(item, area)
   const content = (
     <>
       <NotificationIcon kind={KINDS[item.type] ?? 'order'} unread={unread} />
@@ -104,7 +107,7 @@ export function NotificationMenu({ area }: { area: Area }) {
   const [open, setOpen] = useState(false)
   const [place, setPlace] = useState<ReturnType<typeof computePlace>>()
   // The badge only needs the count; the list is read while the panel is open.
-  const { count, items, status, error, retry, markRead, markAllRead } = useNotifications({ list: open })
+  const { count, items, status, error, retry, markRead, markAllRead } = useNotifications({ list: open, announce: (n) => staffHref(n, area) })
   const unread = count ?? 0
 
   function close(refocus: boolean) {
