@@ -4,9 +4,10 @@ import { blockMessagingApi, unblockMessagingApi } from '../../../service/staffAp
 import type { CustomerAccount } from '../../../types/accounts'
 import { fullName } from '../../../utils/accountQuery'
 import { formatPlacedAt } from '../../../utils/format'
+import { AlertIcon, RestoreIcon, XIcon } from '../../form/icons'
 import { Field, FIELD_INPUT } from '../../staff/inventory/FormField'
 import { useToast } from '../../toast/useToast'
-import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { DANGER_BUTTON_SM, SECONDARY_BUTTON_SM, UPDATE_BUTTON_SM } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CustomerOffenses } from './CustomerOffenses'
@@ -136,7 +137,8 @@ export function CustomerDetailsSheet({ account, onClose, onChanged }: CustomerDe
               )}
               {manage && (
                 <div className="flex flex-wrap gap-3">
-                  <button ref={trigger} type="button" onClick={() => setConfirming(action)} className={SECONDARY_BUTTON_SM}>
+                  <button ref={trigger} type="button" onClick={() => setConfirming(action)} className={action === 'block' ? DANGER_BUTTON_SM : UPDATE_BUTTON_SM}>
+                    {action === 'block' ? <AlertIcon /> : <RestoreIcon />}
                     {ACTIONS[action].button}
                   </button>
                 </div>
@@ -149,6 +151,8 @@ export function CustomerDetailsSheet({ account, onClose, onChanged }: CustomerDe
         open={!!account && !!confirming}
         title={confirming ? `${ACTIONS[confirming].button} for ${name}?` : ''}
         confirmLabel={confirming ? ACTIONS[confirming].confirmLabel : ''}
+        icon={confirming === 'unblock' ? <RestoreIcon /> : <XIcon />}
+        intent={confirming === 'unblock' ? 'update' : undefined}
         pending={pending}
         onConfirm={() => void confirm()}
         onClose={() => {

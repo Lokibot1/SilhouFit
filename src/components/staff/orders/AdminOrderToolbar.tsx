@@ -3,7 +3,7 @@ import { formatDay } from '../../../utils/format'
 import { paymentStatusLabel, STATUS_CHIP } from '../../../utils/orders'
 import { MAX_SEARCH, PER_PAGE_OPTIONS, type TransactionQuery } from '../../../utils/transactionQuery'
 import { ChevronDownIcon, SearchIcon, XIcon } from '../../form/icons'
-import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { RangeCalendar } from '../../ui/RangeCalendar'
 import { Select } from '../../ui/Select'
 
@@ -92,7 +92,8 @@ export function AdminOrderToolbar({ text, onText, query, status, payment, today,
             <Select label="Rows per page" value={query.per} options={PER_PAGE_CHOICES} onChange={onPer} />
           </div>
           {active > 0 && (
-            <button type="button" onClick={onClear} className={`${SECONDARY_BUTTON} text-sm`}>
+            <button type="button" onClick={onClear} className={SECONDARY_BUTTON_SM}>
+              <XIcon />
               Clear filters
             </button>
           )}

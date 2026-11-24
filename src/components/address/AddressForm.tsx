@@ -221,6 +221,8 @@ interface AddressFormProps {
   defaultCopy?: { label: string; first: string; locked: string; help: string }
   /** On a wide page (the pickup location): the fields sit in columns from `lg` instead of one narrow column. */
   wide?: boolean
+  /** Restyles the save button (class and icon) for the staff pages. */
+  submitStyle?: { className: string; icon: ReactNode }
 }
 
 /** Puts a saved address's places back on the lists first (the form is a skeleton meanwhile); a new address needs no lookup. */
@@ -276,6 +278,7 @@ function AddressFormBody({
   saveLabel = 'Save address',
   defaultCopy,
   wide = false,
+  submitStyle,
 }: AddressFormProps & { resolved: ResolvedAddress | null }) {
   const kral = tone === 'kral'
   const reword = (message: string) =>
@@ -631,8 +634,8 @@ function AddressFormBody({
   }
 
   const submitButton = (
-    <button type="submit" disabled={pending} className={`${kral ? KRAL_PRIMARY : PRIMARY_BUTTON} w-full sm:w-auto`}>
-      {pending && <SpinnerIcon />}
+    <button type="submit" disabled={pending} className={`${submitStyle?.className ?? (kral ? KRAL_PRIMARY : PRIMARY_BUTTON)} w-full sm:w-auto`}>
+      {pending ? <SpinnerIcon /> : submitStyle?.icon}
       {saveLabel}
     </button>
   )

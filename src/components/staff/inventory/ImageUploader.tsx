@@ -1,12 +1,11 @@
 import { useId, useRef, useState } from 'react'
 import { checkImageFile, describedBy, filterText, IMAGE_TYPES, PRODUCT_LIMITS, type ImageDraft } from '../../../utils/productValidation'
 import { formatFileSize } from '../../../utils/fileSize'
-import { PlusIcon } from '../../form/icons'
-import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { PlusIcon, StarIcon, TrashIcon } from '../../form/icons'
+import { DANGER_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Field, FIELD_INPUT } from './FormField'
 
 export const IMAGES_ID = 'pf-images'
-const SMALL_BUTTON = `${SECONDARY_BUTTON} text-sm`
 
 interface ImageUploaderProps {
   images: ImageDraft[]
@@ -75,9 +74,9 @@ export function ImageUploader({ images, name, progress, disabled, error, errors,
           disabled={disabled || full}
           aria-describedby={describedBy(IMAGES_ID, error)}
           onClick={() => inputRef.current?.click()}
-          className={SECONDARY_BUTTON}
+          className={SECONDARY_BUTTON_SM}
         >
-          <PlusIcon className="mr-2" />
+          <PlusIcon />
           Add images
         </button>
       </div>
@@ -139,12 +138,14 @@ export function ImageUploader({ images, name, progress, disabled, error, errors,
                         disabled={disabled}
                         aria-label={`Make ${fileName(image, index)} the main photo`}
                         onClick={() => onChange([image, ...images.filter((i) => i.id !== image.id)])}
-                        className={SMALL_BUTTON}
+                        className={SECONDARY_BUTTON_SM}
                       >
+                        <StarIcon />
                         Make primary
                       </button>
                     )}
-                    <button type="button" disabled={disabled} aria-label={`Remove ${fileName(image, index)}`} onClick={() => remove(image)} className={SMALL_BUTTON}>
+                    <button type="button" disabled={disabled} aria-label={`Remove ${fileName(image, index)}`} onClick={() => remove(image)} className={DANGER_BUTTON_SM}>
+                      <TrashIcon />
                       Remove
                     </button>
                   </div>

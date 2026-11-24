@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { SectionState } from '../../hooks/useSection'
 import type { Period, PeriodFilterValue } from '../../utils/period'
-import { AlertIcon } from '../form/icons'
-import { SECONDARY_BUTTON } from '../ui/buttonStyles'
+import { AlertIcon, RestoreIcon } from '../form/icons'
+import { SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
 import { FILTER_DESCRIPTION, FILTER_HEAD, PeriodSegments, YearSelect } from './PeriodFilter'
 import { STAFF_SECTION } from './StaffSkeleton'
 
@@ -108,7 +108,8 @@ export function SectionError({ what, kind, retryAfterMs, onRetry }: { what: stri
       <div className="min-w-0">
         <p className="text-sm font-semibold text-fg">We couldn&apos;t load {what}.</p>
         <p className="mt-1 text-sm text-fg-muted">{WHY[kind]}</p>
-        <button type="button" disabled={wait > 0} onClick={onRetry} className={`${SECONDARY_BUTTON} mt-4 tabular-nums`}>
+        <button type="button" disabled={wait > 0} onClick={onRetry} className={`${SECONDARY_BUTTON_SM} mt-4 tabular-nums`}>
+          <RestoreIcon />
           {wait > 0 ? `Retry in ${wait}s` : 'Retry'}
         </button>
       </div>

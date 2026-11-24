@@ -17,8 +17,8 @@ import {
   type ProductFormValues,
   type RowEdit,
 } from '../../../utils/productValidation'
-import { PlusIcon } from '../../form/icons'
-import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { PlusIcon, TrashIcon } from '../../form/icons'
+import { DANGER_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { BaseMeasurementsLink } from './BaseMeasurementsLink'
 import { Field, FIELD_INPUT } from './FormField'
 import { SizingPicker } from './SizingPicker'
@@ -40,8 +40,6 @@ interface VariantBuilderProps {
   /** The category's base measurements: a ticked size without a row gets a link to add it, and Check again. */
   base: ReturnType<typeof useBaseMeasurements>
 }
-
-const SMALL_BUTTON = `${SECONDARY_BUTTON} text-sm`
 
 /** Sizes as tick chips, colours as rows, and the size x colour variants they make, one card each (the sheet is narrow). */
 export function VariantBuilder({ values, skus, disabled, error, touch, set, base }: VariantBuilderProps) {
@@ -145,8 +143,9 @@ export function VariantBuilder({ values, skus, disabled, error, touch, set, base
                   disabled={disabled || values.colors.length === 1}
                   aria-label={`Remove colour ${index + 1}`}
                   onClick={() => set({ colors: values.colors.filter((c) => c.id !== color.id) })}
-                  className={SMALL_BUTTON}
+                  className={DANGER_BUTTON_SM}
                 >
+                  <TrashIcon />
                   Remove
                 </button>
               </div>
@@ -159,9 +158,9 @@ export function VariantBuilder({ values, skus, disabled, error, touch, set, base
             id="pf-colors"
             disabled={disabled || values.colors.length >= PRODUCT_LIMITS.colorsMax}
             onClick={() => set({ colors: [...values.colors, newColor()] })}
-            className={SMALL_BUTTON}
+            className={SECONDARY_BUTTON_SM}
           >
-            <PlusIcon className="mr-2" />
+            <PlusIcon />
             Add colour
           </button>
         </div>

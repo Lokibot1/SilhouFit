@@ -1,7 +1,7 @@
 import { useRef, type ReactNode } from 'react'
-import { SpinnerIcon } from '../../form/icons'
+import { SpinnerIcon, XIcon } from '../../form/icons'
 import { KRAL_DANGER, KRAL_SECONDARY } from '../../shop/shopControls'
-import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, DANGER_BUTTON, SECONDARY_BUTTON, UPDATE_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 
 interface ConfirmDialogProps {
@@ -19,10 +19,14 @@ interface ConfirmDialogProps {
   onClose: () => void
   /** 'kral' restyles the dialog flat and square for the KRAL pages. */
   tone?: 'kral'
+  /** Shown before the confirm label (16px icon); the spinner takes its place while pending. */
+  icon?: ReactNode
+  /** 'update' makes the confirm button blue for a non-destructive action; the default is the red tint. */
+  intent?: 'create' | 'update'
 }
 
-/** "Are you sure?" before a destructive action. Cancel takes focus first. The confirm button is the secondary style with a danger border and text, and both buttons wait while the request is in flight. */
-export function ConfirmDialog({ open, title, children, confirmLabel, pending, confirmDisabled, onConfirm, onClose, tone }: ConfirmDialogProps) {
+/** "Are you sure?" before a destructive action. Cancel takes focus first. The confirm button is the red-tint danger style (green for intent="create", blue for intent="update"), and both buttons wait while the request is in flight. */
+export function ConfirmDialog({ open, title, children, confirmLabel, pending, confirmDisabled, onConfirm, onClose, tone, icon, intent }: ConfirmDialogProps) {
   const kral = tone === 'kral'
   const cancel = useRef<HTMLButtonElement>(null)
   return (
@@ -35,10 +39,11 @@ export function ConfirmDialog({ open, title, children, confirmLabel, pending, co
       footer={
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button ref={cancel} type="button" onClick={onClose} disabled={pending} className={kral ? KRAL_SECONDARY : `${SECONDARY_BUTTON} disabled:opacity-60`}>
+            {!kral && <XIcon />}
             Cancel
           </button>
-          <button type="button" onClick={onConfirm} disabled={pending || confirmDisabled} aria-busy={pending} className={kral ? `${KRAL_DANGER} disabled:cursor-progress` : `${SECONDARY_BUTTON} border-danger! text-danger! hover:text-danger! disabled:cursor-progress disabled:opacity-70`}>
-            {pending && <SpinnerIcon className="mr-2" />}
+          <button type="button" onClick={onConfirm} disabled={pending || confirmDisabled} aria-busy={pending} className={kral ? `${KRAL_DANGER} disabled:cursor-progress` : intent === 'create' ? CREATE_BUTTON : intent === 'update' ? UPDATE_BUTTON : DANGER_BUTTON}>
+            {pending ? <SpinnerIcon className={kral ? 'mr-2' : undefined} /> : !kral && icon}
             {confirmLabel}
           </button>
         </div>

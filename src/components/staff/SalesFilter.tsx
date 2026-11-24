@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { manilaToday, yearOptions } from '../../utils/period'
-import { ChevronDownIcon } from '../form/icons'
+import { ChevronDownIcon, XIcon } from '../form/icons'
 import { SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
 import { Select } from '../ui/Select'
 import { YEAR_BOX } from './PeriodFilter'
@@ -92,6 +92,7 @@ export function SalesFilter({ value, onChange, name = 'Sales', idle = 'Filter', 
             />
           </div>
           <button type="button" onClick={() => onChange({ month: null, year: null })} className={SECONDARY_BUTTON_SM}>
+            <XIcon />
             Clear filter
           </button>
         </div>

@@ -2,14 +2,14 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { HelpAnswersList } from '../../../hooks/useHelpAnswers'
 import { HELP_CATEGORY_LABELS, type HelpAnswer } from '../../../service/helpAnswers'
 import { formatPlacedAt } from '../../../utils/format'
-import { ChevronDownIcon, ChevronUpIcon, PencilIcon, TrashIcon } from '../../form/icons'
+import { ChevronDownIcon, ChevronLeftIcon, ChevronUpIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../../form/icons'
 import { Pagination } from '../../shop/Pagination'
 import { RowAction } from '../../staff/inventory/InventoryParts'
 import { PAGER_FOOTER, PAGER_PAGINATION, TABLE_ROW, TD, TH } from '../../staff/inventory/layout'
 import { SectionError } from '../../staff/StaffSection'
 import { TransactionPagerSkeleton } from '../../staff/TransactionsSkeleton'
 import { PAGER_ROWS } from '../../staff/transactions/layout'
-import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Tooltip } from '../../ui/Tooltip'
 import { HELP_CARD_ROW, HelpCardSkeletonRows, HelpTableSkeletonRows } from './HelpAnswersSkeleton'
 
@@ -71,6 +71,7 @@ export function HelpAnswersTable({ list, onCreate, onEdit, onDelete, onMove }: H
           <>
             <p className="text-base text-fg-muted">There are no questions on page {page}.</p>
             <button type="button" onClick={() => setPage(1)} className={`${SECONDARY_BUTTON} mt-3`}>
+              <ChevronLeftIcon />
               Go to the first page
             </button>
           </>
@@ -79,6 +80,7 @@ export function HelpAnswersTable({ list, onCreate, onEdit, onDelete, onMove }: H
             <p className="text-base font-semibold text-fg">No questions match</p>
             <p className="mt-1 text-base text-fg-muted">Check the spelling, or clear the search, topic and status filters and try again.</p>
             <button type="button" onClick={clear} className={`${SECONDARY_BUTTON} mt-3`}>
+              <XIcon />
               Clear filters
             </button>
           </>
@@ -86,7 +88,8 @@ export function HelpAnswersTable({ list, onCreate, onEdit, onDelete, onMove }: H
           <>
             <p className="text-base font-semibold text-fg">No questions yet</p>
             <p className="mt-1 mb-3 text-base text-fg-muted">Add the first question so the Help chat has something to answer. Customers can talk to a person until you do.</p>
-            <button type="button" onClick={onCreate} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={onCreate} className={CREATE_BUTTON}>
+              <PlusIcon />
               Add question
             </button>
           </>

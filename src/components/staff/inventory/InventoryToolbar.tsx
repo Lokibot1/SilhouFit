@@ -10,7 +10,7 @@ import {
 } from '../../../utils/inventoryQuery'
 import { focusFiltersTrigger, focusNeighbourChip } from '../../../utils/chipFocus'
 import { ChevronDownIcon, FilterIcon, SearchIcon, XIcon } from '../../form/icons'
-import { SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Select } from '../../ui/Select'
 import { AR_OPTIONS, filterChips, GENDER_OPTIONS, STOCK_OPTIONS } from './filterChips'
 import { InventoryFilterPanel } from './InventoryFilterPanel'
@@ -133,7 +133,8 @@ export function InventoryToolbar({ text, onText, query, onFilter, onSort, onPer,
               </li>
             ))}
           </ul>
-          <button type="button" onClick={onClear} className={`${SECONDARY_BUTTON} min-h-10 text-sm pointer-coarse:min-h-11`}>
+          <button type="button" onClick={onClear} className={SECONDARY_BUTTON_SM}>
+            <XIcon />
             Clear all
           </button>
         </div>

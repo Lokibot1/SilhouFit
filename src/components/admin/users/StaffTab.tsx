@@ -6,10 +6,10 @@ import { useSendPasswordReset } from '../../../hooks/useSendPasswordReset'
 import { inviteStaffAccountApi, listStaffAccounts } from '../../../service/staffApi'
 import type { StaffAccount } from '../../../types/accounts'
 import { fullName } from '../../../utils/accountQuery'
-import { ArchiveIcon, MailIcon, PlusIcon, RestoreIcon } from '../../form/icons'
+import { ArchiveIcon, ChevronLeftIcon, MailIcon, PlusIcon, RestoreIcon } from '../../form/icons'
 import { AddedDate, RowAction } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, CREATE_BUTTON_SM, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { AccountEmail } from './AccountEmail'
 import { AccountName } from './AccountName'
 import { AccountTable, type AccountColumn } from './AccountTable'
@@ -50,14 +50,14 @@ export function StaffTab() {
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
   ]
 
-  const add = (
+  const add = (className: string) => (
     <button
       type="button"
       onClick={() => {
         setSession((n) => n + 1)
         setCreating(true)
       }}
-      className={PRIMARY_BUTTON}
+      className={className}
     >
       <PlusIcon />
       Add staff account
@@ -69,7 +69,7 @@ export function StaffTab() {
       <h2 id="staff-list" className="sr-only">
         Staff
       </h2>
-      <AccountToolbar noun="staff" searchBy="name or email" text={list.text} onText={list.setText} status={list.status} onStatus={list.setStatus} statuses={STATUSES} per={list.per} onPer={list.setPer} action={add} />
+      <AccountToolbar noun="staff" searchBy="name or email" text={list.text} onText={list.setText} status={list.status} onStatus={list.setStatus} statuses={STATUSES} per={list.per} onPer={list.setPer} action={add(CREATE_BUTTON_SM)} />
       <AccountTable
         list={list}
         label="Staff accounts with email, status and date added"
@@ -94,6 +94,7 @@ export function StaffTab() {
               <p className="text-base font-semibold text-fg">No inactive staff accounts</p>
               <p className="mt-1 mb-3 text-base text-fg-muted">Deactivated accounts show up here and can be activated again.</p>
               <button type="button" onClick={list.clear} className={`${SECONDARY_BUTTON} mt-3`}>
+                <ChevronLeftIcon />
                 Show active staff
               </button>
             </>
@@ -103,7 +104,7 @@ export function StaffTab() {
           <>
             <p className="text-base font-semibold text-fg">No staff accounts yet</p>
             <p className="mt-1 mb-3 text-base text-fg-muted">Invite the first staff account to give someone access to inventory, measurements and transactions.</p>
-            {add}
+            {add(CREATE_BUTTON)}
           </>
         }
       />

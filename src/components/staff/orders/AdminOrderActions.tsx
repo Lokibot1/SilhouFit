@@ -6,20 +6,15 @@ import { cleanText, stripControl } from '../../../utils/checkoutValidation'
 import { formatPeso } from '../../../utils/format'
 import { canCancelDelivery, canStartPreparing, cancelOrderBlock, cancelRefundBlock, dispatchBlock, isClosed, RIDER_BOOKING_WHY } from '../../../utils/orders'
 import { ConfirmDialog } from '../../admin/users/ConfirmDialog'
-import { AlertIcon, BoxIcon, InfoIcon, NoteIcon, SendIcon, SpinnerIcon } from '../../form/icons'
+import { AlertIcon, BoxIcon, CheckIcon, InfoIcon, NoteIcon, RestoreIcon, SendIcon, SpinnerIcon, XIcon } from '../../form/icons'
 import { useToast } from '../../toast/useToast'
-import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { DANGER_BUTTON_SM, SECONDARY_BUTTON_SM, UPDATE_BUTTON_SM } from '../../ui/buttonStyles'
 import { Checkbox } from '../../ui/Checkbox'
 import { Field, FIELD_INPUT, PLAIN_INPUT } from '../inventory/FormField'
 import { CARD_LABEL, OrderCard } from './OrderCard'
 
 const NOTES_MAX = 500
 const REASON_MAX = 255
-
-// Phones get 16px text; the shared small buttons are 14px.
-const ACTION = 'font-ui flex min-h-9 pointer-coarse:min-h-11 max-md:min-h-11 items-center justify-center gap-2 rounded-xl text-base md:text-sm font-semibold'
-const ACTION_PRIMARY = `${PRIMARY_BUTTON_SM} max-md:text-base`
-const ACTION_SECONDARY = `${SECONDARY_BUTTON_SM} max-md:text-base`
 
 /** A button that can be off, and under it the reason, as text anyone can read. */
 function Guarded({ why, children }: { why: string | null; children: (describedBy: string | undefined) => ReactNode }) {
@@ -66,7 +61,6 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
   const prepareWhy = detail.shipment?.status === 'DISPATCHING' ? RIDER_BOOKING_WHY : null
   const bookRef = useRef<HTMLButtonElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const spin = (key: string) => busy === key && <SpinnerIcon />
 
   async function prepare() {
     setBusy('prepare')
@@ -209,7 +203,7 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
             {canStartPreparing(detail) && (
               <Guarded why={prepareWhy}>
                 {(describedBy) => (
-                  <button type="button" disabled={pending || !!prepareWhy} aria-describedby={describedBy} aria-busy={busy === 'prepare'} onClick={() => void prepare()} className={ACTION_SECONDARY}>
+                  <button type="button" disabled={pending || !!prepareWhy} aria-describedby={describedBy} aria-busy={busy === 'prepare'} onClick={() => void prepare()} className={UPDATE_BUTTON_SM}>
                     {busy === 'prepare' ? <SpinnerIcon /> : <BoxIcon size={16} />}
                     {busy === 'prepare' ? 'Starting…' : 'Start preparing'}
                   </button>
@@ -218,14 +212,15 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
             )}
             <Guarded why={dispatchWhy}>
               {(describedBy) => (
-                <button ref={bookRef} type="button" disabled={pending || !!dispatchWhy} aria-describedby={describedBy} aria-busy={busy === 'dispatch'} onClick={() => void book()} className={ACTION_PRIMARY}>
+                <button ref={bookRef} type="button" disabled={pending || !!dispatchWhy} aria-describedby={describedBy} aria-busy={busy === 'dispatch'} onClick={() => void book()} className={UPDATE_BUTTON_SM}>
                   {busy === 'dispatch' ? <SpinnerIcon /> : <SendIcon size={16} />}
                   {busy === 'dispatch' ? 'Booking a rider…' : 'Book rider'}
                 </button>
               )}
             </Guarded>
             {canCancelDelivery(detail) && (
-              <button type="button" disabled={pending} onClick={() => setDialog('delivery')} className={ACTION_SECONDARY}>
+              <button type="button" disabled={pending} onClick={() => setDialog('delivery')} className={DANGER_BUTTON_SM}>
+                <XIcon />
                 Cancel delivery
               </button>
             )}
@@ -234,8 +229,9 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
               disabled={pending || !!cancelWhy}
               aria-describedby={cancelWhy ? `cancel-why-${detail.id}` : undefined}
               onClick={() => setDialog(paid ? 'refund' : 'order')}
-              className={`${ACTION} px-2 whitespace-nowrap text-fg-muted hover:text-danger disabled:cursor-progress disabled:opacity-60`}
+              className={DANGER_BUTTON_SM}
             >
+              <XIcon />
               {paid ? 'Cancel and refund' : 'Cancel order'}
             </button>
           </div>
@@ -264,8 +260,8 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
           className={`${PLAIN_INPUT} resize-y py-2`}
         />
         <div className="mt-3 flex justify-end">
-          <button type="button" disabled={pending || notes.trim() === saved.trim()} aria-busy={busy === 'notes'} onClick={() => void saveNotes()} className={ACTION_PRIMARY}>
-            {spin('notes')}
+          <button type="button" disabled={pending || notes.trim() === saved.trim()} aria-busy={busy === 'notes'} onClick={() => void saveNotes()} className={UPDATE_BUTTON_SM}>
+            {busy === 'notes' ? <SpinnerIcon /> : <CheckIcon />}
             Save notes
           </button>
         </div>
@@ -275,6 +271,7 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
         open={dialog === 'order'}
         title={`Cancel order ${detail.orderNumber}?`}
         confirmLabel="Cancel order"
+        icon={<XIcon />}
         pending={busy === 'cancel-order'}
         onConfirm={() => void confirmCancelOrder()}
         onClose={closeDialog}
@@ -300,6 +297,7 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
         open={dialog === 'refund'}
         title={`Cancel and refund order ${detail.orderNumber}?`}
         confirmLabel="Cancel and refund"
+        icon={<XIcon />}
         pending={busy === 'cancel-refund'}
         confirmDisabled={typed.trim().toUpperCase() !== detail.orderNumber.toUpperCase()}
         onConfirm={() => void confirmCancelRefund()}
@@ -351,7 +349,8 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
         </div>
         {dialogError && <DialogError>{dialogError}</DialogError>}
         {dialogError && canRetry && (
-          <button type="button" disabled={pending} onClick={() => void confirmCancelRefund()} className={`${ACTION_SECONDARY} mt-2`}>
+          <button type="button" disabled={pending} onClick={() => void confirmCancelRefund()} className={`${SECONDARY_BUTTON_SM} mt-2`}>
+            {busy === 'cancel-refund' ? <SpinnerIcon /> : <RestoreIcon />}
             Retry
           </button>
         )}
@@ -361,6 +360,7 @@ export function AdminOrderActions({ detail, onChanged }: ActionsProps) {
         open={dialog === 'delivery'}
         title={`Cancel the delivery for ${detail.orderNumber}?`}
         confirmLabel="Cancel delivery"
+        icon={<XIcon />}
         pending={busy === 'cancel-delivery'}
         onConfirm={() => void confirmCancelDelivery()}
         onClose={closeDialog}

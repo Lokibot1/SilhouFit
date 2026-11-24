@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useHelpAnswers } from '../../../hooks/useHelpAnswers'
 import { deleteHelpAnswer, moveHelpAnswer, type HelpAnswer } from '../../../service/helpAnswers'
+import { TrashIcon } from '../../form/icons'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { useToast } from '../../toast/useToast'
 import { ConfirmDialog } from '../users/ConfirmDialog'
@@ -79,7 +80,7 @@ export function HelpAnswersList() {
       </p>
       <HelpAnswersTable list={list} onCreate={() => openSheet(null)} onEdit={openSheet} onDelete={ask} onMove={(row, direction) => void move(row, direction)} />
       <HelpAnswerSheet key={sheet.session} open={sheet.open} onClose={() => setSheet((old) => ({ ...old, open: false }))} answer={sheet.answer} />
-      <ConfirmDialog open={asking} title={`Delete "${confirm?.question ?? ''}"?`} confirmLabel="Delete question" pending={pending} onConfirm={() => confirm && void remove(confirm)} onClose={() => setAsking(false)}>
+      <ConfirmDialog open={asking} title={`Delete "${confirm?.question ?? ''}"?`} confirmLabel="Delete question" icon={<TrashIcon />} pending={pending} onConfirm={() => confirm && void remove(confirm)} onClose={() => setAsking(false)}>
         Customers stop seeing this answer right away. This can&apos;t be undone.
       </ConfirmDialog>
     </section>

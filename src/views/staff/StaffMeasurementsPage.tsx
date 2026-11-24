@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AlertIcon, PlusIcon, SpinnerIcon } from '../../components/form/icons'
+import { AlertIcon, ArchiveIcon, PlusIcon, RestoreIcon, SpinnerIcon, XIcon } from '../../components/form/icons'
 import { MeasurementsList } from '../../components/staff/measurements/MeasurementsList'
 import { SegmentedTabs } from '../../components/ui/SegmentedTabs'
 import { SizeSheet } from '../../components/staff/measurements/SizeSheet'
 import { SectionError } from '../../components/staff/StaffSection'
 import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { useToast } from '../../components/toast/useToast'
-import { PRIMARY_BUTTON, PRIMARY_BUTTON_SM, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
+import { CREATE_BUTTON, CREATE_BUTTON_SM, DANGER_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { Modal } from '../../components/ui/Modal'
 import { CATEGORIES, SIZES_BY_CATEGORY } from '../../data/products'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
@@ -199,7 +199,7 @@ export function StaffMeasurementsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button ref={addButton} type="button" onClick={() => openSheet()} className={`${PRIMARY_BUTTON_SM} min-h-11! min-w-11!`}>
+          <button ref={addButton} type="button" onClick={() => openSheet()} className={CREATE_BUTTON_SM}>
             <PlusIcon />
             Add size
           </button>
@@ -225,6 +225,7 @@ export function StaffMeasurementsPage() {
               <p className="text-base font-semibold text-fg">Base measurements aren&apos;t available yet</p>
               <p className="mt-1 text-base text-fg-muted">The server doesn&apos;t have the measurements service yet, so sizes can&apos;t be listed or saved. Try again once it has been released.</p>
               <button type="button" onClick={retry} className={`${SECONDARY_BUTTON} mt-3`}>
+                <RestoreIcon />
                 Retry
               </button>
             </div>
@@ -241,7 +242,7 @@ export function StaffMeasurementsPage() {
             <div>
               <p className="text-base font-semibold text-fg">No {category} sizes yet</p>
               <p className="mt-1 text-base text-fg-muted">Add the first size so the size guide and AR fitting have measurements to start from.</p>
-              <button type="button" onClick={() => openSheet()} className={`${PRIMARY_BUTTON} mt-3`}>
+              <button type="button" onClick={() => openSheet()} className={`${CREATE_BUTTON} mt-3`}>
                 <PlusIcon />
                 Add size
               </button>
@@ -260,11 +261,12 @@ export function StaffMeasurementsPage() {
         title="Are you sure?"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button ref={cancelArchive} type="button" disabled={busyId !== null} onClick={closeArchive} className={PRIMARY_BUTTON}>
+            <button ref={cancelArchive} type="button" disabled={busyId !== null} onClick={closeArchive} className={SECONDARY_BUTTON}>
+              <XIcon />
               Cancel
             </button>
-            <button type="button" disabled={busyId !== null} onClick={(event) => void confirmArchive(event.currentTarget.closest<HTMLElement>('[role="dialog"]'))} className={SECONDARY_BUTTON}>
-              {busyId !== null && <SpinnerIcon />}
+            <button type="button" disabled={busyId !== null} onClick={(event) => void confirmArchive(event.currentTarget.closest<HTMLElement>('[role="dialog"]'))} className={DANGER_BUTTON}>
+              {busyId !== null ? <SpinnerIcon /> : <ArchiveIcon />}
               {busyId !== null ? 'Archiving…' : 'Archive size'}
             </button>
           </div>

@@ -3,6 +3,7 @@ import { useProfanityOffenses } from '../../../hooks/useProfanityOffenses'
 import { OFFENSE_SOURCE_LABELS, OFFENSE_SOURCES, PROFANITY_PER_PAGE_OPTIONS, type Offense, type OffenseSource } from '../../../service/profanity'
 import { REMOVED } from '../../../service/adminOrdersApi'
 import { formatOrderTime } from '../../../utils/format'
+import { ChevronLeftIcon, XIcon } from '../../form/icons'
 import { Pagination } from '../../shop/Pagination'
 import { Field, FIELD_INPUT } from '../../staff/inventory/FormField'
 import { PAGER_FOOTER, PAGER_PAGINATION, TD, TH } from '../../staff/inventory/layout'
@@ -43,6 +44,7 @@ export function OffensesTab() {
             <>
               <p className="text-base text-fg-muted">There are no offenses on page {page}.</p>
               <button type="button" onClick={() => setPage(1)} className={`${SECONDARY_BUTTON} mt-3`}>
+                <ChevronLeftIcon />
                 Go to the first page
               </button>
             </>
@@ -51,6 +53,7 @@ export function OffensesTab() {
               <p className="text-base font-semibold text-fg">No offenses match</p>
               <p className="mt-1 text-base text-fg-muted">{badRange ? 'The end date is before the start date. Change one of them, or clear the filters.' : 'Try a wider date range or another source, or clear the filters.'}</p>
               <button type="button" onClick={clear} className={`${SECONDARY_BUTTON} mt-3`}>
+                <XIcon />
                 Clear filters
               </button>
             </>

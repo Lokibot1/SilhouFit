@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { usePromotions } from '../../../hooks/usePromotions'
 import { deletePromotion, endPromotion, type PromoStatus, type PromotionRow } from '../../../service/promotions'
+import { CheckIcon, TrashIcon } from '../../form/icons'
 import { SegmentedTabs } from '../../ui/SegmentedTabs'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { useToast } from '../../toast/useToast'
@@ -81,6 +82,8 @@ export function PromotionsList() {
         open={asking}
         title={ending ? `End "${name}" now?` : `Delete "${name}"?`}
         confirmLabel={ending ? 'End promotion' : 'Delete promotion'}
+        icon={ending ? <CheckIcon /> : <TrashIcon />}
+        intent={ending ? 'update' : undefined}
         pending={pending}
         onConfirm={() => confirm && void run(confirm)}
         onClose={() => setAsking(false)}

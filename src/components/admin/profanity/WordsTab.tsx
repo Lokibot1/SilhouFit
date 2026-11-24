@@ -2,7 +2,7 @@ import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useProfanityWords } from '../../../hooks/useProfanityWords'
 import { archiveWord, createWord, languageLabel, MAX_WORD_SEARCH, PROFANITY_PER_PAGE_OPTIONS, restoreWord, updateWord, WORD_LANGUAGES, type ProfanityWord, type WordStatus } from '../../../service/profanity'
 import { formatOrderTime } from '../../../utils/format'
-import { PlusIcon, RestoreIcon, SearchIcon, TrashIcon, PencilIcon, XIcon } from '../../form/icons'
+import { ArchiveIcon, ChevronLeftIcon, PlusIcon, RestoreIcon, SearchIcon, TrashIcon, PencilIcon, XIcon } from '../../form/icons'
 import { Pagination } from '../../shop/Pagination'
 import { PAGER_FOOTER, PAGER_PAGINATION, TABLE_ROW, TD, TH } from '../../staff/inventory/layout'
 import { RowIconButton } from '../../staff/measurements/RowIconButton'
@@ -11,7 +11,7 @@ import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { TransactionPagerSkeleton } from '../../staff/TransactionsSkeleton'
 import { PAGER_ROWS } from '../../staff/transactions/layout'
 import { useToast } from '../../toast/useToast'
-import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, CREATE_BUTTON_SM, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { SegmentedTabs } from '../../ui/SegmentedTabs'
 import { Select } from '../../ui/Select'
 import { ConfirmDialog } from '../users/ConfirmDialog'
@@ -154,6 +154,7 @@ export function WordsTab() {
             <>
               <p className="text-base text-fg-muted">There are no words on page {page}.</p>
               <button type="button" onClick={() => setPage(1)} className={`${SECONDARY_BUTTON} mt-3`}>
+                <ChevronLeftIcon />
                 Go to the first page
               </button>
             </>
@@ -162,6 +163,7 @@ export function WordsTab() {
               <p className="text-base font-semibold text-fg">No words match</p>
               <p className="mt-1 text-base text-fg-muted">Check the spelling, or clear the search and language and try again.</p>
               <button type="button" onClick={clear} className={`${SECONDARY_BUTTON} mt-3`}>
+                <XIcon />
                 Clear filters
               </button>
             </>
@@ -170,6 +172,7 @@ export function WordsTab() {
               <p className="text-base font-semibold text-fg">No archived words</p>
               <p className="mt-1 text-base text-fg-muted">Words you archive show up here and can be restored.</p>
               <button type="button" onClick={() => setStatus('active')} className={`${SECONDARY_BUTTON} mt-3`}>
+                <ChevronLeftIcon />
                 Show active words
               </button>
             </>
@@ -177,7 +180,8 @@ export function WordsTab() {
             <>
               <p className="text-base font-semibold text-fg">No words yet</p>
               <p className="mt-1 text-base text-fg-muted">Add the first word to start hiding it in customers&apos; chat messages and reviews.</p>
-              <button type="button" onClick={add} className={`${SECONDARY_BUTTON} mt-3`}>
+              <button type="button" onClick={add} className={`${CREATE_BUTTON} mt-3`}>
+                <PlusIcon />
                 Add word
               </button>
             </>
@@ -302,7 +306,7 @@ export function WordsTab() {
           <div className="w-full @sm:w-44">
             <Select label="Rows per page" value={per} options={PER_PAGE_CHOICES} onChange={list.setPer} />
           </div>
-          <button type="button" onClick={add} className={`${PRIMARY_BUTTON_SM} w-full @sm:ml-auto @sm:w-auto`}>
+          <button type="button" onClick={add} className={`${CREATE_BUTTON_SM} w-full @sm:ml-auto @sm:w-auto`}>
             <PlusIcon />
             Add word
           </button>
@@ -316,6 +320,7 @@ export function WordsTab() {
         open={asking}
         title={archiving ? `Archive "${archiving.word}"?` : ''}
         confirmLabel="Archive Word"
+        icon={<ArchiveIcon />}
         pending={busyId !== null && busyId === archiving?.id}
         onConfirm={() => void archive()}
         onClose={() => setAsking(false)}

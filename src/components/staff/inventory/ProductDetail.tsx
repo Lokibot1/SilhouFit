@@ -4,7 +4,7 @@ import type { ProductListItem, ProductVariant } from '../../../service/fetchProd
 import { isArchived } from '../../../utils/inventoryQuery'
 import { parseStock } from '../../../utils/stockEdit'
 import { InfoIcon, PencilIcon, PlusIcon, TrashIcon } from '../../form/icons'
-import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { CREATE_BUTTON_SM } from '../../ui/buttonStyles'
 import { Checkbox } from '../../ui/Checkbox'
 import { useToast } from '../../toast/useToast'
 import { Tooltip } from '../../ui/Tooltip'
@@ -86,7 +86,7 @@ export interface ManageActions {
 export const ADD_VARIANT_ID = 'inventory-add-variant'
 
 const AddVariantButton = ({ onClick }: { onClick: () => void }) => (
-  <button type="button" id={ADD_VARIANT_ID} onClick={onClick} className={SECONDARY_BUTTON_SM}>
+  <button type="button" id={ADD_VARIANT_ID} onClick={onClick} className={CREATE_BUTTON_SM}>
     <PlusIcon />
     Add color{' '}<span className="sr-only">variant</span>
   </button>

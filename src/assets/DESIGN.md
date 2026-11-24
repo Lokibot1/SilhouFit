@@ -184,7 +184,7 @@ Body copy talks about street culture, the people behind the brand, and details l
 - Use pure white or pure black backgrounds.
 - Put Red text on Obsidian at body sizes.
 - Add gradients, drop shadows or rounded cards.
-- Introduce a second accent color.
+- Introduce a second accent color. Exception: in the staff, admin and superadmin areas, action buttons use semantic green (create), blue (update) and red tint (delete); brand red stays for the active nav item and storefront CTAs.
 
 ---
 

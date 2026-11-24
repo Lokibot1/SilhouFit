@@ -21,8 +21,8 @@ import {
   type ProductEditSource,
   type ProductFormValues,
 } from '../../../utils/productValidation'
-import { AlertIcon, SpinnerIcon } from '../../form/icons'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { AlertIcon, CheckIcon, PlusIcon, RestoreIcon, SpinnerIcon, TrashIcon, XIcon } from '../../form/icons'
+import { CREATE_BUTTON, DANGER_BUTTON, SECONDARY_BUTTON, SECONDARY_BUTTON_SM, UPDATE_BUTTON } from '../../ui/buttonStyles'
 import { Checkbox } from '../../ui/Checkbox'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
@@ -306,20 +306,23 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
   const row = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'
   const footer = discarding ? (
     <div key="discard" className={row}>
-      <button type="button" autoFocus onClick={() => setDiscarding(false)} className={PRIMARY_BUTTON}>
+      <button type="button" autoFocus onClick={() => setDiscarding(false)} className={SECONDARY_BUTTON}>
+        <XIcon />
         Cancel
       </button>
-      <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+      <button type="button" onClick={onClose} className={DANGER_BUTTON}>
+        <TrashIcon />
         Discard changes
       </button>
     </div>
   ) : (
     <div className={row}>
       <button type="button" disabled={pending} onClick={requestClose} className={SECONDARY_BUTTON}>
+        <XIcon />
         Cancel
       </button>
-      <button type="submit" form={FORM_ID} disabled={pending || (editing && !dirty)} className={PRIMARY_BUTTON}>
-        {pending && <SpinnerIcon />}
+      <button type="submit" form={FORM_ID} disabled={pending || (editing && !dirty)} className={editing ? UPDATE_BUTTON : CREATE_BUTTON}>
+        {pending ? <SpinnerIcon /> : editing ? <CheckIcon /> : <PlusIcon />}
         {editing ? (pending ? 'Saving…' : 'Save changes') : pending ? 'Creating…' : 'Create product'}
       </button>
     </div>
@@ -372,7 +375,8 @@ export function ProductFormSheet({ open, onClose, onCreated, product, onSaved }:
                   <p className="text-sm font-semibold text-fg">{banner.title}</p>
                   <p className="mt-1 text-sm text-fg-muted">{banner.why}</p>
                   {banner.retry && (
-                    <button type="button" onClick={() => void submit()} className={`${SECONDARY_BUTTON} mt-3 text-sm`}>
+                    <button type="button" onClick={() => void submit()} className={`${SECONDARY_BUTTON_SM} mt-3`}>
+                      <RestoreIcon />
                       Try again
                     </button>
                   )}

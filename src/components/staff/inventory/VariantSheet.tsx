@@ -22,8 +22,8 @@ import {
   variantFormValues,
   type VariantFormValues,
 } from '../../../utils/productValidation'
-import { AlertIcon, PlusIcon, SpinnerIcon } from '../../form/icons'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { AlertIcon, CheckIcon, PlusIcon, RestoreIcon, SpinnerIcon, TrashIcon, XIcon } from '../../form/icons'
+import { CREATE_BUTTON, DANGER_BUTTON, DANGER_BUTTON_SM, SECONDARY_BUTTON, SECONDARY_BUTTON_SM, UPDATE_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { useBaseMeasurements } from '../../../hooks/useBaseMeasurements'
 import { baseMeasurementsFor } from '../../../utils/sizeGuide'
@@ -37,7 +37,6 @@ import { pickerValue } from './VariantBuilder'
 const FORM_ID = 'variant-form'
 const RETRYABLE = ['network', 'rate-limit', 'server']
 const SIZE_OPTIONS = [{ value: '', label: 'Choose a size' }, ...APPAREL_SIZES.map((size) => ({ value: size, label: size }))]
-const SMALL_BUTTON = `${SECONDARY_BUTTON} text-sm`
 /** The field each error key belongs to, to move focus to the first problem. */
 const FIELD_ID: Record<string, string> = { size: 'vs-size', colorHex: 'vs-hex', sku: 'vs-sku', price: 'vs-price', stock: 'vs-stock', measurements: 'vs-measurements' }
 
@@ -214,20 +213,23 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
   const row = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'
   const footer = discarding ? (
     <div key="discard" className={row}>
-      <button type="button" autoFocus onClick={() => setDiscarding(false)} className={PRIMARY_BUTTON}>
+      <button type="button" autoFocus onClick={() => setDiscarding(false)} className={SECONDARY_BUTTON}>
+        <XIcon />
         Cancel
       </button>
-      <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+      <button type="button" onClick={onClose} className={DANGER_BUTTON}>
+        <TrashIcon />
         Discard changes
       </button>
     </div>
   ) : (
     <div className={row}>
       <button type="button" disabled={pending} onClick={requestClose} className={SECONDARY_BUTTON}>
+        <XIcon />
         Cancel
       </button>
-      <button id="vs-submit" type="submit" form={FORM_ID} disabled={pending || unchanged} className={PRIMARY_BUTTON}>
-        {pending && <SpinnerIcon />}
+      <button id="vs-submit" type="submit" form={FORM_ID} disabled={pending || unchanged} className={editing ? UPDATE_BUTTON : CREATE_BUTTON}>
+        {pending ? <SpinnerIcon /> : editing ? <CheckIcon /> : <PlusIcon />}
         {editing ? (pending ? 'Saving…' : 'Save variant') : pending ? 'Adding…' : 'Add variant'}
       </button>
     </div>
@@ -252,7 +254,8 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
                 <p className="text-sm font-semibold text-fg">{banner.title}</p>
                 <p className="mt-1 text-sm text-fg-muted">{banner.why}</p>
                 {banner.retry && (
-                  <button type="button" onClick={() => void submit()} className={`${SECONDARY_BUTTON} mt-3 text-sm`}>
+                  <button type="button" onClick={() => void submit()} className={`${SECONDARY_BUTTON_SM} mt-3`}>
+                    <RestoreIcon />
                     Try again
                   </button>
                 )}
@@ -410,12 +413,13 @@ export function VariantSheet({ mode, productId, category, variant, onSaved, onCl
               </p>
             )}
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => fileInput.current?.click()} className={SMALL_BUTTON}>
-                <PlusIcon className="mr-2" />
+              <button type="button" onClick={() => fileInput.current?.click()} className={SECONDARY_BUTTON_SM}>
+                <PlusIcon />
                 {image || variant?.imageUrl ? 'Choose a different image' : 'Choose image'}
               </button>
               {image && (
-                <button type="button" onClick={removeImage} className={SMALL_BUTTON}>
+                <button type="button" onClick={removeImage} className={DANGER_BUTTON_SM}>
+                  <TrashIcon />
                   Remove
                 </button>
               )}

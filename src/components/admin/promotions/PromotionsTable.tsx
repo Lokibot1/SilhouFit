@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { PromotionsList } from '../../../hooks/usePromotions'
 import type { PromoSort, PromoStatus, PromotionRow } from '../../../service/promotions'
 import { formatDay, formatPeso } from '../../../utils/format'
-import { ChevronDownIcon, ChevronUpIcon, ClockIcon, CopyIcon, PencilIcon, SortIcon, TrashIcon } from '../../form/icons'
+import { ChevronDownIcon, ChevronLeftIcon, ChevronUpIcon, ClockIcon, CopyIcon, PencilIcon, PlusIcon, SortIcon, TrashIcon, XIcon } from '../../form/icons'
 import { Pagination } from '../../shop/Pagination'
 import { RowAction } from '../../staff/inventory/InventoryParts'
 import { PAGER_FOOTER, PAGER_PAGINATION, TABLE_ROW, TD, TH } from '../../staff/inventory/layout'
@@ -11,7 +11,7 @@ import { SectionError } from '../../staff/StaffSection'
 import { TransactionPagerSkeleton } from '../../staff/TransactionsSkeleton'
 import { PAGER_ROWS } from '../../staff/transactions/layout'
 import { Tooltip } from '../../ui/Tooltip'
-import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { PROMO_CARD_ACTIONS, PROMO_CARD_LINE, PROMO_CARD_ROW, PromoCardSkeletonRows, PromoTableSkeletonRows } from './PromotionsSkeleton'
 
 const STATUS = {
@@ -127,6 +127,7 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
           <>
             <p className="text-base text-fg-muted">There are no promotions on page {page}.</p>
             <button type="button" onClick={() => setPage(1)} className={`${SECONDARY_BUTTON} mt-3`}>
+              <ChevronLeftIcon />
               Go to the first page
             </button>
           </>
@@ -135,6 +136,7 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
             <p className="text-base font-semibold text-fg">No promotions match</p>
             <p className="mt-1 text-base text-fg-muted">Check the spelling, or clear the search and status filter and try again.</p>
             <button type="button" onClick={clear} className={`${SECONDARY_BUTTON} mt-3`}>
+              <XIcon />
               Clear filters
             </button>
           </>
@@ -142,7 +144,8 @@ export function PromotionsTable({ list, onCreate, onEdit, onEnd, onDelete, onCop
           <>
             <p className="text-base font-semibold text-fg">No promotions yet</p>
             <p className="mt-1 mb-3 text-base text-fg-muted">Create the first promotion to give shoppers a code for a percent or peso discount.</p>
-            <button type="button" onClick={onCreate} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={onCreate} className={CREATE_BUTTON}>
+              <PlusIcon />
               Create promotion
             </button>
           </>

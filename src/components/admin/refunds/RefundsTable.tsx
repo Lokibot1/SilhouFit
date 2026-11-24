@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import type { RefundsList } from '../../../hooks/useRefunds'
 import { REFUND_REASON_LABELS, REFUND_STATUS_LABELS, type Refund, type RefundStatus } from '../../../service/refunds'
 import { formatOrderTime, formatPeso } from '../../../utils/format'
+import { ChevronLeftIcon, XIcon } from '../../form/icons'
 import { Pagination } from '../../shop/Pagination'
 import { openRow } from '../../staff/inventory/InventoryParts'
 import { PAGER_FOOTER, PAGER_PAGINATION, TABLE_ROW, TD, TH } from '../../staff/inventory/layout'
@@ -54,6 +55,7 @@ export function RefundsTable({ list, onOpen }: RefundsTableProps) {
           <>
             <p className="text-base text-fg-muted">There are no refunds on page {page}.</p>
             <button type="button" onClick={() => setPage(1)} className={`${SECONDARY_BUTTON} mt-3`}>
+              <ChevronLeftIcon />
               Go to the first page
             </button>
           </>
@@ -62,6 +64,7 @@ export function RefundsTable({ list, onOpen }: RefundsTableProps) {
             <p className="text-base font-semibold text-fg">No refunds match</p>
             <p className="mt-1 text-base text-fg-muted">Check the spelling, or clear the search and status filter and try again.</p>
             <button type="button" onClick={clear} className={`${SECONDARY_BUTTON} mt-3`}>
+              <XIcon />
               Clear filters
             </button>
           </>

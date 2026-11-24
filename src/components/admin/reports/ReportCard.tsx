@@ -3,7 +3,8 @@ import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { manilaToday } from '../../../utils/period'
 import { downloadFile } from '../../../utils/downloadFile'
 import type { ReportDoc } from '../../../utils/reportTypes'
-import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { DownloadIcon, SpinnerIcon } from '../../form/icons'
+import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { useToast } from '../../toast/useToast'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 
@@ -77,10 +78,12 @@ export function ReportCard({ title, description, controls, preview, includes, lo
         </ul>
       </div>
       <div className="mt-auto flex flex-wrap gap-2">
-        <button type="button" disabled={busy !== null} onClick={() => void download('xlsx')} className={PRIMARY_BUTTON_SM}>
+        <button type="button" disabled={busy !== null} onClick={() => void download('xlsx')} className={SECONDARY_BUTTON_SM}>
+          {busy === 'xlsx' ? <SpinnerIcon /> : <DownloadIcon />}
           {busy === 'xlsx' ? 'Preparing Excel…' : 'Download Excel'}
         </button>
         <button type="button" disabled={busy !== null} onClick={() => void download('pdf')} className={SECONDARY_BUTTON_SM}>
+          {busy === 'pdf' ? <SpinnerIcon /> : <DownloadIcon />}
           {busy === 'pdf' ? 'Preparing PDF…' : 'Download PDF'}
         </button>
       </div>

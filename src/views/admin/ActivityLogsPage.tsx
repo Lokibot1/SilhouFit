@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from 'react'
 import { ActivityFilterBar, NO_FILTERS, sinceOf, type ActivityFilters } from '../../components/admin/ActivityFilterBar'
 import { actionOf, CATEGORIES, roleLabel } from '../../components/admin/ActivityLogs'
-import { SearchIcon, XIcon } from '../../components/form/icons'
+import { EyeIcon, SearchIcon, XIcon } from '../../components/form/icons'
 import { Pagination } from '../../components/shop/Pagination'
 import { EmptyNote, SectionBody } from '../../components/staff/StaffSection'
 import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { PAGER_FOOTER } from '../../components/staff/inventory/layout'
-import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
+import { SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
 import { Modal } from '../../components/ui/Modal'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
@@ -160,7 +160,8 @@ export function ActivityLogsPage() {
               </button>
             )}
           </div>
-          <button type="submit" className={`${PRIMARY_BUTTON_SM} shrink-0`}>
+          <button type="submit" className={`${SECONDARY_BUTTON_SM} shrink-0`}>
+            <SearchIcon size={16} />
             Search
           </button>
         </form>
@@ -217,6 +218,7 @@ export function ActivityLogsPage() {
                         onClick={() => setOpen(log)}
                         className={`${SECONDARY_BUTTON_SM} col-start-2 row-span-2 row-start-1 justify-self-end @3xl:col-start-4 @3xl:row-span-1`}
                       >
+                        <EyeIcon size={16} />
                         View
                       </button>
                     </li>

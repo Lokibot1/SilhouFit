@@ -2,7 +2,7 @@ import { useId, useState } from 'react'
 import type { ProductVariant } from '../../../service/fetchProductList'
 import { withCommas } from '../../../utils/format'
 import { filterStock, parseStock, STOCK_ERROR, stepStock } from '../../../utils/stockEdit'
-import { MinusIcon, PlusIcon } from '../../form/icons'
+import { CheckIcon, MinusIcon, PlusIcon } from '../../form/icons'
 import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { variantLabel } from './InventoryParts'
 
@@ -95,6 +95,7 @@ export function SoldOutHelper({ count, disabled, onApply }: { count: number; dis
         aria-label={stock === null ? 'Set sold-out sizes' : `Set ${count} sold-out ${count === 1 ? 'size' : 'sizes'} to ${stock}`}
         className={`${SECONDARY_BUTTON_SM} disabled:opacity-60`}
       >
+        <CheckIcon />
         Apply
       </button>
     </div>

@@ -6,10 +6,10 @@ import { useSendPasswordReset } from '../../../hooks/useSendPasswordReset'
 import { inviteAdminAccountApi, listAdminAccounts } from '../../../service/staffApi'
 import type { AdminAccount } from '../../../types/accounts'
 import { fullName } from '../../../utils/accountQuery'
-import { ArchiveIcon, MailIcon, PlusIcon, RestoreIcon } from '../../form/icons'
+import { ArchiveIcon, ChevronLeftIcon, MailIcon, PlusIcon, RestoreIcon } from '../../form/icons'
 import { AddedDate, RowAction } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, CREATE_BUTTON_SM, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { AccountEmail } from './AccountEmail'
 import { AccountName } from './AccountName'
 import { AccountTable, type AccountColumn } from './AccountTable'
@@ -49,14 +49,14 @@ export function AdminsTab() {
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
   ]
 
-  const add = (
+  const add = (className: string) => (
     <button
       type="button"
       onClick={() => {
         setSession((n) => n + 1)
         setCreating(true)
       }}
-      className={PRIMARY_BUTTON}
+      className={className}
     >
       <PlusIcon />
       Add admin account
@@ -68,7 +68,7 @@ export function AdminsTab() {
       <h2 id="admins-list" className="sr-only">
         Admins
       </h2>
-      <AccountToolbar noun="admins" searchBy="name or email" text={list.text} onText={list.setText} status={list.status} onStatus={list.setStatus} statuses={STATUSES} per={list.per} onPer={list.setPer} action={add} />
+      <AccountToolbar noun="admins" searchBy="name or email" text={list.text} onText={list.setText} status={list.status} onStatus={list.setStatus} statuses={STATUSES} per={list.per} onPer={list.setPer} action={add(CREATE_BUTTON_SM)} />
       <AccountTable
         list={list}
         label="Admin accounts with email, status and date added"
@@ -93,6 +93,7 @@ export function AdminsTab() {
               <p className="text-base font-semibold text-fg">No inactive admin accounts</p>
               <p className="mt-1 mb-3 text-base text-fg-muted">Deactivated accounts show up here and can be activated again.</p>
               <button type="button" onClick={list.clear} className={`${SECONDARY_BUTTON} mt-3`}>
+                <ChevronLeftIcon />
                 Show active admins
               </button>
             </>
@@ -102,7 +103,7 @@ export function AdminsTab() {
           <>
             <p className="text-base font-semibold text-fg">No admin accounts yet</p>
             <p className="mt-1 mb-3 text-base text-fg-muted">Invite an admin account to give someone access to user management.</p>
-            {add}
+            {add(CREATE_BUTTON)}
           </>
         }
       />

@@ -1,7 +1,7 @@
 import type { HelpStatus } from '../../../hooks/useHelpAnswers'
 import { HELP_CATEGORIES, HELP_CATEGORY_LABELS, HELP_PER_PAGE_OPTIONS, MAX_HELP_SEARCH, type HelpCategory } from '../../../service/helpAnswers'
 import { PlusIcon, SearchIcon, XIcon } from '../../form/icons'
-import { PRIMARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON_SM } from '../../ui/buttonStyles'
 import { Select } from '../../ui/Select'
 
 const PER_PAGE_CHOICES = HELP_PER_PAGE_OPTIONS.map((n) => ({ value: n, label: `${n} per page` }))
@@ -62,7 +62,7 @@ export function HelpAnswersToolbar({ text, onText, category, onCategory, status,
         <div className="w-full @sm:w-44">
           <Select label="Rows per page" value={per} options={PER_PAGE_CHOICES} onChange={onPer} />
         </div>
-        <button type="button" onClick={onCreate} className={`${PRIMARY_BUTTON} w-full @sm:ml-auto @sm:w-auto`}>
+        <button type="button" onClick={onCreate} className={`${CREATE_BUTTON_SM} w-full @sm:ml-auto @sm:w-auto`}>
           <PlusIcon />
           Add question
         </button>

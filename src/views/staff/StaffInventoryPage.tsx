@@ -14,14 +14,15 @@ import {
   PAGER_PAGINATION,
 } from "../../components/staff/inventory/layout";
 import { SegmentedTabs } from "../../components/ui/SegmentedTabs";
-import { PlusIcon } from "../../components/form/icons";
+import { ChevronLeftIcon, PlusIcon, XIcon } from "../../components/form/icons";
 import { SectionError } from "../../components/staff/StaffSection";
 import { STAFF_SECTION } from "../../components/staff/StaffSkeleton";
 import { Pagination } from "../../components/shop/Pagination";
 import {
-  PRIMARY_BUTTON,
-  PRIMARY_BUTTON_SM,
+  CREATE_BUTTON,
+  CREATE_BUTTON_SM,
   SECONDARY_BUTTON,
+  SECONDARY_BUTTON_SM,
 } from "../../components/ui/buttonStyles";
 import { useToast } from "../../components/toast/useToast";
 import { PullToRefresh } from "../../components/ui/PullToRefresh";
@@ -455,7 +456,7 @@ export function StaffInventoryPage() {
             ref={addButton}
             type="button"
             onClick={openAdd}
-            className={PRIMARY_BUTTON_SM}
+            className={CREATE_BUTTON_SM}
           >
             <PlusIcon />
             Add product
@@ -495,7 +496,8 @@ export function StaffInventoryPage() {
                 focusFiltersTrigger();
                 update({ minPrice: "", maxPrice: "" });
               }}
-              className={`${SECONDARY_BUTTON} min-h-9 text-sm`}>
+              className={SECONDARY_BUTTON_SM}>
+              <XIcon />
               Clear price range
             </button>
           </div>
@@ -529,6 +531,7 @@ export function StaffInventoryPage() {
                   onClick={() => update({ page: "" })}
                   className={`${SECONDARY_BUTTON} mt-3`}
                 >
+                  <ChevronLeftIcon />
                   Go to the first page
                 </button>
               </>
@@ -547,6 +550,7 @@ export function StaffInventoryPage() {
                   onClick={clearFilters}
                   className={`${SECONDARY_BUTTON} mt-3`}
                 >
+                  <XIcon />
                   Clear all
                 </button>
               </>
@@ -571,7 +575,7 @@ export function StaffInventoryPage() {
                 <button
                   type="button"
                   onClick={openAdd}
-                  className={`${PRIMARY_BUTTON} mt-3`}
+                  className={`${CREATE_BUTTON} mt-3`}
                 >
                   <PlusIcon />
                   Add product

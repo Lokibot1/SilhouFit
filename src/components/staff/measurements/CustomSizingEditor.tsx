@@ -1,8 +1,8 @@
 import { filterMeasurement, describedBy } from '../../../utils/productValidation'
 import { newSizingRow, SIZING_ROWS_MAX, sizingColumns, type SizingDraft, type SizingRow } from '../../../utils/customSizing'
 import { filterSizeLabel, SIZE_MAX } from '../../../utils/sizeMeasurementValidation'
-import { PlusIcon } from '../../form/icons'
-import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { PlusIcon, TrashIcon } from '../../form/icons'
+import { DANGER_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Field, FIELD_INPUT } from '../inventory/FormField'
 
 interface CustomSizingEditorProps {
@@ -54,8 +54,9 @@ export function CustomSizingEditor({ category, draft, onChange, idPrefix, error,
                   disabled={draft.rows.length === 1}
                   aria-label={`Remove size ${row.size || index + 1}`}
                   onClick={() => onChange({ ...draft, rows: draft.rows.filter((r) => r.id !== row.id) })}
-                  className={`${SECONDARY_BUTTON} text-sm disabled:opacity-60`}
+                  className={DANGER_BUTTON_SM}
                 >
+                  <TrashIcon />
                   Remove
                 </button>
               </div>
@@ -90,7 +91,7 @@ export function CustomSizingEditor({ category, draft, onChange, idPrefix, error,
             </div>
           )
         })}
-        <button type="button" disabled={draft.rows.length >= SIZING_ROWS_MAX} onClick={() => onChange({ ...draft, rows: [...draft.rows, newSizingRow()] })} className={`${SECONDARY_BUTTON} justify-self-start gap-2 text-sm`}>
+        <button type="button" disabled={draft.rows.length >= SIZING_ROWS_MAX} onClick={() => onChange({ ...draft, rows: [...draft.rows, newSizingRow()] })} className={`${SECONDARY_BUTTON_SM} justify-self-start`}>
           <PlusIcon />
           Add size
         </button>

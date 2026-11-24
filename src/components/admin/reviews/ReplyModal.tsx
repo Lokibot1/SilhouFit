@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { REPLY_MAX, type AdminReview } from '../../../service/reviewsApi'
-import { SpinnerIcon } from '../../form/icons'
+import { CheckIcon, SendIcon, SpinnerIcon, XIcon } from '../../form/icons'
 import { Field, FIELD_INPUT } from '../../staff/inventory/FormField'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, SECONDARY_BUTTON, UPDATE_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 
 interface ReplyModalProps {
@@ -31,10 +31,11 @@ export function ReplyModal({ open, review, pending, error, onSave, onClose }: Re
       footer={
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} disabled={pending} className={`${SECONDARY_BUTTON} disabled:opacity-60`}>
+            <XIcon />
             Cancel
           </button>
-          <button type="submit" form={`${id}-form`} disabled={pending || !reply || unchanged} aria-busy={pending} className={PRIMARY_BUTTON}>
-            {pending && <SpinnerIcon className="mr-2" />}
+          <button type="submit" form={`${id}-form`} disabled={pending || !reply || unchanged} aria-busy={pending} className={editing ? UPDATE_BUTTON : CREATE_BUTTON}>
+            {pending ? <SpinnerIcon /> : editing ? <CheckIcon /> : <SendIcon size={16} />}
             {editing ? 'Save reply' : 'Post reply'}
           </button>
         </div>

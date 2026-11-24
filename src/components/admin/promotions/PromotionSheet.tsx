@@ -12,10 +12,10 @@ import {
   type PromotionField,
   type PromotionFormValues,
 } from '../../../utils/promotionValidation'
-import { AlertIcon, SpinnerIcon } from '../../form/icons'
+import { AlertIcon, CheckIcon, PlusIcon, SpinnerIcon, XIcon } from '../../form/icons'
 import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../../staff/inventory/FormField'
 import { useToast } from '../../toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, SECONDARY_BUTTON, UPDATE_BUTTON } from '../../ui/buttonStyles'
 import { DateRangeField } from '../../ui/DateRangeField'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
@@ -182,10 +182,11 @@ export function PromotionSheet({ open, onClose, promotion }: PromotionSheetProps
       footer={
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} disabled={pending} className={SECONDARY_BUTTON}>
+            <XIcon />
             Cancel
           </button>
-          <button type="submit" form={FORM_ID} disabled={pending} aria-busy={pending} className={PRIMARY_BUTTON}>
-            {pending && <SpinnerIcon />}
+          <button type="submit" form={FORM_ID} disabled={pending} aria-busy={pending} className={editing ? UPDATE_BUTTON : CREATE_BUTTON}>
+            {pending ? <SpinnerIcon /> : editing ? <CheckIcon /> : <PlusIcon />}
             {pending ? (editing ? 'Saving…' : 'Creating…') : editing ? 'Save changes' : 'Create promotion'}
           </button>
         </div>

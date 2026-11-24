@@ -1,5 +1,6 @@
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useCanView } from '../../../hooks/usePermissions'
+import { RestoreIcon } from '../../form/icons'
 import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 
 /**
@@ -24,6 +25,7 @@ export function BaseMeasurementsLink({ category, sizes, onCheckAgain }: { catego
         <span className="text-xs text-fg-muted">Ask an admin to add {sizes} in Base measurements.</span>
       )}
       <button type="button" onClick={onCheckAgain} className={SECONDARY_BUTTON_SM}>
+        <RestoreIcon />
         Check again
       </button>
     </div>

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { ConfirmDialog } from '../components/admin/users/ConfirmDialog'
+import { SendIcon } from '../components/form/icons'
 import { useToast } from '../components/toast/useToast'
 import { requestPasswordReset, type PasswordResetErrorKind } from '../service/requestPasswordReset'
 import { fullName } from '../utils/accountQuery'
@@ -53,6 +54,8 @@ export function useSendPasswordReset(): { ask: (account: Person) => void; pendin
         open={asking}
         title={target ? `Send a password reset email to ${fullName(target)}?` : ''}
         confirmLabel="Send Reset Email"
+        icon={<SendIcon size={16} />}
+        intent="update"
         pending={pending}
         onConfirm={() => void confirm()}
         onClose={() => setAsking(false)}

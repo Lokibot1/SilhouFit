@@ -3,8 +3,8 @@ import { APPAREL_SIZES, CATEGORIES } from '../../../data/products'
 import { createSizeMeasurement, fetchSizeMeasurement, sizeFailureReason, updateSizeMeasurement, type SizeMeasurement } from '../../../service/sizeMeasurements'
 import { describedBy, filterMeasurement, MEASUREMENT_FIELDS } from '../../../utils/productValidation'
 import { COLUMNS_BY_CATEGORY, buildSizeInput, buildSizePatch, sizeFormValues, validateSizeForm, type SizeFormValues } from '../../../utils/sizeMeasurementValidation'
-import { AlertIcon, SpinnerIcon } from '../../form/icons'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { AlertIcon, CheckIcon, PlusIcon, RestoreIcon, SpinnerIcon, TrashIcon, XIcon } from '../../form/icons'
+import { CREATE_BUTTON, DANGER_BUTTON, SECONDARY_BUTTON, SECONDARY_BUTTON_SM, UPDATE_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
 import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../inventory/FormField'
@@ -160,14 +160,17 @@ export function SizeSheet({ row: listed, category, taken = [], onSaved, onClose 
         // Same two buttons as the loaded form, so the sheet does not change height when it loads.
         <>
           <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+            <XIcon />
             Cancel
           </button>
-          <button type="button" disabled className={PRIMARY_BUTTON}>
+          <button type="button" disabled className={UPDATE_BUTTON}>
+            <CheckIcon />
             Save size
           </button>
         </>
       ) : (
         <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+          <XIcon />
           Close
         </button>
       )}
@@ -178,28 +181,32 @@ export function SizeSheet({ row: listed, category, taken = [], onSaved, onClose 
             setLoad({})
             setAttempt((n) => n + 1)
           }}
-          className={PRIMARY_BUTTON}
+          className={SECONDARY_BUTTON}
         >
+          <RestoreIcon />
           Try again
         </button>
       )}
     </div>
   ) : discarding ? (
     <div key="discard" className={buttons}>
-      <button type="button" autoFocus onClick={() => setDiscarding(false)} className={PRIMARY_BUTTON}>
+      <button type="button" autoFocus onClick={() => setDiscarding(false)} className={SECONDARY_BUTTON}>
+        <XIcon />
         Cancel
       </button>
-      <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+      <button type="button" onClick={onClose} className={DANGER_BUTTON}>
+        <TrashIcon />
         Discard changes
       </button>
     </div>
   ) : (
     <div className={buttons}>
       <button type="button" disabled={pending} onClick={requestClose} className={SECONDARY_BUTTON}>
+        <XIcon />
         Cancel
       </button>
-      <button id="ss-submit" type="submit" form={FORM_ID} disabled={pending || unchanged} className={PRIMARY_BUTTON}>
-        {pending && <SpinnerIcon />}
+      <button id="ss-submit" type="submit" form={FORM_ID} disabled={pending || unchanged} className={editing ? UPDATE_BUTTON : CREATE_BUTTON}>
+        {pending ? <SpinnerIcon /> : editing ? <CheckIcon /> : <PlusIcon />}
         {editing ? (pending ? 'Saving…' : 'Save size') : pending ? 'Adding…' : 'Add size'}
       </button>
     </div>
@@ -263,7 +270,8 @@ export function SizeSheet({ row: listed, category, taken = [], onSaved, onClose 
                 <p className="text-sm font-semibold text-fg">{banner.title}</p>
                 <p className="mt-1 text-sm text-fg-muted">{banner.why}</p>
                 {banner.retry && (
-                  <button type="button" onClick={() => void submit()} className={`${SECONDARY_BUTTON} mt-3 text-sm`}>
+                  <button type="button" onClick={() => void submit()} className={`${SECONDARY_BUTTON_SM} mt-3`}>
+                    <RestoreIcon />
                     Try again
                   </button>
                 )}

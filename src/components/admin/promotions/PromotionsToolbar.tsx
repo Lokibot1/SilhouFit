@@ -1,6 +1,6 @@
 import { MAX_PROMO_SEARCH, PROMO_PER_PAGE_OPTIONS } from '../../../service/promotions'
 import { PlusIcon, SearchIcon, XIcon } from '../../form/icons'
-import { PRIMARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON_SM } from '../../ui/buttonStyles'
 import { Select } from '../../ui/Select'
 
 const PER_PAGE_CHOICES = PROMO_PER_PAGE_OPTIONS.map((n) => ({ value: n, label: `${n} per page` }))
@@ -44,7 +44,7 @@ export function PromotionsToolbar({ text, onText, per, onPer, onCreate }: Promot
         <div className="w-full @sm:w-44">
           <Select label="Rows per page" value={per} options={PER_PAGE_CHOICES} onChange={onPer} />
         </div>
-        <button type="button" onClick={onCreate} className={`${PRIMARY_BUTTON} w-full @sm:ml-auto @sm:w-auto`}>
+        <button type="button" onClick={onCreate} className={`${CREATE_BUTTON_SM} w-full @sm:ml-auto @sm:w-auto`}>
           <PlusIcon />
           Create promotion
         </button>

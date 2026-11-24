@@ -2,10 +2,10 @@ import { useRef, useState, type FormEvent } from 'react'
 import { createHelpAnswer, HELP_CATEGORIES, HELP_CATEGORY_LABELS, HELP_LINK_PATHS, HELP_LINK_TEXT, updateHelpAnswer, type HelpAnswer, type HelpAnswerInput, type HelpCategory, type PublicPath } from '../../../service/helpAnswers'
 import { HELP_FIELD_ORDER, HELP_LIMITS, parseKeywords, validateHelpAnswer, type HelpErrors, type HelpField, type HelpFormValues } from '../../../utils/helpAnswerValidation'
 import { stripEmoji } from '../../../utils/signUpValidation'
-import { AlertIcon, SpinnerIcon } from '../../form/icons'
+import { AlertIcon, CheckIcon, PlusIcon, SpinnerIcon, XIcon } from '../../form/icons'
 import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../../staff/inventory/FormField'
 import { useToast } from '../../toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, SECONDARY_BUTTON, UPDATE_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
 import { Switch } from '../../ui/Switch'
@@ -137,10 +137,11 @@ export function HelpAnswerSheet({ open, onClose, answer }: HelpAnswerSheetProps)
       footer={
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} disabled={pending} className={SECONDARY_BUTTON}>
+            <XIcon />
             Cancel
           </button>
-          <button type="submit" form={FORM_ID} disabled={pending} aria-busy={pending} className={PRIMARY_BUTTON}>
-            {pending && <SpinnerIcon />}
+          <button type="submit" form={FORM_ID} disabled={pending} aria-busy={pending} className={editing ? UPDATE_BUTTON : CREATE_BUTTON}>
+            {pending ? <SpinnerIcon /> : editing ? <CheckIcon /> : <PlusIcon />}
             {pending ? (editing ? 'Saving…' : 'Adding…') : editing ? 'Save changes' : 'Add question'}
           </button>
         </div>

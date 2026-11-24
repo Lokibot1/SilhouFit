@@ -1,14 +1,14 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, useLocation, useOutletContext } from 'react-router-dom'
 import { ChatDock } from '../../components/chat/dock/ChatDock'
-import { AlertIcon } from '../../components/form/icons'
+import { AlertIcon, LogOutIcon, RestoreIcon } from '../../components/form/icons'
 import { SkipLink } from '../../components/SkipLink'
 import { StaffNav } from '../../components/staff/StaffNav'
 import { StaffSidebar } from '../../components/staff/StaffSidebar'
 import { STAFF_MAIN, StaffShellSkeleton } from '../../components/staff/StaffSkeleton'
 import { StaffTopbar } from '../../components/staff/StaffTopbar'
 import { useToast } from '../../components/toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
+import { SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { Modal } from '../../components/ui/Modal'
 import { pageKeyFor } from '../../config/pagePermissions'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
@@ -142,7 +142,8 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
           <div className="min-w-0">
             <h1 className="display text-2xl text-fg">{copy.title}</h1>
             <p className="mt-3 text-base leading-relaxed text-fg-muted">{copy.body}</p>
-            <button type="button" onClick={missing ? leave : retry} className={`${missing ? SECONDARY_BUTTON : PRIMARY_BUTTON} mt-6`}>
+            <button type="button" onClick={missing ? leave : retry} className={`${SECONDARY_BUTTON} mt-6`}>
+              {missing ? <LogOutIcon size={16} /> : <RestoreIcon />}
               {missing ? 'Sign out' : 'Try again'}
             </button>
           </div>

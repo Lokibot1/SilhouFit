@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchProductById, fetchProductList, ProductListError, UUID, type ProductListItem } from '../../service/fetchProductList'
 import { SearchIcon, XIcon } from '../form/icons'
+import { SECONDARY_BUTTON_SM } from '../ui/buttonStyles'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { ProductRow } from './ProductRow'
 import { errorKind, SectionError, StaffSection, type SectionErrorKind } from './StaffSection'
@@ -91,7 +92,8 @@ export function ProductLookup() {
           (view.items.length === 0 ? (
             <div>
               <p className="text-base text-fg-muted">No products match &quot;{term}&quot;. Check the spelling or clear the search.</p>
-              <button type="button" onClick={clear} className="font-ui mt-3 min-h-11 cursor-pointer rounded-xl px-3 text-base font-semibold text-fg underline underline-offset-4 hover:text-chrome-strong">
+              <button type="button" onClick={clear} className={`${SECONDARY_BUTTON_SM} mt-3`}>
+                <XIcon />
                 Clear search
               </button>
             </div>

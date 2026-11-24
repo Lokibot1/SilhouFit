@@ -2,7 +2,8 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { AccountsList } from '../../../hooks/useAccounts'
 import type { AccountSort } from '../../../utils/accountQuery'
 import { Pagination } from '../../shop/Pagination'
-import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { ChevronLeftIcon, SortIcon, XIcon } from '../../form/icons'
+import { SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Select } from '../../ui/Select'
 import { PAGER_FOOTER, PAGER_PAGINATION, TABLE_ROW, TD, TH } from '../../staff/inventory/layout'
 import { SortHeader } from '../../staff/inventory/SortHeader'
@@ -68,6 +69,7 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
               There are no {noun} on page {page}.
             </p>
             <button type="button" onClick={() => setPage(1)} className={`${SECONDARY_BUTTON} mt-3`}>
+              <ChevronLeftIcon />
               Go to the first page
             </button>
           </>
@@ -77,6 +79,7 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
               <p className="text-base font-semibold text-fg">No {noun} match</p>
               <p className="mt-1 text-base text-fg-muted">{list.messaging ? 'Check the spelling, or clear the search, status or messaging filter and try again.' : 'Check the spelling, or clear the search and status filter and try again.'}</p>
               <button type="button" onClick={clear} className={`${SECONDARY_BUTTON} mt-3`}>
+                <XIcon />
                 Clear filters
               </button>
             </>
@@ -161,8 +164,9 @@ export function AccountTable<T extends { id: string }>({ list, label, noun, colu
             type="button"
             onClick={() => sortBy(sorted.sort)}
             aria-label={`Sorted ${sorted.dir === 'asc' ? 'ascending' : 'descending'}. Switch to ${sorted.dir === 'asc' ? 'descending' : 'ascending'}`}
-            className={`${SECONDARY_BUTTON} shrink-0`}
+            className={`${SECONDARY_BUTTON_SM} shrink-0`}
           >
+            <SortIcon />
             {sorted.dir === 'asc' ? '↑ Ascending' : '↓ Descending'}
           </button>
         </div>

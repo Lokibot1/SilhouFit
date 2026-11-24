@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { WORD_LANGUAGES, WORD_MAX, type ProfanityWord } from '../../../service/profanity'
-import { SpinnerIcon } from '../../form/icons'
+import { CheckIcon, PlusIcon, SpinnerIcon, XIcon } from '../../form/icons'
 import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../../staff/inventory/FormField'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, SECONDARY_BUTTON, UPDATE_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
 
@@ -38,10 +38,11 @@ export function WordFormModal({ open, word, pending, error, onSave, onClose }: W
       footer={
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} disabled={pending} className={`${SECONDARY_BUTTON} disabled:opacity-60`}>
+            <XIcon />
             Cancel
           </button>
-          <button type="submit" form={`${id}-form`} disabled={!canSave} aria-busy={pending} className={PRIMARY_BUTTON}>
-            {pending && <SpinnerIcon className="mr-2" />}
+          <button type="submit" form={`${id}-form`} disabled={!canSave} aria-busy={pending} className={word ? UPDATE_BUTTON : CREATE_BUTTON}>
+            {pending ? <SpinnerIcon /> : word ? <CheckIcon /> : <PlusIcon />}
             {word ? 'Save word' : 'Add Word'}
           </button>
         </div>

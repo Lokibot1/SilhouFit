@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { ConfirmDialog } from '../components/admin/users/ConfirmDialog'
-import { useToast, type ToastOptions } from '../components/toast/useToast'
+import { XIcon } from '../components/form/icons'
+import { useToast,type ToastOptions } from '../components/toast/useToast'
 import { activateAccountApi, deactivateAccountApi } from '../service/staffApi'
 import { fullName } from '../utils/accountQuery'
 
@@ -95,6 +96,7 @@ export function useDeactivateAccount(reload: () => void, kind: Kind = 'staff'): 
         open={asking}
         title={target ? `Deactivate ${fullName(target)}?` : ''}
         confirmLabel={KINDS[kind].confirmLabel}
+        icon={<XIcon />}
         pending={asking && pendingId === target?.id}
         onConfirm={() => target && void run('deactivate', target)}
         onClose={() => setAsking(false)}

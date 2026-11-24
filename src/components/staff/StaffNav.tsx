@@ -89,7 +89,7 @@ export function StaffNav({ area, collapsed = false, onNavigate, scrolls = true }
                 <Icon size={collapsed ? 20 : 16} />
                 {collapsed ? <span className="sr-only">{item.label}</span> : <span className="min-w-0 flex-1 truncate">{item.label}</span>}
                 {badge > 0 && <span className="sr-only">, {badge} unread</span>}
-                {badge > 0 && (collapsed ? <span aria-hidden="true" className="absolute top-2 right-2 size-2.5 rounded-full bg-danger" /> : <span aria-hidden="true"><UnreadBadge count={badge} /></span>)}
+                {badge > 0 && (collapsed ? <span aria-hidden="true" className="absolute top-2 right-2 size-2.5 rounded-full bg-danger ring-2 ring-canvas-sub" /> : <span aria-hidden="true"><UnreadBadge count={badge} /></span>)}
                 {!collapsed && !item.to && (
                   <span className="rounded-full border border-line-strong px-1.5 py-0.5 text-xs font-medium">Soon</span>
                 )}
@@ -100,7 +100,7 @@ export function StaffNav({ area, collapsed = false, onNavigate, scrolls = true }
                 to={item.to}
                 end
                 onClick={onNavigate}
-                className={({ isActive }) => `${row} ${isActive ? 'bg-chrome-strong text-canvas-sub' : 'text-fg hover:bg-fg/10'}`}
+                className={({ isActive }) => `${row} ${isActive ? 'bg-kral-red text-kral-paper' : 'text-fg hover:bg-fg/10'}`}
               >
                 {content}
               </NavLink>

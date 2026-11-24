@@ -177,16 +177,16 @@ describe('PickupLocationPage', () => {
     await act(async () => finish([]))
     expect(screen.queryByRole('status', { name: 'Loading the pickup location' })).not.toBeInTheDocument()
     expect(screen.getByText(/No pickup location is set\. Checkout can't quote delivery and riders can't be booked until you set one\./)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Set pickup location' })).toHaveClass('bg-fg')
+    expect(screen.getByRole('button', { name: 'Set pickup location' })).toHaveClass('bg-success')
     expect(screen.getByRole('heading', { level: 2, name: 'No pickup location yet' })).toBeInTheDocument()
     const steps = within(screen.getByRole('list')).getAllByRole('listitem')
     expect(steps.map((step) => step.textContent)).toEqual(['1Pin the spot on the map', '2Add the rider contact', '3Save and riders are sent there'])
   })
 
-  it('styles Edit on the default card as the primary action', async () => {
+  it('styles Edit on the default card as the update action', async () => {
     api.fetchPickupLocations.mockResolvedValue([SAVED])
     setup()
-    expect(await screen.findByRole('button', { name: /^Edit/ })).toHaveClass('bg-fg', 'min-h-11')
+    expect(await screen.findByRole('button', { name: /^Edit/ })).toHaveClass('bg-info', 'min-h-9')
   })
 
   it('shows the error with Retry, then the location once the retry works', async () => {

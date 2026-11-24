@@ -10,6 +10,7 @@ import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { TransactionPagerSkeleton } from '../../components/staff/TransactionsSkeleton'
 import { PAGER_ROWS } from '../../components/staff/transactions/layout'
 import { Pagination } from '../../components/shop/Pagination'
+import { ChevronLeftIcon, XIcon } from '../../components/form/icons'
 import { SECONDARY_BUTTON } from '../../components/ui/buttonStyles'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
@@ -166,6 +167,7 @@ export function StaffOnlineOrdersPage() {
               <>
                 <p className="text-base text-fg-muted">There are no orders on page {page}.</p>
                 <button type="button" onClick={() => update({ page: '' })} className={`${SECONDARY_BUTTON} mt-3`}>
+                  <ChevronLeftIcon />
                   Go to the first page
                 </button>
               </>
@@ -174,6 +176,7 @@ export function StaffOnlineOrdersPage() {
                 <p className="text-base font-semibold text-fg">No orders match</p>
                 <p className="mt-1 text-base text-fg-muted">Check the spelling, or clear the search and filters and try again.</p>
                 <button type="button" onClick={clearFilters} className={`${SECONDARY_BUTTON} mt-3`}>
+                  <XIcon />
                   Clear filters
                 </button>
               </>

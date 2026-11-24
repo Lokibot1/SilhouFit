@@ -15,10 +15,10 @@ import {
   PickupBodySkeleton,
 } from '../../components/admin/pickup/PickupLocationSkeleton'
 import { ConfirmDialog } from '../../components/admin/users/ConfirmDialog'
-import { MapPinIcon, PhoneIcon, StoreIcon, TargetIcon } from '../../components/form/icons'
+import { CheckIcon, MapPinIcon, PencilIcon, PhoneIcon, PlusIcon, StoreIcon, TargetIcon, TrashIcon, XIcon } from '../../components/form/icons'
 import { SectionBody } from '../../components/staff/StaffSection'
 import { useToast } from '../../components/toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
+import { CREATE_BUTTON, CREATE_BUTTON_SM, DANGER_BUTTON_SM, SECONDARY_BUTTON, SECONDARY_BUTTON_SM, UPDATE_BUTTON, UPDATE_BUTTON_SM } from '../../components/ui/buttonStyles'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useMetaDescription } from '../../hooks/useMetaDescription'
 import { useSection } from '../../hooks/useSection'
@@ -236,11 +236,13 @@ function Summary({ location, hasOthers, headingRef, onEdit, onDelete }: SummaryP
             </p>
             <div className={FOOT_BUTTONS}>
               {hasOthers && (
-                <button type="button" aria-label={`Delete ${labelOf(location)}`} onClick={onDelete} className={SECONDARY_BUTTON}>
+                <button type="button" aria-label={`Delete ${labelOf(location)}`} onClick={onDelete} className={DANGER_BUTTON_SM}>
+                  <TrashIcon />
                   Delete
                 </button>
               )}
-              <button id={`pickup-edit-${location.id}`} type="button" aria-label={`Edit ${labelOf(location)}`} onClick={onEdit} className={PRIMARY_BUTTON}>
+              <button id={`pickup-edit-${location.id}`} type="button" aria-label={`Edit ${labelOf(location)}`} onClick={onEdit} className={UPDATE_BUTTON_SM}>
+                <PencilIcon />
                 Edit
               </button>
             </div>
@@ -265,6 +267,7 @@ function Summary({ location, hasOthers, headingRef, onEdit, onDelete }: SummaryP
             <p className="mt-0.5 text-base leading-6 break-words text-fg">{zoneOf(location)}</p>
           </div>
           <a href={openMapUrl(location)} target="_blank" rel="noopener noreferrer" className={`${SECONDARY_BUTTON_SM} shrink-0`}>
+            <MapPinIcon size={16} />
             Open map
             <span className="sr-only">, opens in a new tab</span>
           </a>
@@ -291,13 +294,16 @@ function SavedLocation({ location, onEdit, onMakeDefault, onDelete }: SavedProps
           <>
             <p className={FOOT_NOTE}>A saved spare. Riders are not booked here until you set it as default.</p>
             <div className={FOOT_BUTTONS}>
-              <button type="button" aria-label={`Set as default ${labelOf(location)}`} onClick={onMakeDefault} className={SECONDARY_BUTTON}>
+              <button type="button" aria-label={`Set as default ${labelOf(location)}`} onClick={onMakeDefault} className={CREATE_BUTTON_SM}>
+                <CheckIcon />
                 Set as default
               </button>
-              <button id={`pickup-edit-${location.id}`} type="button" aria-label={`Edit ${labelOf(location)}`} onClick={onEdit} className={SECONDARY_BUTTON}>
+              <button id={`pickup-edit-${location.id}`} type="button" aria-label={`Edit ${labelOf(location)}`} onClick={onEdit} className={UPDATE_BUTTON_SM}>
+                <PencilIcon />
                 Edit
               </button>
-              <button type="button" aria-label={`Delete ${labelOf(location)}`} onClick={onDelete} className={SECONDARY_BUTTON}>
+              <button type="button" aria-label={`Delete ${labelOf(location)}`} onClick={onDelete} className={DANGER_BUTTON_SM}>
+                <TrashIcon />
                 Delete
               </button>
             </div>
@@ -337,7 +343,8 @@ function EmptyCard({ onSet }: { onSet: () => void }) {
             </li>
           ))}
         </ol>
-        <button id="pickup-add" type="button" onClick={onSet} className={`${PRIMARY_BUTTON} mt-6 w-full sm:mx-auto sm:w-auto`}>
+        <button id="pickup-add" type="button" onClick={onSet} className={`${CREATE_BUTTON} mt-6 w-full sm:mx-auto sm:w-auto`}>
+          <PlusIcon />
           Set pickup location
         </button>
       </div>
@@ -518,7 +525,8 @@ export function PickupLocationPage() {
           <p className="mt-1 text-xs text-fg-muted">Where Lalamove riders collect orders.</p>
         </div>
         {locations.length > 0 && !form && (
-          <button id="pickup-add" type="button" onClick={() => open()} className={`${SECONDARY_BUTTON} w-full sm:w-auto`}>
+          <button id="pickup-add" type="button" onClick={() => open()} className={`${CREATE_BUTTON_SM} w-full sm:w-auto`}>
+            <PlusIcon />
             Add pickup location
           </button>
         )}
@@ -551,6 +559,7 @@ export function PickupLocationPage() {
                     requirePin
                     nameLabel="Contact name"
                     saveLabel="Save pickup location"
+                    submitStyle={form.initial ? { className: UPDATE_BUTTON, icon: <CheckIcon /> } : { className: CREATE_BUTTON, icon: <PlusIcon /> }}
                     pinCopy={PIN_COPY}
                     save={save}
                     onSaved={finishSave}
@@ -561,6 +570,7 @@ export function PickupLocationPage() {
                     footer={(submit) => (
                       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                         <button type="button" onClick={() => setForm(null)} disabled={saving} className={`${SECONDARY_BUTTON} disabled:opacity-60`}>
+                          <XIcon />
                           Cancel
                         </button>
                         {submit}
@@ -597,7 +607,7 @@ export function PickupLocationPage() {
           }
         </SectionBody>
       )}
-      <ConfirmDialog open={replacing !== null} title="Replace the pickup location?" confirmLabel="Replace pickup location" pending={writing} onConfirm={() => void confirm()} onClose={cancelReplace}>
+      <ConfirmDialog open={replacing !== null} title="Replace the pickup location?" confirmLabel="Replace pickup location" icon={<CheckIcon />} intent="update" pending={writing} onConfirm={() => void confirm()} onClose={cancelReplace}>
         {replacing && editing && (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -612,6 +622,8 @@ export function PickupLocationPage() {
         open={action !== null}
         title={action?.kind === 'delete' ? 'Delete this pickup location?' : 'Change the default pickup location?'}
         confirmLabel={action?.kind === 'delete' ? 'Delete pickup location' : 'Set as default'}
+        icon={action?.kind === 'delete' ? <TrashIcon /> : <CheckIcon />}
+        intent={action?.kind === 'delete' ? undefined : 'create'}
         pending={writing}
         onConfirm={() => void runAction()}
         onClose={() => setAction(null)}

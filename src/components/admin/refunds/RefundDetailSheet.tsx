@@ -9,12 +9,12 @@ import type { RequestOptions } from '../../../service/simulateRequest'
 import { formatMessageTime, formatPeso, formatPlacedAt } from '../../../utils/format'
 import { REFUND_LIMITS, sanitizeText, validateResolution } from '../../../utils/refundValidation'
 import { providerLabel } from '../../../utils/transactionQuery'
-import { AlertIcon, ChevronDownIcon, SpinnerIcon } from '../../form/icons'
+import { AlertIcon, CheckIcon, ChevronDownIcon, RestoreIcon, SpinnerIcon, XIcon } from '../../form/icons'
 import { Field, FIELD_INPUT } from '../../staff/inventory/FormField'
 import { CopyId } from '../../staff/inventory/ProductDetail'
 import { EmptyNote, SectionBody } from '../../staff/StaffSection'
 import { useToast } from '../../toast/useToast'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { SECONDARY_BUTTON, SECONDARY_BUTTON_SM, UPDATE_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { RefundStatusBadge } from './RefundsTable'
 
@@ -294,10 +294,11 @@ export function RefundDetailSheet({ refund: row, open, onClose, onGone }: Refund
     footer = (
       <div key="confirm" className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button id="refund-confirm-cancel" type="button" onClick={closeOne} disabled={pending !== null} className={`${SECONDARY_BUTTON} disabled:opacity-60`}>
+          <XIcon />
           Cancel
         </button>
-        <button id="refund-confirm-go" type="button" onClick={() => void run(confirming)} disabled={pending !== null} aria-busy={pending === confirming} className={`${SECONDARY_BUTTON} disabled:cursor-progress disabled:opacity-70`}>
-          {pending === confirming && <SpinnerIcon className="mr-2" />}
+        <button id="refund-confirm-go" type="button" onClick={() => void run(confirming)} disabled={pending !== null} aria-busy={pending === confirming} className={UPDATE_BUTTON}>
+          {pending === confirming ? <SpinnerIcon /> : confirming === 'retry' ? <RestoreIcon /> : <CheckIcon />}
           {confirming === 'retry' ? 'Retry refund' : 'Mark as refunded'}
         </button>
       </div>
@@ -306,9 +307,11 @@ export function RefundDetailSheet({ refund: row, open, onClose, onGone }: Refund
     footer = (
       <div key="form" className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button type="button" onClick={closeOne} className={SECONDARY_BUTTON}>
+          <XIcon />
           Cancel
         </button>
-        <button id="refund-resolve-review" type="submit" form={FORM_ID} className={PRIMARY_BUTTON}>
+        <button id="refund-resolve-review" type="submit" form={FORM_ID} className={UPDATE_BUTTON}>
+          <CheckIcon />
           Review
         </button>
       </div>
@@ -318,16 +321,18 @@ export function RefundDetailSheet({ refund: row, open, onClose, onGone }: Refund
       <div key="actions" className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         {canSync && (
           <button id="refund-sync-open" type="button" onClick={() => void run('sync')} disabled={pending !== null} aria-busy={pending === 'sync'} className={`${SECONDARY_BUTTON} disabled:cursor-progress disabled:opacity-70`}>
-            {pending === 'sync' && <SpinnerIcon className="mr-2" />}
+            {pending === 'sync' ? <SpinnerIcon /> : <RestoreIcon />}
             Check with gateway
           </button>
         )}
         {unfinished && (
           <>
-            <button id="refund-resolve-open" type="button" onClick={openResolve} disabled={pending !== null} className={`${SECONDARY_BUTTON} disabled:opacity-60`}>
+            <button id="refund-resolve-open" type="button" onClick={openResolve} disabled={pending !== null} className={UPDATE_BUTTON}>
+              <CheckIcon />
               Mark as refunded
             </button>
-            <button id="refund-retry-open" type="button" onClick={askRetry} disabled={pending !== null} className={PRIMARY_BUTTON}>
+            <button id="refund-retry-open" type="button" onClick={askRetry} disabled={pending !== null} className={UPDATE_BUTTON}>
+              <RestoreIcon />
               Retry refund
             </button>
           </>
@@ -396,7 +401,8 @@ export function RefundDetailSheet({ refund: row, open, onClose, onGone }: Refund
             <div role="alert">
               <p className="text-base font-semibold text-fg md:text-sm">This refund no longer exists.</p>
               <p className="mt-1 text-base text-fg-muted md:text-sm">It may have been removed. Close this panel and refresh the list.</p>
-              <button type="button" onClick={onGone} className={`${SECONDARY_BUTTON} mt-4`}>
+              <button type="button" onClick={onGone} className={`${SECONDARY_BUTTON_SM} mt-4`}>
+                <RestoreIcon />
                 Refresh the list
               </button>
             </div>

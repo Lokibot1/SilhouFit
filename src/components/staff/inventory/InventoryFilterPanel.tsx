@@ -3,7 +3,8 @@ import { filterPriceInput, withCommas } from '../../../utils/format'
 import { useShopFacets } from '../../../hooks/useShopColours'
 import { COMMON_SIZES, orderSizes } from '../../../utils/productQuery'
 import { cleanFilterText, MAX_FILTER_TEXT, parsePrice, priceRangeInvalid, type InventoryQuery } from '../../../utils/inventoryQuery'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CheckIcon, RestoreIcon } from '../../form/icons'
+import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { Field, FIELD_INPUT } from './FormField'
 
@@ -65,10 +66,12 @@ export function InventoryFilterPanel({ open, onClose, query, onApply }: { open: 
       title="More filters"
       footer={
         <div className="flex gap-3">
-          <button type="button" onClick={() => setDraft(EMPTY)} className={`${SECONDARY_BUTTON} flex-1 whitespace-nowrap px-3`}>
+          <button type="button" onClick={() => setDraft(EMPTY)} className={`${SECONDARY_BUTTON} flex-1 whitespace-nowrap`}>
+            <RestoreIcon />
             Reset
           </button>
-          <button type="button" onClick={apply} disabled={invalidRange} className={`${PRIMARY_BUTTON} flex-[2] whitespace-nowrap px-3 disabled:cursor-not-allowed disabled:opacity-40!`}>
+          <button type="button" onClick={apply} disabled={invalidRange} className={`${SECONDARY_BUTTON} flex-[2] whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40!`}>
+            <CheckIcon />
             Apply filters
           </button>
         </div>

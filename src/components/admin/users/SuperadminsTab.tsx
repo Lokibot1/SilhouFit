@@ -5,7 +5,7 @@ import type { SuperadminAccount } from '../../../types/accounts'
 import { PlusIcon } from '../../form/icons'
 import { AddedDate } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
-import { PRIMARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, CREATE_BUTTON_SM } from '../../ui/buttonStyles'
 import { AccountEmail } from './AccountEmail'
 import { AccountName } from './AccountName'
 import { AccountTable, type AccountColumn } from './AccountTable'
@@ -33,14 +33,14 @@ export function SuperadminsTab() {
     { key: 'added', header: 'Added', cardLabel: 'Added:', sort: 'createdAt', width: 'w-[16%]', cell: (a) => <AddedDate iso={a.createdAt} /> },
   ]
 
-  const add = (
+  const add = (className: string) => (
     <button
       type="button"
       onClick={() => {
         setSession((n) => n + 1)
         setCreating(true)
       }}
-      className={PRIMARY_BUTTON}
+      className={className}
     >
       <PlusIcon />
       Add superadmin account
@@ -52,7 +52,7 @@ export function SuperadminsTab() {
       <h2 id="superadmins-list" className="sr-only">
         Superadmins
       </h2>
-      <AccountToolbar noun="superadmins" searchBy="name or email" text={list.text} onText={list.setText} per={list.per} onPer={list.setPer} action={add} />
+      <AccountToolbar noun="superadmins" searchBy="name or email" text={list.text} onText={list.setText} per={list.per} onPer={list.setPer} action={add(CREATE_BUTTON_SM)} />
       <AccountTable
         list={list}
         label="Superadmin accounts with email and date added"
@@ -62,7 +62,7 @@ export function SuperadminsTab() {
           <>
             <p className="text-base font-semibold text-fg">No superadmin accounts yet</p>
             <p className="mt-1 mb-3 text-base text-fg-muted">Invite a superadmin account to give someone full access.</p>
-            {add}
+            {add(CREATE_BUTTON)}
           </>
         }
       />

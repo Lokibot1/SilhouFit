@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { ConfirmDialog } from '../../components/admin/users/ConfirmDialog'
+import { CheckIcon, RestoreIcon } from '../../components/form/icons'
 import { STAFF_SECTION } from '../../components/staff/StaffSkeleton'
 import { useToast } from '../../components/toast/useToast'
-import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../components/ui/buttonStyles'
+import { DANGER_BUTTON_SM, UPDATE_BUTTON_SM } from '../../components/ui/buttonStyles'
 import { SampleDataBadge } from '../../components/ui/SampleDataBadge'
 import { Switch } from '../../components/ui/Switch'
 import { ACCOUNTS_SAMPLE_DATA } from '../../config/accountPolicy'
@@ -50,7 +51,8 @@ function RoleCard({ role, label, description }: { role: PermissionRole; label: s
             Select all
             <Switch checked={all} onChange={(on) => toggle(every, on)} />
           </label>
-          <button type="button" onClick={save} disabled={!dirty} className={PRIMARY_BUTTON_SM}>
+          <button type="button" onClick={save} disabled={!dirty} className={UPDATE_BUTTON_SM}>
+            <CheckIcon />
             Save changes
           </button>
         </div>
@@ -100,7 +102,8 @@ export function PermissionsPage() {
           <p className="mt-1 text-sm text-fg-muted">Choose the pages each role can open. Superadmins always see every page, and dashboards and profiles stay on for everyone.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className={SECONDARY_BUTTON_SM} onClick={() => setAsking(true)}>
+          <button type="button" className={DANGER_BUTTON_SM} onClick={() => setAsking(true)}>
+            <RestoreIcon />
             Reset to defaults
           </button>
           {ACCOUNTS_SAMPLE_DATA && <SampleDataBadge reason="These permissions are saved in this browser only, until the permissions backend is connected." />}
@@ -113,6 +116,7 @@ export function PermissionsPage() {
         open={asking}
         title="Reset all permissions?"
         confirmLabel="Reset permissions"
+        icon={<RestoreIcon />}
         pending={false}
         onConfirm={() => {
           resetPermissions()

@@ -5,7 +5,7 @@ import { useCanView } from '../../../hooks/usePermissions'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useSection } from '../../../hooks/useSection'
 import { DURATION, EASE_OUT } from '../../../motion/tokens'
-import { BagIcon, ChevronDownIcon } from '../../form/icons'
+import { BagIcon, ChevronDownIcon, ReceiptIcon, RestoreIcon } from '../../form/icons'
 import { fetchAdminOrder } from '../../../service/adminOrdersApi'
 import { fetchAdminTransaction, orderToTransactionDetail, redactPayload, type AdminTransactionDetail, type AdminTransactionRow } from '../../../service/adminTransactionsApi'
 import type { TransactionDetail, TransactionLine } from '../../../service/fetchTransactions'
@@ -15,7 +15,7 @@ import type { RequestOptions } from '../../../service/simulateRequest'
 import { formatPeso } from '../../../utils/format'
 import { methodLabel } from '../../../utils/orders'
 import { providerLabel } from '../../../utils/transactionQuery'
-import { SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { CopyId } from '../inventory/ProductDetail'
 import { OrderStatusPill, PaymentPill } from '../orders/OrderPills'
@@ -77,7 +77,8 @@ function Gone({ onRetry }: { onRetry: () => void }) {
     <div role="alert">
       <p className="text-base font-semibold text-fg md:text-sm">This transaction no longer exists.</p>
       <p className="mt-1 text-base text-fg-muted md:text-sm">It may have been removed. Close this panel and refresh the list, or try again.</p>
-      <button type="button" onClick={onRetry} className={`${SECONDARY_BUTTON} mt-4`}>
+      <button type="button" onClick={onRetry} className={`${SECONDARY_BUTTON_SM} mt-4`}>
+        <RestoreIcon />
         Retry
       </button>
     </div>
@@ -341,6 +342,7 @@ export function TransactionDrawer({ transaction, open, session, onClose }: Trans
                   onClick={() => setInvoiceSession(session)}
                   className={`${SECONDARY_BUTTON_SM} mt-4 w-full sm:w-auto`}
                 >
+                  <ReceiptIcon size={16} />
                   Invoice
                 </button>
               </section>

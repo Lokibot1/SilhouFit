@@ -5,8 +5,8 @@ import { fetchAdminOrder, quietRead, type AdminOrderDetail, type AdminOrderItem,
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { formatPeso, variantLabel } from '../../../utils/format'
 import { humanize, methodLabel, shipmentStatusLabel } from '../../../utils/orders'
-import { BagIcon, BoxIcon, RestoreIcon, UserIcon, WalletIcon } from '../../form/icons'
-import { PRIMARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { BagIcon, BoxIcon, CheckIcon, RestoreIcon, UserIcon, WalletIcon } from '../../form/icons'
+import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { PhotoImg } from '../../ui/PhotoImg'
 import { Modal } from '../../ui/Modal'
 import { CopyId } from '../inventory/ProductDetail'
@@ -336,7 +336,8 @@ export function AdminOrderDrawer({ order, open, session, onClose, onChanged }: A
       titleClassName="min-w-0 font-mono! tracking-normal! break-all"
       footer={
         <div className="flex justify-end">
-          <button type="button" onClick={onClose} className={PRIMARY_BUTTON_SM}>
+          <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+            <CheckIcon />
             Done &amp; Close
           </button>
         </div>

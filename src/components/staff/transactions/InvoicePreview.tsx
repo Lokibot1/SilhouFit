@@ -8,9 +8,9 @@ import type { RequestOptions } from '../../../service/simulateRequest'
 import { downloadFile } from '../../../utils/downloadFile'
 import { buildInvoiceJson } from '../../../utils/invoiceJson'
 import { buildInvoice } from '../../../utils/invoiceTax'
-import { ChevronLeftIcon, SpinnerIcon } from '../../form/icons'
+import { ChevronLeftIcon, DownloadIcon, PrinterIcon, SpinnerIcon } from '../../form/icons'
 import { useToast } from '../../toast/useToast'
-import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { errorKind, SectionBody } from '../StaffSection'
 import { InvoiceSheet } from './InvoiceSheet'
 
@@ -179,7 +179,7 @@ export function InvoicePreview({ transaction, detail, onBack }: InvoicePreviewPr
         ref={backRef}
         type="button"
         onClick={onBack}
-        className="font-ui -ml-2 flex min-h-11 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-fg-muted hover:text-fg"
+        className={SECONDARY_BUTTON_SM}
       >
         <ChevronLeftIcon />
         Back to order
@@ -207,11 +207,12 @@ export function InvoicePreview({ transaction, detail, onBack }: InvoicePreviewPr
       <div className="sticky bottom-0 -mx-5 mt-4 flex flex-wrap items-center gap-3 border-t border-line bg-canvas px-5 py-3 sm:-mx-8 sm:px-8">
         <Formats value={format} onChange={setFormat} />
         <div className="flex min-w-0 flex-1 basis-full gap-3 sm:basis-44">
-          <button type="button" disabled={disabled} onClick={() => void run('download')} className={`${PRIMARY_BUTTON_SM} min-w-0 flex-1 whitespace-nowrap`}>
-            {pending && <SpinnerIcon />}
+          <button type="button" disabled={disabled} onClick={() => void run('download')} className={`${SECONDARY_BUTTON_SM} min-w-0 flex-1 whitespace-nowrap`}>
+            {pending ? <SpinnerIcon /> : <DownloadIcon />}
             {pending ? 'Preparing…' : `Download ${format.toUpperCase()}`}
           </button>
-          <button type="button" disabled={disabled} onClick={() => void run('print')} className={`${SECONDARY_BUTTON_SM} flex-none px-5`}>
+          <button type="button" disabled={disabled} onClick={() => void run('print')} className={`${SECONDARY_BUTTON_SM} flex-none`}>
+            <PrinterIcon />
             Print
           </button>
         </div>

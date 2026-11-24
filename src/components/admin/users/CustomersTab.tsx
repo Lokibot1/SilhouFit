@@ -5,7 +5,7 @@ import { useDeactivateCustomer } from '../../../hooks/useDeactivateAccount'
 import { listCustomerAccounts } from '../../../service/staffApi'
 import type { CustomerAccount } from '../../../types/accounts'
 import { fullName } from '../../../utils/accountQuery'
-import { ArchiveIcon, EyeIcon, RestoreIcon } from '../../form/icons'
+import { ArchiveIcon, ChevronLeftIcon, EyeIcon, RestoreIcon } from '../../form/icons'
 import { AddedDate, RowAction } from '../../staff/inventory/InventoryParts'
 import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
@@ -76,6 +76,7 @@ export function CustomersTab() {
               <p className="text-base font-semibold text-fg">No inactive customers</p>
               <p className="mt-1 mb-3 text-base text-fg-muted">Deactivated accounts show up here and can be activated again.</p>
               <button type="button" onClick={list.clear} className={`${SECONDARY_BUTTON} mt-3`}>
+                <ChevronLeftIcon />
                 Show active customers
               </button>
             </>

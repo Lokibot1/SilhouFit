@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { ReplyModal } from '../../components/admin/reviews/ReplyModal'
 import { ReviewsTable } from '../../components/admin/reviews/ReviewsTable'
 import { ConfirmDialog } from '../../components/admin/users/ConfirmDialog'
+import { ChevronLeftIcon, TrashIcon, XIcon } from '../../components/form/icons'
 import { Pagination } from '../../components/shop/Pagination'
 import { PAGER_FOOTER, PAGER_PAGINATION } from '../../components/staff/inventory/layout'
 import { SectionError } from '../../components/staff/StaffSection'
@@ -190,6 +191,7 @@ export function ReviewsPage() {
               <>
                 <p className="text-base text-fg-muted">There are no reviews on page {page}.</p>
                 <button type="button" onClick={() => setFilters((current) => ({ ...current, page: 1 }))} className={`${SECONDARY_BUTTON} mt-3`}>
+                  <ChevronLeftIcon />
                   Go to the first page
                 </button>
               </>
@@ -198,6 +200,7 @@ export function ReviewsPage() {
                 <p className="text-base font-semibold text-fg">No reviews match</p>
                 <p className="mt-1 text-base text-fg-muted">Clear the rating and photo filters to see every review.</p>
                 <button type="button" onClick={clearFilters} className={`${SECONDARY_BUTTON} mt-3`}>
+                  <XIcon />
                   Clear filters
                 </button>
               </>
@@ -259,6 +262,7 @@ export function ReviewsPage() {
         open={asking}
         title={confirm?.kind === 'delete' ? `Delete ${confirm.review.user.name}'s review?` : 'Remove your reply?'}
         confirmLabel={confirm?.kind === 'delete' ? 'Delete review' : 'Remove reply'}
+        icon={<TrashIcon />}
         pending={pending}
         onConfirm={() => void confirmed()}
         onClose={() => setAsking(false)}

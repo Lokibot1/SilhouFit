@@ -3,9 +3,9 @@ import { fieldId, useCreateAccountFlow } from '../../../hooks/useCreateAccountFl
 import type { Invited, InviteInput } from '../../../service/staffApi'
 import { latestBirthday, type AccountFormField, type AccountGender } from '../../../utils/accountValidation'
 import { LIMITS } from '../../../utils/signUpValidation'
-import { AlertIcon, CheckIcon, SpinnerIcon } from '../../form/icons'
+import { AlertIcon, CheckIcon, PlusIcon, SpinnerIcon, XIcon } from '../../form/icons'
 import { Field, FIELD_INPUT, SELECT_FLAT, SelectField } from '../../staff/inventory/FormField'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { CREATE_BUTTON, SECONDARY_BUTTON } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
 import { Tooltip } from '../../ui/Tooltip'
@@ -69,16 +69,18 @@ export function CreateAccountSheet({ open, onClose, noun, invite, onCreated }: C
       title={invitedEmail ? 'Invitation sent' : `Add ${noun} account`}
       footer={
         invitedEmail ? (
-          <button type="button" onClick={onClose} className={`${PRIMARY_BUTTON} w-full sm:ml-auto sm:w-auto`}>
+          <button type="button" onClick={onClose} className={`${SECONDARY_BUTTON} w-full sm:ml-auto sm:w-auto`}>
+            <CheckIcon />
             Done
           </button>
         ) : (
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button type="button" onClick={onClose} disabled={pending} className={SECONDARY_BUTTON}>
+              <XIcon />
               Cancel
             </button>
-            <button type="submit" form={FORM_ID} disabled={pending} aria-busy={pending} className={PRIMARY_BUTTON}>
-              {pending && <SpinnerIcon />}
+            <button type="submit" form={FORM_ID} disabled={pending} aria-busy={pending} className={CREATE_BUTTON}>
+              {pending ? <SpinnerIcon /> : <PlusIcon />}
               {pending ? 'Sending…' : 'Send Invitation'}
             </button>
           </div>

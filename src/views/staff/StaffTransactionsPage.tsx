@@ -18,6 +18,7 @@ import { TransactionToolbar } from "../../components/staff/transactions/Transact
 import { TransactionTotals } from "../../components/staff/transactions/TransactionTotals";
 import { useToast } from "../../components/toast/useToast";
 import { Pagination } from "../../components/shop/Pagination";
+import { ChevronLeftIcon, XIcon } from "../../components/form/icons";
 import { SECONDARY_BUTTON } from "../../components/ui/buttonStyles";
 import { SampleDataBadge } from "../../components/ui/SampleDataBadge";
 import { PullToRefresh } from "../../components/ui/PullToRefresh";
@@ -361,6 +362,7 @@ export function StaffTransactionsPage() {
                   onClick={() => update({ page: "" })}
                   className={`${SECONDARY_BUTTON} mt-3`}
                 >
+                  <ChevronLeftIcon />
                   Go to the first page
                 </button>
               </>
@@ -378,6 +380,7 @@ export function StaffTransactionsPage() {
                   onClick={clearFilters}
                   className={`${SECONDARY_BUTTON} mt-3`}
                 >
+                  <XIcon />
                   Clear filters
                 </button>
               </>

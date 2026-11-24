@@ -6,7 +6,7 @@ import { CheckIcon, XIcon } from '../../form/icons'
 import { PLAIN_INPUT, SELECT_FLAT, SelectField } from '../../staff/inventory/FormField'
 import { SectionError } from '../../staff/StaffSection'
 import { Avatar } from '../../ui/Avatar'
-import { SECONDARY_BUTTON } from '../../ui/buttonStyles'
+import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { Select } from '../../ui/Select'
 
 const SCOPES: { value: PromoAppliesTo['scope']; label: string }[] = [
@@ -136,7 +136,8 @@ function ProductPicker({ products, onChange, disabled }: { products: PromoProduc
             <p className="text-base font-semibold text-fg">{search ? `No products match "${search}"` : 'No products yet'}</p>
             <p className="mt-1 text-sm text-fg-muted">{search ? 'Check the spelling, or clear the search and try again.' : 'Add products in Inventory, then pick them here.'}</p>
             {search && (
-              <button type="button" onClick={() => setText('')} className={`${SECONDARY_BUTTON} mt-3`}>
+              <button type="button" onClick={() => setText('')} className={`${SECONDARY_BUTTON_SM} mt-3`}>
+                <XIcon />
                 Clear search
               </button>
             )}

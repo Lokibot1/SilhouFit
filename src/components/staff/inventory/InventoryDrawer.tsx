@@ -4,9 +4,9 @@ import { fetchProductDetail, type ProductDetailFields, type ProductListItem, typ
 import { failureReason, manageFailureReason, removeVariant, saveProduct, saveStocks } from '../../../service/inventoryActions'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { editedVariants, parseStock } from '../../../utils/stockEdit'
-import { AlertIcon, ArchiveIcon, BoxIcon, PencilIcon, RestoreIcon, SpinnerIcon, TrashIcon } from '../../form/icons'
+import { ArchiveIcon, AlertIcon, BoxIcon, CheckIcon, PencilIcon, RestoreIcon, SpinnerIcon, TrashIcon, XIcon } from '../../form/icons'
 import { useToast } from '../../toast/useToast'
-import { PRIMARY_BUTTON_SM, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { DANGER_BUTTON_SM, SECONDARY_BUTTON_SM, UPDATE_BUTTON_SM } from '../../ui/buttonStyles'
 import { Modal } from '../../ui/Modal'
 import { isArchived } from '../../../utils/inventoryQuery'
 import { ADD_VARIANT_ID } from './ProductDetail'
@@ -18,15 +18,8 @@ const IDLE = new Promise<{ variants: ProductVariant[]; product?: ProductDetailFi
 
 const sizes = (n: number) => `${n} ${n === 1 ? 'size' : 'sizes'}`
 
-// The drawer's actions share one row; the visible words are short ("Delete") and the full name ("Delete product") is read out.
-const ACTION_ROW = 'flex flex-nowrap justify-end gap-2'
-const ACTION_BASE =
-  'btn-lift font-ui flex min-h-9 pointer-coarse:min-h-11 max-md:min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold disabled:cursor-progress disabled:opacity-60'
-// Edit is blue, Delete red, Archive orange: a tinted face and a matching edge that both deepen on hover.
-const ACTION_EDIT = `${ACTION_BASE} border-info/50 bg-info/10 text-info hover:border-info hover:bg-info/20`
-const ACTION_DELETE = `${ACTION_BASE} border-danger/50 bg-danger/10 text-danger hover:border-danger hover:bg-danger/20`
-const ACTION_ARCHIVE = `${ACTION_BASE} border-warning/50 bg-warning/10 text-warning hover:border-warning hover:bg-warning/20`
-const ACTION_PRIMARY = `${PRIMARY_BUTTON_SM} min-w-0 gap-1.5 px-3`
+// The drawer's actions share one row; the visible words are short ("Delete") and the full name ("Delete product") is read out. It wraps so four icon buttons fit a phone.
+const ACTION_ROW = 'flex flex-wrap justify-end gap-2'
 
 const DISCARD_ID = 'inventory-discard'
 const ARCHIVE_ID = 'inventory-archive'
@@ -309,19 +302,20 @@ export function InventoryDrawer({
   if (product && prompt) {
     const wait = archiving || removing
     const confirm = {
-      archive: { label: 'Archive product', busy: 'Archiving…', run: () => void changeStatus(true) },
-      delete: { label: 'Delete Product', busy: 'Deleting…', run: () => void remove(prompt) },
-      'delete-variant': { label: 'Delete Variant', busy: 'Deleting…', run: () => void remove(prompt) },
-      discard: { label: 'Discard changes', busy: 'Discard changes', run: discard },
+      archive: { label: 'Archive product', busy: 'Archiving…', icon: <ArchiveIcon />, run: () => void changeStatus(true) },
+      delete: { label: 'Delete Product', busy: 'Deleting…', icon: <TrashIcon />, run: () => void remove(prompt) },
+      'delete-variant': { label: 'Delete Variant', busy: 'Deleting…', icon: <TrashIcon />, run: () => void remove(prompt) },
+      discard: { label: 'Discard changes', busy: 'Discard changes', icon: <TrashIcon />, run: discard },
     }[prompt.kind]
     footer = (
       // Keyed so Cancel mounts fresh (and takes focus) whichever footer button asked.
       <div key="prompt" className={row}>
-        <button type="button" autoFocus disabled={wait} onClick={() => setPrompt(null)} className={PRIMARY_BUTTON_SM}>
+        <button type="button" autoFocus disabled={wait} onClick={() => setPrompt(null)} className={SECONDARY_BUTTON_SM}>
+          <XIcon />
           Cancel
         </button>
-        <button type="button" disabled={wait} onClick={confirm.run} className={SECONDARY_BUTTON_SM}>
-          {wait && <SpinnerIcon />}
+        <button type="button" disabled={wait} onClick={confirm.run} className={DANGER_BUTTON_SM}>
+          {wait ? <SpinnerIcon /> : confirm.icon}
           {wait ? confirm.busy : confirm.label}
         </button>
       </div>
@@ -329,11 +323,11 @@ export function InventoryDrawer({
   } else if (product && archived) {
     footer = (
       <div className={ACTION_ROW}>
-        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={ACTION_DELETE}>
+        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={DANGER_BUTTON_SM}>
           <TrashIcon />
           Delete{' '}<span className="sr-only">product</span>
         </button>
-        <button type="button" disabled={archiving} onClick={() => void changeStatus(false)} className={ACTION_PRIMARY}>
+        <button type="button" disabled={archiving} onClick={() => void changeStatus(false)} className={UPDATE_BUTTON_SM}>
           {archiving ? <SpinnerIcon /> : <RestoreIcon />}
           {archiving ? 'Restoring…' : <>Restore{' '}<span className="sr-only">product</span></>}
         </button>
@@ -347,12 +341,13 @@ export function InventoryDrawer({
           id={DISCARD_ID}
           disabled={saving}
           onClick={() => (dirty ? ask({ kind: 'discard', close: false }, DISCARD_ID) : discard())}
-          className={SECONDARY_BUTTON_SM}
+          className={DANGER_BUTTON_SM}
         >
+          <TrashIcon />
           Discard
         </button>
-        <button type="button" disabled={saving || !dirty || hasEmpty} onClick={() => void save()} className={PRIMARY_BUTTON_SM}>
-          {saving && <SpinnerIcon />}
+        <button type="button" disabled={saving || !dirty || hasEmpty} onClick={() => void save()} className={UPDATE_BUTTON_SM}>
+          {saving ? <SpinnerIcon /> : <CheckIcon />}
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </div>
@@ -360,15 +355,15 @@ export function InventoryDrawer({
   } else if (product) {
     footer = (
       <div className={ACTION_ROW}>
-        <button type="button" disabled={!fields} onClick={() => fields && onEditDetails(product, fields)} className={ACTION_EDIT}>
+        <button type="button" disabled={!fields} onClick={() => fields && onEditDetails(product, fields)} className={UPDATE_BUTTON_SM}>
           <PencilIcon />
           Edit{' '}<span className="sr-only">details</span>
         </button>
-        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={ACTION_DELETE}>
+        <button type="button" id={DELETE_ID} onClick={() => ask({ kind: 'delete' }, DELETE_ID)} className={DANGER_BUTTON_SM}>
           <TrashIcon />
           Delete{' '}<span className="sr-only">product</span>
         </button>
-        <button type="button" id={ARCHIVE_ID} onClick={() => ask({ kind: 'archive' }, ARCHIVE_ID)} className={ACTION_ARCHIVE}>
+        <button type="button" id={ARCHIVE_ID} onClick={() => ask({ kind: 'archive' }, ARCHIVE_ID)} className={DANGER_BUTTON_SM}>
           <ArchiveIcon />
           Archive{' '}<span className="sr-only">product</span>
         </button>
@@ -377,7 +372,7 @@ export function InventoryDrawer({
           type="button"
           disabled={section.state.status === 'error' || (variants !== null && variants.length === 0)}
           onClick={() => setEditing(true)}
-          className={ACTION_PRIMARY}
+          className={UPDATE_BUTTON_SM}
         >
           <BoxIcon size={16} />
           Restock{' '}<span className="sr-only">product</span>
@@ -394,6 +389,7 @@ export function InventoryDrawer({
         <p className="mt-1 text-xs text-fg-muted">{saveError.why}</p>
         {dirty && !hasEmpty && (
           <button type="button" disabled={saving} onClick={() => void save()} className={`${SECONDARY_BUTTON_SM} mt-3`}>
+            {saving ? <SpinnerIcon /> : <RestoreIcon />}
             Retry
           </button>
         )}

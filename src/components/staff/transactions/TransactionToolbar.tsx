@@ -1,8 +1,8 @@
 import { formatDay } from '../../../utils/format'
 import { methodLabel, paymentStatusLabel } from '../../../utils/orders'
 import { MAX_SEARCH, METHODS, monthYearDates, PER_PAGE_OPTIONS, PROVIDERS, scopeOfRange, STATUSES, type TransactionDir, type TransactionQuery, type TransactionSort } from '../../../utils/transactionQuery'
-import { ChevronDownIcon, SearchIcon, SpinnerIcon, XIcon } from '../../form/icons'
-import { SECONDARY_BUTTON, SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
+import { ChevronDownIcon, DownloadIcon, SearchIcon, SpinnerIcon, XIcon } from '../../form/icons'
+import { SECONDARY_BUTTON_SM } from '../../ui/buttonStyles'
 import { SalesFilter, type SalesScope } from '../SalesFilter'
 import { RangeCalendar } from '../../ui/RangeCalendar'
 import { Select } from '../../ui/Select'
@@ -124,7 +124,8 @@ export function TransactionToolbar({ text, onText, query, today, onFilter, onSor
             <Select label="Rows per page" value={query.per} options={PER_PAGE_CHOICES} onChange={onPer} />
           </div>
           {active > 0 && (
-            <button type="button" onClick={onClear} className={`${SECONDARY_BUTTON} text-sm`}>
+            <button type="button" onClick={onClear} className={SECONDARY_BUTTON_SM}>
+              <XIcon />
               Clear filters
             </button>
           )}
@@ -136,7 +137,7 @@ export function TransactionToolbar({ text, onText, query, today, onFilter, onSor
                 onClick={() => exportBlock === null && !exporting && onExport()}
                 className={`${SECONDARY_BUTTON_SM} w-full`}
               >
-                {exporting && <SpinnerIcon />}
+                {exporting ? <SpinnerIcon /> : <DownloadIcon />}
                 {exporting ? 'Exporting…' : 'Export Excel'}
               </button>
             </Tooltip>
