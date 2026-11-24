@@ -85,7 +85,8 @@ export function StaffLayout({ area = 'staff' }: { area?: Area }) {
         const kind = (error as { kind?: MeErrorKind } | null)?.kind ?? 'server'
         // The token is no longer valid: end the session, and the signed-out branch below sends the user to sign in.
         if (kind === 'unauthorized') signOut()
-        else setState({ status: 'error', kind })
+        // fetchMe already ended the session and left the notice; the signed-out branch below sends the user to sign in.
+        else if (kind !== 'deactivated') setState({ status: 'error', kind })
       },
     )
     return () => controller.abort()

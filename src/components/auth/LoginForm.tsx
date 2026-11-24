@@ -74,7 +74,7 @@ export function LoginForm({ nextParam, modal = false, onSignedIn, onSwitch, arch
         ? ARCHIVED_COPY
         : status === "error"
           ? SIGN_IN_ERROR_COPY[errorKind]
-          : archived
+          : archived || notice === "deactivated"
             ? ARCHIVED_COPY
             : null;
 

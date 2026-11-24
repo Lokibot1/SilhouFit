@@ -1,5 +1,5 @@
 import { AnimatePresence } from 'motion/react'
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { IntroLoader } from './components/IntroLoader'
 import { CallbackSkeleton } from './components/form/CallbackSkeleton'
@@ -24,12 +24,16 @@ import { PromotionsPageSkeleton } from './components/admin/promotions/Promotions
 import { RefundsPageSkeleton } from './components/admin/refunds/RefundsSkeleton'
 import { ReviewsPageSkeleton } from './components/admin/reviews/ReviewsSkeleton'
 import { AccountsPageSkeleton } from './components/admin/users/AccountSkeleton'
+import { DeactivatedModal } from './components/auth/DeactivatedModal'
 import { LoginModalProvider } from './components/auth/LoginModal'
 import { ToastProvider } from './components/toast/ToastProvider'
 import { ProfileSkeleton } from './components/profile/ProfileSkeleton'
 import { TryOnSkeleton } from './components/ar/TryOnSkeleton'
 import { ProductRouteSkeleton } from './components/shop/ProductSkeleton'
 import { CartSkeleton, ShopSkeleton, WishlistSkeleton } from './components/shop/ShopSkeleton'
+import { onAccountDeactivated } from './service/accountDeactivated'
+import { setLoginNotice } from './service/loginNotice'
+import { signOut } from './service/signOut'
 import { AboutPage } from './views/public/AboutPage'
 import { CookiePolicyPage } from './views/legal/CookiePolicyPage'
 import { ContactPage } from './views/public/ContactPage'
@@ -312,6 +316,16 @@ function prefersReducedMotion() {
 function App() {
   const { pathname } = useLocation()
   const [introDone, setIntroDone] = useState(prefersReducedMotion() || pathname !== '/')
+  const [deactivated, setDeactivated] = useState(false)
+
+  // An administrator turned this account off: end the session at once, and keep a notice up until the person confirms it.
+  useEffect(() => {
+    onAccountDeactivated(() => {
+      setLoginNotice('deactivated')
+      signOut()
+      setDeactivated(true)
+    })
+  }, [])
 
   return (
     <>
@@ -320,6 +334,8 @@ function App() {
           <IntroLoader key="intro" onFinished={() => setIntroDone(true)} />
         )}
       </AnimatePresence>
+
+      <DeactivatedModal open={deactivated} onAcknowledge={() => setDeactivated(false)} />
 
       <div inert={!introDone} aria-hidden={!introDone}>
         <ToastProvider>

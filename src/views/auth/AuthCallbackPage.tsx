@@ -25,7 +25,7 @@ const META_DESCRIPTION =
 // Waiting on the Supabase code exchange plus /users/me; past this the connection is treated as dropped.
 const TIMEOUT_MS = 15_000
 
-type FailKind = 'session' | Exclude<MeErrorKind, 'unauthorized'>
+type FailKind = 'session' | Exclude<MeErrorKind, 'unauthorized' | 'deactivated'>
 
 // What happened, why and the next step. Never provider details: those stay in the URL, which is cleared.
 const ERROR_COPY: Record<FailKind, { title: string; body: string }> = {
@@ -246,6 +246,12 @@ function CallbackFlow({ params, resume }: { params: Params; resume: boolean }) {
           signOut()
           clearStashedNext()
           navigate('/login', { replace: true })
+          return
+        }
+        if (kind === 'deactivated') {
+          unfinished.current = false
+          clearStashedNext()
+          navigate('/login?archived=1', { replace: true })
           return
         }
         const failed: FailKind = kind === 'unauthorized' ? 'session' : kind

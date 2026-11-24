@@ -1,3 +1,4 @@
+import { isDeactivatedAnswer, reportAccountDeactivated } from './accountDeactivated'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
@@ -141,6 +142,7 @@ export async function request(method: 'GET' | 'PATCH' | 'POST' | 'PUT' | 'DELETE
   }
   if (!response.ok) {
     const { detail, code, retryable } = await errorBody(response)
+    if (isDeactivatedAnswer(response.status, detail)) reportAccountDeactivated()
     throw new ProductListError(STATUS_KIND[response.status] ?? 'server', detail, response.status, code, retryAfterMs(response), retryable)
   }
   try {

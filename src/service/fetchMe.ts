@@ -1,4 +1,5 @@
 import { SIMULATED_AUTH } from '../config/accountPolicy'
+import { isDeactivatedAnswer, reportAccountDeactivated } from './accountDeactivated'
 import { getSession } from './session'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
@@ -26,7 +27,7 @@ export interface Me {
   phone?: string
 }
 
-export type MeErrorKind = 'unauthorized' | 'not-found' | 'rate-limit' | 'network' | 'server'
+export type MeErrorKind = 'unauthorized' | 'deactivated' | 'not-found' | 'rate-limit' | 'network' | 'server'
 
 // Lets the page pick accurate copy; 'unauthorized' means there is no valid Supabase session.
 export class MeError extends Error {
@@ -77,7 +78,18 @@ export async function fetchMe({ signal }: RequestOptions = {}): Promise<Me> {
     if (signal?.aborted) throw failure
     throw new MeError('network')
   }
-  if (!response.ok) throw new MeError(STATUS_KIND[response.status] ?? 'server')
+  if (!response.ok) {
+    // The guard answers 403 for a deactivated account (still holding a valid token) and for a missing profile, which used to be a 404.
+    if (response.status === 403) {
+      const detail = await response.json().then((body: { message?: unknown }) => String(body?.message ?? ''), () => '')
+      if (isDeactivatedAnswer(403, detail)) {
+        reportAccountDeactivated()
+        throw new MeError('deactivated')
+      }
+      if (/not found/i.test(detail)) throw new MeError('not-found')
+    }
+    throw new MeError(STATUS_KIND[response.status] ?? 'server')
+  }
   let body: Partial<Me> | null
   try {
     body = await response.json()

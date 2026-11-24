@@ -28,7 +28,7 @@ import { isStaffRole } from '../../utils/staffRole'
 const META_DESCRIPTION =
   'Review the name, email, join date and delivery address saved on your SilhouFit account, and sign out of this device when you are done shopping or fitting.'
 
-const ERROR_COPY: Record<Exclude<MeErrorKind, 'unauthorized'>, { title: string; body: string }> = {
+const ERROR_COPY: Record<Exclude<MeErrorKind, 'unauthorized' | 'deactivated'>, { title: string; body: string }> = {
   network: {
     title: "We couldn't load your profile.",
     body: 'The connection dropped before we got a response. Check your connection and try again.',
@@ -49,7 +49,7 @@ const ERROR_COPY: Record<Exclude<MeErrorKind, 'unauthorized'>, { title: string; 
 
 type State =
   | { status: 'loading' }
-  | { status: 'error'; kind: Exclude<MeErrorKind, 'unauthorized'> }
+  | { status: 'error'; kind: Exclude<MeErrorKind, 'unauthorized' | 'deactivated'> }
   | { status: 'success'; me: Me }
 
 /** First letter of the first name and of the last name, so "Anna Maria Cruz Jr." is "AC". */
@@ -120,6 +120,8 @@ export function ProfilePage({ tone }: { tone?: 'kral' }) {
           expire()
           return
         }
+        // fetchMe already ended the session and left the notice; the guard sends the user to sign in.
+        if (kind === 'deactivated') return
         setState({ status: 'error', kind })
       },
     )

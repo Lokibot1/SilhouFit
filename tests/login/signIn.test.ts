@@ -59,6 +59,12 @@ describe('submitSignIn', () => {
     await expect(submitSignIn(PAYLOAD)).rejects.toMatchObject({ kind: 'server' })
   })
 
+  it('returns the archived result when the API says the account is deactivated, and signs out', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ message: 'User account is deactivated' }), { status: 403 }))
+    expect(await submitSignIn(PAYLOAD)).toEqual({ ok: false, reason: 'archived' })
+    expect(signOut).toHaveBeenCalledTimes(1)
+  })
+
   it('signs out of Supabase and throws when the profile is missing (404)', async () => {
     fetchMock.mockResolvedValue(new Response('{}', { status: 404 }))
     await expect(submitSignIn(PAYLOAD)).rejects.toMatchObject({ kind: 'profile' })

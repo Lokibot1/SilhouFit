@@ -1,4 +1,5 @@
 import { SIMULATED_AUTH } from '../config/accountPolicy'
+import { isDeactivatedAnswer } from './accountDeactivated'
 import type { Me } from './fetchMe'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
@@ -65,7 +66,17 @@ export async function submitSignIn(
       headers: { Authorization: `Bearer ${data.session.access_token}` },
       signal,
     })
-    if (!response.ok) throw new SignInError(response.status === 429 ? 'rate-limit' : 'profile')
+    if (!response.ok) {
+      // Deactivated in our database but not banned in GoTrue: the form says so instead of the profile error.
+      if (response.status === 403) {
+        const detail = await response.json().then((body: { message?: unknown }) => String(body?.message ?? ''), () => '')
+        if (isDeactivatedAnswer(403, detail)) {
+          await supabase.auth.signOut().catch(() => undefined)
+          return { ok: false, reason: 'archived' }
+        }
+      }
+      throw new SignInError(response.status === 429 ? 'rate-limit' : 'profile')
+    }
     const profile = (await response.json()) as Profile
     return {
       ok: true,
