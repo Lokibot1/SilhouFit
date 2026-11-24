@@ -39,6 +39,8 @@ export interface ProductFilters {
 }
 
 export interface ProductQuery extends ProductFilters {
+  /** Rank by fit against the user's body profile instead of listing the catalogue. */
+  fit?: boolean
   category: Category | 'all'
   q: string
   sort: SortKey

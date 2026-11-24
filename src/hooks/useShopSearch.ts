@@ -18,8 +18,10 @@ export function useShopSearch() {
       (prev) => {
         const next = new URLSearchParams(prev)
         next.delete('page')
-        if (text) next.set('q', text)
-        else next.delete('q')
+        if (text) {
+          next.set('q', text)
+          next.delete('fit') // the fit ranking cannot be searched
+        } else next.delete('q')
         return next
       },
       { replace: true },

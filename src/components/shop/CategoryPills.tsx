@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { Category } from '../../data/products'
 import type { CategoryFacet } from '../../service/fetchProductFilters'
 import { categoryCount } from '../../utils/categoryCount'
@@ -11,12 +12,15 @@ interface CategoryPillsProps {
   /** Active products per category, or null until known (no numbers show). */
   counts: CategoryFacet[] | null
   onChange: (category: Category | 'all') => void
+  /** Shown before the categories, in the same row. */
+  lead?: ReactNode
 }
 
-export function CategoryPills({ value, categories, counts, onChange }: CategoryPillsProps) {
+export function CategoryPills({ value, categories, counts, onChange, lead }: CategoryPillsProps) {
   return (
     <div role="group" aria-label="Filter by category" className="-mx-6 overflow-x-auto px-6 py-1">
       <div className="flex w-max gap-2">
+        {lead}
         {['all', ...categories].map((category) => {
           const active = category === value
           return (

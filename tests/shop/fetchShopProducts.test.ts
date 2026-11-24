@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchProductFull, fetchProductList, ProductListError, type PaginatedProducts, type ProductFull } from '../../src/service/fetchProductList'
-import { fetchShopProduct, fetchShopProducts } from '../../src/service/fetchShopProducts'
+import { fetchRecommendedProducts, fetchShopProduct, fetchShopProducts } from '../../src/service/fetchShopProducts'
 
 vi.mock('../../src/service/fetchProductList', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/fetchProductList')>()),
@@ -91,4 +91,29 @@ describe('fetchShopProduct', () => {
     full.mockResolvedValue({ ...d, item: { ...d.item, isActive: false } } as ProductFull)
     await expect(fetchShopProduct('tee')).rejects.toBeInstanceOf(ProductListError)
   })
+})
+
+describe('fetchRecommendedProducts', () => {
+  beforeEach(() => list.mockReset())
+
+  it('asks the recommendations path with only the filters it supports', async () => {
+    list.mockResolvedValue(answer)
+    const page = await fetchRecommendedProducts(
+      { search: 'tee', sortBy: 'price', sortOrder: 'asc', colors: ['Red'], sizes: ['M'], category: 'Hoodie', brand: 'Nike', minPrice: 100, isArReady: true, page: 2, limit: 12 },
+      {},
+    )
+    expect(list).toHaveBeenCalledWith(
+      { category: 'Hoodie', brand: 'Nike', gender: undefined, minPrice: 100, maxPrice: undefined, isArReady: true, page: 2, limit: 12 },
+      {},
+      '/products/recommendations',
+    )
+    expect(page).toMatchObject({ total: 30, page: 2, pageCount: 3 })
+    expect(page.products.map((p) => p.id)).toEqual(['a', 'b'])
+  })
+
+  it('answers an impossible price range without a request', async () => {
+    expect(await fetchRecommendedProducts({ minPrice: 900, maxPrice: 100 })).toEqual({ products: [], total: 0, page: 1, pageCount: 1 })
+    expect(list).not.toHaveBeenCalled()
+  })
+
 })

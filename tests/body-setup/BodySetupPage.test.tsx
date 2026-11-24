@@ -170,6 +170,8 @@ async function openAtReview(height: number, opts: { inTour?: boolean } = {}) {
 }
 
 const where = () => screen.getByTestId('where').textContent
+/** Saving opens the shop offer; Not now is the way on to the profile. */
+const leave = async (user: UserEvent) => user.click(await screen.findByRole('button', { name: 'Not now' }))
 const next = (user: UserEvent) => user.click(screen.getByRole('button', { name: /^(Next|Review)$/ }))
 // A chosen card reads "Selected<name>..." to a screen reader, so match with or without that prefix.
 const pick = (label: string) => new RegExp(`^(Selected)?${label}`)
@@ -223,6 +225,7 @@ describe('BodySetupPage flow', () => {
     await user.click(consent())
     await user.click(finishButton())
 
+    await leave(user)
     await waitFor(() => expect(where()).toBe('/profile'))
     expect(save).toHaveBeenCalledTimes(1)
     expect(save.mock.calls[0][0]).toEqual({
@@ -242,7 +245,7 @@ describe('BodySetupPage flow', () => {
       bodyBuild: 'muscular',
       skinTone: 44,
     })
-    expect(await screen.findByText('Measurements saved. SilhouFit can now recommend sizes.')).toBeInTheDocument()
+    expect(await screen.findByText('Measurements saved.')).toBeInTheDocument()
     expect(updateMe).toHaveBeenCalledWith({ gender: 'male' })
   })
 
@@ -260,6 +263,7 @@ describe('BodySetupPage flow', () => {
     await user.click(consent())
     await user.click(finishButton())
 
+    await leave(user)
     await waitFor(() => expect(where()).toBe('/profile'))
     expect(patch).toHaveBeenCalledTimes(1)
     expect(patch.mock.calls[0][0]).toEqual({ heightCm: 170 })
@@ -272,6 +276,7 @@ describe('BodySetupPage flow', () => {
     await user.click(consent())
     await user.click(finishButton())
 
+    await leave(user)
     await waitFor(() => expect(where()).toBe('/profile'))
     expect(save).toHaveBeenCalledTimes(1)
     expect(await screen.findByText(/profile gender could not be updated/)).toBeInTheDocument()
@@ -360,6 +365,7 @@ describe('BodySetupPage flow', () => {
     expect(screen.getByText('Deep')).toBeInTheDocument()
     await user.click(consent())
     await user.click(finishButton())
+    await leave(user)
     await waitFor(() => expect(where()).toBe('/profile'))
     expect(save.mock.calls[0][0]).toMatchObject({ skinTone: 80 })
     expect(localStorage.getItem('silhoufit-skin-tone')).toBeNull()
@@ -565,6 +571,7 @@ describe('BodySetupPage review and Finish', () => {
     expect(save).toHaveBeenCalledTimes(1)
     expect(where()).toBe('/profile/measurements')
     await act(async () => resolve(SAVED_PROFILE))
+    await leave(user)
     await waitFor(() => expect(where()).toBe('/profile'))
     expect(save).toHaveBeenCalledTimes(1)
   })
@@ -574,6 +581,7 @@ describe('BodySetupPage review and Finish', () => {
     expect(loadDraft(EMAIL)?.entered.height).toBe(175)
     await user.click(consent())
     await user.click(finishButton())
+    await leave(user)
     await waitFor(() => expect(where()).toBe('/profile'))
     expect(loadDraft(EMAIL)).toBeNull()
     expect(sessionStorage.getItem('silhoufit-body-setup')).toBeNull()
@@ -609,6 +617,7 @@ describe('BodySetupPage review and Finish', () => {
     await user.click(consent())
     await user.click(finishButton())
     await user.click(await within(await screen.findByRole('alert')).findByRole('button', { name: 'Retry' }))
+    await leave(user)
     await waitFor(() => expect(where()).toBe('/profile'))
     expect(save).toHaveBeenCalledTimes(2)
     expect(save.mock.calls[1][0]).toEqual(save.mock.calls[0][0])
@@ -706,6 +715,7 @@ describe('BodySetupPage Skip for now', () => {
     const user = await openAtReview(175, { inTour: true })
     await user.click(consent())
     await user.click(finishButton())
+    await leave(user)
     await waitFor(() => expect(where()).toBe('/profile'))
     expect(screen.getByTestId('phase')).toHaveTextContent('done')
   })
@@ -893,6 +903,7 @@ describe('BodySetupPage when a section crashes', () => {
     await toReview(user, null)
     await user.click(consent())
     await user.click(finishButton())
+    await leave(user)
     await waitFor(() => expect(where()).toBe('/profile'))
     expect(save.mock.calls[0][0]).toMatchObject({ heightCm: 175 })
   })
@@ -1012,5 +1023,32 @@ describe('BodySetupPage small screens', () => {
     expect(nextButton.className).toContain('disabled:opacity-50')
     await user.click(screen.getByRole('radio', { name: pick('Male') }))
     expect(nextButton).toBeEnabled()
+  })
+})
+
+describe('BodySetupPage shop offer after saving', () => {
+  it('offers the shop ranked by fit when the saved profile has weight and build', async () => {
+    save.mockResolvedValue({ ...SAVED_PROFILE, weightKg: 70, bodyBuild: 'regular' })
+    const user = await openAtReview(175)
+    await user.click(consent())
+    await user.click(finishButton())
+
+    expect(await screen.findByRole('dialog', { name: 'See what fits you' })).toBeInTheDocument()
+    expect(await screen.findByText('Measurements saved. SilhouFit can now recommend sizes.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Shop my sizes' }))
+    await waitFor(() => expect(where()).toBe('/shop?fit=1'))
+  })
+
+  it('names what is missing and returns to the weight step instead of offering the shop', async () => {
+    save.mockResolvedValue({ ...SAVED_PROFILE, weightKg: null, bodyBuild: 'regular' })
+    const user = await openAtReview(175)
+    await user.click(consent())
+    await user.click(finishButton())
+
+    const dialog = await screen.findByRole('dialog', { name: 'One more detail' })
+    expect(screen.queryByRole('button', { name: 'Shop my sizes' })).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Add weight' }))
+    expect(await screen.findByRole('heading', { name: 'Weight' })).toBeInTheDocument()
+    expect(where()).toBe('/profile/measurements')
   })
 })

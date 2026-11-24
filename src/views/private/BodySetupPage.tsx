@@ -14,6 +14,7 @@ import {
 import { MeasureStep } from '../../components/body-setup/MeasureStep'
 import { changedFields, fieldsFor, fromProfile, toPayload, warnings as crossChecks } from '../../components/body-setup/measurements'
 import { ReviewStep } from '../../components/body-setup/ReviewStep'
+import { ShopFitModal } from '../../components/body-setup/ShopFitModal'
 import { SectionBoundary } from '../../components/body-setup/SectionBoundary'
 import { loadSkinTone } from '../../components/body-setup/skinTone'
 import { STEP_BODY, STEP_BODY_PINNED, STEP_CARD_PINNED, STEP_FOOTER } from '../../components/body-setup/stepLayout'
@@ -201,6 +202,10 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
   const headingRef = useRef<HTMLHeadingElement>(null)
   const [consent, setConsent] = useState(false)
   const [pending, setPending] = useState(false)
+  // The profile the server holds (updated on save), so a second save from this page patches instead of creating.
+  const [saved, setSaved] = useState(existing)
+  // Set once saved: what recommendations still lack. Null while the shop offer is closed.
+  const [offer, setOffer] = useState<string[] | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
   const { model, build, step, reviewing, entered } = draft
@@ -244,12 +249,13 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
     const payload = toPayload(entered, model, build, draft.skinTone)
     if (!payload || pending) return
     setPending(true)
+    let profile: BodyProfile = saved ?? payload
     try {
-      if (!existing) await saveBodyProfile(payload)
+      if (!saved) profile = await saveBodyProfile(payload)
       else {
         // Editing a saved profile sends only what changed; nothing changed, nothing to send.
-        const patch = changedFields(payload, existing)
-        if (Object.keys(patch).length > 0) await updateBodyProfile(patch)
+        const patch = changedFields(payload, saved)
+        if (Object.keys(patch).length > 0) profile = await updateBodyProfile(patch)
       }
     } catch (error) {
       const kind = error instanceof BodyProfileError ? error.kind : 'server'
@@ -267,13 +273,25 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
       }
     }
     clearBodyDraft()
+    setSaved(profile)
+    // Recommendations also need weight and body build, which setup lets the user skip.
+    const missing = [...(profile.weightKg === null ? ['weight'] : []), ...(profile.bodyBuild === null ? ['body build'] : [])]
     toast.show(
       genderSynced
-        ? { kind: 'success', message: 'Measurements saved. SilhouFit can now recommend sizes.' }
+        ? { kind: 'success', message: missing.length ? 'Measurements saved.' : 'Measurements saved. SilhouFit can now recommend sizes.' }
         : { kind: 'info', message: 'Measurements saved, but your profile gender could not be updated. Set it from Edit profile.' },
     )
     if (inTour) onFinished()
-    navigate('/profile', { replace: true })
+    setOffer(missing)
+  }
+
+  // From the offer: back to the step for the first missing input, then on to review.
+  function addMissing() {
+    const to = offer?.[0] === 'weight' ? 2 + fields.indexOf('weight') : 1
+    setOffer(null)
+    setPending(false)
+    setFromReview(true)
+    go(to)
   }
 
   useEffect(() => {
@@ -442,6 +460,13 @@ function BodySetup({ initial, existing, inTour, onSkip, onFinished }: BodySetupP
           </section>
         </div>
       )}
+      <ShopFitModal
+        open={offer !== null}
+        missing={offer ?? []}
+        onShop={() => navigate('/shop?fit=1', { replace: true })}
+        onAdd={addMissing}
+        onClose={() => navigate('/profile', { replace: true })}
+      />
     </div>
   )
 }

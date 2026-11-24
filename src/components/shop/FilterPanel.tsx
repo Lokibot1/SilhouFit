@@ -15,6 +15,8 @@ interface FilterPanelProps {
   category: Category | 'all'
   /** Every category to choose from on phones (from sm the pills above the grid do that). */
   categories: readonly string[]
+  /** Ranked by fit: the ranking takes no size or colour, so those are hidden. */
+  fit?: boolean
   onApply: (filters: ProductFilters, category: Category | 'all') => void
 }
 
@@ -49,7 +51,7 @@ const CHECK_BOX =
   "kral-focus relative size-6 shrink-0 cursor-pointer appearance-none rounded-none border border-kral-fg bg-transparent checked:bg-kral-fg after:absolute after:top-1/2 after:left-1/2 after:h-3 after:w-1.5 after:-translate-x-1/2 after:-translate-y-[60%] after:rotate-45 after:border-r-2 after:border-b-2 after:border-kral-bg after:opacity-0 after:content-[''] checked:after:opacity-100"
 const PRICE_FIELD = `${KRAL_INPUT} text-right tabular-nums`
 
-export function FilterPanel({ open, onClose, filters, category, categories, onApply }: FilterPanelProps) {
+export function FilterPanel({ open, onClose, filters, category, categories, fit, onApply }: FilterPanelProps) {
   const [draft, setDraft] = useState(() => toDraft(filters, category))
   const [wasOpen, setWasOpen] = useState(open)
   // Each opening starts from what is currently applied.
@@ -135,6 +137,10 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
           </div>
         </fieldset>
 
+        {fit && (
+          <p className="font-kral-mono text-base text-kral-muted md:text-sm">Size and colour filters are off while Fits me is on.</p>
+        )}
+        {!fit && (
         <fieldset>
           <legend className={LEGEND}>Size</legend>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -151,6 +157,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
             ))}
           </div>
         </fieldset>
+        )}
 
         <fieldset>
           <legend className={LEGEND}>Price (PHP)</legend>
@@ -187,7 +194,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
           )}
         </fieldset>
 
-        {colours.status === 'loading' && (
+        {!fit && colours.status === 'loading' && (
           <div aria-hidden="true" data-testid="colour-skeleton">
             <div className="h-5 w-16 animate-pulse bg-kral-porcelain dark:bg-kral-graphite" />
             <div className="mt-2 flex flex-wrap gap-2">
@@ -198,7 +205,7 @@ export function FilterPanel({ open, onClose, filters, category, categories, onAp
           </div>
         )}
         {/* The colours of the products on sale; the section is left out when there are none or they could not be read. */}
-        {colours.status === 'ready' && colours.colours.length > 0 && (
+        {!fit && colours.status === 'ready' && colours.colours.length > 0 && (
           <fieldset>
             <legend className={LEGEND}>Colour</legend>
             <div className="mt-2 flex flex-wrap gap-2">

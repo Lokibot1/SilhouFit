@@ -67,6 +67,17 @@ export async function fetchShopProducts(params: ProductListParams, options: Requ
   return { products: data.map(toShopProduct), total: meta.total, page: meta.page, pageCount: Math.max(1, meta.totalPages) }
 }
 
+/**
+ * One page of the shop ranked by fit against the signed-in user's body profile (GET /products/recommendations). The endpoint takes no search,
+ * sort, colour or size, so those are left out. A profile without height, weight and body build answers 422 (`status` on the error).
+ */
+export async function fetchRecommendedProducts(params: ProductListParams, options: RequestOptions = {}): Promise<ShopApiPage> {
+  const { category, brand, gender, minPrice, maxPrice, isArReady, page = 1, limit } = params
+  if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) return { products: [], total: 0, page, pageCount: 1 }
+  const { data, meta } = await fetchProductList({ category, brand, gender, minPrice, maxPrice, isArReady, page, limit }, options, '/products/recommendations')
+  return { products: data.map(toShopProduct), total: meta.total, page: meta.page, pageCount: Math.max(1, meta.totalPages) }
+}
+
 /** One product in full, by slug or id. The API answers a guest 404 for archived products already; a staff member's token still gets them, which the shop treats as not found. */
 export async function fetchShopProduct(idOrSlug: string, options: RequestOptions = {}): Promise<Product> {
   const full = await fetchProductFull(idOrSlug, options)

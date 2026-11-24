@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { CategoryPills } from '../../components/shop/CategoryPills'
 import { FilterChips } from '../../components/shop/FilterChips'
 import { FilterPanel } from '../../components/shop/FilterPanel'
+import { Tooltip } from '../../components/ui/Tooltip'
 import { Pagination } from '../../components/shop/Pagination'
 import { ProductCard } from '../../components/shop/ProductCard'
 import { SpecSheet, type Choice } from '../../components/shop/SpecSheet'
@@ -12,7 +13,7 @@ import { ProductGridSkeleton, SummarySkeleton } from '../../components/shop/Shop
 import { ShopSummary, ShopToolbar } from '../../components/shop/ShopToolbar'
 import { TryOnPromo } from '../../components/shop/TryOnPromo'
 import { useToast } from '../../components/toast/useToast'
-import { KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
+import { KRAL_CHIP, KRAL_PRIMARY, KRAL_SECONDARY } from '../../components/shop/shopControls'
 import { CATEGORIES, choiceOf, type Product } from '../../data/products'
 import { DURATION } from '../../motion/tokens'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
@@ -36,7 +37,7 @@ const DESCRIPTION =
 // Params holding their default are dropped from the URL. Newest first is the default.
 const DEFAULT_SORT = SORT_OPTIONS[0].value
 const DEFAULTS: Record<string, string> = { category: 'all', sort: DEFAULT_SORT, perPage: '12', view: 'grid', page: '1' }
-const FILTER_KEYS = ['category', 'q', 'min', 'max', 'color', 'ar', 'brand', 'gender', 'size', 'page']
+const FILTER_KEYS = ['fit', 'category', 'q', 'min', 'max', 'color', 'ar', 'brand', 'gender', 'size', 'page']
 
 export function ShopPage() {
   useDocumentTitle('Shop the catalogue — SilhouFit')
@@ -67,6 +68,9 @@ export function ShopPage() {
   const sort = SORT_OPTIONS.find((o) => o.value === params.get('sort'))?.value ?? DEFAULT_SORT
   const perPage = PER_PAGE_OPTIONS.find((n) => String(n) === params.get('perPage')) ?? 12
   const view = params.get('view') === 'list' ? 'list' : 'grid'
+  // Ranking by fit needs a customer's body profile; for anyone else the parameter is ignored.
+  const canFit = user?.role === 'customer'
+  const fit = canFit && params.get('fit') === '1'
   // A filter may repeat its key (`size=M&size=L`); a single-value URL reads as one value.
   const valuesOf = (key: string) => {
     const values = [...new Set(params.getAll(key).map((v) => v.trim().slice(0, 50)).filter(Boolean))].slice(0, 20)
@@ -75,11 +79,11 @@ export function ShopPage() {
   const filters: ProductFilters = {
     minPrice: parseFilterPrice(params.get('min')),
     maxPrice: parseFilterPrice(params.get('max')),
-    colors: valuesOf('color'),
+    colors: fit ? undefined : valuesOf('color'),
     arReady: params.get('ar') === '1' || undefined,
     brand: params.get('brand')?.trim().slice(0, 50) || undefined,
     gender: GENDER_OPTIONS.find((g) => g.value === params.get('gender'))?.value,
-    sizes: valuesOf('size'),
+    sizes: fit ? undefined : valuesOf('size'),
   }
   const badRange = filters.minPrice !== undefined && filters.maxPrice !== undefined && filters.minPrice > filters.maxPrice
   const activeFilters =
@@ -109,14 +113,15 @@ export function ShopPage() {
 
   const products = useShopCatalogue({
     ...filters,
+    fit,
     category,
-    q,
+    q: fit ? '' : q,
     sort,
     perPage,
     page: Number(params.get('page')),
   })
   const { result } = products
-  const noPiecesYet = result?.total === 0 && !q && category === 'all' && activeFilters === 0
+  const noPiecesYet = result?.total === 0 && !q && category === 'all' && activeFilters === 0 && !fit
 
   useEffect(() => {
     if (!scrollOnPage.current) return
@@ -144,6 +149,20 @@ export function ShopPage() {
     // The button unmounts with the empty state, so hand focus to the results heading.
     headingRef.current?.focus()
   }
+
+  // Fit ranking has no search, sort, colour or size, so turning it on drops them.
+  const fitPill = canFit ? (
+    <Tooltip tone="kral" label="Pieces ranked by how they fit your measurements">
+      <button
+        type="button"
+        aria-pressed={fit}
+        onClick={() => update(fit ? { fit: undefined } : { fit: '1', q: undefined, sort: undefined, color: undefined, size: undefined })}
+        className={`${KRAL_CHIP} shrink-0`}
+      >
+        Fits me
+      </button>
+    </Tooltip>
+  ) : null
 
   async function toggleSaved(product: Product) {
     if (requireSignIn('save to your wishlist')) return
@@ -256,16 +275,40 @@ export function ShopPage() {
       <div className="mx-auto max-w-6xl px-6 pb-24 2xl:max-w-[88rem]">
         {products.status === 'loading' && <ProductGridSkeleton view={view} perPage={perPage} />}
 
-        {products.status === 'error' && (
+        {products.status === 'error' && products.incomplete && (
+          <div role="alert" className="border border-kral-rule p-6 sm:p-8">
+            <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">We need a few more measurements</h2>
+            <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
+              Size recommendations need your height, weight and body build, and at least one of them is missing from your profile. Add them, then come back to see what fits.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link to="/profile/measurements" className={KRAL_PRIMARY}>
+                Add measurements
+              </Link>
+              <button type="button" onClick={() => update({ fit: undefined })} className={KRAL_SECONDARY}>
+                Show all pieces
+              </button>
+            </div>
+          </div>
+        )}
+
+        {products.status === 'error' && !products.incomplete && (
           <div role="alert" className="border border-kral-rule p-6 sm:p-8">
             <h2 className="font-kral-display text-xl leading-[1.05] font-extrabold text-kral-fg uppercase sm:text-2xl">The catalogue did not load</h2>
             <p className="font-kral-mono mt-3 max-w-xl text-base leading-relaxed text-kral-muted">
               The request for stock and prices failed, most likely because the connection dropped or the service is
               briefly unavailable. Your filters are kept. Check your connection, then try again.
             </p>
-            <button type="button" onClick={products.retry} className={`${KRAL_PRIMARY} mt-6 w-fit`}>
-              Try again
-            </button>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button type="button" onClick={products.retry} className={KRAL_PRIMARY}>
+                Try again
+              </button>
+              {fit && (
+                <button type="button" onClick={() => update({ fit: undefined })} className={KRAL_SECONDARY}>
+                  Show all pieces
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -290,9 +333,13 @@ export function ShopPage() {
                 categories={CATEGORIES}
                 counts={counts}
                 onChange={(next) => update({ category: next })}
+                lead={fitPill}
               />
             </div>
+            {/* The categories are in the Filters modal on phones, so the pill gets its own row. */}
+            {fitPill && <div className="mt-3 sm:hidden">{fitPill}</div>}
             <ShopToolbar
+              fit={fit}
               sort={sort}
               onSort={(next) => update({ sort: next })}
               perPage={perPage}
@@ -340,6 +387,7 @@ export function ShopPage() {
               filters={filters}
               category={category}
               categories={CATEGORIES}
+              fit={fit}
               onApply={(next, nextCategory) =>
                 update({
                   category: nextCategory,

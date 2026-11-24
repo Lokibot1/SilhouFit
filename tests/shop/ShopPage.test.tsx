@@ -11,15 +11,16 @@ import { invalidateShopColours } from '../../src/hooks/useShopColours'
 import { clearProductCache } from '../../src/hooks/useProducts'
 import { fetchProductFilters } from '../../src/service/fetchProductFilters'
 import { ProductListError } from '../../src/service/fetchProductList'
-import { fetchShopProduct, fetchShopProducts } from '../../src/service/fetchShopProducts'
-import { clearSession } from '../../src/service/session'
+import { fetchRecommendedProducts, fetchShopProduct, fetchShopProducts } from '../../src/service/fetchShopProducts'
+import { clearSession, setSession } from '../../src/service/session'
 import { ShopPage } from '../../src/views/public/ShopPage'
 
 // The shop on the products API: the server filters and pages, so the page only asks and shows.
-vi.mock('../../src/service/fetchShopProducts', () => ({ fetchShopProducts: vi.fn(), fetchShopProduct: vi.fn() }))
+vi.mock('../../src/service/fetchShopProducts', () => ({ fetchShopProducts: vi.fn(), fetchShopProduct: vi.fn(), fetchRecommendedProducts: vi.fn() }))
 vi.mock('../../src/service/fetchProductFilters', () => ({ fetchProductFilters: vi.fn() }))
 const shop = vi.mocked(fetchShopProducts)
 const detail = vi.mocked(fetchShopProduct)
+const fitted = vi.mocked(fetchRecommendedProducts)
 const filters = vi.mocked(fetchProductFilters)
 const lastParams = () => shop.mock.calls.at(-1)![0]
 
@@ -473,5 +474,41 @@ describe('ShopPage cards and cart', () => {
     renderPage('/shop?item=nope&action=buy')
     expect(await screen.findByText('That piece is no longer in the catalogue.')).toBeInTheDocument()
     expect(urlSearch()).toBe('')
+  })
+})
+
+describe('ShopPage Fits me', () => {
+  const customer = () => act(() => setSession({ name: 'Anne Santos', email: 'anne@example.com', role: 'customer' }))
+
+  it('is offered to customers only', async () => {
+    renderPage()
+    await loaded()
+    expect(screen.queryByRole('button', { name: 'Fits me' })).not.toBeInTheDocument()
+    customer()
+    expect(await screen.findAllByRole('button', { name: 'Fits me' })).not.toHaveLength(0)
+  })
+
+  it('ranks by fit, dropping search, colour and size, and shows no sort menu', async () => {
+    customer()
+    fitted.mockResolvedValue(answer([piece(2), piece(1)]))
+    const user = userEvent.setup()
+    renderPage('/shop?q=hoodie&size=M&color=Black')
+    await loaded()
+
+    await user.click(screen.getAllByRole('button', { name: 'Fits me' })[0])
+    await waitFor(() => expect(fitted).toHaveBeenCalled())
+    expect(urlSearch()).toBe('?fit=1')
+    for (const key of ['search', 'sizes', 'colors']) expect(fitted.mock.calls.at(-1)![0]).not.toHaveProperty(key)
+    expect(within((await loaded())[0]).getByText('Piece 2')).toBeInTheDocument()
+    expect(screen.getByText('Sorted by best fit')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Sort by' })).not.toBeInTheDocument()
+  })
+
+  it('asks for the missing measurements when the profile cannot be ranked', async () => {
+    customer()
+    fitted.mockRejectedValue(new ProductListError('server', undefined, 422))
+    renderPage('/shop?fit=1')
+    expect(await screen.findByRole('heading', { name: 'We need a few more measurements' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Add measurements' })).toHaveAttribute('href', '/profile/measurements')
   })
 })

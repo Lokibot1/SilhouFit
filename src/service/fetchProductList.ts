@@ -193,7 +193,7 @@ const PRICE_KEYS = ['minPrice', 'maxPrice']
  * GET /products. Active products unless `status` says otherwise (archived and all are staff only: anyone else gets a 'forbidden'
  * error); the API caps `limit` at 100. Backend need still open: a bulk or atomic stock endpoint (restock sends one PATCH per variant).
  */
-export async function fetchProductList(params: ProductListParams, { signal }: RequestOptions = {}): Promise<PaginatedProducts> {
+export async function fetchProductList(params: ProductListParams, { signal }: RequestOptions = {}, path = '/products'): Promise<PaginatedProducts> {
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue
@@ -210,7 +210,7 @@ export async function fetchProductList(params: ProductListParams, { signal }: Re
     if (key === 'status' && value !== 'active' && value !== 'archived' && value !== 'all') continue
     query.set(key, typeof value === 'string' ? value.trim() : String(value))
   }
-  const body = await request('GET', `/products?${query}`, undefined, signal)
+  const body = await request('GET', `${path}?${query}`, undefined, signal)
   const meta = isRecord(body) ? body.meta : null
   if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(meta) || !isCount(meta.total)) throw new ProductListError('server')
   return {

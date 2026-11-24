@@ -8,6 +8,8 @@ import { KRAL_CHIP, KRAL_SECONDARY } from './shopControls'
 const TIME = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
 
 interface ShopToolbarProps {
+  /** Ranked by fit: the order is the ranking, so Sort by is replaced by a note. */
+  fit?: boolean
   sort: SortKey
   onSort: (value: SortKey) => void
   perPage: number
@@ -66,14 +68,18 @@ export function ShopToolbar(props: ShopToolbarProps) {
           Phones keep two rows (Filters + layout, then Sort): the page size stays at its default there. */}
       <div className="flex flex-wrap gap-2 max-sm:w-full sm:gap-3">
         <div className="w-56 max-w-full max-sm:w-full">
-          <Select
-            label="Sort by"
-            value={props.sort}
-            options={SORT_OPTIONS}
-            triggerPrefix="Sort: "
-            onChange={props.onSort}
-            tone="kral"
-          />
+          {props.fit ? (
+            <p className="font-kral-mono flex min-h-11 items-center text-base text-kral-muted uppercase md:text-xs md:tracking-[0.08em]">Sorted by best fit</p>
+          ) : (
+            <Select
+              label="Sort by"
+              value={props.sort}
+              options={SORT_OPTIONS}
+              triggerPrefix="Sort: "
+              onChange={props.onSort}
+              tone="kral"
+            />
+          )}
         </div>
         <div className="w-44 max-w-full max-sm:hidden">
           <Select
