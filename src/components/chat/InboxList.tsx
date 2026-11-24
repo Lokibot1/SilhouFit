@@ -28,13 +28,13 @@ function rowTime(iso: string) {
   return manilaDay(iso) === manilaDay(new Date(Date.now() - 86_400_000).toISOString()) ? 'Yesterday' : short
 }
 
-/** The unread count as a pill that does not rely on its colour. */
-export function UnreadBadge({ count }: { count: number }) {
+/** The unread count as a red pill that does not rely on its colour. `neutral` keeps the dark fill for the sidebar, where the active item is already red. */
+export function UnreadBadge({ count, neutral = false }: { count: number; neutral?: boolean }) {
   if (count <= 0) return null
   return (
     <span
       aria-label={`${count} unread`}
-      className="font-ui flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-fg px-1.5 text-xs font-semibold text-canvas tabular-nums"
+      className={`font-ui flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums ${neutral ? 'bg-fg text-canvas' : 'bg-kral-red text-kral-paper'}`}
     >
       {count > 99 ? '99+' : count}
     </span>

@@ -4,4 +4,4 @@ export const KRAL_ICON_BUTTON =
 
 /** The count badge pinned to the top-right corner of a KRAL icon button, like a notification dot. Decorative: the button's aria-label carries the number. */
 export const KRAL_ICON_COUNT =
-  'font-kral-mono pointer-events-none absolute top-0.5 right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-kral-fg px-1 text-xs leading-none font-medium text-kral-bg tabular-nums'
+  'font-kral-mono pointer-events-none absolute top-0.5 right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-kral-red px-1 text-xs leading-none font-medium text-kral-paper tabular-nums'

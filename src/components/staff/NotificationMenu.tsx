@@ -180,7 +180,7 @@ export function NotificationMenu({ area }: { area: Area }) {
           {unread > 0 && (
             <span
               aria-hidden="true"
-              className="font-ui absolute top-0.5 right-0.5 h-5 min-w-5 rounded-full bg-chrome-strong px-1 text-center text-xs leading-5 font-semibold tabular-nums text-canvas-sub"
+              className="font-ui absolute top-0.5 right-0.5 h-5 min-w-5 rounded-full bg-kral-red px-1 text-center text-xs leading-5 font-semibold tabular-nums text-kral-paper"
             >
               {unread > 9 ? '9+' : unread}
             </span>
