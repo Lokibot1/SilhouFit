@@ -46,11 +46,10 @@ export const TERMS: LegalDocument = {
       heading: 'Eligibility & capacity',
       body: (
         <p>
-          You must be at least 18 years old and possess the legal capacity to
-          enter into binding contracts under Philippine law. Individuals under
-          18 years of age may access the Service and place orders only with
-          the express involvement and verified consent of a parent or legal
-          guardian.
+          You must possess the legal capacity to enter into binding contracts
+          under Philippine law. Minors may access the Service and place orders
+          only with the express involvement and verified consent of a parent
+          or legal guardian.
         </p>
       ),
     },

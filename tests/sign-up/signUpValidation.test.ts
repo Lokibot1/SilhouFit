@@ -37,8 +37,7 @@ const validValues: SignUpValues = {
   lastName: 'Santos',
   middleName: '',
   suffix: '',
-  email: 'anne@example.com',
-  birthday: '1998-04-23',
+  email: 'anne@example.com',
   password: 'Str0ng!Pass',
   confirmPassword: 'Str0ng!Pass',
   consent: true,
@@ -586,14 +585,13 @@ describe('validateSignUp and isSignUpValid', () => {
       middleName: '',
       lastName: '',
       suffix: '',
-      email: '',
-      birthday: '',
+      email: '',
       password: '',
       confirmPassword: '',
       consent: false,
     }
     expect(Object.keys(validateSignUp(empty)).sort()).toEqual(
-      ['birthday', 'confirmPassword', 'consent', 'email', 'firstName', 'lastName', 'password'].sort(),
+      ['confirmPassword', 'consent', 'email', 'firstName', 'lastName', 'password'].sort(),
     )
     expect(isSignUpValid(empty)).toBe(false)
   })
@@ -615,8 +613,7 @@ describe('normalizeSignUp', () => {
       middleName: 'Dela Cruz',
       lastName: 'Santos',
       suffix: 'Jr.',
-      email: 'anne@example.com',
-      birthday: '1998-04-23',
+      email: 'anne@example.com',
       password: 'Str0ng!Pass',
       consent: true,
     })
@@ -636,21 +633,5 @@ describe('normalizeSignUp', () => {
   it('throws when the values are invalid', () => {
     expect(() => normalizeSignUp(with_({ email: 'bad' }))).toThrow()
     expect(() => normalizeSignUp(with_({ consent: false }))).toThrow()
-  })
-})
-
-describe('birthday (18+)', () => {
-  const day = (years: number, offset = 0) => {
-    const d = new Date()
-    return new Date(d.getFullYear() - years, d.getMonth(), d.getDate() + offset).toLocaleDateString('en-CA')
-  }
-
-  it('rejects a missing birthday', () => {
-    expect(validateField('birthday', with_({ birthday: '' }))).toMatch(/18 or older/)
-  })
-
-  it('rejects someone who turns 18 tomorrow and accepts someone who turned 18 today', () => {
-    expect(validateField('birthday', with_({ birthday: day(18, 1) }))).toMatch(/at least 18/)
-    expect(validateField('birthday', with_({ birthday: day(18) }))).toBeNull()
   })
 })

@@ -1,4 +1,3 @@
-import { validateAdultBirthday } from './age'
 export const LIMITS = {
   nameMaxLength: 40,
   nameWordMaxLength: 20,
@@ -16,7 +15,6 @@ export interface SignUpValues {
   lastName: string
   suffix: string
   email: string
-  birthday: string
   password: string
   confirmPassword: string
   consent: boolean
@@ -30,7 +28,6 @@ export interface SignUpPayload {
   lastName: string
   suffix: string | null
   email: string
-  birthday: string
   password: string
   consent: true
 }
@@ -42,7 +39,6 @@ export const FIELD_ORDER: FieldName[] = [
   'middleName',
   'suffix',
   'email',
-  'birthday',
   'password',
   'confirmPassword',
   'consent',
@@ -220,8 +216,6 @@ export function validateField(name: FieldName, values: SignUpValues): string | n
       return validateSuffix(values.suffix)
     case 'email':
       return validateEmail(values.email)
-    case 'birthday':
-      return validateAdultBirthday(values.birthday)
     case 'password':
       return validatePassword(values.password)
     case 'confirmPassword':
@@ -252,7 +246,6 @@ export function normalizeSignUp(values: SignUpValues): SignUpPayload {
     lastName: normalizeName(values.lastName),
     suffix: values.suffix.trim() || null,
     email: normalizeEmail(values.email),
-    birthday: values.birthday,
     // Verbatim: trimming or casing a password would change what the user set.
     password: values.password,
     consent: true,
