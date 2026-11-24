@@ -96,6 +96,22 @@ describe('fetchActivityLogs', () => {
     expect(data.map((log) => [log.action, log.category])).toEqual([['USER_MESSAGING_BLOCKED', 'account'], ['USER_MESSAGING_UNBLOCKED', 'account']])
   })
 
+  it('adds the block reason to the detail of a messaging block, and leaves other entries alone', async () => {
+    send.mockResolvedValue(
+      page([
+        entry({ action: 'USER_MESSAGING_BLOCKED', description: 'Messaging blocked for user a@b.co (customer)', metadata: { reason: 'Spam' } }),
+        entry({ id: 'a2', action: 'USER_MESSAGING_BLOCKED', description: 'Messaging blocked for user a@b.co (customer)', metadata: { reason: null } }),
+        entry({ id: 'a3', action: 'USER_MESSAGING_UNBLOCKED', description: 'Messaging unblocked for user a@b.co (customer)', metadata: { reason: 'Spam' } }),
+      ]),
+    )
+    const { data } = await fetchActivityLogs({})
+    expect(data.map((log) => log.detail)).toEqual([
+      'Messaging blocked for user a@b.co (customer). Reason: Spam',
+      'Messaging blocked for user a@b.co (customer)',
+      'Messaging unblocked for user a@b.co (customer)',
+    ])
+  })
+
   it('files every refund action under Transactions, a gateway one as the payment gateway', async () => {
     const actions = ['REFUND_REQUESTED', 'REFUND_SUCCEEDED', 'REFUND_FAILED', 'REFUND_MANUAL_ACTION_REQUIRED', 'REFUND_RETRIED', 'REFUND_MANUALLY_RESOLVED']
     send.mockResolvedValue(page(actions.map((action, i) => entry({ id: `r${i}`, action, ...(i === 1 && { actor: { id: null, type: 'WEBHOOK', role: null, email: null, fullName: null } }) }))))

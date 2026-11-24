@@ -76,9 +76,15 @@ export function actorLabel(action: string, type: (typeof ACTOR_TYPES)[number], f
   return fullName ?? email ?? 'Removed account'
 }
 
+/** A messaging block carries the admin's reason in its metadata, not in the description. */
+function withReason(action: string, description: string | null, reason: string | null): string | undefined {
+  if (action !== 'USER_MESSAGING_BLOCKED' || !reason) return description ?? undefined
+  return `${description ?? 'Messaging blocked'}. Reason: ${reason}`
+}
+
 function toLog(value: unknown): ActivityLog {
   if (!isRecord(value)) throw bad()
-  const { id, action, description, createdAt, actor, target } = value
+  const { id, action, description, createdAt, actor, target, metadata } = value
   if (typeof id !== 'string' || typeof action !== 'string' || !isTime(createdAt) || !isRecord(actor) || !isRecord(target)) throw bad()
   if (!oneOf(ACTOR_TYPES, actor.type) || typeof target.id !== 'string') throw bad()
   return {
@@ -90,7 +96,7 @@ function toLog(value: unknown): ActivityLog {
     actorId: text(actor.id),
     actorRole: actor.type === 'USER' ? text(actor.role) : null,
     target: text(target.label) ?? target.id,
-    detail: text(description) ?? undefined,
+    detail: withReason(action, text(description), isRecord(metadata) ? text(metadata.reason) : null),
     createdAt,
   }
 }
