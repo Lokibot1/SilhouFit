@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useSection } from '../../../hooks/useSection'
-import { loadSalesReport, loadStockOverview } from '../../../service/reports'
+import { loadSalesReport, loadStockOverview, loadTransactionsReport } from '../../../service/reports'
 import type { RequestOptions } from '../../../service/simulateRequest'
 import { formatPeso } from '../../../utils/format'
 import type { PeriodFilterValue } from '../../../utils/period'
@@ -53,6 +53,26 @@ export function SalesPreview({ filter }: { filter: PeriodFilterValue }) {
       </SectionBody>
       <SalesChart filter={filter} />
     </div>
+  )
+}
+
+/** The transactions report's opening figures for the card's period. */
+export function TransactionsPreview({ filter }: { filter: PeriodFilterValue }) {
+  const { period, year } = filter
+  const fetcher = useCallback((options: RequestOptions) => loadTransactionsReport({ period, year }, options), [period, year])
+  const section = useSection(fetcher)
+  return (
+    <SectionBody section={section} what="the transaction figures" skeleton={<FiguresSkeleton />}>
+      {(report) => (
+        <Figures
+          items={[
+            { label: 'Transactions', value: report.total.toLocaleString('en-PH') },
+            { label: 'Paid volume', value: formatPeso(report.gross) },
+            { label: 'Net after fees', value: formatPeso(report.net) },
+          ]}
+        />
+      )}
+    </SectionBody>
   )
 }
 

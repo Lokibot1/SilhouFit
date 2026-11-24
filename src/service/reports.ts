@@ -2,6 +2,7 @@ import { LOW_STOCK } from '../data/products'
 import { resolvePeriod, resolveSalesWindow, type PeriodFilterValue } from '../utils/period'
 import { getStockFigures } from './adminOverview'
 import { fetchAdminOrders } from './adminOrdersApi'
+import { fetchAdminTransactions, type AdminTransactionRow } from './adminTransactionsApi'
 import { fetchProductDetail, fetchProductList, type ProductListItem } from './fetchProductList'
 import { fetchProductMix, fetchSalesSeries, fetchTrendingItems, type ProductMixItem, type SalesDay, type TrendingItem } from './fetchStaffAnalytics'
 import type { RequestOptions } from './simulateRequest'
@@ -45,6 +46,50 @@ export async function loadSalesReport(filter: PeriodFilterValue, { signal }: Pic
     orders,
     bestSellers,
     mix,
+  }
+}
+
+export interface TransactionsReport {
+  periodScope: string
+  start: string
+  end: string
+  rows: AdminTransactionRow[]
+  /** Payments that exist in the period; more than `rows` when the list was cut at the cap. */
+  total: number
+  /** The three volumes count paid payments only, like the Transactions page. */
+  paidCount: number
+  gross: number
+  fees: number
+  net: number
+}
+
+const TRANSACTIONS_PAGE = 100
+const TRANSACTIONS_CAP = 5000
+
+/** Every payment in the period, newest first, up to 5,000; one failed request fails the report, so no half-empty file is made. */
+export async function loadTransactionsReport(filter: PeriodFilterValue, { signal }: Pick<RequestOptions, 'signal'> = {}): Promise<TransactionsReport> {
+  const period = resolvePeriod(filter)
+  const rows: AdminTransactionRow[] = []
+  let total = 0
+  if (period.end >= period.start) {
+    for (let page = 1; rows.length < TRANSACTIONS_CAP; page++) {
+      const result = await fetchAdminTransactions({ page, limit: TRANSACTIONS_PAGE, from: period.start, to: period.end, sortBy: 'createdAt', sortOrder: 'desc' }, { signal })
+      total = result.meta.total
+      rows.push(...result.data)
+      if (page >= result.meta.totalPages || result.data.length === 0) break
+    }
+  }
+  const paid = rows.filter((r) => r.status === 'PAID')
+  return {
+    periodScope: period.scope,
+    start: period.start,
+    end: period.end,
+    rows,
+    total,
+    paidCount: paid.length,
+    gross: paid.reduce((sum, r) => sum + r.amount, 0),
+    fees: paid.reduce((sum, r) => sum + (r.fee ?? 0), 0),
+    net: paid.reduce((sum, r) => sum + (r.net ?? 0), 0),
   }
 }
 

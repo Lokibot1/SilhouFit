@@ -59,11 +59,23 @@ export function ReportCard({ title, description, controls, preview, includes, lo
   const id = title.toLowerCase().replace(/\s+/g, '-')
   return (
     <section aria-labelledby={`${id}-title`} className={`${STAFF_SECTION} grid content-start gap-4`}>
-      <div>
-        <h2 id={`${id}-title`} className="display text-xl text-fg">
-          {title}
-        </h2>
-        <p className="mt-1 text-sm text-fg-muted">{description}</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 id={`${id}-title`} className="display text-xl text-fg">
+            {title}
+          </h2>
+          <p className="mt-1 text-xs text-fg-muted/80">{description}</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <button type="button" disabled={busy !== null} onClick={() => void download('xlsx')} className={SECONDARY_BUTTON_SM}>
+            {busy === 'xlsx' ? <SpinnerIcon /> : <DownloadIcon />}
+            {busy === 'xlsx' ? 'Preparing Excel…' : 'Download Excel'}
+          </button>
+          <button type="button" disabled={busy !== null} onClick={() => void download('pdf')} className={SECONDARY_BUTTON_SM}>
+            {busy === 'pdf' ? <SpinnerIcon /> : <DownloadIcon />}
+            {busy === 'pdf' ? 'Preparing PDF…' : 'Download PDF'}
+          </button>
+        </div>
       </div>
       {controls && <div className="flex flex-wrap items-center gap-2">{controls}</div>}
       {preview}
@@ -76,16 +88,6 @@ export function ReportCard({ title, description, controls, preview, includes, lo
             </li>
           ))}
         </ul>
-      </div>
-      <div className="mt-auto flex flex-wrap gap-2">
-        <button type="button" disabled={busy !== null} onClick={() => void download('xlsx')} className={SECONDARY_BUTTON_SM}>
-          {busy === 'xlsx' ? <SpinnerIcon /> : <DownloadIcon />}
-          {busy === 'xlsx' ? 'Preparing Excel…' : 'Download Excel'}
-        </button>
-        <button type="button" disabled={busy !== null} onClick={() => void download('pdf')} className={SECONDARY_BUTTON_SM}>
-          {busy === 'pdf' ? <SpinnerIcon /> : <DownloadIcon />}
-          {busy === 'pdf' ? 'Preparing PDF…' : 'Download PDF'}
-        </button>
       </div>
     </section>
   )

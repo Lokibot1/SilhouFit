@@ -1,6 +1,6 @@
-import { formatDayWithYear, formatPeso } from './format'
+import { formatDayWithYear, formatPeso, formatPlacedAt } from './format'
 import type { ReportDoc } from './reportTypes'
-import type { InventoryReport, SalesReport } from '../service/reports'
+import type { InventoryReport, SalesReport, TransactionsReport } from '../service/reports'
 import { SALES_NOUN, type Granularity } from './period'
 
 // Turns the loaded figures into the neutral ReportDoc that the Excel and PDF writers both draw.
@@ -41,6 +41,54 @@ export function salesDoc(report: SalesReport): ReportDoc {
         rows: mix.map((m) => [m.category, m.units]),
         total: ['Total', mix.reduce((sum, m) => sum + m.units, 0)],
         empty: 'No units sold in this period.',
+      },
+    ],
+  }
+}
+
+const STATUS_LABEL: Record<string, string> = { UNPAID: 'Unpaid', PENDING: 'Pending', PAID: 'Paid', FAILED: 'Failed', PARTIALLY_REFUNDED: 'Partially refunded', REFUNDED: 'Refunded' }
+const METHOD_LABEL: Record<string, string> = { GCASH: 'GCash', PAYMAYA: 'Maya', CARD: 'Card', GRAB_PAY: 'GrabPay', BILLEASE: 'BillEase', OTHER: 'Online payment' }
+
+export function transactionsDoc(report: TransactionsReport): ReportDoc {
+  const { rows } = report
+  const byStatus = Object.entries(STATUS_LABEL).map(([status, label]) => {
+    const group = rows.filter((r) => r.status === status)
+    return [label, group.length, group.reduce((sum, r) => sum + r.amount, 0)]
+  })
+  return {
+    title: 'Transactions report',
+    filename: 'transactions-report',
+    info: [
+      ['Period', report.periodScope],
+      ['Dates', report.start === report.end ? formatDayWithYear(report.start) : `${formatDayWithYear(report.start)} to ${formatDayWithYear(report.end)}`],
+      ['Transactions', String(report.total)],
+      ['Paid', `${report.paidCount}, ${formatPeso(report.gross)}`],
+      ['Gateway fees', formatPeso(report.fees)],
+      ['Net received', formatPeso(report.net)],
+    ],
+    sections: [
+      {
+        heading: `Payments by status, ${report.periodScope}`,
+        columns: [{ label: 'Status' }, { label: 'Payments', ...intCol }, { label: 'Amount (PHP)', ...moneyCol }],
+        rows: byStatus,
+        total: ['Total', rows.length, rows.reduce((sum, r) => sum + r.amount, 0)],
+        empty: 'No payments in this period.',
+      },
+      {
+        heading: `All transactions, ${report.periodScope}`,
+        note: report.total > rows.length ? `Showing the newest ${rows.length.toLocaleString('en-PH')} of ${report.total.toLocaleString('en-PH')} payments. Narrow the period to see the rest.` : undefined,
+        columns: [
+          { label: 'Date' },
+          { label: 'Order' },
+          { label: 'Customer' },
+          { label: 'Method' },
+          { label: 'Status' },
+          { label: 'Amount (PHP)', ...moneyCol },
+          { label: 'Fee (PHP)', ...moneyCol },
+          { label: 'Net (PHP)', ...moneyCol },
+        ],
+        rows: rows.map((r) => [formatPlacedAt(r.at), r.orderNumber, r.customerName, METHOD_LABEL[r.method] ?? r.method, STATUS_LABEL[r.status] ?? r.status, r.amount, r.fee ?? 0, r.net ?? 0]),
+        empty: 'No payments in this period.',
       },
     ],
   }

@@ -2,7 +2,7 @@ import { STAFF_SECTION } from '../../staff/StaffSkeleton'
 
 const Block = ({ className }: { className: string }) => <div className={`rounded-xl bg-line ${className}`} />
 
-/** The page's placeholder while its code loads: the header and the two report cards. */
+/** The page's placeholder while its code loads: the header and the three report cards. */
 export function ReportsPageSkeleton() {
   return (
     <div role="status" aria-label="Loading Reports" className="grid animate-pulse gap-3">
@@ -11,7 +11,7 @@ export function ReportsPageSkeleton() {
         <Block className="mt-1 h-4 w-56" />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
-        {[0, 1].map((n) => (
+        {[0, 1, 2].map((n) => (
           <div key={n} className={`${STAFF_SECTION} grid gap-4`}>
             <div>
               <Block className="h-7 w-44" />
