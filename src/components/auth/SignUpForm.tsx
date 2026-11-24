@@ -5,9 +5,11 @@ import { FloatingField } from '../form/FloatingField'
 import { GoogleButton } from '../form/GoogleButton'
 import { PasswordChecklist } from '../form/PasswordChecklist'
 import { AlertIcon, CheckIcon, LockIcon, MailIcon, SpinnerIcon } from '../form/icons'
+import { BirthdayField } from '../profile/BirthdayField'
 import { LegalModal } from '../legal/LegalModal'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../ui/buttonStyles'
 import { fieldId, SIGN_UP_ERROR_COPY, type SignUpForm as Form } from '../../hooks/useSignUpForm'
+import { latestBirthday } from '../../utils/accountValidation'
 import { nextQuery } from '../../utils/safeNext'
 import { LIMITS, type FieldName } from '../../utils/signUpValidation'
 
@@ -135,6 +137,8 @@ export function SignUpForm({ form, nextParam, modal = false, onSwitch, onClose }
             inputMode="email"
             enterKeyHint="next"
           />
+
+          <BirthdayField {...field('birthday')} label="Birthday (18+ only)" max={latestBirthday()} />
 
           {/* The checklist floats under the field like a tooltip, only while focus is inside this wrapper. */}
           <div

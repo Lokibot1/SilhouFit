@@ -32,7 +32,7 @@ function toSignUpError({ status, code }: { status?: number; code?: string }) {
 
 // Creates the Supabase Auth user. The project requires email confirmation, so no session comes back and nobody is signed in.
 export async function submitSignUp(
-  { firstName, middleName, lastName, suffix, email, password }: SignUpPayload,
+  { firstName, middleName, lastName, suffix, email, birthday, password }: SignUpPayload,
   { signal }: RequestOptions = {},
 ): Promise<{ ok: true }> {
   const supabase = await getSupabase()
@@ -49,6 +49,7 @@ export async function submitSignUp(
           middle_name: middleName,
           last_name: lastName,
           suffix,
+          birthday,
           full_name: [firstName, middleName, lastName, suffix].filter(Boolean).join(' '),
         },
         emailRedirectTo: `${siteUrl}/login`,

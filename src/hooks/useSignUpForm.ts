@@ -22,6 +22,7 @@ const EMPTY: SignUpValues = {
   lastName: '',
   suffix: '',
   email: '',
+  birthday: '',
   password: '',
   confirmPassword: '',
   consent: false,

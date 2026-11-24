@@ -8,12 +8,17 @@ import { ToastProvider } from '../../src/components/toast/ToastProvider'
 import { MeError } from '../../src/service/fetchMe'
 import { fetchMe } from '../../src/service/fetchMe'
 import { clearStashedNext } from '../../src/service/googleAuth'
+import { updateMe } from '../../src/service/updateMe'
 import { clearSession, getSession, setSession } from '../../src/service/session'
 import { AuthCallbackPage } from '../../src/views/auth/AuthCallbackPage'
 
 vi.mock('../../src/service/fetchMe', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/service/fetchMe')>()),
   fetchMe: vi.fn(),
+}))
+vi.mock('../../src/service/updateMe', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/service/updateMe')>()),
+  updateMe: vi.fn(),
 }))
 const signOutSupabase = vi.fn()
 const exchangeCodeForSession = vi.fn()
@@ -143,12 +148,39 @@ describe('AuthCallbackPage success', () => {
   })
 })
 
-describe('AuthCallbackPage birthday', () => {
-  it('signs in an account with no birthday without asking for one', async () => {
-    me.mockResolvedValue({ ...ME, birthday: null })
+describe('AuthCallbackPage age gate', () => {
+  const yearsAgo = (years: number) => `${new Date().getFullYear() - years}-01-01`
+
+  it('blocks and signs out an account whose birthday is under 18', async () => {
+    me.mockResolvedValue({ ...ME, birthday: yearsAgo(10) })
     renderCallback('/auth/callback?code=abc')
+    expect(await screen.findByRole('heading', { name: /18 or older/i })).toBeInTheDocument()
+    expect(getSession()).toBeNull()
+    expect(signOutSupabase).toHaveBeenCalled()
+  })
+
+  it('asks for the birthday when there is none, and signs out if it is under 18', async () => {
+    me.mockResolvedValue({ ...ME, birthday: null })
+    const user = userEvent.setup()
+    renderCallback('/auth/callback?code=abc')
+    await screen.findByRole('heading', { name: 'Confirm your age' })
+    await user.type(screen.getByLabelText(/^birthday$/i), yearsAgo(12))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByRole('heading', { name: /18 or older/i })).toBeInTheDocument()
+    expect(updateMe).not.toHaveBeenCalled()
+    expect(getSession()).toBeNull()
+  })
+
+  it('saves an adult birthday and carries on to the profile', async () => {
+    me.mockResolvedValue({ ...ME, birthday: null })
+    vi.mocked(updateMe).mockResolvedValue({ ...ME, birthday: yearsAgo(30) })
+    const user = userEvent.setup()
+    renderCallback('/auth/callback?code=abc')
+    await screen.findByRole('heading', { name: 'Confirm your age' })
+    await user.type(screen.getByLabelText(/^birthday$/i), yearsAgo(30))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
     expect(await screen.findByText('profile page')).toBeInTheDocument()
-    expect(getSession()).not.toBeNull()
+    expect(updateMe).toHaveBeenCalledWith({ birthday: yearsAgo(30) })
   })
 })
 
