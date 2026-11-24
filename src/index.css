@@ -1756,6 +1756,28 @@ html.dark {
   background-color: var(--chrome);
 }
 
+/* A thin overlay scrollbar with no arrow buttons, shown on hover. */
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thin-scroll::-webkit-scrollbar-button {
+  display: none;
+}
+
+.thin-scroll::-webkit-scrollbar-thumb {
+  border: 0;
+  background-color: transparent;
+}
+
+.thin-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color-silver-300);
+}
+
+.dark .thin-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color-carbon-700);
+}
+
 a {
   text-underline-offset: 0.2em;
 }

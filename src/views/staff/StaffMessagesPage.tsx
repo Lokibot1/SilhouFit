@@ -20,9 +20,9 @@ export function StaffMessagesPage() {
   return (
     <>
       <h1 className="sr-only">Messages</h1>
-      <div className="grid h-[calc(100svh-5.5rem)] overflow-hidden rounded-xl border border-line bg-canvas-sub lg:h-[calc(100svh-6.5rem)] lg:grid-cols-[22rem_minmax(0,1fr)]">
+      <div className="grid h-[calc(100svh-5.5rem)] overflow-hidden rounded-xl border border-line bg-canvas-sub shadow-sm lg:h-[calc(100svh-6.5rem)] lg:grid-cols-[22rem_minmax(0,1fr)]">
         <section aria-label="Conversations" className={`min-h-0 flex-col border-line lg:flex lg:border-r ${selected ? 'hidden' : 'flex'}`}>
-          <InboxList selectedId={selected} onSelect={(id) => setParams({ c: id }, { state: { fromList: true } })} />
+          <InboxList selectedId={selected} onSelect={(id) => setParams({ c: id }, { state: { fromList: true } })} onClear={() => selected && setParams({}, { replace: true })} />
         </section>
         <section aria-label="Conversation" className={`min-h-0 min-w-0 flex-col lg:flex ${selected ? 'flex' : 'hidden'}`}>
           {selected ? (
@@ -43,8 +43,11 @@ export function StaffMessagesPage() {
             />
           ) : (
             <div className="grid flex-1 place-content-center justify-items-center gap-2 p-6 text-center">
-              <MessageIcon size={20} className="text-fg-muted" />
-              <p className="text-base text-fg-muted">Choose a conversation to read it and reply.</p>
+              <span className="mb-2 flex size-16 items-center justify-center rounded-full bg-kral-red/10 text-kral-red-ink">
+                <MessageIcon size={20} />
+              </span>
+              <h2 className="text-lg font-semibold text-fg">Select a conversation</h2>
+              <p className="max-w-xs text-base text-fg-muted">Choose a conversation to read it and reply.</p>
             </div>
           )}
         </section>

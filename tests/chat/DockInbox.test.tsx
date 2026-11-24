@@ -80,7 +80,7 @@ describe('Row', () => {
   it('prefixes You: for the signed-in user, adds the short time, and says No messages yet when empty', () => {
     const { rerender } = render(row(thread('c1', 'Demo Shopper', 'Sure', {}, 'staff-1'), 'staff-1'))
     expect(screen.getByText('You: Sure')).toBeInTheDocument()
-    expect(screen.getByText(/· now/)).toBeInTheDocument()
+    expect(screen.getByText('now')).toBeInTheDocument()
     rerender(row(thread('c1', 'Demo Shopper', 'Sure'), 'staff-1'))
     expect(screen.queryByText(/You:/)).toBeNull()
     rerender(row(thread('c1', 'Demo Shopper', null)))
