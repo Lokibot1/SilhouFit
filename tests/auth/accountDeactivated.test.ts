@@ -7,6 +7,8 @@ vi.mock('../../src/service/supabase', () => ({
 const { onAccountDeactivated } = await import('../../src/service/accountDeactivated')
 const { fetchMe } = await import('../../src/service/fetchMe')
 const { request } = await import('../../src/service/fetchProductList')
+const { updateMe } = await import('../../src/service/updateMe')
+const { getBodyProfile } = await import('../../src/service/bodyProfile')
 
 const answer = (status: number, message: string) => new Response(JSON.stringify({ message }), { status })
 const ended = vi.fn()
@@ -40,5 +42,12 @@ describe('a deactivated account that still holds a valid token', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(answer(403, 'Forbidden resource')))
     await expect(request('GET', '/admin/orders', undefined)).rejects.toMatchObject({ kind: 'forbidden' })
     expect(ended).not.toHaveBeenCalled()
+  })
+
+  it('updateMe and the body profile report it too', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => answer(403, 'User account is deactivated')))
+    await expect(updateMe({ firstName: 'Anne' })).rejects.toBeTruthy()
+    await expect(getBodyProfile()).rejects.toBeTruthy()
+    expect(ended).toHaveBeenCalledTimes(2)
   })
 })

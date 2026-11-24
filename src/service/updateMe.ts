@@ -1,3 +1,4 @@
+import { reportIfDeactivated } from './accountDeactivated'
 import { toMe, type Me } from './fetchMe'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
@@ -66,6 +67,7 @@ export async function updateMe(patch: MePatch, { signal }: RequestOptions = {}):
     throw new UpdateMeError('network')
   }
   if (!response.ok) {
+    await reportIfDeactivated(response)
     const kind = STATUS_KIND[response.status] ?? 'server'
     throw new UpdateMeError(kind, kind === 'invalid' ? await errorDetail(response) : undefined)
   }

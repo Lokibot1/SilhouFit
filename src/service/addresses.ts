@@ -1,3 +1,4 @@
+import { reportIfDeactivated } from './accountDeactivated'
 import { getSession } from './session'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
@@ -126,6 +127,7 @@ async function request(path: string, init: { method?: string; body?: unknown } =
     throw new AddressError('network')
   }
   if (!response.ok) {
+    await reportIfDeactivated(response)
     const kind = STATUS_KIND[response.status] ?? 'server'
     throw new AddressError(kind, kind === 'invalid' ? await errorDetail(response) : undefined)
   }

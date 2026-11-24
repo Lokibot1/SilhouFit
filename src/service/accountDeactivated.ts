@@ -9,3 +9,13 @@ export const onAccountDeactivated = (next: () => void) => {
 export const isDeactivatedAnswer = (status: number, detail?: string) => status === 403 && /deactivated/i.test(detail ?? '')
 
 export const reportAccountDeactivated = () => handler?.()
+
+/** For a service that reads its own responses: a 403 answer that says the account is deactivated is reported. The body is read from a clone, so the caller can still read it. */
+export async function reportIfDeactivated(response: Response) {
+  if (response.status !== 403) return
+  const detail = await response
+    .clone()
+    .json()
+    .then((body: { message?: unknown }) => String(body?.message ?? ''), () => '')
+  if (isDeactivatedAnswer(403, detail)) reportAccountDeactivated()
+}

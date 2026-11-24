@@ -1,3 +1,4 @@
+import { reportIfDeactivated } from './accountDeactivated'
 import type { RequestOptions } from './simulateRequest'
 import { getSupabase } from './supabase'
 
@@ -116,7 +117,10 @@ async function fetchProfile(): Promise<BodyProfile | null> {
   const work = (async () => {
     const response = await request('GET', undefined, controller.signal)
     if (response.status === 404) return null
-    if (!response.ok) throw new BodyProfileError(STATUS_KIND[response.status] ?? 'server')
+    if (!response.ok) {
+      await reportIfDeactivated(response)
+      throw new BodyProfileError(STATUS_KIND[response.status] ?? 'server')
+    }
     return parse(response)
   })()
   work.catch(() => {}) // once the timeout wins, a late failure of the abandoned request is not an unhandled rejection
@@ -150,7 +154,10 @@ export function getBodyProfile({ signal }: RequestOptions = {}): Promise<BodyPro
 /** Creates or replaces the profile. Send only what the user entered; a field they cleared goes as null. */
 export async function saveBodyProfile(profile: BodyProfile, { signal }: RequestOptions = {}): Promise<BodyProfile> {
   const response = await request('PUT', profile, signal)
-  if (!response.ok) throw new BodyProfileError(STATUS_KIND[response.status] ?? 'server')
+  if (!response.ok) {
+    await reportIfDeactivated(response)
+    throw new BodyProfileError(STATUS_KIND[response.status] ?? 'server')
+  }
   const saved = await parse(response)
   pending = null // a GET still on the wire may carry the old profile
   return saved
@@ -163,7 +170,10 @@ export async function saveBodyProfile(profile: BodyProfile, { signal }: RequestO
  */
 export async function updateBodyProfile(patch: Partial<BodyProfile>, { signal }: RequestOptions = {}): Promise<BodyProfile> {
   const response = await request('PATCH', patch, signal)
-  if (!response.ok) throw new BodyProfileError(STATUS_KIND[response.status] ?? 'server')
+  if (!response.ok) {
+    await reportIfDeactivated(response)
+    throw new BodyProfileError(STATUS_KIND[response.status] ?? 'server')
+  }
   const saved = await parse(response)
   pending = null // a GET still on the wire may carry the old profile
   return saved
