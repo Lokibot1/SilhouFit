@@ -11,6 +11,14 @@ import { fakeNotifications } from '../notifications/fakeNotifications'
 const api = vi.hoisted(() => ({ request: vi.fn() }))
 vi.mock('../../src/service/fetchProductList', async (original) => ({ ...(await original<typeof import('../../src/service/fetchProductList')>()), ...api }))
 
+const live = vi.hoisted(() => ({ notify: (() => {}) as (n: unknown) => void }))
+vi.mock('../../src/service/notificationsRealtime', () => ({
+  subscribeToNotifications: (onNotification: (n: unknown) => void) => {
+    live.notify = onNotification
+    return () => {}
+  },
+}))
+
 const placed = (n: number, over: Record<string, unknown> = {}) =>
   apiNotification(n, { type: 'ORDER_CREATED', title: 'New order placed', body: `Order SHF-${n} has been placed.`, data: { orderId: orderId(n), orderNumber: `SHF-${n}` }, ...over })
 let server = fakeNotifications([])
@@ -48,7 +56,7 @@ describe('NotificationMenu', () => {
     renderBell()
     await screen.findByRole('button', { name: 'Notifications, 3 unread' })
     server.items.push(placed(9))
-    document.dispatchEvent(new Event('visibilitychange'))
+    act(() => live.notify(placed(9)))
     expect(await screen.findByText('Order SHF-9 has been placed.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'View' }))
     expect(screen.getByTestId('where')).toHaveTextContent('/admin/online-orders?q=SHF-9')
@@ -59,7 +67,7 @@ describe('NotificationMenu', () => {
     renderBell()
     await screen.findByRole('button', { name: 'Notifications, 3 unread' })
     server.items.push(placed(9))
-    document.dispatchEvent(new Event('visibilitychange'))
+    act(() => live.notify(placed(9)))
     await screen.findByRole('button', { name: 'Notifications, 4 unread' })
     expect(screen.queryByText('Order SHF-9 has been placed.')).not.toBeInTheDocument()
   })

@@ -12,6 +12,7 @@ import { apiNotification, orderId } from '../fixtures/notifications'
 import { fakeNotifications } from './fakeNotifications'
 
 const api = vi.hoisted(() => ({ request: vi.fn() }))
+vi.mock('../../src/service/notificationsRealtime', () => ({ subscribeToNotifications: () => () => {} }))
 vi.mock('../../src/service/fetchProductList', async (original) => ({ ...(await original<typeof import('../../src/service/fetchProductList')>()), ...api }))
 
 const toast = { show: vi.fn(), dismiss: vi.fn() }

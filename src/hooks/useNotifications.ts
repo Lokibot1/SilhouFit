@@ -4,6 +4,7 @@ import { useToast } from '../components/toast/useToast'
 import { ProductListError } from '../service/fetchProductList'
 import { fetchNotifications, fetchUnreadCount, markAllNotificationsRead, markNotificationRead, onNotificationsChanged, type ServerNotification } from '../service/notificationsApi'
 import { popupsOn, soundOn } from '../service/notificationPrefs'
+import { subscribeToNotifications } from '../service/notificationsRealtime'
 import { notificationTone } from '../utils/notifications'
 import { playNotification } from '../utils/sound'
 import { useLivePoll } from './useLivePoll'
@@ -16,10 +17,12 @@ interface Page {
 }
 
 const EMPTY: Page = { items: [], total: 0, hasNextPage: false, page: 1 }
+/** Broadcasts that land within this long of each other are announced as one. */
+const ANNOUNCE_DELAY_MS = 300
 const isAbort = (failure: unknown) => failure instanceof DOMException && failure.name === 'AbortError'
 
 /**
- * The signed-in shopper's notifications from the server. The unread count is polled alone; the list is read only while `list` is on
+ * The signed-in shopper's notifications from the server. The unread count follows the realtime channel (polled only while it is down); the list is read only while `list` is on
  * (the page, or the bell while open) and again whenever the count changes. Marking read is optimistic and rolls back on failure.
  */
 export function useNotifications({ enabled = true, list = true, announce }: { enabled?: boolean; list?: boolean; announce?: (n: ServerNotification) => string | null } = {}) {
@@ -62,29 +65,12 @@ export function useNotifications({ enabled = true, list = true, announce }: { en
   const readCount = useCallback(
     async (signal?: AbortSignal) => {
       const next = await fetchUnreadCount({ signal })
-      const { count: known, unreadOnly: only, list: listing, announce: announcer, navigate: go } = live.current
+      const { count: known, unreadOnly: only, list: listing } = live.current
       live.current.count = next
       setCount(next)
       if (listing && known !== null && known !== next) void load(1, only)
-      if (announcer && !listing && known !== null && next > known) {
-        // The newest unread one is the story; the rest are only counted.
-        const latest = await fetchNotifications({ page: 1, unreadOnly: true }, { signal }).then((page) => page.items[0], () => undefined)
-        if (!latest) return
-        const extra = next - known - 1
-        const href = announcer(latest)
-        if (popupsOn()) {
-          toast.show({
-            kind: 'info',
-            tone: notificationTone(latest.type),
-            title: latest.title,
-            message: `${latest.body ?? ''}${extra > 0 ? `${latest.body ? ' ' : ''}and ${extra} more` : ''}`,
-            action: href ? { label: 'View', onClick: () => go(href) } : undefined,
-          })
-        }
-        if (soundOn()) playNotification()
-      }
     },
-    [load, toast],
+    [load],
   )
 
   useEffect(() => {
@@ -95,7 +81,67 @@ export function useNotifications({ enabled = true, list = true, announce }: { en
       if (live.current.list) void load(1, live.current.unreadOnly)
     })
   }, [enabled, readCount, load])
-  useLivePoll(readCount, { enabled })
+
+  // Broadcasts arrive over the shared channel; polling is only the fallback while it is not SUBSCRIBED.
+  const [channel, setChannel] = useState('')
+  useEffect(() => {
+    if (!enabled) return
+    const seen = new Set<string>()
+    let burst: ServerNotification[] = []
+    let timer: number | undefined
+    // The newest of a burst is the story; the rest are only counted.
+    const announceBurst = () => {
+      const { list: listing, announce: announcer, navigate: go } = live.current
+      const latest = burst.reduce((a, b) => (b.createdAt > a.createdAt ? b : a))
+      const extra = burst.length - 1
+      burst = []
+      if (listing || !announcer) return
+      const href = announcer(latest)
+      if (popupsOn()) {
+        toast.show({
+          kind: 'info',
+          tone: notificationTone(latest.type),
+          title: latest.title,
+          message: `${latest.body ?? ''}${extra > 0 ? `${latest.body ? ' ' : ''}and ${extra} more` : ''}`,
+          action: href ? { label: 'View', onClick: () => go(href) } : undefined,
+        })
+      }
+      if (soundOn()) playNotification()
+    }
+    const unsubscribe = subscribeToNotifications(
+      (notification) => {
+        readCount().catch(() => {})
+        if (!live.current.announce || seen.has(notification.id)) return
+        seen.add(notification.id)
+        burst.push(notification)
+        window.clearTimeout(timer)
+        timer = window.setTimeout(announceBurst, ANNOUNCE_DELAY_MS)
+      },
+      (next) => {
+        setChannel(next)
+        // Whatever arrived while the channel was down is counted silently.
+        if (next === 'SUBSCRIBED') readCount().catch(() => {})
+      },
+    )
+    return () => {
+      unsubscribe()
+      window.clearTimeout(timer)
+    }
+  }, [enabled, readCount, toast])
+  useEffect(() => {
+    if (!enabled || channel !== 'SUBSCRIBED') return
+    // Read state changed on another device is not broadcast, so look again when the tab or network comes back.
+    const resume = () => {
+      if (!document.hidden) readCount().catch(() => {})
+    }
+    document.addEventListener('visibilitychange', resume)
+    window.addEventListener('online', resume)
+    return () => {
+      document.removeEventListener('visibilitychange', resume)
+      window.removeEventListener('online', resume)
+    }
+  }, [enabled, channel, readCount])
+  useLivePoll(readCount, { enabled: enabled && channel !== 'SUBSCRIBED' })
 
   useEffect(() => {
     if (!enabled || !list) return

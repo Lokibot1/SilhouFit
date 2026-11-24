@@ -1,4 +1,4 @@
-import { configure, render, screen, waitFor, within } from '@testing-library/react'
+import { act, configure, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -13,6 +13,16 @@ vi.mock('../../src/service/fetchProductList', async (original) => ({ ...(await o
 
 const sound = vi.hoisted(() => ({ playNotification: vi.fn() }))
 vi.mock('../../src/utils/sound', () => sound)
+
+const live = vi.hoisted(() => ({ notify: (() => {}) as (n: unknown) => void, status: (() => {}) as (s: string) => void, unsubscribe: vi.fn(), poll: vi.fn() }))
+vi.mock('../../src/service/notificationsRealtime', () => ({
+  subscribeToNotifications: (onNotification: (n: unknown) => void, onStatus: (s: string) => void) => {
+    live.notify = onNotification
+    live.status = onStatus
+    return live.unsubscribe
+  },
+}))
+vi.mock('../../src/hooks/useLivePoll', () => ({ useLivePoll: (_refresh: unknown, options: { enabled: boolean }) => live.poll(options.enabled) }))
 
 const toast = { show: vi.fn(), dismiss: vi.fn() }
 let server = fakeNotifications([])
@@ -53,14 +63,15 @@ describe('NotificationsBell', () => {
     expect(server.calls).toEqual(['GET /notifications/unread-count'])
   })
 
-  it('says nothing on first load, then toasts and chimes once for a new arrival, but not with the panel open', async () => {
+  it('says nothing on first load, then toasts and chimes once for a broadcast, but not with the panel open', async () => {
     renderBell()
     await screen.findByRole('button', { name: 'Notifications, 2 unread' })
     expect(toast.show).not.toHaveBeenCalled()
     expect(sound.playNotification).not.toHaveBeenCalled()
 
-    server.items.push(apiNotification(3, { type: 'PAYMENT_FAILED', title: 'Payment failed', body: 'Order SHF-3 was declined.' }))
-    document.dispatchEvent(new Event('visibilitychange'))
+    const arrived = apiNotification(3, { type: 'PAYMENT_FAILED', title: 'Payment failed', body: 'Order SHF-3 was declined.' })
+    server.items.push(arrived)
+    act(() => live.notify(arrived))
     await waitFor(() => expect(toast.show).toHaveBeenCalledTimes(1))
     expect(toast.show).toHaveBeenCalledWith(
       expect.objectContaining({ tone: 'danger', title: 'Payment failed', message: 'Order SHF-3 was declined.', action: expect.objectContaining({ label: 'View' }) }),
@@ -70,11 +81,43 @@ describe('NotificationsBell', () => {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Notifications, 3 unread' }))
     await screen.findByText('Payment failed')
-    server.items.push(apiNotification(4))
-    document.dispatchEvent(new Event('visibilitychange'))
+    const next = apiNotification(4)
+    server.items.push(next)
+    act(() => live.notify(next))
     await screen.findByRole('button', { name: 'Notifications, 4 unread' })
+    await new Promise((resolve) => setTimeout(resolve, 400))
     expect(toast.show).toHaveBeenCalledTimes(1)
     expect(sound.playNotification).toHaveBeenCalledTimes(1)
+  })
+
+  it('announces the same notification once, and a burst as one toast for the newest with "and 1 more" and one chime', async () => {
+    renderBell()
+    await screen.findByRole('button', { name: 'Notifications, 2 unread' })
+    const one = apiNotification(3, { title: 'Third' })
+    server.items.push(one)
+    act(() => {
+      live.notify(one)
+      live.notify(one)
+    })
+    await waitFor(() => expect(toast.show).toHaveBeenCalledTimes(1))
+    expect(toast.show).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Third' }))
+    expect(String(toast.show.mock.lastCall?.[0].message)).not.toContain('and 1 more') // the duplicate is not counted as a second arrival
+    await screen.findByRole('button', { name: 'Notifications, 3 unread' })
+
+    const two = apiNotification(4, { title: 'Fourth', body: 'Body.' })
+    const three = apiNotification(5, { title: 'Fifth', body: 'Body.' })
+    server.items.push(two, three)
+    act(() => {
+      live.notify(two)
+      live.notify(three)
+    })
+    await waitFor(() => expect(toast.show).toHaveBeenCalledTimes(2))
+    expect(toast.show).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Fifth', message: 'Body. and 1 more' }))
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    act(() => live.notify(one)) // the same id delivered again in a later burst
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(toast.show).toHaveBeenCalledTimes(2)
+    expect(sound.playNotification).toHaveBeenCalledTimes(2)
   })
 
   it('shows no pop-up and plays no chime when both are turned off on this device, but the badge still counts', async () => {
@@ -82,11 +125,35 @@ describe('NotificationsBell', () => {
     localStorage.setItem('silhoufit-notify-sound', 'off')
     renderBell()
     await screen.findByRole('button', { name: 'Notifications, 2 unread' })
-    server.items.push(apiNotification(3, { type: 'PAYMENT_FAILED', title: 'Payment failed', body: 'Order SHF-3 was declined.' }))
-    document.dispatchEvent(new Event('visibilitychange'))
+    const arrived = apiNotification(3, { type: 'PAYMENT_FAILED', title: 'Payment failed', body: 'Order SHF-3 was declined.' })
+    server.items.push(arrived)
+    act(() => live.notify(arrived))
     await screen.findByRole('button', { name: 'Notifications, 3 unread' })
+    await new Promise((resolve) => setTimeout(resolve, 400))
     expect(toast.show).not.toHaveBeenCalled()
     expect(sound.playNotification).not.toHaveBeenCalled()
+  })
+
+  it('counts silently when the channel connects, and polls only while it is not subscribed', async () => {
+    renderBell()
+    await screen.findByRole('button', { name: 'Notifications, 2 unread' })
+    expect(live.poll).toHaveBeenLastCalledWith(true)
+    server.items.push(apiNotification(3))
+    act(() => live.status('SUBSCRIBED'))
+    await screen.findByRole('button', { name: 'Notifications, 3 unread' })
+    expect(live.poll).toHaveBeenLastCalledWith(false)
+    act(() => live.status('CHANNEL_ERROR'))
+    expect(live.poll).toHaveBeenLastCalledWith(true)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(toast.show).not.toHaveBeenCalled()
+    expect(sound.playNotification).not.toHaveBeenCalled()
+  })
+
+  it('stops listening when it unmounts', async () => {
+    const { unmount } = renderBell()
+    await screen.findByRole('button', { name: 'Notifications, 2 unread' })
+    unmount()
+    expect(live.unsubscribe).toHaveBeenCalled()
   })
 
   it('hides the badge until the count is known', () => {
