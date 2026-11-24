@@ -55,3 +55,6 @@ src/assets/t-shirt.zip
 # AI assistant context files
 .github/copilot-instructions.md
 .windsurf/
+
+# Expo local cache
+.expo/
